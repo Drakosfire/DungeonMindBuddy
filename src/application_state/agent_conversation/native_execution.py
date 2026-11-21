@@ -258,6 +258,8 @@ class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
     frame_sha256: Digest
     native_read_event_ids: tuple[UUID, ...]
     compact_plan_editor_prose: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
+    compact_plan_graph_qualifications: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def exact_read_ids(self):

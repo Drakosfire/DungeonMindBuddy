@@ -16,6 +16,40 @@ const testDigest=async (text:string)=>Array.from(
  new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),x=>x.toString(16).padStart(2,'0'),
 ).join('');
 
+it('admits image moves only from a matching saved internal layout',async()=>{
+ const asset='11111111-1111-4111-8111-111111111111';
+ const source=mediaMarkdown(asset,'Marsh map')+'\n';
+ const flat=markdownToTiptapDoc(source).doc;
+ const content={type:'doc',content:[{type:'pageRow',attrs:{id:'row',min_height:0,line_mode:'guide'},content:[
+  {type:'pageSlot',attrs:{id:'source',width:6},content:flat.content?.map(block=>({
+   ...block,attrs:{...block.attrs,pageBlockId:'image-block'},
+  }))},
+  {type:'pageSlot',attrs:{id:'destination',width:6},content:[]},
+ ]}]};
+ const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],content});
+ try {
+  const projected=projectPresentation(editor.getJSON(),source,flat).presentation;
+  const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,
+   contentSha256:await testDigest(source),visibility:'internal',draftGeneration:0,selectionGeneration:0,
+   canEdit:true,pagePresentation:null,savedMarkdown:source};
+  const changed=vi.fn();
+  const bridge=createBuildComposeBridge(()=>state,changed);
+  expect(()=>bridge.captureImageMoves!()).toThrow('existing saved internal layout');
+  state.pagePresentation=projected;
+  const capture=bridge.captureImageMoves!();
+  expect(capture.offers.map(offer=>offer.destination)).toEqual(['empty_right']);
+  state.visibility='player_safe';
+  expect(()=>bridge.applyImageMove!(capture,'image1')).toThrow('existing saved internal layout');
+  state.visibility='internal';
+  bridge.applyImageMove!(capture,'image1');
+  expect(editor.state.doc.child(0).child(0).childCount).toBe(0);
+  expect(editor.state.doc.child(0).child(1).child(0).child(0).attrs.assetId).toBe(asset);
+  expect(changed).not.toHaveBeenCalled();
+ } finally {
+  editor.destroy();
+ }
+});
+
 it('prepares one typed Graph reference at its exact boundary and refuses changed editor bytes',async()=>{
  const source='## Arrival\n\nThe gate is locked.\n\n## Rumours\n\nThe gate is locked.\n';
  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],

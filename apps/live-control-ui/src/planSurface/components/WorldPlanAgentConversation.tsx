@@ -9,7 +9,8 @@ import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
 import { ConversationReplyDetails } from './ConversationReplyDetails';
-import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion} from '../../shared/surfaceNativeProtocol';
+import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply} from '../../shared/surfaceNativeProtocol';
+import { BuildGraphReferenceReview } from '../../buildSurface/BuildGraphReferenceReview';
 import {isNativePlanQuery} from '../../shared/nativeStatementAnswerProtocol';
 import {isNativeStatementContext,nativeStatementDigestsBound,nativeAnswerText} from "../../shared/nativeStatementAnswerProtocol";
 import {NativeStatementAnswer} from "./NativeStatementAnswer";
@@ -1848,7 +1849,9 @@ function isHistoryTurn(
       || !isHistoryBuildReceiptBound(value.knowledge_context.receipt, provenance, worldId,value.user_text)) return false;
     const completion = value.knowledge_context.completion;
     return value.lifecycle_status === "completed"
-      ? completion !== null && value.assistant_text === completion.answer_segments.map(segment => segment.text).join("\n")
+      ? completion !== null && (completion.schema === 'dmb_build_graph_reference_completion_v1'
+        ? value.assistant_text === graphReferenceReply(completion) && (completion.action_id === null || completion.action_id === value.turn_id)
+        : value.assistant_text === completion.answer_segments.map(segment => segment.text).join("\n"))
       : completion === null;
   }
   if (!hasPlanContext) return true;
@@ -4486,7 +4489,8 @@ export function WorldPlanAgentConversation({
         } else if(!isBuildKnowledgeContext(context,request.owner_scope.world_id)||!context.completion
           ||!await isReceiptDigestBound(context.receipt)||!buildReceiptMatchesRequest(context.receipt,request as WorldBuildAgentTurnRequestV1)
           ||!buildReceiptMatchesGraph(context.receipt,response.graph)
-          ||!mixed&&(response.answer.text!==context.completion.answer_segments.map(s=>s.text).join('\n')
+          ||!mixed&&(response.answer.text!==(context.completion.schema === 'dmb_build_graph_reference_completion_v1'
+            ? graphReferenceReply(context.completion) : context.completion.answer_segments.map(s=>s.text).join('\n'))
             ||response.answer.graph_grounded!==(context.completion.answer_context_status==='graph_grounded'||context.completion.answer_context_status==='graph_grounded_partial')
             ||response.answer.status!=='ok'||response.answer.code!==null||response.answer.message!==null)) {
           throw new Error('The reply did not match the saved Build source and World Graph. Check World history before continuing.');
@@ -5571,7 +5575,7 @@ export function WorldPlanAgentConversation({
     const playEvidence = turn.provenance.surface_id === "play" && verifiedWorldId
       ? <PlayAnswerEvidence provenance={turn.provenance} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
     const targets = planContext && "source_open_targets" in planContext ? planContext.source_open_targets ?? [] : [];
-    const claims = planContext?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
+    const claims = planContext?.completion?.answer_segments?.filter((segment) => segment.kind === "graph_claim") ?? [];
     const citations = planContext?.completion && "citation_map" in planContext.completion ? planContext.completion.citation_map?.entries ?? [] : [];
     const citationByClaim = new Map(citations.map((citation) => [citation.claim_id, citation]));
     const evidenceStatuses = planContext && "evidence_anchor_statuses" in planContext ? planContext.evidence_anchor_statuses ?? [] : [];
@@ -5695,6 +5699,7 @@ export function WorldPlanAgentConversation({
     const { completion, execution } = context;
     const terminalFailureConfirmed = isHistoryTurnFailureConfirmed(turn.turn_id);
     const terminalFailureRecorded = isWorldHistoryTurnFailed(turn.turn_id);
+    if (completion?.schema === 'dmb_build_graph_reference_completion_v1') return null;
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     if (completion?.schema === 'dmb_surface_native_completion_v1' && turn.lifecycle_status === 'completed') return null;
     const citations = completion && "citation_map" in completion ? completion.citation_map?.entries ?? [] : [];
@@ -6583,10 +6588,25 @@ export function WorldPlanAgentConversation({
     previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
-    const pageSuggestion = buildCompose.items.find(item => item.originTurnId === turn.turn_id);
     const savedMessage=messagePage&&messageHistory&&messageHistory.world_id===turn.provenance.world_id
       &&history&&sameHistoryPointer(messageHistory,history)&&messageHistory.turns.some(row=>sameSavedMessage(turn,row))
       ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
+    const completion = graphContextForTurn(turn)?.completion;
+    const descriptor = savedMessage?.reply_object;
+    const referenceDigest = completion?.schema === 'dmb_build_graph_reference_completion_v1'
+      ? completion.action_id === turn.turn_id ? completion.placement_sha256 : null
+      : !completion && descriptor?.kind === 'build_graph_reference'
+        && descriptor.source.document_id === turn.provenance.primary_work.object_id ? descriptor.placement_sha256 : null;
+    const graphReview = referenceDigest
+      && visible && isBuild && !historicalAttempt
+      && verifiedWorldId && turn.provenance.world_id === verifiedWorldId
+      && history?.conversation_id && history.active_conversation_id === history.conversation_id
+      && buildMode?.savedSource?.worldId === verifiedWorldId
+      && buildMode.savedSource.documentId === turn.provenance.primary_work.object_id && buildMode.composeBridge
+      ? <BuildGraphReferenceReview key={`${history.conversation_id}:${turn.turn_id}`} world={verifiedWorldId}
+          action={turn.turn_id} bridge={buildMode.composeBridge} conversationId={history.conversation_id}
+          documentId={buildMode.savedSource.documentId} placementSha256={referenceDigest}/> : null;
+    const pageSuggestion = graphReview ? { element: graphReview } : buildCompose.items.find(item => item.originTurnId === turn.turn_id);
     const savedStatblockLinks=savedMessage?.saved_statblocks?.map(reference=><div key={reference.draft_id+':'+reference.revision_id}>
       <a href={savedStatblockHref({worldId:reference.world_id,draftId:reference.draft_id,revisionId:reference.revision_id})}>Open {reference.name} statblock</a>
       {reference.pdf_sources && <SavedStatblockPdfEvidence sources={reference.pdf_sources}/>}
@@ -6645,6 +6665,7 @@ export function WorldPlanAgentConversation({
       </article></BuddyTurnInspection>;
     const replyText = turn.assistant_text ?? '';
     const completed=graphContextForTurn(turn)?.completion;
+    const sourcedCompletion = completed?.schema === 'dmb_build_graph_reference_completion_v1' ? null : completed;
     const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
     const loreTitle = collaboration?.kind === 'lore_page' ? collaboration.destination.title : null;
     const loreDraftSuperseded = loreTitle !== null && history?.turns.some((later) => {
@@ -6703,7 +6724,7 @@ export function WorldPlanAgentConversation({
                 <h3>{loreTitle}</h3>
                 {loreDraftSuperseded
                   ? <p>Superseded by a later draft</p>
-                  : !completed?.answer_segments.length && <p>Blank draft</p>}
+                  : !completed?.answer_segments?.length && <p>Blank draft</p>}
               </header>}
             </div>
             {reviewedDraftReply ? reviewedDraftReply : pageSuggestion ? pageSuggestion.element : turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
@@ -6718,14 +6739,12 @@ export function WorldPlanAgentConversation({
               : citedAnswer ?? <WorldPlanAgentAnswer
               answer={pageProposalAcknowledgment ? "Open the suggestion’s original page to review it." : replyText}
               inlineCitations={inlineSourceCitations(turn)}
-              allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
-              displaySegments={pageProposalAcknowledgment || rulesContextForTurn(turn) ? undefined : graphContextForTurn(turn)?.completion
-                ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
-                : undefined}
+              allowedInternalLinks={completed?.answer_segments?.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
+              displaySegments={pageProposalAcknowledgment || rulesContextForTurn(turn) ? undefined : completed?.answer_segments?.map(segment => segment.text)}
             />}
             {savedStatblockLinks}
-            {!isReadOnly && turn.provenance.surface_id === "plan" && graphContextForTurn(turn)?.completion?.answer_segments
-              .filter(segment => segment.kind === "proposal" && segment.label === "image_prompt")
+            {!isReadOnly && turn.provenance.surface_id === "plan" && completed?.answer_segments
+              ?.filter(segment => segment.kind === "proposal" && segment.label === "image_prompt")
               .map((segment, index) => <SurfaceImagePromptAction key={`${turn.turn_id}:image:${index}`} prompt={segment.text}
                 unavailableReason={!scopeMatches || !pageReady || saveInFlight || turn.provenance.world_id !== worldId
                   || turn.provenance.primary_work.object_id !== documentId
@@ -6822,13 +6841,13 @@ export function WorldPlanAgentConversation({
         <div className="world-plan-agent-conversation__turn-debug">
           {renderReplyDetails(turn, true, <>
             <div className="world-plan-agent-conversation__reply-heading">
-              {turn.lifecycle_status === "completed" && graphContextForTurn(turn)?.completion
-                && replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id) ? (
+              {turn.lifecycle_status === "completed" && sourcedCompletion
+                && replySourceLabel(sourcedCompletion.answer_context_status, turn.provenance.surface_id) ? (
                 <span className="world-plan-agent-conversation__answer-basis" aria-label="Answer sources"
-                  title={graphContextStatusLabel(graphContextForTurn(turn)!.completion!.answer_context_status)}>
-                  {graphContextForTurn(turn)!.completion!.answer_basis === "mixed_evidence" && graphContextForTurn(turn)!.completion!.answer_context_status.startsWith("graph_grounded")
-                    ? `World evidence${graphContextForTurn(turn)!.completion!.answer_context_status.endsWith("_partial") ? " · partial" : ""}`
-                    : graphContextForTurn(turn)!.completion!.answer_basis.endsWith("_plus_session_evidence") ? "Session evidence" : replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id)}
+                  title={graphContextStatusLabel(sourcedCompletion.answer_context_status)}>
+                  {sourcedCompletion.answer_basis === "mixed_evidence" && sourcedCompletion.answer_context_status.startsWith("graph_grounded")
+                    ? `World evidence${sourcedCompletion.answer_context_status.endsWith("_partial") ? " · partial" : ""}`
+                    : sourcedCompletion.answer_basis.endsWith("_plus_session_evidence") ? "Session evidence" : replySourceLabel(sourcedCompletion.answer_context_status, turn.provenance.surface_id)}
                 </span>
               ) : null}
               {rulesContextForTurn(turn) && <span className="world-plan-agent-conversation__answer-basis" aria-label="Rules answer sources">

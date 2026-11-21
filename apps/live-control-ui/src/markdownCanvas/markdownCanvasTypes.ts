@@ -106,6 +106,7 @@ export type AdmissionLookupResult =
   };
 
 export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
+  manualSaveRequired?: boolean;
   tourSaveScope?:TourDispatchScope|null;
   statusLabel: string;
   reconciliation: ReconcileLocalDraftResult | null;

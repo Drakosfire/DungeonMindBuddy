@@ -886,3 +886,107 @@ def test_plan_presentation_http_preserves_hosted_world_authorization(hosted, mon
     assert read.json()["page_presentation"] == layout.model_dump(mode="json")
     assert read.json()["page_presentation_sha256"] == saved.json()["page_presentation_sha256"] == layout.fingerprint()
     assert client.request("GET", url, session="other-session").status_code == 403
+
+
+@pytest.fixture
+def composed_page(world):
+    page = pages.create_page(world_id=world, title="Arrival")
+    markdown = PLAN_PRESENTATION_MARKDOWN + "\n"
+    saved, _ = pages.commit_page(
+        ident(page), markdown, world_id=world,
+        expected_revision=page.page.object_revision, expected_working_copy_revision=None,
+        page_presentation=_presentation(markdown),
+    )
+    return pages.snapshot_page(ident(saved), world_id=world)
+
+
+def test_page_layout_writer_profile_fences_fresh_legacy_and_preserves_replay(composed_page, monkeypatch):
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.main import create_app
+
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    document = ident(composed_page)
+    world_id = composed_page.page.world_id
+    body = {
+        "document_id": document,
+        "markdown": composed_page.markdown,
+        "expected_revision": composed_page.page.object_revision,
+    }
+    moved = _presentation(composed_page.markdown, first_width=8)
+    protected = {**body, "layout_writer_profile": pages.PAGE_LAYOUT_WRITER_PROFILE,
+                 "page_presentation": moved.model_dump(mode="json")}
+    prepare, commit = f"{PLAN_MARKDOWN_WRITE}/prepare", f"{PLAN_MARKDOWN_WRITE}/commit"
+    with TestClient(create_app(), base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
+        legacy = client.post(prepare, json={**body, "page_presentation": None})
+        assert legacy.status_code == 200, legacy.text
+        offered = client.post(prepare, json=protected)
+        assert offered.status_code == 200, offered.text
+        request = {**protected, "writer_confirm_token": offered.json()["writer_confirm_token"]}
+        saved = client.post(commit, json=request)
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["layout_writer_profile"] == pages.PAGE_LAYOUT_WRITER_PROFILE
+        assert client.post(commit, json=request).json() == saved.json()
+        snapshot = client.get(f"/api/live/workspace-documents/{document}/snapshot")
+        assert snapshot.status_code == 200, snapshot.text
+        assert snapshot.json()["layout_writer_profile"] == pages.PAGE_LAYOUT_WRITER_PROFILE
+        current = pages.snapshot_page(document, world_id=world_id)
+        assert current.layout_writer_profile == pages.PAGE_LAYOUT_WRITER_PROFILE
+        assert current.presentation == moved and current.markdown == composed_page.markdown
+        fresh = {**body, "expected_revision": current.page.object_revision}
+        assert client.post(prepare, json=fresh).status_code == 409
+        assert client.post(prepare, json={**fresh, "page_presentation": None}).status_code == 409
+        assert client.post(commit, json={**fresh, "page_presentation": None,
+                           "writer_confirm_token": legacy.json()["writer_confirm_token"]}).status_code == 409
+        assert client.post(prepare, json={**fresh, "layout_writer_profile": pages.PAGE_LAYOUT_WRITER_PROFILE,
+                           "page_presentation": None}).status_code == 422
+        assert pages.snapshot_page(document, world_id=world_id) == current
+        identities = _presentation(current.markdown, identity_only=True)
+        unwrap = {**fresh, "layout_writer_profile": pages.PAGE_LAYOUT_WRITER_PROFILE,
+                  "page_presentation": identities.model_dump(mode="json")}
+        offered = client.post(prepare, json=unwrap)
+        assert offered.status_code == 200, offered.text
+        result = client.post(commit, json={**unwrap, "writer_confirm_token": offered.json()["writer_confirm_token"]})
+        assert result.status_code == 200, result.text
+        reopened = pages.snapshot_page(document, world_id=world_id)
+        assert reopened.presentation == identities
+        assert reopened.layout_writer_profile == pages.PAGE_LAYOUT_WRITER_PROFILE
+        assert client.post(prepare, json={**fresh, "expected_revision": reopened.page.object_revision,
+                           "page_presentation": None}).status_code == 409
+
+
+def test_page_layout_writer_enrollment_rolls_back_and_legacy_database_write_fails(
+    composed_page, application_state_dsn, monkeypatch,
+):
+    document = ident(composed_page)
+    world_id = composed_page.page.world_id
+    basis = dict(world_id=world_id, expected_revision=composed_page.page.object_revision,
+                 expected_working_copy_revision=composed_page.working_copy_revision)
+    moved = _presentation(composed_page.markdown, first_width=8)
+
+    def broken_insert(*args):
+        raise RuntimeError("sidecar insert failed")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(page_presentation, "insert", broken_insert)
+        with pytest.raises(RuntimeError, match="sidecar insert failed"):
+            pages.commit_page(document, composed_page.markdown, page_presentation=moved,
+                              layout_writer_profile=pages.PAGE_LAYOUT_WRITER_PROFILE, **basis)
+    assert pages.snapshot_page(document, world_id=world_id) == composed_page
+    with pytest.raises(ApplicationStateNotFoundError):
+        pages.commit_page(document, composed_page.markdown, page_presentation=moved,
+                          layout_writer_profile=pages.PAGE_LAYOUT_WRITER_PROFILE,
+                          **{**basis, "world_id": "foreign"})
+    pages.commit_page(document, composed_page.markdown, page_presentation=moved,
+                      layout_writer_profile=pages.PAGE_LAYOUT_WRITER_PROFILE, **basis)
+    current = pages.snapshot_page(document, world_id=world_id)
+    with pytest.raises(ApplicationStateConflictError):
+        pages.commit_page(document, composed_page.markdown, page_presentation=composed_page.presentation,
+                          layout_writer_profile=pages.PAGE_LAYOUT_WRITER_PROFILE, **basis)
+    with psycopg.connect(application_state_dsn) as conn:
+        with pytest.raises(psycopg.errors.CheckViolation, match="layout-aware writer"), conn.transaction():
+            conn.execute("UPDATE content.work_object SET current_revision_id = %s WHERE work_object_id = %s",
+                         (composed_page.committed_revision.work_revision_id, document))
+        with pytest.raises(psycopg.errors.CheckViolation, match="layout-aware writer"), conn.transaction():
+            conn.execute("UPDATE content.working_copy SET markdown = 'legacy' WHERE work_object_id = %s", (document,))
+    assert pages.snapshot_page(document, world_id=world_id) == current

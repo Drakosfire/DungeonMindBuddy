@@ -339,17 +339,12 @@ class NativeBodyNavigation:
         self._require_metadata_selection(handle, parent=parent)
 
     def expansion_handle(self):
-        from application_state.agent_conversation.native_retrieval import scope_digest
-        turn = self.adapter.fence.turn
-        return 'native-corpus-expand:' + t.canonical_sha256({
-            'scope': scope_digest(turn), 'query': sha256(turn.user_text.encode()).hexdigest()})
+        from application_state.agent_conversation.native_retrieval import source_expansion_handle
+        return source_expansion_handle(self.adapter.fence.turn)
 
     def _expanded(self):
-        from application_state.agent_conversation.native_retrieval import native_selection_types
-        handle = self.expansion_handle()
-        return any(type(event) in native_selection_types() and
-            event.operation == 'select_candidates' and handle in event.selected_handles
-            for event in self.adapter.fence.turn.graph_context_execution.events)
+        from application_state.agent_conversation.native_retrieval import source_expansion_selected
+        return source_expansion_selected(self.adapter.fence.turn)
 
     def _scoped_offers(self, rows, search):
         turn = self.adapter.fence.turn

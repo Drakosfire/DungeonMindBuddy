@@ -505,3 +505,212 @@ def test_graph_reference_review_route_joins_current_graph_and_independent_conten
         assert observed.status_code == 200, observed.text
         assert observed.json()["state"] == "applied" and observed.json()["saved_revision"] == saved_revision
         assert client.post(path, json=confirm).json() == observed.json()
+
+
+def test_image_move_projection_binds_one_existing_occurrence_and_retains_order():
+    from application_state.build_proposal.image_move import BuildImageMovePlacement
+    from application_state.content.page_presentation import Row, Slot
+
+    media = "dmb-media:11111111-1111-4111-8111-111111111111"
+    markdown = f'Approach.\n\n![Map]({media} "dmb-image:v1 width=80 collapsed=false")\n\n![Other occurrence]({media})\n'
+    raw = markdown.encode()
+    text, first, second = [
+        BlockBinding(id=id_, byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
+        for id_, (start, end) in zip(("approach", "first-map", "second-map"), source_block_spans(markdown), strict=True)
+    ]
+    before = PagePresentation(markdown_sha256=sha256(raw).hexdigest(), items=[
+        Row(id="approach-row", min_height=16, line_mode="border", slots=[
+            Slot(id="left-slot", width=7, blocks=[text, first]),
+            Slot(id="right-slot", width=5, blocks=[]),
+        ]),
+        second,
+    ]).checked(markdown)
+    basis = BuildProposalBasis(world_id="world", document_id="page", registry_revision=1,
+        content_sha256=before.markdown_sha256, draft_sha256=before.markdown_sha256, editor_sha256="a"*64,
+        visibility="internal", caret=1, draft_generation=0, selection_generation=0)
+    placement = BuildImageMovePlacement(basis=basis, presentation_sha256=before.fingerprint(),
+        row_id="approach-row", source_slot_id="left-slot", destination_slot_id="right-slot",
+        image_block_id="first-map")
+    after, asset_id = placement.project_saved_move(before, markdown)
+    assert asset_id == media[10:]
+    assert after.markdown_sha256 == before.markdown_sha256
+    assert after.items[1] == second
+    assert after.items[0].slots[0].blocks == [text]
+    assert after.items[0].slots[1].blocks == [first]
+    assert after.items[0].min_height == 16 and after.items[0].line_mode == "border"
+    assert before.items[0].slots[0].blocks == [text, first]
+
+    for invalid in (
+        placement.model_copy(update={"image_block_id":"second-map"}),
+        placement.model_copy(update={"image_block_id":"approach"}),
+        placement.model_copy(update={"destination_slot_id":"foreign-slot"}),
+        placement.model_copy(update={"presentation_sha256":"b"*64}),
+    ):
+        with pytest.raises(ApplicationStateConflictError):
+            invalid.project_saved_move(before, markdown)
+    with pytest.raises(ApplicationStateConflictError):
+        placement.project_saved_move(after, markdown)
+
+    node = {"type":"paragraph","attrs":{"pageBlockId":"first-map"},"content":[
+        {"type":"mediaImage","attrs":{"assetId":media[10:],"alt":"Map","width":80,"collapsed":False}},
+    ]}
+    editor_before = {"type":"doc","content":[{
+        "type":"pageRow","attrs":{"id":"approach-row","min_height":16,"line_mode":"border"},"content":[
+            {"type":"pageSlot","attrs":{"id":"left-slot","width":7},"content":[
+                {"type":"paragraph","attrs":{"pageBlockId":"approach"},"content":[{"type":"text","text":"Approach."}]},
+                node,
+            ]},
+            {"type":"pageSlot","attrs":{"id":"right-slot","width":5}},
+        ],
+    }, {"type":"paragraph","attrs":{"pageBlockId":"second-map"},"content":[
+        {"type":"mediaImage","attrs":{"assetId":media[10:],"alt":"Other occurrence"}},
+    ]}]}
+    original = json.dumps(editor_before)
+    placement = placement.model_copy(update={"basis":basis.model_copy(update={"editor_sha256":sha256(original.encode()).hexdigest()})})
+    editor_after = json.loads(original)
+    left, right = editor_after["content"][0]["content"]
+    right["content"] = [left["content"].pop()]
+    assert placement.project_editor_move(original, before, markdown, asset_id) == editor_after
+    with pytest.raises(ApplicationStateConflictError, match="exact offered"):
+        placement.project_editor_move(original, before, markdown, str(uuid4()))
+
+    def change_sibling_text(value):
+        value["content"][0]["content"][0]["content"][0]["content"][0]["text"] = "Forged prose."
+
+    def change_unrelated_image(value):
+        value["content"][1]["content"][0]["attrs"]["alt"] = "Forged caption"
+
+    def change_moved_image_width(value):
+        value["content"][0]["content"][0]["content"][1]["content"][0]["attrs"]["width"] = 85
+
+    def change_row(value):
+        value["content"][0]["attrs"]["min_height"] = 24
+
+    for alter in (change_sibling_text, change_unrelated_image, change_moved_image_width, change_row):
+        forged = json.loads(original)
+        alter(forged)
+        raw_editor = json.dumps(forged)
+        forged_placement = placement.model_copy(update={
+            "basis": basis.model_copy(update={"editor_sha256":sha256(raw_editor.encode()).hexdigest()}),
+        })
+        with pytest.raises(ApplicationStateConflictError, match="exact offered"):
+            forged_placement.project_editor_move(raw_editor, before, markdown, asset_id)
+
+
+def test_image_move_layout_rejects_extra_image_stack_fields():
+    from application_state.build_proposal.image_move_layout import require_build_image_layout
+    from application_state.content.page_presentation import ImageText
+
+    asset = "11111111-1111-4111-8111-111111111111"
+    markdown = f"![Map](dmb-media:{asset})\n\nSurvey caption.\n"
+    raw = markdown.encode()
+    image, caption = [
+        BlockBinding(id=id_, byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
+        for id_, (start, end) in zip(("map", "caption"), source_block_spans(markdown), strict=True)
+    ]
+    stack = ImageText(id="stack", image=image, text=caption)
+    layout = PagePresentation(markdown_sha256=sha256(raw).hexdigest(), items=[stack]).checked(markdown)
+    node = {"type":"pageImageText","attrs":{"id":"stack","anchor":stack.anchor,"inset":stack.inset,"backing":stack.backing},
+        "content":[
+            {"type":"paragraph","attrs":{"pageBlockId":"map"},"content":[
+                {"type":"mediaImage","attrs":{"assetId":asset,"alt":"Map"}},
+            ]},
+            {"type":"paragraph","attrs":{"pageBlockId":"caption"},"content":[{"type":"text","text":"Survey caption."}]},
+        ]}
+    editor = {"type":"doc","content":[node]}
+    require_build_image_layout(editor, markdown, layout)
+    node["marks"] = [{"type":"bold"}]
+    with pytest.raises(ValueError, match="unsupported data"):
+        require_build_image_layout(editor, markdown, layout)
+
+
+def test_image_move_review_consumes_once_and_confirms_only_exact_protected_save(application_state_dsn):
+    from io import BytesIO
+    from PIL import Image
+    from application_state import media
+    from application_state.build_proposal.image_move import BuildImageMovePlacement
+    from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
+    from application_state.content.page_presentation import Row, Slot
+    from application_state.world_catalog.service import create_world
+
+    world = create_world(name="Image move test", owner_subject="subject:owner").record.world_id
+    conversation = _new(AgentConversationService(), world)
+    page = pages.create_page(world_id=world, title="Survey")
+    document = str(page.page.work_object_id)
+    png = BytesIO()
+    Image.new("RGB", (8, 8), (60, 110, 180)).save(png, format="PNG")
+    asset = str(media.stage_image(png.getvalue(), "local_operator", {"fixture":"image move Review"})["asset_id"])
+    markdown = f"![Survey map](dmb-media:{asset})\n"
+    raw = markdown.encode()
+    start, end = source_block_spans(markdown)[0]
+    image = BlockBinding(id="map", byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
+    presentation = PagePresentation(markdown_sha256=sha256(raw).hexdigest(), items=[
+        Row(id="row", slots=[
+            Slot(id="left", width=6, blocks=[image]),
+            Slot(id="right", width=6, blocks=[]),
+        ]),
+    ])
+    pages.commit_page(document, markdown, world_id=world, expected_revision=page.page.object_revision,
+        expected_working_copy_revision=None, page_presentation=presentation)
+    saved = pages.committed_page(document, world_id=world)
+    editor = json.dumps({"type":"doc","content":[{"type":"pageRow","attrs":{"id":"row","min_height":0,"line_mode":"guide"},"content":[
+        {"type":"pageSlot","attrs":{"id":"left","width":6},"content":[{"type":"paragraph","attrs":{"pageBlockId":"map"},
+            "content":[{"type":"mediaImage","attrs":{"assetId":asset,"alt":"Survey map"}}]}]},
+        {"type":"pageSlot","attrs":{"id":"right","width":6}},
+    ]}]})
+    placement = BuildImageMovePlacement(
+        basis=BuildProposalBasis(world_id=world, document_id=document, registry_revision=saved.page.object_revision,
+            content_sha256=presentation.markdown_sha256, draft_sha256=presentation.markdown_sha256,
+            editor_sha256=sha256(editor.encode()).hexdigest(), visibility="internal",
+            caret=1, draft_generation=0, selection_generation=0),
+        presentation_sha256=presentation.fingerprint(), row_id="row", source_slot_id="left",
+        destination_slot_id="right", image_block_id="map",
+    )
+    after = json.dumps(placement.project_editor_move(editor, presentation, markdown, asset))
+    store = BuildImageMoveReviewService()
+    action, claim = uuid4(), uuid4()
+
+    def admitted(_conn, review):
+        assert review.placement.basis.world_id == world
+
+    def stage():
+        with unit_of_work(application_state_dsn) as conn:
+            return store.stage_in_transaction(conn, action, conversation.conversation_id, 1, placement, editor, admit=admitted)
+
+    with pytest.raises(RuntimeError, match="rollback"):
+        with unit_of_work(application_state_dsn) as conn:
+            store.stage_in_transaction(conn, action, conversation.conversation_id, 1, placement, editor, admit=admitted)
+            raise RuntimeError("rollback")
+    with pytest.raises(ApplicationStateNotFoundError):
+        store.get(world, action)
+
+    opened = stage()
+    assert stage() == opened
+    with pytest.raises(ApplicationStateNotFoundError):
+        store.get("foreign", action)
+    assert pages.committed_page(document, world_id=world) == saved
+    with pytest.raises(ApplicationStateConflictError, match="postimage"):
+        store.claim(world, action, opened.revision, claim, editor, editor, authorize=admitted)
+
+    def try_claim():
+        return store.claim(world, action, opened.revision, claim, editor, after, authorize=admitted)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        claims = list(pool.map(lambda _: try_claim(), range(2)))
+    assert sorted(issued for _, issued in claims) == [False, True]
+    assert claims[0][0] == claims[1][0]
+    with pytest.raises(ApplicationStateConflictError, match="consumed"):
+        store.claim(world, action, opened.revision, uuid4(), editor, after, authorize=admitted)
+    with pytest.raises(ApplicationStateConflictError, match="not the committed Page"):
+        store.confirm(world, action, claim, authorize=admitted)
+    assert pages.committed_page(document, world_id=world) == saved
+
+    projected, _ = placement.project_saved_move(presentation, markdown)
+    pages.commit_page(document, markdown, world_id=world, expected_revision=saved.page.object_revision,
+        expected_working_copy_revision=saved.working_copy_revision, page_presentation=projected,
+        layout_writer_profile=pages.PAGE_LAYOUT_WRITER_PROFILE)
+    confirmed = store.confirm(world, action, claim, authorize=admitted)
+    assert confirmed.state == "saved" and confirmed.saved_revision == saved.page.object_revision + 1
+    assert store.confirm(world, action, claim, authorize=admitted) == confirmed
+    assert store.claim(world, action, opened.revision, claim, editor, after, authorize=admitted) == (confirmed, False)
+    assert pages.committed_page(document, world_id=world).presentation == projected

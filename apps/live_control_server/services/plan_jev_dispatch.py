@@ -120,7 +120,7 @@ class PlanJevDispatch:
             self.parent=NativePlayRetrievalDecisionInputV1(**fields,**pins,play_work=project_work(
                 work,provenance,_turn_idempotency_key(adapter.world_id,adapter.request.turn_id),proof))
         elif type(receipt) is t.SurfaceNativeContextReceiptV1:
-            from application_state.agent_conversation.native_retrieval import source_pins
+            from application_state.agent_conversation.native_retrieval import source_expansion_selected, source_pins
             from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4
             codec = (NativeBuildRetrievalDecisionInputV4
                 if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV2)
@@ -130,6 +130,8 @@ class PlanJevDispatch:
                 codec = NativePlanBatchDecisionInputV3
                 if bounded_continuation:
                     fields["bounded_continuation"] = bounded_continuation
+                if source_expansion_selected(adapter.fence.turn):
+                    fields['expanded_relevance_version'] = 'v1'
             self.parent = codec(**fields,**source_pins(receipt))
         elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
@@ -170,7 +172,9 @@ class PlanJevDispatch:
                 page_title = adapter.fence.turn.graph_context_execution.policy.action.document_title or ''
         navigation = dict(candidates=tuple(candidates), examined_candidates=tuple(examined_candidates),
             allowed_operations=tuple(allowed_operations), **source_pins(adapter.fence.turn.graph_context_receipt)) if opening else {}
-        if parent_type is NativePlanOpeningInputV3:
+        if parent_type is NativePlanOpeningInputV2:
+            navigation['evidence_relevance_version'] = 'v1'
+        elif parent_type is NativePlanOpeningInputV3:
             navigation['column_scope_version'] = 'v1'
         if author_scope is not None:
             if parent_type not in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) or type(author_scope) is not NativePlanAuthorScopeObservedV1:

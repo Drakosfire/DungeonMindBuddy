@@ -1,11 +1,12 @@
 import { PAGE_IMAGE_TEXT_EXTENSIONS, PageImageTextTools, stackAtSelection, wrapPageImageText } from './PageImageText';
 import { Extension, Node, mergeAttributes, type Editor } from '@tiptap/core';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
-import { Plugin, Selection, type Transaction } from '@tiptap/pm/state';
+import { NodeSelection, Plugin, Selection, type Transaction } from '@tiptap/pm/state';
 import { closeHistory, isHistoryTransaction } from '@tiptap/pm/history';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { layoutHandle, layoutEditabilityPlugin, LAYOUT_EDITABILITY_EVENT, LAYOUT_CONTROLS_EVENT, type LayoutRequest } from './contextualLayout';
+import { requireManualSave } from '../../workspaceDocument/draftSavePolicy';
 import './PageRow.css';
 
 const BLOCKS = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'table', 'callout', 'horizontalRule'];
@@ -112,6 +113,117 @@ function validRow(row: PMNode | null | undefined): row is PMNode {
     && widths.reduce((a, b) => a + b, 0) === 12
     && Number.isInteger(row.attrs.min_height) && row.attrs.min_height >= 0 && row.attrs.min_height <= 640 && row.attrs.min_height % 8 === 0
     && ['guide', 'border', 'clean'].includes(row.attrs.line_mode);
+}
+
+export interface AgentImageMoveScope {
+  editor: Editor;
+  worldId: string;
+  documentId: string;
+  revision: number;
+  draftGeneration: number;
+  canEdit: boolean;
+}
+
+export interface AgentImageMoveOffer {
+  alias: string;
+  alt: string;
+  rowContext: string;
+  sourceColumn: number;
+  destination: "empty_right" | "occupied" | "unavailable" | "changes_reading_order";
+}
+
+export interface CapturedAgentImageMoves {
+  offers: readonly Readonly<AgentImageMoveOffer>[];
+  selected: string | null;
+}
+
+interface BoundAgentImageMove {
+  source: PMNode;
+  position: number;
+  destination: number | null;
+}
+
+const issuedImageMoves = new WeakMap<CapturedAgentImageMoves, {
+  scope: AgentImageMoveScope;
+  document: PMNode;
+  targets: ReadonlyMap<string, BoundAgentImageMove>;
+}>();
+
+/** Enumerate actual standalone occurrences. No editor positions or asset IDs are public offers. */
+export function captureAgentImageMoves(scope: AgentImageMoveScope): CapturedAgentImageMoves {
+  const {editor} = scope;
+  if (!scope.canEdit || editor.isDestroyed || !editor.isEditable || !scope.worldId || !scope.documentId
+    || !Number.isInteger(scope.revision) || scope.revision < 1
+    || !Number.isInteger(scope.draftGeneration) || scope.draftGeneration < 0) {
+    throw new Error("An authorized editable Page is required.");
+  }
+  const {doc, selection} = editor.state;
+  const identities = new Set<string>();
+  doc.descendants((node, _position, parent) => {
+    const layoutNode = node.type.name === "pageRow" || node.type.name === "pageSlot" || node.type.name === "pageImageText";
+    const layoutBlock = BLOCKS.includes(node.type.name) && (
+      parent?.type.name === "doc" || parent?.type.name === "pageSlot" || parent?.type.name === "pageImageText"
+    );
+    if (!layoutNode && !layoutBlock) return;
+    const identity = layoutNode ? node.attrs.id : node.attrs.pageBlockId;
+    if (typeof identity !== "string" || !identity.trim() || identities.has(identity)) {
+      throw new Error("Page layout identities are missing or ambiguous.");
+    }
+    identities.add(identity);
+  });
+  const offers: AgentImageMoveOffer[] = [];
+  const targets = new Map<string, BoundAgentImageMove>();
+  let selected: string | null = null;
+  doc.forEach((row, rowPosition) => {
+    if (!validRow(row) || !row.attrs.id) return;
+    const rowContext = row.textBetween(0, row.content.size, " ").trim().slice(0, 500);
+    row.forEach((slot, slotOffset, index) => {
+      if (slot.type.name !== "pageSlot" || !slot.attrs.id) return;
+      const right = row.maybeChild(index + 1);
+      slot.forEach((block, blockOffset, blockIndex) => {
+        if (block.type.name !== "paragraph" || !block.attrs.pageBlockId
+          || block.childCount !== 1 || block.firstChild?.type.name !== "mediaImage") return;
+        const position = rowPosition + slotOffset + blockOffset + 2;
+        const destination = !right || right.type.name !== "pageSlot" || !right.attrs.id ? "unavailable"
+          : right.childCount ? "occupied"
+          : blockIndex !== slot.childCount - 1 ? "changes_reading_order" : "empty_right";
+        const alias = `image${offers.length + 1}`;
+        offers.push(Object.freeze({
+          alias, alt: String(block.firstChild.attrs.alt ?? ""), rowContext, sourceColumn: index + 1, destination,
+        }));
+        targets.set(alias, {
+          source: block, position,
+          destination: destination === "empty_right" ? rowPosition + slotOffset + slot.nodeSize + 2 : null,
+        });
+        if (selection instanceof NodeSelection && selection.from === position + 1) selected = alias;
+      });
+    });
+  });
+  const capture = Object.freeze({offers: Object.freeze(offers), selected});
+  issuedImageMoves.set(capture, {scope: {...scope}, document: doc, targets});
+  return capture;
+}
+
+/** Apply exactly one offered move. Undo cannot make the old capture executable again. */
+export function applyAgentImageMove(
+  scope: AgentImageMoveScope, capture: CapturedAgentImageMoves, alias: string,
+): void {
+  const bound = issuedImageMoves.get(capture);
+  const target = bound?.targets.get(alias);
+  if (!bound || !target || target.destination === null) throw new Error("The image move was not offered.");
+  const {editor} = scope;
+  const prior = bound.scope;
+  if (!scope.canEdit || editor.isDestroyed || !editor.isEditable || editor !== prior.editor
+    || scope.worldId !== prior.worldId || scope.documentId !== prior.documentId
+    || scope.revision !== prior.revision || scope.draftGeneration !== prior.draftGeneration
+    || editor.state.doc !== bound.document || editor.state.doc.nodeAt(target.position) !== target.source) {
+    throw new Error("The captured Page changed. Nothing moved.");
+  }
+  const tr = editor.state.tr.delete(target.position, target.position + target.source.nodeSize);
+  tr.insert(tr.mapping.map(target.destination), target.source);
+  requireManualSave(editor);
+  issuedImageMoves.delete(capture);
+  editor.view.dispatch(closeHistory(tr));
 }
 
 export function resizePageRow(editor: Editor, pos: number, width: number, dividerIndex = 0): boolean {

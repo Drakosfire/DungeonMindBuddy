@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from application_state.content import page_presentation as presentation
+from application_state.content.pages import PageLayoutWriterProfile
 
 import blake3
 from markdown_it import MarkdownIt
@@ -310,6 +311,7 @@ def _commit_blocking_lossy(
 
 class TiptapMarkdownWritePrepareRequest(BaseModel):
     page_presentation: presentation.PagePresentation | None = None
+    layout_writer_profile: PageLayoutWriterProfile | None = None
     title: str | None = None
     document_id: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
@@ -363,6 +365,7 @@ class TiptapMarkdownWritePrepareResponse(BaseModel):
 
 class TiptapMarkdownWriteCommitRequest(BaseModel):
     page_presentation: presentation.PagePresentation | None = None
+    layout_writer_profile: PageLayoutWriterProfile | None = None
     title: str | None = None
     document_id: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
@@ -402,6 +405,9 @@ class TiptapMarkdownWriteCommitResponse(BaseModel):
     durable commit succeeded.
     """
 
+    layout_writer_profile: PageLayoutWriterProfile | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     page_presentation_sha256: str | None = None
     schema_version: str = "dmb_tiptap_markdown_write_commit_v1"
     scope_mode: Literal["world"] | None = None
@@ -822,6 +828,8 @@ def prepare_tiptap_markdown_write(
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
         ) from exc
+    if request.layout_writer_profile is not None:
+        raise TiptapMarkdownWriteError("layout writer profile requires an authored Page")
     result = _prepare_plan_postgres(root=root, request=request, write_mode=write_mode)
     if result is None:
         error = TiptapMarkdownWriteError("workspace document not found")
@@ -853,6 +861,8 @@ def commit_tiptap_markdown_write(
         ) from exc
     if authorize_world is not None and request.world_id is None:
         raise TiptapMarkdownWriteConflictError("The authorized Page is no longer available")
+    if request.layout_writer_profile is not None:
+        raise TiptapMarkdownWriteError("layout writer profile requires an authored Page")
     result = _commit_plan_postgres(
         request=request, write_mode=write_mode, authorize_runbook_world=authorize_runbook_world,
         authorize_plan_world=authorize_world,
@@ -877,14 +887,15 @@ def _page_write_basis(request, state):
     return saved
 
 
-def _page_token(saved, revision, copy_revision, content, mode, layout=None):
+def _page_token(saved, revision, copy_revision, content, mode, layout=None, profile=None):
     return _confirm_token(
         str(saved.page.work_object_id),
         revision,
         _content_receipt_locator(saved.page),
         content,
         f"page-copy:{copy_revision or 0}"
-        + (f":presentation:{layout.fingerprint()}" if layout is not None else ""),
+        + (f":presentation:{layout.fingerprint()}" if layout is not None else "")
+        + (f":layout-writer:{profile}" if profile is not None else ""),
         mode,
         world_id=saved.page.world_id,
     )
@@ -895,6 +906,26 @@ def _page_import_eligible(saved):
         raise TiptapMarkdownWriteConflictError(
             "source_import requires an untouched, uninitialized Page"
         )
+
+
+def _page_layout(request, saved, content, mode):
+    profile = request.layout_writer_profile
+    if saved.layout_writer_profile is not None and profile != saved.layout_writer_profile:
+        raise TiptapMarkdownWriteConflictError("protected Page requires its layout-aware writer")
+    if profile is not None and (
+        mode != "authoring" or request.expected_revision is None or request.page_presentation is None
+    ):
+        raise TiptapMarkdownWriteError("protected Page requires an exact revision and explicit presentation")
+    layout = presentation.candidate(
+        request.page_presentation if "page_presentation" in request.model_fields_set else presentation.UNSET,
+        content,
+        saved.presentation,
+    )
+    if profile is not None and saved.layout_writer_profile is None and (
+        saved.presentation is None or layout == saved.presentation
+    ):
+        raise TiptapMarkdownWriteError("protect an existing Page layout through an explicit layout change")
+    return layout
 
 
 def _prepare_page(request, mode, state):
@@ -913,13 +944,7 @@ def _prepare_page(request, mode, state):
     from application_state.content.types import normalize_markdown
 
     content = normalize_markdown(_content_for_write_mode(request.markdown, mode))
-    layout = presentation.candidate(
-        request.page_presentation
-        if "page_presentation" in request.model_fields_set
-        else presentation.UNSET,
-        content,
-        saved.presentation,
-    )
+    layout = _page_layout(request, saved, content, mode)
     original = saved.revision.markdown if saved.revision else ""
     blocking = (
         []
@@ -946,6 +971,7 @@ def _prepare_page(request, mode, state):
             content,
             mode,
             layout,
+            request.layout_writer_profile,
         ),
         writer_diff="".join(
             difflib.unified_diff(
@@ -978,18 +1004,12 @@ def _commit_page(request, mode, state, *, authorize_world=None):
     from application_state.content.types import normalize_markdown
 
     content = normalize_markdown(_content_for_write_mode(request.markdown, mode))
-    layout = presentation.candidate(
-        request.page_presentation
-        if "page_presentation" in request.model_fields_set
-        else presentation.UNSET,
-        content,
-        saved.presentation,
-    )
+    layout = _page_layout(request, saved, content, mode)
     revision = saved.page.object_revision
     copy_revision = saved.working_copy_revision
     replay = False
     if request.writer_confirm_token != _page_token(
-        saved, revision, copy_revision, content, mode, layout
+        saved, revision, copy_revision, content, mode, layout, request.layout_writer_profile
     ):
         prior_revision = revision - 1
         prior_copy = (copy_revision or 0) - 1
@@ -998,7 +1018,7 @@ def _commit_page(request, mode, state, *, authorize_world=None):
             or prior_copy < 0
             or request.writer_confirm_token
             != _page_token(
-                saved, prior_revision, prior_copy or None, content, mode, layout
+                saved, prior_revision, prior_copy or None, content, mode, layout, request.layout_writer_profile
             )
         ):
             raise TiptapMarkdownWriteConflictError(
@@ -1024,11 +1044,13 @@ def _commit_page(request, mode, state, *, authorize_world=None):
         expected_revision=revision,
         expected_working_copy_revision=copy_revision,
         page_presentation=layout,
+        **({"layout_writer_profile": request.layout_writer_profile} if request.layout_writer_profile is not None else {}),
         **({"authorize_world": authorize_world} if authorize_world is not None else {}),
     )
     record = _record_from_page(committed)
     locator = _content_receipt_locator(committed.page)
     return TiptapMarkdownWriteCommitResponse(
+        layout_writer_profile=committed.layout_writer_profile,
         page_presentation_sha256=layout.fingerprint() if layout else None,
         document_id=record.document_id,
         title=record.title,

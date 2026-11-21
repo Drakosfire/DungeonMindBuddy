@@ -64,10 +64,13 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
     )
 
 
-@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "remapped_inventory"])
+@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "different_page", "remapped_inventory"])
 def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, monkeypatch, disposition):
+    request = ("Insert a reference to the selected object on the separate Lanterns page."
+               if disposition == "different_page"
+               else "Insert a reference to the selected object after the orchid paragraph in East.")
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
-                message="Insert a reference to the selected object after the orchid paragraph in East.",
+                message=request,
                 graph_reference=disposition)
 
 
@@ -406,8 +409,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     continue
                 if "reference_intent" in body["questions"]:
                     chosen = {"work": "place_paragraph", "destination": "current_page", "relation": "after",
+                              "anchor_occurrence": "passage2",
+                              "reference_nomination": "object1",
                               "scope": "named", "text0": "include", "scope0": "exclude", "scope1": "include",
-                              "reference_intent": "place_existing", "object1": "include", "object2": "exclude",
+                              "reference_intent": "different_page" if graph_reference == "different_page" else "place_existing",
+                              "object1": "include", "object2": "exclude",
                               "reference_kind_constraint": "requires_or_excludes_type",
                               "reference_kind": "other_kind" if graph_reference == "wrong_kind" else "class1"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
@@ -1056,6 +1062,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert completion["action_id"] is None
             with pytest.raises(ApplicationStateNotFoundError):
                 store.get(world, turn.turn_id)
+        messages = client.get(f"/api/live/agent/worlds/{world}/conversations/active/messages")
+        assert messages.status_code == 200, messages.text
+        saved = next(row for row in messages.json()["messages"] if row["turn_id"] == str(turn.turn_id))
+        if graph_reference == "ready":
+            assert saved["reply_object"] == {
+                "kind": "build_graph_reference", "placement_sha256": completion["placement_sha256"],
+                "source": {"world_id": world, "conversation_id": str(turn.conversation_id),
+                           "document_id": page.document_id, "turn_id": str(turn.turn_id), "surface_id": "build"},
+            }
+        else:
+            assert saved["reply_object"] is None
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         replay = client.post('/api/live/agent/turn', json=body)
         assert replay.status_code == 200, replay.text

@@ -1,3 +1,4 @@
+import { MANUAL_SAVE_DRAFT_SCHEMA } from "../tiptap/state/tiptapLocalState";
 import "../tiptap/pageComposer/apiPresentation";
 import { hydratePresentation } from "../tiptap/pageComposer/presentation";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
@@ -175,6 +176,12 @@ export function openWorkspaceDocumentAuthoringState(
       now,
     }),
     base_page_presentation_sha256: args.snapshot.page_presentation_sha256 ?? null,
+    ...(args.surface === "build" && args.snapshot.layout_writer_profile ? {
+      schema_version: MANUAL_SAVE_DRAFT_SCHEMA,
+      layout_writer_profile: args.snapshot.layout_writer_profile,
+    } : {}),
+    ...((reconciliation.kind === "dirty-match" || reconciliation.kind === "clean-match")
+      && reconciliation.localState?.manual_save_required ? {schema_version: MANUAL_SAVE_DRAFT_SCHEMA, manual_save_required: true as const} : {}),
     page_presentation_pending: reconciliation.kind === "dirty-match" && reconciliation.localState?.page_presentation_pending === true,
     ...(presentation !== undefined ? { page_presentation: presentation } : {}),
     tiptap_json: chosen.tiptapJson,
