@@ -1,6 +1,12 @@
 # COMBAT — running encounter toolbar
 
-ACTIVE. The user authorized frontend changes in the active Combat visual
+MERGED in #4302 as `d257a0ff7708f37b54e8729d1eda8b07c8f6ce9b`.
+Reviewed head `8dc7af8639c588124006146bc510b12f7ac79c7f`. Its hosted
+frontend verifier passed 1,430 checks and the build. The earlier full
+diagnostic matched the 102 inherited failures and two skips. The roster
+successor now owns the Combat presentation files. Deployment remains pending.
+
+Historical activation. The user authorized frontend changes in the active Combat visual
 refresh goal for this chat (01a1ef4e-ff74-7d11-bd9a-2a499da090ff).
 Root owns the design and implementation. Base
 `01e22a26a020ca7399458bba61cee6d817c8702c` from fetched origin/main.

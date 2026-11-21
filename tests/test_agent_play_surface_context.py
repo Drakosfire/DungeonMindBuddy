@@ -719,7 +719,10 @@ def test_world_play_context_v2_rejects_campaign_run_even_when_ids_match(
     get_run.assert_called_once_with(tmp_path, world_id="world-a", run_id=RUN_ID)
 
 
-def _create_real_world_play_context(root: Path, *, kind: str = "plan", historical_session=False):
+def _create_real_world_play_context(
+    root: Path, *, kind: str = "plan", historical_session=False,
+    markdown: str = C2S27_SHAPED_V2_MARKDOWN,
+):
     """Use real Content/Run producers; no mocked pin or manifest."""
     from application_state.content.service import (
         commit_plan, commit_runbook, create_world_plan, create_world_runbook,
@@ -733,7 +736,7 @@ def _create_real_world_play_context(root: Path, *, kind: str = "plan", historica
     create = create_world_plan if kind == "plan" else create_world_runbook
     commit = commit_plan if kind == "plan" else commit_runbook
     obj = create(title="Pinned opening", world_id=world.world_id)
-    obj, revision = commit(str(obj.work_object_id), C2S27_SHAPED_V2_MARKDOWN,
+    obj, revision = commit(str(obj.work_object_id), markdown,
                            expected_revision=obj.object_revision)
     from tests.application_state.session_encounter_helpers import session_request
     from apps.live_control_server.services.play_run_registry import WorldPlayRunRecord

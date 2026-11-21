@@ -84,7 +84,7 @@ export function CombatRosterWorkspace({draft, disabled, onToggleGroup, renderRow
     </header>
     {snapshot ? <CombatSavedStatblock revision={snapshot.resource} chrome="campaign" />
       : currentCorpus?.error ? <p role="alert">{currentCorpus.error}</p>
-      : currentCorpus?.markdown !== undefined ? <MarkdownDocumentReader markdown={currentCorpus.markdown}/>
+      : currentCorpus?.markdown !== undefined ? <div className="combat-corpus-paper"><MarkdownDocumentReader markdown={currentCorpus.markdown}/></div>
       : <p role="status">Opening the original corpus sheet…</p>}
   </>;
 
@@ -93,6 +93,7 @@ export function CombatRosterWorkspace({draft, disabled, onToggleGroup, renderRow
       {sheet && (modal
         ? <dialog ref={dialog} id={regionId} className="combat-mechanics-dialog"
             aria-label={`Projected statblock for ${selected?.name}`}
+            onKeyDown={event => {if (event.key === "Escape") event.stopPropagation();}}
             onCancel={event => {event.preventDefault(); close();}}>
             {sheet}
           </dialog>
