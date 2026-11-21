@@ -382,7 +382,10 @@ class PlanJevWriter:
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
-        self.reasoning_effort = "medium" if single_variant_base else "low"
+        from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+
+        conversation_draft = self.shared and native_conversation_terminal(turn) is not None
+        self.reasoning_effort = "medium" if single_variant_base or conversation_draft else "low"
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(

@@ -340,7 +340,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             body = json.loads(req.content)
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
             current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
-            expected_effort = 'medium' if current_work == 'draft_in_conversation' and saved_statblock == 'associated' else 'low'
+            from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+
+            using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
+            expected_effort = 'medium' if (using_prior_citations
+                or current_work == 'draft_in_conversation' and saved_statblock == 'associated') else 'low'
             if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
                     'message': 'Unsupported reasoning effort for configured writer',
@@ -489,9 +493,6 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert list(passages) == list(review["properties"]) == review["required"]
                     assert "markdown" not in work["current_draft"]
                     candidate["statblock_variant"]["passage_review"] = dict.fromkeys(passages, "omit")
-            from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
-
-            using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
             if (native_body or authored_source) and not using_prior_citations:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
