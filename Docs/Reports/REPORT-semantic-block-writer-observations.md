@@ -316,3 +316,15 @@ composer. The Graph workspace had no conversation launcher. G01 was therefore
 ineligible for submission on that hosted surface. No prompt was sent and no
 Graph update was attempted. This provides capability evidence on a loaded
 native Graph independently of the Pilot Graph availability failure.
+
+### Hosted Build selected-callout rewrite with artwork
+
+A fresh Buddy Cloud Pilot Build page
+(`b7d7d0c2-b01c-4e5e-94c2-b6e55e2e410d`) was saved and reopened with a
+three-sentence Read Aloud titled **First sight**, a table, neighboring
+Departure text, and the private boardwalk illustration used for Play.
+Selecting the whole callout body and sending the exact B02 prompt produced
+two quieter sentences in a replacement preview. After Save and reload, the
+new body was present in a Read Aloud still titled **First sight** and the old
+body was absent. The original table headers and cells, Departure sentence,
+and rendered 1,024-pixel illustration were present after reopening.
