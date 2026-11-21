@@ -36,6 +36,16 @@ class NativeRetrievalAuthorizedV1(t.PlanJevProviderAuthorizedV1):
 class NativePlanOpeningAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
     """One actual SDK envelope explicitly produces work and its first batch."""
     kind: Literal['native_plan_opening_authorized_v1'] = 'native_plan_opening_authorized_v1'
+    author_scope_event_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class NativePlanAuthorScopeAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
+    """Source-blind interpretation input. It cannot settle opening work."""
+
+    kind: Literal['native_plan_author_scope_authorized_v1'] = 'native_plan_author_scope_authorized_v1'
+    prior_scope_event_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
+    scope_review_event_ids: tuple[UUID, UUID] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativeRetrievalSelectedV1(t.PlanJevRetrievalSelectionV1):
@@ -52,13 +62,13 @@ NATIVE_RETRIEVAL_SELECTION_TYPES = (NativeRetrievalSelectedV1, NativeRetrievalSe
 
 def native_selection_types():
     """Closed native acquisition selections, including the real opening batch."""
-    from .native_execution import NativePlanOpeningSelectedV1
-    return (*NATIVE_RETRIEVAL_SELECTION_TYPES, NativePlanOpeningSelectedV1)
+    from .native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
+    return (*NATIVE_RETRIEVAL_SELECTION_TYPES, *NATIVE_PLAN_OPENING_SELECTION_TYPES)
 
 
 def prospective_selection_types():
-    from .native_execution import NativePlanOpeningSelectedV1
-    return (NativeRetrievalSelectedV2, NativePlanOpeningSelectedV1)
+    from .native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
+    return (NativeRetrievalSelectedV2, *NATIVE_PLAN_OPENING_SELECTION_TYPES)
 
 
 class NativeReadBatchConcludedV1(t.StrictModel):
@@ -458,6 +468,10 @@ def validate_decision_phases(execution):
                     "Plan controller must settle its decision before another provider"
                 )
             if identity == execution.policy.provider_roles.controller.identity():
+                from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2
+                if (type(native_action) is NativePlanActionV3 and type(intent) is NativePlanOpeningSelectedV2
+                        and intent.requested_work == 'clarify'):
+                    raise ValueError('Question-only Plan work cannot open factual retrieval')
                 if native_build and type(event) is t.ProviderAttemptAuthorizedEventV5:
                     if (
                         writer is not None
@@ -522,13 +536,16 @@ def validate_decision_phases(execution):
                     if native_action is not None
                     else t.PlanJevWriterAuthorizedV1
                 )
+                from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2
+                question_only = (type(native_action) is NativePlanActionV3
+                    and type(intent) is NativePlanOpeningSelectedV2 and intent.requested_work == 'clarify')
                 if (
                     not isinstance(event, writer_type)
                     or pending_author_nodes or pending_author_sources
                     or pending_sources
                     or retrieval_started
                     and not retrieval_finished
-                    or not native_build and not retrieval_finished
+                    or not native_build and not retrieval_finished and not question_only
                 ):
                     raise ValueError(
                         "Native writer requires an explicit completed retrieval finish and settled reads"
@@ -540,6 +557,22 @@ def validate_decision_phases(execution):
             and event.provider_attempt_id == auth.provider_attempt_id
         ):
             outcome = event
+        elif event.kind == 'native_plan_author_scope_observed_v1':
+            from .native_plan_opening import NativePlanAuthorScopeObservedV1
+
+            if (type(event) is not NativePlanAuthorScopeObservedV1
+                    or type(auth) is not NativePlanAuthorScopeAuthorizedV1
+                    or intent is not None or writer is not None
+                    or outcome is None or outcome.outcome != 'response_received'
+                    or outcome.response_sha256 not in (None, event.controller_response_sha256)
+                    or event.controller_attempt_id != auth.provider_attempt_id
+                    or event.decision_request_id != auth.decision_request_id
+                    or event.parent_request_sha256 != auth.parent_request_sha256
+                    or event.controller_envelope_sha256 != auth.envelope_sha256
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256):
+                raise ValueError('Author scope observation requires its unique settled SDK response')
+            auth, outcome = None, None
         elif isinstance(event, t.PlanRequestedWorkSelectedV1):
             if (
                 not semantic_policy
@@ -572,10 +605,13 @@ def validate_decision_phases(execution):
                     "Plan destination lacks its unique acknowledged controller and frozen target"
                 )
             intent = event
-            from .native_execution import NativePlanOpeningSelectedV1
-            if type(event) is NativePlanOpeningSelectedV1:
+            from .native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
+            if type(event) in NATIVE_PLAN_OPENING_SELECTION_TYPES:
                 if type(auth) is not NativePlanOpeningAuthorizedV1:
                     raise ValueError('Opening selection requires its actual dual-purpose provider')
+                binding = getattr(event, 'author_scope_binding', None)
+                if auth.author_scope_event_id != (binding.observation_event_id if binding is not None else None):
+                    raise ValueError('Opening result differs from its authorized author scope')
                 if event.operation is not None:
                     selected = event
                     retrieval_started = True
@@ -583,8 +619,8 @@ def validate_decision_phases(execution):
                 else:
                     auth, outcome = None, None
             else:
-                if type(auth) is NativePlanOpeningAuthorizedV1:
-                    raise ValueError('Opening SDK cannot settle as historical work-only selection')
+                if type(auth) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1):
+                    raise ValueError('Current Plan SDK cannot settle as historical work-only selection')
                 auth, outcome = None, None
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
             if type(event) is NativeRetrievalSelectedV2:

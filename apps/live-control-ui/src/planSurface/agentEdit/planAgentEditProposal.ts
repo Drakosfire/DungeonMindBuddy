@@ -13,7 +13,7 @@ import type {
   WorldPlanDocumentEditProposalResponse,
   WorldPlanSelectionAnchorV1,
 } from "../../api/types";
-import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
+import { CALLOUT_KINDS, tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "../../tiptap/markdown/semanticMarkdownSafety";
 import { preserveLeadingYamlFrontmatter, stripLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
@@ -965,7 +965,9 @@ function validateFragment(
         ? /(?:graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(graphLinkFreeText)
           || graphLinks.length !== expectedGraphReferenceCount
         : /(?:dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown)))
-    || /(?:^|\n)\s*>\s*\[!(?!READ-ALOUD\]|GM-NOTE\]|DECISION-CONSEQUENCE\])[^\]]+\]/i.test(markdown)
+    || Array.from(markdown.matchAll(/(?:^|\n)\s*>\s*\[!([^\]]+)\]/gi), ([, marker]) =>
+      marker.toLowerCase()).some((marker) =>
+      marker !== "decision-consequence" && !CALLOUT_KINDS.some((kind) => kind === marker))
   ) {
     throw new PlanEditGuardError("Agent proposed unsupported markup, a path, or a graph identity.");
   }

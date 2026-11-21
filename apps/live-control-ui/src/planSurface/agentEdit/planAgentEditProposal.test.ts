@@ -430,6 +430,12 @@ describe("reviewed Plan edit admission", () => {
       "> [!READ-ALOUD]",
       "> The children wait beside the gate.",
       "",
+      "> [!WARNING]",
+      "> The gate may lock behind you.",
+      "",
+      "> [!RULES]",
+      "> Check the lock before advancing.",
+      "",
       "> [!DECISION-CONSEQUENCE]",
       "> ### Decision",
       "> Invite the children inside.",
@@ -441,6 +447,8 @@ describe("reviewed Plan edit admission", () => {
     await applyPlanEditProposal({ captured, admitted, current: state });
     const types = editor.getJSON().content?.map((item) => item.type);
     expect(types).toContain("callout");
+    expect(editor.getJSON().content?.filter((node) => node.type === "callout")
+      .map((node) => node.attrs?.kind)).toEqual(["read-aloud", "warning", "rules"]);
     expect(types).toContain("decisionConsequence");
     expect(editor.getText()).toContain("Stacy remembers the kindness.");
   });

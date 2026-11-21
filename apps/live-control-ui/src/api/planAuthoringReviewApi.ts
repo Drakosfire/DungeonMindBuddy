@@ -15,11 +15,17 @@ export interface PlanOriginalAuthoringCapture {
 export type PlanAuthoringCapture=PlanOriginalAuthoringCapture | (Omit<PlanOriginalAuthoringCapture,'schema'|'target_kind'>&{
   schema:'dmb_plan_authoring_boundary_capture_v1';target_kind:'insert_at_boundary';root_boundary:number;
 });
-export interface PlanPlacementCatalog {
+export interface PlanPlacementCatalogV1 {
   schema:'dmb_plan_placement_catalog_v1';original_capture_sha256:string;editor_sha256:string;
   entries:Array<{selector:string;kind:'captured_target'|'before_heading'|'after_heading'|'after_section'|'end_page';label:string;
     root_boundary:number|null;position:number|null;target_capture_sha256:string}>;
 }
+export interface PlanPlacementCatalogV2 {
+  schema:'dmb_plan_placement_catalog_v2';original_capture_sha256:string;editor_sha256:string;
+  entries:Array<{selector:string;kind:PlanPlacementCatalogV1['entries'][number]['kind']|'before_paragraph'|'after_paragraph';label:string;
+    source_root_index:number|null;root_boundary:number|null;position:number|null;target_capture_sha256:string}>;
+}
+export type PlanPlacementCatalog = PlanPlacementCatalogV1 | PlanPlacementCatalogV2;
 
 export interface PlanAuthoredProposal {
   schema:'dmb_plan_authored_proposal_v1';capture:PlanAuthoringCapture;replacement_markdown:string;

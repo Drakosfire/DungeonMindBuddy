@@ -147,8 +147,10 @@ _NATIVE_TYPES = {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInp
 
 def parse_native_retrieval_input(raw, *, surface_id):
     """One exact codec reader for native selection and its selected Rules offer."""
-    from .native_plan_opening import NativePlanOpeningInputV1
-    codec = (NativePlanOpeningInputV1
+    from .native_plan_opening import NativePlanOpeningInputV1, NativePlanOpeningInputV2
+    codec = (NativePlanOpeningInputV2
+        if isinstance(raw, dict) and raw.get('schema') == 'dmb_native_plan_opening_input_v2'
+        else NativePlanOpeningInputV1
         if isinstance(raw, dict) and raw.get('schema') == 'dmb_native_plan_opening_input_v1'
         else NativePlanBatchDecisionInputV3
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_batch_decision_input_v3"
@@ -164,7 +166,7 @@ def parse_native_retrieval_input(raw, *, surface_id):
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
         else NativeRetrievalDecisionInputV1)
     parent = codec.model_validate(raw)
-    if type(parent) in (NativePlanBatchDecisionInputV3, NativePlanOpeningInputV1) and surface_id != 'plan':
+    if type(parent) in (NativePlanBatchDecisionInputV3, NativePlanOpeningInputV1, NativePlanOpeningInputV2) and surface_id != 'plan':
         raise ValueError('Prospective read batches belong only to readonly Plan')
     if isinstance(parent, NativeBuildRetrievalDecisionInputV2) and surface_id != "build":
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
@@ -205,8 +207,8 @@ class PlannedRetrievalSelection(RetrievalSelection):
 def _planned_input(request):
     if type(request) is NativePlanBatchDecisionInputV3:
         return True
-    from .native_plan_opening import NativePlanOpeningInputV1
-    return type(request) is NativePlanOpeningInputV1
+    from .native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES
+    return type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES
 
 
 def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
@@ -382,7 +384,10 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
 def retrieval_exclusions_for_replay(request, result, *, requested_work=None):
     """Project explicit votes from the same validated decision used by retrieval."""
     from .neighborhood_replay import ExcludedReplayCandidate, RetrievalExclusionReplay
+    from .native_plan_opening import NativePlanOpeningInputV2
 
+    if type(request) is NativePlanOpeningInputV2 and requested_work != "discuss":
+        return None
     if requested_work is not None and requested_work not in {"discuss", "clarify"}:
         return None
     excluded = [

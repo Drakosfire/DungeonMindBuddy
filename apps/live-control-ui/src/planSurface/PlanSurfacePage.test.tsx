@@ -4364,6 +4364,8 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
   let proposal:any,review:any=null,originHash='',lostConfirm=false;
   const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockImplementation(async request=>{
     expect(conversationReady).toBe(true);expect(request.plan_authoring_capture).toBeDefined();
+    expect(request.plan_placement_catalog?.schema).toBe('dmb_plan_placement_catalog_v2');
+    expect(request.plan_placement_catalog?.entries.some(entry=>entry.kind==='after_paragraph')).toBe(true);
     const response:any=worldPlanAgentResponse(request);
     let capture: any = request.plan_authoring_capture!;
     if (mode === 'offered_boundary' || mode === 'altered_boundary') {

@@ -1,6 +1,9 @@
 # Existing plain-page identity Save retention
 
-Status: ACTIVE. Alan explicitly authorized this bounded stacked continuation on
+Status: MERGED. PR #4248 merged as
+`97c89e93c13a79c1c5e319bf28409b1c78f62b53` after independent cycle-2 PASS at
+`3b79711c9599c7844097f328e7ca5cfb71a848ff`; this implementation lease has ended.
+Alan explicitly authorized this bounded stacked continuation on
 November 20, 2026. The updated goal also grants merge and benchmark authority;
 independent review and repository verification gates still apply. Deployment,
 migration allocation, serving pins and competing lanes remain outside scope.
@@ -108,3 +111,20 @@ This correction supersedes source `417f2459` for final qualification. Its runnin
 isolated exact-source verification is historical evidence only, not the final
 corrected-head pass. Fresh exact-source verification and cycle-2 review remain
 required after this old-client guard.
+
+## Final reviewed predecessor evidence
+
+At exact reviewed source 3b79711c, all 84 focused cases and application typecheck
+passed. Hosted verification passed 1,416 cases and build, with validated clean
+exact-source evidence and complete cleanup. Full discovery remained red:
+8,364 passed / 103 failed / 2 pending, build passed. The actual integrated base
+08d23da8 had 8,356 passes / the same 103 failure IDs and primary error lines /
+2 pending, build passed, with no missing cases and eight added passes.
+
+Independent review cycle 2 verified artifact digests, reran hosted validation,
+recomputed the comparison, and found no remaining actionable source issue.
+Evidence under the retention task: `final-hosted-1/`, `final-discovered-1/`,
+`integrated-base-discovered-1/`, `final-integrated-comparison.json` and
+`independent-review-cycle2.json`. Historical superseded results above remain
+distinguished. Neither aggregate red nor mocked hook readback is ordinary-chat,
+model-quality, full native-persistence or release qualification. No deployment.

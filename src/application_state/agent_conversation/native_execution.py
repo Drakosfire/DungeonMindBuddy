@@ -23,9 +23,15 @@ from .native_context import (
 from .native_statement_input import Strict
 from .native_corpus import prior_conversation_work
 from .plan_authoring import PlanAuthoringCaptureV1
-from .plan_placement import PlanPlacementCatalogV1
+from .plan_placement import PlanPlacementCatalog
 
-from .native_retrieval import NativeRetrievalAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativeReadBatchConcludedV1
+from .native_retrieval import (
+    NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeReadBatchConcludedV1,
+    NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2,
+)
+from .native_plan_opening import (
+    NativePlanAuthorScopeObservedV1, NativePlanOpeningScopeBindingV1, bind_opening_author_scope,
+)
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
 from .native_plan_assertions import NativeGraphQueryV4, NativePlanAssertionReadObservedV2
 
@@ -88,7 +94,7 @@ class NativePlanActionV1(Strict):
     surface_id: Literal["plan"] = "plan"
     intent: Annotated[t.SubmittedTurnIntentV4 | t.SubmittedTurnIntentV3 | t.SubmittedTurnIntentV2, Field(discriminator="schema_")]
     authoring_capture: PlanAuthoringCaptureV1 | None
-    placement_catalog: PlanPlacementCatalogV1 | None
+    placement_catalog: PlanPlacementCatalog | None
 
     @model_validator(mode="after")
     def captured_work(self):
@@ -131,13 +137,34 @@ class NativePlanActionV2(NativePlanActionV1):
         return self
 
 
-NATIVE_PLAN_ACTION_TYPES = (NativePlanActionV1, NativePlanActionV2)
+class NativePlanActionV3(NativePlanActionV2):
+    """Current plain Plan resolves a complete semantic target set before writing."""
+    action_version: Literal['plan_contextual_targets_v3'] = 'plan_contextual_targets_v3'
+    # Frozen Content metadata at plan_basis, never an inferred editor heading.
+    # None supports source-only fixtures; it cannot bind a document-title ref.
+    document_title: str | None = None
+
+    @model_validator(mode="after")
+    def contextual_catalog(self):
+        from .plan_placement import PlanPlacementCatalogV2
+        if type(self.placement_catalog) is not PlanPlacementCatalogV2 or self.authoring_capture is None:
+            raise ValueError("Contextual Plan requires its frozen paragraph catalog and capture")
+        if self.authoring_capture.target_kind not in {'insert_at_caret', 'replace_selection'}:
+            raise ValueError("Contextual Plan does not broaden Plan Card authoring")
+        return self
+
+
+NATIVE_PLAN_ACTION_TYPES = (NativePlanActionV1, NativePlanActionV2, NativePlanActionV3)
 
 
 def _action_kind(value):
     if isinstance(value, dict):
         surface = value.get('surface_id')
+        if surface == 'plan' and value.get('action_version') == 'plan_contextual_targets_v3':
+            return 'plan_contextual_targets'
         return 'plan_saved_pages' if surface == 'plan' and value.get('action_version') == 'plan_saved_authored_pages_v2' else surface
+    if type(value) is NativePlanActionV3:
+        return 'plan_contextual_targets'
     return 'plan_saved_pages' if type(value) is NativePlanActionV2 else getattr(value, 'surface_id', None)
 
 
@@ -145,6 +172,7 @@ NativeAction = Annotated[
     Annotated[NativeBuildActionV1, Tag('build')]
     | Annotated[NativePlanActionV1, Tag('plan')]
     | Annotated[NativePlanActionV2, Tag('plan_saved_pages')]
+    | Annotated[NativePlanActionV3, Tag('plan_contextual_targets')]
     | Annotated[NativePlayActionV1, Tag('play')],
     Discriminator(_action_kind),
 ]
@@ -263,7 +291,86 @@ class NativePlanOpeningSelectedV1(NativePlanRequestedWorkSelectedV3, NativeRetri
         return self
 
 
-NATIVE_PLAN_WORK_SELECTION_TYPES = (NativePlanRequestedWorkSelectedV3, NativePlanOpeningSelectedV1)
+class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
+    """The actual intent and complete candidate set precede target authority."""
+    kind: Literal['native_plan_opening_selected_v2'] = 'native_plan_opening_selected_v2'
+    requested_intent: Literal['discuss', 'clarify', 'write_current_page', 'different_destination', 'review_connected_page']
+    compatible_placement_selectors: tuple[str, ...]
+    target_resolution: Literal['not_applicable', 'missing', 'unique', 'ambiguous']
+    requested_placement_relation: Literal['captured', 'before_paragraph', 'after_paragraph',
+        'before_heading', 'after_heading', 'after_section', 'end_page', 'unresolved']
+    compatible_anchor_selectors: tuple[str, ...]
+    direct_anchor_selectors: tuple[str, ...]
+    compatible_passage_selectors: tuple[str, ...]
+    compatible_section_selectors: tuple[str, ...]
+    compatible_ancestor_selectors: tuple[str, ...]
+    requested_paragraph_scope: Literal['unscoped', 'named', 'unresolved', 'not_applicable']
+    requested_scope_qualifier: Literal['none', 'named', 'unresolved']
+    author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    scope_document_title: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_placement_relation: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    scope_description_matches: dict[int, tuple[str, ...]] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    excluded_scope_description_matches: dict[int, tuple[str, ...]] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    locator_passage_selectors: tuple[str, ...] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    literal_paragraph_excerpt: str | None = Field(
+        default=None, min_length=1, exclude_if=lambda value: value is None)
+    scope_refused: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @field_validator('compatible_placement_selectors', 'compatible_anchor_selectors',
+        'direct_anchor_selectors', 'compatible_passage_selectors', 'compatible_section_selectors',
+        'compatible_ancestor_selectors', 'locator_passage_selectors', mode='before')
+    @classmethod
+    def selectors_tuple(cls, value):
+        return tuple(value) if isinstance(value, list) else value
+
+    @model_validator(mode='after')
+    def applicable_read_plan(self):
+        # A question is not an evidence answer; V1's clarification reads remain
+        # historical. Current question mode uses captured request/page context.
+        active = self.requested_work == 'discuss'
+        if active != (self.operation is not None and self.post_read_plan is not None):
+            raise ValueError('Contextual opening read plan differs from its work')
+        if not active and (self.operation is not None or self.post_read_plan is not None or self.selected_handles):
+            raise ValueError('Inactive contextual work cannot authorize reads')
+        return self
+
+    @model_validator(mode='after')
+    def exact_resolution(self):
+        from .plan_authoring import PlanAuthoringCaptureV1
+        from .plan_placement import decode_plan_placement_catalog
+        from .plan_contextual_targets import resolve_author_scope_targets, resolve_component_targets
+        if self.original_capture is None or self.placement_catalog is None:
+            raise ValueError('Contextual selection requires its original captured catalog')
+        capture = PlanAuthoringCaptureV1.model_validate(self.original_capture)
+        catalog = decode_plan_placement_catalog(self.placement_catalog)
+        if self.author_scope_binding is not None:
+            fields = resolve_author_scope_targets(capture, catalog, self.requested_intent,
+                self.source_placement_relation, self.author_scope_binding.observation,
+                self.direct_anchor_selectors, self.compatible_passage_selectors,
+                document_title=self.scope_document_title, description_matches=self.scope_description_matches,
+                excluded_description_matches=self.excluded_scope_description_matches,
+                locator_passages=self.locator_passage_selectors, literal_excerpt=self.literal_paragraph_excerpt,
+                scope_refused=self.scope_refused is True, page_edit_intent=self.author_scope_binding.page_edit_intent)
+        else:
+            if any(value is not None for value in (self.source_placement_relation, self.scope_document_title,
+                    self.scope_description_matches, self.excluded_scope_description_matches,
+                    self.locator_passage_selectors, self.literal_paragraph_excerpt, self.scope_refused)):
+                raise ValueError('Source relation, title and description matches require retained author scope')
+            fields = resolve_component_targets(capture, catalog, self.requested_intent,
+                self.requested_placement_relation, self.requested_paragraph_scope,
+                self.direct_anchor_selectors, self.compatible_passage_selectors, self.compatible_section_selectors,
+                self.requested_scope_qualifier, self.compatible_ancestor_selectors)
+        if any(getattr(self, key) != value for key, value in fields.items()):
+            raise ValueError('Contextual selection differs from its complete target resolution')
+        return self
+
+
+NATIVE_PLAN_OPENING_SELECTION_TYPES = (NativePlanOpeningSelectedV1, NativePlanOpeningSelectedV2)
+NATIVE_PLAN_WORK_SELECTION_TYPES = (NativePlanRequestedWorkSelectedV3, *NATIVE_PLAN_OPENING_SELECTION_TYPES)
 
 
 def native_read_event_ids(events):
@@ -341,9 +448,10 @@ def effective_native_query(context, execution):
 # source-anchor receipts deliberately have no branch in this native event union.
 SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
-    | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | NativePlanOpeningAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
+    | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | NativePlanOpeningAuthorizedV1
+    | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
-    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1
+    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1 | NativePlanOpeningSelectedV2
     | t.NativeBodySearchAuthorizedV1 | t.NativeInitialSourceSearchAuthorizedV1 | t.NativePlanRequestSearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
@@ -392,6 +500,18 @@ class SurfaceNativeExecutionV1(Strict):
         t.validate_provider_execution(self)
         roles = self.policy.provider_roles
         for event in self.events:
+            if isinstance(event, t.PlanRequestedWorkSelectedV1) and (
+                    (type(self.policy.action) is NativePlanActionV3)
+                    != (type(event) is NativePlanOpeningSelectedV2)):
+                raise ValueError('Plan work selection differs from its action contract version')
+            if type(event) is NativePlanOpeningSelectedV2 and event.author_scope_binding is not None:
+                binding = event.author_scope_binding
+                if binding != bind_opening_author_scope(
+                        self.model_copy(update={'events': self.events[:event.sequence]}),
+                        binding.observation_event_id, binding.observation):
+                    raise ValueError('Selected page edit intent differs from its actual author observations')
+                if event.scope_document_title != self.policy.action.document_title:
+                    raise ValueError('Bound opening selection title differs from the frozen Content title')
             if isinstance(event,t.ProviderOutcomeEventV1) and event.outcome=='response_received':
                 producer=next(e for e in self.events[:event.sequence]
                     if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and e.provider_attempt_id==event.provider_attempt_id)
@@ -410,7 +530,7 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError("Prior body evidence requires the unique producing Build work decision")
             if isinstance(event, BuildSavedStatblockReadV1):
                 validate_saved_statblock_read(event, self)
-            if isinstance(event, t.RelatedPageRead) and type(self.policy.action) not in (NativeBuildActionV1, NativePlanActionV2):
+            if isinstance(event, t.RelatedPageRead) and type(self.policy.action) not in (NativeBuildActionV1, NativePlanActionV2, NativePlanActionV3):
                 raise ValueError("Saved-page read lacks its actual surface capability")
             if isinstance(event, _PLAN_WORK_EVENTS) and not isinstance(self.policy.action, NativePlanActionV1):
                 raise ValueError("Plan work event cannot acquire another action family")
@@ -460,7 +580,7 @@ class SurfaceNativeExecutionV1(Strict):
                     validate_selection_origin(self,event)
                     if event.source_event_ids:
                         raise ValueError('Native World evidence cannot acquire a second classic source inclusion set')
-        elif type(self.policy.action) is NativePlanActionV2:
+        elif type(self.policy.action) in (NativePlanActionV2, NativePlanActionV3):
             from .build_related_pages import validate_events as validate_related_events
             validate_related_events(self)
         if isinstance(roles, t.GraphControllerWriterRolesV1):
@@ -556,6 +676,8 @@ def _join_context_binding(context, execution):
         from .play_graph_context import validate_work_intent
         validate_work_intent(work.play_basis, action.intent)
     assembled = context.assembled_input
+    if type(action) is NativePlanActionV3 and type(assembled) is not NativePlanRequestAdmissionV1:
+        raise ValueError('Contextual Plan requires current request-owned admission')
     if (not isinstance(assembled, NativePlanRequestAdmissionV1)
             and any(isinstance(e, t.NativePlanRequestSearchAuthorizedV1) for e in execution.events)):
         raise ValueError('Request-owned discovery requires its explicit Plan request-admission codec')

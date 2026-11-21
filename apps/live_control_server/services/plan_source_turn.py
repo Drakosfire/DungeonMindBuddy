@@ -45,14 +45,32 @@ def _plan_basis(work):
         revision_n=basis.revision_n, content_sha256=basis.content_sha256)
 
 
+def _contextual_document_title(basis):
+    """Read metadata only when it still belongs to this exact captured basis."""
+    from application_state.content.service import get_plan
+    from application_state.errors import ApplicationStateConflictError
+    obj = get_plan(str(basis.document_id))
+    if (str(obj.work_object_id) != str(basis.document_id)
+            or obj.world_id != basis.world_id or obj.status != 'active'
+            or obj.object_revision != basis.object_revision
+            or str(obj.current_revision_id) != str(basis.work_revision_id)):
+        raise ApplicationStateConflictError('Plan metadata changed before contextual request admission')
+    return obj.title
+
+
 def _native_plan_parts(request, basis, playable_target, submitted_intent):
     from application_state.agent_conversation.native_context import PlanWorkContextV1
-    from application_state.agent_conversation.native_execution import NativePlanActionV2
+    from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
     from .build_related_pages import discover
+    action_type = (NativePlanActionV3 if type(request.plan_placement_catalog) is PlanPlacementCatalogV2
+        and request.plan_authoring_capture.target_kind in {'insert_at_caret', 'replace_selection'} else NativePlanActionV2)
+    contextual = ({'document_title': _contextual_document_title(basis)}
+        if action_type is NativePlanActionV3 else {})
     return (PlanWorkContextV1(plan_basis=basis, plan_context_policy=request.plan_context_policy,
             playable_target=playable_target),
-        NativePlanActionV2(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
-            placement_catalog=request.plan_placement_catalog, related_page_catalog=discover(request)))
+        action_type(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
+            placement_catalog=request.plan_placement_catalog, related_page_catalog=discover(request), **contextual))
 
 
 def freeze_plan_request(request, work, playable_target, budget, *, authority, native_query,
