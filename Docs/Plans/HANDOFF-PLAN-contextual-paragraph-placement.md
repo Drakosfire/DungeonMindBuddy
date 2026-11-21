@@ -207,6 +207,20 @@ capture intersection, raw proof fields and confidence handling are unchanged.
 Eighteen host/native controls passed with the conditional question preparation;
 new actual DEV evidence remains required before acceptance.
 
+DEV688a is retained RED:17/22 work/target, five unnecessary clarifications
+(the two Preparation requests plus restatement, new-fragment-only and Rumours).
+The latter three ignored an explicit section discriminator. Five intended
+deliveries were core/clean,10/10 required questions and2/2 discussions useful;
+no wrong-target/negative authoring or source mutation in that run.
+
+The next small diagnostic uses the existing SDK's semantic option descriptions
+for include/exclude criteria and relation definitions. Exact prepared-wire
+validation now checks declared descriptions; historical null-description wires
+are unchanged. Forty-two native/opening controls passed. A separately frozen
+six-case diagnostic uses actual Jev with explicitly scripted prose to isolate
+nomination behavior, with zero OpenAI calls or real-writer quality claim. It
+does not replace full actual DEV22, fresh heldout or browser qualification.
+
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
 admission split and synthetic OpenAI/browser payload questions below. It covers

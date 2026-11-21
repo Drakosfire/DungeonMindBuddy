@@ -549,7 +549,7 @@ def validate_requested_work_wire(request: PlanRequestedWorkInputV1, raw: bytes) 
         q.name: {
             "type": "choice",
             "instructions": q.question,
-            "criteria": {option: None for option in q.options},
+            "criteria": {option: (q.option_descriptions or {}).get(option) for option in q.options},
         }
         for q in expected.questions
     }

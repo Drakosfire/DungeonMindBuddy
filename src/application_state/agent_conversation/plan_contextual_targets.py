@@ -166,8 +166,14 @@ def target_questions(request):
     }
     return (ChoiceDecisionQuestion(name='placement_relation', options=offered_relations(request),
         question='What single relation to an existing page anchor does the requested fragment use? '
-            'Ignore ordering inside the new fragment. Multiple page relations must be unresolved.'),
+            'Ignore ordering inside the new fragment. Multiple page relations must be unresolved.',
+        option_descriptions={key: RELATIONS[key] for key in offered_relations(request)}),
         *(ChoiceDecisionQuestion(name=f'anchor_{i}', options=('include', 'exclude'),
+            option_descriptions={
+                'include': 'The requested relation uses this kind of existing anchor AND the passage/heading and any author-chosen section match. '
+                    'With no section discriminator, every equal passage is a match, even in another section. There is no competition or unique-winner requirement.',
+                'exclude': 'The requested relation uses another anchor kind OR the existing passage/heading or author-chosen section does not match. '
+                    'Merely resembling the new content to write is not a match. Another equal match is never a reason to exclude this one.'},
             question=questions[anchor['kind']] + ' Reference data: '
                 + json.dumps(({key: anchor[key] for key in ('selector', 'kind', 'label')}
                     if anchor['kind'] == 'paragraph' else anchor), ensure_ascii=False)
