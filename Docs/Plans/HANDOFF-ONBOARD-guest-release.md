@@ -149,6 +149,12 @@ checks release revocation. It uses synthetic identities and directly stages and
 promotes a synthetic copy without Core validation; real sign-in, real source
 publication and hosted browser qualification remain unproven.
 
+Disposable PostgreSQL concurrency tests force both orders of promotion versus
+revocation of the previous copy. Revocation first invalidates the stale pointer
+basis; promotion first leaves the new pointer intact when the prior copy is
+revoked. Neither order permits restoration of the revoked copy. This tests the
+APP transaction boundary, not live Core source-withdrawal concurrency.
+
 Projection version `explicit_native_assertions_v3` displays known `dnd5e`,
 `dungeonbuddy`, and `dungeonbuddy.custom` terms with an explicit namespace
 distinction for every supported namespace. Unknown namespaces or unsafe term

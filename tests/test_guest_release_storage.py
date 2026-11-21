@@ -1,6 +1,7 @@
 """Database boundary checks for guest release state (no public routes)."""
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from threading import Event, current_thread
 from uuid import uuid4
 
 import psycopg
@@ -159,6 +160,57 @@ def test_asset_request_never_crosses_pointer_promotion(application_state_dsn):
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.public_asset(public_id, first, asset_id)
     assert guest_release.public_asset(public_id, second, asset_id) == ("image/png", b"second")
+
+
+@pytest.mark.parametrize("first_operation", ["revoke", "promote"])
+def test_promotion_and_revocation_serialize_without_reviving_release(application_state_dsn, monkeypatch, first_operation):
+    world = create_world(name="Promotion revocation race", owner_subject="owner").record.world_id
+    graph = _bind(application_state_dsn, world)
+    generation = guest_release.owner_generation(world_id=world, subject="owner")
+    def stage(title):
+        return guest_release.stage(world_id=world, subject="owner", expected_owner_generation=generation,
+                                   manifest={"title": title, "assets": []}, assets=[], **graph)
+    old, old_digest = stage("old")
+    public_id, version = _promote(world_id=world, subject="owner", release_id=old,
+                                  digest=old_digest, expected_version=0)
+    new, new_digest = stage("new")
+    owner = guest_release._owner
+    locked, release = Event(), Event()
+    def pause_first_owner_check(conn, world_id, subject):
+        result = owner(conn, world_id, subject)
+        if current_thread().name.startswith("guest-race") and not locked.is_set():
+            locked.set()
+            if not release.wait(5):
+                raise RuntimeError("race test failed to release first transaction")
+        return result
+    monkeypatch.setattr(guest_release, "_owner", pause_first_owner_check)
+    def revoke():
+        return guest_release.revoke(world_id=world, subject="owner", release_id=old)
+    def promote():
+        return _promote(world_id=world, subject="owner", release_id=new,
+                        digest=new_digest, expected_version=version)
+    first, second = (revoke, promote) if first_operation == "revoke" else (promote, revoke)
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="guest-race") as pool:
+        first_future = pool.submit(first)
+        assert locked.wait(5)
+        second_future = pool.submit(second)
+        try:
+            with pytest.raises(TimeoutError):
+                second_future.result(timeout=0.3)
+        finally:
+            release.set()
+        first_future.result(timeout=5)
+        if first_operation == "revoke":
+            with pytest.raises(ApplicationStateConflictError):
+                second_future.result(timeout=5)
+            with pytest.raises(ApplicationStateNotFoundError):
+                guest_release.public_manifest(public_id)
+        else:
+            second_future.result(timeout=5)
+            assert guest_release.public_manifest(public_id)[0] == new
+    with pytest.raises(ApplicationStateNotFoundError):
+        guest_release.restore(world_id=world, subject="owner", release_id=old,
+                              expected_version=version + 1)
 
 
 def test_source_visibility_change_and_restore_invalidates_candidate(application_state_dsn):
