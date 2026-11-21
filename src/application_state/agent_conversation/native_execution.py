@@ -22,7 +22,8 @@ from .native_context import (
 )
 from .native_statement_input import Strict
 from .native_corpus import prior_conversation_work
-from .plan_authoring import PlanAuthoringCaptureV1
+from .plan_authoring import PlanAuthoringComposedSnapshotV1, PlanAuthoringOpeningCapture
+from .plan_composed_targeting import ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1
 from .plan_placement import PlanPlacementCatalog
 
 from .native_retrieval import (
@@ -31,6 +32,7 @@ from .native_retrieval import (
 )
 from .native_plan_opening import (
     NativePlanAuthorScopeObservedV1, NativePlanOpeningScopeBindingV1, bind_opening_author_scope,
+    resolve_composed_opening,
 )
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
 from .native_plan_assertions import NativeGraphQueryV4, NativePlanAssertionReadObservedV2
@@ -93,7 +95,7 @@ class NativeBuildActionV1(Strict):
 class NativePlanActionV1(Strict):
     surface_id: Literal["plan"] = "plan"
     intent: Annotated[t.SubmittedTurnIntentV4 | t.SubmittedTurnIntentV3 | t.SubmittedTurnIntentV2, Field(discriminator="schema_")]
-    authoring_capture: PlanAuthoringCaptureV1 | None
+    authoring_capture: PlanAuthoringOpeningCapture | None
     placement_catalog: PlanPlacementCatalog | None
 
     @model_validator(mode="after")
@@ -106,6 +108,8 @@ class NativePlanActionV1(Strict):
                 or (capture is None) != (catalog is None)):
             raise ValueError("Plan capture/catalog differs from the submitted commitments")
         if capture is not None:
+            if type(capture) is PlanAuthoringComposedSnapshotV1 and type(self) is not NativePlanActionV3:
+                raise ValueError("Composed capture requires contextual Plan admission")
             if capture.world_id != self.intent.world_id or capture.document_id != self.intent.primary_work.object_id:
                 raise ValueError("Plan authoring capture belongs to different work")
             catalog.require_original(capture)
@@ -138,7 +142,7 @@ class NativePlanActionV2(NativePlanActionV1):
 
 
 class NativePlanActionV3(NativePlanActionV2):
-    """Current plain Plan resolves a complete semantic target set before writing."""
+    """Current Plan resolves a complete semantic target set before writing."""
     action_version: Literal['plan_contextual_targets_v3'] = 'plan_contextual_targets_v3'
     # Frozen Content metadata at plan_basis, never an inferred editor heading.
     # None supports source-only fixtures; it cannot bind a document-title ref.
@@ -147,6 +151,10 @@ class NativePlanActionV3(NativePlanActionV2):
     @model_validator(mode="after")
     def contextual_catalog(self):
         from .plan_placement import PlanPlacementCatalogV2
+        if type(self.placement_catalog) is ComposedPlanPlacementCatalogV1:
+            if type(self.authoring_capture) is not PlanAuthoringComposedSnapshotV1:
+                raise ValueError("Composed Plan requires its exact frozen snapshot")
+            return self
         if type(self.placement_catalog) is not PlanPlacementCatalogV2 or self.authoring_capture is None:
             raise ValueError("Contextual Plan requires its frozen paragraph catalog and capture")
         if self.authoring_capture.target_kind not in {'insert_at_caret', 'replace_selection'}:
@@ -369,7 +377,42 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
         return self
 
 
-NATIVE_PLAN_OPENING_SELECTION_TYPES = (NativePlanOpeningSelectedV1, NativePlanOpeningSelectedV2)
+class NativePlanOpeningSelectedV3(NativePlanOpeningSelectedV1):
+    """Retain the independent author interpretation and actual slot nomination."""
+    kind: Literal['native_plan_opening_selected_v3'] = 'native_plan_opening_selected_v3'
+    author_scope_binding: NativePlanOpeningScopeBindingV1
+    author_operation: Literal['discuss', 'write_current_page'] | None
+    scope_document_title: str
+    composed_nomination: ComposedPlanNominationV1
+    target_resolution: Literal['not_applicable', 'missing', 'unique', 'ambiguous', 'unresolved']
+
+    @model_validator(mode='after')
+    def applicable_read_plan(self):
+        active = self.requested_work == 'discuss'
+        if active != (self.operation is not None and self.post_read_plan is not None):
+            raise ValueError('Composed Plan opening read plan differs from its work')
+        if not active and (self.operation is not None or self.post_read_plan is not None or self.selected_handles):
+            raise ValueError('Inactive composed work cannot authorize reads')
+        return self
+
+    @model_validator(mode='after')
+    def exact_composed_resolution(self):
+        from .plan_authoring import parse_opening_capture
+        from .plan_placement import decode_plan_placement_catalog
+        capture = parse_opening_capture(self.original_capture)
+        catalog = decode_plan_placement_catalog(self.placement_catalog)
+        if type(capture) is not PlanAuthoringComposedSnapshotV1 or type(catalog) is not ComposedPlanPlacementCatalogV1:
+            raise ValueError('Composed opening requires its exact snapshot and catalog')
+        expected = resolve_composed_opening(capture, catalog, self.author_scope_binding,
+            self.composed_nomination, self.author_operation)
+        if any(getattr(self, key) != value for key, value in expected.items()):
+            raise ValueError('Composed opening differs from its complete target resolution')
+        return self
+
+
+NATIVE_PLAN_OPENING_SELECTION_TYPES = (
+    NativePlanOpeningSelectedV1, NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3,
+)
 NATIVE_PLAN_WORK_SELECTION_TYPES = (NativePlanRequestedWorkSelectedV3, *NATIVE_PLAN_OPENING_SELECTION_TYPES)
 
 
@@ -451,7 +494,7 @@ SurfaceNativeEvent = Annotated[
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | NativePlanOpeningAuthorizedV1
     | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
-    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1 | NativePlanOpeningSelectedV2
+    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1 | NativePlanOpeningSelectedV2 | NativePlanOpeningSelectedV3
     | t.NativeBodySearchAuthorizedV1 | t.NativeInitialSourceSearchAuthorizedV1 | t.NativePlanRequestSearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
@@ -499,18 +542,29 @@ class SurfaceNativeExecutionV1(Strict):
             raise ValueError("Native execution policy differs from its frozen commitment")
         t.validate_provider_execution(self)
         roles = self.policy.provider_roles
+        action = self.policy.action
+        contextual_selection = None
+        if type(action) is NativePlanActionV3:
+            contextual_selection = (NativePlanOpeningSelectedV3
+                if type(action.placement_catalog) is ComposedPlanPlacementCatalogV1
+                else NativePlanOpeningSelectedV2)
         for event in self.events:
-            if isinstance(event, t.PlanRequestedWorkSelectedV1) and (
-                    (type(self.policy.action) is NativePlanActionV3)
-                    != (type(event) is NativePlanOpeningSelectedV2)):
-                raise ValueError('Plan work selection differs from its action contract version')
-            if type(event) is NativePlanOpeningSelectedV2 and event.author_scope_binding is not None:
+            if isinstance(event, t.PlanRequestedWorkSelectedV1):
+                if (contextual_selection is not None and type(event) is not contextual_selection
+                    or contextual_selection is None and type(event) in (NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3)):
+                    raise ValueError('Plan work selection differs from its action contract version')
+            if type(event) in (NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3) and event.author_scope_binding is not None:
                 binding = event.author_scope_binding
                 if binding != bind_opening_author_scope(
                         self.model_copy(update={'events': self.events[:event.sequence]}),
                         binding.observation_event_id, binding.observation):
                     raise ValueError('Selected page edit intent differs from its actual author observations')
-                if event.scope_document_title != self.policy.action.document_title:
+                expected_title = action.document_title
+                if type(event) is NativePlanOpeningSelectedV3:
+                    expected_title = expected_title or ''
+                    if event.author_operation != getattr(action.intent, "plan_requested_operation", None):
+                        raise ValueError('Composed opening changed the submitted author operation')
+                if event.scope_document_title != expected_title:
                     raise ValueError('Bound opening selection title differs from the frozen Content title')
             if isinstance(event,t.ProviderOutcomeEventV1) and event.outcome=='response_received':
                 producer=next(e for e in self.events[:event.sequence]

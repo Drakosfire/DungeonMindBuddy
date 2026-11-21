@@ -468,8 +468,8 @@ def validate_decision_phases(execution):
                     "Plan controller must settle its decision before another provider"
                 )
             if identity == execution.policy.provider_roles.controller.identity():
-                from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2
-                if (type(native_action) is NativePlanActionV3 and type(intent) is NativePlanOpeningSelectedV2
+                from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3
+                if (type(native_action) is NativePlanActionV3 and type(intent) in (NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3)
                         and intent.requested_work == 'clarify'):
                     raise ValueError('Question-only Plan work cannot open factual retrieval')
                 if native_build and type(event) is t.ProviderAttemptAuthorizedEventV5:
@@ -536,9 +536,9 @@ def validate_decision_phases(execution):
                     if native_action is not None
                     else t.PlanJevWriterAuthorizedV1
                 )
-                from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2
+                from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3
                 question_only = (type(native_action) is NativePlanActionV3
-                    and type(intent) is NativePlanOpeningSelectedV2 and intent.requested_work == 'clarify')
+                    and type(intent) in (NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3) and intent.requested_work == 'clarify')
                 if (
                     not isinstance(event, writer_type)
                     or pending_author_nodes or pending_author_sources

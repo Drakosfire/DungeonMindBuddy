@@ -38,10 +38,10 @@ SCOPE_QUALIFIERS = {
 
 
 def current_resolution(execution):
-    from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2
+    from .native_execution import NativePlanActionV3, NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3
     if type(getattr(getattr(execution, 'policy', None), 'action', None)) is not NativePlanActionV3:
         return None
-    selections = [e for e in execution.events if type(e) is NativePlanOpeningSelectedV2]
+    selections = [e for e in execution.events if type(e) in (NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3)]
     if len(selections) > 1:
         raise ValueError("Contextual Plan has multiple work decisions")
     return selections[0] if selections else None
@@ -657,6 +657,15 @@ def clarification_question(selection):
     """A fixed target question follows the retained set, never a source-text guess."""
     if selection.requested_work != "clarify":
         raise ValueError("Question requested for non-clarification work")
+    from .native_execution import NativePlanOpeningSelectedV3
+    if type(selection) is NativePlanOpeningSelectedV3:
+        if selection.target_resolution == 'ambiguous':
+            return 'Which row and column contain the paragraph you want me to use?'
+        if selection.target_resolution == 'missing':
+            return 'Which existing paragraph should I use? You can quote it or name its row and column.'
+        if selection.author_scope_binding.page_edit_intent != 'page_edit':
+            return 'Would you like wording in chat, or a Plan edit to review?'
+        return 'Which existing paragraph should the new prose go before or after?'
     if selection.requested_intent != 'write_current_page':
         return None  # Raw clarification owns content/work; only normalized writing owns a target question.
     binding = getattr(selection, 'author_scope_binding', None)

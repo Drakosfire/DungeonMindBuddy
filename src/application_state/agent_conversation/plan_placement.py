@@ -5,6 +5,7 @@ import re
 from typing import Annotated, Literal
 from pydantic import BeforeValidator, Field, model_validator
 from .authored_graph_references import AuthoredReferencesV2
+from .plan_composed_targeting import ComposedPlanPlacementCatalogV1
 
 from .plan_authoring import (
     Frozen, PlanAuthoringCaptureV1, PlanAuthoringBoundaryCaptureV1,
@@ -265,21 +266,23 @@ class PlanPlacementCatalogV2(PlanPlacementCatalogV1):
         return self
 
 
-def decode_plan_placement_catalog(value) -> PlanPlacementCatalogV2 | PlanPlacementCatalogV1:
+def decode_plan_placement_catalog(value) -> ComposedPlanPlacementCatalogV1 | PlanPlacementCatalogV2 | PlanPlacementCatalogV1:
     """Decode retained catalog versions explicitly; preserve legacy defaults."""
-    if isinstance(value, PlanPlacementCatalogV1):
+    if isinstance(value, (PlanPlacementCatalogV1, ComposedPlanPlacementCatalogV1)):
         value = value.model_dump(mode="json", by_alias=True)
     if not isinstance(value, dict):
         raise ValueError("Plan placement catalog must be a versioned object")
     if value.get("schema") == "dmb_plan_placement_catalog_v2":
         return PlanPlacementCatalogV2.model_validate(value)
+    if value.get("schema") == "dmb_composed_plan_placement_catalog_v1":
+        return ComposedPlanPlacementCatalogV1.model_validate(value)
     # V1 historically allowed its default schema to be omitted. Unknown explicit
     # schemas still fail V1's Literal check; they never fall back to a V2 guess.
     return PlanPlacementCatalogV1.model_validate(value)
 
 
 PlanPlacementCatalog = Annotated[
-    PlanPlacementCatalogV2 | PlanPlacementCatalogV1,
+    ComposedPlanPlacementCatalogV1 | PlanPlacementCatalogV2 | PlanPlacementCatalogV1,
     BeforeValidator(decode_plan_placement_catalog),
 ]
 

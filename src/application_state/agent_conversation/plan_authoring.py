@@ -315,6 +315,13 @@ PlanAuthoringCapture = (
     | PlanAuthoringBoundaryCaptureV1
     | PlanAuthoringCaptureV1
 )
+PlanAuthoringOpeningCapture = PlanAuthoringComposedSnapshotV1 | PlanAuthoringCaptureV1
+
+
+def parse_opening_capture(value) -> PlanAuthoringOpeningCapture:
+    from pydantic import TypeAdapter
+
+    return TypeAdapter(PlanAuthoringOpeningCapture).validate_python(value)
 
 
 def parse_authoring_capture(value):
@@ -685,7 +692,7 @@ def validate_prepared_requested_work(
         validate_requested_work_wire(request, prepared.body)
 
 
-def lock_plan_basis(conn, basis: PlanAuthoringBasisV1) -> None:
+def lock_plan_basis(conn, basis: PlanAuthoringBasisV1, *, presentation_sha256: str | None = None) -> None:
     """After action→pointer→conversation→turn locks, pin the current Plan owner."""
     from application_state.content import repository as content
     from application_state.errors import ApplicationStateConflictError
@@ -709,6 +716,14 @@ def lock_plan_basis(conn, basis: PlanAuthoringBasisV1) -> None:
         raise ApplicationStateConflictError(
             "Plan changed before authoring authorization; the request is retained"
         )
+    if presentation_sha256 is not None:
+        from application_state.content.page_presentation import read
+
+        layout = read(conn, revision)
+        if layout is None or layout.fingerprint() != presentation_sha256:
+            raise ApplicationStateConflictError(
+                "Plan layout changed before authoring authorization; the request is retained"
+            )
 
 
 def _authoring_binding(receipt, execution):
@@ -784,12 +799,16 @@ def reserve_authoring_locked(
         }
     )
     target = capture.playable_target
+    composed = isinstance(capture, PlanAuthoringSlotBoundaryCaptureV1)
     request = PlanActionReservation(
         idempotency_key=capture.idempotency_key,
         request_fingerprint=fingerprint,
-        action_type="compose" if capture.target_kind in {"insert_at_caret", "insert_at_boundary"} else "revise",
+        action_type="compose" if capture.target_kind in {
+            "insert_at_caret", "insert_at_boundary", "insert_at_slot_boundary",
+        } else "revise",
         basis=PlanActionBasis.model_validate(basis.model_dump()),
-        draft_matches_basis=capture.draft_sha256 == basis.content_sha256,
+        draft_matches_basis=capture.draft_sha256 == basis.content_sha256
+        and (not composed or capture.draft_page_presentation_sha256 == capture.base_page_presentation_sha256),
         draft_sha256=capture.draft_sha256,
         target_kind=capture.target_kind,
         selected_text_sha256=text_digest(capture.selected_text)
@@ -881,7 +900,7 @@ def reserve_authoring_locked(
     from .retry import require_leaf
 
     require_leaf(conn, turn)
-    lock_plan_basis(conn, basis)
+    lock_plan_basis(conn, basis, presentation_sha256=capture.base_page_presentation_sha256 if composed else None)
     choice = choices[0]
     origin = PlanJevAuthoringReservationV1(
         action_id=action.action_id,
@@ -970,12 +989,13 @@ def authored_markdown(result, *, execution=None) -> str:
     from .native_plan_assertions import NativeAssertionPdfCitationV1
     from .native_execution import NATIVE_PLAN_ACTION_TYPES
     from .plan_placement import PlanPlacementCatalogV2
+    from .plan_composed_targeting import ComposedPlanPlacementCatalogV1
     from .types import SurfaceLimitationV1
     from .session_summary_projection import summary_markdown
     envelope, evidence = turn_parts(result)
     action = getattr(getattr(execution, "policy", None), "action", None)
     paragraph_placement = (isinstance(action, NATIVE_PLAN_ACTION_TYPES)
-        and type(action.placement_catalog) is PlanPlacementCatalogV2)
+        and type(action.placement_catalog) in (PlanPlacementCatalogV2, ComposedPlanPlacementCatalogV1))
     def keep(completion, index):
         # Disclosure stays in the admitted conversation. Only this unreleased
         # catalog's authored projection excludes typed host status; older
@@ -1367,4 +1387,10 @@ def validate_authoring_writer(conn, action, turn, event):
             raise ApplicationStateValidationError(
                 "Plan writer differs from the admitted action and actual semantic choice"
             )
-        lock_plan_basis(conn, origin.basis)
+        from .native_execution import NativePlanOpeningSelectedV3
+
+        presentation_sha256 = None
+        if type(choices[0]) is NativePlanOpeningSelectedV3:
+            capture = parse_opening_capture(choices[0].original_capture)
+            presentation_sha256 = capture.base_page_presentation_sha256
+        lock_plan_basis(conn, origin.basis, presentation_sha256=presentation_sha256)

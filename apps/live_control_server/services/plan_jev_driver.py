@@ -863,7 +863,7 @@ class PlanJevDriver:
         if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanAuthoringPolicyV1):
             capture = a.request.plan_authoring_capture
             if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanPlacementAuthoringPolicyV1):
-                from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1
+                from application_state.agent_conversation.plan_authoring import parse_opening_capture
                 from application_state.agent_conversation.plan_placement import decode_plan_placement_catalog
                 choices=[event for event in a.fence.turn.graph_context_execution.events
                     if isinstance(event,t.PlanRequestedWorkSelectedV2)]
@@ -872,7 +872,7 @@ class PlanJevDriver:
                 choice=choices[0]
                 proof['original_authoring_capture']=choice.original_capture
                 proof['placement_catalog']=choice.placement_catalog
-                capture=PlanAuthoringCaptureV1.model_validate(choice.original_capture) if choice.original_capture is not None else None
+                capture=parse_opening_capture(choice.original_capture) if choice.original_capture is not None else None
                 if choice.requested_work=='write_current_page':
                     if capture is None or choice.placement_catalog is None or choice.placement_selector is None:
                         raise ValueError('Plan writing has no resolved offered target')

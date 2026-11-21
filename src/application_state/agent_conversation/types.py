@@ -4627,14 +4627,14 @@ class PlanRequestedWorkSelectedV2(PlanRequestedWorkSelectedV1):
 
     @model_validator(mode="after")
     def retained_placement_proof(self):
-        from .plan_authoring import PlanAuthoringCaptureV1
+        from .plan_authoring import parse_opening_capture
         from .plan_placement import decode_plan_placement_catalog
         if (self.original_capture is None) != (self.original_capture_sha256 is None):
             raise ValueError('Plan placement requires its retained original capture')
         if (self.placement_catalog is None) != (self.placement_catalog_sha256 is None):
             raise ValueError('Plan placement requires its retained offered catalog')
         if self.original_capture is not None:
-            original=PlanAuthoringCaptureV1.model_validate(self.original_capture)
+            original=parse_opening_capture(self.original_capture)
             if original.sha256!=self.original_capture_sha256 or self.placement_catalog is None:
                 raise ValueError('Plan placement original differs from its retained proof')
             catalog=decode_plan_placement_catalog(self.placement_catalog)

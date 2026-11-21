@@ -137,7 +137,10 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
             raise ValueError('Plan placement authorization differs from its current policy')
         parent_value = strict_json(parent)
         schema = parent_value.get("schema") if isinstance(parent_value, dict) else None
-        from .native_plan_opening import NativePlanOpeningInputV1, NativePlanOpeningInputV2, NATIVE_PLAN_OPENING_INPUT_TYPES, validate_opening_parent
+        from .native_plan_opening import (
+            NativePlanOpeningInputV1, NativePlanOpeningInputV2, NativePlanOpeningInputV3,
+            NATIVE_PLAN_OPENING_INPUT_TYPES, opening_input_type, validate_opening_parent,
+        )
         from .native_retrieval import NativePlanOpeningAuthorizedV1
         if placement:
             parent_type = {
@@ -150,6 +153,7 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
                 "dmb_plan_requested_work_input_v8": PlanRequestedWorkInputV8,
                 'dmb_native_plan_opening_input_v1': NativePlanOpeningInputV1,
                 'dmb_native_plan_opening_input_v2': NativePlanOpeningInputV2,
+                'dmb_native_plan_opening_input_v3': NativePlanOpeningInputV3,
             }.get(schema)
         else:
             parent_type = PlanRequestedWorkInputV1 if schema == "dmb_plan_requested_work_input_v1" else None
@@ -159,7 +163,11 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
         if (type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES) != (type(auth) is NativePlanOpeningAuthorizedV1):
             raise ValueError('Opening work requires its exact combined SDK producer')
         from .native_execution import NativePlanActionV3
-        if (type(native_action) is NativePlanActionV3) != (type(request) is NativePlanOpeningInputV2):
+        if (
+            (type(native_action) is NativePlanActionV3
+                or type(request) in (NativePlanOpeningInputV2, NativePlanOpeningInputV3))
+            and type(request) is not opening_input_type(native_action)
+        ):
             raise ValueError('Contextual target-set producer differs from its actual action version')
         if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
             validate_opening_parent(receipt, execution, request, auth)
@@ -270,11 +278,21 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             raise ValueError('Author scope observation differs from its exact SDK result')
     elif semantic:
         from .plan_authoring import decode_requested_work_decision
-        from .native_plan_opening import NativePlanOpeningInputV1, NativePlanOpeningInputV2, NATIVE_PLAN_OPENING_INPUT_TYPES, decode_opening_decision
-        from .native_execution import NativePlanOpeningSelectedV1, NativePlanOpeningSelectedV2, NATIVE_PLAN_OPENING_SELECTION_TYPES, NATIVE_PLAN_WORK_SELECTION_TYPES
+        from .native_plan_opening import (
+            NativePlanOpeningInputV1, NativePlanOpeningInputV2, NativePlanOpeningInputV3,
+            NATIVE_PLAN_OPENING_INPUT_TYPES, composed_opening_fields, decode_opening_decision,
+        )
+        from .native_execution import (
+            NativePlanOpeningSelectedV1, NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3,
+            NATIVE_PLAN_OPENING_SELECTION_TYPES, NATIVE_PLAN_WORK_SELECTION_TYPES,
+        )
         from .plan_placement import PlanRequestedWorkInputV2
         if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
-            expected_type = NativePlanOpeningSelectedV2 if type(request) is NativePlanOpeningInputV2 else NativePlanOpeningSelectedV1
+            expected_type = {
+                NativePlanOpeningInputV1: NativePlanOpeningSelectedV1,
+                NativePlanOpeningInputV2: NativePlanOpeningSelectedV2,
+                NativePlanOpeningInputV3: NativePlanOpeningSelectedV3,
+            }[type(request)]
             if type(event) is not expected_type:
                 raise ValueError('Combined opening result requires its exact atomic selection')
             selected, batch = decode_opening_decision(request, result)
@@ -293,9 +311,16 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             from .plan_placement import PlanRequestedWorkInputV8
             if isinstance(request, PlanRequestedWorkInputV8) != (type(event) in NATIVE_PLAN_WORK_SELECTION_TYPES):
                 raise ValueError('Plan selected work differs from its exact decision codec')
-            fields = work_choice(request, selected, **({'contextual_answers':
-                {k: v.selected for k, v in result.answers.items()}}
-                if type(request) is NativePlanOpeningInputV2 else {}))
+            if type(request) is NativePlanOpeningInputV3:
+                fields = composed_opening_fields(request, result) | {
+                    "author_scope_binding": request.author_scope_binding,
+                    "author_operation": request.plan_requested_operation,
+                    "scope_document_title": request.page_title,
+                }
+            else:
+                fields = work_choice(request, selected, **({'contextual_answers':
+                    {k: v.selected for k, v in result.answers.items()}}
+                    if type(request) is NativePlanOpeningInputV2 else {}))
             if (any(getattr(event, key) != value for key, value in fields.items())
                     or event.original_capture != (request.original_capture.model_dump(mode='json',by_alias=True) if request.original_capture is not None else None)
                     or event.placement_catalog != (request.placement_catalog.model_dump(mode='json',by_alias=True) if request.placement_catalog is not None else None)

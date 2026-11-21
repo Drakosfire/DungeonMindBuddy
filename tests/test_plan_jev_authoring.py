@@ -2002,3 +2002,143 @@ def test_under_heading_selection_survives_actual_dispatch_reservation_and_retain
     again, fresh_again = plan_adapter.service.reserve_plan_authoring_action(
         capture=capture, turn_id=turn.turn_id, expected_revision=turn.revision)
     assert not fresh_again and again.action_id == action.action_id
+
+
+@pytest.mark.parametrize("outcome", ["selected", "ambiguous", "stale_layout", "foreign"])
+def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tmp_path, outcome):
+    from dataclasses import replace
+
+    from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV3
+    from application_state.agent_conversation.native_plan_assertions import POLICY
+    from application_state.agent_conversation.plan_authoring import text_digest
+    from application_state.content.service import commit_plan, snapshot_plan
+    from application_state.plan_action_dialogue.service import PlanActionDialogueService
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError, execute_agent_turn
+    from tests.application_state.test_plan_authoring_review import composed_plan, LEFT, RIGHT, ENDING
+    from tests.test_plan_jev_harness import Finish, route_case
+    from tests.test_plan_jev_writer import WriterWire
+
+    original, _ = admitted_authoring(plan_adapter, admit=False)
+    markdown, layout, editor = composed_plan([LEFT], [RIGHT], ENDING)
+    obj, revision = commit_plan(
+        original.document_id, markdown, expected_revision=original.base_revision,
+        expected_world_id=original.world_id, page_presentation=layout,
+    )
+    work = plan_adapter.work
+    plan_adapter.work = replace(
+        work, revision=obj.object_revision, plan_markdown=markdown,
+        content_basis=work.content_basis.model_copy(update=dict(
+            object_revision=obj.object_revision, work_revision_id=str(revision.work_revision_id),
+            revision_n=revision.revision_n, content_sha256=revision.content_sha256,
+        )),
+    )
+    raw = plan_adapter.request.model_dump(mode="json", by_alias=True)
+    raw["primary_work"].update(
+        expected_revision=obj.object_revision, expected_revision_n=revision.revision_n,
+        expected_content_sha256=revision.content_sha256,
+    )
+    raw["plan_placement_catalog"] = None
+    raw["plan_context_policy"] = {"policy": "auto_plan_world", "graph_source": "reviewed_native_graph"}
+    raw["message"] = ("Insert a lantern warning after the locked gate in the right column."
+                      if outcome == "selected" else "Insert a lantern warning after the locked gate.")
+    raw["plan_authoring_capture"].update(
+        schema="dmb_plan_authoring_composed_snapshot_v1", target_kind="offer_slot_placement",
+        base_revision=obj.object_revision, base_content_sha256=revision.content_sha256,
+        editor_json=editor, editor_sha256=text_digest(editor), draft_markdown=markdown,
+        draft_sha256=text_digest(markdown), base_page_presentation_sha256=layout.fingerprint(),
+        draft_page_presentation=layout.model_dump(mode="json", by_alias=True),
+        draft_page_presentation_sha256=layout.fingerprint(),
+    )
+    if outcome == "foreign":
+        raw["plan_authoring_capture"]["world_id"] = "world:foreign"
+        with pytest.raises(ValidationError):
+            AgentTurnRequest.model_validate(raw)
+        assert snapshot_plan(original.document_id).page_presentation == layout
+        return
+    if outcome == "stale_layout":
+        raw["plan_authoring_capture"]["base_page_presentation_sha256"] = "a" * 64
+    request = AgentTurnRequest.model_validate(raw)
+    capture = request.plan_authoring_capture
+    harness, _, wire, kwargs = route_case(plan_adapter, tmp_path)
+    kwargs["plan_graph_resolver"] = lambda *_: pytest.fail("Unexpected classic Graph fallback")
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
+    kwargs["native_graph_query_resolver"] = lambda *_: (
+        None, NativePlanQueryUnavailableV1(
+            managed_world_id=capture.world_id, reason="native_graph_head_unavailable"),
+    )
+
+    class ComposedChoices(Finish):
+        async def handle_async_request(self, request):
+            body = json.loads(request.content)
+            questions = body["questions"]
+            if "existing_scope" in questions:
+                choices = dict(location_relation="after_paragraph", existing_scope="none",
+                               page_edit_intent="page_edit")
+            elif "confirmed_work" in questions:
+                locations = {row["alias"]: row["description"] for row in body["state"]["locations"]}
+                choices = dict(confirmed_work="write_current_page", relation="after", row_choice="any_row",
+                               scope="qualified" if outcome == "selected" else "unscoped")
+                choices.update({name: "include" for name in questions if name.startswith("passage")})
+                choices.update({
+                    alias: "include" if outcome == "selected" and "right column" in label else "exclude"
+                    for alias, label in locations.items()
+                })
+                choices.update({name: "exclude" for name in questions if name.startswith("candidate_")})
+                choices.update(operation="finish_retrieval", post_read_plan="review_after_reads")
+            else:
+                return await super().handle_async_request(request)
+            assert capture.document_id not in request.content.decode()
+            assert capture.draft_page_presentation_sha256 not in request.content.decode()
+            self.calls.append(request)
+            answers = {name: dict(type="choice", choice=choice, confidence=1,
+                probabilities={key: float(key == choice) for key in questions[name]["criteria"]})
+                for name, choice in choices.items()}
+            return httpx2.Response(200, request=request, json=dict(
+                model=body["model"], answers=answers, usage=dict(input_tokens=31, output_tokens=7)))
+
+    class ComposedWriter(WriterWire):
+        async def handle_async_request(self, request):
+            body = json.loads(request.content)
+            self.adapter = wire.adapter
+            assert capture.draft_page_presentation_sha256 not in request.content.decode()
+            if outcome == "ambiguous":
+                response = {"question": body["text"]["format"]["schema"]["properties"]["question"]["enum"][0]}
+            else:
+                response = dict(schema=POLICY, answer_segments=[dict(
+                    kind="proposal", label="invented_idea", text="Keep a lantern ready.",
+                )], limitations=[], requested_detail_gaps=[])
+            self.text = json.dumps(response)
+            return await super().handle_async_request(request)
+
+    decisions, writer = ComposedChoices(), ComposedWriter(None, "")
+    harness.decision_transport, harness.writer_transport = decisions, writer
+    if outcome == "stale_layout":
+        with pytest.raises(AgentTurnServiceError):
+            execute_agent_turn(request, **kwargs)
+        assert not decisions.calls and not writer.calls
+        assert PlanActionDialogueService().get_by_key(capture.world_id, capture.idempotency_key) is None
+        assert snapshot_plan(capture.document_id).page_presentation == layout
+        return
+    response = execute_agent_turn(request, **kwargs)
+    assert response.answer.status == "ok"
+    turn = kwargs["conversation_service"].inspect_turn(
+        world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id,
+    )
+    [selection] = [event for event in turn.graph_context_execution.events
+                   if type(event) is NativePlanOpeningSelectedV3]
+    calls = len(decisions.calls), len(writer.calls)
+    replay = execute_agent_turn(request, **kwargs)
+    assert (len(decisions.calls), len(writer.calls)) == calls
+    assert replay.plan_context.delivery_replay
+    snapshot = snapshot_plan(capture.document_id)
+    assert snapshot.markdown == markdown and snapshot.page_presentation == layout
+    action = PlanActionDialogueService().get_by_key(capture.world_id, capture.idempotency_key)
+    if outcome == "selected":
+        assert selection.target_resolution == "unique"
+        assert response.plan_proposal is not None
+        assert response.plan_proposal.capture.slot_address.slot_id == "right"
+        assert replay.plan_proposal == response.plan_proposal
+        assert action is not None and action.target_kind == "insert_at_slot_boundary"
+    else:
+        assert selection.target_resolution == "ambiguous"
+        assert response.plan_proposal is None and action is None

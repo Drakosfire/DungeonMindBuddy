@@ -16,6 +16,13 @@ from .plan_author_location import (
     author_scope_hypotheses, author_scope_offer_view,
 )
 from .plan_placement import PlanRequestedWorkInputV8, PlanRequestedWorkInputV9
+from .plan_authoring import PlanAuthoringComposedSnapshotV1, PlanRequestedWorkInputV1
+from .plan_composed_targeting import (
+    ComposedPlanPlacementCatalogV1,
+    composed_nomination_from_answers,
+    prepare_composed_plan_nomination,
+    resolve_composed_plan_nomination,
+)
 from .jev_retrieval_contract import Digest, NativePlanBatchDecisionInputV3, RetrievalDialogue
 
 
@@ -80,7 +87,55 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
         default=None, exclude_if=lambda value: value is None)
 
 
-NATIVE_PLAN_OPENING_INPUT_TYPES = (NativePlanOpeningInputV1, NativePlanOpeningInputV2)
+class NativePlanOpeningInputV3(NativePlanOpeningInputV1):
+    schema_: Literal['dmb_native_plan_opening_input_v3'] = Field(
+        default='dmb_native_plan_opening_input_v3', alias='schema')
+    placement_catalog: ComposedPlanPlacementCatalogV1
+    original_capture: PlanAuthoringComposedSnapshotV1
+    author_scope_binding: NativePlanOpeningScopeBindingV1
+
+
+NATIVE_PLAN_OPENING_INPUT_TYPES = (
+    NativePlanOpeningInputV1, NativePlanOpeningInputV2, NativePlanOpeningInputV3,
+)
+
+
+def opening_input_type(action):
+    from .native_execution import NativePlanActionV3
+    if type(action) is NativePlanActionV3:
+        if type(action.placement_catalog) is ComposedPlanPlacementCatalogV1:
+            return NativePlanOpeningInputV3
+        return NativePlanOpeningInputV2
+    return NativePlanOpeningInputV1
+
+
+def _composed_work_request(request):
+    author = PlanRequestedWorkInputV1(
+        request_id=request.request_id, parent_attempt_id=request.parent_attempt_id,
+        scope_sha256=request.scope_sha256, question=request.question, page_title=request.page_title,
+        dialogue=tuple({"role": row.role, "content": row.content} for row in request.dialogue),
+        target_available=False,
+    )
+    return prepare_composed_plan_nomination(author, request.original_capture, request.placement_catalog)
+
+
+def resolve_composed_opening(snapshot, catalog, binding, nomination, operation):
+    if operation == 'discuss' or binding.page_edit_intent == 'discussion':
+        intent = 'discuss'
+    elif nomination.confirmed_work == 'different_destination':
+        intent = 'different_destination'
+    elif binding.page_edit_intent != 'page_edit':
+        intent = 'clarify'
+    else:
+        intent = 'write_current_page'
+    resolved = resolve_composed_plan_nomination(snapshot, catalog, intent, nomination)
+    capture = resolved.capture
+    return {
+        'requested_work': resolved.work,
+        'target_resolution': resolved.resolution,
+        'placement_selector': catalog.selector_for(capture.slot_address) if capture is not None else None,
+        'target_capture_sha256': capture.sha256 if capture is not None else None,
+    }
 
 _CAPTURE_REWRITE = re.compile(r'^\s*(?:please\s+)?(?:rewrite|replace|revise|edit|update)\s+'
     r'(?:(?:the|my)\s+)?(?:selected|highlighted)\s+(?:paragraph|text|passage)\b', re.IGNORECASE)
@@ -407,7 +462,7 @@ def prepare_opening_decision(request):
     from .plan_authoring import _prepare_requested_work_only
     from .jev_retrieval_contract import prepare_decision
     from generationengine.types import DecisionRequest
-    work = _prepare_requested_work_only(request)
+    work = _composed_work_request(request) if type(request) is NativePlanOpeningInputV3 else _prepare_requested_work_only(request)
     navigation = prepare_decision(request)
     state = dict(navigation.state)
     state.pop('question')  # The same actual request is user_request below.
@@ -422,7 +477,7 @@ def prepare_opening_decision(request):
         'Judge relevance within that declared applicability, not general background. '
         'Fallback applies only when all applicable candidate votes exclude. '
         'An inactive vote grants no read and never counts toward successful completion.')
-    if type(request) is NativePlanOpeningInputV2:
+    if type(request) in (NativePlanOpeningInputV2, NativePlanOpeningInputV3):
         state['conditional_read_plan_policy'] = (
             'Only resolved discussion uses the navigation votes. Writing, location/content '
             'clarification, another destination and connected-page review keep these votes '
@@ -435,21 +490,45 @@ def prepare_opening_decision(request):
         state=state, questions=(*work.questions, *questions), max_transport_retries=0)
 
 
+def _composed_opening_fields(request, answers):
+    work = _composed_work_request(request)
+    nomination = composed_nomination_from_answers(work, {q.name: answers[q.name] for q in work.questions})
+    return resolve_composed_opening(
+        request.original_capture, request.placement_catalog,
+        request.author_scope_binding, nomination, request.plan_requested_operation,
+    ) | {"composed_nomination": nomination}
+
+
+def composed_opening_fields(request, result):
+    from .jev_retrieval_contract import validated_choice_answers
+    answers = validated_choice_answers(result, {q.name for q in prepare_opening_decision(request).questions})
+    return _composed_opening_fields(request, answers)
+
+
 def decode_opening_decision(request, result):
     from .jev_retrieval_contract import validated_choice_answers, _selection_from_choices, _validate_selection_choices
     from .plan_authoring import requested_work_choice
     from .plan_placement import work_choice
-    expected = {'requested_work', 'operation', 'post_read_plan',
+    composed = type(request) is NativePlanOpeningInputV3
+    expected = {'operation', 'post_read_plan',
         *(f'candidate_{i}' for i in range(len(request.candidates)))}
-    if type(request) is NativePlanOpeningInputV2:
-        from .plan_contextual_targets import target_answer_keys
-        expected.update(target_answer_keys(request))
+    if composed:
+        expected.update(q.name for q in _composed_work_request(request).questions)
+    else:
+        expected.add('requested_work')
+        if type(request) is NativePlanOpeningInputV2:
+            from .plan_contextual_targets import target_answer_keys
+            expected.update(target_answer_keys(request))
     answers = validated_choice_answers(result, expected)
-    selected_work = requested_work_choice(request, answers['requested_work'])
-    actual_work = work_choice(request, selected_work, **(
-        {'contextual_answers': answers}
-        if type(request) is NativePlanOpeningInputV2 else {}))['requested_work']
-    if type(request) is NativePlanOpeningInputV2 and actual_work != 'discuss':
+    if composed:
+        selected_work = answers["confirmed_work"]
+        actual_work = _composed_opening_fields(request, answers)["requested_work"]
+    else:
+        selected_work = requested_work_choice(request, answers['requested_work'])
+        actual_work = work_choice(request, selected_work, **(
+            {'contextual_answers': answers}
+            if type(request) is NativePlanOpeningInputV2 else {}))['requested_work']
+    if type(request) in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) and actual_work != 'discuss':
         _validate_selection_choices(request, answers)
         return selected_work, None
     if actual_work not in {'discuss', 'clarify'}:
@@ -464,10 +543,9 @@ def validate_opening_parent(context, execution, parent, authorization):
     from .native_context import NativePlanRequestAdmissionV1
     from .native_retrieval import NativePlanOpeningAuthorizedV1
     from .plan_jev_decision import _source_pins
-    from .native_execution import NativePlanActionV3
-    if (type(execution.policy.action) is NativePlanActionV3) != (type(parent) is NativePlanOpeningInputV2):
+    if type(parent) is not opening_input_type(execution.policy.action):
         raise ValueError('Opening input differs from the actual target-resolution contract')
-    if (type(parent) is NativePlanOpeningInputV2
+    if (type(parent) in (NativePlanOpeningInputV2, NativePlanOpeningInputV3)
             and parent.page_title != (execution.policy.action.document_title or '')):
         raise ValueError('Opening title differs from its frozen Content metadata')
     if (type(parent) not in NATIVE_PLAN_OPENING_INPUT_TYPES
