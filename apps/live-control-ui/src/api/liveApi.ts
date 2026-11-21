@@ -4330,7 +4330,8 @@ export async function prewarmPlanSource(worldId: string, signal: AbortSignal): P
     if (!nativeGraphAccessToken && nativeGraphCsrf) headers["X-DMB-Graph-CSRF"] = nativeGraphCsrf;
   }
   const response = await fetch(target.url, {
-    ...init, cache: "no-store", redirect: "error", credentials: "same-origin", mode: "same-origin",
+    ...init, cache: "no-store", redirect: "error", credentials: "same-origin",
+    ...(target.hostedGraphRequest ? {mode: "same-origin" as const} : {}),
     headers: target.hostedGraphRequest ? hostedGraphHeaders(path, headers) : nativeGraphHeaders(path, body, headers),
   });
   if (response.status !== 204) throw new LiveApiError("Plan source prewarm was unavailable.", response.status);
