@@ -137,7 +137,8 @@ def _advance(state, query, events):
             keys = {(assertion, identity) for identity in ids}
             if (writer or not response_received or selection is None
                     or not selection.select_candidates or event.provider_attempt_id != provider
-                    or not isinstance(query, NativePlanQueryV1) or event.query_sha256 != query.sha256
+                    or not isinstance(query, NativePlanQueryV1)
+                    or event.query_sha256 != (catalog.query_sha256 if catalog is not None else query.sha256)
                     or not set(ids) <= set(matches) or attempted & keys
                     or not selected_closure):
                 raise ValueError('Native selected read lacks its exact current controller/query grant')
