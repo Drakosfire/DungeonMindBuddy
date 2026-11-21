@@ -140,8 +140,11 @@ the exact two requested sentences. The earlier capture mismatch remains open.
   `a979e5f6-89c8-4f93-bea4-6ec87320b2bf` in Buddy Cloud Pilot Ingest showed
   the same revision 5 source text, its two saved callouts, and five accepted
   Graph changes. No authoring composer or delegation was offered in the review,
-  so the request was ineligible for submission. The UI comparison confirms
-  visible text and source identity. A byte-level comparison remains pending.
+  so the request was ineligible for submission. After later Build edits, the
+  retained extraction source still matched all 237 UTF-8 bytes and the
+  SHA-256 digest of the original immutable content revision. Workspace
+  revision 5 identified the extraction input, and content revision 4 stored
+  its matching bytes.
 
 ### Hosted Plan selected-callout rewrite
 
