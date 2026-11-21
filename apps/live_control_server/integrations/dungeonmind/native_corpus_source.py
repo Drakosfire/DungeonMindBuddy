@@ -1,6 +1,7 @@
 """Trusted, read-only native corpus composition through existing Core access."""
 from __future__ import annotations
 
+from contextlib import ExitStack
 from dataclasses import dataclass, replace
 from functools import cached_property
 from types import MappingProxyType
@@ -11,6 +12,7 @@ from dungeonmind.application.vnext import (
     open_admitted_native_text,
     open_native_text_source_access_context,
     refresh_native_text_source_access_context,
+    refresh_native_text_source_access_scope,
 )
 from dungeonmind.application.vnext.errors import KnowledgeReadContextIntegrityError
 from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
@@ -253,31 +255,32 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
 
 def read_native_corpus_member(*, authority, member, principal, prepared):
     """Refresh Core source access while reusing the prepared exact Graph revision."""
-    fresh = _refresh_native_context(prepared, authority=authority, principal=principal)
-    evidence = fresh.access.parsed.evidence_by_id.get(member.evidence_ref_id)
-    if (evidence is None or evidence.source_artifact_id != member.artifact.source_artifact_id
-            or evidence.source_revision_id != member.revision.source_revision_id
-            or evidence.source_span_ref_id != member.access_span_id):
-        raise ValueError("Selected native source member differs from original revision membership")
-    opened = open_admitted_native_text(fresh.access, member.evidence_ref_id)
-    if fresh.resolve_identity(authority.managed_world_id) != fresh.binding:
-        raise ValueError("Native source ownership changed during the selected read")
-    if opened.status != "available":
-        return None
-    if (opened.source_artifact_id != member.artifact.source_artifact_id
-            or opened.source_revision_id != member.revision.source_revision_id
-            or opened.span_start_byte != member.access_start_byte
-            or opened.span_end_byte != member.access_end_byte
-            or opened.span_sha256 != member.access_slice_sha256
-            or opened.source_authority_epoch > fresh.authority.acquisition_epoch):
-        raise ValueError("Selected native source read differs from its original access proof")
-    member.verify_body(opened.body_text)
-    if fresh.resolve_identity(authority.managed_world_id) != fresh.binding:
-        raise ValueError("Native source ownership changed during the selected read")
-    return opened.body_text
+    with ExitStack() as scope:
+        fresh = _refresh_native_context(prepared, authority=authority, principal=principal, scope=scope)
+        evidence = fresh.access.parsed.evidence_by_id.get(member.evidence_ref_id)
+        if (evidence is None or evidence.source_artifact_id != member.artifact.source_artifact_id
+                or evidence.source_revision_id != member.revision.source_revision_id
+                or evidence.source_span_ref_id != member.access_span_id):
+            raise ValueError("Selected native source member differs from original revision membership")
+        opened = open_admitted_native_text(fresh.access, member.evidence_ref_id)
+        if fresh.resolve_identity(authority.managed_world_id) != fresh.binding:
+            raise ValueError("Native source ownership changed during the selected read")
+        if opened.status != "available":
+            return None
+        if (opened.source_artifact_id != member.artifact.source_artifact_id
+                or opened.source_revision_id != member.revision.source_revision_id
+                or opened.span_start_byte != member.access_start_byte
+                or opened.span_end_byte != member.access_end_byte
+                or opened.span_sha256 != member.access_slice_sha256
+                or opened.source_authority_epoch > fresh.authority.acquisition_epoch):
+            raise ValueError("Selected native source read differs from its original access proof")
+        member.verify_body(opened.body_text)
+        if fresh.resolve_identity(authority.managed_world_id) != fresh.binding:
+            raise ValueError("Native source ownership changed during the selected read")
+        return opened.body_text
 
 
-def _refresh_native_context(prepared, *, authority, principal):
+def _refresh_native_context(prepared, *, authority, principal, scope: ExitStack | None = None):
     """One freshness boundary for selected native source reads."""
     if principal is None or principal.role != "gm":
         raise ValueError("GM authority is required for cross-campaign source inspection")
@@ -286,8 +289,12 @@ def _refresh_native_context(prepared, *, authority, principal):
             or prepared.authority.model_dump(mode="json", exclude={"acquisition_epoch"}) != original
             or prepared.resolve_identity(authority.managed_world_id) != prepared.binding):
         raise ValueError("Native source authority changed before the selected read")
-    access = refresh_native_text_source_access_context(
-        repository=prepared.repository, context=prepared.access)
+    if scope is None:
+        access = refresh_native_text_source_access_context(
+            repository=prepared.repository, context=prepared.access)
+    else:
+        access = scope.enter_context(refresh_native_text_source_access_scope(
+            repository=prepared.repository, context=prepared.access))
     if access.source_view.epoch < authority.acquisition_epoch:
         raise ValueError("Native source authority moved backwards before the selected read")
     fresh = replace(prepared, access=access, authority=authority.model_copy(
