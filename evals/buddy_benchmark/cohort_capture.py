@@ -133,7 +133,7 @@ def capture_cohort(manifest_path, output, *, workers):
         cases |= ids
         app_dsn = app_url._replace(path="/" + quote(app["database"], safe="")).geturl()
         _endpoint(app_dsn, app)
-        jobs.append((member_path, output / "members" / min(ids), app_dsn, entry["sha256"]))
+        jobs.append(((member_path, output / "members" / min(ids), app_dsn, entry["sha256"]), ids))
 
     _endpoint(core_dsn, native)
     require_read_only_core(core_dsn)
@@ -145,11 +145,24 @@ def capture_cohort(manifest_path, output, *, workers):
     try:
         with ProcessPoolExecutor(max_workers=workers, max_tasks_per_child=1,
                                  mp_context=multiprocessing.get_context("spawn")) as executor:
-            futures = [(job[1].name, executor.submit(_capture_member, *job)) for job in jobs]
+            futures = [(job[1], ids, executor.submit(_capture_member, *job)) for job, ids in jobs]
             outcomes = {}
-            for member, future in futures:
+            for member, ids, future in futures:
                 error = future.exception()
-                outcomes[member] = {"status": "failed", "error_type": type(error).__name__} if error else {"status": "completed"}
+                if error is not None:
+                    outcomes[member.name] = {"status": "failed", "error_type": type(error).__name__}
+                    continue
+                try:
+                    rows = json.loads((member / "report.json").read_text())["cases"]
+                    statuses = {row["case_id"]: row.get("context", {}).get("status", "missing")
+                                for row in rows}
+                except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                    outcomes[member.name] = {"status": "failed", "error_type": "InvalidMemberReport"}
+                    continue
+                captured = len(rows) == len(statuses) and statuses.keys() == ids and all(
+                    value == "captured" for value in statuses.values())
+                outcomes[member.name] = {"status": "completed" if captured else "failed",
+                                         "case_statuses": statuses}
             immutable_save(output, "members", outcomes)
     finally:
         _endpoint(core_dsn, native)

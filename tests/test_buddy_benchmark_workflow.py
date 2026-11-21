@@ -1345,8 +1345,8 @@ def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
     with pytest.raises(ValueError, match="bundle differs"):
         browser_inputs(manifest, tmp_path)
 
-@pytest.mark.parametrize("changed", [False, True])
-def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, changed):
+@pytest.mark.parametrize("changed, missing_capture", [(False, False), (True, False), (False, True)])
+def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, changed, missing_capture):
     from concurrent.futures import Future
     from evals.buddy_benchmark import cohort_capture as cohort
 
@@ -1389,6 +1389,10 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
             assert member is cohort._capture_member
             assert sha256(manifest.read_bytes()).hexdigest() == manifest_sha256
             events.append(output.name)
+            row = {"case_id": output.name}
+            if not (missing_capture and output.name == "case2"):
+                row["context"] = {"status": "captured"}
+            immutable_save(output, "report", {"cases": [row]})
             f = Future()
             f.set_result(None)
             return f
@@ -1399,6 +1403,11 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
     if changed:
         with pytest.raises(ValueError, match="changed during cohort"):
             cohort.capture_cohort(manifest["path"], out, workers=2)
+    elif missing_capture:
+        with pytest.raises(RuntimeError, match="cohort members failed"):
+            cohort.capture_cohort(manifest["path"], out, workers=2)
+        outcomes = json.loads((out / "members.json").read_text())
+        assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing"}}
     else:
         cohort.capture_cohort(manifest["path"], out, workers=2)
     assert events == ["scan", "case1", "case2", "scan"]
