@@ -497,15 +497,16 @@ _SCOPE_START = re.compile(r'\b(?:in|within|under|inside)\b', re.IGNORECASE)
 _SCOPE_END = re.compile(r'\b(?:paragraph|heading|section)\b', re.IGNORECASE)
 _PROSE_LOCATION = r'(?:paragraph|passage|instruction|step|note)'
 _PROSE_DESCRIPTION = r'(?:about|describing|explaining|detailing|concerning)'
+_QUOTED_PROSE_CUE = r'(?:that (?:says|reads)|containing(?: the exact words)?|with the text)'
 _QUALIFIED_PROSE_LOCATION = re.compile(
     r'\b(?:before|after)\s+[^,.!?;]+?\b(?:paragraph|passage|instruction|step|note)\s+'
     r'(?:in|inside|under|within)\s+([^,.!?;]+)', re.IGNORECASE)
 _NAMED_PROSE_LOCATOR = re.compile(
     r'\b(?i:before|after)\s+(?P<article>the\s+)?(?P<label>\w[^,.!?;/\n]*?)\s+'
-    rf'(?i:{_PROSE_LOCATION})\s+(?i:{_PROSE_DESCRIPTION})\b')
+    rf'(?i:{_PROSE_LOCATION})\s+(?i:{_PROSE_DESCRIPTION}|{_QUOTED_PROSE_CUE})\b')
 _NOMINAL_PROSE_LOCATOR = re.compile(
     r'\b(?i:before|after)\s+(?:the\s+)?(?P<label>\w[^,.!?;/\n]*?)\s+'
-    rf'(?i:{_PROSE_LOCATION})\b(?!\s+(?i:{_PROSE_DESCRIPTION}|in|under|within|inside)\b)')
+    rf'(?i:{_PROSE_LOCATION})\b(?!\s+(?i:{_PROSE_DESCRIPTION}|{_QUOTED_PROSE_CUE}|in|under|within|inside)\b)')
 
 
 def _paragraph_label_match(question: str):
@@ -592,6 +593,50 @@ def explicit_paragraph_locator(question: str, relation: str) -> str | None:
         return None
     start, end = matches[0].span(1)
     return question[start:end].strip() or None
+
+
+def quoted_paragraph_locator(question: str, relation: str) -> tuple[str, bool] | None:
+    """Return a quoted excerpt and whether its locator clause is complete."""
+    if relation not in {'before_paragraph', 'after_paragraph'}:
+        return None
+    side = relation.removesuffix('_paragraph')
+    pattern = rf'\b{side}\s+[^,.!?;\n]*?\b{_PROSE_LOCATION}\s+{_QUOTED_PROSE_CUE}\b'
+    matches = list(re.finditer(pattern, _scope_syntax(question), re.IGNORECASE))
+    if len(matches) != 1:
+        return None
+    tail = question[matches[0].end():].lstrip()
+    closing = _QUOTES.get(tail[0]) if tail else None
+    if closing is None:
+        return None
+    escaped = False
+    for index, char in enumerate(tail[1:], start=1):
+        joins_word = (char in {"'", '’'} and index + 1 < len(tail)
+            and _word_member(tail[index - 1]) and _word_member(tail[index + 1]))
+        if char == closing and not escaped and not joins_word:
+            value, quoted = _unquote(tail[:index + 1])
+            if not quoted or not value.strip():
+                return None
+            suffix = tail[index + 1:].strip()
+            complete = suffix in {'', '.', '!', '?'} or re.match(
+                r',\s*(?:please\s+)?(?:add|insert|place|put|write|draft|include)\b',
+                suffix, re.IGNORECASE) is not None
+            return value, complete
+        escaped = not escaped and char == '\\'
+    return None
+
+
+def contains_exact_paragraph_excerpt(paragraph: str, excerpt: str) -> bool:
+    """Match full words, punctuation and line breaks in the frozen paragraph."""
+    text = unicodedata.normalize('NFC', paragraph.replace('\r\n', '\n'))
+    needle = unicodedata.normalize('NFC', excerpt.replace('\r\n', '\n'))
+    if not needle:
+        return False
+    for match in re.finditer(re.escape(needle), text):
+        left = (match.start() > 0 and _word_member(needle[0]) and _word_member(text[match.start() - 1]))
+        right = (match.end() < len(text) and _word_member(needle[-1]) and _word_member(text[match.end()]))
+        if not left and not right:
+            return True
+    return False
 
 
 def explicit_direction_options(question: str) -> tuple[str, ...]:

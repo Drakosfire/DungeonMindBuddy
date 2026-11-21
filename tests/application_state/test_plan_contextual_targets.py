@@ -263,6 +263,31 @@ def test_explicit_paragraph_locator_requires_direct_passage_nomination():
     assert catalog.resolve(capture, matched['placement_selector']).root_boundary == 1
 
 
+def test_quoted_locator_preserves_all_frozen_matching_occurrences_and_refuses_near_matches():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.plan_author_location import UnscopedLocation
+    from application_state.agent_conversation.plan_contextual_targets import contextual_work_choice, target_questions
+
+    capture, catalog = family_catalog([prose('Check the dial.'), prose('First, check the dial.'),
+        prose('Before sunset, Check the dial. Then record the reading.')])
+    observation = NativePlanAuthorScopeObservationV1(
+        relation='after_paragraph', selected_alias='none', scope=UnscopedLocation())
+    request = SimpleNamespace(question='After the paragraph containing “Check the dial.”, add a note.',
+        original_capture=capture, placement_catalog=catalog, page_title='Notes',
+        author_scope_binding=SimpleNamespace(observation=observation))
+    answers = {question.name: question.options[-1] for question in target_questions(request)}
+    answers.update(placement_relation='after_paragraph', paragraph_scope='unscoped', scope_qualifier='none',
+        locator_passage_0='include')
+    duplicate = contextual_work_choice(request, 'write_current_page', answers)
+    assert duplicate['literal_paragraph_excerpt'] == 'Check the dial.'
+    assert duplicate['target_resolution'] == 'ambiguous'
+    assert len(duplicate['compatible_placement_selectors']) == 2
+    wrong = contextual_work_choice(request, 'write_current_page',
+        answers | {'locator_passage_0': 'exclude', 'locator_passage_1': 'include'})
+    assert wrong['requested_work'] == 'clarify' and wrong['target_capture_sha256'] is None
+
+
 def test_passage_families_expand_all_occurrences_before_named_scope_filters():
     capture, catalog = family_catalog([heading('Preparation'), prose('Shared.'), heading('Rumours'), prose('Shared.')])
     result = component_result(capture, catalog)

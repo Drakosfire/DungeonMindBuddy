@@ -105,6 +105,8 @@ def prepare_contextual_work(request):
     locator = paragraph_locator(request)
     if locator is not None:
         state['existing_paragraph_locator'] = locator
+        if literal_paragraph_locator(request) is not None:
+            state['existing_paragraph_locator_kind'] = 'verbatim_excerpt'
     work_descriptions = {
         'discuss': 'Answer, explain, critique or discuss in conversation without a requested page edit.',
         'clarify': 'The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.',
@@ -253,6 +255,7 @@ def target_questions(request):
         'page_end': 'Only for the end_page relation: does the request choose the current page end? For other relations, exclude.',
     }
     locator = paragraph_locator(request)
+    verbatim = literal_paragraph_locator(request) is not None
     return (ChoiceDecisionQuestion(name='placement_relation', options=offered_relations(request),
         question='What single relation to an existing page anchor does the requested fragment use? '
             'Ignore ordering inside the new fragment. Multiple page relations must be unresolved.',
@@ -302,11 +305,17 @@ def target_questions(request):
                 'exclude': 'A stated ancestor differs or is missing, the hierarchy differs, or no ancestor qualification is requested.'})
             for i, entry in enumerate(inventory['ancestors'])),
         *(ChoiceDecisionQuestion(name=f'locator_passage_{i}', options=('include', 'exclude'),
-            option_descriptions={'include': 'This passage states or directly describes the existing locator.',
-                'exclude': 'This passage is about something else.'},
-            question=f'Does paragraph_passages passage{i} state or directly describe existing_paragraph_locator? '
+            option_descriptions=(
+                {'include': 'This passage contains the complete verbatim excerpt.',
+                 'exclude': 'The excerpt is absent or its words or punctuation differ.'} if verbatim else
+                {'include': 'This passage states or directly describes the existing locator.',
+                 'exclude': 'This passage is about something else.'}),
+            question=(f'Does paragraph_passages passage{i} contain existing_paragraph_locator verbatim? '
+                'Match the entire excerpt, including case, punctuation and line breaks.'
+                if verbatim else
+                f'Does paragraph_passages passage{i} state or directly describe existing_paragraph_locator? '
                 'Compare these two texts on their meaning. Judge every passage independently. '
-                'An instruction beside the described passage is a different passage.')
+                'An instruction beside the described passage is a different passage.'))
             for i in range(len(inventory['passages'])) if locator is not None))
 
 
@@ -330,7 +339,20 @@ def paragraph_locator(request):
     if binding is None:
         return None
     observation = binding.observation
-    return explicit_paragraph_locator(request.question, observation.relation) or observation.paragraph_subject
+    return (literal_paragraph_locator(request) or explicit_paragraph_locator(request.question, observation.relation)
+        or observation.paragraph_subject)
+
+
+def literal_paragraph_locator(request):
+    locator = quoted_locator_clause(request)
+    return locator[0] if locator is not None and locator[1] else None
+
+
+def quoted_locator_clause(request):
+    from .plan_author_location import quoted_paragraph_locator
+
+    binding = getattr(request, 'author_scope_binding', None)
+    return quoted_paragraph_locator(request.question, binding.observation.relation) if binding is not None else None
 
 
 def description_factors(request):
@@ -418,7 +440,9 @@ def contextual_work_choice(request, intent, answers):
 
         if answers['scope_qualifier'] not in SCOPE_QUALIFIERS:
             raise ValueError('Scope qualifier was not offered')
-        scope_refused = (unsupported_paragraph_scope(request.question)
+        quoted_locator = quoted_locator_clause(request)
+        scope_refused = ((quoted_locator is not None and not quoted_locator[1])
+                or unsupported_paragraph_scope(request.question)
                 or explicit_scope_conflict(request.question, binding.observation.scope)
                 or (relation in {'before_paragraph', 'after_paragraph'} and (
                     answers['paragraph_scope'] == 'unresolved'
@@ -436,7 +460,7 @@ def contextual_work_choice(request, intent, answers):
             **resolve_author_scope_targets(request.original_capture, request.placement_catalog,
                 intent, relation, binding.observation, direct, passages, document_title=request.page_title or None,
                 description_matches=descriptions, excluded_description_matches=excluded,
-                locator_passages=locator, scope_refused=scope_refused))
+                locator_passages=locator, literal_excerpt=literal_paragraph_locator(request), scope_refused=scope_refused))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
         answers['paragraph_scope'], direct, passages, sections, answers['scope_qualifier'], ancestors)
 
@@ -488,11 +512,12 @@ def resolve_component_targets(capture, catalog, intent, relation, scope, direct,
 
 def resolve_author_scope_targets(capture, catalog, intent, relation, observation, direct, passages, *,
         document_title, description_matches=None, excluded_description_matches=None, locator_passages=None,
-        scope_refused=False):
+        literal_excerpt=None, scope_refused=False):
     """Join independent author scope to source nominations at their exact editor geometry."""
     from .native_plan_opening import NativePlanAuthorScopeObservationV1
     from .plan_author_location import (
-        DescribedScopeName, NamedScopePath, ScopeWithExclusion, UnresolvedLocation, bind_scope,
+        DescribedScopeName, NamedScopePath, ScopeWithExclusion, UnresolvedLocation,
+        bind_scope, contains_exact_paragraph_excerpt,
     )
 
     if type(observation) is not NativePlanAuthorScopeObservationV1 or relation not in RELATIONS:
@@ -513,6 +538,10 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
     if locator_passages is not None:
         locator_ids, passage_rows = _component_selection(inventory['passages'], locator_passages)
         evidence['locator_passage_selectors'] = locator_ids
+    if literal_excerpt is not None:
+        if locator_passages is None:
+            raise ValueError('A literal excerpt requires its actual locator judgments')
+        evidence['literal_paragraph_excerpt'] = literal_excerpt
     if scope_refused:
         evidence.update(scope_refused=True, requested_paragraph_scope='unresolved', requested_scope_qualifier='none')
         return evidence | resolve_anchor_targets(capture, catalog, intent,
@@ -542,6 +571,11 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
         if paragraph_relation:
             if not direct_ids:
                 active = {a for row in passage_rows for a in row['anchors']} & set(bound.paragraph_anchors)
+                if literal_excerpt is not None:
+                    exact = [row for row in inventory['passages']
+                        if contains_exact_paragraph_excerpt(row['view']['text'], literal_excerpt)]
+                    literal_anchors = {a for row in exact for a in row['anchors']} & set(bound.paragraph_anchors)
+                    active = literal_anchors if active & literal_anchors else set()
         else:
             nominated = {a for row in direct_rows for a in row['anchors']}
             active = {row['selector'] for row, entries in inventory['all']

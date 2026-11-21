@@ -157,6 +157,28 @@ def test_describing_is_an_explicit_paragraph_locator():
         'Courtyard'}
 
 
+def test_quoted_paragraph_locator_preserves_exact_case_punctuation_and_line_breaks():
+    from application_state.agent_conversation.plan_author_location import (
+        contains_exact_paragraph_excerpt, quoted_paragraph_locator,
+    )
+
+    quote = 'Open the vent.\nWait for the green signal.'
+    request = f'After the paragraph containing “{quote}”, add a note saying “Check the gate”.'
+    assert quoted_paragraph_locator(request, 'after_paragraph') == (quote, True)
+    assert quoted_paragraph_locator(request, 'before_paragraph') is None
+    assert quoted_paragraph_locator('Add the phrase “before the paragraph that says Open the vent”.',
+        'before_paragraph') is None
+    assert quoted_paragraph_locator('Add a note after the paragraph containing “rope” and ending with “frayed”.',
+        'after_paragraph') == ('rope', False)
+    assert quoted_paragraph_locator('Add a note after the paragraph containing “rope” but not “hook”.',
+        'after_paragraph') == ('rope', False)
+    assert contains_exact_paragraph_excerpt(f'Instructions: {quote} Then record the time.', quote)
+    assert not contains_exact_paragraph_excerpt(quote.replace('\n', ' '), quote)
+    assert not contains_exact_paragraph_excerpt('The Dial is ready.', 'dial')
+    assert not contains_exact_paragraph_excerpt('catalogue cards', 'cat')
+    assert not contains_exact_paragraph_excerpt('Open the vent?', 'Open the vent.')
+
+
 def test_nominal_label_prefix_is_only_an_alternative_when_both_titles_exist():
     from application_state.agent_conversation.plan_author_location import (
         nominal_scope_needs_review, nominal_scope_subject, paragraph_label_conflict,
