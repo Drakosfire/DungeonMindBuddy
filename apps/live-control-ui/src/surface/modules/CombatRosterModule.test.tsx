@@ -114,10 +114,6 @@ describe("CombatRosterModule", () => {
     return screen.getByRole("dialog", {name: `Edit ${name}`});
   }
 
-  async function closeActorEditor(name: string) {
-    await userEvent.click(within(screen.getByRole("dialog", {name: `Edit ${name}`})).getByRole("button", {name: "Done"}));
-  }
-
   function mount() {
     let worldId = "elderwyld";
     vi.spyOn(selectedWorld, "useSelectedWorld").mockImplementation(() => ({
@@ -1016,7 +1012,7 @@ describe("CombatRosterModule", () => {
     expect(screen.getByLabelText('Move Fallen guard earlier')).toBeDisabled();
     expect(screen.getByLabelText('Move Fallen guard later')).toBeDisabled();
     const move=within(await openActorEditor('Geomantic Drake')).getByRole('button',{name:'Move Geomantic Drake later'});move.focus();await userEvent.keyboard('{Enter}');
-    await closeActorEditor('Geomantic Drake');
+    expect(screen.queryByRole("dialog", {name: "Edit Geomantic Drake"})).not.toBeInTheDocument();
     expect(screen.getByLabelText('Damage for Geomantic Drake')).toBe(damage);expect(damage).toHaveValue(7);
     expect(screen.getByRole('complementary',{name:'Projected statblock for Geomantic Drake'})).toBeInTheDocument();
     expect(screen.getByRole('row',{name:/Watch guard/})).toHaveClass('combat-roster-active-row');
@@ -1028,7 +1024,6 @@ describe("CombatRosterModule", () => {
     expect(moved).toMatchObject({active_turn_entity_id:'guard',round_start_entity_id:first.id,round:4});
     await openActorEditor('Geomantic Drake');
     await userEvent.click(screen.getByRole('button',{name:'Move Geomantic Drake earlier'}));
-    await closeActorEditor('Geomantic Drake');
     await userEvent.click(screen.getByText("More", {selector: "summary"}));
     await userEvent.click(screen.getByRole('button',{name:'Revert',exact:true}));
     expect(screen.getByLabelText('Move Geomantic Drake later')).toBeDisabled();
@@ -1085,8 +1080,8 @@ describe("CombatRosterModule", () => {
     expect(drakeDamage).toHaveValue(8);
     expect(within(fallen).getByLabelText('Notes for Geomantic Drake')).toHaveValue('Guards the pass');
     expect(within(fallen).getByLabelText('HP for Geomantic Drake')).toHaveValue('76');
+    await openActorEditor('Geomantic Drake');
     await userEvent.click(within(fallen).getByRole('checkbox',{name:'Defeated'}));
-    await closeActorEditor('Geomantic Drake');
     await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
     await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0][3]).toMatchObject({round:4,active_turn_entity_id:'guard',entities:[entity,guard]});

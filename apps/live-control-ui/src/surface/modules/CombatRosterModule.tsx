@@ -132,6 +132,8 @@ function RosterRow({
   const maximum = numericValue(entity.max_hp);
   const meterValue = hp !== null && maximum !== null && Number.isSafeInteger(maximum) && maximum > 0 && hp >= 0
     ? Math.min(hp, maximum) : null;
+  const notePreview = entity.notes.length > 180
+    ? entity.notes.trimStart().slice(0, 145).replace(/\s+\S*$/, "").trimEnd() : null;
   const healthLabel = entity.hp === null ? "Unrecorded"
     : entity.max_hp === null ? String(entity.hp) : `${entity.hp} / ${entity.max_hp}`;
 
@@ -156,18 +158,26 @@ function RosterRow({
         <button type="button" aria-label={`Deal 1 damage to ${entity.name}`} disabled={disabled || hp === null} onClick={() => applyDelta("damage", 1)}>−</button>
         <button type="button" aria-label={`Heal ${entity.name} by 1`} disabled={disabled || hp === null} onClick={() => applyDelta("heal", 1)}>+</button>
       </td>
-      <td role="cell" className="combat-roster-condition-list" data-column="Conditions">
+      <td role="cell" className="combat-roster-condition-list" data-empty={entity.conditions.length === 0 || undefined} data-column="Conditions">
         {entity.conditions.length === 0 ? "—" : entity.conditions.map((condition, index) =>
           <span key={`${index}:${condition}`} className="combat-roster-condition">{condition}</span>)}
       </td>
-      <td role="cell" className="combat-roster-note-preview" data-column="Notes">{entity.notes || "—"}</td>
+      <td role="cell" className="combat-roster-note-preview" data-empty={!entity.notes || undefined} data-column="Notes">
+        {notePreview ? <details className="combat-roster-long-note">
+          <summary aria-label={`Full note for ${entity.name}`}><span>{notePreview}…</span></summary>
+          <p>{entity.notes}</p>
+        </details> : entity.notes || "—"}
+      </td>
       <td role="cell" className="combat-roster-row-actions">
         {projection.available && <button type="button" aria-label={entity.mechanics_snapshot ? `Keep statblock open for ${entity.name}` : `Open corpus sheet for ${entity.name}`}
           aria-pressed={projection.selected} aria-controls={projection.selected ? projection.regionId : undefined}
           onClick={event => projection.open(event.currentTarget)}>Sheet</button>}
         <button ref={editTrigger} type="button" aria-label={`Edit ${entity.name}`} aria-haspopup="dialog" disabled={disabled} onClick={() => editor.current?.showModal()}>Edit</button>
         <dialog ref={editor} className="combat-mechanics-dialog combat-roster-actor-editor" aria-label={`Edit ${entity.name}`}
-          onClose={() => {setConditionsInput(null); editTrigger.current?.focus({preventScroll: true});}}
+          onClose={() => {
+            setConditionsInput(null);
+            requestAnimationFrame(() => editTrigger.current?.focus({preventScroll: true}));
+          }}
           onKeyDown={event => { if (event.key === "Escape") event.stopPropagation(); }}>
           <header>
             <strong>{entity.name}</strong>
@@ -214,9 +224,9 @@ function RosterRow({
               aria-label={`Notes for ${entity.name}`} value={entity.notes} onChange={event => update({notes: event.target.value})}/></label>
             <div className="combat-roster-edit-options">
               <button type="button" aria-label={`Set ${entity.name} as current actor`} onClick={onSetActive} disabled={entity.defeated}>Set current</button>
-              <button type="button" aria-label={`Move ${entity.name} earlier`} disabled={!canMoveEarlier} onClick={() => onMove("earlier")}>↑</button>
-              <button type="button" aria-label={`Move ${entity.name} later`} disabled={!canMoveLater} onClick={() => onMove("later")}>↓</button>
-              <label><input type="checkbox" checked={entity.defeated} onChange={event => update({defeated: event.target.checked})}/> Defeated</label>
+              <button type="button" aria-label={`Move ${entity.name} earlier`} disabled={!canMoveEarlier} onClick={() => {editor.current?.close(); onMove("earlier");}}>↑</button>
+              <button type="button" aria-label={`Move ${entity.name} later`} disabled={!canMoveLater} onClick={() => {editor.current?.close(); onMove("later");}}>↓</button>
+              <label><input type="checkbox" checked={entity.defeated} onChange={event => {editor.current?.close(); update({defeated: event.target.checked});}}/> Defeated</label>
               <button type="button" aria-label={`Remove ${entity.name} from encounter draft`}
                 title="Remove from the draft. Revert restores the saved roster before Save."
                 onClick={() => {editor.current?.close(); onRemove();}}>Remove</button>

@@ -382,6 +382,7 @@
   .combat-roster-condition-list { grid-area:conditions; }
   .combat-roster-note-preview { grid-area:notes; }
   .combat-roster-row-actions { grid-area:actions; }
+  .combat-roster-table [data-empty] { display:none; }
   .combat-roster-workspace .combat-roster-table :is(.combat-roster-init,.combat-roster-defense,.combat-roster-health)::before {
     content:attr(data-column);
     display:block;
@@ -390,3 +391,8 @@
     color:var(--ui-text-quiet);
   }
 }
+
+.combat-roster-long-note summary { cursor:pointer; color:var(--ui-text-secondary); }
+.combat-roster-long-note[open] summary span { display:none; }
+.combat-roster-long-note[open] summary::after { content:"Full note"; }
+.combat-roster-long-note p { margin:.35rem 0 0; }
