@@ -31,3 +31,32 @@ def test_rejects_runtime_with_wrong_revision_before_build():
 
 def test_rejects_existing_output_tag_before_build():
     invoke(SHA, f"buddy-app-recovery:{SHA}-{SHA}\n")
+
+
+def test_builds_with_distinct_tool_and_runtime_revisions():
+    tool_sha, runtime_sha = "a" * 40, "c" * 40
+    calls = []
+
+    def fake_run(*args):
+        if args[0] == "git":
+            return args[3].removesuffix("^{commit}") + "\n"
+        if args[2] == "inspect":
+            return json.dumps([{"Id": IMAGE_ID, "Config": {"Labels": {"org.opencontainers.image.revision": runtime_sha}}}])
+        return ""
+
+    def fake_subprocess(args, **kwargs):
+        calls.append(args)
+        if args[0] == "git":
+            return subprocess.CompletedProcess(args, 0, stdout=b"fixture")
+        return subprocess.CompletedProcess(args, 0)
+
+    with patch.object(sys, "argv", ["builder", tool_sha, runtime_sha, "runtime"]), patch.object(builder, "run", fake_run), patch.object(subprocess, "run", fake_subprocess):
+        builder.main()
+    assert calls[0] == ["git", "show", f"{tool_sha}:Dockerfile.app-recovery"]
+    assert calls[1] == ["git", "show", f"{runtime_sha}:scripts/application_state_authority.py"]
+    build = calls[2]
+    assert f"BUDDY_RUNTIME_IMAGE={IMAGE_ID}" in build
+    assert f"org.opencontainers.image.revision={tool_sha}" in build
+    assert f"org.dungeonmind.runtime.revision={runtime_sha}" in build
+    assert f"buddy-app-recovery:{tool_sha}-{runtime_sha}" in build
+    assert build[build.index("--file") + 1].endswith("/Dockerfile.app-recovery")
