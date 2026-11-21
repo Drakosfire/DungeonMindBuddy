@@ -485,7 +485,9 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
             expected_revision=stored.revision, expected_attempt=stored.attempt, outcome=entered)
 
 
-@pytest.mark.parametrize('provider_case', ['success', 'substituted_observation', 'unknown_outcome'])
+@pytest.mark.parametrize('provider_case', [
+    'success', 'disagreeing_recheck', 'substituted_observation', 'unknown_outcome',
+])
 def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         plan_adapter, monkeypatch, provider_case):
     import asyncio
@@ -499,6 +501,8 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     from application_state.errors import ApplicationStateValidationError
     from generationengine import GenerationEngineError
 
+    plan_adapter.request = plan_adapter.request.model_copy(update={
+        'message': 'Add a note at the caret and mention the Equipment section.'})
     _, turn = _claim_contextual_scope_turn(plan_adapter)
     dispatch = PlanJevDispatch.author_scope(plan_adapter)
     requests = []
@@ -522,7 +526,10 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         assert turn.world_id not in request.content.decode()
         if provider_case == 'unknown_outcome':
             raise httpx2.ReadTimeout('synthetic unknown outcome', request=request)
-        selections = {'location_relation': 'captured', 'existing_scope': 'none'}
+        assert all(('text_before' in row['author_quote']) == (len(requests) == 2)
+            for row in wire['state']['scope_hypotheses'].values())
+        relation = 'after_heading' if len(requests) == 2 and provider_case == 'disagreeing_recheck' else 'captured'
+        selections = {'location_relation': relation, 'existing_scope': 'none'}
         answers = {name: {'type': 'choice', 'choice': selected, 'confidence': 1.0,
             'probabilities': {key: float(key == selected) for key in wire['questions'][name]['criteria']}}
             for name, selected in selections.items()}
@@ -544,7 +551,7 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     current = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
     events = current.graph_context_execution.events
     assert len(requests) == 1
-    if provider_case != 'success':
+    if provider_case in {'unknown_outcome', 'substituted_observation'}:
         assert len(events) == 3
         assert events[-1].outcome == ('outcome_unknown' if provider_case == 'unknown_outcome' else 'response_received')
         return
@@ -562,15 +569,48 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
             observation.model_copy(update={'relation': 'after_heading'}))
     with pytest.raises(ValueError, match='no longer current'):
         current_selection(current)
+    second = PlanJevDispatch.author_scope(plan_adapter, prior_scope=events[-1])
+    asyncio.run(second.run(transport=httpx2.MockTransport(respond), api_key='synthetic-not-secret'))
+    assert len(requests) == 2
+    assert second.authorization.prior_scope_event_id == events[-1].event_id
+    opening_scope = second.selection_event
     opening = PlanJevDispatch.requested_work(plan_adapter, page_title='Preparation',
-        author_scope=events[-1])
+        author_scope=opening_scope)
+    if provider_case == 'disagreeing_recheck':
+        async def no_opening(_):
+            pytest.fail('Disagreeing author observations cannot enter the opening transport')
+
+        with pytest.raises(GenerationEngineError):
+            asyncio.run(opening.run(transport=httpx2.MockTransport(no_opening), api_key='synthetic-not-secret'))
+        denied = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
+        assert denied.graph_context_execution.events[-1] == second.selection_event
+        review = PlanJevDispatch.author_scope(plan_adapter, review_scope=(events[-1], second.selection_event))
+
+        async def adjudicate(request):
+            wire = json.loads(request.content)
+            assert set(wire['state']) == {'current_request', 'dialogue'}
+            assert str(events[-1].event_id) not in request.content.decode()
+            criteria = wire['questions']['adjudicated_scope']['criteria']
+            choice = next(key for key, value in criteria.items()
+                if key != 'unresolved' and 'captured selection' in json.loads(value)['relation'])
+            return httpx2.Response(200, request=request, json={'model': wire['model'], 'answers': {
+                'adjudicated_scope': {'type': 'choice', 'choice': choice, 'confidence': 1.0,
+                    'probabilities': {key: float(key == choice) for key in criteria}}},
+                'usage': {'input_tokens': 25, 'output_tokens': 6}})
+
+        scope, _ = asyncio.run(review.run(transport=httpx2.MockTransport(adjudicate),
+            api_key='synthetic-not-secret'))
+        assert scope.relation == 'captured'
+        assert review.authorization.scope_review_event_ids == (events[-1].event_id, second.selection_event.event_id)
+        opening_scope = review.selection_event
+        opening = PlanJevDispatch.requested_work(plan_adapter, page_title='Preparation', author_scope=opening_scope)
     work, _ = asyncio.run(opening.run(
         transport=SemanticWire(plan_adapter, 'write:captured', expect_examined=False),
         api_key='synthetic-not-secret'))
     assert work == 'write_current_page'
     confirmed = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
     selection = confirmed.graph_context_execution.events[-1]
-    assert selection.author_scope_binding.observation_event_id == events[-1].event_id
+    assert selection.author_scope_binding.observation_event_id == opening_scope.event_id
     assert selection.placement_selector == 'captured'
     assert selection.target_capture_sha256 == current.graph_context_execution.policy.action.authoring_capture.sha256
 

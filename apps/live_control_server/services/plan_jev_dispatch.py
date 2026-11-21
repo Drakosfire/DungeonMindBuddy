@@ -194,21 +194,35 @@ class PlanJevDispatch:
         return controller_accounting(self.adapter.fence.turn.graph_context_execution)
 
     @classmethod
-    def author_scope(cls, adapter, *, dialogue=(), quote_context=False):
+    def author_scope(cls, adapter, *, dialogue=(), prior_scope=None, review_scope=()):
         from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
         from application_state.agent_conversation.native_execution import NativePlanActionV3
-        from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeParentV1
+        from application_state.agent_conversation.native_plan_opening import (
+            NativePlanAuthorScopeObservedV1, NativePlanAuthorScopeParentV1,
+            NativePlanOpeningScopeBindingV1, require_retained_author_scope,
+        )
 
         turn = adapter.fence.turn
         admission = turn.graph_context_receipt.assembled_input
         if (type(admission) is not NativePlanRequestAdmissionV1
                 or type(turn.graph_context_execution.policy.action) is not NativePlanActionV3):
             raise ValueError('Author scope requires an admitted contextual Plan turn')
+        if prior_scope is not None and review_scope:
+            raise ValueError('Author scope recheck and review require separate stages')
+        for event in (prior_scope,) if prior_scope is not None else review_scope:
+            if type(event) is not NativePlanAuthorScopeObservedV1:
+                raise ValueError('Author scope follow-up requires the actual prior observation')
+            require_retained_author_scope(turn.graph_context_execution,
+                event.event_id, event.scope_observation)
+        review = tuple(NativePlanOpeningScopeBindingV1(
+            observation_event_id=event.event_id, observation=event.scope_observation) for event in review_scope)
         dispatch = cls(adapter, (), dialogue=dialogue)
         dispatch.parent = NativePlanAuthorScopeParentV1(
-            question=turn.user_text, dialogue=tuple(dialogue), quote_context=quote_context,
+            question=turn.user_text, dialogue=tuple(dialogue), quote_context=prior_scope is not None,
             max_span_attempts=2048, request_id=uuid4(), parent_attempt_id=uuid4(),
-            scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256)
+            scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256,
+            prior_scope_event_id=prior_scope.event_id if prior_scope is not None else None,
+            scope_review=review or None)
         return dispatch
 
     def _host_phase(self):
@@ -289,6 +303,10 @@ class PlanJevDispatch:
                 auth_type, auth_kind = NativePlanAuthorScopeAuthorizedV1, 'native_plan_author_scope_authorized_v1'
             scope_binding = getattr(self.parent, 'author_scope_binding', None)
             opening_fields = {'author_scope_event_id': scope_binding.observation_event_id} if scope_binding else {}
+            if author_scope and self.parent.prior_scope_event_id is not None:
+                opening_fields['prior_scope_event_id'] = self.parent.prior_scope_event_id
+            if author_scope and self.parent.scope_review is not None:
+                opening_fields['scope_review_event_ids'] = tuple(row.observation_event_id for row in self.parent.scope_review)
             auth = auth_type(kind=auth_kind, event_id=uuid4(),
                 sequence=len(execution.events), provider_attempt_id=UUID(prepared.attempt_id),
                 decision_request_id=self.parent.request_id, parent_request_sha256=self.parent.digest,

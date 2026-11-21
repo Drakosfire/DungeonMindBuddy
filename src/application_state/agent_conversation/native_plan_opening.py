@@ -82,6 +82,9 @@ class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
     parent_attempt_id: UUID
     scope_sha256: Digest
     request_manifest_sha256: Digest
+    prior_scope_event_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
+    scope_review: tuple[NativePlanOpeningScopeBindingV1, NativePlanOpeningScopeBindingV1] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
     max_span_attempts: int = Field(strict=True, gt=0, le=2048)
 
     @property
@@ -99,6 +102,8 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
     from .jev_retrieval_contract import MODEL, PROVIDER
     from .plan_contextual_targets import RELATIONS
 
+    if getattr(request, 'scope_review', None) is not None:
+        return _prepare_author_scope_review(request)[0]
     hypotheses = _author_scope_offers(request)
     state = author_scope_offer_view(request.question, request.dialogue, hypotheses,
         include_quote_context=request.quote_context)
@@ -119,6 +124,34 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
                 'Assistant statements cannot establish a scope. If an ordinal, separate branches or a '
                 'missing alternative cannot be represented, choose unresolved.'),
     ), max_transport_retries=0)
+
+
+def _prepare_author_scope_review(request):
+    import json
+    from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
+    from .jev_retrieval_contract import MODEL, PROVIDER
+    from .plan_contextual_targets import RELATIONS
+
+    first, second = (row.observation for row in request.scope_review)
+    view = author_scope_offer_view(request.question, request.dialogue, _author_scope_offers(request),
+        include_quote_context=True)
+    options = view.pop('scope_hypotheses')
+    pairs = {}
+    for relation in (first.relation, second.relation):
+        for prior in (first, second):
+            interpretation = {'relation': RELATIONS[relation],
+                'scope': options.get(prior.selected_alias, {'kind': prior.scope.kind})}
+            key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
+            pairs.setdefault(key, (relation, prior.scope))
+    bindings = {f'option{i}': pair for i, (_, pair) in enumerate(sorted(pairs.items()))}
+    criteria = {f'option{i}': key for i, key in enumerate(sorted(pairs))}
+    criteria['unresolved'] = 'None of the complete offered interpretations matches the author location.'
+    question = ChoiceDecisionQuestion(name='adjudicated_scope', options=tuple(criteria), option_descriptions=criteria,
+        question='Choose the complete interpretation of the author’s existing location. '
+            'An explicit selected-text rewrite uses its capture by itself. Do not treat its words as a heading. '
+            'Preserve every author-established name, path and exclusion. Ignore new-fragment content as location evidence.')
+    return DecisionRequest(provider=PROVIDER, model=MODEL, state=view,
+        questions=(question,), max_transport_retries=0), bindings
 
 
 def validate_author_scope_wire(request: NativePlanAuthorScopeInputV1, payload: bytes) -> None:
@@ -142,15 +175,36 @@ def validate_author_scope_parent(context, execution, parent, authorization):
             or type(execution.policy.action) is not NativePlanActionV3
             or type(context.assembled_input) is not NativePlanRequestAdmissionV1
             or parent.request_manifest_sha256 != context.assembled_input.manifest_sha256
+            or parent.prior_scope_event_id != authorization.prior_scope_event_id
+            or parent.quote_context != (parent.prior_scope_event_id is not None)
             or opening_dialogue_sha256(parent.dialogue) != context.assembled_input.dialogue_sha256):
         raise ValueError('Author scope parent differs from its admitted Plan request or dialogue')
-    validate_opening_prefix(context, execution.events[:authorization.sequence])
+    prefix = execution.events[:authorization.sequence]
+    review_ids = tuple(row.observation_event_id for row in parent.scope_review) if parent.scope_review else None
+    if authorization.scope_review_event_ids != review_ids or (review_ids is not None and parent.prior_scope_event_id):
+        raise ValueError('Author scope review differs from its authorized prior observations')
+    for row in parent.scope_review or ():
+        require_retained_author_scope(execution.model_copy(update={'events': prefix}),
+            row.observation_event_id, row.observation)
+    validate_opening_prefix(context, prefix,
+        author_scope_event_id=review_ids[-1] if review_ids else authorization.prior_scope_event_id,
+        author_scope_recheck=True, review_event_ids=review_ids)
 
 
 def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
     from .jev_retrieval_contract import validated_choice_answers
     from .plan_contextual_targets import RELATIONS
 
+    if getattr(request, 'scope_review', None) is not None:
+        _, bindings = _prepare_author_scope_review(request)
+        alias = validated_choice_answers(result, {'adjudicated_scope'})['adjudicated_scope']
+        if alias == 'unresolved':
+            return NativePlanAuthorScopeObservationV1(relation='unresolved', selected_alias=alias,
+                scope=UnresolvedLocation(reason='The author scope interpretations could not be reconciled'))
+        if alias not in bindings:
+            raise ValueError('Author scope review names an unoffered interpretation')
+        relation, scope = bindings[alias]
+        return NativePlanAuthorScopeObservationV1(relation=relation, selected_alias=alias, scope=scope)
     answers = validated_choice_answers(result, {'location_relation', 'existing_scope'})
     relation = answers['location_relation']
     if relation not in RELATIONS:
@@ -280,16 +334,33 @@ def validate_opening_parent(context, execution, parent, authorization):
     validate_opening_prefix(context, prefix, author_scope_event_id=event_id)
 
 
-def validate_opening_prefix(context, prefix, *, author_scope_event_id=None):
+def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, author_scope_recheck=False,
+                            review_event_ids=None):
     from .native_corpus import NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
     from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
     attempts = [e for e in prefix if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
     if author_scope_event_id is not None:
         observations = [e for e in prefix if type(e) is NativePlanAuthorScopeObservedV1]
-        if (len(attempts) != 1 or type(attempts[0]) is not NativePlanAuthorScopeAuthorizedV1
-                or len(observations) != 1 or observations[0].event_id != author_scope_event_id
-                or observations[0].controller_attempt_id != attempts[0].provider_attempt_id):
-            raise ValueError('Scope-bound opening requires its one earlier observed author attempt')
+        allowed_counts = (2,) if review_event_ids is not None else (1,) if author_scope_recheck else (1, 2, 3)
+        if (len(attempts) not in allowed_counts or len(observations) != len(attempts)
+                or observations[-1].event_id != author_scope_event_id
+                or any(type(a) is not NativePlanAuthorScopeAuthorizedV1
+                    or o.controller_attempt_id != a.provider_attempt_id for a, o in zip(attempts, observations))
+                or attempts[0].prior_scope_event_id is not None or attempts[0].scope_review_event_ids is not None
+                or (len(attempts) >= 2 and (attempts[1].prior_scope_event_id != observations[0].event_id
+                    or attempts[1].scope_review_event_ids is not None))):
+            raise ValueError('Scope-bound stage requires its exact earlier observed author attempts')
+        if len(observations) >= 2:
+            first, second = (event.scope_observation for event in observations[:2])
+            disagreement = first.relation != second.relation or first.scope != second.scope
+            prior_ids = tuple(event.event_id for event in observations[:2])
+            if review_event_ids is not None and (review_event_ids != prior_ids or not disagreement):
+                raise ValueError('Author scope review requires the exact disagreeing pair')
+            if len(observations) == 3 and (not disagreement or attempts[2].prior_scope_event_id is not None
+                    or attempts[2].scope_review_event_ids != prior_ids):
+                raise ValueError('Scope-bound opening requires an actual adjudication of the disagreeing pair')
+            if len(observations) == 2 and disagreement and review_event_ids is None:
+                raise ValueError('Disagreeing author scope observations require adjudication before opening')
     elif attempts:
         raise ValueError('Opening SDK must be the first actual provider attempt')
     grants = [e for e in prefix if isinstance(e, NativePlanRequestSearchAuthorizedV1)]
@@ -371,7 +442,14 @@ def validate_request_admission(context, execution):
         from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
         if type(event) is NativePlanAuthorScopeAuthorizedV1 and type(action) is not NativePlanActionV3:
             raise ValueError('Author scope decisions require their actual contextual Plan action')
-        if type(event) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1):
+        if type(event) is NativePlanAuthorScopeAuthorizedV1:
+            review_ids = event.scope_review_event_ids
+            if review_ids is not None and event.prior_scope_event_id is not None:
+                raise ValueError('Author scope recheck and review require different authorizations')
             validate_opening_prefix(context, execution.events[:event.sequence],
-                author_scope_event_id=getattr(event, 'author_scope_event_id', None))
+                author_scope_event_id=review_ids[-1] if review_ids else event.prior_scope_event_id,
+                author_scope_recheck=True, review_event_ids=review_ids)
+        elif type(event) is NativePlanOpeningAuthorizedV1:
+            validate_opening_prefix(context, execution.events[:event.sequence],
+                author_scope_event_id=event.author_scope_event_id)
     return admission

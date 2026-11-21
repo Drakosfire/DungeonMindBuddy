@@ -43,6 +43,9 @@ class NativePlanAuthorScopeAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
     """Source-blind interpretation input. It cannot settle opening work."""
 
     kind: Literal['native_plan_author_scope_authorized_v1'] = 'native_plan_author_scope_authorized_v1'
+    prior_scope_event_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
+    scope_review_event_ids: tuple[UUID, UUID] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativeRetrievalSelectedV1(t.PlanJevRetrievalSelectionV1):
