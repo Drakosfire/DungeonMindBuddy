@@ -674,6 +674,12 @@ def resolve_retained_body_citation(execution, citation):
     catalog = acquired_body_catalogs(execution).get(excerpt.catalog_sha256)
     if catalog is None:
         raise ValueError("Native body citation lacks its retained catalog")
+    if (citation.catalog_sha256 != catalog.catalog_sha256
+            or citation.source_artifact_id != catalog.source.artifact.source_artifact_id
+            or citation.native_source_revision_id != catalog.source.revision.source_revision_id
+            or citation.content_sha256 != catalog.source.revision.content_sha256
+            or citation.selector_policy != excerpt.selector_policy):
+        raise ValueError("Native body citation differs from the retained source identity")
     section, text = excerpt.section, excerpt.text
     if citation.section_id != section.section_id:
         section, text = bounded_body_section(

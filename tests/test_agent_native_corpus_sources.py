@@ -405,6 +405,16 @@ def test_native_body_history_replay_and_current_access_open_original_revision(so
         resolve_retained_body_citation(
             completed.graph_context_execution, citation.model_copy(update={"excerpt_sha256": "0" * 64}),
         )
+    for field, substitution in (
+        ("catalog_sha256", "0" * 64),
+        ("content_sha256", "0" * 64),
+        ("source_artifact_id", "foreign-artifact"),
+        ("native_source_revision_id", "foreign-revision"),
+    ):
+        with pytest.raises(ValueError, match="retained source identity"):
+            resolve_retained_body_citation(
+                completed.graph_context_execution, citation.model_copy(update={field: substitution}),
+            )
 
     history = _plan_ask_history_attribution(completed)
     assert isinstance(history, t.PlanEvidenceHistoryAttributionV5)
