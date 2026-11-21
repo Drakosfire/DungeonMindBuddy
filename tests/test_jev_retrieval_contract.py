@@ -540,7 +540,7 @@ def test_bounded_continuation_exhaustion_requires_every_exact_section():
         source_authority_status='available', source_revision='private', graph_revision='private',
         candidates=sections, allowed_operations=('select_candidates', 'finish_retrieval'),
     )))
-    bounded = historical.model_copy(update={'bounded_continuation': True})
+    bounded = historical.model_copy(update={'bounded_continuation': uuid4()})
     assert 'bounded_continuation' not in historical.model_dump()
     assert bounded.digest != historical.digest
     assert c.prepare_decision(bounded) == c.prepare_decision(historical)

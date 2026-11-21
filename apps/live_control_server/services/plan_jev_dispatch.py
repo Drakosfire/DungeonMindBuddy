@@ -90,7 +90,7 @@ class PlanJevDispatch:
     returned labels nor model choices create evidence or authorize a source read.
     """
     def __init__(self, adapter, candidates, *, dialogue=(), examined_candidates=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval"),
-                 bounded_continuation=False):
+                 bounded_continuation=None):
         self.adapter = adapter
         fields = dict(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
             question=adapter.request.message, dialogue=tuple(dialogue), candidates=tuple(candidates),
@@ -129,7 +129,7 @@ class PlanJevDispatch:
                 from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
                 codec = NativePlanBatchDecisionInputV3
                 if bounded_continuation:
-                    fields["bounded_continuation"] = True
+                    fields["bounded_continuation"] = bounded_continuation
             self.parent = codec(**fields,**source_pins(receipt))
         elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1

@@ -186,6 +186,18 @@ def verify_input(turn, auth, proof):
         from .native_corpus import initial_source_discovery_enabled
         if not initial_source_discovery_enabled(execution):
             raise ValueError("Prospective read plans require current readonly Plan work")
+    if type(parent) is NativePlanBatchDecisionInputV3 and parent.bounded_continuation:
+        from .native_batch_completion import selected_read_closure
+
+        # At outcome acknowledgement the current authorization and outcome are
+        # already stored. Recheck the same preceding prefix used at admission.
+        before = execution.events[:auth.sequence]
+        if (parent.allowed_operations != ("select_candidates", "finish_retrieval")
+                or not parent.candidates
+                or any(not row.handle.startswith("native-body:") for row in parent.candidates)
+                or not selected_read_closure(receipt, execution, parent.bounded_continuation,
+                    before_sequence=len(before))):
+            raise ValueError("Bounded continuation has no directly preceding settled Plan batch")
     from .jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
     if isinstance(parent,NativePlayRetrievalDecisionInputV1):
         from .native_play_work import producing_authored_records
@@ -238,7 +250,7 @@ def exhausts_continuation_offer(parent, selected):
     from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
 
     if (type(parent) is not NativePlanBatchDecisionInputV3
-            or parent.bounded_continuation is not True
+            or parent.bounded_continuation is None
             or parent.allowed_operations != ("select_candidates", "finish_retrieval")
             or selected.operation != "select_candidates"
             or selected.post_read_plan != "review_after_reads"
