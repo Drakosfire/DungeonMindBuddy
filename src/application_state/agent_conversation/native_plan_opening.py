@@ -150,13 +150,19 @@ def _prepare_author_scope_review(request):
                 'scope': options.get(prior.selected_alias, {'kind': prior.scope.kind})}
             key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
             pairs.setdefault(key, (relation, prior.scope))
-    if _CAPTURE_REWRITE.match(request.question):
+    explicit_rewrite = _CAPTURE_REWRITE.match(request.question) is not None
+    if explicit_rewrite:
         # An explicit author-requested rewrite supplies a possible analysis for
         # Jev to judge even if both initial passes carried over a prior relation.
         scope = UnscopedLocation()
         key = json.dumps({'relation': RELATIONS['captured'], 'scope': {'kind': scope.kind}},
             sort_keys=True, ensure_ascii=False)
         pairs.setdefault(key, ('captured', scope))
+        if all(isinstance(prior.scope, (UnscopedLocation, UnresolvedLocation))
+               for prior in (first, second)):
+            # The requested destination is the selection. Neither observation
+            # found a section constraint that needs dialogue to disambiguate.
+            view['dialogue'] = []
     bindings = {f'option{i}': pair for i, (_, pair) in enumerate(sorted(pairs.items()))}
     criteria = {f'option{i}': key for i, key in enumerate(sorted(pairs))}
     criteria['unresolved'] = 'None of the complete offered interpretations matches the author location.'
