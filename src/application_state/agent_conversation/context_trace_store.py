@@ -476,18 +476,23 @@ class TurnContextTraceStore:
     ) -> list[TurnContextTraceV1]:
         from application_state.agent_conversation.service import _ready_dsn
 
+        from .repository import plan_checkpoint_projection
+        from .plan_execution_checkpoints import restore_snapshot_execution
+
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
-                "SELECT graph_context_execution, conversation_id, graph_context_receipt FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+                f"""SELECT graph_context_execution, conversation_id, graph_context_receipt,
+                    t.attempt, t.revision, {plan_checkpoint_projection('t')},
+                    COALESCE((SELECT jsonb_agg(jsonb_build_array(capture.payload,capture.attempt)
+                            ORDER BY capture.attempt) FROM agent.turn_context_trace AS capture
+                        WHERE capture.turn_id=t.turn_id), '[]'::jsonb)
+                    FROM agent.turn AS t WHERE world_id=%s AND turn_id=%s""",
                 (world_id, turn_id),
             ).fetchone()
-            if turn is None:
-                raise ApplicationStateNotFoundError("trace turn is unavailable in this World")
-            rows = conn.execute(
-                "SELECT payload, attempt FROM agent.turn_context_trace "
-                "WHERE turn_id=%s ORDER BY attempt",
-                (turn_id,),
-            ).fetchall()
+        if turn is None:
+            raise ApplicationStateNotFoundError("trace turn is unavailable in this World")
+        execution = restore_snapshot_execution(turn[0], turn_id, turn[3], turn[4], turn[5])
+        rows = turn[6]
         traces = [_load_trace(row[0]) for row in rows]
         for index, (trace, row) in enumerate(zip(traces, rows, strict=True)):
             if trace.attempt != row[1]:
@@ -496,28 +501,28 @@ class TurnContextTraceStore:
                 raise ApplicationStateValidationError("stored trace binding differs from its turn")
             for observation in trace.observations:
                 if isinstance(observation, TraceAuthoredGraphReferenceV1):
-                    validate_authored_reference_observation(observation, turn[0], trace)
+                    validate_authored_reference_observation(observation, execution, trace)
                 if isinstance(observation, TracePromptReference):
-                    validate_prompt_authorization(observation, turn[0], trace.execution_start_sequence)
+                    validate_prompt_authorization(observation, execution, trace.execution_start_sequence)
             next_start = traces[index + 1].execution_start_sequence if index + 1 < len(traces) else None
             native_steps = native_assertion_steps(
-                turn[0], turn[2], start=trace.execution_start_sequence, stop=next_start,
+                execution, turn[2], start=trace.execution_start_sequence, stop=next_start,
             )
             exclusion_steps = replay_exclusion_steps(
-                turn[0], start=trace.execution_start_sequence, stop=next_start,
+                execution, start=trace.execution_start_sequence, stop=next_start,
             )
             graph_order = None
             if native_steps or exclusion_steps:
-                sequences = {event["event_id"]: event["sequence"] for event in turn[0].get("events", [])}
+                sequences = {event["event_id"]: event["sequence"] for event in execution.get("events", [])}
                 graph_order = {
                     event.sequence: sequences[str(event.execution_event_id)]
                     for event in trace.observations if isinstance(event, TraceGraphTool)
                     and str(event.execution_event_id) in sequences
                 }
             traces[index] = trace.model_copy(update={
-                "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
+                "writer_evidence_sequences": _writer_evidence_sequences(trace, execution, next_start),
                 "native_assertion_steps": native_steps or None,
-                "native_discovery_replay": native_discovery_replay(turn[2], turn[0], stop=next_start) if trace.attempt == 1 else None,
+                "native_discovery_replay": native_discovery_replay(turn[2], execution, stop=next_start) if trace.attempt == 1 else None,
                 "retrieval_exclusion_steps": exclusion_steps or None,
                 "graph_replay_order": graph_order,
             })

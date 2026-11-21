@@ -132,9 +132,10 @@ def test_plan_checkpoint_recovery_preserves_exact_typed_execution(application_st
 
 def test_plan_checkpoint_append_fences_root_and_rolls_back(application_state_dsn):
     import psycopg
+    from application_state.errors import ApplicationStateIntegrityError
     from application_state.agent_conversation import repository as repo
     from application_state.agent_conversation.plan_execution_checkpoints import (
-        append_group, start_checkpoint,
+        append_group, start_checkpoint, trace_checkpoint_execution,
     )
 
     turn = sdk_case(application_state_dsn, native="current").turn
@@ -150,8 +151,33 @@ def test_plan_checkpoint_append_fences_root_and_rolls_back(application_state_dsn
                 attempt=turn.attempt, revision=revision, prefix=prefix)
             request = dict(world_id=turn.world_id, checkpoint=checkpoint, events=full.events[-1:])
             assert append_group(conn, **request, root_revision=revision-1) is None
+            with conn.transaction(force_rollback=True):
+                conn.execute("CREATE FUNCTION pg_temp.change_checkpoint_number() RETURNS trigger "
+                    "LANGUAGE plpgsql AS $$ BEGIN NEW.events := jsonb_set(NEW.events, "
+                    "'{0,sequence}', to_jsonb((NEW.events#>>'{0,sequence}')::numeric(20,1))); "
+                    "RETURN NEW; END $$")
+                conn.execute("CREATE TRIGGER change_checkpoint_number BEFORE INSERT "
+                    "ON agent.plan_execution_checkpoint_group FOR EACH ROW "
+                    "EXECUTE FUNCTION pg_temp.change_checkpoint_number()")
+                with pytest.raises(ApplicationStateIntegrityError, match="changed its stored event group"):
+                    append_group(conn, **request, root_revision=revision)
             assert append_group(conn, **request, root_revision=revision) == revision+1
             assert append_group(conn, **request, root_revision=revision+1) is None
+            with conn.transaction(force_rollback=True):
+                from psycopg.types.json import Jsonb
+
+                outside = full.events[-1].model_dump(mode="json", by_alias=True) | {
+                    "sequence": len(full.events),
+                }
+                conn.execute(
+                    "INSERT INTO agent.plan_execution_checkpoint_group VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                    (turn.turn_id, turn.attempt, len(full.events), len(full.events)+1,
+                     revision+2, Jsonb([outside]), t.canonical_sha256([outside])),
+                )
+                with pytest.raises(ApplicationStateIntegrityError, match="committed checkpoint"):
+                    trace_checkpoint_execution(conn, turn.turn_id, turn.attempt,
+                        prefix.model_dump(mode="json", by_alias=True), revision=revision+1,
+                        selector=("event_id", outside["event_id"]))
             current = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
             assert dict(current[0])["revision"] == revision+1
             assert dict(current[0])["graph_context_execution"] == dict(image[0])["graph_context_execution"]

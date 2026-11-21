@@ -95,6 +95,7 @@ def append_group(conn, *, world_id, root_revision, checkpoint, events):
     if not events or any(event.sequence != ordinal for ordinal, event in enumerate(events, first)):
         raise ApplicationStateIntegrityError("Plan checkpoint append is not contiguous")
     payload = [event.model_dump(mode="json", by_alias=True) for event in events]
+    digest = t.canonical_sha256(payload)
     row = conn.execute("""
         WITH root AS (
             UPDATE agent.turn AS turn
@@ -116,7 +117,7 @@ def append_group(conn, *, world_id, root_revision, checkpoint, events):
         SELECT turn_id, attempt, %s, %s, revision, %s, %s FROM checkpoint
         RETURNING append_revision
         """, (world_id, checkpoint.turn_id, checkpoint.attempt, root_revision, checkpoint.revision,
-              first, after, first, after, Jsonb(payload), t.canonical_sha256(payload))).fetchone()
+              first, after, first, after, Jsonb(payload), digest)).fetchone()
     if row is None:
         return None
     stored = conn.execute("""
@@ -125,7 +126,8 @@ def append_group(conn, *, world_id, root_revision, checkpoint, events):
         WHERE turn_id=%s AND attempt=%s AND first_sequence=%s
         FOR SHARE
         """, (checkpoint.turn_id, checkpoint.attempt, first)).fetchone()
-    if stored != (after, row[0], payload, t.canonical_sha256(payload)):
+    if (stored is None or stored[:2] != (after, row[0])
+            or stored[3] != digest or t.canonical_sha256(stored[2]) != digest):
         raise ApplicationStateIntegrityError("Plan checkpoint append changed its stored event group")
     return row[0]
 
@@ -174,12 +176,39 @@ def trace_checkpoint_execution(conn, turn_id, attempt, execution, *, revision, s
         return recover_execution(turn_id=turn_id, attempt=attempt, revision=head.revision,
             prefix=prefix, checkpoint=checkpoint, groups=groups).model_dump(mode="json", by_alias=True)
     field, value = selector
-    suffix = conn.execute("""
-        SELECT event FROM agent.plan_execution_checkpoint_group
-        CROSS JOIN LATERAL jsonb_array_elements(events) AS event
-        WHERE turn_id=%s AND attempt=%s AND event->>%s=%s
+    rows = conn.execute("""
+        SELECT append_revision, first_sequence, after_sequence, events, events_sha256
+        FROM agent.plan_execution_checkpoint_group AS grouped
+        WHERE turn_id=%s AND attempt=%s AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements(grouped.events) AS event WHERE event->>%s=%s)
         """, (turn_id, attempt, field, value)).fetchall()
-    return execution | {"events": [
-        *(event for event in execution["events"] if event.get(field) == value),
-        *(event for (event,) in suffix),
-    ]}
+    witnesses = [event for event in execution["events"] if event.get(field) == value]
+    for row in rows:
+        group = EventCheckpointGroup(*row)
+        if (not head.base_revision < group.append_revision <= head.revision
+                or not head.first_sequence <= group.first_sequence < group.after_sequence <= head.next_sequence
+                or group.after_sequence - group.first_sequence != len(group.events)
+                or any(type(event) is not dict or type(event.get("sequence")) is not int
+                       or event["sequence"] != ordinal
+                       for ordinal, event in enumerate(group.events, group.first_sequence))
+                or t.canonical_sha256(group.events) != group.events_sha256):
+            raise ApplicationStateIntegrityError("Plan trace event differs from its committed checkpoint")
+        witnesses.extend(event for event in group.events if event.get(field) == value)
+    return execution | {"events": witnesses}
+
+
+def restore_snapshot_execution(execution, turn_id, attempt, revision, stored):
+    """Resolve a suffix read in the same database snapshot as its opening row."""
+    if stored is None:
+        return execution
+    from pydantic_core import to_json
+
+    head, groups = stored
+    checkpoint = EventCheckpoint(UUID(head[0]), *head[1:])
+    try:
+        prefix = SurfaceNativeExecutionV1.model_validate_json(to_json(execution))
+    except ValidationError as exc:
+        raise ApplicationStateIntegrityError("Plan checkpoint opening execution is invalid") from exc
+    return recover_execution(turn_id=turn_id, attempt=attempt, revision=revision,
+        prefix=prefix, checkpoint=checkpoint, groups=[EventCheckpointGroup(*group) for group in groups]
+    ).model_dump(mode="json", by_alias=True)

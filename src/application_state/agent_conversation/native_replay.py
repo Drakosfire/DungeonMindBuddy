@@ -73,6 +73,8 @@ def native_discovery_replay(receipt, execution=None, *, stop=None):
 
 def load_native_replay_read(*, world_id, turn_id, trace_id, sequence, assertion_id):
     """Read the exact saved authorization and assertion in one database snapshot."""
+    from .repository import plan_checkpoint_projection
+    from .plan_execution_checkpoints import restore_snapshot_execution
     from .context_trace_store import _load_trace
     from .native_context import SurfaceNativeContextReceiptV1
     from .native_execution import SurfaceNativeExecutionV1, _join_context_binding
@@ -87,12 +89,13 @@ def load_native_replay_read(*, world_id, turn_id, trace_id, sequence, assertion_
 
     with unit_of_work(_ready_dsn()) as conn:
         row = conn.execute(
-            """SELECT t.conversation_id, t.answer_composition_kind,
+            f"""SELECT t.conversation_id, t.answer_composition_kind,
                       t.graph_context_receipt, t.graph_context_execution,
                       capture.attempt, capture.payload,
                       (SELECT min((later.payload->>'execution_start_sequence')::integer)
                        FROM agent.turn_context_trace AS later
-                       WHERE later.turn_id=t.turn_id AND later.attempt>capture.attempt)
+                       WHERE later.turn_id=t.turn_id AND later.attempt>capture.attempt),
+                      t.attempt, t.revision, {plan_checkpoint_projection('t')}
                FROM agent.turn AS t
                JOIN agent.turn_context_trace AS capture ON capture.turn_id=t.turn_id
                WHERE t.world_id=%s AND t.turn_id=%s AND capture.trace_id=%s""",
@@ -100,7 +103,8 @@ def load_native_replay_read(*, world_id, turn_id, trace_id, sequence, assertion_
         ).fetchone()
     if row is None:
         raise ValueError("Saved replay attempt is unavailable")
-    conversation_id, composition, receipt, execution, attempt, payload, stop = row
+    conversation_id, composition, receipt, execution, attempt, payload, stop, current_attempt, revision, stored = row
+    execution = restore_snapshot_execution(execution, turn_id, current_attempt, revision, stored)
     trace = _load_trace(payload)
     if (trace.world_id, trace.turn_id, trace.conversation_id, trace.trace_id, trace.attempt) != (
         world_id, turn_id, conversation_id, trace_id, attempt,

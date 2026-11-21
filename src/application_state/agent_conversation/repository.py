@@ -82,8 +82,9 @@ _TURN_COLS = (
     + _rules_summary_select("agent.turn")
 )
 # The root and suffix use one statement snapshot during unlocked reads.
-_TURN_READ_COLS = _TURN_COLS + """,
-    CASE WHEN agent.turn.status='running' THEN (
+def plan_checkpoint_projection(owner):
+    return f"""
+    CASE WHEN {owner}.status='running' THEN (
         SELECT jsonb_build_array(
             jsonb_build_array(head.turn_id, head.attempt, head.base_revision, head.revision,
                               head.first_sequence, head.next_sequence, head.prefix_sha256),
@@ -92,9 +93,11 @@ _TURN_READ_COLS = _TURN_COLS + """,
                 grouped.events, grouped.events_sha256) ORDER BY grouped.first_sequence)
               FROM agent.plan_execution_checkpoint_group AS grouped
               WHERE grouped.turn_id=head.turn_id AND grouped.attempt=head.attempt), '[]'::jsonb))
-        FROM agent.plan_execution_checkpoint AS head WHERE head.turn_id=agent.turn.turn_id
+        FROM agent.plan_execution_checkpoint AS head WHERE head.turn_id={owner}.turn_id
     ) END AS plan_checkpoint
 """
+
+_TURN_READ_COLS = _TURN_COLS + ", " + plan_checkpoint_projection("agent.turn")
 _TURN_COLS_T = (
     ", ".join(f"t.{column.strip()}" for column in _TURN_BASE_COLS.split(","))
     + ", t.answer_composition_kind, "
@@ -396,11 +399,10 @@ def _turn_from_row(
     )
     stored = row.pop("plan_checkpoint", None)
     if stored is not None:
-        from .plan_execution_checkpoints import EventCheckpoint, EventCheckpointGroup
+        from .plan_execution_checkpoints import restore_snapshot_execution
 
-        head, groups = stored
-        checkpoint = EventCheckpoint(UUID(head[0]), *head[1:])
-        _recover_plan_checkpoint_row(row, checkpoint, [EventCheckpointGroup(*group) for group in groups])
+        row["graph_context_execution"] = restore_snapshot_execution(
+            row["graph_context_execution"], row["turn_id"], row["attempt"], row["revision"], stored)
     provenance = turn_provenance(
         row,
         references

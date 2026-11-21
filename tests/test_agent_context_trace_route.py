@@ -158,7 +158,7 @@ def test_scoped_native_read_rejects_wrong_attempt_or_missing_record(monkeypatch,
                             trace_id=uuid4(), attempt=1, execution_start_sequence=5)
     conn = Mock()
     conn.execute.return_value.fetchone.return_value = (
-        trace.conversation_id, "base", {}, {"events": []}, trace.attempt, {}, stop,
+        trace.conversation_id, "base", {}, {"events": []}, trace.attempt, {}, stop, trace.attempt, 1, None,
     )
     monkeypatch.setattr(unit_of_work, "unit_of_work", lambda _: nullcontext(conn))
     monkeypatch.setattr(service, "_ready_dsn", lambda: "test")
