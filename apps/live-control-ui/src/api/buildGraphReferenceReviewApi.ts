@@ -21,6 +21,7 @@ export interface BuildGraphReferenceApply {
 export interface BuildGraphReferenceReviewRecord {
   schema: 'dmb_build_graph_reference_review_v1';
   action_id: string;
+  conversation_id?: string;
   placement: BuildGraphReferencePlacement;
   revision: number;
   state: 'editing' | 'applying' | 'applied' | 'discarded';

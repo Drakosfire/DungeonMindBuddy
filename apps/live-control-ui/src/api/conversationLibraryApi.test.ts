@@ -16,9 +16,16 @@ it.each([
  {...object,execute:true},
  {kind:'questions',questions:[{text:'Question',answer:'invented'}],source},
  {kind:'page_object',object_kind:'execute',source},
+ {kind:'build_graph_reference',placement_sha256:'not-a-digest',source},
+ {kind:'build_graph_reference',placement_sha256:'a'.repeat(64),source:{...source,surface_id:'plan'}},
 ])('refuses malformed typed objects',async object=>{const value=page();response({...value,turns:[{...value.turns[0],retry_context:null,reply_object:object}]});await expect(readConversationTurns('world',cid)).rejects.toThrow();});
 it('refuses objects on incomplete turns and an obsolete projection schema',async()=>{const value=page();response({...value,turns:[{...value.turns[0],status:'running'}]});await expect(readConversationTurns('world',cid)).rejects.toThrow();response({...value,schema:'dmb_conversation_library_turns_v1'});await expect(readConversationTurns('world',cid)).rejects.toThrow();});
 it('admits page labels without making their review executable',async()=>{const value=page();response({...value,turns:[{...value.turns[0],reply_object:{kind:'page_object',object_kind:'plan',source}}]});expect((await readConversationTurns('world',cid)).turns[0].reply_object?.kind).toBe('page_object');});
+it('admits a Build Graph placement digest as a saved reply descriptor',async()=>{const value=page();
+ const review={kind:'build_graph_reference',placement_sha256:'a'.repeat(64),source};
+ response({...value,turns:[{...value.turns[0],reply_object:review}]});
+ expect((await readConversationTurns('world',cid)).turns[0].reply_object).toEqual(review);
+});
 
 it('retains captured reference input and rejects a foreign World',async()=>{
  const references={schema:'dmb_authored_references_v2',references:[{schema:'dmb_authored_graph_reference_v1',managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'revision',node_id:'node',label:'Selected object'}]};

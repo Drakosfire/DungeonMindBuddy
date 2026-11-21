@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import wire from '../test/surface-native-http.json';
-import {isSurfaceNativeReceipt,isSurfaceNativeCompletion,isSurfaceNativeContext} from './surfaceNativeProtocol';
+import {graphReferenceReply,isBuildGraphReferenceCompletion,isSurfaceNativeReceipt,isSurfaceNativeCompletion,isSurfaceNativeContext} from './surfaceNativeProtocol';
 import type {SurfaceNativeContextReceiptV1,SurfaceNativeWorkContextV1} from '../api/types';
 // Captured from the real provider-free Plan HTTP/APP/Core/SDK boundary test.
 const context=()=>structuredClone(wire.context);
@@ -39,6 +39,21 @@ import authoredWire from '../test/surface-native-authored.json';
 import {isNativePlanQuery,isNativeGraphQuery} from './nativeStatementAnswerProtocol';
 const authoredContext=()=>structuredClone(authoredWire);
 const buildWork=(v:unknown):v is SurfaceNativeWorkContextV1=>typeof v==='object'&&v!==null&&'surface_id' in v&&v.surface_id==='build';
+it('accepts typed Graph Review receipts only in native Build and rejects an action on clarification',()=>{
+ const c=authoredContext();
+ const completion={schema:'dmb_build_graph_reference_completion_v1',context_receipt_sha256:c.receipt.context_receipt_sha256,
+   disposition:'ready',action_id:'11111111-1111-4111-8111-111111111111',placement_sha256:'a'.repeat(64)};
+ const envelope={schema:'dmb_agent_surface_native_context_response_v1',delivery_replay:false,
+   execution:{schema:'dmb_agent_plan_world_graph_execution_projection_v1',claimability:'completed',authorization_state:'response_received',automatic_redispatch:false}};
+ expect(isSurfaceNativeContext({...envelope,...c,completion},buildWork,()=>true)).toBe(true);
+ const plan=context();
+ expect(isSurfaceNativeContext({...envelope,receipt:plan.receipt,completion:{...completion,
+   context_receipt_sha256:plan.receipt.context_receipt_sha256}},work,()=>true)).toBe(false);
+ const refusal={...completion,disposition:'wrong_kind',action_id:null,placement_sha256:null};
+ if (!isBuildGraphReferenceCompletion(refusal,c.receipt.context_receipt_sha256)) throw new Error('Refusal failed to decode');
+ expect(graphReferenceReply(refusal)).toContain('different classification');
+ expect(isBuildGraphReferenceCompletion({...refusal,action_id:completion.action_id},c.receipt.context_receipt_sha256)).toBe(false);
+});
 it('renders the actual APP-read and SDK-writer human target wire without turning it into search or historical Plan evidence',()=>{
   const c=authoredContext(),q=c.receipt.native_query;
   expect(q.discovered_entity_ids).toEqual([]);expect(q.matches).toEqual([]);expect(q.assertion_matches).toEqual([]);

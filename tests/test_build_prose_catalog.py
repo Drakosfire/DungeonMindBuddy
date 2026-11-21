@@ -197,6 +197,7 @@ def graph_decision(captured_page):
 
 def graph_response(**changes):
     labels = dict(work="place_paragraph", destination="current_page", relation="after", scope="named",
+                  anchor_occurrence="passage2", reference_nomination="object2",
                   text0="include", scope0="exclude", scope1="include", reference_intent="place_existing",
                   reference_kind="class1", reference_kind_constraint="requires_or_excludes_type", object1="exclude",
                   object2="include", object3="exclude")
@@ -229,6 +230,17 @@ def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
 
 def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(graph_decision):
     request = graph_decision.request()
+    assert request.state["author_placement_words"] == {
+        "object_expression": "a reference to the retuned Ivory Sentry construct",
+        "anchor_expression": "the moon in East",
+    }
+    quoted = replace(graph_decision, question='Link Ivory Sentry after the paragraph “The moon is out”.')
+    assert "author_placement_words" not in quoted.request().state
+    assert request.state["paragraph_order"] == [
+        {"occurrence": "passage1", "passage": "text0", "section": "scope0"},
+        {"occurrence": "passage2", "passage": "text0", "section": "scope1"},
+    ]
+    assert "Choose unscoped when no heading" in next(q.question for q in request.questions if q.name == "scope")
     remapped = graph_decision.candidates[0].model_copy(update={
         "reference": graph_decision.candidates[0].reference.model_copy(update={"node_id": "same-wire-foreign-id"}),
     })
@@ -251,10 +263,13 @@ def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(g
 @pytest.mark.parametrize("choices,disposition", [
     ({"object1": "include", "object2": "exclude"}, "missing_identity"),
     ({"reference_kind": "class2"}, "wrong_kind"),
+    ({"reference_kind": "class2", "object2": "exclude"}, "wrong_kind"),
     ({"reference_kind": "class2", "text0": "exclude"}, "wrong_kind"),
     ({"reference_kind": "other_kind"}, "wrong_kind"),
+    ({"reference_kind": "other_kind", "object2": "exclude"}, "wrong_kind"),
     ({"object2": "exclude"}, "missing_identity"),
     ({"scope": "unscoped"}, "ambiguous_boundary"),
+    ({"anchor_occurrence": "passage1"}, "ambiguous_boundary"),
     ({"scope1": "exclude"}, "missing_boundary"),
     ({"destination": "different_page"}, "different_page"),
     ({"reference_intent": "discussion"}, "discussion"),
@@ -287,6 +302,129 @@ def test_graph_decision_shared_alias_requires_the_current_author_selected_identi
     assert refusal.disposition == "ambiguous_identity" and refusal.placement is None
     selected = replace(shared, author_selected=second.reference).resolve(graph_response())
     assert selected.placement.reference == second.reference
+
+
+@pytest.mark.parametrize("question,overrides,expected", [
+    ("Add a reference to Ivory Sentry location after the moon in East.",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("Link Ivory Sentry with a blue vane after the moon in East.", {}, "construct:retuned-ivory"),
+    ("Link Blue Watch after the moon in East.", {}, "construct:retuned-ivory"),
+    ("Could you link Blue Watch after the moon in East?", {}, "construct:retuned-ivory"),
+    ("After the moon in East, would you please link Blue Watch?", {}, "construct:retuned-ivory"),
+    ("Could you link Ivory Sentry location rather than the construct after the moon in East?",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("Could you link Ivory Sentry after the paragraph about a location rather than the construct?",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, None),
+    ('Link “Blue Watch” after the moon in East.', {}, "construct:retuned-ivory"),
+    ("After the moon in East, add a new link to Blue Watch.", {}, "construct:retuned-ivory"),
+    ("Link the location named Ivory Sentry after the moon in East.",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("Link the location Ivory Sentry after the moon in East.",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ('Link the location “Ivory Sentry” after the moon in East.',
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("I would like you to link Ivory Sentry, the location, after the moon in East.",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("Link the with a blue vane version of Ivory Sentry after the moon in East.", {}, "construct:retuned-ivory"),
+    ("Link Ivory Sentry as a location after the moon in East.",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ('Link Ivory Sentry after the paragraph about “Blue Watch”.', {}, None),
+    ('Link Ivory Sentry “location” after the moon in East.',
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, None),
+    ("Link Ivory Sentry after the paragraph about a blue vane.", {}, None),
+    ("Link Blue Watch, or link Ivory Sentry after the moon in East.", {}, None),
+    ("Link Ivory Sentry, the location, after the moon in East.", {}, None),
+    ("Link Ivory Sentry construct after the moon in East.", {}, None),
+])
+def test_graph_identity_expression_must_uniquely_match_the_authorized_inventory(
+    graph_decision, question, overrides, expected,
+):
+    first, second, third = graph_decision.candidates
+    decision = replace(graph_decision, question=question, author_selected=None, candidates=(
+        first, second.model_copy(update={"aliases": ("Blue Watch",)}), third,
+    ))
+    result = decision.resolve(graph_response(**overrides))
+    if expected is None:
+        assert result.disposition == "ambiguous_identity" and result.placement is None
+    else:
+        assert result.placement.reference.node_id == expected
+
+
+@pytest.mark.parametrize("question", [
+    "Link the with a blue vane version of Ivory Sentry after the moon in East.",
+    'Link “Blue Watch” after the moon in East.',
+])
+def test_graph_literal_qualifier_requires_uniqueness_across_excluded_candidates(graph_decision, question):
+    first, second, third = graph_decision.candidates
+    first = first.model_copy(update={"summary": second.summary, "aliases": ("Blue Watch",)})
+    second = second.model_copy(update={"aliases": ("Blue Watch",)})
+    decision = replace(graph_decision, question=question, author_selected=None, candidates=(first, second, third))
+    result = decision.resolve(graph_response())
+    assert result.disposition == "ambiguous_identity" and result.placement is None
+
+
+@pytest.mark.parametrize("question,nomination,expected", [
+    ("Link Blue Watch after the moon in East.", "object2", "ready"),
+    ("Link Blue Watch after the moon in East.", "object1", "ambiguous_identity"),
+    ("Link Blue Watch after the moon in East.", "unresolved", "ambiguous_identity"),
+    ("Link Ivory Sentry after the paragraph mentioning Blue Watch.", "object2", "ambiguous_identity"),
+])
+def test_multiple_graph_matches_require_model_nomination_and_unique_author_evidence(
+    graph_decision, question, nomination, expected,
+):
+    first, second, third = graph_decision.candidates
+    decision = replace(graph_decision, question=question, author_selected=None, candidates=(
+        first, second.model_copy(update={"aliases": ("Blue Watch",)}), third,
+    ))
+    result = decision.resolve(graph_response(object1="include", reference_nomination=nomination))
+    assert result.disposition == expected
+    if expected == "ready":
+        assert result.placement.reference == second.reference
+    else:
+        assert result.placement is None
+
+
+@pytest.mark.parametrize("question", [
+    "If you were to link Ivory Sentry after the moon in East, where would it go?",
+    "Could you not link Ivory Sentry after the moon in East?",
+    "Don't link Ivory Sentry after the moon in East.",
+])
+def test_graph_explicit_negation_and_hypothetical_refuse_even_with_an_author_selection(graph_decision, question):
+    decision = replace(graph_decision, question=question)
+    result = decision.resolve(graph_response())
+    assert result.disposition == "discussion" and result.placement is None
+
+
+def test_graph_occurrence_vote_cannot_override_multiple_compatible_passages(graph_decision, captured_page):
+    votes = graph_response(scope="unscoped", anchor_occurrence="passage2")
+    assert graph_decision.resolve(votes).disposition == "ambiguous_boundary"
+
+    basis, editor, draft = captured_page
+    editor = editor.replace("The moon is 🌘.", "The sun is high.", 1)
+    draft = draft.replace("The moon is 🌘.", "The sun is high.", 1)
+    basis = basis.model_copy(update={"editor_sha256": digest(editor), "draft_sha256": digest(draft)})
+    distinct = replace(graph_decision, basis=basis, catalog=freeze_build_prose_catalog(basis, editor, draft),
+                       question="Reference the selected construct after the paragraph about the moon.")
+    nominated = distinct.resolve(graph_response(scope="unscoped", text1="include", anchor_occurrence="passage2"))
+    assert nominated.disposition == "ambiguous_boundary" and nominated.placement is None
+
+
+@pytest.mark.parametrize("question,occurrence,expected", [
+    ("Add the selected reference after the first paragraph of the West section.", "passage1", "ready"),
+    ("Add the selected reference after the first paragraph of the West section.", "passage2", "ambiguous_boundary"),
+    ("Link Ivory Sentry before the third paragraph or after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
+    ("Do not add the selected reference after the first paragraph of the West section.", "passage1", "discussion"),
+    ("Put a note saying to add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
+    ("Explain whether to add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
+    ("Add the selected reference after the first paragraph of the West Coast section.", "passage1", "ambiguous_boundary"),
+    ('Add the selected reference beside “after the first paragraph of the West section”.', "passage1", "ambiguous_boundary"),
+])
+def test_graph_occurrence_ordinal_needs_literal_author_scope(graph_decision, question, occurrence, expected):
+    shaped = replace(graph_decision, question=question)
+    nomination = shaped.resolve(graph_response(scope0="include", anchor_occurrence=occurrence))
+    assert nomination.disposition == expected
+    if expected == "ready":
+        assert nomination.placement.boundary.alias == "passage1:insert_after"
 
 
 def test_graph_decision_rejects_foreign_stale_and_unoffered_identity_proof(graph_decision):
