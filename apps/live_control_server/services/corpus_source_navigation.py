@@ -1,6 +1,6 @@
 """One explicitly selected corpus scan; no prose is added to model context."""
 from hashlib import sha256
-from contextlib import nullcontext
+from contextlib import ExitStack, closing, nullcontext
 from collections import Counter
 from types import SimpleNamespace
 from uuid import uuid4
@@ -766,6 +766,12 @@ class NativeBodyNavigation:
         ))
 
     def select(self, handles):
+        # Close Core's read transport separately from the APP commit's exception
+        # handling. Each observation still owns its original durable boundary.
+        with closing(ExitStack()) as source_session:
+            return self._select_with_read_session(handles, source_session)
+
+    def _select_with_read_session(self, handles, source_session):
         from application_state.agent_conversation.native_corpus import native_corpus_search_handle
         from ..integrations.dungeonmind.native_corpus_source import (
             NativeCorpusContext, capture_native_sources, read_native_corpus_member, read_direct_native_source,
@@ -774,6 +780,18 @@ class NativeBodyNavigation:
         context = getattr(a, "native_corpus_context", None)
         if not isinstance(context, NativeCorpusContext) or context.authority != a.fence.turn.graph_context_receipt.source_authority:
             raise ValueError("Native navigation requires its original trusted source context")
+        reuse_connection = getattr(context.repository, "reuse_native_source_read_connection", None)
+
+        def read_member(authority, member):
+            nonlocal reuse_connection
+            if reuse_connection is not None:
+                # This runs inside the existing authorized read callback.
+                source_session.enter_context(reuse_connection())
+                reuse_connection = None
+            return read_native_corpus_member(
+                authority=authority, member=member, principal=context.principal, prepared=context,
+            )
+
         offered = {row.handle for row in self.offered()}
         if (not handles or len(set(handles)) != len(handles)
                 or any(handle not in offered and not self._fulfilled_in_current_selection(handle) for handle in handles)):
@@ -840,8 +858,7 @@ class NativeBodyNavigation:
                 with a.fence.renewer._lock:
                     results = self._commit('observe_native_body_reads', reads=tuple(dict(
                         event_id=uuid4(), authorization_event_id=g.event_id) for _, g, _ in body_group),
-                        read=lambda authority, member: read_native_corpus_member(authority=authority, member=member,
-                            principal=context.principal, prepared=context))
+                        read=read_member)
                 for (h, _, label), result in zip(body_group, results, strict=True):
                     observe_native_retrieval(a, operation, h, label=label, completed=True,
                         unavailable=result.excerpt is None)
