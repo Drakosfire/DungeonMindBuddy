@@ -151,28 +151,37 @@ class BuildGraphReferenceReviewService:
     def stage(self, action_id: UUID, conversation_id: UUID, expected_pointer_revision: int,
               placement: BuildGraphReferencePlacement, editor_json: str, draft: str, *, admit):
         """Called by the authorized action owner, never by a browser command."""
+        with unit_of_work(_ready_dsn()) as conn:
+            return self.stage_in_transaction(
+                conn, action_id, conversation_id, expected_pointer_revision,
+                placement, editor_json, draft, admit=admit,
+            )
+
+    def stage_in_transaction(self, conn, action_id: UUID, conversation_id: UUID,
+                             expected_pointer_revision: int, placement: BuildGraphReferencePlacement,
+                             editor_json: str, draft: str, *, admit) -> BuildGraphReferenceReview:
+        """Stage the Review within the owner's transaction so admission and staging roll back together."""
         world_id = placement.basis.world_id
         placement.require_boundary(editor_json, draft)
         review = BuildGraphReferenceReview(
             action_id=action_id, conversation_id=conversation_id, expected_pointer_revision=expected_pointer_revision,
             placement=placement, revision=1, state="editing", updated_at=_now(),
         )
-        with unit_of_work(_ready_dsn()) as conn:
-            pointer = _lock_pointer(conn, world_id)
-            previous = _read(conn, world_id, action_id, lock=True)
-            if previous is not None:
-                if (previous.placement != placement or previous.conversation_id != conversation_id
-                        or previous.expected_pointer_revision != expected_pointer_revision):
-                    raise ApplicationStateConflictError("Graph reference action has a different admitted request")
-                return previous
-            _require_scope(pointer, review)
-            admit(conn, review)
-            conn.execute(
-                """INSERT INTO agent.build_graph_reference_review(action_id,world_id,conversation_id,revision,payload)
-                   VALUES (%s,%s,%s,1,%s)""",
-                (action_id, world_id, conversation_id, Jsonb(review.model_dump(mode="json", by_alias=True))),
-            )
-            return review
+        pointer = _lock_pointer(conn, world_id)
+        previous = _read(conn, world_id, action_id, lock=True)
+        if previous is not None:
+            if (previous.placement != placement or previous.conversation_id != conversation_id
+                    or previous.expected_pointer_revision != expected_pointer_revision):
+                raise ApplicationStateConflictError("Graph reference action has a different admitted request")
+            return previous
+        _require_scope(pointer, review)
+        admit(conn, review)
+        conn.execute(
+            """INSERT INTO agent.build_graph_reference_review(action_id,world_id,conversation_id,revision,payload)
+               VALUES (%s,%s,%s,1,%s)""",
+            (action_id, world_id, conversation_id, Jsonb(review.model_dump(mode="json", by_alias=True))),
+        )
+        return review
 
     def prepare(self, world_id: str, action_id: UUID, expected_revision: int,
                 receipt: BuildGraphReferenceApply, editor_json: str, draft: str,

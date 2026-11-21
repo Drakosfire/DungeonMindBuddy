@@ -32,6 +32,7 @@ from application_state.agent_conversation.types import (
     BuildRelationshipReviewCompletionV1, BuildNamedGraphCompletionV3, BuildDraftContextCompletionV1, BuildRelatedPageCompletionV1, BuildCollaborationCompletionV1, BuildConnectedPageReviewCompletionV1,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
+    BuildGraphReferenceCompletionV1,
     BuildImagePreparationCompletionV1,
     BuildSourcePassageCitationV1,
     SurfaceSourcePassageCitationV1,
@@ -833,7 +834,7 @@ class AgentSurfaceNativeContextResponseV1(BaseModel):
     schema_: Literal['dmb_agent_surface_native_context_response_v1'] = Field(
         default='dmb_agent_surface_native_context_response_v1',alias='schema')
     receipt: SurfaceNativeContextReceiptV1
-    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
+    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | BuildGraphReferenceCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
     deferred_build_citations: DeferredBuildCitationMembership | None = Field(

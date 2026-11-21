@@ -616,7 +616,12 @@ def validate_resolution_metadata(event, policy):
         raise ValueError('Semantic event differs from its frozen response contract')
     from application_state.build_proposal.prose_catalog import catalog_for_build_capability
 
-    catalog = catalog_for_build_capability(getattr(getattr(policy, "action", None), "write_capability", None))
+    write_capability = getattr(getattr(policy, "action", None), "write_capability", None)
+    catalog = catalog_for_build_capability(write_capability)
+    if event.typed_graph_reference is not None and (
+        catalog is None or write_capability.basis.visibility != "internal"
+    ):
+        raise ValueError("Retained Graph reference opening requires an internal native page capture")
     placement = event.paragraph_placement
     if (catalog is None) != (placement is None):
         raise ValueError("Build paragraph placement differs from its frozen capability")
@@ -701,8 +706,11 @@ def validate_native_action_events(execution):
             validate_resolution_metadata(event,execution.policy)
             selection=event
         elif isinstance(event,t.ProviderAttemptAuthorizedEventV1):
-            if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity() and selection is None:
-                raise ValueError('Build writer requires its unique retained semantic resolution')
+            if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity():
+                if selection is None:
+                    raise ValueError('Build writer requires its unique retained semantic resolution')
+                if getattr(selection, "typed_graph_reference", None) == "place_existing_reference":
+                    raise ValueError("Typed Graph reference placement cannot authorize a writer")
             latest,outcome=event,None
         elif isinstance(event,t.ProviderOutcomeEventV1) and latest is not None and event.provider_attempt_id==latest.provider_attempt_id:
             outcome=event.outcome
@@ -717,6 +725,8 @@ def validate_selection(turn, event, proof, trace):
 
 
 def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt, semantic_input=False, idempotency_key=None):
+    from application_state.build_proposal.graph_reference_decision import resolve_graph_reference_opening
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
     from .source_writer_output import strict_json
     from generationengine.types import DecisionResult
     from . import types as t
@@ -732,6 +742,13 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     raw_response = strict_json(proof["response_json"])
     label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
+    graph_reference = resolve_graph_reference_opening(request, response)
+    if graph_reference != event.typed_graph_reference or (graph_reference is not None and (
+        not semantic_input or capability is None
+        or catalog_for_build_capability(policy.action.write_capability) is None
+        or policy.action.write_capability.basis.visibility != "internal"
+    )):
+        raise ValueError("Build Graph reference opening differs from its actual native selection")
     resolution = resolution_for(policy, label, source_scope=source_need(request, raw_response))
     if event.paragraph_placement != paragraph_placement_for(policy, request, response, user_text, label):
         raise ValueError("Build paragraph placement differs from its actual opening selection")

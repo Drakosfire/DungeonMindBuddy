@@ -23,6 +23,7 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from application_state.content import pages
 from application_state.content.markdown_source_blocks import source_block_spans
 from application_state.content.page_presentation import BlockBinding, PagePresentation
+from application_state.unit_of_work import unit_of_work
 from apps.live_control_server.services import build_graph_reference
 from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
 from tests.application_state.test_agent_conversation_postgres import _new
@@ -262,6 +263,15 @@ def test_build_reference_joins_exact_id_and_classification_at_current_pin(placem
         return payload
 
     monkeypatch.setattr(build_graph_reference, "authoring_identities", current)
+    payload["identities"] += [
+        {**selected, "node_id": "opaque-id", "label": "opaque-id"},
+        {**selected, "node_id": "unresolved-id", "selectable": False},
+    ]
+    candidates = build_graph_reference.read_build_graph_reference_candidates("observatory", principal)
+    assert [(item.reference.node_id, item.reference.label, item.entity_kind) for item in candidates] == [
+        ("location:lurker", "Lurker", "location"), ("threat:lurker", "Lurker", "threat"),
+    ]
+    assert candidates[1].reference == placement.reference
     build_graph_reference.require_current_build_graph_reference(placement, principal)
     wrong_kind = placement.model_copy(update={
         "reference": placement.reference.model_copy(update={"node_id": namesake["node_id"]}),
@@ -358,6 +368,30 @@ def test_graph_reference_review_replays_exact_postimage_and_records_only_observe
     confirmed = store.confirm(world, action_id, apply.apply_id, observe_save=lambda checked: 2)
     assert confirmed.state == "applied" and confirmed.saved_revision == 2
     assert store.confirm(world, action_id, apply.apply_id, observe_save=changed) == confirmed
+
+
+def test_graph_reference_review_rolls_back_with_its_owner(placement_capture, application_state_dsn):
+    placement, editor, draft = placement_capture
+    world = placement.basis.world_id
+    conversation = _new(AgentConversationService(), world)
+    action_id = uuid4()
+    store = BuildGraphReferenceReviewService()
+
+    with pytest.raises(RuntimeError, match="owner completion failed"):
+        with unit_of_work(application_state_dsn) as conn:
+            review = store.stage_in_transaction(
+                conn, action_id, conversation.conversation_id, 1, placement, editor, draft,
+                admit=lambda conn, review: None,
+            )
+            assert review.state == "editing"
+            raise RuntimeError("owner completion failed")
+
+    with pytest.raises(ApplicationStateNotFoundError):
+        store.get(world, action_id)
+    assert store.stage(
+        action_id, conversation.conversation_id, 1, placement, editor, draft,
+        admit=lambda conn, review: None,
+    ).state == "editing"
 
 
 @pytest.mark.parametrize("identity_only", [False, True])
