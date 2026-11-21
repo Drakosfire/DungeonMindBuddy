@@ -10,10 +10,13 @@ Use this workflow for an existing hosted installation. The operator owns the
 privileged Compose switch. The agent can inspect, stage, build, and verify
 through the operator's existing SSH account.
 
+The current Buddy production host is `srv586875` and the SSH target is
+`alan@191.101.14.169`. Use this target from the deployment workstation.
+
 1. **Establish temporary SSH access.** The operator loads the existing deploy
    key on the workstation with `ssh-add -t 1h ~/.ssh/id_rsa` (substitute the
    configured key path). Use the existing trusted host key. Check noninteractive
-   access with `ssh -o BatchMode=yes -o ConnectTimeout=6 <buddy-ssh-host> true`.
+   access with `ssh -F /dev/null -o BatchMode=yes -o ConnectTimeout=6 alan@191.101.14.169 true`.
    If the agent refuses signing, have the operator refresh the key. Host-key
    errors require verifying the host identity through the established channel.
 2. **Pin and inspect the release.** Fetch the owning remote. Record the exact
