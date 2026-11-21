@@ -2,7 +2,7 @@
 
 Status: ACTIVE. The onboarding goal explicitly authorizes implementation, independent Bugbot review, merge and deployment. This slice supplies the operator's missing APP recovery tool; it does not authorize use on production, migration, or a cutover by the agent.
 
-Topology: stacked on PR #4357 head `578abbd87ec50491a815e51dd71dce088aacaac9`, branch `codex/onboard-recovery-image` in this checkout. Merge #4357 first, rebase on current main and reverify before this PR can merge. Main advanced since the parent; the stack must not overwrite those changes.
+Topology: parallel-independent of PR #4357 at `578abbd87ec50491a815e51dd71dce088aacaac9`, based on Buddy main `b5863945a71dbb724d1bed8ddcc87fbbab91c7b3`; branch `codex/onboard-recovery-image` in this checkout. The recovery image has no behavioral or write dependency on that runbook PR. The runbook review finding and operator procedure remain separate deployment gates.
 
 Exclusive write set: this handoff, `Dockerfile.app-recovery`, `scripts/check_app_recovery_image.py`, and the matching focused test. Do not edit the parent's runbook or serving Dockerfile. Concurrent deployment PRs #4357, #4356 and #4359 were checked; the recovery image must not collide with their files or runtime. Local Docker runs use task-owned containers, databases, networks and output directories; no production or operator data, ports, credentials or shared Docker pruning.
 
