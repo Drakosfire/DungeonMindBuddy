@@ -1,8 +1,11 @@
 # World Plan presentation Save and load over HTTP
 
-Status: ACTIVE for implementation and disposable verification on
-`codex/plan-presentation-http` in the existing isolated Plan lane. Serial base:
-`c68d9a2417b7cae8798f80da17c747c6dfe3e6c7` (#4344).
+Status: MERGED in PR #4345 as `2e9f2bb7cd069f40ed7334b20a2fd21f113b4f56`.
+Reviewed head `00fe2f84a8eac3d8170e938aef5503113a740ca6` passed seventy focused
+HTTP/review checks and the disposable 0173/0174 old-reader and forward-recovery
+witness. The named suite had 476 passes, two skips and the matching inherited
+Build Image HTTP failure. The next serial slice is
+[manual Plan composition](HANDOFF-PLAN-manual-composition.md).
 
 The predecessor prepare/commit endpoint accepts presentation for authored Pages
 and refuses it for Plans. The Content prerequisite owns atomic revision
