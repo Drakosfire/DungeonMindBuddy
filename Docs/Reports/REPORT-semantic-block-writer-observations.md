@@ -224,3 +224,18 @@ Both blocks, the original Arrival paragraph, and the existing callouts
 remained visible after reopening the saved Build page. This verifies
 block choice and persistence in one live repetition per kind. Safe
 automatic Rules placement and equivalent Plan runs remain open.
+
+### Hosted Plan Warning and Rules controls
+
+On release `09631231`, both exact X02 requests completed against the
+synthetic Plan with an original editor capture.
+
+| Case | Retained decision | Observed result |
+| --- | --- | --- |
+| Warning | `clarify`, no placement | Buddy returned a warning in chat. No editable callout was staged. |
+| Rules | `write_current_page`, captured placement | The editable suggestion had a canonical Rules block containing only the supplied rule. The host retrieval disclosure also appeared as a separate editable paragraph. |
+
+The Rules suggestion was dismissed before Save. The saved Plan still
+showed its original callouts, red-gate choice, and Departure scene. This
+confirms block choice for the Rules proposal. Clean save and reopening,
+and routing the Warning request to the page, remain to be verified.
