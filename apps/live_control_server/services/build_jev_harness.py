@@ -252,8 +252,9 @@ class BuildJevHarness:
                 driver.operation != "propose_build_insertion" or adapter.native_source_authority is None
             ):
                 raise ValueError("The image reference requires an edit to the selected passage.")
-            from application_state.agent_conversation.native_corpus import prior_conversation_work
+            from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
             if (adapter.native_source_authority is not None
+                    and conversation_route_can_admit(adapter._broker_receipt(), adapter._broker_execution())
                     and prior_conversation_work(adapter._broker_execution().events) is not None):
                 adapter.turn, _ = adapter.fence.append(
                     "admit_build_prior_body_evidence", "event_id", uuid4(),
@@ -629,9 +630,12 @@ class BuildJevHarness:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
                 conversation_only = False
                 if wait_for_work:
-                    from application_state.agent_conversation.build_intentional_response import selected
+                    from application_state.agent_conversation.build_intentional_response import selected, source_need
+                    from application_state.agent_conversation.native_corpus import is_prior_conversation_work
 
-                    conversation_only = selected(result.model_dump(mode="json")) == "review_lore_page_from_conversation"
+                    response = result.model_dump(mode="json")
+                    request = json.loads(adapter._prepared_build_decision.body)
+                    conversation_only = is_prior_conversation_work(selected(response), source_need(request, response))
                 if not conversation_only:
                     if pending_query is None:
                         pending_query = asyncio.get_running_loop().run_in_executor(

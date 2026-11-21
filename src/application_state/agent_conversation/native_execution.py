@@ -579,6 +579,10 @@ def _join_context_binding(context, execution):
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
                 t.validate_provider_envelope_accounting(assembled,
                     execution.model_copy(update={"events": execution.events[:index]}), event)
+    from .native_corpus import conversation_route_can_admit
+    if (any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events)
+            and not conversation_route_can_admit(context, execution)):
+        raise ValueError("Conversation body evidence requires a Graph query that was never settled")
     query = effective_native_query(context, execution)
     if isinstance(query, t.NativePlanQueryV2):
         request = action.intent.graph_request

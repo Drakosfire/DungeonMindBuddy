@@ -2440,7 +2440,7 @@ class AgentConversationService:
         from collections import Counter
         from hashlib import sha256
         from .native_corpus import (
-            PriorBodyCitationReferenceV1, prior_conversation_work, resolve_prior_body_citation,
+            PriorBodyCitationReferenceV1, conversation_route_can_admit, prior_conversation_work, resolve_prior_body_citation,
         )
         from .native_reads import _owner
         from .types import BuildPriorBodyEvidenceAdmittedV1, PriorBodyCitationSupportV1
@@ -2452,7 +2452,8 @@ class AgentConversationService:
             history_turn_ids = {pin.turn_id for pin in history}
             work = prior_conversation_work(execution.events)
             pointer = repo.get_world_state(conn, current.world_id)
-            if (work is None or pointer is None or pointer.active_conversation_id != current.conversation_id
+            if (work is None or not conversation_route_can_admit(receipt, execution)
+                    or pointer is None or pointer.active_conversation_id != current.conversation_id
                     or len(history) > 6 or len(history_turn_ids) != len(history)):
                 raise ValueError("Prior body evidence requires the current Build conversation")
             supports = {}

@@ -295,7 +295,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
-                chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else source_need if name=='source_need'
+                chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else (source_need(writer.adapter.request.message) if callable(source_need) else source_need) if name=='source_need'
                     else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else "read" if read_optional_page and name.startswith("related_page_")
@@ -2490,6 +2490,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         message="Create a blank page for Glass Regent.",
         requested_work=lambda message: "review_lore_page_from_conversation" if message == synthesis else "review_lore_page",
         native_body="direct_support", dispatch=first, lore_limitation=True,
+        source_need=lambda message: "anchored" if message == synthesis else "source_lookup",
     )
     blank = case.turn
     assert not blank.completion.answer_segments

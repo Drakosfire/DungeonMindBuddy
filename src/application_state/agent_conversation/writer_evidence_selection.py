@@ -343,9 +343,10 @@ def native_approval_terminal(turn):
 
 def native_conversation_terminal(turn):
     from .types import BuildPriorBodyEvidenceAdmittedV1
-    from .native_corpus import prior_conversation_work
+    from .native_corpus import conversation_route_can_admit, prior_conversation_work
 
-    if not native_build(turn):
+    if not native_build(turn) or not conversation_route_can_admit(
+            turn.graph_context_receipt, turn.graph_context_execution):
         return None
     events = turn.graph_context_execution.events
     work = prior_conversation_work(events)

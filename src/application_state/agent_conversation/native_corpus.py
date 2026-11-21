@@ -698,14 +698,26 @@ class PriorBodyCitationReferenceV1(Strict):
     citation_index: int = Field(ge=0, le=16383, strict=True)
 
 
+def is_prior_conversation_work(label, source_scope):
+    return label == "review_lore_page_from_conversation" and source_scope == "anchored"
+
+
 def prior_conversation_work(events):
     from .types import BuildRequestedWorkResolutionV1
 
     work = [event for event in events if isinstance(event, BuildRequestedWorkResolutionV1)]
-    if (len(work) == 1 and work[0].requested_work == "review_lore_page_from_conversation"
+    if (len(work) == 1 and is_prior_conversation_work(work[0].requested_work, work[0].resolution.get("source_scope"))
             and work[0].resolution.get("barrier") is None):
         return work[0]
     return None
+
+
+def conversation_route_can_admit(receipt, execution):
+    from .native_context import NativeBuildQueryPendingV1
+    from .native_execution import NativeBuildQuerySettledV1
+
+    return (isinstance(getattr(receipt, "native_query", None), NativeBuildQueryPendingV1)
+            and not any(isinstance(event, NativeBuildQuerySettledV1) for event in execution.events))
 
 
 def resolve_prior_body_citation(current, prior, reference, *, history_turn_ids):
