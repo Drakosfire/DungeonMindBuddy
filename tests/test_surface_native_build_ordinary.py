@@ -408,6 +408,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     chosen = {"work": "place_paragraph", "destination": "current_page", "relation": "after",
                               "scope": "named", "text0": "include", "scope0": "exclude", "scope1": "include",
                               "reference_intent": "place_existing", "object1": "include", "object2": "exclude",
+                              "reference_kind_constraint": "requires_or_excludes_type",
                               "reference_kind": "other_kind" if graph_reference == "wrong_kind" else "class1"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                                          probabilities={key: float(key == chosen) for key in choices})

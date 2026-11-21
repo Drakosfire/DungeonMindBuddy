@@ -133,7 +133,8 @@ class BuildGraphReferenceDecision:
                     "Include every independently matching object, even if it shares a name. Use only qualification "
                     "actually applied to the named object. A page or heading qualifier used only for paragraph placement "
                     "does not qualify the Graph object. If the author selected an object, the requested reference must "
-                    "agree with it. Creation and discussion grant no placement."
+                    "agree with it. The current request's object type and exclusions still apply to a selected object. "
+                    "Read type constraints from the request independently of the available objects. Creation and discussion grant no placement."
                 ),
                 "graph_objects": {alias: {
                     "name": candidate.reference.label, "description": candidate.summary or "",
@@ -150,8 +151,16 @@ class BuildGraphReferenceDecision:
                              "cannot be located. Other choices are discussion, creating a new object, a different "
                              "page, or an action that is itself unclear.")),
                 ChoiceDecisionQuestion(name="reference_kind", options=("unspecified", "other_kind", *kinds),
-                    question=("Which Graph classification does the author require for the named object? "
-                              "Choose other_kind if a required classification is absent and unspecified if none is required.")),
+                    question=("Read the user's words before considering what is available. Which classification must the referenced "
+                              "object have? Choose its graph_classifications alias only if it is allowed by the request. If a "
+                              "required classification is missing, or the request excludes the available classification, choose "
+                              "other_kind. Choose unspecified only when the request permits an object of any classification. "
+                              "An instruction to use a location instead of a threat requires a location even if a threat is selected.")),
+                ChoiceDecisionQuestion(name="reference_kind_constraint", options=("any_type", "requires_or_excludes_type"),
+                    question=("Ignoring what objects exist and what the author selected, does the user expressly require or rule "
+                              "out a type for the object being referenced? For example 'as an existing location', 'use the "
+                              "construct', and 'do not use a threat' all impose a type constraint. A location mentioned only "
+                              "as the destination or heading is not a type constraint on the object.")),
                 *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
                     question=f"Does graph_objects {alias} match the requested name and all object qualifiers, independently of classification?")
                   for alias in objects),
@@ -204,6 +213,8 @@ class BuildGraphReferenceDecision:
         if not included:
             return BuildGraphReferenceNomination(disposition="missing_identity")
         requested_kind = answers["reference_kind"]
+        if requested_kind == "unspecified" and answers["reference_kind_constraint"] == "requires_or_excludes_type":
+            return BuildGraphReferenceNomination(disposition="wrong_kind")
         kind = kinds.get(requested_kind)
         matches = included if requested_kind == "unspecified" else [candidate for candidate in included if candidate.entity_kind == kind]
         if not matches:

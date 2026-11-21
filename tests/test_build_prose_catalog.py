@@ -198,7 +198,7 @@ def graph_decision(captured_page):
 def graph_response(**changes):
     labels = dict(work="place_paragraph", destination="current_page", relation="after", scope="named",
                   text0="include", scope0="exclude", scope1="include", reference_intent="place_existing",
-                  reference_kind="class1", object1="exclude",
+                  reference_kind="class1", reference_kind_constraint="requires_or_excludes_type", object1="exclude",
                   object2="include", object3="exclude")
     labels.update(changes)
     return DecisionResult(
@@ -235,6 +235,7 @@ def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(g
     changed = replace(graph_decision, candidates=(remapped, *graph_decision.candidates[1:]))
     assert changed.request() == request
     assert changed.host_inventory_sha256() != graph_decision.host_inventory_sha256()
+    assert graph_decision.resolve(graph_response(reference_kind="unspecified")).disposition == "wrong_kind"
     model_input = request.model_dump_json()
     for private in ("private-world", "private-native", "private-document", "private-graph-revision",
                     "construct:retuned-ivory", "location:ivory", graph_decision.catalog.choices_sha256):
