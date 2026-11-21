@@ -540,11 +540,13 @@ def nominal_scope_needs_review(question: str, scope: ScopeExpression) -> bool:
         and isinstance(scope.names[0], LiteralScopeName) and name_key(scope.names[0].text) == name_key(label))
 
 
-def is_nominal_scope_alternative(hypothesis: AuthorScopeHypothesis, question: str,
-                                 dialogue: tuple[RetrievalDialogue, ...]) -> bool:
+def nominal_scope_subject(hypothesis: AuthorScopeHypothesis, question: str,
+                          dialogue: tuple[RetrievalDialogue, ...]) -> str | None:
     evidence = hypothesis.evidence
-    return (evidence.utterance_index == len(dialogue)
-        and (evidence.start, evidence.end) in _nominal_scope_prefixes(question)[1])
+    label, prefixes = _nominal_scope_prefixes(question)
+    if evidence.utterance_index != len(dialogue) or (evidence.start, evidence.end) not in prefixes:
+        return None
+    return question[evidence.end:evidence.start + len(label)].strip() or None
 
 
 def paragraph_label_conflict(question, scope, capture, catalog) -> bool:

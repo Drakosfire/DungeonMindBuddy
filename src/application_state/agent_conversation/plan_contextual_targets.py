@@ -327,7 +327,10 @@ def paragraph_locator(request):
     from .plan_author_location import explicit_paragraph_locator
 
     binding = getattr(request, 'author_scope_binding', None)
-    return explicit_paragraph_locator(request.question, binding.observation.relation) if binding is not None else None
+    if binding is None:
+        return None
+    observation = binding.observation
+    return explicit_paragraph_locator(request.question, observation.relation) or observation.paragraph_subject
 
 
 def description_factors(request):

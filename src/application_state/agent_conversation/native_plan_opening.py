@@ -41,6 +41,7 @@ class NativePlanAuthorScopeObservationV1(Strict):
     relation: str
     selected_alias: str
     scope: ScopeExpression
+    paragraph_subject: str | None = Field(default=None, min_length=1, exclude_if=lambda value: value is None)
 
 
 class NativePlanAuthorScopeObservedV1(t.GraphExecutionEventBaseV1):
@@ -140,7 +141,7 @@ def _prepare_author_scope_review(request):
     from .plan_contextual_targets import AUTHOR_RELATIONS
     from .plan_author_location import (
         explicit_direction_options, explicit_scope_conflict, is_complete_scope_recovery,
-        is_nominal_scope_alternative, nominal_scope_needs_review,
+        nominal_scope_needs_review, nominal_scope_subject,
     )
 
     first, second = (row.observation for row in request.scope_review)
@@ -159,18 +160,21 @@ def _prepare_author_scope_review(request):
             interpretation = {'relation': AUTHOR_RELATIONS[relation],
                 'scope': options.get(prior.selected_alias, {'kind': prior.scope.kind})}
             key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
-            pairs.setdefault(key, (relation, prior.scope))
+            pairs.setdefault(key, (relation, prior.scope, prior.paragraph_subject))
     if _unresolved_author_scope(first, second) or explicit_conflict or nominal_review:
         for alias, hypothesis in hypotheses.items():
-            if (not is_complete_scope_recovery(hypothesis, request.question, request.dialogue)
-                    and not (nominal_review and is_nominal_scope_alternative(
-                        hypothesis, request.question, request.dialogue))):
+            subject = nominal_scope_subject(hypothesis, request.question, request.dialogue) if nominal_review else None
+            if subject is None and not is_complete_scope_recovery(hypothesis, request.question, request.dialogue):
                 continue
             scope = hypothesis.compile(request.question, request.dialogue)
             for relation in sorted(relations - {'unresolved'}):
-                key = json.dumps({'relation': AUTHOR_RELATIONS[relation], 'scope': options[alias]},
-                    sort_keys=True, ensure_ascii=False)
-                pairs.setdefault(key, (relation, scope))
+                if subject is not None and relation not in {'before_paragraph', 'after_paragraph'}:
+                    continue
+                interpretation = {'relation': AUTHOR_RELATIONS[relation], 'scope': options[alias]}
+                if subject is not None:
+                    interpretation['existing_paragraph_subject'] = subject
+                key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
+                pairs.setdefault(key, (relation, scope, subject))
     if explicit_conflict:
         eligible = {description: pair for description, pair in pairs.items()
                     if not explicit_scope_conflict(request.question, pair[1])}
@@ -183,7 +187,7 @@ def _prepare_author_scope_review(request):
         relation = 'replace_explicit_selection'
         key = json.dumps({'relation': AUTHOR_RELATIONS[relation], 'scope': {'kind': scope.kind}},
             sort_keys=True, ensure_ascii=False)
-        pairs.setdefault(key, (relation, scope))
+        pairs.setdefault(key, (relation, scope, None))
         if all(isinstance(prior.scope, (UnscopedLocation, UnresolvedLocation))
                for prior in (first, second)):
             # The requested destination is the selection. Neither observation
@@ -254,8 +258,9 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
                 scope=UnresolvedLocation(reason='The author scope interpretations could not be reconciled'))
         if alias not in bindings:
             raise ValueError('Author scope review names an unoffered interpretation')
-        relation, scope = bindings[alias]
-        return NativePlanAuthorScopeObservationV1(relation=relation, selected_alias=alias, scope=scope)
+        relation, scope, subject = bindings[alias]
+        return NativePlanAuthorScopeObservationV1(
+            relation=relation, selected_alias=alias, scope=scope, paragraph_subject=subject)
     answers = validated_choice_answers(result, {'location_relation', 'existing_scope'})
     relation = answers['location_relation']
     if relation not in AUTHOR_RELATIONS:

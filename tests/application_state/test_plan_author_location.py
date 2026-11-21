@@ -158,11 +158,15 @@ def test_describing_is_an_explicit_paragraph_locator():
 
 
 def test_nominal_label_prefix_is_only_an_alternative_when_both_titles_exist():
-    from application_state.agent_conversation.plan_author_location import nominal_scope_needs_review, paragraph_label_conflict
+    from application_state.agent_conversation.plan_author_location import (
+        nominal_scope_needs_review, nominal_scope_subject, paragraph_label_conflict,
+    )
 
     request = 'After the Approach rope paragraph, add a caution about the hook.'
     offers = author_scope_hypotheses(request, (), max_span_attempts=100)
     assert {'Approach', 'Approach rope'} <= {row.evidence.text for row in offers.values()}
+    prefix = next(row for row in offers.values() if row.evidence.text == 'Approach')
+    assert nominal_scope_subject(prefix, request, ()) == 'rope'
     scope = literal_reference('Approach', path=False)
     assert nominal_scope_needs_review(request, literal_reference('Approach rope', path=False))
     assert not nominal_scope_needs_review(request, scope)
