@@ -117,6 +117,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             if locator is not None:
                 expected_state.add('existing_paragraph_locator')
                 assert body['state']['existing_paragraph_locator'] == locator
+            if any(scope.page_edit_intent for scope in scopes):
+                expected_state.add('author_page_edit_intent')
+                assert body['state']['author_page_edit_intent'] in {'page_edit', 'discussion', 'unresolved'}
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
@@ -502,9 +505,10 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
 
 @pytest.mark.parametrize('provider_case', [
     'success', 'disagreeing_recheck', 'capture_rewrite_recheck', 'substituted_observation', 'unknown_outcome',
+    'discussion_veto', 'edit_permission_disagreement',
 ])
 def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
-        plan_adapter, monkeypatch, provider_case):
+        plan_adapter, monkeypatch, application_state_dsn, provider_case):
     import asyncio
 
     from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
@@ -516,9 +520,12 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     from application_state.errors import ApplicationStateValidationError
     from generationengine import GenerationEngineError
 
-    message = ('Rewrite the selected paragraph to keep its text and add a warning.'
-        if provider_case == 'capture_rewrite_recheck'
-        else 'Add a note at the caret and mention the Equipment section.')
+    if provider_case in {'discussion_veto', 'edit_permission_disagreement'}:
+        message = 'Would a warning at the caret be too direct? I am asking for feedback first.'
+    elif provider_case == 'capture_rewrite_recheck':
+        message = 'Rewrite the selected paragraph to keep its text and add a warning.'
+    else:
+        message = 'Add a note at the caret and mention the Equipment section.'
     plan_adapter.request = plan_adapter.request.model_copy(update={'message': message})
     _, turn = _claim_contextual_scope_turn(plan_adapter)
     dispatch = PlanJevDispatch.author_scope(plan_adapter)
@@ -548,7 +555,9 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         relation = ('after_paragraph' if provider_case == 'capture_rewrite_recheck' else
             'after_heading' if len(requests) == 2 and provider_case == 'disagreeing_recheck'
             else 'insert_at_explicit_caret')
-        selections = {'location_relation': relation, 'existing_scope': 'none'}
+        permission = ('discussion' if provider_case == 'discussion_veto'
+            or (provider_case == 'edit_permission_disagreement' and len(requests) == 2) else 'page_edit')
+        selections = {'location_relation': relation, 'existing_scope': 'none', 'page_edit_intent': permission}
         answers = {name: {'type': 'choice', 'choice': selected, 'confidence': 1.0,
             'probabilities': {key: float(key == selected) for key in wire['questions'][name]['criteria']}}
             for name, selected in selections.items()}
@@ -633,6 +642,22 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     confirmed = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
     selection = confirmed.graph_context_execution.events[-1]
     assert selection.author_scope_binding.observation_event_id == opening_scope.event_id
+    if provider_case in {'discussion_veto', 'edit_permission_disagreement'}:
+        import psycopg
+
+        discuss = provider_case == 'discussion_veto'
+        assert selection.author_scope_binding.page_edit_intent == ('discussion' if discuss else 'unresolved')
+        assert selection.requested_intent == 'write_current_page'
+        assert work == ('discuss' if discuss else 'clarify')
+        assert selection.placement_selector is None and selection.target_capture_sha256 is None
+        capture = confirmed.graph_context_execution.policy.action.authoring_capture
+        with pytest.raises(ApplicationStateValidationError, match='frozen destination or target'):
+            plan_adapter.service.reserve_plan_authoring_action(
+                capture=capture, turn_id=confirmed.turn_id, expected_revision=confirmed.revision)
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute('SELECT count(*) FROM plan_action.action').fetchone()[0] == 0
+        return
+    assert selection.author_scope_binding.page_edit_intent == 'page_edit'
     if provider_case == 'capture_rewrite_recheck':
         assert confirmed.graph_context_execution.policy.action.authoring_capture.target_kind == 'insert_at_caret'
         assert work == 'clarify'
@@ -1533,7 +1558,8 @@ def _shared_plan_authoring_case(
                 if relation in {'before_paragraph', 'after_paragraph'} and 'the Preparation paragraph about' in body['state']['current_request']:
                     scope = next(alias for alias, candidate in body['state']['scope_hypotheses'].items()
                         if candidate['author_quote']['text'] == 'Preparation')
-                choices = {'location_relation': relation, 'existing_scope': scope}
+                choices = {'location_relation': relation, 'existing_scope': scope,
+                    'page_edit_intent': 'discussion' if routing == 'discuss' else 'page_edit'}
                 answers = {name: dict(type='choice', choice=value, confidence=1,
                     probabilities={key: float(key == value) for key in body['questions'][name]['criteria']})
                     for name, value in choices.items()}

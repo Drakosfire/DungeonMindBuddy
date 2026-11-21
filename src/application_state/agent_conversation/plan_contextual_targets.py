@@ -99,6 +99,13 @@ def prepare_contextual_work(request):
             "Paragraph relations exclude direct anchors. Unscoped excludes section votes. "
             "Discussion without an edit excludes all location votes. "
             "The host resolves ambiguity and validates edit authority; these votes never Save."))
+    binding = getattr(request, 'author_scope_binding', None)
+    if binding is not None and binding.page_edit_intent is not None:
+        state['author_page_edit_intent'] = binding.page_edit_intent
+        state['interpretation_policy'] += (
+            " The author_page_edit_intent is independent evidence from the current author turn. "
+            "Treat discussion as conversational, including examples of a possible editor action. "
+            "Unresolved edit intent requires confirmation before drafting an actual page proposal.")
     descriptions, headings = description_factors(request)
     if descriptions:
         state['section_description_evidence'] = {'qualified_descriptions': descriptions, 'heading_occurrences': headings}
@@ -460,7 +467,8 @@ def contextual_work_choice(request, intent, answers):
             **resolve_author_scope_targets(request.original_capture, request.placement_catalog,
                 intent, relation, binding.observation, direct, passages, document_title=request.page_title or None,
                 description_matches=descriptions, excluded_description_matches=excluded,
-                locator_passages=locator, literal_excerpt=literal_paragraph_locator(request), scope_refused=scope_refused))
+                locator_passages=locator, literal_excerpt=literal_paragraph_locator(request), scope_refused=scope_refused,
+                page_edit_intent=binding.page_edit_intent))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
         answers['paragraph_scope'], direct, passages, sections, answers['scope_qualifier'], ancestors)
 
@@ -512,7 +520,7 @@ def resolve_component_targets(capture, catalog, intent, relation, scope, direct,
 
 def resolve_author_scope_targets(capture, catalog, intent, relation, observation, direct, passages, *,
         document_title, description_matches=None, excluded_description_matches=None, locator_passages=None,
-        literal_excerpt=None, scope_refused=False):
+        literal_excerpt=None, scope_refused=False, page_edit_intent=None):
     """Join independent author scope to source nominations at their exact editor geometry."""
     from .native_plan_opening import NativePlanAuthorScopeObservationV1
     from .plan_author_location import (
@@ -542,6 +550,9 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
         if locator_passages is None:
             raise ValueError('A literal excerpt requires its actual locator judgments')
         evidence['literal_paragraph_excerpt'] = literal_excerpt
+    if intent == 'write_current_page' and page_edit_intent in {'discussion', 'unresolved'}:
+        work = 'discuss' if page_edit_intent == 'discussion' else 'clarify'
+        return evidence | resolve_anchor_targets(capture, catalog, work, relation, ()) | {'requested_intent': intent}
     if scope_refused:
         evidence.update(scope_refused=True, requested_paragraph_scope='unresolved', requested_scope_qualifier='none')
         return evidence | resolve_anchor_targets(capture, catalog, intent,
@@ -646,9 +657,11 @@ def clarification_question(selection):
         raise ValueError("Question requested for non-clarification work")
     if selection.requested_intent != 'write_current_page':
         return None  # Raw clarification owns content/work; only normalized writing owns a target question.
+    binding = getattr(selection, 'author_scope_binding', None)
+    if binding is not None and binding.page_edit_intent == 'unresolved':
+        return 'Would you like wording in chat, or a page edit to review?'
     if getattr(selection, 'scope_refused', None):
         return 'Could you select the intended paragraph, or name one unambiguous section path for it?'
-    binding = getattr(selection, 'author_scope_binding', None)
     if (binding is not None and binding.observation.relation == 'replace_explicit_selection'
             and (selection.original_capture or {}).get('target_kind') != 'replace_selection'):
         return 'Could you select the text you want me to replace?'

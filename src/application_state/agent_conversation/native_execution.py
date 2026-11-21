@@ -30,7 +30,7 @@ from .native_retrieval import (
     NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2,
 )
 from .native_plan_opening import (
-    NativePlanAuthorScopeObservedV1, NativePlanOpeningScopeBindingV1, require_retained_author_scope,
+    NativePlanAuthorScopeObservedV1, NativePlanOpeningScopeBindingV1, bind_opening_author_scope,
 )
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
 from .native_plan_assertions import NativeGraphQueryV4, NativePlanAssertionReadObservedV2
@@ -354,7 +354,7 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
                 document_title=self.scope_document_title, description_matches=self.scope_description_matches,
                 excluded_description_matches=self.excluded_scope_description_matches,
                 locator_passages=self.locator_passage_selectors, literal_excerpt=self.literal_paragraph_excerpt,
-                scope_refused=self.scope_refused is True)
+                scope_refused=self.scope_refused is True, page_edit_intent=self.author_scope_binding.page_edit_intent)
         else:
             if any(value is not None for value in (self.source_placement_relation, self.scope_document_title,
                     self.scope_description_matches, self.excluded_scope_description_matches,
@@ -506,8 +506,10 @@ class SurfaceNativeExecutionV1(Strict):
                 raise ValueError('Plan work selection differs from its action contract version')
             if type(event) is NativePlanOpeningSelectedV2 and event.author_scope_binding is not None:
                 binding = event.author_scope_binding
-                require_retained_author_scope(self.model_copy(update={'events': self.events[:event.sequence]}),
-                    binding.observation_event_id, binding.observation)
+                if binding != bind_opening_author_scope(
+                        self.model_copy(update={'events': self.events[:event.sequence]}),
+                        binding.observation_event_id, binding.observation):
+                    raise ValueError('Selected page edit intent differs from its actual author observations')
                 if event.scope_document_title != self.policy.action.document_title:
                     raise ValueError('Bound opening selection title differs from the frozen Content title')
             if isinstance(event,t.ProviderOutcomeEventV1) and event.outcome=='response_received':

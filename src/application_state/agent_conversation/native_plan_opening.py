@@ -24,6 +24,9 @@ class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecision
         default='dmb_native_plan_opening_input_v1', alias='schema')
 
 
+PageEditIntent = Literal['page_edit', 'discussion', 'unresolved']
+
+
 class NativePlanAuthorScopeInputV1(Strict):
     """Source-blind parent for one proposed interpretation of author text."""
 
@@ -33,6 +36,7 @@ class NativePlanAuthorScopeInputV1(Strict):
     dialogue: tuple[RetrievalDialogue, ...]
     max_span_attempts: int = Field(strict=True, gt=0)
     quote_context: bool = Field(strict=True)
+    assess_page_edit: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
 
 
 class NativePlanAuthorScopeObservationV1(Strict):
@@ -42,6 +46,7 @@ class NativePlanAuthorScopeObservationV1(Strict):
     selected_alias: str
     scope: ScopeExpression
     paragraph_subject: str | None = Field(default=None, min_length=1, exclude_if=lambda value: value is None)
+    page_edit_intent: PageEditIntent | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanAuthorScopeObservedV1(t.GraphExecutionEventBaseV1):
@@ -63,6 +68,7 @@ class NativePlanAuthorScopeObservedV1(t.GraphExecutionEventBaseV1):
 class NativePlanOpeningScopeBindingV1(Strict):
     observation_event_id: UUID
     observation: NativePlanAuthorScopeObservationV1
+    page_edit_intent: PageEditIntent | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV1):
@@ -117,7 +123,22 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
         'unresolved': 'No offered complete scope preserves the author location constraints.',
         **{key: f'This complete author scope is the existing location: {key}' for key in hypotheses},
     }
+    edit_question = ()
+    if request.assess_page_edit:
+        edit_choices = {
+            'page_edit': 'The author actually asks for an edit proposal for this Plan page now, even if the exact location needs clarification.',
+            'discussion': 'The author asks for a conversational answer, advice, example or draft in chat, or discusses or defers a possible edit.',
+            'unresolved': 'The current turn does not establish whether the author wants this page edited now.',
+        }
+        edit_question = (ChoiceDecisionQuestion(name='page_edit_intent',
+            options=tuple(edit_choices), option_descriptions=edit_choices,
+            question='Does the author currently ask Buddy to prepare an actual edit of this Plan page? '
+                'Treat quoted/sample instructions, hypothetical edits, feedback on wording or location, '
+                'and a request to discuss before acting as conversation. An earlier plan to edit does '
+                'not authorize this turn. Use prior dialogue only to understand a current explicit '
+                'confirmation or reference. An instruction to preserve unrelated material can still authorize a bounded edit.'),)
     return DecisionRequest(provider=PROVIDER, model=MODEL, state=state, questions=(
+        *edit_question,
         ChoiceDecisionQuestion(name='location_relation', options=tuple(AUTHOR_RELATIONS),
             option_descriptions=AUTHOR_RELATIONS,
             question='What relation to an existing location does the current author request? '
@@ -272,7 +293,10 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
         relation, scope, subject = bindings[alias]
         return NativePlanAuthorScopeObservationV1(
             relation=relation, selected_alias=alias, scope=scope, paragraph_subject=subject)
-    answers = validated_choice_answers(result, {'location_relation', 'existing_scope'})
+    expected = {'location_relation', 'existing_scope'}
+    if request.assess_page_edit:
+        expected.add('page_edit_intent')
+    answers = validated_choice_answers(result, expected)
     relation = answers['location_relation']
     if relation not in AUTHOR_RELATIONS:
         raise ValueError('Author scope result names an unoffered placement relation')
@@ -286,7 +310,8 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
         if alias not in offered:
             raise ValueError('Author scope result names an unoffered hypothesis')
         scope = offered[alias].compile(request.question, request.dialogue)
-    return NativePlanAuthorScopeObservationV1(relation=relation, selected_alias=alias, scope=scope)
+    return NativePlanAuthorScopeObservationV1(relation=relation, selected_alias=alias, scope=scope,
+        page_edit_intent=answers.get('page_edit_intent'))
 
 
 def require_retained_author_scope(execution, observation_event_id: UUID,
@@ -300,6 +325,22 @@ def require_retained_author_scope(execution, observation_event_id: UUID,
             or matches[0].scope_observation != observation):
         raise ValueError('Opening scope differs from its exact retained author observation')
     return matches[0]
+
+
+def bind_opening_author_scope(execution, observation_event_id, observation):
+    selected = require_retained_author_scope(execution, observation_event_id, observation)
+    prior = [event.scope_observation.page_edit_intent for event in execution.events[:selected.sequence + 1]
+             if type(event) is NativePlanAuthorScopeObservedV1][:2]
+    if not any(prior):
+        intent = None  # Historical openings have no retained edit-intent observations.
+    elif prior == ['page_edit', 'page_edit']:
+        intent = 'page_edit'
+    elif 'discussion' in prior and 'page_edit' not in prior:
+        intent = 'discussion'
+    else:
+        intent = 'unresolved'
+    return NativePlanOpeningScopeBindingV1(observation_event_id=observation_event_id,
+        observation=observation, page_edit_intent=intent)
 
 
 def author_scope_review_required(question, first, second):
@@ -411,9 +452,9 @@ def validate_opening_parent(context, execution, parent, authorization):
     event_id = binding.observation_event_id if binding is not None else None
     if authorization.author_scope_event_id != event_id:
         raise ValueError('Opening authorization differs from its author scope parent')
-    if binding is not None:
-        require_retained_author_scope(execution.model_copy(update={'events': prefix}),
-            binding.observation_event_id, binding.observation)
+    if binding is not None and binding != bind_opening_author_scope(
+            execution.model_copy(update={'events': prefix}), binding.observation_event_id, binding.observation):
+        raise ValueError('Opening page edit intent differs from its actual author observations')
     validate_opening_prefix(context, prefix, author_scope_event_id=event_id, author_question=parent.question)
 
 

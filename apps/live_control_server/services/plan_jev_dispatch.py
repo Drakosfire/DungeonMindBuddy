@@ -157,7 +157,7 @@ class PlanJevDispatch:
         from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
         from application_state.agent_conversation.native_plan_opening import (
             NativePlanAuthorScopeObservedV1, NativePlanOpeningInputV1, NativePlanOpeningInputV2,
-            NativePlanOpeningScopeBindingV1, require_retained_author_scope,
+            bind_opening_author_scope,
         )
         from application_state.agent_conversation.native_execution import NativePlanActionV3
         from application_state.agent_conversation.native_retrieval import source_pins
@@ -173,10 +173,9 @@ class PlanJevDispatch:
         if author_scope is not None:
             if parent_type is not NativePlanOpeningInputV2 or type(author_scope) is not NativePlanAuthorScopeObservedV1:
                 raise ValueError('Bound opening requires its actual contextual author scope observation')
-            require_retained_author_scope(adapter.fence.turn.graph_context_execution,
+            navigation['author_scope_binding'] = bind_opening_author_scope(
+                adapter.fence.turn.graph_context_execution,
                 author_scope.event_id, author_scope.scope_observation)
-            navigation['author_scope_binding'] = NativePlanOpeningScopeBindingV1(
-                observation_event_id=author_scope.event_id, observation=author_scope.scope_observation)
         dispatch.parent = parent_type(
             plan_requested_operation=operation, authored_references=references,
             request_id=uuid4(), parent_attempt_id=uuid4(),
@@ -219,6 +218,7 @@ class PlanJevDispatch:
         dispatch = cls(adapter, (), dialogue=dialogue)
         dispatch.parent = NativePlanAuthorScopeParentV1(
             question=turn.user_text, dialogue=tuple(dialogue), quote_context=prior_scope is not None,
+            assess_page_edit=not review,
             max_span_attempts=2048, request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256,
             prior_scope_event_id=prior_scope.event_id if prior_scope is not None else None,

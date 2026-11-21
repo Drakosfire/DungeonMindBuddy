@@ -182,6 +182,13 @@ Jev retains all semantic targeting authority in one actual combined SDK batch:
 
 - Requested work is independent of target availability. A clear write request
   remains raw writing even when host resolution must clarify its destination.
+- Current ordinary Send requires two earlier source-blind Jev observations that
+  the author requests an actual edit of this Plan. Discussion-only intent stays
+  conversational even when a later source-aware batch nominates a location.
+  Unresolved edit intent asks whether the author wants conversational wording
+  or a page proposal. Protected replay derives this gate from the retained
+  observations before reservation. Historical openings keep their existing
+  decoding behavior.
 - One typed placement relation distinguishes paragraph sides, heading placement,
   entire-section placement, page end and the real capture. Independent multiple
   relations must clarify. Directly under a heading/before its existing body is
