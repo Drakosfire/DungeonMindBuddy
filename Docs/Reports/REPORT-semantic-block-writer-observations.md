@@ -154,3 +154,20 @@ Departure sentinel remained visible.
 covers selection binding and keeping retrieval disclosure in conversation.
 A hosted P02 rerun still needs to prove exact replacement, save and reopen
 on the same fixture.
+
+### Hosted Play repetition results and remaining surface coverage
+
+Two fresh Play sessions from the saved synthetic Plan passed the same PL01
+prompt after the first matched rerun. This makes three observed save-and-reopen
+passes after #4299. In each pass, the two new callouts rendered separately,
+existing Arrival paragraphs matched exactly and in order, the original callout
+titles and red-gate choice remained present, and the Departure card retained
+its sentinel sentence. The two fresh sessions used Play's scene edit mode.
+They confirm session-copy persistence with manually seeded Plan callouts.
+Adopting agent-authored P01 blocks, comparing the full parent Plan revision,
+and testing preservation of table and image fixtures remain pending.
+
+Hosted Home showed no conversation composer in Buddy Cloud Pilot, so H01 had
+no eligible writer. Hosted Graph still reported unavailable native readback
+and disabled object selection in the pilot. G01 requires a disposable native
+Graph where the fixture object can be selected.
