@@ -80,10 +80,10 @@ export BUILDX_CONFIG="$workspace/buildx"
 mkdir "$BUILDX_CONFIG"
 if ! "${docker_cmd[@]}" buildx ls --format '{{json .}}' | jq -e -s \
   --arg name "$builder" --arg endpoint "$local_endpoint" \
-  '[.[] | select(.Name == $name)] | length == 1
-    and (.[0] | .Driver == "docker" and (.Nodes | length == 1
+  '[.[] | select(.Name == $name)] | length > 0
+    and all(.[]; .Driver == "docker" and (.Nodes | length == 1
       and (.[0].Endpoint == $name or .[0].Endpoint == $endpoint)))' >/dev/null; then
-  echo 'Refusing to build without one verified local Docker builder.' >&2
+  echo 'Refusing to build without a verified local Docker builder.' >&2
   exit 2
 fi
 

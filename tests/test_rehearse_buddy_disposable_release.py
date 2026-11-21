@@ -27,6 +27,7 @@ elif args[2:4] == ["buildx", "ls"]:
     assert state.parent.parent == Path(os.environ["BUDDY_REHEARSAL_ROOT"])
     assert state.name == "buildx" and not list(state.iterdir())
     print(os.environ["BUILDER_RECORD"])
+    print(os.environ["BUILDER_RECORD"])  # Buildx can repeat the generated default row.
 elif args[2:4] == ["buildx", "build"]:
     assert args[4:6] == ["--builder", "default"]
     assert Path(args[-1], "Dockerfile.production").is_file()
