@@ -1,6 +1,17 @@
 # Nominate a paragraph boundary inside an existing Plan slot
 
-Status: ACTIVE under the contextual-layout lane authority. Serial branch
+Status: MERGED in PR #4348 at `f9e144d37a41f74e024267fd5a22fb2b8a1c47a4`.
+Independent exact-head review approved `f7375a3feaedca6bc2126dd20904d6d1720592ee`.
+The final actual Jev development run matched 16 of 16 effects, all eight
+feasible placements and all eight controls in 30 SDK calls. Zero unsafe
+nominations, protocol failures, writer calls or product mutations.
+Score SHA256 `9fdc26aed40b38c470e5f3930fabdf0249cf959922051420769788a653ff642b`.
+The focused suite passed 74 tests, and the local frontend suite/build
+passed. The query owner suite passed 1,471 tests and reproduced six
+unchanged Build failures on exact main. The successor is
+[native composed dispatch](HANDOFF-PLAN-composed-dispatch.md).
+
+Completed serial branch
 `codex/plan-composed-native-targeting` from `a459c18238c76e55f21b77e6708828401353e66e`
 (#4347). Use the isolated Plan checkout. The next serial assignment will
 connect this decision and the merged Review receiver to actual normal Send
