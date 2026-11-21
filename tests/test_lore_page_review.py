@@ -242,3 +242,19 @@ def test_explicit_create_after_research_binds_only_the_named_page_clause():
 
     with pytest.raises(ValueError, match="one explicit page request"):
         explicit_lore_page_witness('Consult the journal, then do not create a page titled "The West Road".')
+
+
+def test_open_questions_stay_literal_in_saved_markdown():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.lore_page_confirmation import _body
+    from application_state.agent_conversation.lore_page_review import ProposedLorePage
+
+    destination = {"instruction": "Create a page for Rowan", "title": "Rowan"}
+    question = "## Is [the report](https://example.test) *certain*?"
+    draft = ProposedLorePage(kind="lore_page", destination=destination, open_questions=(question,))
+    completion = SimpleNamespace(native_body_citations=[], answer_segments=[], collaboration=draft)
+    body = _body(SimpleNamespace(world_id="test", turn_id="turn", completion=completion))
+    assert body == r"## Open questions" + "\n\n" + r"- \#\# Is \[the report\]\(https://example\.test\) \*certain\*?"
+    with pytest.raises(ValueError, match="Open questions"):
+        ProposedLorePage(kind="lore_page", destination=destination,
+                         open_questions=("Did Rowan leave?\n# Established fact",))

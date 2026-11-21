@@ -2,6 +2,7 @@
 
 import re
 from urllib.parse import quote
+import re
 from uuid import UUID
 
 from pydantic import Field
@@ -59,7 +60,9 @@ def _body(turn: Turn) -> str:
             raise ApplicationStateConflictError("Lore review has no reopenable passage for a claim")
     questions = turn.completion.collaboration.open_questions
     if questions:
-        paragraphs.append("## Open questions\n\n" + "\n".join(f"- {question}" for question in questions))
+        lines = [re.sub(r"([\\`*_{}\[\]()<>#~!|&+\-.])", r"\\\1", question.strip())
+                 for question in questions]
+        paragraphs.append("## Open questions\n\n" + "\n".join(f"- {line}" for line in lines))
     return "\n\n".join(paragraphs)
 
 

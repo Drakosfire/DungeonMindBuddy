@@ -105,6 +105,7 @@ class ProposedLorePage(Closed):
     @field_validator("open_questions")
     @classmethod
     def meaningful_questions(cls, value):
-        if any(not question.strip() or len(question) > 1000 for question in value):
+        if any(not question.strip() or len(question) > 1000 or "\n" in question or "\r" in question
+               for question in value):
             raise ValueError("Open questions require concise nonblank text")
         return value

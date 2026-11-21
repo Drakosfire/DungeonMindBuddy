@@ -60,7 +60,7 @@ function isLorePageDraft(value: unknown): boolean {
   const questions=typeof value==='object'&&value!==null&&'open_questions' in value;
   return exact(value, ['kind', 'destination', ...(questions?['open_questions']:[])])
     && (!questions || Array.isArray(value.open_questions) && value.open_questions.length>0
-      && value.open_questions.length<=24 && value.open_questions.every(q=>text(q)&&[...q].length<=1000))
+      && value.open_questions.length<=24 && value.open_questions.every(q=>text(q)&&[...q].length<=1000&&!/[\r\n]/.test(q)))
     && value.kind === 'lore_page'
     && exact(value.destination, ['instruction', 'title'])
     && text(value.destination.instruction) && [...value.destination.instruction].length <= 2000
