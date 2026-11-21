@@ -160,6 +160,10 @@ database lock. Revocation first invalidates the stale pointer
 basis; promotion first leaves the new pointer intact when the prior copy is
 revoked. Neither order permits restoration of the revoked copy. This tests the
 APP transaction boundary, not live Core source-withdrawal concurrency.
+Another PostgreSQL race test observes the waiting session for both owner-transfer
+orders: a transfer committed first denies the former owner's promotion; a
+promotion committed first remains an independent copy after transfer, which the
+new owner may revoke but cannot restore under the previous owner's approval.
 
 Projection version `explicit_native_assertions_v3` displays known `dnd5e`,
 `dungeonbuddy`, and `dungeonbuddy.custom` terms with an explicit namespace

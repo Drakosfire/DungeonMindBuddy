@@ -229,6 +229,81 @@ def test_promotion_and_revocation_serialize_without_reviving_release(application
                               expected_version=version + 1)
 
 
+@pytest.mark.parametrize("first_operation", ["transfer", "promote"])
+def test_ownership_transfer_and_promotion_serialize(application_state_dsn, monkeypatch, first_operation):
+    world = create_world(name="Ownership promotion race", owner_subject="owner").record.world_id
+    graph = _bind(application_state_dsn, world)
+    release_id, digest = guest_release.stage(world_id=world, subject="owner",
+        expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
+        manifest={"title": "approved copy", "assets": []}, assets=[], **graph)
+    original_owner = guest_release._owner
+    first_locked, release_first, waiter_entered = Event(), Event(), Event()
+    waiter_pid = []
+
+    def owner_check(conn, world_id, subject):
+        if first_operation == "transfer" and current_thread().name.startswith("owner-race"):
+            waiter_pid.append(conn.info.backend_pid)
+            waiter_entered.set()
+        result = original_owner(conn, world_id, subject)
+        if first_operation == "promote" and current_thread().name.startswith("owner-race"):
+            first_locked.set()
+            if not release_first.wait(5):
+                raise RuntimeError("race test failed to release promotion")
+        return result
+
+    monkeypatch.setattr(guest_release, "_owner", owner_check)
+
+    def promote():
+        return _promote(world_id=world, subject="owner", release_id=release_id,
+                        digest=digest, expected_version=0)
+
+    def transfer():
+        with psycopg.connect(application_state_dsn) as conn:
+            waiter_pid.append(conn.info.backend_pid)
+            waiter_entered.set()
+            conn.execute("UPDATE workspace.managed_world SET owner_subject='other' WHERE world_id=%s", (world,))
+
+    def assert_waiting():
+        assert waiter_entered.wait(5)
+        deadline = monotonic() + 5
+        with psycopg.connect(application_state_dsn, autocommit=True) as observer:
+            while True:
+                row = observer.execute("SELECT wait_event_type FROM pg_stat_activity WHERE pid=%s", (waiter_pid[0],)).fetchone()
+                if row == ("Lock",):
+                    return
+                if monotonic() >= deadline:
+                    pytest.fail("competing transaction did not wait for a PostgreSQL lock")
+                Event().wait(0.02)
+
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="owner-race") as pool:
+        if first_operation == "transfer":
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute("UPDATE workspace.managed_world SET owner_subject='other' WHERE world_id=%s", (world,))
+                future = pool.submit(promote)
+                assert_waiting()
+                conn.commit()
+            with pytest.raises(ApplicationStateNotFoundError):
+                future.result(timeout=5)
+            assert guest_release.pointer_status(world_id=world, subject="other") == (None, 0)
+        else:
+            publication = pool.submit(promote)
+            assert first_locked.wait(5)
+            transfer_future = pool.submit(transfer)
+            try:
+                assert_waiting()
+            finally:
+                release_first.set()
+            public_id, version = publication.result(timeout=5)
+            transfer_future.result(timeout=5)
+            assert guest_release.public_manifest(public_id)[0] == release_id
+            assert guest_release.pointer_status(world_id=world, subject="other") == (public_id, version)
+            with pytest.raises(ApplicationStateNotFoundError):
+                guest_release.restore(world_id=world, subject="other", release_id=release_id, expected_version=version)
+            guest_release.revoke(world_id=world, subject="other", release_id=release_id)
+            with pytest.raises(ApplicationStateNotFoundError):
+                guest_release.public_manifest(public_id)
+
+
 def test_source_visibility_change_and_restore_invalidates_candidate(application_state_dsn):
     world = create_world(name="Visibility Fixture", owner_subject="owner").record.world_id
     graph = _bind(application_state_dsn, world)
