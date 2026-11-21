@@ -1081,7 +1081,7 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(
     from tests.test_native_corpus_source_access import GM, BODY
     context = owner.prepare_native_source_context(managed_world_id="managed", principal=GM,
         repository=lane.repo, resolve_identity=lambda _: lane.bound)
-    renewer = SimpleNamespace(_turn=fixture.current, _lock=RLock())
+    renewer = SimpleNamespace(_turn=fixture.current, _lock=RLock(), _session=None)
     transport_events = []
 
     @contextmanager
@@ -1097,7 +1097,7 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(
     class Fence:
         def __init__(self): self.renewer = renewer
 
-        def authorize_session_body_grants(self, grants):
+        def commit_session_source_events(self, method, **fields):
             return None
 
         @property
