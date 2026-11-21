@@ -139,7 +139,11 @@ def _explicit_ordinal_target(question, catalog, occurrence, relation):
     if clause is None or clause["relation"].casefold() != relation:
         return None
     referent = clause["object"]
-    if {"not", "except", "instead", "unless", "without", "avoid", "whether", "saying", "quote"} & set(_words(referent)):
+    competing_clauses = {
+        "before", "after", "or", "and", "but", "not", "except", "instead",
+        "unless", "without", "avoid", "whether", "saying", "quote",
+    }
+    if competing_clauses.intersection(_words(referent)):
         return None
     if clause["action"].casefold() not in {"link", "reference"} and not re.fullmatch(
         r"(?:(?:a|an|the|typed|existing|graph|selected)\s+)*(?:reference|link)(?:\s+to\s+.+)?"
@@ -221,7 +225,13 @@ class BuildGraphReferenceDecision:
                 "or section is named, including when the author identifies a paragraph by its words or subject. "
                 "Choose named for an explicit section, even if it is missing. Choose unresolved only for a heading "
                 "reference whose meaning cannot be determined. The Graph object's own location is never a heading restriction."
-            )}) if question.name == "scope" else question
+            )}) if question.name == "scope" else question.model_copy(update={"question": (
+                f"Does existing_passages {question.name} satisfy the user's description of the existing "
+                "paragraph used as the anchor, independently of its heading? Use only the words that "
+                "identify that paragraph in the placement clause. Exclude a passage whose only overlap is "
+                "with the Graph object's name, classification, or description elsewhere in the request. "
+                "Include every passage that actually fits the anchor description."
+            )}) if question.name in boundary.state["existing_passages"] else question
             for question in boundary.questions
         )
         selected_alias = next((alias for alias, item in objects.items()
@@ -274,7 +284,8 @@ class BuildGraphReferenceDecision:
                 ChoiceDecisionQuestion(name="reference_kind_constraint", options=("any_type", "requires_or_excludes_type"),
                     question=("Ignoring what objects exist and what the author selected, does the user expressly require or rule "
                               "out a type for the object being referenced? For example 'as an existing location', 'use the "
-                              "construct', and 'do not use a threat' all impose a type constraint. A location mentioned only "
+                              "construct', a classification directly attached to the object's name, and 'do not use a threat' "
+                              "all impose a type constraint. A location mentioned only "
                               "as the destination or heading is not a type constraint on the object.")),
                 *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
                     question=f"Does graph_objects {alias} match the requested name and all object qualifiers, independently of classification?")

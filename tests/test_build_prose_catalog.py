@@ -337,6 +337,7 @@ def test_graph_occurrence_vote_cannot_override_multiple_compatible_passages(grap
 @pytest.mark.parametrize("question,occurrence,expected", [
     ("Add the selected reference after the first paragraph of the West section.", "passage1", "ready"),
     ("Add the selected reference after the first paragraph of the West section.", "passage2", "ambiguous_boundary"),
+    ("Link Ivory Sentry before the third paragraph or after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
     ("Do not add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
     ("Put a note saying to add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
     ("Explain whether to add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
