@@ -4806,7 +4806,34 @@ it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement"] a
   }));
   mounted.unmount();
   localStorage.clear();
-  render(tree);
+  const cold = render(tree);
   await waitFor(() => expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1));
   expect(surface().querySelector("[data-page-row]")).toHaveTextContent("First paragraph.Second paragraph.");
+  if (receipt === "exact") {
+    cold.unmount();
+    const composed = await liveApi.getWorldOwnedPlanSnapshot(savedAgentPlanId);
+    const other = worldPlanRecord("other-plain-plan", worldId, 1);
+    const prior = { ...composed, record: other, loaded_revision: other.revision,
+      page_presentation: undefined, page_presentation_sha256: undefined };
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async id =>
+      id === savedAgentPlanId ? composed : prior);
+    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world", world_id: worldId, records: [composed.record, other],
+    });
+    const reopen = `/plan?world=${worldId}&documentId=${other.document_id}`;
+    window.history.replaceState({}, "", reopen);
+    localStorage.clear();
+    // Use a fresh mount so the other Plan starts in its ordinary editor schema.
+    const sourceView = render(<SelectedWorldProvider locationSnapshot={reopen}><AgentEnabledPlanPage /></SelectedWorldProvider>);
+    const scoped = within(sourceView.container);
+    const source = await scoped.findByRole("button", { name: "Markdown", exact: true });
+    await waitFor(() => expect(source).toBeEnabled());
+    fireEvent.click(source);
+    await scoped.findByRole("textbox", { name: "Plan Markdown" });
+    fireEvent.change(scoped.getByLabelText("Plan document"), { target: { value: savedAgentPlanId } });
+    await waitFor(() => expect(scoped.getByTestId("world-owned-plan-markdown-editor").querySelector("[data-page-row]")).not.toBeNull());
+    expect(scoped.getByRole("button", { name: "Markdown", exact: true })).toBeDisabled();
+    expect(scoped.queryByRole("textbox", { name: "Plan Markdown" })).not.toBeInTheDocument();
+  }
 });

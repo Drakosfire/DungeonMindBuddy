@@ -949,6 +949,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       serverPresentationRef.current = savedPresentation;
       updatePresentation(savedPresentation);
       setComposing(Boolean(savedPresentation));
+      if (savedPresentation) setSourceEditing(false);
       serverDigestRef.current = snapshot.content_sha256;
       setLastSavedAt(snapshot.record.content_status === "committed"
         ? durableTimestamp(snapshot.record.updated_at)
@@ -2374,10 +2375,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         >
           <CardSceneNavigation scenes={navigationScenes} sceneId={navigationSceneId} onSelect={navigatePlanScene}
             hidden={!cardsViewActive || !focusedCardEditable} />
-          {sourceEditing ? <PlanMarkdownSource value={splitLeadingYamlFrontmatter(markdown).markdown} disabled={status !== "ready"}
+          {sourceEditing && !composing ? <PlanMarkdownSource value={splitLeadingYamlFrontmatter(markdown).markdown} disabled={status !== "ready"}
             onChange={body => {
               const next = preserveLeadingYamlFrontmatter(markdownRef.current, body);
-              if (!isCurrentEditTarget(true) || next === markdownRef.current) return;
+              if (presentationRef.current || !isCurrentEditTarget(true) || next === markdownRef.current) return;
               markdownRef.current = next;
               const generation = ++editGenerationRef.current;
               const pendingRecovery = (pendingWriteRef.current !== null || authoringHoldRef.current !== null) && !savingRef.current;
