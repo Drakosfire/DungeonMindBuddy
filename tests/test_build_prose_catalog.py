@@ -309,6 +309,12 @@ def test_graph_decision_shared_alias_requires_the_current_author_selected_identi
      {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
     ("Link Ivory Sentry with a blue vane after the moon in East.", {}, "construct:retuned-ivory"),
     ("Link Blue Watch after the moon in East.", {}, "construct:retuned-ivory"),
+    ("Could you link Blue Watch after the moon in East?", {}, "construct:retuned-ivory"),
+    ("After the moon in East, would you please link Blue Watch?", {}, "construct:retuned-ivory"),
+    ("Could you link Ivory Sentry location rather than the construct after the moon in East?",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("Could you link Ivory Sentry after the paragraph about a location rather than the construct?",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, None),
     ('Link “Blue Watch” after the moon in East.', {}, "construct:retuned-ivory"),
     ("After the moon in East, add a new link to Blue Watch.", {}, "construct:retuned-ivory"),
     ("Link the location named Ivory Sentry after the moon in East.",
@@ -335,6 +341,17 @@ def test_graph_identity_expression_must_uniquely_match_the_authorized_inventory(
         assert result.placement.reference.node_id == expected
 
 
+@pytest.mark.parametrize("question", [
+    "If you were to link Ivory Sentry after the moon in East, where would it go?",
+    "Could you not link Ivory Sentry after the moon in East?",
+    "Don't link Ivory Sentry after the moon in East.",
+])
+def test_graph_explicit_negation_and_hypothetical_refuse_even_with_an_author_selection(graph_decision, question):
+    decision = replace(graph_decision, question=question)
+    result = decision.resolve(graph_response())
+    assert result.disposition == "discussion" and result.placement is None
+
+
 def test_graph_occurrence_vote_cannot_override_multiple_compatible_passages(graph_decision, captured_page):
     votes = graph_response(scope="unscoped", anchor_occurrence="passage2")
     assert graph_decision.resolve(votes).disposition == "ambiguous_boundary"
@@ -353,7 +370,7 @@ def test_graph_occurrence_vote_cannot_override_multiple_compatible_passages(grap
     ("Add the selected reference after the first paragraph of the West section.", "passage1", "ready"),
     ("Add the selected reference after the first paragraph of the West section.", "passage2", "ambiguous_boundary"),
     ("Link Ivory Sentry before the third paragraph or after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
-    ("Do not add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
+    ("Do not add the selected reference after the first paragraph of the West section.", "passage1", "discussion"),
     ("Put a note saying to add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
     ("Explain whether to add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
     ("Add the selected reference after the first paragraph of the West Coast section.", "passage1", "ambiguous_boundary"),

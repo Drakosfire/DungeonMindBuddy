@@ -93,22 +93,30 @@ _QUOTED_AUTHOR_TEXT = re.compile(
     r''' "[^"\n]*" | “[^”\n]*” | ‘[^’\n]*’ | (?<!\w)'[^'\n]*' ''',
     flags=re.VERBOSE,
 )
+_AUTHOR_REQUEST_PREFIX = r"(?:(?:could|can|would|will)\s+you\s+)?(?:please\s+)?"
 _AUTHOR_ACTION = r"(?P<action>add|insert|place|put|link|reference)"
 _AUTHOR_OBJECT = r"(?P<object>[^.,!?;:\n]+?)"
 _AUTHOR_ANCHOR = r"(?P<anchor>[^.,!?;:\n]+?)"
 _AUTHOR_RELATION = r"(?P<relation>before|after)"
+_NONPLACEMENT_LEAD = re.compile(
+    r"^\s*(?:(?:please\s+)?(?:do\s+not|don[’']t)"
+    r"|(?:could|can|would|will)\s+you\s+(?:please\s+)?not"
+    r"|if\s+(?:you|we|i)\s+were\s+to)\s+"
+    r"(?:link|add|insert|place|put|reference)\b",
+    flags=re.IGNORECASE,
+)
 
 
 def _placement_clause(question: str):
     # Keep offsets so a quoted object name can be read from the exact author text.
     request = _QUOTED_AUTHOR_TEXT.sub(lambda match: "~" * len(match[0]), question)
     return re.fullmatch(
-        rf"\s*(?:please\s+)?{_AUTHOR_ACTION}\s+{_AUTHOR_OBJECT}\s+"
-        rf"(?:(?:just|right|immediately)\s+)?{_AUTHOR_RELATION}\s+{_AUTHOR_ANCHOR}\s*[.!]?\s*",
+        rf"\s*{_AUTHOR_REQUEST_PREFIX}{_AUTHOR_ACTION}\s+{_AUTHOR_OBJECT}\s+"
+        rf"(?:(?:just|right|immediately)\s+)?{_AUTHOR_RELATION}\s+{_AUTHOR_ANCHOR}\s*[.!?]?\s*",
         request, flags=re.IGNORECASE,
     ) or re.fullmatch(
         rf"\s*(?:(?:just|right|immediately)\s+)?{_AUTHOR_RELATION}\s+{_AUTHOR_ANCHOR},\s*"
-        rf"(?:please\s+)?{_AUTHOR_ACTION}\s+{_AUTHOR_OBJECT}\s*[.!]?\s*",
+        rf"{_AUTHOR_REQUEST_PREFIX}{_AUTHOR_ACTION}\s+{_AUTHOR_OBJECT}\s*[.!?]?\s*",
         request, flags=re.IGNORECASE,
     )
 
@@ -129,6 +137,7 @@ def _has_distinguishing_expression(question, chosen, candidates, kind):
     expression = _words(quoted[0][1:-1] if quoted else object_text)
     if not expression or {"not", "except", "or", "and", "instead", "without"} & set(expression):
         return False
+    available_kinds = {_words(candidate.entity_kind) for candidate in candidates}
     eligible = set()
     for candidate in candidates:
         description = _words(candidate.summary or "")
@@ -143,10 +152,13 @@ def _has_distinguishing_expression(question, chosen, candidates, kind):
             if expression[:len(name)] != name:
                 continue
             qualifier = expression[len(name):]
-            literal_kind = kind == candidate.entity_kind and qualifier in {
-                kind_words, ("as", "a", *kind_words), ("as", "an", *kind_words),
-            }
-            literal_description = len(qualifier) >= 3 and any(
+            matching_qualifiers = {kind_words, ("as", "a", *kind_words), ("as", "an", *kind_words)}
+            matching_qualifiers.update(
+                (*kind_words, "rather", "than", "the", *other)
+                for other in available_kinds - {kind_words}
+            )
+            literal_kind = kind == candidate.entity_kind and qualifier in matching_qualifiers
+            literal_description = len(qualifier) >= 3 and "rather" not in qualifier and any(
                 description[index:index + len(qualifier)] == qualifier
                 for index in range(len(description) - len(qualifier) + 1)
             )
@@ -259,6 +271,11 @@ class BuildGraphReferenceDecision:
                 "Choose named for an explicit section, even if it is missing. Choose unresolved only for a heading "
                 "reference whose meaning cannot be determined. The Graph object's own location is never a heading restriction."
             )}) if question.name == "scope" else question.model_copy(update={"question": (
+                "What action does the author request? Choose place_paragraph for inserting a typed Graph "
+                "reference relative to an existing paragraph, even if the anchor is mentioned before the "
+                "action. A question about a hypothetical or an instruction prohibiting an insertion is discussion. "
+                "Choose explicit_page_body only for a whole-page change."
+            )}) if question.name == "work" else question.model_copy(update={"question": (
                 f"Does existing_passages {question.name} satisfy the user's description of the existing "
                 "paragraph used as the anchor, independently of its heading? Use only the words that "
                 "identify that paragraph in the placement clause. Exclude a passage whose only overlap is "
@@ -362,6 +379,8 @@ class BuildGraphReferenceDecision:
         if any(answers[name] not in options for name, options in offered.items()):
             raise ValueError("Graph nomination contains an unoffered answer")
         intent = answers["reference_intent"]
+        if intent == "place_existing" and _NONPLACEMENT_LEAD.match(self.question):
+            return BuildGraphReferenceNomination(disposition="discussion")
         if intent != "place_existing":
             return BuildGraphReferenceNomination(disposition=intent)
 
