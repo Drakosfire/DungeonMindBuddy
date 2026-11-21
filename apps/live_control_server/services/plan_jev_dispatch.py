@@ -167,7 +167,9 @@ class PlanJevDispatch:
                 page_title = adapter.fence.turn.graph_context_execution.policy.action.document_title or ''
         navigation = dict(candidates=tuple(candidates), examined_candidates=tuple(examined_candidates),
             allowed_operations=tuple(allowed_operations), **source_pins(adapter.fence.turn.graph_context_receipt)) if opening else {}
-        if parent_type is NativePlanOpeningInputV3:
+        if parent_type is NativePlanOpeningInputV2:
+            navigation['evidence_relevance_version'] = 'v1'
+        elif parent_type is NativePlanOpeningInputV3:
             navigation['column_scope_version'] = 'v1'
         if author_scope is not None:
             if parent_type not in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) or type(author_scope) is not NativePlanAuthorScopeObservedV1:
