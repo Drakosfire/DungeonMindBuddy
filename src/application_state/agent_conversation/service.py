@@ -3228,6 +3228,92 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("The Build turn claim expired before Graph reference review")
             return updated
 
+    def complete_build_image_move_turn(self, *, world_id, conversation_id, turn_id, expected_revision,
+                                       request_json, response_json, admit):
+        """Reconstruct the nomination against the locked saved Page and stage an inert Review."""
+        from generationengine.types import DecisionResult
+        from application_state.build_proposal.image_move_decision import BuildImageMoveDecision
+        from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
+        from application_state.content import pages
+        from . import types as t
+        from .native_execution import NativeBuildActionV1, SurfaceNativeExecutionV1
+        from .retry import require_leaf
+        from .rules_authority_store import close_unused_locked
+        from .source_writer_output import strict_json
+
+        world_id = _world_id(world_id)
+        response_digest = hashlib.sha256(response_json.encode()).hexdigest()
+        request_digest = hashlib.sha256(request_json.encode()).hexdigest()
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = _lock_pointer(conn, world_id)
+            turn = _ordinary_mutation_turn(repo.lock_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError("Image move turn is unavailable")
+            execution = turn.graph_context_execution
+            if not isinstance(execution, SurfaceNativeExecutionV1):
+                raise ApplicationStateValidationError("Image movement requires native Build")
+            action = execution.policy.action
+            opening = next((event for event in execution.events if isinstance(event, t.BuildRequestedWorkResolutionV1)), None)
+            if (not isinstance(action, NativeBuildActionV1) or action.image_move_capture is None
+                    or opening is None or opening.typed_image_move not in {"move_existing", "unresolved"}
+                    or opening.controller_envelope_sha256 != request_digest
+                    or opening.controller_response_sha256 != response_digest):
+                raise ApplicationStateValidationError("Image movement requires its exact admitted opening")
+            if (turn.status == "completed" and turn.revision == expected_revision + 1
+                    and type(execution.events[-1]) is t.BuildImageMoveCompletionBindingV1):
+                return turn
+            require_leaf(conn, turn)
+            if turn.status != "running" or turn.revision != expected_revision:
+                raise ApplicationStateConflictError("The Build turn claim changed before image move Review")
+            capture = action.image_move_capture
+            if (capture.conversation_id != conversation_id or pointer.active_conversation_id != conversation_id
+                    or pointer.revision != capture.expected_pointer_revision):
+                raise ApplicationStateConflictError("The captured image move conversation changed")
+            basis = capture.basis
+            state = pages._state(conn, basis.document_id, world_id, lock=True)
+            saved = pages._committed_snapshot(conn, state)
+            if (state.page.status != "active" or state.metadata.visibility_state != "internal"
+                    or state.page.object_revision != basis.registry_revision or saved.revision is None
+                    or saved.revision.content_sha256 != basis.content_sha256 or saved.presentation is None):
+                raise ApplicationStateConflictError("The captured Page changed before image move Review")
+            try:
+                decision = BuildImageMoveDecision.from_saved(capture, turn.user_text, saved.revision.markdown, saved.presentation)
+                answers = decision.opening_answers(strict_json(request_json), DecisionResult.model_validate(strict_json(response_json)))
+                if answers["image_move_intent"] != opening.typed_image_move:
+                    raise ValueError("The image move choice differs from its admitted response")
+                nomination = decision.resolve(answers)
+                placement = nomination.placement
+                completion = t.BuildImageMoveCompletionV1(
+                    context_receipt_sha256=execution.context_receipt_sha256, disposition=nomination.disposition,
+                    action_id=turn_id if placement is not None else None,
+                    placement_sha256=t.canonical_sha256(placement) if placement is not None else None,
+                )
+                binding = t.BuildImageMoveCompletionBindingV1(
+                    kind="build_image_move_completion_binding_v1", event_id=uuid4(), sequence=len(execution.events),
+                    provider_attempt_id=opening.controller_attempt_id, completion_sha256=t.canonical_sha256(completion),
+                    claim_graph_event_ids={}, opening_event_id=opening.event_id,
+                )
+                execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                    execution.model_dump(mode="json", by_alias=True) | {
+                        "events": [event.model_dump(mode="json", by_alias=True) for event in [*execution.events, binding]],
+                    }))
+                validate_execution_completion(completion, turn.graph_context_receipt, execution, opening.controller_attempt_id, {})
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if placement is not None:
+                BuildImageMoveReviewService().stage_in_transaction(
+                    conn, turn_id, conversation_id, capture.expected_pointer_revision, placement, capture.editor_json, admit=admit,
+                )
+            close_unused_locked(conn, turn)
+            updated = repo.complete_claimed_turn(
+                conn, world_id=world_id, turn_id=turn_id, expected_revision=expected_revision,
+                expected_attempt=turn.attempt, assistant_text=completion.answer_segments[0].text,
+                completion=completion, graph_context_execution=execution,
+            )
+            if updated is None:
+                raise ApplicationStateConflictError("The Build turn claim expired before image move Review")
+            return updated
+
     def complete_plan_authoring_turn(self,result:TurnResult,*,proposal,output_proof,expected_rules_revision:int,work_proof=None):
         """Native evidence acceptance and the Plan result share one transaction."""
         return self._complete_turn(result,prepared_recovery=False,native_output_proof=output_proof,

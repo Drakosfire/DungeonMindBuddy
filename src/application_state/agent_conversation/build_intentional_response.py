@@ -622,6 +622,9 @@ def validate_resolution_metadata(event, policy):
         catalog is None or write_capability.basis.visibility != "internal"
     ):
         raise ValueError("Retained Graph reference opening requires an internal native page capture")
+    capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
+    if (capture is None) != (event.typed_image_move is None):
+        raise ValueError("Retained image move choice requires its exact Build capture")
     placement = event.paragraph_placement
     if (catalog is None) != (placement is None):
         raise ValueError("Build paragraph placement differs from its frozen capability")
@@ -706,6 +709,8 @@ def validate_native_action_events(execution):
             validate_resolution_metadata(event,execution.policy)
             selection=event
         elif isinstance(event,t.ProviderAttemptAuthorizedEventV1):
+            if getattr(selection, "typed_image_move", None) in {"move_existing", "unresolved"}:
+                raise ValueError("Typed image movement cannot authorize another provider call")
             if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity():
                 if selection is None:
                     raise ValueError('Build writer requires its unique retained semantic resolution')
@@ -742,6 +747,21 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     raw_response = strict_json(proof["response_json"])
     label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
+    capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
+    from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
+    image_offer = request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY)
+    image_answers = {name: value for name, value in response.answers.items() if name.startswith("image_move_")}
+    if capture is None:
+        if event.typed_image_move is not None or image_answers or image_offer is not None:
+            raise ValueError("Image move choices require a captured Build Page")
+    else:
+        from .jev_retrieval_contract import validated_choice_answers
+
+        names = {"image_move_intent", "image_move_destination", "image_move_occurrence"}
+        projected = response.model_copy(update={"answers": image_answers})
+        if (not semantic_input or not isinstance(image_offer, dict) or
+                event.typed_image_move != validated_choice_answers(projected, names)["image_move_intent"]):
+            raise ValueError("Image move choice differs from its actual native selection")
     graph_reference = resolve_graph_reference_opening(request, response)
     if graph_reference != event.typed_graph_reference or (graph_reference is not None and (
         not semantic_input or capability is None

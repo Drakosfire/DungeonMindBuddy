@@ -586,6 +586,32 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     def change_row(value):
         value["content"][0]["attrs"]["min_height"] = 24
 
+    from application_state.build_proposal.image_move_decision import BuildImageMoveCapture, BuildImageMoveDecision
+
+    capture = BuildImageMoveCapture(
+        basis=placement.basis, editor_json=original, conversation_id=uuid4(), expected_pointer_revision=1,
+    )
+    choices = {"image_move_intent":"move_existing", "image_move_destination":"same_row_right", "image_move_occurrence":"image1"}
+    for prompt, expected in (
+        ("Move the Map to the next slot on the right.", "ready"),
+        ("Move the Map to the next slot on its right.", "ready"),
+        ("Move an image right by one slot.", "ambiguous"),
+        ("What would happen if we moved the Map to the right?", "discussion"),
+        ("Please do not move the Map to the right.", "discussion"),
+        ("Move the Map to another row on the right.", "different_row"),
+        ("Move the Map to the right slot of the Harbor Gate row.", "different_row"),
+        ("Move the Map two columns to the right.", "unsupported"),
+        ("Move the Map to the right and then remove it.", "unsupported"),
+        ("Move the right bank map into the empty slot.", "unsupported"),
+    ):
+        decision = BuildImageMoveDecision.from_saved(capture, prompt, markdown, before)
+        assert decision.resolve(choices).disposition == expected, prompt
+        provider_view = json.dumps(decision.semantic_state())
+        assert all(value not in provider_view for value in (asset_id, "first-map", "approach-row", "left-slot"))
+    selected = capture.model_copy(update={"author_selected_block_id":"first-map"})
+    decision = BuildImageMoveDecision.from_saved(selected, "Could you move this image right one slot?", markdown, before)
+    assert decision.selected == "image1" and decision.resolve(choices).placement == placement
+
     for alter in (change_sibling_text, change_unrelated_image, change_moved_image_width, change_row):
         forged = json.loads(original)
         alter(forged)

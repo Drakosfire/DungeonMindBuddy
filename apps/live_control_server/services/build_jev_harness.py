@@ -247,6 +247,28 @@ class BuildJevHarness:
             )
             if driver._selection_intent is not None:
                 asyncio.run(self._decide(adapter, driver))
+            if getattr(driver.selection, "typed_image_move", None) in {"move_existing", "unresolved"}:
+                from application_state.errors import ApplicationStateConflictError
+                from .agent_turn_service import AgentTurnServiceError
+
+                principal = getattr(adapter.native_query_context, "principal", None)
+                if principal is None or principal.role != "gm":
+                    raise AgentTurnServiceError("Image movement requires World edit access.",
+                                                code="build_image_move_forbidden", status_code=403)
+                turn = adapter.fence.turn
+                def admit_image_move(_conn, review):
+                    if review.placement.basis.world_id != adapter.native_source_authority.managed_world_id:
+                        raise ApplicationStateConflictError("The image move changed the authorized World")
+
+                try:
+                    adapter.turn = adapter.service.complete_build_image_move_turn(
+                        world_id=turn.world_id, conversation_id=turn.conversation_id, turn_id=turn.turn_id,
+                        expected_revision=turn.revision, **driver.image_move_opening_proof,
+                        admit=admit_image_move,
+                    )
+                    return adapter.turn
+                except ApplicationStateConflictError as exc:
+                    raise AgentTurnServiceError(str(exc), code="build_image_move_conflict", status_code=409) from exc
             if getattr(driver.selection, "typed_graph_reference", None) == "place_existing_reference":
                 from application_state.agent_conversation.jev_retrieval_contract import RetrievalDialogue
                 from application_state.errors import ApplicationStateConflictError
@@ -670,8 +692,11 @@ class BuildJevHarness:
 
                     response = result.model_dump(mode="json")
                     request = json.loads(adapter._prepared_build_decision.body)
+                    image_opening = (driver.image_move.opening_answers(request, result)["image_move_intent"]
+                                     if getattr(driver, "image_move", None) is not None else None)
                     conversation_only = (
-                        resolve_graph_reference_opening(request, result) != "place_existing_reference"
+                        image_opening not in {"move_existing", "unresolved"}
+                        and resolve_graph_reference_opening(request, result) != "place_existing_reference"
                         and is_prior_conversation_work(selected(response), source_need(request, response))
                     )
                 if not conversation_only:

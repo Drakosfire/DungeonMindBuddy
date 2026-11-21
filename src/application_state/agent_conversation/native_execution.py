@@ -12,6 +12,7 @@ from uuid import UUID
 from pydantic import ConfigDict, Discriminator, Tag, Field, ValidationInfo, field_validator, model_validator
 
 from application_state.build_proposal.types import BuildWriteCapability
+from application_state.build_proposal.image_move_decision import BuildImageMoveCapture
 from . import types as t
 from .build_intentional_response import Capabilities, known_semantics
 from .build_related_pages import PagePointer
@@ -45,6 +46,7 @@ class NativeBuildActionV1(Strict):
     surface_id: Literal["build"] = "build"
     intent: Annotated[t.BuildGraphIntentV2 | t.BuildGraphIntentV1, Field(discriminator="schema_")]
     write_capability: BuildWriteCapability | None
+    image_move_capture: BuildImageMoveCapture | None = Field(default=None, exclude_if=lambda value: value is None)
     capabilities: Capabilities
     related_page_catalog: tuple[PagePointer, ...] | None
     saved_source_char_count: int = Field(ge=0, strict=True)
@@ -84,6 +86,16 @@ class NativeBuildActionV1(Strict):
         if cap is not None:
             from .build_world_context import validate_work_intent
             validate_work_intent(cap.basis, self.intent)
+        capture = self.image_move_capture
+        capture_sha256 = None if capture is None else t.canonical_sha256(capture.model_dump(mode="json"))
+        if capture_sha256 != self.intent.build_image_move_capture_sha256:
+            raise ValueError("Captured image movement differs from the submitted commitment")
+        if capture is not None:
+            from .build_world_context import validate_work_intent
+            if (self.intent.client_work_state != "saved_clean"
+                    or self.intent.retry_of is not None or self.intent.reviewed_step is not None):
+                raise ValueError("Image movement requires an ordinary clean Build turn")
+            validate_work_intent(capture.basis, self.intent)
         catalog = self.related_page_catalog
         if catalog is not None and (len({row.document_id for row in catalog}) != len(catalog)
                 or any(row.world_id != self.intent.world_id
@@ -503,6 +515,7 @@ SurfaceNativeEvent = Annotated[
     | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
     | t.BuildGraphReferenceCompletionBindingV1
+    | t.BuildImageMoveCompletionBindingV1
     | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1 | NativePlanOpeningSelectedV2 | NativePlanOpeningSelectedV3
     | t.NativeBodySearchAuthorizedV1 | t.NativeInitialSourceSearchAuthorizedV1 | t.NativePlanRequestSearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
@@ -582,8 +595,9 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError('Shared native writer response requires its exact selected output acknowledgement')
             if isinstance(event, _BUILD_WORK_EVENTS) and not isinstance(self.policy.action, NativeBuildActionV1):
                 raise ValueError("Build work event cannot acquire another action family")
-            if type(event) is t.BuildGraphReferenceCompletionBindingV1 and not isinstance(action, NativeBuildActionV1):
-                raise ValueError("Graph reference completion requires its native Build action")
+            if type(event) in (t.BuildGraphReferenceCompletionBindingV1, t.BuildImageMoveCompletionBindingV1
+                              ) and not isinstance(action, NativeBuildActionV1):
+                raise ValueError("Build placement completion requires its native Build action")
             if isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1):
                 prefix = self.events[:event.sequence]
                 work = prior_conversation_work(prefix)
