@@ -262,6 +262,23 @@ def test_deliberate_selection_remains_exclusive_despite_duplicate_source_text():
     assert "from" not in focus and "to" not in focus
 
 
+def test_capture_only_questions_cannot_offer_a_paragraph_scope():
+    from application_state.agent_conversation.plan_contextual_targets import (
+        contextual_work_choice, prepare_contextual_work, target_answer_keys)
+    capture, catalog = captured_catalog(selected=True)
+    request = request_for(capture, catalog)
+    prepared = prepare_contextual_work(request)
+    scope = next(q for q in prepared.questions if q.name == 'paragraph_scope')
+    assert scope.options == ('not_applicable', 'unresolved')
+    assert set(prepared.state['paragraph_scope_modes']) == {'not_applicable', 'unresolved'}
+    answers = {key: 'exclude' for key in target_answer_keys(request)} | {
+        'placement_relation': 'captured', 'paragraph_scope': 'not_applicable', 'anchor_0': 'include'}
+    resolved = contextual_work_choice(request, 'write_current_page', answers)
+    assert resolved['target_capture_sha256'] == capture.sha256
+    with pytest.raises(ValueError, match='scope was not offered'):
+        contextual_work_choice(request, 'write_current_page', answers | {'paragraph_scope': 'unscoped'})
+
+
 def test_location_votes_are_complete_and_model_view_contains_no_host_bindings():
     capture, catalog = captured_catalog()
     request = request_for(capture, catalog)

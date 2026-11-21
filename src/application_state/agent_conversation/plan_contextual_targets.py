@@ -55,7 +55,7 @@ def prepare_contextual_work(request):
     state.update(offered_page_anchors=[entry['view'] for entry in inventory['direct']],
         paragraph_passages=[entry['view'] for entry in inventory['passages']],
         paragraph_sections=[entry['view'] for entry in inventory['sections']],
-        paragraph_scope_modes=dict(PARAGRAPH_SCOPES),
+        paragraph_scope_modes=scope_modes(request),
         placement_relations={key: RELATIONS[key] for key in offered_relations(request)},
         focused_edit_target=focused_target(request),
         placement_policy=("Judge intent and location independently. Current-page writing stays "
@@ -206,6 +206,14 @@ def offered_relations(request):
     return tuple(key for key in RELATIONS if key in offered or key == 'unresolved')
 
 
+def scope_modes(request):
+    # A capture-only catalog cannot offer a paragraph operation at all.
+    if not {'before_paragraph', 'after_paragraph'} & set(offered_relations(request)):
+        return {'not_applicable': PARAGRAPH_SCOPES['not_applicable'],
+            'unresolved': 'The requested destination cannot be resolved from this capture-only catalog.'}
+    return dict(PARAGRAPH_SCOPES)
+
+
 def focused_target(request):
     capture = request.original_capture
     if capture is None:
@@ -233,10 +241,10 @@ def target_questions(request):
         question='What single relation to an existing page anchor does the requested fragment use? '
             'Ignore ordering inside the new fragment. Multiple page relations must be unresolved.',
         option_descriptions={key: RELATIONS[key] for key in offered_relations(request)}),
-        ChoiceDecisionQuestion(name='paragraph_scope', options=tuple(PARAGRAPH_SCOPES),
+        ChoiceDecisionQuestion(name='paragraph_scope', options=tuple(scope_modes(request)),
             question='For a paragraph placement, does the author impose one section description? '
                 'Judge section scope separately from paragraph content. Use not_applicable for other relations.',
-            option_descriptions=dict(PARAGRAPH_SCOPES)),
+            option_descriptions=scope_modes(request)),
         *(ChoiceDecisionQuestion(name=f'anchor_{i}', options=('include', 'exclude'),
             option_descriptions={
                 'include': 'The requested relation uses this kind of direct destination and the author refers to this capture, heading path or page end.',
@@ -246,23 +254,24 @@ def target_questions(request):
                 + ' Judge the anchor, not what the new fragment will contain. Include every equally valid match.')
             for i, anchor in enumerate(entry['view'] for entry in inventory['direct'])),
         *(ChoiceDecisionQuestion(name=f'passage_{i}', options=('include', 'exclude'),
-            question='Only for before_paragraph/after_paragraph: is this the EXISTING paragraph content the author refers to? '
-                'For heading/captured/page-end relations, EXCLUDE; mentioning a heading\'s first body paragraph does not change a heading relation. '
-                'IGNORE SECTION NAMES and insertion side; those are separate judgments. '
-                'Do not match merely because the new fragment will discuss this topic. Source reference data: '
+            question='Does the author locate the edit before or after a paragraph described by this text? '
+                'Match the existing paragraph by meaning, ignoring its section and insertion side. '
+                'The new fragment may discuss the same topic; that does not disqualify the existing anchor. '
+                'A heading, selection or page-end destination is not a paragraph destination. Existing text: '
                 + json.dumps(entry['view'], ensure_ascii=False),
             option_descriptions={
-                'include': 'This existing paragraph passage is referred to by its words or meaning, regardless of which section contains it.',
-                'exclude': 'The author refers to different existing prose, this is only the new content to write, or the placement is not paragraph-based.'})
+                'include': 'The described existing paragraph matches this passage. Include every matching passage, independently of section.',
+                'exclude': 'The described existing paragraph differs, or the edit is located relative to a heading, selection or page end instead.'})
             for i, entry in enumerate(inventory['passages'])),
         *(ChoiceDecisionQuestion(name=f'section_{i}', options=('include', 'exclude'),
-            question='For a NAMED paragraph scope, does this complete semantic heading path match the author\'s ONE scope description? '
-                'A fully specified child path cannot be satisfied by its ancestor alone. With an abbreviated name, include every matching path. '
-                'For unscoped, unresolved compound scope or nonparagraph placement, exclude. Reference data: '
+            question='Does the author name this section as the location of the existing paragraph? '
+                'A section name modifying "paragraph" counts as a section reference. '
+                'Only explicitly named parents restrict the match. An omitted parent permits every path with the named child. '
+                'Exclude for no named section, a nonparagraph destination, or unsupported compound/ordinal section constraints. Section path: '
                 + json.dumps(entry['view'], ensure_ascii=False),
             option_descriptions={
-                'include': 'The author\'s one requested section description matches this heading path, with every named ancestor/child qualification.',
-                'exclude': 'The requested section/path differs or is absent, the heading is merely new content, or there is no single named paragraph scope.'})
+                'include': 'This path matches the section named for the paragraph, including every stated ancestor and child.',
+                'exclude': 'This is a different path, or the author does not name one supported section description for a paragraph.'})
             for i, entry in enumerate(inventory['sections'])))
 
 
@@ -286,6 +295,8 @@ def contextual_work_choice(request, intent, answers):
     relation = answers['placement_relation']
     if relation not in offered_relations(request):
         raise ValueError('Placement relation was not offered')
+    if answers['paragraph_scope'] not in scope_modes(request):
+        raise ValueError('Paragraph scope was not offered')
     inventory = component_inventory(request.original_capture, request.placement_catalog)
     def votes(prefix, entries):
         selected = []

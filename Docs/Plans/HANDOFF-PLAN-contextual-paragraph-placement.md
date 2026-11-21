@@ -4,6 +4,17 @@ Status: ACTIVE implementation in draft PR #4264; acceptance remains RED. This is
 one serial plain-Plan capability. No successor is dispatched and no deployment,
 production migration execution or serving-pin change is included.
 
+Latest development checkpoint: clean7cc75188, actual Jev with scripted writer,
+32 frozen cases:27/32 nomination/protocol dispositions correct. Two unnecessary
+missing-target clarifications, two capture-only scope decoding rejections and
+one unsafe abbreviated-section nomination remain RED. That unsafe case reserved
+and proposed an edit; no source mutation occurred.42 actual Jev calls,30 scripted
+writer calls, zero OpenAI calls. Evidence:
+`/home/drakosfire/Projects/.codex/buddy-check.A0jV7T/plan-ordinary-dev/combined-dev32-offline/targeting-diagnostic-7cc7/evaluator/final-judgment.json`,
+SHA256 `e0a329e6424845debd5022205b01b1429b3befd4b819ebcd7436aaad7be40223`.
+Follow-up remains in this PR: narrower capture-only scope choices and simpler
+passage/path questions; no writer-quality or current acceptance claim.
+
 ## Authority, lane and dependencies
 
 Alan granted full authority over this lane and directed no further routine
