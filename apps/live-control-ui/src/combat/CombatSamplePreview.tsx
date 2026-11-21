@@ -45,11 +45,10 @@ export function CombatSamplePreview({disabled, onClose, onKeep}: {
     </div>
     <CombatRosterTable draft={draft} disabled onToggleGroup={() => undefined} renderRow={(entity, hidden) =>
       <tr key={entity.id} hidden={hidden}>
-        <td>{draft.active_turn_entity_id === entity.id ? 'Current' : ''}</td>
-        <th scope="row">{entity.name}</th><td>{entity.init}</td><td>{entity.ac}</td>
-        <td>{entity.hp} / {entity.max_hp}</td><td>—</td>
-        <td>{[...entity.conditions, entity.notes].filter(Boolean).join(' · ')}</td>
-        <td>In action</td>
+        <td>{entity.init}</td>
+        <th scope="row">{entity.name}{draft.active_turn_entity_id === entity.id && ' · Now'}</th>
+        <td>{entity.ac}</td><td>{entity.hp} / {entity.max_hp}</td><td>—</td>
+        <td>{entity.conditions.join(' · ') || '—'}</td><td>{entity.notes || '—'}</td><td>—</td>
       </tr>
     }/>
   </section>;
