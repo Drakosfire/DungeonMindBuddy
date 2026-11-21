@@ -156,6 +156,8 @@ class BuildProposalService:
             previous = _load(row)
             if previous.inserted_in_draft:
                 return previous
+            if type(previous) is BuildProseBoundaryProposalRecord:
+                raise ApplicationStateConflictError("Build prose insertion requires its exact Review receipt")
             if previous.state != "proposed" or previous.revision != expected_revision:
                 raise ApplicationStateConflictError("Build proposal cannot be inserted")
             if authorize is not None:

@@ -50,10 +50,18 @@ export async function saveBuildProposal(getCurrent:()=>SaveOwner|null,basis:Buil
     ||saved.loaded_revision!==snapshot.loaded_revision||!saved.file_fingerprint))
     throw new Error('The page changed during saved insertion verification. Check it again.');
   if(saved.record.document_id!==basis.document_id||saved.record.world_id!==basis.world_id
-    ||(expectedLayoutHash!==undefined && (saved.page_presentation_sha256??null)!==expectedLayoutHash)
     ||saved.record.content_status!=='committed'||saved.record.status!=='active'
     ||saved.record.visibility_state!==snapshot.record.visibility_state||saved.loaded_revision<basis.registry_revision
     ||saved.record.revision!==saved.loaded_revision||saved.markdown!==markdown||saved.content_sha256!==fullSha)
     throw new Error('The insertion is not verified in the saved page. Your working copy is retained; check the insertion to retry saving.');
+  if (expectedLayoutHash !== undefined) {
+    if ((saved.page_presentation_sha256 ?? null) !== expectedLayoutHash
+      || presentationFingerprint(saved.page_presentation) !== expectedLayoutHash
+      || (saved.page_presentation && JSON.stringify(
+        editor.schema.nodeFromJSON(hydratePresentation(markdown, saved.page_presentation)).toJSON(),
+      ) !== json)) {
+      throw new Error('The saved layout differs from the verified insertion. Your working copy is retained.');
+    }
+  }
   // Newer typing stays in the live editor/local draft; only the exact saved result is acknowledged.
 }

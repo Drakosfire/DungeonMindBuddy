@@ -173,6 +173,8 @@ def test_prose_boundary_review_keeps_original_caret_and_requires_exact_offered_t
     advance("proposed")
     assert type(BuildProposalService().get(world, action)) is BuildProseBoundaryProposalRecord
     assert record.reservation.basis.caret == 1 and record.reservation.prose_target == target
+    with pytest.raises(ApplicationStateConflictError, match="exact Review receipt"):
+        service.report_inserted(world, action, expected_revision=record.revision)
 
     review = BuildProposalReviewService()
     opened = review.execute(world, action, BuildReviewCommand(operation="open", expected_revision=0))

@@ -223,16 +223,20 @@ def normalize_proposal_output(text, page_body_offer=None, page_end_offer=None):
     if wire.target == "page_end" and page_end_offer is None:
         raise BuildComposeTargetMismatch("build_compose_target_not_offered")
     output = BuildGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
-    markdown = output.replacement_markdown
+    _require_inert_markdown(output.replacement_markdown)
+    return output
+
+
+def _require_inert_markdown(markdown: str) -> None:
     if re.search(r"(?m)^ {0,3}(?:`{3,}|~{3,})dmb-work-plan-v1(?:[ \t]|$)", markdown):
         raise BuildComposeError("build_compose_unsupported_markdown")
     if (re.search(r"<[^>]*>|dmb-node:|graphNodeReference|dmb-playable-element:|\bnode:[a-z0-9_-]+", markdown, re.I)
             or re.search(r"\[[^\]]+\]\((?:file:|\.{1,2}/|/)", markdown, re.I)):
         raise BuildComposeError("build_compose_unsupported_markdown")
-    return output
 
 
 def admit_build_boundary_paragraph(markdown: str) -> None:
+    _require_inert_markdown(markdown)
     text = markdown.strip()
     if (not text or "\n" in text or "\r" in text or "![" in text
             or re.match(r"^(?:#{1,6}\s|[-+*>]\s|[0-9]+[.)]\s|```|~~~|\|)", text)
@@ -263,8 +267,6 @@ def normalize_boundary_proposal_output(text: str) -> BuildProseBoundaryProposal:
         return value
 
     wire = BuildProseBoundaryOutput.model_validate(json.loads(text, object_pairs_hook=unique))
-    # Reuse the existing inert Markdown restrictions for the versioned fragment.
-    normalize_proposal_output(json.dumps(wire.model_dump() | {"target": "captured"}))
     return BuildProseBoundaryProposal.model_validate(wire.model_dump(exclude={"destination"}))
 
 

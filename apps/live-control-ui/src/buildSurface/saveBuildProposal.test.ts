@@ -8,6 +8,9 @@ import {fixtureWorkspaceDocumentRecord} from '../planSurface/config/planSessionD
 import type {WorkspaceDocumentSnapshot} from '../api/types';
 import {saveBuildProposal} from './saveBuildProposal';
 import {createBuildComposeBridge} from './buildComposeBridge';
+import {PAGE_COMPOSER_EXTENSIONS} from '../tiptap/pageComposer/PageRow';
+import {admittedPresentationBlocks,hydratePresentation,presentationFingerprint,type PagePresentation} from '../tiptap/pageComposer/presentation';
+import type {BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
 vi.mock('../api/liveApi',()=>({getCommittedPageSnapshot:vi.fn()}));
 let editor:Editor;
 async function digest(value:string){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,'0')).join('');}
@@ -31,6 +34,33 @@ it('uses the page owner and requires exact committed readback, preserving frontm
  await saveBuildProposal(()=>x.owner,...x.args);
  expect(x.saveMarkdown).toHaveBeenCalledTimes(1);expect(getCommittedPageSnapshot).toHaveBeenCalledWith('doc');
  expect(x.saveMarkdown.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(getCommittedPageSnapshot).mock.invocationCallOrder[0]);
+});
+
+it.each(['exact','omitted','corrupted'] as const)('checks actual retained sidecar bytes on %s Build prose Save readback',async mode=>{
+ const beforeMarkdown='Old page.\n';
+ const afterMarkdown='Old page.\n\nSaved insertion.\n';
+ const layout=async(markdown:string):Promise<PagePresentation>=>({
+  schema_version:'dmb_page_presentation_v1',markdown_sha256:await digest(markdown),
+  items:admittedPresentationBlocks(markdown).map(({node:_node,...block},index)=>
+   ({...block,kind:'block' as const,id:index===0?'existing':'inserted'})),
+ });
+ const beforeLayout=await layout(beforeMarkdown),afterLayout=await layout(afterMarkdown);
+ editor.destroy();
+ editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
+  content:hydratePresentation(afterMarkdown,afterLayout)});
+ const x=await setup();
+ x.owner.snapshot={...x.before,markdown:beforeMarkdown,content_sha256:await digest(beforeMarkdown),
+  page_presentation:beforeLayout,page_presentation_sha256:presentationFingerprint(beforeLayout)};
+ const retained=structuredClone(afterLayout);
+ if(mode==='corrupted')retained.items[0]!.id='different';
+ vi.mocked(getCommittedPageSnapshot).mockResolvedValue({...x.saved,
+  page_presentation:mode==='omitted'?undefined:retained,page_presentation_sha256:presentationFingerprint(afterLayout)});
+ const target:BuildProseBoundaryTarget={schema:'dmb_build_prose_boundary_target_v1',catalog_sha256:'a'.repeat(64),
+  alias:'passage1:insert_after',operation:'insert_after',from:11,to:11,before_text_sha256:'b'.repeat(64)};
+ const attempt=saveBuildProposal(()=>x.owner,...x.args,undefined,target);
+ if(mode==='exact')await expect(attempt).resolves.toBeUndefined();
+ else await expect(attempt).rejects.toThrow('The saved layout differs');
+ expect(x.saveMarkdown).toHaveBeenCalledOnce();
 });
 it('recognizes an already saved insertion after reload without another write',async()=>{
  const x=await setup();x.owner.snapshot=x.saved;await saveBuildProposal(()=>x.owner,...x.args);
