@@ -107,6 +107,13 @@ SDK-selected final after its digest acknowledgment; historical aggregate debug
 capture is preserved. This is a host proof correction, not a rewritten SDK
 reply. Original paid-run effects and reconstructed fixture effects remain
 separate evidence; neither the observer defect nor runtime failure is erased.
+Exact-request offline replay at0d8fe5133 then passed all20 runtime cases with
+the selected-final correction. The underlying9b46 model decisions still scored
+19/20 work/target,9/9 delivered fragments core/clean,2/2 useful discussions and
+8/8 appropriate required question contents. Explicit restatement still missed
+its unique location. The next development amendment separates internal fragment
+ordering/composition from relationships to existing page anchors. This is dev
+tuning only; no fresh heldout result or actual new-source browser pass is claimed.
 
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
