@@ -134,6 +134,18 @@ def source_pins(receipt):
     )
 
 
+def source_expansion_handle(turn):
+    return 'native-corpus-expand:' + t.canonical_sha256({
+        'scope': scope_digest(turn), 'query': sha256(turn.user_text.encode()).hexdigest()})
+
+
+def source_expansion_selected(turn):
+    handle = source_expansion_handle(turn)
+    return any(type(event) in native_selection_types() and
+        event.operation == 'select_candidates' and handle in event.selected_handles
+        for event in turn.graph_context_execution.events)
+
+
 def scope_digest(turn):
     receipt, execution = owner(turn)
     value = dict(
@@ -182,6 +194,9 @@ def verify_input(turn, auth, proof):
         from .native_corpus import initial_source_discovery_enabled
         if not initial_source_discovery_enabled(execution):
             raise ValueError("Prospective read plans require current readonly Plan work")
+    if type(parent) is NativePlanBatchDecisionInputV3 and parent.expanded_relevance_version:
+        if not source_expansion_selected(turn):
+            raise ValueError("Expanded relevance requires a recorded source expansion")
     from .jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
     if isinstance(parent,NativePlayRetrievalDecisionInputV1):
         from .native_play_work import producing_authored_records

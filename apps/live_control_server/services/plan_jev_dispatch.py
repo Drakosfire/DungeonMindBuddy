@@ -119,7 +119,7 @@ class PlanJevDispatch:
             self.parent=NativePlayRetrievalDecisionInputV1(**fields,**pins,play_work=project_work(
                 work,provenance,_turn_idempotency_key(adapter.world_id,adapter.request.turn_id),proof))
         elif type(receipt) is t.SurfaceNativeContextReceiptV1:
-            from application_state.agent_conversation.native_retrieval import source_pins
+            from application_state.agent_conversation.native_retrieval import source_expansion_selected, source_pins
             from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4
             codec = (NativeBuildRetrievalDecisionInputV4
                 if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV2)
@@ -127,6 +127,8 @@ class PlanJevDispatch:
             if initial_source_discovery_enabled(adapter.fence.turn.graph_context_execution):
                 from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
                 codec = NativePlanBatchDecisionInputV3
+                if source_expansion_selected(adapter.fence.turn):
+                    fields['expanded_relevance_version'] = 'v1'
             self.parent = codec(**fields,**source_pins(receipt))
         elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
