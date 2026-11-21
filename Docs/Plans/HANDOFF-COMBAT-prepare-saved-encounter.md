@@ -1,6 +1,11 @@
 # COMBAT — prepare a saved encounter for a Plan scene
 
-ACTIVE. Alan authorized the end-to-end Old Bath House build in chat
+MERGED in #4316 as `0559b54fa7095eb10cf7e917d386ce1613d077fd`.
+Exact reviewed head `ef7ccc3102b784f91bed8b41373dbfb2f4cfdea9` passed 123
+backend checks and 1,452 hosted verifier checks plus build. The Plan
+preview successor owns the client confirmation path.
+
+Historical activation. Alan authorized the end-to-end Old Bath House build in chat
 01a1ef4e-ff74-7d11-bd9a-2a499da090ff. This serial slice starts at
 `b84831800c7d00e549bb73ea496633e1bd46d370` on
 `codex/combat-prepare-saved-encounter` in the fc67 Buddy checkout. Root

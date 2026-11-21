@@ -1,7 +1,12 @@
 import {authenticatedApiFetch} from '../api/liveApi';
 import type {AnyCombatRecord,ManualCombatProfile} from './ManualCombatTypes';
 export type PlanEncounterContext={worldId:string;documentId:string;sceneId:string;sceneTitle:string;canCreate:boolean;objectRevision:number|null;contentSha256:string|null;verifiedPlan?:{revisionN:number;workRevisionId:string;contentSha256:string}|null};
-export type SceneTemplateIntent={schema_version:'dmb_scene_template_create_v1';operation_id:string;pin:{document_id:string;scene_id:string;revision_n:number;work_revision_id:string;content_sha256:string};encounter:{title:string}|{schema_version:'dmb_manual_combat_create_v2';title:string;profile:ManualCombatProfile}};
+export type SavedEncounterCopy = {
+ schema_version: 'dmb_scene_template_copy_saved_v1';
+ source_encounter_id: string;
+ expected_revision: number;
+};
+export type SceneTemplateIntent={schema_version:'dmb_scene_template_create_v1';operation_id:string;pin:{document_id:string;scene_id:string;revision_n:number;work_revision_id:string;content_sha256:string};encounter:{title:string}|{schema_version:'dmb_manual_combat_create_v2';title:string;profile:ManualCombatProfile}|SavedEncounterCopy};
 export type SceneTemplateView={binding:{schema_version:'dmb_scene_template_binding_v1';world_id:string;encounter_id:string;origin:SceneTemplateIntent['pin'];operation_id:string;request_digest:string;created_at:string};encounter:AnyCombatRecord;versions:{revision:number;digest:string;saved_at:string}[];scene_present:boolean};
 async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent):Promise<T>{
  const response=(await authenticatedApiFetch(`/api/live/combat/scene-templates${path}?${new URLSearchParams({world_id:worldId})}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined)).response;
@@ -20,7 +25,7 @@ export function assertSceneTemplate(view:SceneTemplateView,context:PlanEncounter
 }
 
 export async function sceneCreationDigest(worldId:string,intent:SceneTemplateIntent){
- const encounter='profile' in intent.encounter?(()=>{
+ const encounter='source_encounter_id' in intent.encounter ? intent.encounter : 'profile' in intent.encounter ? (()=>{
   // Scene receipts retain the owning model's historical non-alias dump.
   // Transport still uses `schema`; never change retained v1 digest preimages.
   const {schema,...profile}=intent.encounter.profile;
