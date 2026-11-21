@@ -6,7 +6,8 @@ import pytest
 from application_state.agent_conversation.plan_author_location import (
     AuthorLocationQuote, AuthorScopeHypothesis, DescribedScopeName, DocumentTitleScopeName,
     LiteralScopeName, NamedScopePath,
-    UnresolvedLocation, UnscopedLocation, bind_scope, literal_reference,
+    UnresolvedLocation, UnscopedLocation, author_scope_hypotheses, author_scope_offer_view,
+    bind_scope, literal_reference,
     source_heading_inventory,
 )
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalDialogue
@@ -96,6 +97,60 @@ def test_author_scope_hypothesis_refuses_incomplete_or_substituted_grammar(phras
     candidate = AuthorScopeHypothesis(evidence=author_quote(request, phrase), grammar=grammar)
     with pytest.raises(ValueError, match=error):
         candidate.compile(request, ())
+
+
+@pytest.mark.parametrize('utterance, fragment, grammar, error', [
+    ('Use Mill / Equipment.', 'Equipment', 'literal_name', 'slash-connected'),
+    ('Use Mill / Equipment.', 'Mill', 'literal_name', 'slash-connected'),
+    ('Use “Mill”/ “Equipment”.', '“Equipment”', 'literal_name', 'slash-connected'),
+    ('Use Mill / Equipment / Depot.', 'Equipment / Depot', 'literal_path', 'slash-connected'),
+    ('Use Equipment section directly under Mill.', 'Equipment', 'literal_name', 'natural path operand'),
+    ('Use Equipment whose parent is Mill.', 'Mill', 'literal_name', 'natural path operand'),
+    ('Use Equipment, rather than Depot.', 'Equipment', 'literal_name', 'exclusion operand'),
+    ('Use Equipment except Depot.', 'Depot', 'literal_name', 'exclusion operand'),
+])
+def test_author_scope_hypothesis_cannot_start_or_end_inside_a_path(utterance, fragment, grammar, error):
+    candidate = AuthorScopeHypothesis(evidence=author_quote(utterance, fragment), grammar=grammar)
+    with pytest.raises(ValueError, match=error):
+        candidate.compile(utterance, ())
+
+
+def test_scope_hypotheses_offer_exact_names_from_author_turns_without_section_source():
+    request = 'Add a warning after the paragraph in Mill / Equipment.'
+    dialogue = (RetrievalDialogue(role='assistant', content='Use paragraph in Greenhouse / Equipment.'),)
+    offers = author_scope_hypotheses(request, dialogue, max_span_attempts=100)
+    assert offers == author_scope_hypotheses(request, dialogue, max_span_attempts=100)
+    assert 'Mill / Equipment' in {v.evidence.text for v in offers.values()}
+    assert not any(v.evidence.text in {'Mill', 'Equipment'} or 'Greenhouse' in v.evidence.text
+        for v in offers.values())
+    assert all(v.evidence.utterance_index == len(dialogue) for v in offers.values())
+
+
+def test_scope_hypotheses_preserve_typed_references_and_refuse_budget_truncation():
+    request = 'Use the paragraph in the section with the same title as this page.'
+    offers = author_scope_hypotheses(request, (), max_span_attempts=100)
+    assert any(v.compile(request, ()).names == (DocumentTitleScopeName(),) for v in offers.values())
+    with pytest.raises(ValueError, match='configured span budget'):
+        author_scope_hypotheses(request, (), max_span_attempts=1)
+
+
+def test_scope_hypotheses_offer_complete_natural_path_after_an_article():
+    request = 'Add a note after the paragraph in the Equipment section directly under Mill.'
+    offers = author_scope_hypotheses(request, (), max_span_attempts=100)
+    assert any(h.compile(request, ()) == literal_reference('Mill / Equipment', path=True)
+        for h in offers.values())
+
+
+def test_scope_offer_view_has_local_aliases_and_author_text_without_host_offsets():
+    request = 'Use the paragraph in Mill / Equipment.'
+    options = author_scope_hypotheses(request, (), max_span_attempts=100)
+    view = author_scope_offer_view(request, (), options, include_quote_context=True)
+    assert set(view['scope_hypotheses']) == set(options)
+    offer = next(row for row in view['scope_hypotheses'].values()
+        if row['author_quote']['text'] == 'Mill / Equipment')
+    assert offer['author_quote'] == {'utterance': 'utterance0', 'text': 'Mill / Equipment',
+        'text_before': 'Use the paragraph in ', 'text_after': '.'}
+    assert json.loads(json.dumps(view)) == view
 
 
 def bind(nodes, scope, **kwargs):

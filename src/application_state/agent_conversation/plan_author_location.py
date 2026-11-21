@@ -105,13 +105,15 @@ class AuthorLocationQuote(Strict):
     end: int = Field(strict=True, gt=0)
     text: str = Field(min_length=1)
 
-    def verify(self, request: str, dialogue: tuple[RetrievalDialogue, ...]) -> str:
+    def _utterance(self, request: str, dialogue: tuple[RetrievalDialogue, ...]) -> str:
         if self.utterance_index == len(dialogue):
-            utterance = request
-        elif self.utterance_index < len(dialogue) and dialogue[self.utterance_index].role == 'user':
-            utterance = dialogue[self.utterance_index].content
-        else:
-            raise ValueError('Location evidence must come from an admitted author utterance')
+            return request
+        if self.utterance_index < len(dialogue) and dialogue[self.utterance_index].role == 'user':
+            return dialogue[self.utterance_index].content
+        raise ValueError('Location evidence must come from an admitted author utterance')
+
+    def verify(self, request: str, dialogue: tuple[RetrievalDialogue, ...]) -> str:
+        utterance = self._utterance(request, dialogue)
         if (not self.start < self.end <= len(utterance)
                 or utterance[self.start:self.end] != self.text or self.text != self.text.strip()):
             raise ValueError('Location evidence does not match its exact author quote')
@@ -229,15 +231,27 @@ def literal_reference(text: str, *, path: bool, quoted: bool = False,
         edges=('direct_parent',) * (len(parts) - 1), rooted=rooted)
 
 
+ScopeGrammar = Literal['literal_name', 'literal_path', 'natural_path', 'document_title', 'description']
+
+
 class AuthorScopeHypothesis(Strict):
     """One replayable author quote and its separately declared grammar."""
 
     evidence: AuthorLocationQuote
-    grammar: Literal['literal_name', 'literal_path', 'natural_path',
-        'document_title', 'description']
+    grammar: ScopeGrammar
 
     def compile(self, request: str, dialogue: tuple[RetrievalDialogue, ...]) -> NamedScopePath:
-        return _compile_scope_expression(self.evidence.verify(request, dialogue), self.grammar)
+        quote = self.evidence.verify(request, dialogue)
+        utterance = self.evidence._utterance(request, dialogue)
+        before = utterance[:self.evidence.start].rstrip()
+        after = utterance[self.evidence.end:].lstrip()
+        if before.endswith('/') or after.startswith('/'):
+            raise ValueError('Location evidence cannot omit a slash-connected path component')
+        if (_RELATION_BEFORE.search(before) or _RELATION_AFTER.match(after)):
+            raise ValueError('Location evidence cannot omit a natural path operand')
+        if (_EXCLUSION_BEFORE.search(before) or _EXCLUSION_AFTER.match(after)):
+            raise ValueError('Location evidence cannot omit an exclusion operand')
+        return _compile_scope_expression(quote, self.grammar)
 
 
 _TITLE_REFERENCE = re.compile(
@@ -245,6 +259,10 @@ _TITLE_REFERENCE = re.compile(
     r'same (?:name|title) as (?:this|the current) (?:page|document)', re.IGNORECASE)
 _DESCRIPTION_REFERENCE = re.compile(r'(?:the )?section about\s+(.+)', re.IGNORECASE)
 _NATURAL_CONNECTORS = re.compile(r'(?<=\s)(directly under|whose parent is|inside)(?=\s)', re.IGNORECASE)
+_RELATION_BEFORE = re.compile(r'\b(?:directly under|whose parent is)$', re.IGNORECASE)
+_RELATION_AFTER = re.compile(r'^(?:section\s+)?(?:directly under|whose parent is|inside)\b', re.IGNORECASE)
+_EXCLUSION_BEFORE = re.compile(r'\b(?:rather than|except)$', re.IGNORECASE)
+_EXCLUSION_AFTER = re.compile(r'^,?\s*(?:rather than|except)\b', re.IGNORECASE)
 _COMPOUND_REFERENCE = re.compile(r'\b(?:either|or|both|and|except|rather than)\b', re.IGNORECASE)
 _LOCATION_CLAUSE = re.compile(r'\b(?:paragraph|heading)\s+(?:in|inside|under)\b', re.IGNORECASE)
 _ORDINAL_REFERENCE = re.compile(
@@ -322,6 +340,99 @@ def _compile_scope_expression(text: str, grammar: str, depth: int = 1) -> NamedS
         if _TITLE_REFERENCE.fullmatch(component) or _DESCRIPTION_REFERENCE.fullmatch(component):
             raise ValueError('Typed reference evidence cannot be interpreted as a literal name')
     return literal_reference(text, path=True)
+
+
+_SCOPE_TOKEN = re.compile(r"\w+(?:['’]\w+)*|[^\w\s]", re.UNICODE)
+_SCOPE_START = re.compile(r'\b(?:in|within|under|inside)\b', re.IGNORECASE)
+_SCOPE_END = re.compile(r'\b(?:paragraph|heading|section)\b', re.IGNORECASE)
+
+
+def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...], *,
+                            max_span_attempts: int) -> dict[str, AuthorScopeHypothesis]:
+    """Offer checked author-only hypotheses. Capacity exhaustion grants no partial offer."""
+    if max_span_attempts < 1:
+        raise ValueError('Author scope hypothesis budget must be positive')
+    hypotheses = {}
+    attempts = 0
+    utterances = [(i, row.content) for i, row in enumerate(dialogue) if row.role == 'user']
+    utterances.append((len(dialogue), request))
+    for utterance_index, text in utterances:
+        syntax = _scope_syntax(text)
+        tokens = list(_SCOPE_TOKEN.finditer(text))
+        spans = set()
+
+        def offer(start: int, end: int) -> None:
+            nonlocal attempts
+            if start >= end or (start, end) in spans:
+                return
+            attempts += 1
+            if attempts > max_span_attempts:
+                raise ValueError('Author scope hypotheses exceed the configured span budget')
+            spans.add((start, end))
+
+        for marker in _SCOPE_END.finditer(syntax):
+            previous = next((token for token in reversed(tokens) if token.end() <= marker.start()), None)
+            if previous is not None:
+                for token in tokens:
+                    if token.start() >= previous.end():
+                        break
+                    offer(token.start(), previous.end())
+        for marker in _SCOPE_START.finditer(syntax):
+            first = next((i for i, token in enumerate(tokens) if token.start() >= marker.end()), len(tokens))
+            if first < len(tokens):
+                starts = [tokens[first].start()]
+                if tokens[first][0].casefold() == 'the' and first + 1 < len(tokens):
+                    starts.append(tokens[first + 1].start())
+                for token in reversed(tokens):
+                    if token.end() <= starts[0]:
+                        break
+                    for start in starts:
+                        offer(start, token.end())
+        for marker in _TITLE_REFERENCE.finditer(syntax):
+            offer(marker.start(), marker.end())
+
+        for start, end in sorted(spans):
+            quote = text[start:end]
+            grammar: ScopeGrammar
+            if _TITLE_REFERENCE.fullmatch(quote):
+                grammar = 'document_title'
+            elif _DESCRIPTION_REFERENCE.fullmatch(quote):
+                grammar = 'description'
+            elif _NATURAL_CONNECTORS.search(syntax[start:end]):
+                grammar = 'natural_path'
+            elif '/' in syntax[start:end]:
+                grammar = 'literal_path'
+            else:
+                grammar = 'literal_name'
+            evidence = AuthorLocationQuote(utterance_index=utterance_index, start=start, end=end, text=quote)
+            hypothesis = AuthorScopeHypothesis(evidence=evidence, grammar=grammar)
+            try:
+                hypothesis.compile(request, dialogue)
+            except ValueError:
+                continue
+            hypotheses[f'scope{len(hypotheses)}'] = hypothesis
+    return hypotheses
+
+
+def author_scope_offer_view(request: str, dialogue: tuple[RetrievalDialogue, ...],
+                            hypotheses: dict[str, AuthorScopeHypothesis], *,
+                            include_quote_context: bool = False) -> dict:
+    """Project only dialogue, verified author quotes, and local hypothesis aliases."""
+    offers = {}
+    for index, (alias, hypothesis) in enumerate(hypotheses.items()):
+        if alias != f'scope{index}':
+            raise ValueError('Author scope offers require consecutive local aliases')
+        scope = hypothesis.compile(request, dialogue)
+        evidence = hypothesis.evidence
+        utterance = evidence._utterance(request, dialogue)
+        quote = {'utterance': f'utterance{evidence.utterance_index}', 'text': evidence.text}
+        if include_quote_context:
+            quote.update(text_before=utterance[max(0, evidence.start - 32):evidence.start],
+                text_after=utterance[evidence.end:evidence.end + 32])
+        offers[alias] = {'components': [name.model_dump() for name in scope.names],
+            'edges': list(scope.edges), 'author_quote': quote}
+    return {'current_request': request, 'dialogue': [
+        {'role': row.role, 'content': row.content} for row in dialogue], 'scope_hypotheses': offers}
 
 
 def source_heading_inventory(capture, catalog):
