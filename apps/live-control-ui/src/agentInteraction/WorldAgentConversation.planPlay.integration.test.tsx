@@ -1204,7 +1204,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it('prepares a fresh Build capability after the author corrects placement',async()=>{
-    const capture=vi.fn().mockRejectedValueOnce(new Error('Select an insertion point')).mockResolvedValueOnce(insertionCapture());
+    const selected = insertionCapture();
+    selected.basis.selection = {end: 8, text: 'Unsaved'};
+    const capture=vi.fn().mockRejectedValueOnce(new Error('Select a passage')).mockResolvedValueOnce(selected);
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture,insert:vi.fn()};
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     render(<Harness initial="build" buildBridge={bridge}/>);
@@ -1216,7 +1218,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await screen.findByRole('region',{name:'Page proposal unavailable'});
     fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0].build_write_capability?.draft_markdown).toBe('# Unsaved page');
+    const capability = vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0].build_write_capability;
+    expect(capability?.draft_markdown).toBe('# Unsaved page');
+    expect(capability?.basis.selection).toEqual(selected.basis.selection);
+    expect(capability?.boundary_editor_json).toBeUndefined();
     expect(bridge.capture).toHaveBeenCalledTimes(2);
     expect(bridge.insert).not.toHaveBeenCalled();
   });

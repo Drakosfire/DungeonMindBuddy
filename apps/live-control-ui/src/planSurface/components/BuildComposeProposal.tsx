@@ -98,7 +98,8 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
       return false;
     } finally { running.current = false; if (mounted.current) setBusy(false); }
   }
-  async function prepareHarnessTurn(turnId:string,discussionOnly=false,requirePassage=false,useImageAbove=false,expectedReferenceImageId?:string) {
+  async function prepareHarnessTurn(turnId:string,discussionOnly=false,requirePassage=false,useImageAbove=false,
+    expectedReferenceImageId?:string,contextualPlacement=false) {
     const start=current.current;
     if(!start.enabled||!start.bridge||!start.history)throw new Error('Open the current page and conversation before sending.');
     const snapshot=await start.bridge.captureContext();
@@ -198,13 +199,16 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
     }
     if(!pointer.conversation_id||pointer.conversation_id!==pointer.active_conversation_id)throw new Error('Open the current World conversation first.');
     const action=crypto.randomUUID();
-    if(captured)captures.current.set(action,captured);
+    const useContextualProse = contextualPlacement && !captured?.basis.selection && !requirePassage && !useImageAbove;
+    const proposalCapture = captured && (!useContextualProse || captured.contextualProse) ? captured : undefined;
+    if(proposalCapture)captures.current.set(action,proposalCapture);
     return {history:pointer,initializedConversation,draftContext:{snapshot,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision},
-      capability:captured?{idempotency_key:action,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision,
-        basis:captured.basis,draft_markdown:captured.draftMarkdown,
+      capability:proposalCapture?{idempotency_key:action,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision,
+        basis:proposalCapture.basis,draft_markdown:proposalCapture.draftMarkdown,
+        ...(useContextualProse ? {boundary_editor_json:proposalCapture.editorJson} : {}),
         ...(referenceImageId ? {reference_image_id:referenceImageId} : {}),
-        ...(!requirePassage&&!useImageAbove&&captured.pageBodyOffer?{page_body_offer:captured.pageBodyOffer}:{}),
-        ...(!requirePassage&&!useImageAbove&&captured.pageEndOffer?{page_end_offer:captured.pageEndOffer}:{})}:undefined};
+        ...(!requirePassage&&!useImageAbove&&proposalCapture.pageBodyOffer?{page_body_offer:proposalCapture.pageBodyOffer}:{}),
+        ...(!requirePassage&&!useImageAbove&&proposalCapture.pageEndOffer?{page_end_offer:proposalCapture.pageEndOffer}:{})}:undefined};
   }
   const values=records.scope===scope?records.values:[];
   const selected=opened?.documentId===pageDocumentId?opened:null;

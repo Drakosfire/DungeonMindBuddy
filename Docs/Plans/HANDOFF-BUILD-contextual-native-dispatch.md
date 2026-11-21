@@ -1,8 +1,9 @@
 # Ordinary native Build paragraph placement
 
-Status: ACTIVE under the contextual-layout lane authority. Serial successor
-to #4351 at `903c7d8763f84f886b6a00e3a9d378ec8e8f03f1`, in the isolated
-checkout on `codex/build-contextual-native-dispatch`.
+Status: MERGED as #4352 at `144c9c00912e7bc1359d0ed039c3cb9b9b87ba12`.
+Independent review approved exact head `49d4dd1d38193858fcc93b3cb5032193815c5d50`
+for native dispatch. The mounted successor is
+`HANDOFF-BUILD-contextual-ordinary-send.md`.
 
 ## Outcome and scope
 
@@ -67,5 +68,8 @@ remain sealed for mounted Build Send.
 The capture currently admits root prose geometry. The exact-base native
 execution diagnostic reproduced six inherited exception-message mismatches
 in `test_build_query_settlement_requires_exact_opening_response`.
-The exact-head comparison, disposable old-reader witness and independent
-review remain open.
+At the reviewed head, the local hosted verifier passed 1,465 selected tests
+and the build. The disposable 0179 witness passed 15 checks. Exact backend
+diagnostics retained only identified inherited results after focused recovery
+of the ingestion environment and a serial saved-reader run. PR #4352 records
+the counts, failures and limitations.
