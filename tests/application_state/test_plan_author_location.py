@@ -4,11 +4,46 @@ import json
 import pytest
 
 from application_state.agent_conversation.plan_author_location import (
-    DescribedScopeName, DocumentTitleScopeName, LiteralScopeName, NamedScopePath,
+    AuthorLocationQuote, DescribedScopeName, DocumentTitleScopeName, LiteralScopeName, NamedScopePath,
     UnresolvedLocation, UnscopedLocation, bind_scope, literal_reference,
     source_heading_inventory,
 )
+from application_state.agent_conversation.jev_retrieval_contract import RetrievalDialogue
 from tests.application_state.test_plan_contextual_targets import family_catalog, heading, prose
+
+
+def author_quote(text, quote, utterance_index=0):
+    start = text.index(quote)
+    return AuthorLocationQuote(utterance_index=utterance_index, start=start,
+        end=start + len(quote), text=quote)
+
+
+def test_location_quote_uses_exact_admitted_author_turn_and_offsets():
+    earlier = 'Use “North. Gate” in the plan.'
+    current = "Keep the keeper's warning. Use Café North instead."
+    dialogue = (RetrievalDialogue(role='user', content=earlier),
+        RetrievalDialogue(role='assistant', content='Use South.'))
+    assert author_quote(earlier, '“North. Gate”').verify(current, dialogue) == '“North. Gate”'
+    assert author_quote(current, 'Café North', 2).verify(current, dialogue) == 'Café North'
+    with pytest.raises(ValueError, match='admitted author utterance'):
+        author_quote('Use South.', 'South', 1).verify(current, dialogue)
+    with pytest.raises(ValueError, match='admitted author utterance'):
+        author_quote(current, 'Café North', 3).verify(current, dialogue)
+    with pytest.raises(ValueError, match='exact author quote'):
+        author_quote(current, 'Café North', 2).model_copy(update={'text': 'Cafe North'}).verify(current, dialogue)
+
+
+@pytest.mark.parametrize('text,quote,error', [
+    ('Use Preparation. Leave it intact.', 'Preparation. Leave', 'sentence boundary'),
+    ('Use “North. Gate”.', 'North.', 'within a quoted name'),
+    ('Use “North. Gate”.', '“North.', 'within a quoted name'),
+    ('Use Workshop.', 'shop', 'cut a word'),
+    ('Use Workshop.', 'Work', 'cut a word'),
+    ('Use Workshop.', ' Workshop', 'exact author quote'),
+])
+def test_location_quote_rejects_partial_or_cross_sentence_evidence(text, quote, error):
+    with pytest.raises(ValueError, match=error):
+        author_quote(text, quote).verify(text, ())
 
 
 def bind(nodes, scope, **kwargs):

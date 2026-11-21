@@ -47,6 +47,15 @@ independent review and merge after gates are authorized. Preserve other lanes'
 hosted authorization, rollout, welcome behavior, retrieval ordering, source
 attribution and citation behavior outside this contextual capability.
 
+The later unified synthetic Jev sequence produced 239 successful calls and
+40/40 correct effects against the frozen DEV40 outcome rubric, including 15/15
+intended writes. A separately blinded late DEV16 rubric found 13/16 correct
+effects with three valid requests still clarifying and no unsafe nominations.
+The three cases exercise the frozen document-title reference and described
+section interpretation. The joined runner is external to native Plan admission
+and creates no proposals, writer calls, or saved changes. It qualifies neither
+runtime activation nor a fresh held-out run.
+
 Implementation continuation branch: `codex/plan-contextual-author-constraints`.
 Checkout: `/home/drakosfire/Projects/.codex/plan-contextual-verification/DungeonMindBuddy`.
 Same assigned draft PR #4264; no additional PR or stacked lane is dispatched.
@@ -112,6 +121,15 @@ proposal, Save or completed work. Preserve relation/reference kinds across both
 stages, source identity, user quote fidelity, old Action1/2 branches and the one
 already allocated172 reader fence. Same-PR boundaries are interpretation/grammar,
 source name/occurrence binding, actual native proof, then ordinary editor/Save.
+
+The location quote contract validates host offsets against the exact admitted
+request or prior author turn. It refuses assistant-only evidence, cut words
+and quoted names, and spans crossing unquoted sentence punctuation. Candidate
+aliases remain local to the model view. A rejected span grants no location
+authority. The native sequence still requires per-call authorization, accounting,
+actual SDK lifecycle captures and a replayable parent chain. Keep those proofs
+inside the existing turn owner and preserve the admitted request, captured
+editor geometry and frozen Content title across every stage.
 
 Expected added paths are `plan_author_location.py` under agent conversation and
 its owning `tests/application_state/test_plan_author_location.py`, plus bounded

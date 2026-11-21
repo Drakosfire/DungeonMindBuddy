@@ -9,11 +9,14 @@ from __future__ import annotations
 import json
 import unicodedata
 from dataclasses import dataclass
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import Field, model_validator
 
 from .native_statement_input import Strict
+
+if TYPE_CHECKING:
+    from .jev_retrieval_contract import RetrievalDialogue
 
 
 class LiteralScopeName(Strict):
@@ -91,6 +94,56 @@ def name_key(text: str) -> str:
 
 
 _QUOTES = {'"': '"', "'": "'", '“': '”', '‘': '’', '«': '»', '`': '`'}
+
+
+class AuthorLocationQuote(Strict):
+    """Host offsets into the exact admitted dialogue followed by the request."""
+
+    utterance_index: int = Field(strict=True, ge=0)
+    start: int = Field(strict=True, ge=0)
+    end: int = Field(strict=True, gt=0)
+    text: str = Field(min_length=1)
+
+    def verify(self, request: str, dialogue: tuple[RetrievalDialogue, ...]) -> str:
+        if self.utterance_index == len(dialogue):
+            utterance = request
+        elif self.utterance_index < len(dialogue) and dialogue[self.utterance_index].role == 'user':
+            utterance = dialogue[self.utterance_index].content
+        else:
+            raise ValueError('Location evidence must come from an admitted author utterance')
+        if (not self.start < self.end <= len(utterance)
+                or utterance[self.start:self.end] != self.text or self.text != self.text.strip()):
+            raise ValueError('Location evidence does not match its exact author quote')
+        if ((self.start and _word_member(utterance[self.start - 1]) and _word_member(self.text[0]))
+                or (self.end < len(utterance) and _word_member(self.text[-1]) and _word_member(utterance[self.end]))):
+            raise ValueError('Location evidence cannot cut a word')
+        _require_quote_boundaries(utterance, self.start, self.end)
+        return self.text
+
+
+def _word_member(char: str) -> bool:
+    return char == '_' or unicodedata.category(char)[0] in 'LMN'
+
+
+def _require_quote_boundaries(utterance: str, start: int, end: int) -> None:
+    closing = None
+    escaped = False
+    for index, char in enumerate(utterance[:end]):
+        if index == start and closing is not None:
+            raise ValueError('Location evidence cannot start within a quoted name')
+        apostrophe = (char in {"'", '’'} and 0 < index < len(utterance) - 1
+            and _word_member(utterance[index - 1]) and _word_member(utterance[index + 1]))
+        if closing is not None:
+            if not escaped and char == closing and not apostrophe:
+                closing = None
+            escaped = not escaped and char == '\\'
+        elif char in _QUOTES and not apostrophe:
+            closing = _QUOTES[char]
+            escaped = False
+        elif start < index < end - 1 and char in '.!?;':
+            raise ValueError('Location evidence cannot cross an unquoted sentence boundary')
+    if closing is not None:
+        raise ValueError('Location evidence cannot end within a quoted name')
 
 
 def _unquote(text: str) -> tuple[str, bool]:
