@@ -356,8 +356,17 @@ def _body_group(turn, execution, grants, *, settled=False):
     if len(choices) != 1:
         raise ValueError('Native body group lacks its exact producing selection')
     selection = choices[0]
-    if not settled and any(_selected_controller(turn, h) != selection.controller_attempt_id for h in handles):
-        raise ValueError('Native body group changed its current controller')
+    if not settled:
+        from .native_context import SurfaceNativeContextReceiptV1
+        from .native_retrieval import _current_selection_from_execution
+        if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+            current = _current_selection_from_execution(execution)
+            if current.operation != 'select_candidates' or any(h not in current.selected_handles for h in handles):
+                raise ValueError("Native body acquisition was not selected by the current controller")
+            if current.controller_attempt_id != selection.controller_attempt_id:
+                raise ValueError('Native body group changed its current controller')
+        elif any(_selected_controller(turn, h) != selection.controller_attempt_id for h in handles):
+            raise ValueError('Native body group changed its current controller')
     positions = [selection.selected_handles.index(h) for h in handles]
     if positions != list(range(positions[0], positions[0] + len(positions))):
         raise ValueError('Native body group must follow consecutive selected order')
