@@ -64,10 +64,10 @@ def test_bound_selected_rewrite_requires_an_actual_selection(selected):
 
     capture, catalog = captured_catalog(selected=selected)
     observation = NativePlanAuthorScopeObservationV1(
-        relation="captured", selected_alias="none", scope=UnscopedLocation())
+        relation="replace_explicit_selection", selected_alias="none", scope=UnscopedLocation())
     request = SimpleNamespace(original_capture=capture, placement_catalog=catalog,
         author_scope_binding=SimpleNamespace(observation=observation), page_title="A page",
-        question="Rewrite the selected paragraph to add a warning.")
+        question="Could you rewrite this selected paragraph to add a warning?")
     answers = {question.name: question.options[0] for question in target_questions(request)}
     answers["placement_relation"] = "captured"
     answers["anchor_0"] = "include"

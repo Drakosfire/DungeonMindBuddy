@@ -531,7 +531,8 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         assert all(('text_before' in row['author_quote']) == (len(requests) == 2)
             for row in wire['state']['scope_hypotheses'].values())
         relation = ('after_paragraph' if provider_case == 'capture_rewrite_recheck' else
-            'after_heading' if len(requests) == 2 and provider_case == 'disagreeing_recheck' else 'captured')
+            'after_heading' if len(requests) == 2 and provider_case == 'disagreeing_recheck'
+            else 'insert_at_explicit_caret')
         selections = {'location_relation': relation, 'existing_scope': 'none'}
         answers = {name: {'type': 'choice', 'choice': selected, 'confidence': 1.0,
             'probabilities': {key: float(key == selected) for key in wire['questions'][name]['criteria']}}
@@ -562,7 +563,8 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         'provider_outcome', 'provider_outcome', 'native_plan_author_scope_observed_v1']
     assert type(events[-1]) is NativePlanAuthorScopeObservedV1
     assert events[-1].scope_observation == observation
-    assert observation.relation == ('after_paragraph' if provider_case == 'capture_rewrite_recheck' else 'captured')
+    assert observation.relation == ('after_paragraph' if provider_case == 'capture_rewrite_recheck'
+        else 'insert_at_explicit_caret')
     assert observation.scope == UnscopedLocation()
     assert events[-1].actual_output_tokens == result.observation.output_tokens == 9
     assert require_retained_author_scope(current.graph_context_execution, events[-1].event_id, observation) == events[-1]
@@ -595,8 +597,9 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
             assert set(wire['state']) == {'current_request', 'dialogue'}
             assert str(events[-1].event_id) not in request.content.decode()
             criteria = wire['questions']['adjudicated_scope']['criteria']
+            desired = 'Replace the selected text' if provider_case == 'capture_rewrite_recheck' else 'Insert at the caret'
             choice = next(key for key, value in criteria.items()
-                if key != 'unresolved' and 'captured selection' in json.loads(value)['relation'])
+                if key != 'unresolved' and json.loads(value)['relation'].startswith(desired))
             return httpx2.Response(200, request=request, json={'model': wire['model'], 'answers': {
                 'adjudicated_scope': {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                     'probabilities': {key: float(key == choice) for key in criteria}}},
@@ -604,7 +607,8 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
 
         scope, _ = asyncio.run(review.run(transport=httpx2.MockTransport(adjudicate),
             api_key='synthetic-not-secret'))
-        assert scope.relation == 'captured'
+        assert scope.relation == ('replace_explicit_selection' if provider_case == 'capture_rewrite_recheck'
+            else 'insert_at_explicit_caret')
         assert review.authorization.scope_review_event_ids == (events[-1].event_id, second.selection_event.event_id)
         opening_scope = review.selection_event
         opening = PlanJevDispatch.requested_work(plan_adapter, page_title='Preparation', author_scope=opening_scope)
@@ -1509,7 +1513,7 @@ def _shared_plan_authoring_case(
                 relation = 'unresolved'
                 if entry is not None and (routing not in {'discuss', 'clarify'}
                         or semantic_intent == 'write_current_page'):
-                    relation = 'captured' if entry.kind == 'captured_target' else entry.kind
+                    relation = 'insert_at_explicit_caret' if entry.kind == 'captured_target' else entry.kind
                 choices = {'location_relation': relation, 'existing_scope': 'none'}
                 answers = {name: dict(type='choice', choice=value, confidence=1,
                     probabilities={key: float(key == value) for key in body['questions'][name]['criteria']})

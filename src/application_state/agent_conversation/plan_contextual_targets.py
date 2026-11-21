@@ -13,6 +13,17 @@ RELATIONS = {
     'end_page': 'At the end of the current page.',
     'unresolved': 'No single page-placement relation is identified, or multiple relations are required.',
 }
+AUTHOR_CAPTURE_KINDS = {
+    'insert_at_explicit_caret': 'insert_at_caret',
+    'replace_explicit_selection': 'replace_selection',
+    'replace_explicit_playable_body': 'replace_playable_body',
+}
+AUTHOR_RELATIONS = {
+    'insert_at_explicit_caret': 'Insert at the caret because the author explicitly requests the caret or cursor.',
+    'replace_explicit_selection': 'Replace the selected text or paragraph, including a rewrite that keeps its words.',
+    'replace_explicit_playable_body': 'Replace the body of the explicitly selected playable item.',
+    **{key: description for key, description in RELATIONS.items() if key != 'captured'},
+}
 PARAGRAPH_SCOPES = {
     'unscoped': 'The paragraph reference has no section restriction; matching text in every section remains eligible.',
     'named': 'One section name or full hierarchical path qualifies the paragraph, even if that section is absent.',
@@ -404,7 +415,13 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
         'compatible_section_selectors': (), 'compatible_ancestor_selectors': (),
         'requested_paragraph_scope': scope_mode,
         'requested_scope_qualifier': ('named' if scope_mode == 'named' and len(positive.names) > 1 else 'none')}
-    if relation != observation.relation or relation == 'unresolved':
+    author_relation = observation.relation
+    capture_kind = AUTHOR_CAPTURE_KINDS.get(author_relation)
+    if capture_kind is not None:
+        author_relation = 'captured' if capture.target_kind == capture_kind else 'unresolved'
+    elif author_relation == 'captured':
+        author_relation = 'unresolved'
+    if relation != author_relation or relation == 'unresolved':
         return evidence | resolve_anchor_targets(capture, catalog, intent, 'unresolved', ())
 
     offered = {('captured' if entry.kind == 'captured_target' else entry.kind) for entry in catalog.entries}
