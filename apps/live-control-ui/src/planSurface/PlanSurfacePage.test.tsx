@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { createHash, webcrypto } from "node:crypto";
 import { StrictMode,useLayoutEffect, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import type { Editor } from "@tiptap/core";
+import { presentationFingerprint } from "../tiptap/pageComposer/presentation";
 
 vi.mock("../api/buildDocumentProposalApi", async original => ({
   ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: async () => [],
@@ -4714,4 +4716,85 @@ it.each(['restart','step'])('cancels a pending guided routed Plan after %s befor
  await act(async()=>release(original));await screen.findByText(/Guided navigation canceled/);
  expect(screen.queryByDisplayValue(original.markdown)).not.toBeInTheDocument();expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
  expect(committed.document_id).toBe(savedAgentPlanId);
+});
+it.each(["exact", "altered prepare", "altered commit"] as const)(
+  "handles a %s receipt for a layout-only Plan row", async receipt => {
+  const markdown = "First paragraph.\n\nSecond paragraph.\n";
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, markdown);
+  const digest = createHash("sha256").update(markdown).digest("hex");
+  const path = record.target_relpath!;
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockImplementation(async request => ({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: savedAgentPlanId,
+    title: record.title,
+    target_relpath: path,
+    target_display_path: path,
+    registry_revision: 7,
+    page_presentation_sha256: receipt === "altered prepare" ? "f".repeat(64)
+      : presentationFingerprint(request.page_presentation) ?? undefined,
+    file_exists: true,
+    writer_ok: true,
+    writer_confirm_token: "layout-confirmation",
+    warnings: [],
+    diagnostics: [],
+  }));
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request => {
+    const saved = { ...record, revision: 8 };
+    const fingerprint = presentationFingerprint(request.page_presentation) ?? undefined;
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({
+      schema_version: "dmb_workspace_document_snapshot_v2", record: saved, markdown,
+      content_sha256: digest, loaded_revision: 8, file_exists: true, file_fingerprint: "postgres",
+      page_presentation: request.page_presentation, page_presentation_sha256: fingerprint,
+    });
+    return {
+      schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
+      document_id: savedAgentPlanId, title: record.title, target_relpath: path, target_display_path: path,
+      registry_revision: 8, committed_revision: 8, committed_record: saved,
+      normalized_content_sha256: digest, page_presentation_sha256: receipt === "altered commit" ? "f".repeat(64) : fingerprint,
+      writer_ok: true, diagnostics: [],
+    };
+  });
+  const tree = <SelectedWorldProvider locationSnapshot={window.location.pathname + window.location.search}>
+    <AgentEnabledPlanPage />
+  </SelectedWorldProvider>;
+  const surface = () => screen.getByTestId("world-owned-plan-markdown-editor");
+  const mounted = render(tree);
+  const compose = await screen.findByRole("button", { name: "Compose layout" });
+  fireEvent.click(compose);
+  const twoColumns = await screen.findByRole("button", { name: "Two-column row" });
+  await waitFor(() => expect(twoColumns).toBeEnabled());
+  fireEvent.click(twoColumns);
+  const editor = (surface().querySelector(".ProseMirror") as HTMLElement & { editor: Editor }).editor;
+  expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
+  act(() => { editor.commands.undo(); });
+  expect(surface().querySelector("[data-page-row]")).toBeNull();
+  act(() => { editor.commands.redo(); });
+  expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  if (receipt !== "exact") {
+    await screen.findByText(receipt === "altered prepare"
+      ? "Plan write could not be prepared." : "Commit receipt did not preserve World-owned Plan scope.");
+    expect(commit).toHaveBeenCalledTimes(receipt === "altered prepare" ? 0 : 1);
+    expect(screen.queryByText("Saved to this World.")).not.toBeInTheDocument();
+    const recovery = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!);
+    expect(recovery.page_presentation.items[0].kind).toBe("row");
+    expect(recovery.pending_write.page_presentation_sha256).toBe(recovery.page_presentation_sha256);
+    return;
+  }
+  await screen.findByText("Saved to this World.");
+  const layout = commit.mock.calls[0][0].page_presentation;
+  expect(layout?.items[0]).toMatchObject({ kind: "row", slots: [{ width: 6 }, { width: 6 }] });
+  expect(prepare).toHaveBeenCalledWith(expect.objectContaining({
+    document_id: savedAgentPlanId, markdown, expected_revision: 7, page_presentation: layout,
+  }));
+  expect(commit).toHaveBeenCalledWith(expect.objectContaining({
+    document_id: savedAgentPlanId, markdown, expected_revision: 7, page_presentation: layout,
+  }));
+  mounted.unmount();
+  localStorage.clear();
+  render(tree);
+  await waitFor(() => expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1));
+  expect(surface().querySelector("[data-page-row]")).toHaveTextContent("First paragraph.Second paragraph.");
 });

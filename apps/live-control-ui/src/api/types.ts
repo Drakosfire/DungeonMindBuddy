@@ -4,6 +4,7 @@ import type {
   StatblockRevisionResourceV1,
   ValidationReceiptV1,
 } from "../contracts/dungeonbuddy-statblocks-v1/client";
+import type { PagePresentation } from "../tiptap/pageComposer/presentation";
 
 export type SurfaceSlot = "main" | "sidebar" | "bottom" | "overlay";
 
@@ -2663,6 +2664,8 @@ export interface WorldOwnedPlanSnapshotV2 {
   file_fingerprint: string;
   file_exists: boolean;
   loaded_revision: number;
+  page_presentation?: PagePresentation;
+  page_presentation_sha256?: string;
 }
 
 export interface WorldContainerRecord {
@@ -2986,6 +2989,7 @@ export interface TiptapMarkdownWritePrepareRequest {
   title?: string;
   document_id: string;
   markdown: string;
+  page_presentation?: PagePresentation;
   expected_revision?: number | null;
   write_mode?: "authoring" | "source_import" | null;
   schema_version?: "dmb_tiptap_markdown_write_prepare_v2";
@@ -3002,6 +3006,7 @@ export interface TiptapMarkdownWritePrepareResponse {
   target_relpath: string;
   target_display_path: string;
   registry_revision: number;
+  page_presentation_sha256?: string;
   file_exists: boolean;
   writer_ok: boolean;
   writer_phase?: string | null;
@@ -3017,6 +3022,7 @@ export interface TiptapMarkdownWriteCommitRequest {
   title?: string;
   document_id: string;
   markdown: string;
+  page_presentation?: PagePresentation;
   writer_confirm_token: string;
   expected_revision?: number | null;
   write_mode?: "authoring" | "source_import" | null;
@@ -3037,6 +3043,7 @@ export interface TiptapMarkdownWriteCommitResponse {
   committed_revision: number;
   committed_record: WorkspaceDocumentRecord;
   normalized_content_sha256: string;
+  page_presentation_sha256?: string;
   writer_ok: boolean;
   writer_phase?: string | null;
   bytes_written?: number | null;
