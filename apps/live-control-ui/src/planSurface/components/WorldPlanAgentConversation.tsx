@@ -61,7 +61,7 @@ import { BuddyActivity } from "./BuddyActivity";
 import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
 import { BuddyTurnInspection } from "./BuddyTurnInspection";
 
-import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
+import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, prewarmPlanSource, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -3255,6 +3255,7 @@ export function WorldPlanAgentConversation({
   useEffect(() => {
     if (!agent.paneState.isOpen) return;
     let active = true;
+    const prewarm = new AbortController();
     setSavedPlanVersion({ key: committedPlanVersionKey, revisionN: null, status: "checking" });
     if (!scopeMatches || !verifiedWorldId || !documentId || !isPositiveRevision(revision)) {
       setSavedPlanVersion({ key: committedPlanVersionKey, revisionN: null, status: "unavailable" });
@@ -3270,13 +3271,18 @@ export function WorldPlanAgentConversation({
           revisionN: basis?.revision_n ?? null,
           status: basis ? "verified" : "unavailable",
         });
+        if (basis && !isReadOnly) {
+          void Promise.resolve().then(() => {
+            if (active) return prewarmPlanSource(verifiedWorldId, prewarm.signal);
+          }).catch(() => { /* Send still verifies and opens the exact source. */ });
+        }
       })
       .catch(() => {
         if (active) setSavedPlanVersion({ key: committedPlanVersionKey, revisionN: null, status: "unavailable" });
       });
 
-    return () => { active = false; };
-  }, [agent.paneState.isOpen, committedPlanVersionKey, documentId, revision, scopeMatches, verifiedWorldId]);
+    return () => { active = false; prewarm.abort(); };
+  }, [agent.paneState.isOpen, committedPlanVersionKey, documentId, isReadOnly, revision, scopeMatches, verifiedWorldId]);
 
   useLayoutEffect(() => {
     latestRef.current.mounted = true;

@@ -1,6 +1,6 @@
 """Authenticated read-only source browsing, independent of object Graph availability."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import InspectionScope
@@ -29,6 +29,18 @@ def _call(fn, body, principal):
                 "message": "The selected source is unavailable. Refresh and inspect again.",
             },
         ) from exc
+
+
+@router.post("/prewarm", status_code=204)
+def prewarm(body: InspectionScope, principal=Depends(native_graph_explorer_dependency)):
+    try:
+        with hosted_response_binding(principal, body.managed_world_id):
+            service.prewarm(body, principal)
+    except NativeGraphExplorerError as exc:
+        raise HTTPException(status_code=exc.status, detail={"code": exc.code}) from None
+    except (ValueError, DungeonMindError) as exc:
+        raise HTTPException(status_code=409, detail={"code": "source_prewarm_unavailable"}) from exc
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/catalog")

@@ -63,6 +63,7 @@ _REQUESTS = {
     "/api/live/native-graph-inspection/related-recaps": TypeAdapter(NativeRelatedRecapsRequest),
     "/api/live/native-graph-inspection/catalog": TypeAdapter(InspectionPin | InspectionScope),
     "/api/live/native-source-inspection/catalog": TypeAdapter(InspectionScope),
+    "/api/live/native-source-inspection/prewarm": TypeAdapter(InspectionScope),
     "/api/live/native-source-inspection/read": TypeAdapter(NativeSourceRead),
 
     INSPECTION_READ_PATH: TypeAdapter(InspectionRead),

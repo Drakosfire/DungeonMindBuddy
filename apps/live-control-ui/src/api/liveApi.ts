@@ -389,6 +389,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if ([
     "/api/live/native-graph-inspection/complete-object",
     "/api/live/native-graph-inspection/authoring-identities",
+    "/api/live/native-source-inspection/prewarm",
     "/api/live/native-source-inspection/published-recap/objects",
     "/api/live/native-source-inspection/published-recap",
     "/api/live/native-graph-explorer/graph",
@@ -1256,6 +1257,7 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (path === "/api/live/native-graph-inspection/authoring-identities" ||
       path === "/api/live/native-graph-inspection/catalog" ||
       path === "/api/live/native-source-inspection/catalog" ||
+      path === "/api/live/native-source-inspection/prewarm" ||
       path === "/api/live/native-source-inspection/read") {
     const body = requestBodyRecord(init?.body);
     const scope = path.endsWith("/read") ? body?.scope : body;
@@ -4313,6 +4315,13 @@ export function readNativeRecapPage(
     "/api/live/native-graph-inspection/recap-page",
     { method: "POST", signal, body: JSON.stringify({ read: { scope, selection }, continuation }) },
   );
+}
+
+export function prewarmPlanSource(worldId: string, signal: AbortSignal): Promise<void> {
+  return apiFetch("/api/live/native-source-inspection/prewarm", {
+    method: "POST", cache: "no-store", signal,
+    body: JSON.stringify({managed_world_id: worldId, scope_mode: "world", campaign_id: null}),
+  });
 }
 
 export function getNativeSourceCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeSourceCatalog> {

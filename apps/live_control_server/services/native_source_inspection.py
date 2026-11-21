@@ -1,5 +1,7 @@
 """Human source inspection through the existing Core source owner, without a Graph gate."""
 
+from threading import Lock
+
 from fastapi.encoders import jsonable_encoder
 from dungeonmind.application.vnext import (
     list_admitted_native_text_sources,
@@ -53,6 +55,23 @@ def _response(context, pin, **payload):
     return {"scope": pin.model_dump(mode="json"), **payload}
 
 
+
+
+_prewarm_lock = Lock()
+
+
+def prewarm(scope, principal):
+    """Populate the shared verified cache while the Plan pane is idle."""
+    if principal.role != "gm":
+        raise ValueError("GM authority is required for source prewarming")
+    if not _prewarm_lock.acquire(blocking=False):
+        return
+    try:
+        context, pin = _pinned(scope, principal)
+        if context.resolve_identity(pin.managed_world_id) != context.binding:
+            raise SourceInspectionUnavailable("native_source_inspection_binding_changed")
+    finally:
+        _prewarm_lock.release()
 
 
 def catalog(scope, principal):

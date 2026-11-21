@@ -409,6 +409,7 @@ def hosted(monkeypatch, request):
                or "/work-plans/{source_turn_id}" in key[1]
                or key[1] == "/api/live/native-source-inspection/published-recap"
                or key[1] == "/api/live/native-source-inspection/published-recap/objects"
+               or key[1] == "/api/live/native-source-inspection/prewarm"
                or key[1] == "/api/live/world-plan-edit/actions/{action_id}/terminal-diagnostic"
                or key[1] == "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/graph-evidence"
                or key[1] == "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/graph-evidence"
@@ -4416,6 +4417,26 @@ def test_hosted_published_recap_requires_owned_world(hosted, monkeypatch):
     assert hosted.records["managed"].owner_subject == OTHER_OWNER
     assert denied.status_code == 403, denied.text
     assert "Private published recap" not in denied.text
+
+
+def test_hosted_plan_source_prewarm_requires_owned_world_and_returns_no_context(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.services import native_source_inspection as source
+
+    warm = Mock()
+    monkeypatch.setattr(source, "prewarm", warm)
+    path = "/api/live/native-source-inspection/prewarm"
+    body = {"managed_world_id": "managed", "scope_mode": "world", "campaign_id": None}
+    assert hosted.client.request("POST", path, session="other-session", json=body).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=body).status_code == 403
+    warm.assert_not_called()
+    response = hosted.client.request("POST", path, json=body)
+    assert response.status_code == 204, response.text
+    assert response.content == b""
+    assert response.headers["cache-control"] == "no-store"
+    scope, principal = warm.call_args.args
+    assert scope.managed_world_id == principal.managed_world_id == "managed"
+    assert principal.role == "gm"
 
 
 def test_hosted_recap_objects_checks_source_pin_and_admitted_evidence(hosted, monkeypatch):
