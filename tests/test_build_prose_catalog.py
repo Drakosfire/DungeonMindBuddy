@@ -194,7 +194,7 @@ def graph_decision(captured_page):
 
 
 def graph_response(**changes):
-    labels = dict(work="place_paragraph", destination="current_page", insertion_side="after", scope="named",
+    labels = dict(work="place_paragraph", destination="current_page", relation="after", scope="named",
                   text0="include", scope0="exclude", scope1="include", reference_intent="place_existing",
                   reference_kind="class1", reference_qualified="qualified", object1="exclude",
                   object2="include", object3="exclude")

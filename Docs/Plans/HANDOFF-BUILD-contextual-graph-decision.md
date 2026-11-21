@@ -28,6 +28,16 @@ Retain all outcomes. Independent held-out mounted qualification belongs to
 ordinary Send after the producer is frozen. Exact backend contract and hosted
 frontend evidence and independent exact-head review gate merge.
 
+The frozen public inputs hash is
+`7534bb48585469ae3dd3789cdd427fe3573913c294bc3309e4a536c7f2b194d5`.
+The retained guidance at `b8419f2b7` passed 11 of 12 real Jev cases with
+three exact nominations and eight correct refusals. A fourth feasible case
+resolved the retuned namesake and scoped paragraph, then returned no side.
+Two inconsistent World or revision witnesses refused before any model call.
+Later side-question variants supplied weaker results and remain diagnostic.
+This evidence covers nomination alone. No writer, ordinary Send, or release
+qualification is claimed.
+
 ## Completed predecessor
 
 #4363 merged at `1de31059de80793812547e2680d59e44994a10ff`, exact reviewed
