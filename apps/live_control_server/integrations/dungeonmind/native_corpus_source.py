@@ -27,8 +27,10 @@ from . import native_registry_source as native
 
 
 # One exact immutable proof and parsed revision per worker. The source view is request-owned.
-_turn_revision_proof = VerifiedKnowledgeRevisionCache(max_bytes=32 * 1024 * 1024)
-turn_parsed_revision_cache = NativeParsedRevisionCache()
+_turn_revision_proof = VerifiedKnowledgeRevisionCache(max_bytes=64 * 1024 * 1024)
+turn_parsed_revision_cache = NativeParsedRevisionCache(
+    retain_evicted_records=True, max_evicted_payload_bytes=16_000_000,
+)
 
 
 def turn_source_repository(*, read_only: bool = False):
