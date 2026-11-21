@@ -232,23 +232,15 @@ class NativePlanSession:
         with self._lock:
             self._require_live()
             turn = self._committed
-            return bool(selected_batch_covering_reads(turn.graph_context_execution,
-                current_selection(turn), handle, require_passage=True))
+            execution = turn.graph_context_execution
+            return bool(selected_batch_covering_reads(execution, current_selection(turn), handle,
+                require_passage=type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)))
 
     def execute_source_events(self, command: PlanSessionCommand, *, expected_revision, expected_attempt, **fields):
-        if command in (PlanSessionCommand.BODY_GRANTS, PlanSessionCommand.DIRECT_GRANTS):
-            rows = fields['grants']
-        elif command is PlanSessionCommand.BODY_OBSERVATIONS:
-            rows = fields['reads']
-        elif command is PlanSessionCommand.DIRECT_OBSERVATION:
-            rows = (fields,)
-        else:
-            raise ApplicationStateIntegrityError('Session source export requires a supported native read command')
-        event_ids = tuple(_EVENT_ID.validate_python(row['event_id']) for row in rows)
         return self._execute(command, expected_revision=expected_revision,
-            expected_attempt=expected_attempt, fields=fields, export_ids=event_ids)
+            expected_attempt=expected_attempt, fields=fields, export_source=True)
 
-    def _execute(self, command, *, expected_revision, expected_attempt, fields, export_ids=None):
+    def _execute(self, command, *, expected_revision, expected_attempt, fields, export_source=False):
         with self._lock:
             try:
                 self._enter()
@@ -261,6 +253,17 @@ class NativePlanSession:
                 for name in ('authorization', 'outcome', 'selection', 'event'):
                     if name in owned:
                         owned[name] = _owned_event(owned[name])
+                export_ids = None
+                if export_source:
+                    if command in (PlanSessionCommand.BODY_GRANTS, PlanSessionCommand.DIRECT_GRANTS):
+                        rows = owned['grants']
+                    elif command is PlanSessionCommand.BODY_OBSERVATIONS:
+                        rows = owned['reads']
+                    elif command is PlanSessionCommand.DIRECT_OBSERVATION:
+                        rows = (owned,)
+                    else:
+                        raise ApplicationStateIntegrityError('Session source export requires a supported native read command')
+                    export_ids = tuple(_EVENT_ID.validate_python(row['event_id']) for row in rows)
                 self._pending = None
                 # This dispatch is closed over APP methods, not an arbitrary
                 # caller-supplied method name or a new admission implementation.
