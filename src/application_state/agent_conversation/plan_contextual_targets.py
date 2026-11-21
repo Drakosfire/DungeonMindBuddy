@@ -54,7 +54,16 @@ def prepare_contextual_work(request):
         intent_policy=state["intent_policy"] + " Select clarify for unresolved intended work or "
             "requested content, not merely missing/ambiguous placement. For a clear edit request "
             "select write_current_page and let the independent location votes expose ambiguity. "
-            "The current request and explicit captured selection take precedence over older dialogue.")
+            "The current request and explicit captured selection take precedence over older dialogue.",
+        location_membership_policy=(
+            "Judge each location independently. Include every equally valid match; do not rank "
+            "matches or choose a winner. A paragraph destination must match its side, anchor "
+            "passage and any named section. A heading destination must name a heading. "
+            "A captured replacement is the one explicitly selected span; duplicate words elsewhere "
+            "do not compete when the request refers to that selection. An incidental caret is "
+            "not a substitute for a named location. All placement constraints must hold at the "
+            "same starting position. Ignore ordering/content inside the fragment and unresolved "
+            "wording or audience. Discussion without a requested edit excludes every location."))
     return base.model_copy(update={"state": state, "questions": (
         ChoiceDecisionQuestion(name="requested_work", options=choices,
             question="What work is the author requesting, independently of whether its location is unique?"),
@@ -96,20 +105,10 @@ def focused_target(request):
 def target_questions(request):
     from generationengine.types import ChoiceDecisionQuestion
     return tuple(ChoiceDecisionQuestion(name=f"target_{i}", options=("include", "exclude"),
-        question=(f"Does offered location {location['selector']} satisfy every placement constraint "
-            "in the current request? Judge this location independently, not as a competition. "
-            "Include every compatible location, including equally valid duplicates. Compare the "
-            "requested side, exact anchor passage and section. Before/after means immediately "
-            "adjacent to that anchor, not merely somewhere earlier/later. A different paragraph "
-            "or containing section is not the named paragraph. Every placement constraint must "
-            "hold at this single location; do not split conflicting constraints across locations. "
-            "Judge only where the fragment starts relative to the existing page. Its internal "
-            "ordering and contents are not page-location constraints. Ignore requested new content "
-            "(including copying/restating source text) and unresolved wording/audience when judging "
-            "the location. Exclude wrong-side or differently scoped locations. A heading location "
-            "requires a heading destination. A captured replacement is compatible when the request "
-            "refers to that selected text; matching words elsewhere do not compete with it. "
-            "An incidental caret is not a substitute. For discussion with no edit request, exclude."))
+        question=("Should the requested edit start at this location? Reference data: "
+            + json.dumps({key: location[key] for key in ('selector', 'kind', 'label')}, ensure_ascii=False)
+            + " Judge only placement, independently of what the fragment contains. "
+            "Include this match even when another location is equally valid."))
         for i, location in enumerate(contextual_locations(request)))
 
 

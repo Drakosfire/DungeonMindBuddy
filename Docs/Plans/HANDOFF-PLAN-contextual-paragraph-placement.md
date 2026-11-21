@@ -115,6 +115,16 @@ its unique location. The next development amendment separates internal fragment
 ordering/composition from relationships to existing page anchors. This is dev
 tuning only; no fresh heldout result or actual new-source browser pass is claimed.
 
+Integrated DEV7227 remains RED:18/20 work/target decisions, including a reordered
+duplicate-anchor request wrongly reserving/producing an edit and the repeated-text
+insertion still asking unnecessarily. All20 runtime calls completed;9/9 intended
+delivered fragments were core/clean,7/8 required questions delivered and2/2
+discussions useful. No source was mutated. This is an acceptance-blocking unsafe
+nomination, not a waived known limitation. The next amendment moves repeated
+membership guidance into one state policy and puts each location's semantic
+label/kind/local alias directly in its short independent question. No confidence
+threshold, lexical rule, winner selection or host target-resolution change is made.
+
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
 admission split and synthetic OpenAI/browser payload questions below. It covers

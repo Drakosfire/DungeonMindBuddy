@@ -100,7 +100,7 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             expected_state |= {"candidates", "examined_subjects", "relevance_guidance", "conditional_read_plan_policy"}
         contextual = any(name.startswith("target_") for name in body["questions"])
         if contextual:
-            expected_state.add("focused_edit_target")
+            expected_state.update({"focused_edit_target", "location_membership_policy"})
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
