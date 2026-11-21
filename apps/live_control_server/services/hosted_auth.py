@@ -66,6 +66,10 @@ HOSTED_WORLD_ROUTE_POLICY_ERROR = "hosted_world_route_policy_unverified"
 LOGIN_PATH = "/api/auth/login"
 AUTH_SESSION_PATH = "/api/auth/session"
 _RETURN_PATH_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+_GUEST_UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+_GUEST_READ_PATH = re.compile(
+    rf"/api/live/guest-releases/{_GUEST_UUID}(?:/releases/{_GUEST_UUID}/assets/{_GUEST_UUID})?"
+)
 
 
 def deployment_environment(environ: Mapping[str, str] | None = None) -> str:
@@ -547,6 +551,23 @@ def install_hosted_request_boundary(
                 status_code=503,
                 content={"detail": {"code": "hosted_auth_unavailable"}},
             )
+
+        # Public release reads are exact, read-only capabilities. They never
+        # authorize a World route, accept selectors, or bypass the local-mode
+        # loopback boundary above. Both switches are deliberately default-off.
+        if (request.method == "GET" and _GUEST_READ_PATH.fullmatch(request.url.path)
+            and os.environ.get("DMB_GUEST_RELEASE_ENABLED") == "1"
+            and os.environ.get("DMB_GUEST_RELEASE_PUBLIC_ENABLED") == "1"):
+            try:
+                if request.query_params or await _read_bounded_request_body(request, max_bytes=0):
+                    raise HTTPException(status_code=400)
+            except HTTPException:
+                return JSONResponse(status_code=400, content={"detail": {"code": "invalid_guest_request"}},
+                                    headers={"Cache-Control": "no-store"})
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            return response
 
         # Logout is intentionally allowed to clear an expired session. Its
         # route still enforces DMS's exact Origin contract before proxying.

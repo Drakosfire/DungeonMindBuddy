@@ -16,6 +16,7 @@ import {
   useSelectedWorld,
 } from "./selectedWorld/SelectedWorldContext";
 import { WorldSelector } from "./selectedWorld/WorldSelector";
+import { GuestReleaseReview } from "./guestRelease/GuestReleaseReview";
 
 import { IsolatedEntry, ManagedWorldGraph, NativeGraphDemo } from "./appEntryShared";
 
@@ -87,6 +88,8 @@ function BuddyGraphPage({
   return (
     <AppChrome activeRoute="graph" localOnlyNavigation={localOnlyNavigation} workspaceLayout="bounded">
       {explorer}
+      {import.meta.env.VITE_GUEST_RELEASE_REVIEW === "1" && auth.status === "authenticated" && managedWorldId &&
+        <GuestReleaseReview key={stateScopeId} worldId={managedWorldId} />}
       {auth.status === "local_operator" && !managedWorldId && <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
         <summary>Existing browser-only Worlds and notes</summary>
         <p>These older Worlds stay in this browser and remain separate from the private DungeonMind graph above. Opening them does not migrate or publish them.</p>
