@@ -415,12 +415,11 @@ def contextual_work_choice(request, intent, answers):
 
         if answers['scope_qualifier'] not in SCOPE_QUALIFIERS:
             raise ValueError('Scope qualifier was not offered')
-        if (unsupported_paragraph_scope(request.question)
+        scope_refused = (unsupported_paragraph_scope(request.question)
                 or (relation in {'before_paragraph', 'after_paragraph'} and (
                     answers['paragraph_scope'] == 'unresolved'
                     or paragraph_label_conflict(request.question, binding.observation.scope,
-                        request.original_capture, request.placement_catalog)))):
-            relation = 'unresolved'
+                        request.original_capture, request.placement_catalog))))
         if (_CAPTURE_REWRITE.match(request.question)
                 and request.original_capture.target_kind != 'replace_selection'):
             relation = 'unresolved'
@@ -432,7 +431,8 @@ def contextual_work_choice(request, intent, answers):
             **({'excluded_scope_description_matches': excluded} if excluded is not None else {}),
             **resolve_author_scope_targets(request.original_capture, request.placement_catalog,
                 intent, relation, binding.observation, direct, passages, document_title=request.page_title or None,
-                description_matches=descriptions, excluded_description_matches=excluded, locator_passages=locator))
+                description_matches=descriptions, excluded_description_matches=excluded,
+                locator_passages=locator, scope_refused=scope_refused))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
         answers['paragraph_scope'], direct, passages, sections, answers['scope_qualifier'], ancestors)
 
@@ -483,7 +483,8 @@ def resolve_component_targets(capture, catalog, intent, relation, scope, direct,
 
 
 def resolve_author_scope_targets(capture, catalog, intent, relation, observation, direct, passages, *,
-        document_title, description_matches=None, excluded_description_matches=None, locator_passages=None):
+        document_title, description_matches=None, excluded_description_matches=None, locator_passages=None,
+        scope_refused=False):
     """Join independent author scope to source nominations at their exact editor geometry."""
     from .native_plan_opening import NativePlanAuthorScopeObservationV1
     from .plan_author_location import (
@@ -508,6 +509,10 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
     if locator_passages is not None:
         locator_ids, passage_rows = _component_selection(inventory['passages'], locator_passages)
         evidence['locator_passage_selectors'] = locator_ids
+    if scope_refused:
+        evidence.update(scope_refused=True, requested_paragraph_scope='unresolved', requested_scope_qualifier='none')
+        return evidence | resolve_anchor_targets(capture, catalog, intent,
+            relation if paragraph_relation else 'unresolved', ())
     author_relation = observation.relation
     capture_kind = AUTHOR_CAPTURE_KINDS.get(author_relation)
     if capture_kind is not None:
@@ -603,6 +608,12 @@ def clarification_question(selection):
         raise ValueError("Question requested for non-clarification work")
     if selection.requested_intent != 'write_current_page':
         return None  # Raw clarification owns content/work; only normalized writing owns a target question.
+    if getattr(selection, 'scope_refused', None):
+        return 'Could you select the intended paragraph, or name one unambiguous section path for it?'
+    binding = getattr(selection, 'author_scope_binding', None)
+    if (binding is not None and binding.observation.relation == 'replace_explicit_selection'
+            and (selection.original_capture or {}).get('target_kind') != 'replace_selection'):
+        return 'Could you select the text you want me to replace?'
     if (getattr(selection, 'requested_placement_relation', None) == 'unresolved'
             and (selection.compatible_anchor_selectors or getattr(selection, 'compatible_passage_selectors', ()))):
         original = getattr(selection, 'original_capture', None) or {}

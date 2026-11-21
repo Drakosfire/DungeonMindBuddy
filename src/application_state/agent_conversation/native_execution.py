@@ -316,6 +316,7 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
         default=None, exclude_if=lambda value: value is None)
     locator_passage_selectors: tuple[str, ...] | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    scope_refused: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator('compatible_placement_selectors', 'compatible_anchor_selectors',
         'direct_anchor_selectors', 'compatible_passage_selectors', 'compatible_section_selectors',
@@ -350,11 +351,11 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
                 self.direct_anchor_selectors, self.compatible_passage_selectors,
                 document_title=self.scope_document_title, description_matches=self.scope_description_matches,
                 excluded_description_matches=self.excluded_scope_description_matches,
-                locator_passages=self.locator_passage_selectors)
+                locator_passages=self.locator_passage_selectors, scope_refused=self.scope_refused is True)
         else:
             if any(value is not None for value in (self.source_placement_relation, self.scope_document_title,
                     self.scope_description_matches, self.excluded_scope_description_matches,
-                    self.locator_passage_selectors)):
+                    self.locator_passage_selectors, self.scope_refused)):
                 raise ValueError('Source relation, title and description matches require retained author scope')
             fields = resolve_component_targets(capture, catalog, self.requested_intent,
                 self.requested_placement_relation, self.requested_paragraph_scope,

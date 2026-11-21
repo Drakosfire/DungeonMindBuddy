@@ -214,7 +214,9 @@ def test_explicit_unsupported_scope_cannot_be_dropped_by_agreeing_models(scope):
     from types import SimpleNamespace
     from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
     from application_state.agent_conversation.plan_author_location import UnscopedLocation
-    from application_state.agent_conversation.plan_contextual_targets import contextual_work_choice, target_questions
+    from application_state.agent_conversation.plan_contextual_targets import (
+        clarification_question, contextual_work_choice, target_questions,
+    )
 
     capture, catalog = captured_catalog()
     observation = NativePlanAuthorScopeObservationV1(
@@ -228,6 +230,10 @@ def test_explicit_unsupported_scope_cannot_be_dropped_by_agreeing_models(scope):
     resolved = contextual_work_choice(request, 'write_current_page', answers)
     assert resolved['requested_work'] == 'clarify'
     assert resolved['target_capture_sha256'] is None
+    assert resolved['requested_placement_relation'] == 'after_paragraph'
+    assert resolved['requested_paragraph_scope'] == 'unresolved'
+    assert clarification_question(SimpleNamespace(**resolved)) == (
+        'Could you select the intended paragraph, or name one unambiguous section path for it?')
 
 
 def test_explicit_paragraph_locator_requires_direct_passage_nomination():

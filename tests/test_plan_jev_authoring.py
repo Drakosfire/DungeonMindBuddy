@@ -102,11 +102,21 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             if self.expect_examined:
                 expected_state.add("examined_subjects")
         contextual = 'placement_relation' in body['questions']
+        locator = None
         if contextual:
+            from application_state.agent_conversation.plan_author_location import explicit_paragraph_locator
+            from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+            scopes = [event.scope_observation for event in current.graph_context_execution.events
+                if type(event) is NativePlanAuthorScopeObservedV1]
+            if scopes:
+                locator = explicit_paragraph_locator(self.adapter.request.message, scopes[-1].relation)
             expected_state.difference_update({'offered_page_locations', 'intent_policy', 'placement_policy'})
             expected_state.update({'focused_edit_target', 'interpretation_policy',
                 'offered_page_anchors', 'placement_relations', 'paragraph_passages',
                 'paragraph_sections', 'paragraph_scope_modes', 'section_ancestor_paths', 'scope_qualifier_modes'})
+            if locator is not None:
+                expected_state.add('existing_paragraph_locator')
+                assert body['state']['existing_paragraph_locator'] == locator
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
@@ -126,6 +136,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
                 *(f'passage_{i}' for i in range(len(body['state']['paragraph_passages']))),
                 *(f'section_{i}' for i in range(len(body['state']['paragraph_sections']))),
                 *(f'ancestor_{i}' for i in range(len(body['state']['section_ancestor_paths'])))}
+            if locator is not None:
+                expected_questions.update(f'locator_passage_{i}' for i in range(len(body['state']['paragraph_passages'])))
         assert set(body["questions"]) == expected_questions
         assert current.graph_context_execution.events[-1].outcome == "sdk_entered"
         choice = self.choice
@@ -157,6 +169,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
                     applicable = paragraph and prefix == 'passage' or not paragraph and prefix == 'anchor'
                     component_votes[f'{prefix}_{i}'] = ('include' if applicable
                         and selected_anchors.intersection(entry['anchors']) else 'exclude')
+            if locator is not None:
+                for i in range(len(inventory['passages'])):
+                    component_votes[f'locator_passage_{i}'] = component_votes[f'passage_{i}']
         answers = {}
         for name, question in body["questions"].items():
             selected = (component_votes[name] if name in component_votes
@@ -1514,7 +1529,11 @@ def _shared_plan_authoring_case(
                 if entry is not None and (routing not in {'discuss', 'clarify'}
                         or semantic_intent == 'write_current_page'):
                     relation = 'insert_at_explicit_caret' if entry.kind == 'captured_target' else entry.kind
-                choices = {'location_relation': relation, 'existing_scope': 'none'}
+                scope = 'none'
+                if relation in {'before_paragraph', 'after_paragraph'} and 'the Preparation paragraph about' in body['state']['current_request']:
+                    scope = next(alias for alias, candidate in body['state']['scope_hypotheses'].items()
+                        if candidate['author_quote']['text'] == 'Preparation')
+                choices = {'location_relation': relation, 'existing_scope': scope}
                 answers = {name: dict(type='choice', choice=value, confidence=1,
                     probabilities={key: float(key == value) for key in body['questions'][name]['criteria']})
                     for name, value in choices.items()}
@@ -1611,6 +1630,15 @@ def _shared_plan_authoring_case(
                 assert work["focused_edit_target"]["kind"] == (
                     "insert_at_caret" if placement == "captured" else "insert_at_boundary"
                 )
+                if placement_factory is not None:
+                    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
+                    catalog = plan_adapter.request.plan_placement_catalog
+                    entry = next((entry for entry in catalog.entries if entry.selector == placement), None)
+                    if type(catalog) is PlanPlacementCatalogV2 and entry is not None and entry.kind.endswith('_paragraph'):
+                        scope = work["focused_edit_target"]["fragment_scope"]
+                        node = json.loads(capture.editor_json)["content"][entry.source_root_index]
+                        assert scope["existing_paragraph_text"] == "".join(
+                            "\n" if part["type"] == "hardBreak" else part["text"] for part in node["content"])
             self.adapter = wire.adapter
             if placement_factory is not None:
                 serialized = json.dumps(rows)

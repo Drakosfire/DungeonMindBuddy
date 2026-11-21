@@ -173,7 +173,7 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
     from .native_execution import NativePlanActionV3
     if type(action) is NativePlanActionV3 and choices[0].requested_work == 'write_current_page':
         replace = capture.target_kind == 'replace_selection'
-        frame['focused_edit_target']['fragment_scope'] = dict(
+        fragment_scope = dict(
             operation='replace_selected_text' if replace else 'insert_new_content',
             instruction=("Rewrite only the captured selected text. Retain its words when the user "
                 "asks to keep them. Return one replacement, with preserved text appearing only once "
@@ -185,6 +185,20 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
                 "explicitly requests restatement. Return only the requested new content.") +
                 " Requested fictional additions are authored possibilities, not unsupported factual "
                 "details. Mark gaps only for requested existing facts that lack support.")
+        if choices[0].requested_placement_relation in {'before_paragraph', 'after_paragraph'}:
+            from .plan_contextual_targets import anchor_groups
+            selector = choices[0].placement_selector
+            paragraph = next(row['text'] for row, entries in anchor_groups(original, catalog)
+                if row['kind'] == 'paragraph' and any(entry.selector == selector for entry in entries))
+            fragment_scope['existing_paragraph_text'] = paragraph
+            fragment_scope['instruction'] += (
+                " The existing_paragraph_text field identifies the exact passage in the current working draft. "
+                "If the author explicitly requests a copy of this paragraph, include its complete literal text "
+                "as an editable paragraph at the requested point. Use this passage even when saved Plan blocks "
+                "differ. Include the author's requested new material separately as part of the editable fragment. "
+                "If the author requests new advice or a warning, write that advice or caution. A duplicate "
+                "of the existing paragraph alone does not satisfy a request for new content.")
+        frame['focused_edit_target']['fragment_scope'] = fragment_scope
     return frame
 
 
