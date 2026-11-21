@@ -97,6 +97,13 @@ def test_production_app_release_isolation_and_revocation(application_state_dsn, 
         assets=[(asset_id, "image/png", content)], **graph)
     public_id, _ = guest_release.commit_validated_promotion(world_id=world, subject="owner", release_id=release_id,
         digest=digest, expected_version=0, operation_id=uuid4(), source_epoch=1)
+    private_asset_id = uuid4()
+    private_content = b"synthetic unpublished image"
+    candidate_id, _ = guest_release.stage(
+        world_id=world, subject="owner", expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
+        manifest={"title": "synthetic private candidate", "assets": [{"id": str(private_asset_id), "mime_type": "image/png",
+                  "sha256": hashlib.sha256(private_content).hexdigest()}]},
+        assets=[(private_asset_id, "image/png", private_content)], **graph)
     monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
     monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
     monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, "https://buddy.example")
@@ -112,7 +119,9 @@ def test_production_app_release_isolation_and_revocation(application_state_dsn, 
     async def run():
         path = f"/api/live/guest-releases/{public_id}"
         asset = f"{path}/releases/{release_id}/assets/{asset_id}"
-        private = f"/api/live/worlds/{world}/guest-releases/candidates/{release_id}"
+        private = f"/api/live/worlds/{world}/guest-releases/candidates/{candidate_id}"
+        private_asset = f"{private}/assets/{private_asset_id}"
+        guessed_asset = f"{path}/releases/{candidate_id}/assets/{private_asset_id}"
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as first, \
                    httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as second:
             for client in (first, second):
@@ -121,8 +130,12 @@ def test_production_app_release_isolation_and_revocation(application_state_dsn, 
                 assert result.headers["cache-control"] == "no-store"
                 assert (await client.get(asset)).content == content
                 assert (await client.get(private)).status_code == 401
+                assert (await client.get(private_asset)).status_code == 401
+                assert (await client.get(guessed_asset)).status_code == 404
             assert (await first.get(private, headers={"x-synthetic-subject": "other"})).status_code == 403
+            assert (await first.get(private_asset, headers={"x-synthetic-subject": "other"})).status_code == 403
             assert (await first.get(private, headers={"x-synthetic-subject": "owner"})).status_code == 200
+            assert (await first.get(private_asset, headers={"x-synthetic-subject": "owner"})).content == private_content
             guest_release.revoke(world_id=world, subject="owner", release_id=release_id)
             for client in (first, second):
                 assert (await client.get(path)).status_code == 404

@@ -145,7 +145,8 @@ mounted tests cover transfer and transfer-away-and-back for all three routes.
 The final check is the authorization cutoff, not a promise to cancel a response
 after that check. A production `create_app()` test now exercises two anonymous
 clients and an unrelated authenticated identity against real APP storage, and
-checks release revocation. It uses synthetic identities and directly stages and
+checks denial of unpublished candidate metadata and assets, including a guessed
+public asset path, and release revocation. It uses synthetic identities and directly stages and
 promotes a synthetic copy without Core validation; real sign-in, real source
 publication and hosted browser qualification remain unproven.
 
