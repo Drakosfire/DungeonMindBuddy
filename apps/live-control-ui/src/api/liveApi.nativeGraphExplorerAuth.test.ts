@@ -117,7 +117,7 @@ const entityInspectionBody = {
 };
 const hostedRoutes = [
   ["first-Graph preparation", "/api/live/extract-promote/worldbuilding/first-world/prepare",
-    { schema: "dmb_first_world_graph_prepare_request_v1", runId: "reviewed-run", decisions: [{ action: "keep" }] }],
+    { schema: "dmb_first_world_graph_prepare_request_v1", runId: "reviewed-run", decisions: [{ assertionId: "tower", decision: "keep" }] }],
   ["first-Graph confirmation", "/api/live/extract-promote/worldbuilding/first-world/confirm",
     { schema: "dmb_first_world_graph_confirm_request_v1", plan: { runId: "reviewed-run" } }],
   ["published Plan recap", "/api/live/native-source-inspection/published-recap", { managed_world_id: "managed-a", campaign_id: "campaign-a", session_id: "session-a" }],
@@ -165,12 +165,36 @@ it.each(hostedRoutes)("uses only secure same-origin cookies for hosted %s, never
   expect(JSON.parse(String(init?.body))).toEqual(body);
 });
 
+it("sends native first-Graph preparation and retained signed confirmation through the hosted client", async () => {
+  await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const { prepareNativeFirstWorld, confirmNativeFirstWorld } = await import("./nativeFirstWorldPublicationApi");
+  const decisions = [{ assertionId: "tower", decision: "keep" as const }];
+  await prepareNativeFirstWorld({ runId: "reviewed-run", decisions });
+  const signed = {
+    schema: "dmb_native_first_world_confirm_request_v1",
+    plan: { schema: "dmb_native_first_world_plan_v1", runId: "reviewed-run", token: "signed-plan-fixture" },
+  } as Parameters<typeof confirmNativeFirstWorld>[0];
+  await confirmNativeFirstWorld(signed);
+
+  const replies = fetch.mock.calls.map(([path, init]) => [path, JSON.parse(String(init?.body))]);
+  expect(replies).toEqual([
+    ["/api/live/extract-promote/worldbuilding/first-world/prepare",
+      { schema: "dmb_native_first_world_prepare_request_v1", runId: "reviewed-run", decisions }],
+    ["/api/live/extract-promote/worldbuilding/first-world/confirm", signed],
+  ]);
+  for (const [, init] of fetch.mock.calls) {
+    expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+  }
+});
+
 it("rejects first-Graph requests with the wrong method, scope, or envelope", async () => {
   const api = await setup();
   hostedOrigin();
   const fetch = vi.spyOn(globalThis, "fetch");
   const path = "/api/live/extract-promote/worldbuilding/first-world/prepare";
-  const body = { schema: "dmb_first_world_graph_prepare_request_v1", runId: "reviewed-run", decisions: [{ action: "keep" }] };
+  const body = { schema: "dmb_first_world_graph_prepare_request_v1", runId: "reviewed-run", decisions: [{ assertionId: "tower", decision: "keep" }] };
   const post = { method: "POST", body: JSON.stringify(body) };
   await expect(api.authenticatedApiFetch(path)).rejects.toThrow(/exact same-origin/);
   await expect(api.authenticatedApiFetch(path + "?world_id=foreign", post)).rejects.toThrow(/exact same-origin/);
