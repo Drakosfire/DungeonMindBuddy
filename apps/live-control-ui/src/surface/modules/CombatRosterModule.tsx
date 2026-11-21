@@ -8,7 +8,7 @@ import type {TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {useTourRun} from '../../guidedTour/RunScope';
 import {useGuidedTour} from '../../guidedTour/GuidedTour';
 import {CombatTourObservation,type AcknowledgedCombatSave} from '../../guidedTour/CombatObservations';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   createWorldCombatEncounter,
@@ -275,7 +275,7 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
 
 export interface PreparedCombatOwnerReading {record:AnyCombatRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
 export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:AnyCombatRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
-export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;variant?:SavedConversationVariantTarget} = {}) {
+export function CombatRosterModule({scope,variant,encounterListHref}:{scope?:CombatHostScope;variant?:SavedConversationVariantTarget;encounterListHref?:string} = {}) {
   const panelRef = useRef<HTMLDivElement>(null);
   const turnRailRef = useRef<HTMLElement>(null);
   const tourRun=useTourRun(),tour=useGuidedTour(),tourEncounter=useTourEncounter();
@@ -654,18 +654,67 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
     } finally {if(generation===worldRequestGeneration.current)setBusy(null);}
   }}/>;
 
+  const disclosureGroup = useId();
+  const running = !showSample && visibleRecord !== null && visibleDraft !== null;
+  const encounterSetup = running && (
+    <details className="combat-roster-setup" name={disclosureGroup} open={adoptionBlocked ? true : undefined}><summary>Setup</summary>
+      <div className="combat-toolbar-panel">
+        <header className="combat-encounter-heading">
+          <label>
+            <span className="eyebrow">Encounter title</span>
+            <input aria-label="Encounter title" value={visibleDraft.title} disabled={replacingDraft} onChange={(event) => updateDraft((current) => ({ ...current, title: event.target.value }))} />
+          </label>
+          <span className="module-muted">
+            {visibleRecord.ruleset.config_id === DND5E_RULESET_ID
+              ? "D&D 5e" : `${visibleRecord.ruleset.system_id} · ${visibleRecord.ruleset.edition_id}`}
+            {" · config rev "}{visibleRecord.ruleset.revision}{" · pinned "}{visibleRecord.ruleset_digest.slice(0, 12)}
+          </span>
+        </header>
+
+        <CombatMechanicsAdoption key={`adoption:${worldId}:${visibleRecord.encounter_id}`}
+          scope={scope?.runScope} record={visibleRecord} disabled={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current}
+          onLockChange={setAdoptionBlocked} onReconciled={current=>{
+            const base=recordRef.current,local=draftRef.current;
+            if(!base||!local||current.world_id!==worldId||current.encounter_id!==base.encounter_id)
+              throw new Error('Combat view changed; adoption recovery is retained.');
+            if(!combatDraftEqual(base.draft,local)||pendingSave.current||availableRecovery)
+              throw new Error('Resolve the local Combat draft before reconciling adoption.');
+            recoverySession.current.clear();recordRef.current=current;draftRef.current=cloneDraft(current.draft);
+            setRecord(current);setDraft(draftRef.current);setAvailableRecovery(null);setRecoveryMessage(null);
+            setEncounters(items=>[current,...items.filter(item=>item.encounter_id!==current.encounter_id)]);
+          }}/>
+      </div>
+    </details>
+  );
+  const assembly = running && worldId && (
+    <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
+      worldId={worldId} variant={variant} disclosureGroup={disclosureGroup} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
+      onAdd={(entities, group) => {
+        const proposed = {...visibleDraft,
+          entities: [...visibleDraft.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
+          groups: group ? [...visibleDraft.groups, group] : visibleDraft.groups,
+        };
+        // Mirror the owning APP draft limit over the complete UTF-8 payload.
+        if (new TextEncoder().encode(JSON.stringify(proposed)).byteLength > 700 * 1024) {
+          return 'These copies exceed the encounter’s 700 KiB storage capacity. Reduce copies before adding; your draft is unchanged.';
+        }
+        if (!updateDraft(() => proposed)) return 'Combat draft could not be retained. Your prior draft and assembly inputs are unchanged.';
+      }} />
+  );
+
   return (
     <div ref={panelRef} className="module-panel combat-roster" data-module-id="combat_roster">
       <CombatTourObservation record={visibleRecord} runScope={scope?.runScope??null} acknowledged={tourAcknowledged} blocked={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked} error={error}/>
-      <h2 className="module-title" data-guided-control="combat" data-guided-control-group="true" tabIndex={-1}>Combat</h2>
+      <h2 className={running ? "sr-only" : "module-title"} data-guided-control={running ? undefined : "combat"} data-guided-control-group={running ? undefined : "true"} tabIndex={running ? undefined : -1}>Combat</h2>
       {worldMessage ? <p className="module-muted">{worldMessage}</p> : null}
       {error ? <p className="module-error" role="alert">Combat: {error}</p> : null}
       {worldId ? (
         <>
-          <section ref={visibleRecord && visibleDraft ? turnRailRef : undefined} className={`combat-roster-save-rail${visibleRecord && visibleDraft ? " combat-roster-active-toolbar" : ""}`} aria-label="Encounter selection and save">
-            {scope ? <p>{scope.label}</p> : <>
+          <section ref={visibleRecord && visibleDraft ? turnRailRef : undefined} className={`combat-roster-save-rail${visibleRecord && visibleDraft ? " combat-roster-active-toolbar" : ""}`} aria-label="Encounter selection and save" data-guided-control={running ? "combat" : undefined} data-guided-control-group={running ? "true" : undefined} tabIndex={running ? -1 : undefined}>
+            {encounterListHref && <a href={encounterListHref}>All encounters</a>}
+            {scope ? <span className="combat-toolbar-scope" title={scope.label}>{running ? visibleDraft.title : scope.label}</span> : <>
             <label>
-              <span className="eyebrow">Encounter</span>
+              {!running && <span className="eyebrow">Encounter</span>}
               <select
                 aria-label="Encounter"
                 value={selectedEncounterId}
@@ -686,26 +735,41 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
             {preparedRecord && !preparedBlocked && !showSample && <a href={combatEncounterHref({
               worldId: preparedRecord.world_id, encounterId: preparedRecord.encounter_id,
             })}>Encounter link</a>}
-            {!showSetup && dndSetup}
+            {!showSetup && !running && dndSetup}
             </>}
-            {!manualRecord&&<><button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
-              {busy === "save" ? "Saving…" : "Save"}
-            </button>
-            <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={revertDraft}>
-              Revert
-            </button>
-            {pendingSave.current ? <span className="module-muted">{busy === 'save' ? 'Saving exact request…' : 'Save outcome unconfirmed · exact request retained'}</span> : dirty ? <span className="module-muted">Unsaved changes</span> : visibleRecord ? <span className="module-muted">Saved · rev {visibleRecord.revision}</span> : null}
-            </>}
-            {!showSample && visibleRecord && visibleDraft && (
+            {running && <>
+              <span className="combat-toolbar-system">
+                {visibleRecord.ruleset.config_id === DND5E_RULESET_ID
+                  ? "D&D 5e" : `${visibleRecord.ruleset.system_id} · ${visibleRecord.ruleset.edition_id}`}
+              </span>
               <div className="combat-roster-turn-rail" role="group" aria-label="Combat turn controls">
-                <div><span className="eyebrow">Round</span><strong>{visibleDraft.round}</strong></div>
-                <div><span className="eyebrow">Active</span><strong>{active?.name ?? "No active actor"}</strong></div>
-                <div><span className="eyebrow">Next</span><strong>{next?.name ?? "—"}</strong></div>
-                <button type="button" onClick={sortInitiative} disabled={operationsBlocked || visibleDraft.entities.length < 2}>Sort initiative</button>
+                <span className="combat-toolbar-turn">
+                  <span>Round</span> {visibleDraft.round} · <strong>{active?.name ?? "No active actor"}</strong>
+                  {next && <> <span aria-label="Next">→</span> {next.name}</>}
+                </span>
                 <button type="button" onClick={() => advance("previous")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Back</button>
-                <button type="button" onClick={() => advance("next")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Next turn</button>
+                <button className="combat-toolbar-next" type="button" onClick={() => advance("next")} disabled={operationsBlocked || visibleDraft.entities.length === 0}>Next turn</button>
               </div>
-            )}
+              {assembly}
+            </>}
+            {!manualRecord && <>
+              <button type="button" disabled={operationsBlocked || (!dirty && !pendingSave.current)} onClick={() => void saveEncounter()}>
+                {busy === "save" ? "Saving…" : "Save"}
+              </button>
+              {running ? <>
+                {encounterSetup}
+                <details className="combat-toolbar-more" name={disclosureGroup}>
+                  <summary>More</summary>
+                  <div className="combat-toolbar-panel">
+                    <button type="button" onClick={sortInitiative} disabled={operationsBlocked || visibleDraft.entities.length < 2}>Sort initiative</button>
+                    <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={revertDraft}>Revert</button>
+                    {!scope && <>{dndSetup}{customSetup}</>}
+                    <p className="module-muted">Durable encounter · {visibleRecord.encounter_id} · revision {visibleRecord.revision}</p>
+                  </div>
+                </details>
+              </> : <button type="button" disabled={busy !== null || (!dirty && !pendingSave.current)} onClick={revertDraft}>Revert</button>}
+              {pendingSave.current ? <span className="module-muted" role="status">{busy === 'save' ? 'Saving exact request…' : 'Save outcome unconfirmed · exact request retained'}</span> : dirty ? <span className="module-muted" role="status">Unsaved changes</span> : visibleRecord ? <span className="sr-only" role="status">Saved · rev {visibleRecord.revision}</span> : null}
+            </>}
           </section>
           {!scope && (showSetup ? (
             <section className="combat-start-workspace" aria-label="Empty Combat workspace">
@@ -737,7 +801,7 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
                 <p>Open a participant’s sheet here or in a pop-up.</p>
               </aside>
             </section>
-          ) : customSetup)}
+          ) : !running && customSetup)}
           {manualRecord?.world_id===worldId&&<ManualCombatEditor key={JSON.stringify([manualRecord.world_id,manualRecord.encounter_id,scope?.runScope])} record={manualRecord} externallyDisabled={busy==='open'||busy==='create'||busy==='reload'} scope={scope?.runScope} onBlocked={setManualBlocked} onSaved={saved=>{setManualRecord(saved);setEncounters(items=>items.map(item=>item.encounter_id===saved.encounter_id?saved:item));}}/>}
           {availableRecovery && <section aria-label="Combat draft recovery">
             <p>Local Combat draft available from revision {availableRecovery.base.revision}. Current committed revision: {visibleRecord?.revision}. Recover explicitly; newer server state is never overwritten automatically.</p>
@@ -751,44 +815,6 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
           ) : null}
           {!showSample && visibleRecord && visibleDraft ? (
             <>
-              <header className="combat-encounter-heading">
-                <label>
-                  <span className="eyebrow">Encounter title</span>
-                  <input aria-label="Encounter title" value={visibleDraft.title} disabled={replacingDraft} onChange={(event) => updateDraft((current) => ({ ...current, title: event.target.value }))} />
-                </label>
-                <span className="module-muted">
-                  {visibleRecord.ruleset.config_id === DND5E_RULESET_ID
-                    ? "D&D 5e" : `${visibleRecord.ruleset.system_id} · ${visibleRecord.ruleset.edition_id}`}
-                  {" · config rev "}{visibleRecord.ruleset.revision}{" · pinned "}{visibleRecord.ruleset_digest.slice(0, 12)}
-                </span>
-              </header>
-              <details className="combat-roster-setup" open={adoptionBlocked ? true : undefined}><summary>Encounter setup · saved mechanics</summary>
-              <CombatMechanicsAdoption key={`adoption:${worldId}:${visibleRecord.encounter_id}`}
-                scope={scope?.runScope} record={visibleRecord} disabled={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current}
-                onLockChange={setAdoptionBlocked} onReconciled={current=>{
-                  const base=recordRef.current,local=draftRef.current;
-                  if(!base||!local||current.world_id!==worldId||current.encounter_id!==base.encounter_id)
-                    throw new Error('Combat view changed; adoption recovery is retained.');
-                  if(!combatDraftEqual(base.draft,local)||pendingSave.current||availableRecovery)
-                    throw new Error('Resolve the local Combat draft before reconciling adoption.');
-                  recoverySession.current.clear();recordRef.current=current;draftRef.current=cloneDraft(current.draft);
-                  setRecord(current);setDraft(draftRef.current);setAvailableRecovery(null);setRecoveryMessage(null);
-                  setEncounters(items=>[current,...items.filter(item=>item.encounter_id!==current.encounter_id)]);
-                }}/>
-              </details>
-              <CombatEncounterAssembly key={`${worldId}:${worldRequestGeneration.current}:${visibleRecord.encounter_id}`}
-                worldId={worldId} variant={variant} disabled={operationsBlocked || availableRecovery !== null} remainingSlots={100 - visibleDraft.entities.length}
-                onAdd={(entities, group) => {
-                  const proposed = {...visibleDraft,
-                    entities: [...visibleDraft.entities, ...entities].map((entity, index) => ({...entity, order: index + 1})),
-                    groups: group ? [...visibleDraft.groups, group] : visibleDraft.groups,
-                  };
-                  // Mirror the owning APP draft limit over the complete UTF-8 payload.
-                  if (new TextEncoder().encode(JSON.stringify(proposed)).byteLength > 700 * 1024) {
-                    return 'These copies exceed the encounter’s 700 KiB storage capacity. Reduce copies before adding; your draft is unchanged.';
-                  }
-                  if (!updateDraft(() => proposed)) return 'Combat draft could not be retained. Your prior draft and assembly inputs are unchanged.';
-                }} />
               {visibleDraft.entities.length === 0 ? (
                 <p className="module-muted">Add combatants to assemble this encounter.</p>
               ) : (
@@ -818,7 +844,6 @@ export function CombatRosterModule({scope,variant}:{scope?:CombatHostScope;varia
               {error?.includes("changed since it was opened") ? (
                 <button type="button" disabled={operationsBlocked} onClick={() => void reloadEncounter()}>Reload latest revision</button>
               ) : null}
-              <p className="module-muted">Durable encounter · {visibleRecord.encounter_id} · revision {visibleRecord.revision}</p>
             </>
           ) : null}
         </>
