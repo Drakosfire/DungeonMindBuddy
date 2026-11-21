@@ -1056,6 +1056,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert completion["action_id"] is None
             with pytest.raises(ApplicationStateNotFoundError):
                 store.get(world, turn.turn_id)
+        messages = client.get(f"/api/live/agent/worlds/{world}/conversations/active/messages")
+        assert messages.status_code == 200, messages.text
+        saved = next(row for row in messages.json()["messages"] if row["turn_id"] == str(turn.turn_id))
+        if graph_reference == "ready":
+            assert saved["reply_object"] == {
+                "kind": "build_graph_reference", "placement_sha256": completion["placement_sha256"],
+                "source": {"world_id": world, "conversation_id": str(turn.conversation_id),
+                           "document_id": page.document_id, "turn_id": str(turn.turn_id), "surface_id": "build"},
+            }
+        else:
+            assert saved["reply_object"] is None
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         replay = client.post('/api/live/agent/turn', json=body)
         assert replay.status_code == 200, replay.text

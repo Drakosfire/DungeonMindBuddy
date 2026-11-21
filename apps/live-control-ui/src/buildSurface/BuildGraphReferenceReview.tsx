@@ -48,7 +48,8 @@ export function BuildGraphReferenceReview({world,action,bridge,onComplete,conver
   async function submit(intent: 'apply' | 'discard') {
     const owner = scope.current;
     if (!review || review.action_id !== action || review.placement.basis.world_id !== world
-      || !owner || owner.signal.aborted || submitting.current) return;
+      || !owner || owner.signal.aborted || submitting.current
+      || (documentId && !bridge.canReviewGraphReference?.(world,documentId))) return;
     const signal = owner.signal;
     submitting.current = true;
     setBusy(true);
@@ -125,13 +126,14 @@ export function BuildGraphReferenceReview({world,action,bridge,onComplete,conver
   }
 
   const current = review?.action_id === action && review.placement.basis.world_id === world ? review : null;
+  const editable = !documentId || bridge.canReviewGraphReference?.(world,documentId);
   return <section aria-label="Graph reference review">
     {current && <>
       <strong>{current.placement.reference.label}</strong>
       <p>{current.placement.entity_kind} · {current.placement.boundary.operation === 'insert_before' ? 'Before' : 'After'} the requested paragraph</p>
       {current.state === 'applied' && <p role="status">Graph reference saved.</p>}
       {current.state === 'discarded' && <p role="status">Graph reference discarded.</p>}
-      {(current.state === 'editing' || current.state === 'applying') && <>
+      {editable && (current.state === 'editing' || current.state === 'applying') && <>
         <button type="button" disabled={busy} onClick={() => void submit('apply')}>
           {current.state === 'editing' ? 'Insert and save reference' : 'Finish saving reference'}
         </button>

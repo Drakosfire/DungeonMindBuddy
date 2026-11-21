@@ -565,6 +565,13 @@ describe('typed Graph reference Review', () => {
 
   beforeEach(() => vi.mocked(graphReferenceReview).mockReset());
 
+  it('requires the current editable internal Build page before mounting Review', () => {
+    expect(bridge.canReviewGraphReference?.(state.worldId,state.documentId)).toBe(true);
+    expect(bridge.canReviewGraphReference?.(state.worldId,'different-page')).toBe(false);
+    state.canEdit=false;
+    expect(bridge.canReviewGraphReference?.(state.worldId,state.documentId)).toBe(false);
+  });
+
   it.each(['conversation','document','placement'])('refuses Review from a mismatched %s before exposing Save', async mismatch=>{
     const bridge=bridgeFixture();
     const bytes=new TextEncoder().encode(canonical(editing.placement));
@@ -577,6 +584,18 @@ describe('typed Graph reference Review', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('does not match this conversation and page');
     expect(screen.queryByRole('button',{name:'Insert and save reference'})).not.toBeInTheDocument();
     expect(bridge.prepareGraphReference).not.toHaveBeenCalled();
+  });
+
+  it('withholds Save and Discard when the original page is read-only', async () => {
+    const bridge={...bridgeFixture(),canReviewGraphReference:()=>false};
+    const bytes=new TextEncoder().encode(canonical(editing.placement));
+    const expectedHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),
+      byte=>byte.toString(16).padStart(2,'0')).join('');
+    vi.mocked(graphReferenceReview).mockResolvedValue({...editing,conversation_id:'conversation-one'});
+    render(<BuildGraphReferenceReview world={world} action={action} bridge={bridge as unknown as BuildComposeBridge}
+      conversationId="conversation-one" documentId="moon-gallery" placementSha256={expectedHash}/>);
+    expect(await screen.findByText('Moon Lurker',{exact:true})).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('opens an inert review and refuses a changed Graph before applying or saving', async () => {

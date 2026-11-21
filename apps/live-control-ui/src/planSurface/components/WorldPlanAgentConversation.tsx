@@ -6588,22 +6588,25 @@ export function WorldPlanAgentConversation({
     previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
+    const savedMessage=messagePage&&messageHistory&&messageHistory.world_id===turn.provenance.world_id
+      &&history&&sameHistoryPointer(messageHistory,history)&&messageHistory.turns.some(row=>sameSavedMessage(turn,row))
+      ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
     const completion = graphContextForTurn(turn)?.completion;
-    const referenceCompletion = completion?.schema === 'dmb_build_graph_reference_completion_v1'
-      && completion.action_id === turn.turn_id && completion.placement_sha256 ? completion : null;
-    const graphReview = referenceCompletion?.action_id && referenceCompletion.placement_sha256
+    const descriptor = savedMessage?.reply_object;
+    const referenceDigest = completion?.schema === 'dmb_build_graph_reference_completion_v1'
+      ? completion.action_id === turn.turn_id ? completion.placement_sha256 : null
+      : !completion && descriptor?.kind === 'build_graph_reference'
+        && descriptor.source.document_id === turn.provenance.primary_work.object_id ? descriptor.placement_sha256 : null;
+    const graphReview = referenceDigest
       && visible && isBuild && !historicalAttempt
       && verifiedWorldId && turn.provenance.world_id === verifiedWorldId
       && history?.conversation_id && history.active_conversation_id === history.conversation_id
       && buildMode?.savedSource?.worldId === verifiedWorldId
       && buildMode.savedSource.documentId === turn.provenance.primary_work.object_id && buildMode.composeBridge
-      ? <BuildGraphReferenceReview key={`${history.conversation_id}:${referenceCompletion.action_id}`} world={verifiedWorldId}
-          action={referenceCompletion.action_id} bridge={buildMode.composeBridge} conversationId={history.conversation_id}
-          documentId={buildMode.savedSource.documentId} placementSha256={referenceCompletion.placement_sha256}/> : null;
+      ? <BuildGraphReferenceReview key={`${history.conversation_id}:${turn.turn_id}`} world={verifiedWorldId}
+          action={turn.turn_id} bridge={buildMode.composeBridge} conversationId={history.conversation_id}
+          documentId={buildMode.savedSource.documentId} placementSha256={referenceDigest}/> : null;
     const pageSuggestion = graphReview ? { element: graphReview } : buildCompose.items.find(item => item.originTurnId === turn.turn_id);
-    const savedMessage=messagePage&&messageHistory&&messageHistory.world_id===turn.provenance.world_id
-      &&history&&sameHistoryPointer(messageHistory,history)&&messageHistory.turns.some(row=>sameSavedMessage(turn,row))
-      ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
     const savedStatblockLinks=savedMessage?.saved_statblocks?.map(reference=><div key={reference.draft_id+':'+reference.revision_id}>
       <a href={savedStatblockHref({worldId:reference.world_id,draftId:reference.draft_id,revisionId:reference.revision_id})}>Open {reference.name} statblock</a>
       {reference.pdf_sources && <SavedStatblockPdfEvidence sources={reference.pdf_sources}/>}

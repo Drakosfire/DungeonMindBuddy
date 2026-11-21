@@ -54,6 +54,7 @@ export interface ProposalInspection {
   savedProjection?:SavedProposalProjection;
 }
 export interface BuildComposeBridge {
+  canReviewGraphReference?: (worldId: string, documentId: string) => boolean;
   prepareGraphReference?: (placement: BuildGraphReferencePlacement) => Promise<PreparedBuildGraphReference>;
   applyGraphReference?: (prepared: PreparedBuildGraphReference) => void;
   pickWorkPlanInsertion?: (options:{signal:AbortSignal;operationId:string})=>Promise<CapturedBuildInsertion>;
@@ -227,6 +228,11 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
   }
   const applied = new WeakSet<CapturedBuildInsertion>();
   const bridge: BuildComposeBridge = {
+    canReviewGraphReference(worldId, documentId) {
+      const current = getCurrent();
+      return Boolean(current?.canEdit && !current.editor.isDestroyed && current.visibility === 'internal'
+        && current.worldId === worldId && current.documentId === documentId);
+    },
     observeWorkPlan(reference,onPresence){
       const now=getCurrent();if(!now||!workPlanBelongsTo(reference,{worldId:now.worldId,documentId:now.documentId}))return ()=>{};
       const editor=now.editor;
