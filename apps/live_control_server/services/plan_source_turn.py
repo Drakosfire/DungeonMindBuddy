@@ -244,7 +244,8 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
             or host['allowed_operations']!=list(caps.operations)
             or host['capability_sha256']!=(digest(request.build_write_capability.model_dump(mode='json')) if request.build_write_capability is not None else None)
             or host.get('related_page_catalog')!=actions.get('related_page_catalog')
-            or body['state']!=semantic_routing_state(request.message,host,request.build_authored_references)
+            or body['state']!=semantic_routing_state(request.message,host,request.build_authored_references,
+                write_capability=request.build_write_capability)
             or projection.request_id!=semantic_request_id(body['state'],world_id=basis.world_id,
                 client_thread_id=request.client_thread_id,idempotency_key=_turn_idempotency_key(basis.world_id,request.turn_id))):
             raise ValueError('Semantic Build input differs from its captured work and capability')

@@ -207,6 +207,22 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
     raise ValueError('Native writer requires its actual surface work owner')
 
 
+def _build_paragraph_work(action, selected):
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+
+    placement = getattr(selected, "paragraph_placement", None)
+    if placement is None or placement.target is None:
+        return None
+    catalog = catalog_for_build_capability(action.write_capability)
+    alias, _, _ = placement.target.alias.partition(":")
+    passage = next(item for item in catalog.passages if item.alias == alias)
+    return {
+        "relation": "before" if placement.target.operation == "insert_before" else "after",
+        "existing_passage": passage.passage,
+        "section": list(passage.headings),
+    }
+
+
 def authoring_input(native_context, capability, instruction, operation):
     """Host-only producer material; actual APP admission still joins locked state."""
     if not isinstance(native_context,tuple) or len(native_context)!=3:
@@ -218,11 +234,22 @@ def authoring_input(native_context, capability, instruction, operation):
         raise ValueError('Native authoring requires the actual Build action')
     action=execution.policy.action
     selected=selected_action(execution)
+    from application_state.build_proposal.types import explicit_build_page_target
+    explicit_target = explicit_build_page_target(action.write_capability, selected)
+    paragraph_work = _build_paragraph_work(action, selected)
+    exclusions = {"instruction", "origin"}
+    if explicit_target is not None and operation == "propose_build_insertion":
+        exclusions.add("boundary_editor_json")
+    if paragraph_work is not None:
+        exclusions.update({"boundary_editor_json", "page_body_offer", "page_end_offer", "prose_target"})
+        if (getattr(capability, "prose_target", None) != selected.paragraph_placement.target
+                or capability.page_body_offer is not None or capability.page_end_offer is not None):
+            raise ValueError("Native paragraph authoring must use only its selected boundary")
     if (operation not in {'propose_build_insertion','prepare_build_image'}
             or selected.operation!=operation or action.write_capability is None
             or instruction!=action.intent.message
-            or capability.model_dump(mode='json',exclude={'instruction','origin'})
-                !=action.write_capability.model_dump(mode='json',exclude={'instruction','origin'})):
+            or capability.model_dump(mode='json',exclude=exclusions)
+                !=action.write_capability.model_dump(mode='json',exclude=exclusions)):
         raise ValueError('Native authoring differs from its selected operation or captured editor')
     if operation=='propose_build_insertion':
         origin=capability.origin
@@ -233,6 +260,7 @@ def authoring_input(native_context, capability, instruction, operation):
             raise ValueError('Native proposal origin differs from its actual selected action')
     from .native_build_work_view import semantic_frame as build_work_view
     return dict(native_evidence=model_input_frame(receipt,execution),
+        **({"paragraph_placement": paragraph_work} if paragraph_work is not None else {}),
         surface_work=build_work_view(model_work_frame(receipt,execution,**work),execution))
 
 
@@ -288,9 +316,13 @@ def _input_frames(raw,execution,work_schema, *, prose_frame=None, prose_work=Non
         raise ValueError('Native authoring cannot mix historical and current work carriers')
     if 'task' in packet:
         allowed={'task','recent_dialogue','source_class','source_title','instruction',
-            'native_evidence','surface_work','rules_evidence','page_body_offer','page_end_offer'}
+            'native_evidence','surface_work','rules_evidence','page_body_offer','page_end_offer','paragraph_placement'}
         if set(packet)-allowed:
             raise ValueError('Unclassified semantic Build authoring fields')
+        paragraph_work = _build_paragraph_work(execution.policy.action, selected)
+        if (("paragraph_placement" in packet) != (paragraph_work is not None)
+                or packet.get("paragraph_placement") != paragraph_work):
+            raise ValueError("Native Build writer paragraph differs from the admitted boundary")
     if packet.get('instruction')!=execution.policy.action.intent.message:
         raise ValueError('Native authoring instruction differs from selected work')
     if any(key in packet for key in ('source_basis','draft_markdown','captured_capability',

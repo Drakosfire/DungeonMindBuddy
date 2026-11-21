@@ -650,6 +650,7 @@
       "tests/test_build_destination_menu.py",
       "tests/test_build_document_proposal.py",
       "tests/test_build_pdf_statblock_extraction.py",
+      "tests/test_build_prose_catalog.py",
       "tests/test_build_recap_launch.py",
       "tests/test_build_recap_source.py",
       "tests/test_build_related_pages.py",

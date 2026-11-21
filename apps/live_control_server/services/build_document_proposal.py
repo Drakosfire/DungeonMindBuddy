@@ -16,10 +16,10 @@ from generationengine.text_dispatch import TextDispatchGate
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.dialogue_projection import project_dialogue, expand_dialogue, dialogue_rule
 from application_state.errors import ApplicationStateNotFoundError
-from application_state.build_proposal.service import BuildProposalService
+from application_state.build_proposal.service import BuildProposalService, admit_native_prose_boundary
 from application_state.build_proposal.types import (
     BuildProviderAuthorization, BuildComposeError, BuildComposeTargetMismatch,
-    BuildComposeOutput,
+    BuildComposeOutput, BuildProseBoundaryOutput, BuildProseBoundaryReservation, explicit_build_page_target,
 )
 from apps.live_control_server.services.semantic_block_writing import SEMANTIC_BLOCK_WRITING
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
@@ -240,11 +240,26 @@ async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     return await _compose(request, transport=transport)
 
 
+def _native_page_target(native_context):
+    if native_context is None:
+        return None
+    from application_state.agent_conversation.build_intentional_response import selected_action
+
+    execution = native_context[1]
+    return explicit_build_page_target(execution.policy.action.write_capability, selected_action(execution))
+
+
 async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None, _reference_image=None):
     if (_native_output_capture is not None and (not callable(_native_output_capture) or _native_context is None)):
         raise BuildComposeError("build_compose_native_capture_required")
-    store = BuildProposalService()
     reservation = request.reservation_only()
+    contextual = isinstance(reservation, BuildProseBoundaryReservation)
+    if contextual and (writer_gate is None or _native_context is None):
+        raise BuildComposeError("Build paragraph placement requires the native writer gate")
+    store = BuildProposalService(
+        admit_prose_boundary=admit_native_prose_boundary if contextual else None,
+        require_native_page_target=_native_page_target(_native_context) is not None,
+    )
     # Check an accepted operation before consulting mutable source state. A replay
     # returns its original result and cannot cause another provider dispatch.
     try:
@@ -442,11 +457,15 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         body.pop('dialogue_sources',None)
         body.pop('tool_origin',None)
         body['task']='compose_current_page'
+        if _native_context[1].policy.action.write_capability.boundary_editor_json is not None:
+            body.pop("page_body_offer")
+            body.pop("page_end_offer")
         body.update(material)
         if _native_rules_frame is not None:
             body['rules_evidence']=_native_rules_frame.model_dump(mode='json',by_alias=True)
     packet=json.dumps(body,ensure_ascii=False,separators=(',',':'))
-    schema = BuildComposeOutput.model_json_schema()
+    contextual = isinstance(reservation, BuildProseBoundaryReservation)
+    schema = (BuildProseBoundaryOutput if contextual else BuildComposeOutput).model_json_schema()
     expected = {"model": model, "input": packet, "instructions": SYSTEM + ("\nUse related_authored_pages as exact saved authored references before inventing substitutes. They are authored context, not played facts; preserve row/column meanings and source attribution.\n" if related_authored_pages is not None else "") + dialogue_rule(messages),
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},
         "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": True}
@@ -455,6 +474,17 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         expected.pop('max_output_tokens')
         expected.update(output_request_fields(_native_context[1].policy.writer_context_budget.output_reserve_tokens))
         expected['instructions']+=AUTHORING_GUIDANCE
+    if contextual:
+        expected["instructions"] += (
+            "\nThe paragraph placement is fixed by the host. Write exactly one new prose paragraph "
+            "for that boundary. Leave the existing passage intact. Use target prose_target and "
+            "destination current_page."
+        )
+    elif (target := _native_page_target(_native_context)) is not None:
+        expected["instructions"] += (
+            f"\nThe author selected the offered {target} destination. Use target {target} "
+            "and destination current_page. If that is unsuitable, return unavailable with empty Markdown."
+        )
     if bool(request.reference_image_id) != (_reference_image is not None) or (
             _reference_image is not None and _native_context is None):
         raise BuildComposeError("Image-grounded revision requires the authorized Build writer.")

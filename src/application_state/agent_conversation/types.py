@@ -8,6 +8,7 @@ from application_state.agent_conversation.identifier_limits import (
 )
 
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
+from application_state.build_proposal.types import BuildBoundaryResolution
 
 import hashlib
 from hashlib import sha256
@@ -4705,6 +4706,7 @@ class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
     resolver_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     response_capabilities_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     resolution: dict
+    paragraph_placement: BuildBoundaryResolution | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):

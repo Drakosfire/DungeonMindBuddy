@@ -1,6 +1,18 @@
 # Build contextual paragraph boundary receiver
 
-Status: ACTIVE under the contextual-layout lane authority. Serial successor
+Status: COMPLETE. #4351 merged at
+`903c7d8763f84f886b6a00e3a9d378ec8e8f03f1` after exact independent approval
+of `9ca0d8b9224c8feaaac65a7ce52abd326f02e3a4`. The three real Chromium
+fixtures proved mounted Review, explicit Save, native persisted layout and
+source, Undo/Redo and 390px reopen for plain, identity-only and composed pages.
+Their nominations and prose were scripted. Local hosted verification passed
+1,465 tests and build. Exact full discovered added seven passing tests with
+all base statuses preserved. Backend named suites matched exact base failures,
+and the 0178 witness passed 15 checks. The
+[native dispatch assignment](HANDOFF-BUILD-contextual-native-dispatch.md)
+owns ordinary Jev targeting and mounted Send afterward.
+
+Original assignment: serial successor
 from `dda2598c95b6ed3c3c9f4b883a4d83d520dea169` on
 `codex/build-contextual-boundary-receiver`. The existing draft #3867 at
 `a2c5d9115bf1347f2cd84a2808d3dec29ddc3242` provides the immutable catalog,

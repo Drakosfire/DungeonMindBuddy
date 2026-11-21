@@ -63,7 +63,7 @@ def _require_block(node: dict, binding, source: bytes) -> BlockBinding:
             "Plan editor block has metadata absent from its exact Markdown"
         )
     text = source[binding.byte_start : binding.byte_end].decode("utf-8")
-    _require_matching_block(node, text)
+    require_matching_prose_block(node, text)
     return binding
 
 
@@ -129,14 +129,14 @@ def _editor_slot(editor: dict, address: PlanSlotParagraphV1) -> dict:
     return editor["content"][address.row_index]["content"][address.slot_index]
 
 
-def _editor_node_size(node: dict) -> int:
-    # Only the editor types admitted by require_editor_layout occur here.
+def prose_editor_node_size(node: dict) -> int:
+    """ProseMirror size for already admitted prose and layout nodes."""
     kind = node["type"]
     if kind == "text":
         return len(node["text"].encode("utf-16-le")) // 2
     if kind in {"horizontalRule", "hardBreak"}:
         return 1
-    return 2 + sum(_editor_node_size(child) for child in node.get("content", []))
+    return 2 + sum(prose_editor_node_size(child) for child in node.get("content", []))
 
 
 def require_slot_selection(
@@ -151,9 +151,9 @@ def require_slot_selection(
     slots = rows[address.row_index]["content"]
     children = slots[address.slot_index]["content"]
     text_start = (
-        sum(_editor_node_size(node) for node in rows[: address.row_index])
-        + sum(_editor_node_size(node) for node in slots[: address.slot_index])
-        + sum(_editor_node_size(node) for node in children[: address.child_index])
+        sum(prose_editor_node_size(node) for node in rows[: address.row_index])
+        + sum(prose_editor_node_size(node) for node in slots[: address.slot_index])
+        + sum(prose_editor_node_size(node) for node in children[: address.child_index])
         + 3
     )
     inline = children[address.child_index].get("content", [])
@@ -257,7 +257,7 @@ def _editor_runs(paragraph: dict) -> list[tuple]:
     return runs
 
 
-def _require_matching_block(node: dict, markdown: str) -> None:
+def require_matching_prose_block(node: dict, markdown: str) -> None:
     tokens = _PARSER.parse(markdown)
     kinds = [token.type for token in tokens]
     kind = node.get("type")

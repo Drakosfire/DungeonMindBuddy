@@ -614,6 +614,17 @@ def validate_resolution_metadata(event, policy):
             or event.response_capabilities_sha256 != digest(asdict(caps))
             or event.menu_sha256 != menu or event.resolver_sha256 != resolver):
         raise ValueError('Semantic event differs from its frozen response contract')
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+
+    catalog = catalog_for_build_capability(getattr(getattr(policy, "action", None), "write_capability", None))
+    placement = event.paragraph_placement
+    if (catalog is None) != (placement is None):
+        raise ValueError("Build paragraph placement differs from its frozen capability")
+    if placement is not None and placement.target is not None:
+        alias, _, _ = placement.target.alias.partition(":")
+        if (event.requested_work != "write_current_page"
+                or placement.target != catalog.target(alias, placement.target.operation)):
+            raise ValueError("Retained Build paragraph target is outside the exact editor capture")
 
 
 def operation_id(turn, request_id, label):
@@ -722,6 +733,8 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
     resolution = resolution_for(policy, label, source_scope=source_need(request, raw_response))
+    if event.paragraph_placement != paragraph_placement_for(policy, request, response, user_text, label):
+        raise ValueError("Build paragraph placement differs from its actual opening selection")
     prior = [
         e
         for e in execution.events
@@ -1292,7 +1305,7 @@ def semantic_collaboration(card):
     return {key: deepcopy(card[key]) for key in card if key in fields}
 
 
-def semantic_routing_state(question, interaction, references):
+def semantic_routing_state(question, interaction, references, *, write_capability=None):
     """Project typed parent context, never scrub arbitrary user/source strings."""
     from .dialogue_projection import expand_dialogue
     from .authored_graph_references import AuthoredSourceReferenceV1
@@ -1312,7 +1325,34 @@ def semantic_routing_state(question, interaction, references):
             for ref in references.references]
     if "related_page_catalog" in interaction:
         context["related_page_labels"] = [page["title"] for page in interaction["related_page_catalog"]]
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+    from application_state.build_proposal.prose_decision import OPENING_STATE_KEY, build_boundary_opening
+
+    catalog = catalog_for_build_capability(write_capability)
+    if catalog is not None:
+        context[OPENING_STATE_KEY], _ = build_boundary_opening(question, context["current_page_title"], catalog)
+        context["page_target"] = {"kind": "contextual_paragraph"}
     return {"user_question": question, "interaction": context}
+
+
+def paragraph_placement_for(policy, request, response, question, requested_work):
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+    from application_state.build_proposal.prose_decision import (
+        OPENING_QUESTION_PREFIX, OPENING_STATE_KEY, resolve_build_boundary_opening,
+    )
+
+    catalog = catalog_for_build_capability(getattr(getattr(policy, "action", None), "write_capability", None))
+    interaction = request.get("state", {}).get("interaction", {})
+    if catalog is None:
+        if OPENING_STATE_KEY in interaction or any(
+            name.startswith(OPENING_QUESTION_PREFIX) for name in request["questions"]
+        ):
+            raise ValueError("Build placement requires a captured paragraph catalog")
+        return None
+    if interaction.get("page_target") != {"kind": "contextual_paragraph"}:
+        raise ValueError("Build opening must describe the captured paragraph target")
+    return resolve_build_boundary_opening(catalog, request, response, question=question,
+                                          title=interaction["current_page_title"], requested_work=requested_work)
 
 
 def semantic_request_id(state, *, world_id, client_thread_id, idempotency_key):
