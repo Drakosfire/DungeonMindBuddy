@@ -166,7 +166,15 @@ where Save applies the change.
 The proposal included the host's partial-retrieval disclosure as editable
 text, which fails document-content isolation. It was dismissed before Save.
 The original passage, private note, and Departure sentinel remained visible.
-Replacement persistence remains unverified.
+A follow-up on `09631231` selected the same exact body and used the same
+P02 prompt. The proposal contained a replacement sentence and the host
+disclosure. The operator removed the disclosure in the suggestion editor
+and verified that it was absent before Save. Reopening the Plan through its
+World route showed the new sentence inside the original titled **First
+sight** Read Aloud, with the original sentence and disclosure absent. The
+red-gate option marker and Departure sentinel remained present. This
+verifies replacement persistence after manual cleanup. Clean proposal
+generation remains open.
 
 A fresh P01 run against saved Plan revision 5 retained the original editor
 capture and offered 17 placements. Its opening decision selected `clarify`
