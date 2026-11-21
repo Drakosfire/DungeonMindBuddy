@@ -113,6 +113,8 @@ class NativePlanBatchDecisionInputV3(NativeRetrievalDecisionInputV2):
     """Readonly Plan may prospectively designate its successful final batch."""
     schema_: Literal["dmb_native_plan_batch_decision_input_v3"] = Field(
         default="dmb_native_plan_batch_decision_input_v3", alias="schema")
+    bounded_continuation: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):

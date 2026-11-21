@@ -1845,6 +1845,10 @@ class AgentConversationService:
                 raise ApplicationStateValidationError('Native authored event requires its immutable read transaction owner')
             from .native_corpus import NATIVE_BODY_EVENTS
             from .types import BuildPriorBodyEvidenceAdmittedV1
+            from .native_retrieval import NativeReadBatchConcludedV1
+            if (native_source_materializer is None and type(event) is NativeReadBatchConcludedV1
+                    and event.exhausted_continuation):
+                raise ApplicationStateValidationError("Exhausted continuation requires its fenced completion owner")
             if native_source_materializer is None and isinstance(event, (*NATIVE_BODY_EVENTS, BuildPriorBodyEvidenceAdmittedV1)):
                 raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
             from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
@@ -2118,6 +2122,15 @@ class AgentConversationService:
             source_batch = None
             if native_source_materializer is not None:
                 event = self._materialize_execution_source(native_source_materializer, conn, turn)
+                if type(event) is NativeReadBatchConcludedV1 and event.exhausted_continuation:
+                    from .rules_authority_store import load_turn_rules_locked
+                    from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+                    rules = load_turn_rules_locked(conn, turn)
+                    if rules is not None:
+                        calls = {item.call_id for item in rules.execution.events if isinstance(item, RulesToolAuthorizedV1)}
+                        observed = {item.call_id for item in rules.execution.events if isinstance(item, RulesQueryObservedV1)}
+                        if calls != observed:
+                            raise ApplicationStateValidationError("Plan retrieval cannot finish with an unresolved Rules read")
                 if isinstance(event, (tuple, list)):
                     from .native_corpus import NativeDirectSourceAuthorizedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1
                     from .native_reads import (_NativeReadOperation, authorize_direct_sources_locked,
@@ -2582,11 +2595,13 @@ class AgentConversationService:
             authorization_event_id=authorization_event_id, read=read)
 
     def conclude_native_read_batch(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, selection_event_id):
+            expected_revision, expected_attempt, event_id, selection_event_id,
+            exhausted_continuation=None):
         from .native_batch_completion import conclude_selected_batch
         return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            producer=conclude_selected_batch, event_id=event_id, selection_event_id=selection_event_id)
+            producer=conclude_selected_batch, event_id=event_id, selection_event_id=selection_event_id,
+            exhausted_continuation=exhausted_continuation)
 
     def authorize_initial_native_source_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):

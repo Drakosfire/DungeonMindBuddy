@@ -350,8 +350,9 @@ class PlanJevDriver:
                     self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
             from application_state.agent_conversation.native_batch_completion import selected_read_closure
             turn = self.adapter.fence.turn
+            exhausted = getattr(admitted, 'exhausted_continuation_offer', None)
             if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
-                    admitted.event_id) is not None:
+                    admitted.event_id, exhausted_continuation=exhausted) is not None:
                 if not self.continuation_reviewed:
                     continuation = self.native_sources.continuation_offers()
                     if continuation:
@@ -360,7 +361,8 @@ class PlanJevDriver:
                         return
                 from uuid import uuid4
                 self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
-                    event_id=uuid4(), selection_event_id=admitted.event_id)
+                    event_id=uuid4(), selection_event_id=admitted.event_id,
+                    exhausted_continuation=exhausted)
                 if not fresh:
                     raise ValueError('Read-batch conclusion requires its actual committed successor')
                 self.finished = True
@@ -817,7 +819,8 @@ class PlanJevDriver:
             while not self.finished:
                 with trace.measure_host_work("retrieval_candidate_preparation") if trace is not None else nullcontext():
                     with measure("native_first_jev_candidate_preparation"):
-                        dispatch = PlanJevDispatch(self.adapter, **self.decision_arguments())
+                        dispatch = PlanJevDispatch(self.adapter, **self.decision_arguments(),
+                            bounded_continuation=self.continuation_candidates is not None)
                 self.current = dispatch
                 try:
                     with trace.measure_host_work("retrieval_decision") if trace is not None else nullcontext():

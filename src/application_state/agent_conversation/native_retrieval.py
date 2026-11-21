@@ -55,6 +55,8 @@ class NativeRetrievalSelectedV1(t.PlanJevRetrievalSelectionV1):
 class NativeRetrievalSelectedV2(NativeRetrievalSelectedV1):
     kind: Literal['native_retrieval_selected_v2'] = 'native_retrieval_selected_v2'
     post_read_plan: Literal['review_after_reads', 'finish_if_selected_reads_succeed']
+    exhausted_continuation_offer: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 NATIVE_RETRIEVAL_SELECTION_TYPES = (NativeRetrievalSelectedV1, NativeRetrievalSelectedV2)
@@ -78,6 +80,8 @@ class NativeReadBatchConcludedV1(t.StrictModel):
     sequence: int = Field(ge=0, strict=True)
     selection_event_id: UUID
     read_event_ids: tuple[UUID, ...]
+    exhausted_continuation: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 def _action(execution):
@@ -230,6 +234,23 @@ def verify_input(turn, auth, proof):
     return parent
 
 
+def exhausts_continuation_offer(parent, selected):
+    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
+
+    if (type(parent) is not NativePlanBatchDecisionInputV3
+            or parent.bounded_continuation is not True
+            or parent.allowed_operations != ("select_candidates", "finish_retrieval")
+            or selected.operation != "select_candidates"
+            or selected.post_read_plan != "review_after_reads"
+            or not parent.candidates):
+        return None
+    handles = {candidate.handle for candidate in parent.candidates}
+    if (handles == set(selected.selected_handles)
+            and all(handle.startswith("native-body:") for handle in handles)):
+        return True
+    return None
+
+
 def verify_selection(turn, event, proof, trace):
     from .source_writer_output import strict_json
     from .jev_retrieval_contract import decode_selection, validate_source_selection
@@ -299,6 +320,9 @@ def verify_selection(turn, event, proof, trace):
         )
     result = DecisionResult.model_validate(strict_json(raw))
     selected = decode_selection(parent, result)
+    if (type(event) is NativeRetrievalSelectedV2
+            and event.exhausted_continuation_offer != exhausts_continuation_offer(parent, selected)):
+        raise ValueError("Native selection differs from the accepted bounded continuation offer")
     if event.exclusion_replay is not None:
         from .jev_retrieval_contract import retrieval_exclusions_for_replay
         if event.exclusion_replay != retrieval_exclusions_for_replay(parent, result):
@@ -429,7 +453,12 @@ def validate_decision_phases(execution):
                     or type(selected) not in prospective_selection_types()
                     or selected.operation != 'select_candidates'
                     or selected.event_id != event.selection_event_id
-                    or selected.post_read_plan != 'finish_if_selected_reads_succeed'):
+                    or (event.exhausted_continuation is True and (
+                        type(selected) is not NativeRetrievalSelectedV2
+                        or selected.exhausted_continuation_offer is not True))
+                    or selected.post_read_plan != (
+                        'review_after_reads' if event.exhausted_continuation
+                        else 'finish_if_selected_reads_succeed')):
                 raise ValueError('Read batch conclusion lacks its active prospective plan')
             retrieval_finished = True
             continue

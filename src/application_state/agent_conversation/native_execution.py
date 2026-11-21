@@ -780,7 +780,7 @@ def _join_context_binding(context, execution):
     for event in execution.events:
         if type(event) is NativeReadBatchConcludedV1:
             expected = selected_read_closure(context, execution, event.selection_event_id,
-                before_sequence=event.sequence)
+                before_sequence=event.sequence, exhausted_continuation=event.exhausted_continuation)
             if expected is None or event.read_event_ids != expected:
                 raise ValueError('Read-batch conclusion differs from its actual selected successful closure')
     return execution

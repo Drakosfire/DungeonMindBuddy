@@ -524,3 +524,36 @@ def test_prospective_plan_is_explicit_independent_and_does_not_replace_fallback(
     answers.pop('post_read_plan')
     with pytest.raises(ValueError, match='Missing'):
         c.decode_selection(parent, result(answers=answers))
+
+
+def test_bounded_continuation_exhaustion_requires_every_exact_section():
+    from application_state.agent_conversation import jev_retrieval_contract as c
+    from application_state.agent_conversation.native_retrieval import exhausts_continuation_offer
+
+    base = request()
+    fields = base.model_dump(exclude={'schema_', 'revision'})
+    sections = tuple(
+        candidate.model_copy(update={'handle': f'native-body:{index}'})
+        for index, candidate in enumerate(base.candidates)
+    )
+    historical = c.NativePlanBatchDecisionInputV3(**(fields | dict(
+        source_authority_status='available', source_revision='private', graph_revision='private',
+        candidates=sections, allowed_operations=('select_candidates', 'finish_retrieval'),
+    )))
+    bounded = historical.model_copy(update={'bounded_continuation': True})
+    assert 'bounded_continuation' not in historical.model_dump()
+    assert bounded.digest != historical.digest
+    assert c.prepare_decision(bounded) == c.prepare_decision(historical)
+
+    selected = c.PlannedRetrievalSelection(
+        operation='select_candidates', selected_handles=tuple(row.handle for row in sections),
+        post_read_plan='review_after_reads',
+    )
+    assert exhausts_continuation_offer(bounded, selected) is True
+    assert exhausts_continuation_offer(historical, selected) is None
+    assert exhausts_continuation_offer(bounded, selected.model_copy(update={
+        'selected_handles': selected.selected_handles[:1],
+    })) is None
+    assert exhausts_continuation_offer(bounded.model_copy(update={
+        'allowed_operations': ('select_candidates', 'discover_more', 'finish_retrieval'),
+    }), selected) is None
