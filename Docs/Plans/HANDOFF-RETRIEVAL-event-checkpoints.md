@@ -9,7 +9,8 @@ owners. No Core, provider, writer, browser or primary database changes.
 The bounded write set is the agent conversation APP repository, the
 NativePlanSession owner, one internal event-checkpoint storage module and
 migration, the claim/recovery owner if needed for atomic materialization,
-their database contract tests, and this handoff. Verify the lifecycle SQL
+the APP context trace reader that verifies durable authorization, their
+database contract tests, and this handoff. Verify the lifecycle SQL
 reader inventory before introducing an open-checkpoint state.
 
 ## Invariant and test

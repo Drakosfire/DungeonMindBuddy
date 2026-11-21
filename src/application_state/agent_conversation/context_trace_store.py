@@ -331,6 +331,13 @@ class TurnContextTraceStore:
                 or turn[3] != attempt or turn[4] is None or turn[4] <= turn[5]
             ):
                 raise ApplicationStateConflictError("trace append is fenced by a stale or expired claim")
+            execution = turn[6]
+            if execution is not None:
+                from .plan_execution_checkpoints import trace_checkpoint_execution
+
+                execution = trace_checkpoint_execution(conn, turn_id, attempt, execution,
+                    provider_attempt_id=observation.provider_attempt_id
+                    if isinstance(observation, TracePromptReference) else None)
             row = _trace_row(conn, turn_id, attempt)
             if row is None:
                 raise ApplicationStateNotFoundError("context trace was not started")
@@ -340,7 +347,7 @@ class TurnContextTraceStore:
             if trace.closed_at is not None:
                 raise ApplicationStateConflictError("context trace is already closed")
             if isinstance(observation, TraceAuthoredGraphReferenceV1):
-                validate_authored_reference_observation(observation, turn[6], trace)
+                validate_authored_reference_observation(observation, execution, trace)
             if observation.sequence < len(trace.observations):
                 if trace.observations[observation.sequence] == observation:
                     return trace
@@ -352,14 +359,14 @@ class TurnContextTraceStore:
                     "source passage observations must be committed with their validated source-read event"
                 )
             if isinstance(observation, TracePromptReference):
-                validate_prompt_authorization(observation, turn[6], trace.execution_start_sequence)
+                validate_prompt_authorization(observation, execution, trace.execution_start_sequence)
                 if any(isinstance(item, TracePromptReference) and item.provider_attempt_id == observation.provider_attempt_id
                        for item in trace.observations):
                     raise ApplicationStateValidationError("provider request already has a prompt reference")
             if isinstance(observation, TraceGraphTool):
-                _validate_graph_tool_observation(observation, turn[6])
+                _validate_graph_tool_observation(observation, execution)
             if isinstance(observation, TraceContextSnapshot):
-                if not _historical_sources_available(conn, trace, observation, turn[7], turn[6]):
+                if not _historical_sources_available(conn, trace, observation, turn[7], execution):
                     incomplete = TurnContextTraceV1.model_validate({
                         **trace.model_dump(mode="python"),
                         "capture_status": "incomplete",
