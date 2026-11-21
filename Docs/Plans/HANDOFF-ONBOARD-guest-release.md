@@ -176,7 +176,10 @@ the custom test includes the compiler-admitted hyphenated predicate
 The guest-release Python tests are inventoried as domain-integration and grouped
 under the `guest-release` local contract. The guest entry and component tests
 are classified and included in the shared hosted frontend contract. The
-hosted verifier passed at earlier integrated SHA
+existing `src/localWorld` selector remains first in that contract: moving it
+behind new guest selectors violated the ownership CI contract guard. The
+selector order is restored without dropping the guest coverage. The hosted
+verifier passed at earlier integrated SHA
 `a3c3d8121823e236c31606d2524f6f01959da461`, but that earlier contract omitted
 these guest frontend tests and cannot qualify the updated head. Re-run and
 validate exact-head hosted and discovered evidence after the integration and
