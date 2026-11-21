@@ -418,7 +418,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or saved_statblock in {"associated", "by-name"}
-                    or authored_source == 'source_only' or current_work == "review_lore_page")
+                    or authored_source == 'source_only'
+                    or current_work in {"review_lore_page", "review_lore_page_from_conversation"})
             assert 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
@@ -488,7 +489,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert list(passages) == list(review["properties"]) == review["required"]
                     assert "markdown" not in work["current_draft"]
                     candidate["statblock_variant"]["passage_review"] = dict.fromkeys(passages, "omit")
-            if native_body or authored_source:
+            if (native_body or authored_source) and current_work != "review_lore_page_from_conversation":
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
                 assert acquired
@@ -500,7 +501,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                         excerpt_handles=[r['excerpt_handle'] for r in exposed]))
                 else:
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
-            if requested_work == "review_lore_page":
+            if current_work == "review_lore_page_from_conversation":
+                exposed = frame["native_body_evidence"]["excerpts"]
+                assert exposed
+                candidate["answer_segments"] = [dict(kind="native_body_claim",
+                    text="The source describes a source-local episode.",
+                    excerpt_handles=[row["excerpt_handle"] for row in exposed])]
+            if current_work in {"review_lore_page", "review_lore_page_from_conversation"}:
                 from apps.live_control_server.services.plan_jev_writer import LORE_PROPOSAL_GUIDANCE
 
                 author_text = self.adapter.turn.user_text
@@ -1196,7 +1203,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
         return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
-    if requested_work == "review_lore_page":
+    if (requested_work(message) if callable(requested_work) else requested_work) == "review_lore_page":
         assert context["completion"]["collaboration"]["kind"] == "lore_page"
         assert not context["completion"]["native_assertion_citations"]
         history = client.get(
@@ -2461,12 +2468,14 @@ def test_standalone_page_intent_preserves_the_page_owner_boundary(lane, tmp_path
 
 
 
-def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("carry", [False, True])
+def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry):
     from application_state.agent_conversation.native_corpus import acquired_body_reads
 
     from evals.buddy_benchmark import workflow
 
     thread_id, template = str(uuid4()), {}
+    synthesis = "Create a page for Glass Regent."
 
     def first(client, world, body):
         body["client_thread_id"] = thread_id
@@ -2476,7 +2485,8 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Create a blank page for Glass Regent.",
-        requested_work="review_lore_page", native_body="direct_support", dispatch=first, lore_limitation=True,
+        requested_work=lambda message: "review_lore_page_from_conversation" if message == synthesis else "review_lore_page",
+        native_body="direct_support", dispatch=first, lore_limitation=True,
     )
     blank = case.turn
     assert not blank.completion.answer_segments
@@ -2496,6 +2506,19 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     from application_state.agent_conversation.rules_authority_types import canonical_sha256
     from application_state.content import pages
 
+    producing = populated
+    if carry:
+        response = workflow.capture_case(
+            case.client, case.world, template, {"question": synthesis},
+            tmp_path / "lore-synthesis", build_thread_id=thread_id,
+            expected_conversation_id=str(blank.conversation_id),
+        )
+        assert response.status_code == 200, response.text
+        history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
+        row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
+        populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
+        assert not acquired_body_reads(populated.graph_context_execution)
+        assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
     completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
     followup = workflow.capture_case(
@@ -2558,7 +2581,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     assert all(segment.text not in reopened.revision.markdown for segment in completion.answer_segments
                if segment.kind == "limitation")
     reads = {
-        read.event_id: read.excerpt.text for read in acquired_body_reads(populated.graph_context_execution)
+        read.event_id: read.excerpt.text for read in acquired_body_reads(producing.graph_context_execution)
     }
     assert completion.native_body_citations
     import re
