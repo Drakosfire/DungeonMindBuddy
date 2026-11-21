@@ -55,6 +55,177 @@ def request_for(capture, catalog):
         plan_requested_operation=None)
 
 
+def family_catalog(nodes, *, with_headings=False):
+    """Occurrence geometry fixture; production compiler parity is checked separately."""
+    def size(node):
+        if node['type'] == 'text':
+            return len(node['text'].encode('utf-16-le')) // 2
+        if node['type'] == 'hardBreak':
+            return 1
+        return 2 + sum(size(child) for child in node.get('content', []))
+    editor = json.dumps(dict(type='doc', content=nodes), separators=(',', ':'))
+    selection = json.dumps(dict(type='text', anchor=1, head=1), separators=(',', ':'))
+    markdown = '\n\n'.join(''.join(child.get('text', '') for child in node.get('content', [])) for node in nodes)
+    capture = PlanAuthoringCaptureV1.model_validate(capture_payload() | dict(
+        editor_json=editor, editor_sha256=text_digest(editor), selection_json=selection,
+        selection_sha256=text_digest(selection), draft_markdown=markdown, draft_sha256=text_digest(markdown),
+        target_kind='insert_at_caret', selected_text='', **{'from': 1, 'to': 1}))
+    entries = [PlanPlacementOptionV2(selector='captured', kind='captured_target', label='At the captured text caret',
+        source_root_index=None, root_boundary=None, position=None, target_capture_sha256=capture.sha256)]
+    if with_headings:
+        from application_state.agent_conversation.plan_placement import _placement_headings
+        for source in _placement_headings(nodes):
+            boundary = source['index'] + 1
+            row = PlanPlacementOptionV2(selector=f'place{len(entries)}', kind='after_heading',
+                label=f"Directly below the heading {source['label']}, before its existing body",
+                source_root_index=source['index'], root_boundary=boundary,
+                position=sum(size(n) for n in nodes[:boundary]), target_capture_sha256='0' * 64)
+            entries.append(row.model_copy(update={'target_capture_sha256': row.derived_target(capture).sha256}))
+    for index, node in enumerate(nodes):
+        if node['type'] != 'paragraph':
+            continue
+        for kind, boundary in [('before_paragraph', index), ('after_paragraph', index + 1)]:
+            row = PlanPlacementOptionV2(selector=f'place{len(entries)}', kind=kind,
+                label=paragraph_placement_label(nodes, index, kind), source_root_index=index,
+                root_boundary=boundary, position=sum(size(n) for n in nodes[:boundary]), target_capture_sha256='0' * 64)
+            entries.append(row.model_copy(update={'target_capture_sha256': row.derived_target(capture).sha256}))
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=capture.sha256,
+        editor_sha256=capture.editor_sha256, entries=tuple(entries))
+    catalog.require_original(capture)
+    return capture, catalog
+
+
+def prose(text):
+    return dict(type='paragraph', content=[dict(type='text', text=text)])
+
+
+def heading(text, level=2):
+    return dict(type='heading', attrs=dict(level=level), content=[dict(type='text', text=text)])
+
+
+def component_result(capture, catalog, *, scope='unscoped', path=None, relation='after_paragraph'):
+    from application_state.agent_conversation.plan_contextual_targets import component_inventory, resolve_component_targets
+    inventory = component_inventory(capture, catalog)
+    sections = tuple(entry['view']['selector'] for entry in inventory['sections']
+        if entry['view']['heading_path'] in (path or []))
+    return resolve_component_targets(capture, catalog, 'write_current_page', relation, scope, (),
+        (inventory['passages'][0]['view']['selector'],), sections)
+
+
+def test_passage_families_expand_all_occurrences_before_named_scope_filters():
+    capture, catalog = family_catalog([heading('Preparation'), prose('Shared.'), heading('Rumours'), prose('Shared.')])
+    result = component_result(capture, catalog)
+    assert result['target_resolution'] == 'ambiguous' and len(result['compatible_anchor_selectors']) == 2
+    assert len(result['compatible_passage_selectors']) == 1
+    result = component_result(capture, catalog, scope='named', path=[['Preparation']])
+    assert result['requested_work'] == 'write_current_page'
+    assert catalog.resolve(capture, result['placement_selector']).root_boundary == 2
+    missing = component_result(capture, catalog, scope='named', path=[['Absent']])
+    assert missing['target_resolution'] == 'missing' and missing['placement_selector'] is None
+
+
+def test_duplicate_section_paths_expand_their_ranges_instead_of_picking_one():
+    from application_state.agent_conversation.plan_contextual_targets import component_inventory
+    capture, catalog = family_catalog([heading('Preparation'), prose('Shared.'), heading('Preparation'), prose('Shared.')])
+    inventory = component_inventory(capture, catalog)
+    assert len(inventory['sections']) == 1 and len(inventory['sections'][0]['anchors']) == 2
+    result = component_result(capture, catalog, scope='named', path=[['Preparation']])
+    assert result['requested_work'] == 'clarify' and result['target_resolution'] == 'ambiguous'
+
+
+def test_direct_heading_occurrence_labels_remain_available_for_legacy_disambiguation():
+    from application_state.agent_conversation.plan_contextual_targets import component_inventory, resolve_component_targets
+    capture, catalog = family_catalog([heading('Preparation'), prose('One.'), heading('Preparation'), prose('Two.')], with_headings=True)
+    headings = [entry for entry in component_inventory(capture, catalog)['direct'] if entry['view']['kind'] == 'heading']
+    assert [entry['view']['label'] for entry in headings] == ['Preparation · 1 of 2', 'Preparation · 2 of 2']
+    second = resolve_component_targets(capture, catalog, 'write_current_page', 'after_heading', 'not_applicable',
+        (headings[1]['view']['selector'],), (), ())
+    assert catalog.resolve(capture, second['placement_selector']).root_boundary == 3
+
+
+def test_named_table_caption_is_not_promoted_to_a_paragraph_scope():
+    from application_state.agent_conversation.plan_contextual_targets import component_inventory
+    table = dict(type='table', content=[dict(type='tableRow', content=[dict(type='tableCell',
+        attrs=dict(colspan=1, rowspan=1), content=[prose('Loot.')])])])
+    capture, catalog = family_catalog([heading('Treasure'), table, prose('Shared.')])
+    assert component_inventory(capture, catalog)['sections'] == []
+    assert component_result(capture, catalog, scope='named')['requested_work'] == 'clarify'
+
+
+def test_nested_scope_uses_complete_title_arrays_and_actual_containment():
+    capture, catalog = family_catalog([heading('Chapter One', 1), heading('Preparation'), prose('Shared.'),
+        heading('Reports'), prose('Shared.'), heading('Chapter Two', 1), heading('Preparation'), prose('Shared.')])
+    assert component_result(capture, catalog, scope='named', path=[['Chapter One']])['target_resolution'] == 'ambiguous'
+    child = component_result(capture, catalog, scope='named', path=[['Chapter One', 'Preparation']])
+    assert child['requested_work'] == 'write_current_page'
+    assert catalog.resolve(capture, child['placement_selector']).root_boundary == 3
+    abbreviated = component_result(capture, catalog, scope='named',
+        path=[['Chapter One', 'Preparation'], ['Chapter Two', 'Preparation']])
+    assert abbreviated['target_resolution'] == 'ambiguous'
+    unknown_child = component_result(capture, catalog, scope='named', path=[['Chapter One', 'Absent']])
+    assert unknown_child['target_resolution'] == 'missing'
+
+
+def test_delimiter_in_heading_title_does_not_merge_a_distinct_structured_path():
+    from application_state.agent_conversation.plan_contextual_targets import component_inventory
+    capture, catalog = family_catalog([heading('A / B', 1), prose('Shared.'), heading('A', 1), heading('B'), prose('Shared.')])
+    paths = [entry['view']['heading_path'] for entry in component_inventory(capture, catalog)['sections']]
+    assert ['A / B'] in paths and ['A', 'B'] in paths
+    result = component_result(capture, catalog, scope='named', path=[['A / B']])
+    assert catalog.resolve(capture, result['placement_selector']).root_boundary == 2
+
+
+def test_root_prose_is_not_silently_included_by_a_named_section():
+    capture, catalog = family_catalog([prose('Shared.'), heading('Later'), prose('Shared.')])
+    assert component_result(capture, catalog)['target_resolution'] == 'ambiguous'
+    named = component_result(capture, catalog, scope='named', path=[['Later']])
+    assert catalog.resolve(capture, named['placement_selector']).root_boundary == 3
+    root, root_catalog = family_catalog([prose('Root only.')])
+    assert component_result(root, root_catalog)['requested_work'] == 'write_current_page'
+    assert component_result(root, root_catalog, scope='named')['target_resolution'] == 'missing'
+
+
+def test_equal_visible_text_keeps_inline_structure_and_every_capture_identity():
+    from application_state.agent_conversation.plan_contextual_targets import component_inventory
+    first = prose('Shared.')
+    second = dict(type='paragraph', content=[dict(type='text', text='Shared.',
+        marks=[dict(type='link', attrs=dict(href='https://example.test/source')), dict(type='bold')])])
+    capture, catalog = family_catalog([first, second])
+    before = capture.editor_json
+    assert len(component_inventory(capture, catalog)['passages']) == 1
+    result = component_result(capture, catalog)
+    assert result['target_resolution'] == 'ambiguous' and len(result['compatible_placement_selectors']) == 2
+    assert capture.editor_json == before
+    a, b = (catalog.resolve(capture, key) for key in result['compatible_placement_selectors'])
+    assert a.sha256 != b.sha256 and a.editor_json == b.editor_json == before
+
+
+def test_passage_equality_preserves_case_whitespace_and_projected_hard_breaks():
+    from application_state.agent_conversation.plan_contextual_targets import component_inventory
+    split = dict(type='paragraph', content=[dict(type='text', text='A'), dict(type='hardBreak'), dict(type='text', text='B')])
+    capture, catalog = family_catalog([prose('A\nB'), split, prose('a\nB'), prose(' A\nB')])
+    passages = component_inventory(capture, catalog)['passages']
+    assert [entry['view']['text'] for entry in passages] == ['A\nB', 'a\nB', ' A\nB']
+    assert len(passages[0]['anchors']) == 2
+
+
+def test_unresolved_scope_and_inconsistent_factors_cannot_acquire_a_target():
+    from application_state.agent_conversation.plan_contextual_targets import resolve_component_targets
+    capture, catalog = family_catalog([heading('Only'), prose('Unique.')])
+    unresolved = component_result(capture, catalog, scope='unresolved', path=[['Only']])
+    assert unresolved['requested_work'] == 'clarify' and unresolved['target_capture_sha256'] is None
+    for relation, scope, direct, passages, sections in [
+        ('after_paragraph', 'unscoped', (), ('passage0',), ('section0',)),
+        ('after_paragraph', 'not_applicable', (), ('passage0',), ()),
+        ('after_paragraph', 'unscoped', ('direct0',), ('passage0',), ()),
+        ('captured', 'not_applicable', ('direct0',), ('passage0',), ()),
+        ('after_paragraph', 'named', (), ('passage0',), ('foreign',)),
+        ('after_paragraph', 'unscoped', (), ('passage0', 'passage0'), ()),
+    ]:
+        with pytest.raises(ValueError):
+            resolve_component_targets(capture, catalog, 'write_current_page', relation, scope, direct, passages, sections)
+
+
 def test_equivalent_aliases_resolve_one_capture_without_discarding_nominations():
     capture, catalog = captured_catalog()
     result = resolve_targets(capture, catalog, "write_current_page", ("place2", "place1"))
@@ -94,8 +265,9 @@ def test_deliberate_selection_remains_exclusive_despite_duplicate_source_text():
 def test_location_votes_are_complete_and_model_view_contains_no_host_bindings():
     capture, catalog = captured_catalog()
     request = request_for(capture, catalog)
-    answers = {'placement_relation': 'after_paragraph', **{f'anchor_{i}': 'exclude'
-        for i in range(len(contextual_anchors(request)))}}
+    from application_state.agent_conversation.plan_contextual_targets import target_answer_keys
+    answers = {key: 'exclude' for key in target_answer_keys(request)} | {
+        'placement_relation': 'after_paragraph', 'paragraph_scope': 'unscoped'}
     assert compatible_selectors(request, answers) == ()
     with pytest.raises(ValueError):
         compatible_selectors(request, answers | {'anchor_99': 'include'})
@@ -245,7 +417,10 @@ def test_actual_model_multiple_nominations_clarify_without_reservation_or_factua
                    {'compatible_placement_selectors': ('place1',)},
                    {'compatible_placement_selectors': ('foreign',)},
                    {'requested_placement_relation': 'before_paragraph'},
-                   {'compatible_anchor_selectors': ('anchor0',)}):
+                   {'compatible_anchor_selectors': ('anchor0',)},
+                   {'requested_paragraph_scope': 'not_applicable'},
+                   {'compatible_passage_selectors': ('foreign',)},
+                   {'direct_anchor_selectors': ('direct0',)}):
         with pytest.raises(ValueError):
             NativePlanOpeningSelectedV2.model_validate(selection.model_dump() | fields)
     expected = output_format(turn.graph_context_execution)['schema']['properties']['question']['enum'][0]

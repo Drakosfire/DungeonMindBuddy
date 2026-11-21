@@ -1,593 +1,244 @@
 # Ordinary Plan contextual paragraph placement
 
-Status: ACTIVE. The initial inert preparation gate on #4240 is resolved: that PR
-merged, and the first integration used main6f8af81e6dd47ec92b5ef9a0180e2e34ffd104c4
-containing its actual 0170 migration. This lane now consumes main
-fa1536c28ea900f6f01a0772f657e1510806f081, preserving the merged tracing changes,
-DungeonMind1c8f9d7ce755cd45f2ff8a8c0b36b68f514bd245 pin, and #4277's released semantic-block
-authoring guidance. Alan explicitly chose #4240 first, then
-0171 after0170. The authorized fence is now allocated as
+Status: ACTIVE implementation in draft PR #4264; acceptance remains RED. This is
+one serial plain-Plan capability. No successor is dispatched and no deployment,
+production migration execution or serving-pin change is included.
+
+## Authority, lane and dependencies
+
+Alan granted full authority over this lane and directed no further routine
+approval requests. This supersedes earlier pending shared-file and synthetic
+provider/browser approval questions. Implementation, synthetic benchmarking,
+independent review and merge after gates are authorized. Preserve other lanes'
+hosted authorization, rollout, welcome behavior, retrieval ordering, source
+attribution and citation behavior outside this contextual capability.
+
+Branch: `codex/plan-contextual-paragraphs`.
+Checkout: `/home/drakosfire/Projects/.codex/bf5b/DungeonMindBuddy`.
+Pinned integration base: `fa1536c28ea900f6f01a0772f657e1510806f081`.
+Locked Core: `1c8f9d7ce755cd45f2ff8a8c0b36b68f514bd245`.
+The integration preserves #4277 semantic-block writer guidance.
+
+Save predecessors #4243 and #4248 merged as
+`08d23da86a079121b7b31812e93db1857df17864` and
+`97c89e93c13a79c1c5e319bf28409b1c78f62b53`. Their persistence evidence does not
+qualify ordinary authoring. #4240's actual0170 migration is merged. Alan chose
+#4240 first, then0171. The one allocated forward-only reader fence is
 `20261120_0171_plan_paragraph_placement_reader_fence.py`, down_revision0170.
-No production migration execution or deployment. V2 public admission/producer
-wiring is implemented in draft #4264. Real Jev targeting and the browser/native
-Save witness passed at c274197a before rebase; exact-current integrated verification
-and final independent review remain pending. Scripted prose is not real-writer
-quality or hosted/release qualification. Historical checkpoints below describe
-their recorded heads, not an instruction to leave consumers inert.
+No additional migration is allocated here and none is run against operator data.
 
-## Outcome and delivery
+Previously audited overlaps include #3824/#1014/#1188 targeting/frontend paths
+and #2225/#2462/#3290/#3307 native/driver/writer paths. Alan's bounded splits and
+full-lane authority cover contextual changes only, preserving those owners'
+other behavior. Re-anchor and audit fresh refs/leases before review or merge.
 
-One serial capability: normal Buddy Send nominates a before/after root-paragraph
-boundary on a genuinely plain Plan, then uses existing proposal/apply and explicit
-Save. No selection required; an incidental caret never wins over the request.
-Ambiguity/not-found/discussion must not edit, reserve or Save. Stale/foreign
-context refuses; deliberate selection can recover. Preserve unrelated content,
-Undo/Redo and real Save/cold reopen. Composed Plan and Build are later separately
-qualified slices, not acceptance inferred from this plain-Plan slice.
+## Outcome and bounds
 
-Branch `codex/plan-contextual-paragraphs`, isolated checkout
-`/home/drakosfire/Projects/.codex/bf5b/DungeonMindBuddy`, pinned initial base
-`45eb72ab2fa673bfe05bc0effbaa7b7acdd9694d`. Predecessors #4243 and #4248 are
-merged as 08d23da86a079121b7b31812e93db1857df17864 and
-97c89e93c13a79c1c5e319bf28409b1c78f62b53. Their technical evidence and independent
-reviews do not establish ordinary chat or release qualification.
+Normal Buddy Send on a genuinely plain Plan places prose before/after the named
+root paragraph despite an unrelated caret. Existing heading/section/end and
+explicit selected-text operations remain bounded by their real capture.
+The returned native suggestion uses existing review/apply and explicit Save.
+Ambiguous, absent, unsupported, stale or foreign targeting cannot reserve an edit
+or mutate source. Discussion stays conversational. Preserve unrelated editor
+JSON, stable identities, Undo/Redo, real Save and empty-storage cold reopen.
 
-## Authority and write boundary
+Composed Plan, Build, typed existing Graph references, independent new-statblock
+proof and bounded adjacent image movement are later separately qualified slices
+of the full goal. Plan Cards and Play receive no inferred acceptance from this PR.
 
-IN PROGRESS contract amendment after4c9dd6b5: the single fresh24 actual-model run
-remains RED (nomination23/24; one ambiguous request reserved/proposed; functional
-questions3/6; clean intended insertions11/12). Editable host-footer contamination
-is fixed. The first actual browser witness passed placement/Save/Undo/Redo/cold
-reopen/390px and ambiguous refusal, but deliberately selected replacement was
-misclassified as clarification. Keep both runs and their private oracle frozen.
+## Current semantic and native contract
 
-This same serial plain-Plan capability now separates intent from the complete
-set of compatible locations. `NativePlanActionV3`, requested-work InputV9,
-opening InputV2 and opening selection V2 bind the new interpretation; old action,
-input and event codecs remain historical.
-The new work input is admitted only through the combined opening V2 route;
-there is no standalone V9 selected-work event or authority path.
-Host resolution deduplicates derived capture hashes and writes only for one distinct target. Deliberate selection is
-explicit semantic context, never model-visible positions/identities/hashes.
-Current clarification uses a dedicated question-only SDK output. Target questions
-are derived from the retained set; content questions remain model-authored.
-Question mode has no factual retrieval or evidence-answer citation authority.
-Actual captured question bytes are normalized by their own decoder; no synthetic
-SDK result or rewritten ordinary-answer envelope is manufactured. Authoring
-input separately identifies new insertion versus captured replacement, preserving
-existing anchor text unless restatement was explicitly requested.
+CatalogV2 offers opaque local placement selectors with explicit paragraph kinds.
+The host verifies every label, root, boundary, position and derived capture against
+the original editor snapshot. Composed roots are excluded. An explicit replacement
+catalog contains only its captured span and cannot broaden into insertion.
+V1 wire values, default decoder behavior and historical proof branches remain
+unchanged. Native ActionV3 pairs only with combined opening InputV2 and selection
+V2. The requested-work InputV9 is consumed through that combined opening, not a
+standalone authority route.
 
-Twenty dev cases (eight earlier dev plus twelve new controls) were frozen before
-this revision under external `compatible-set-dev`; no private heldout answers
-are used for tuning. This is still PR4264, with no parallel successor or new
-capability. The unreleased0171 reader fence covers the versioned native JSON;
-no production migration is run and no additional fence is allocated here.
-Fresh open-PR audit found bounded overlaps with #2225/#2462/#3290/#3307;
-Alan's full-lane authorization covers these contextual-only splits. Preserve
-their historical codecs, retrieval ordering outside the new question mode,
-source attribution, authorization and other-surface behavior. The expanded lease
-includes `plan_source_turn.py`, `plan_jev_dispatch.py`, `plan_jev_driver.py`,
-`plan_jev_writer.py`, `corpus_source_navigation.py`; and agent_conversation `native_execution.py`,
-`native_plan_opening.py`, `native_retrieval.py`, `jev_retrieval_contract.py`,
-`plan_jev_decision.py`, `native_writer.py`, `native_plan_session.py`,
-`native_corpus.py`, `build_related_pages.py`, `connected_page_origins.py`,
-`plan_placement.py`, `plan_authoring.py`, `plan_jev_graph_packet.py`,
-`native_plan_work_view.py`, `plan_writer_output_schema.py`, `response_prompt.py`,
-`native_completion.py`, new `plan_contextual_targets.py` and
-`plan_contextual_questions.py`, and their owning native/domain tests.
-The existing CI contract and test-classification registries include the new
-owning test module; no workflow or selector changes are included.
-Validate the resolver algebra, real admission/replay/negative effects, V1 bytes,
-and captured selection before paid dev evaluation. Freeze the completed contract
-before another independent writer qualification. Earlier passing SHA evidence
-is not final qualification of this in-progress revision.
+Jev retains all semantic targeting authority in one actual combined SDK batch:
 
-The first DEV20 execution at cd23e4bd5 is retained RED:16/20 work/target
-decisions,6/10 requested writes delivered, all6 delivered fragments core/clean,
-7/8 required clarification questions and1/2 useful discussion answers. All12
-clarification outputs had the actual question-only shape; zero negative
-authoring or source changes. Four unnecessary clarifications exposed overbroad
-or missing semantic nominations. The next dev amendment clarifies immediate
-anchor adjacency, content-independent placement votes and the selected-target
-authority question, and distinguishes hypothetical discussion from missing facts.
-The initial backend diagnostic had13 regressions from an unconditional broker
-lookup on legacy paths; the guard is restricted to an actual native fence.
-These failures remain retained, and all source/evidence requires renewed checks.
+- Requested work is independent of target availability. A clear write request
+  remains raw writing even when host resolution must clarify its destination.
+- One typed placement relation distinguishes paragraph sides, heading placement,
+  entire-section placement, page end and the real capture. Independent multiple
+  relations must clarify. Directly under a heading/before its existing body is
+  one canonical after_heading relation, not a new compound capability.
+- Paragraph content votes select exact projected-visible-text families, separately
+  from section scope. Equality preserves case, whitespace and hard breaks.
+  Grouping is a semantic predicate, never a shared edit identity. Expand every
+  family to ALL eligible original occurrences with their individual marks, links,
+  source roots, geometry and captures intact.
+- Paragraph scope is unscoped, one named semantic description, unresolved or
+  inapplicable. Structured heading-title tuples remain arrays; delimiter-joined
+  strings are not identities. Duplicate occurrences of one path expand to the
+  union of their actual semantic ranges. Descendants belong to an ancestor when
+  that ancestor alone is requested; a named child cannot fall back to its parent.
+  Abbreviated names may match multiple path families, all of which remain eligible.
+- Explicit independent OR/AND/contradictory scopes and paragraph ordinal/positional
+  section qualifiers are unsupported and must remain unresolved. Selection is a
+  recovery path. Direct heading occurrence labels retain legacy ordinal detail.
+  Named-but-unmatched scope produces no candidates, never unscoped fallback.
+  Pre-heading prose has no named heading scope. Named-table captions use the
+  existing semantic-caption exclusion rules.
+- Direct capture, heading and end votes remain separate from paragraph factors.
+  Foreign/duplicate aliases and inconsistent inactive factors reject. An unresolved
+  relation or scope cannot become writing merely because another factor is unique.
 
-The second paid DEV20 run at9b46 retained all20 raw provider exchanges, but an
-observer-only helper incorrectly called the clarification renderer for11
-writing or discussion outcomes before saving host observations. No provider
-retry was used to recover them: an offline replay compared each complete
-outbound JSON request with its captured original and supplied only captured
-response bytes, with provider sockets blocked. It reconstructed19 successful
-runtime outcomes and reproduced one genuine failure. That failure was the
-protected producer trace using aggregate commentary+final text while the SDK
-correctly selected a valid final answer. Current ActionV3 now captures that same
-SDK-selected final after its digest acknowledgment; historical aggregate debug
-capture is preserved. This is a host proof correction, not a rewritten SDK
-reply. Original paid-run effects and reconstructed fixture effects remain
-separate evidence; neither the observer defect nor runtime failure is erased.
-Exact-request offline replay at0d8fe5133 then passed all20 runtime cases with
-the selected-final correction. The underlying9b46 model decisions still scored
-19/20 work/target,9/9 delivered fragments core/clean,2/2 useful discussions and
-8/8 appropriate required question contents. Explicit restatement still missed
-its unique location. The next development amendment separates internal fragment
-ordering/composition from relationships to existing page anchors. This is dev
-tuning only; no fresh heldout result or actual new-source browser pass is claimed.
+The host conjoins passage and scope, maps only existing frozen catalog entries,
+and writes only for one distinct canonical capture. No model confidence threshold,
+ranking tie-break, nearest-location substitute or page-top fallback is introduced.
+Raw relation, paragraph-scope mode, direct destinations and complete passage/section
+family votes are retained separately from derived complete source anchors and
+placements. Admission and replay regenerate every field from exact protected SDK
+answers and the frozen parent capture/catalog; caller-supplied expansion is no
+additional authority. Question keys and enum values are closed and complete.
+Declared semantic option descriptions are checked by the exact-wire validator;
+historical null-description wires retain their bytes.
 
-Integrated DEV7227 remains RED:18/20 work/target decisions, including a reordered
-duplicate-anchor request wrongly reserving/producing an edit and the repeated-text
-insertion still asking unnecessarily. All20 runtime calls completed;9/9 intended
-delivered fragments were core/clean,7/8 required questions delivered and2/2
-discussions useful. No source was mutated. This is an acceptance-blocking unsafe
-nomination, not a waived known limitation. The next amendment moves repeated
-membership guidance into one state policy and puts each location's semantic
-label/kind/local alias directly in its short independent question. No confidence
-threshold, lexical rule, winner selection or host target-resolution change is made.
+This is an unreleased V3 proof revision under the same unreleased171 capability.
+Earlier synthetic V3 draft rows/proofs remain pinned to their producing SHA and
+are not claimed compatible with this revision. Producer, decoder, retained record
+validation and negative controls are indivisible parts of this one capability.
 
-Contract checkpoint after DEVceb9:17/20 work/target, two unnecessary
-clarifications and one hard wrong-boundary restatement proposal;8/8 required
-questions and2/2 discussions were useful. No source mutation. Per-location
-classification remains unsafe, so this same plain-Plan PR now separates complete
-existing-anchor membership from one typed placement relation within the same
-actual combined opening SDK batch. Paragraph anchors retain distinct source
-occurrences plus semantic heading context; heading, captured and page-end
-anchors are separate. Equal text is never merged into one anchor.
+## Questions, prose and prompt boundary
 
-The host maps the selected relation and every included anchor only through the
-frozen catalog, then deduplicates exact derived captures and permits one target.
-Raw relation and complete anchor nominations are retained and reconstructed from
-actual SDK answers during admission/replay. This is another unreleased V3 proof
-revision; earlier V3 draft proofs remain source-pinned and are not newly claimed
-compatible. V1/V2 historical action/input/event codecs stay unchanged. The same
-0171 fence remains unreleased; no new migration or deployment is included.
+Raw clarification owns the requested content/work topic. Only raw writing that
+host resolution normalizes to clarification receives a fixed target question.
+The actual question-only SDK format cannot substitute an evidence-answer envelope;
+fixed target questions match the retained resolution exactly. Identical truncated
+alternatives ask for selection instead of displaying indistinguishable choices.
+Captured-only recovery offers the actual selection/caret authority, not unavailable
+before/after operations. Question mode has no factual retrieval or reservation.
 
-One fragment supports one placement relation. Multiple relational constraints,
-including an apparently coincident after-A/before-B pair, must clarify rather
-than silently discard a constraint or authorize a partial match. Unresolved
-relation with identified anchors asks about placement, not missing paragraph
-identity. This is an explicit bounded limitation, not proof of multi-constraint
-placement. Keep the existing20 DEV cases unchanged; add separate controls for
-this limit before model evaluation. Validate relation/kind mapping, complete
-distinct anchors, negative effects and exact native replay before new paid dev.
-All revised paths remain inside the existing contextual write lease; delivery
-remains serial in PR4264, with no successor dispatched.
+Writer prose does not decide or retarget the edit. V3 insertion guidance keeps the
+existing anchor outside the new fragment unless restatement was requested.
+Replacement guidance requests one replacement with preserved text once unless
+repetition was explicit. There is no duplicate-text filter or output stripping.
+Typed host retrieval disclosure stays in conversation, outside editable fragments;
+V1 literal/proof behavior remains separate. The current protected producer trace
+records the exact SDK-selected final after its digest acknowledgment, not aggregate
+commentary plus final. No synthetic SDK result or new receipt is manufactured.
 
-Factored-contract working-tree controls passed145 placement/native/schema/opening/
-prompt tests, then16 recovery/raw-field tamper controls and the full prepared
-state+question metadata-boundary check. These are diagnostics before source
-freeze, not exact-SHA qualification. Combined DEV22 export/parity passed22
-captures/297 entries with3 actual selections; the original20 objects are unchanged.
-No model has consumed the factored contract yet.
+Model-visible state and questions contain meaningful source text, title arrays,
+selection semantics and input-local aliases. World/document identities, root
+indices, positions, hashes, receipts, bindings, accounting/capacity and telemetry
+remain in host owners. Audit full serialized Jev state AND questions and all writer
+messages/instructions. Reference text, labels and dialogue are data, not authority.
 
-Exact predecessor7227 backend query-and-answer passed1330/159 warnings in an
-isolated checkout with locked Core1c8f9d7. Its hosted frontend/build/retained
-validator passed. Integrated broad checkpointceb9 versus exactfa153 was
-8391pass/102fail/2pending versus8386pass/102fail/2pending: identical102 failure
-IDs and primary messages, no missing cases and five added passes. Both builds
-passed; source/artifact integrity was verified in external
-`plan-ceb-fa153-discovered-comparison.json` (SHA256
-`1a6a417252c400f4cd866021812b532c7aac499448c6887a0f6b2b90fb49d753`).
-Both broad diagnostics stay RED, including the same two extra reported pending
-cases/false collection-parity flag. They establish no release qualification.
-The frontend tree is unchanged by the backend-only factored amendment; final
-exact-head hosted/backend verification and independent review remain required.
+## Expected write lease and review map
 
-Factored DEVb653 is retained RED:20/22 work/target, two falsely missing clear
-Preparation paragraphs, one raw content clarification overridden by a fixed
-placement question and one replacement duplicating the selected paragraph.
-Eight intended writes reached correct destinations;8/8 core meaning,7/8 full
-clean payloads;9/10 required questions and2/2 discussions useful. Both frozen
-multi-relation controls clarified without effects. No wrong-boundary/negative
-authoring or source mutation was observed in this run.
+This handoff and truthful predecessor settlement in
+`Docs/Plans/HANDOFF-LAYOUT-existing-identity-save-retention.md` are included.
+The cumulative expected paths are:
 
-The next amendment restricts fixed target questions to raw writing normalized
-to clarification. Raw clarification retains its requested content/work topic.
-Paragraph/heading questions use direct language, and V3 replacement guidance
-requests one replacement with preserved text once unless repetition was
-explicitly requested. No duplicate-text filter or SDK-output mutation is added.
-Eighteen target/clarification controls then passed;28 guidance/native-empty-output
-controls passed. Fresh actual DEV22 remains required; these source diagnostics
-do not erase the four observed acceptance failures.
+- Frontend: `apps/live-control-ui/src/api/planAuthoringReviewApi.ts`;
+  `planSurface/PlanSurfacePage.tsx`, its test; and
+  `planSurface/agentEdit/planPlacementCatalog.ts`, its test.
+- Server: `apps/live_control_server/models/agent_turn.py`; services
+  `plan_source_turn.py`, `plan_jev_dispatch.py`, `plan_jev_driver.py`,
+  `plan_jev_writer.py`, `corpus_source_navigation.py`.
+- Agent conversation: `plan_placement.py`, `plan_authoring.py`,
+  `plan_contextual_targets.py`, `plan_contextual_questions.py`, `native_execution.py`,
+  `native_plan_opening.py`, `plan_jev_decision.py`, `plan_jev_graph_packet.py`,
+  `native_plan_work_view.py`, `plan_writer_output_schema.py`, `native_completion.py`,
+  `response_prompt.py`, `rules_authority_plan_packet.py`, `types.py`,
+  `native_retrieval.py`, `jev_retrieval_contract.py`, `native_writer.py`,
+  `native_plan_session.py`, `native_corpus.py`, `build_related_pages.py`,
+  `connected_page_origins.py` under `src/application_state/agent_conversation/`.
+- The allocated171 migration; `tests/application_state/test_plan_placement.py`,
+  `test_plan_contextual_targets.py`; `tests/test_plan_jev_authoring.py`;
+  `ci/contracts.json` and `ci/test-classification.json` only to register owning tests.
 
-DEV4ca is retained RED:17/22 work/target; three false missing-target questions,
-one unsafe ambiguous-duplicate reservation/proposal and one fail-closed rejection
-of the supported below-heading/before-body boundary. Six correct deliveries were
-core/clean; content-question routing and replacement duplication were corrected;
-9/10 required questions and2/2 discussions useful. No source mutation.
+Review in four coupled boundaries: (1) compiler/API/capture plus reader fence,
+(2) semantic inventory and exact SDK producer/retained proof, (3) question/prose
+normalization and reservation safety, (4) ordinary frontend Send/apply/Save/history.
+Do not judge helper tests as proof of a different owning boundary.
 
-The next decision-view amendment gives paragraphs a human-readable semantic
-section+passage label and states the section-qualified paragraph meaning.
-Each anchor question explicitly applies only to its relation kinds and retains
-every equal passage when request/dialogue does not distinguish its section.
-Directly below a heading and before its existing body is one canonical
-after_heading relation, even when described redundantly. This does not enable
-independent after-A/before-B constraints across anchors. Host strict kind checks,
-capture intersection, raw proof fields and confidence handling are unchanged.
-Eighteen host/native controls passed with the conditional question preparation;
-new actual DEV evidence remains required before acceptance.
+## Runtime and verification
 
-DEV688a is retained RED:17/22 work/target, five unnecessary clarifications
-(the two Preparation requests plus restatement, new-fragment-only and Rumours).
-The latter three ignored an explicit section discriminator. Five intended
-deliveries were core/clean,10/10 required questions and2/2 discussions useful;
-no wrong-target/negative authoring or source mutation in that run.
+External evidence root: `/home/drakosfire/Projects/.codex/buddy-check.A0jV7T`,
+verified Projects UUID `48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8`.
+Owned synthetic PostgreSQL container: `buddy-layout-save-a0jv7t`, loopback33133,
+uniquely owned session templates/per-test clones. Never operator54329 or live data.
+Locked Python environment: `venv-fa153` under that root. Retain predecessor
+`venv-cf89` for its exact-source evidence; it uses Core046791d.
+Verification checkout: `/home/drakosfire/Projects/.codex/plan-contextual-verification/DungeonMindBuddy`.
+Browser services bind owned loopback ephemeral ports and shut down before DB cleanup.
+Canonical credentials load once before fixtures; fixture DSNs are then reasserted
+and dotenv reloads disabled. Dedicated writer credentials are process-only; no key
+or serving configuration is changed or printed.
 
-The next small diagnostic uses the existing SDK's semantic option descriptions
-for include/exclude criteria and relation definitions. Exact prepared-wire
-validation now checks declared descriptions; historical null-description wires
-are unchanged. Forty-two native/opening controls passed. A separately frozen
-six-case diagnostic uses actual Jev with explicitly scripted prose to isolate
-nomination behavior, with zero OpenAI calls or real-writer quality claim. It
-does not replace full actual DEV22, fresh heldout or browser qualification.
+Use isolated exact-SHA backend `scripts/ci_contract.py run query-and-answer`,
+relevant additional owner contracts, and the repo frontend verifier's hosted suite
+plus retained-evidence validation. Honor the global frontend resource flock;
+release any queue handle before the verifier takes its own lock. Use external
+Projects scratch/caches and pinned Node22.23/npm10.9.8. Preserve broad discovered
+results and actual omissions/failures; never claim release qualification from a
+passing hosted-contract sample. Review the cumulative pinned-base-to-exact-head
+diff independently. Merge only after actual applicable gates pass.
 
-Alan's latest instruction grants full authority over this lane and directs no
-further routine approval requests. This supersedes the pending bounded #3307
-admission split and synthetic OpenAI/browser payload questions below. It covers
-the required scoped implementation, synthetic Jev/writer qualification, prepared
-browser witness, independent review and merge after gates. Preserve other lanes'
-retrieval/citation behavior. Production deployment and serving-pin changes remain
-outside this implementation lane. The V2 native admission guard is now applied
-before host status projection; real owner tests bypass SDK conformance only for
-an empty writer reply, proving domain rejection and unchanged V1 behavior.
-Historical pending-approval statements below record their earlier checkpoints;
-they are not current permission gates. The goal-app reactivation tool rejected
-trusted-context metadata, but this does not prevent authorized implementation.
+## Retained evidence and acceptance work
 
-Current integration checkpoint: source52f355f passed the full query-and-answer
-contract1314/157warnings and hosted frontend1421/build/retained-validator checks.
-Those results remain52f evidence. Main then changed the owning writer boundary:
-#4277 merged at34f56d24 and released its writer lease, appending the shared
-semantic-callout guidance. This same serial PR rebases onto pinned7d94acd0f to
-preserve that guidance before final writer qualification. Plan catalog/API,
-Python/Node lockfiles, migration chain and Core pin are unchanged across the base
-change. No new implementation PR or topology change is authorized here.
-The next independently authored24-case writer-quality pack is frozen offline,
-with expected outcomes private. The consumed22-case actual-writer RED result
-remains unchanged. No provider/browser/server call was made for the fresh pack.
-Shared admission and external browser approvals remain pending; integration
-does not grant either. Qualify the integrated exact source before acceptance.
+All paths below are relative to the external evidence root. Prior passing or
+failing evidence retains its source SHA; it is not relabeled as current proof.
 
-Acceptance checkpoint after81b749e: the first actual-writer independent22-case
-run is RED, preserved without reruns/tuning. Jev matched22/22; clarification
-questions5/6, with one valid but empty raw writer envelope. Requested core
-prose12/12, but host-added retrieval status contaminated12/12 editable fragments.
-No negative reservation/proposal or source mutation occurred. This is not merge
-acceptance. Keep the consumed pack frozen and its oracle private.
-The current serial PR therefore needs a nonempty V2 clarification response
-contract and a V2-only separation of typed host disclosure from authored prose.
-No prompt tuning, intent reclassification or new migration is planned.
-The unshared schema amendment now passes actual execution to both production
-schema construction and sealed expected-format verification, requiring at least
-one reply segment only for an actual V2 Plan clarification. Its lease includes
-`plan_writer_output_schema.py` and `rules_authority_plan_packet.py`; a fresh
-open-PR audit, including the full #3824 file list, found no overlap. It is not a
-substitute for the separately pending host admission guard or semantic quality.
-V1/default literal and proof behavior remains compatible. Unreleased V2 draft
-proposals containing the former footer do not validate under the new projection;
-their evidence stays pinned to the producing SHA. No serving target or operator
-V2 history was activated by this goal, and no extra migration is implied.
-Fresh open-PR audit found no other owner of `plan_authoring.py` or the proposed
-`plan_writer_output_schema.py` boundary. Extend the existing owned projection
-and native helper tests here while preserving V1 literal/proof behavior and
-all conversation disclosure. Shared `native_completion.py` admission overlaps
-#3307; its proposed guard is pending an explicit split and is not yet applied.
-No further external-writer call is authorized by an unanswered question: the
-prepared browser witness was rejected before process creation by automatic
-approval review and explicit synthetic-payload approval is pending.
+- Save predecessors: merged owner-boundary persistence/rollback/history and
+  reader controls remain complete; they do not qualify this authoring slice.
+- Private nomination22 at c274:22/22 actual Jev with scripted writer, SHA256
+  `1200d554bee9d2f140c045f3fc3c524ffd61aac2bd7180634d864f89e39a2959`
+  in `plan-heldout-review/execution/evaluator/summary-v2.json`. Not a real-writer
+  score or a fresh holdout for the revised contract.
+- Actual-writer22 at81b:RED (5/6 functional questions; editable host footers).
+  Actual-writer24 at4c9:RED (23/24 nomination,3/6 questions, one unsafe negative
+  reservation/proposal, one copied anchor). Its private oracle stays frozen and
+  unread by producer/root; report SHA256
+  `aa0cb581ea5b95ddecff45f1910669bf8540891eeb09d4c1fb5917a0d858f925`.
+- Actual browser4c9:positive placement/Save/Undo/Redo/cold reopen/390px and ambiguous
+  refusal passed, selected replacement failed. Overall RED. Prior scripted-prose
+  witnesses remain explicitly scripted. No new real browser acceptance is claimed.
+- DEV cd23,9b46,7227,ceb9,b653,4ca,688a remain RED in their individual evaluator
+  artifacts under `plan-ordinary-dev/compatible-set-dev/`. Unsafe cases are never
+  waived. DEV688a scored17/22 with five unnecessary clarifications;5/5 delivered
+  payloads core/clean,10/10 required questions and2/2 discussions useful, no wrong
+  authoring/source mutation. Targeted DEV6 at1dd used actual Jev/scripted writer:
+  4/6 expected nominations, zero OpenAI calls. It does not qualify writer quality.
+- The9b46 observer defect lost11 original host observations. Original raw exchanges
+  and failed runner remain intact. Exact-request offline replay reconstructed
+  effects separately, reproducing the genuine commentary/final trace mismatch.
+  The selected-final correction replayed all49 exchanges through20 runtime cases
+  without providers. Reconstructed effects are never original paid-run effects.
+- Exact7227 backend1330/159warnings and hosted/build/validator passed. Exactb653
+  backend1334/159warnings passed in the isolated checkout. Later working-tree
+  focused scope-factor controls passed159; these are diagnostics, not current
+  exact-SHA or model acceptance.
+- Broad ceb9 versus exactfa153:8391pass/102fail/2pending versus8386pass/102fail/
+  2pending, identical102 failure IDs and primary messages, no missing cases, five
+  added passes, both builds0. All retained artifact hashes verified. Comparison:
+  `plan-ceb-fa153-discovered-comparison.json`, SHA256
+  `1a6a417252c400f4cd866021812b532c7aac499448c6887a0f6b2b90fb49d753`.
+  Both stay RED, including the same extra pending-case/collection-parity limit.
+  Subsequent backend-only changes retain the same frontend tree.
 
-Clarification amendment: Alan explicitly authorized a bounded V2 Plan
-placement-clarification guidance split in
-`apps/live_control_server/services/plan_jev_writer.py`, preserving #3290/#3307's
-source compaction, retrieval ordering and citation behavior. The fresh open-PR
-file audit found those two writer overlaps; #3824's full changed-file list had
-no writer/response-prompt overlap. The lease additionally includes the task
-component in `src/application_state/agent_conversation/response_prompt.py` and
-final serialized-request assertions in the already leased
-`tests/test_plan_jev_authoring.py`. Delivery remains the current serial PR #4264.
-This addresses the same placement capability's negative acceptance case:
-actual Jev correctly selected clarification without a reservation, but the real
-writer supplied prose/evidence gaps despite receiving the generic clarification
-instruction. Select placement-specific guidance from the actual V2 catalog and
-retained work decision; do not reclassify intent in the writer or change Jev.
-Validate exact final prompt bytes and rerun the four frozen real-writer dev
-cases, keeping the independent targeting holdout sealed. Source changes require
-new exact-head contract evidence and independent review before merge.
+Original DEV20, additional relation2, scope9 and ordinal1 producers/oracles are
+separately frozen and unchanged. Combined DEV32 producer SHA256
+`0714ad9f6bcb68f3b0489c4379b007368da49922510edbb340f00f98328867eb`;
+actual TS/Python export32 captures/454 entries/3 selections SHA256
+`56f8e923c76f2a7dfb99b532b2e1b262c5c9f5edb6f27e66adebb61187c120a6`
+in `plan-ordinary-dev/combined-dev32-offline/`. No model has consumed the new
+scope-factor contract yet. Private consumed22/24 oracles are not development data.
 
-Alan authorized contextual-targeting/test splits in PlanSurfacePage.tsx,
-components/WorldPlanAgentConversation.tsx and agentEdit/planAgentEditProposal.ts,
-preserving #3824/#1014/#1188's hosted authorization, rollout and welcome behavior.
-Prefer their existing catalog forwarding without edits unless tests expose a gap.
-Alan also authorized only paragraph-catalog union/decoder changes in
-agent_conversation/native_execution.py and services/plan_jev_driver.py across
-#3307/#2462/#2225; preserve retrieval ordering, writer instructions and source status.
+Prepared static bundle: `plan-browser/dist-integrated-7227`, frontend tree
+`b5314d578f6fb134485816ee2f83d21c8cc3456f`, manifest SHA256
+`2312fa0faa18f560a60f9cae7c6cb574fb0f655633039a53a7285a9ff7f198c3`.
+Build is exact7227 and matches unchanged frontend blobs, not new backend proof.
 
-Initial exclusive expected writes: this handoff,
-`src/application_state/agent_conversation/plan_placement.py` and its owning
-`tests/application_state/test_plan_placement.py`. Fresh audit checked 60 returned
-open PRs and found no overlap on these implementation/test paths.
-The lease includes truthful merged-predecessor settlement in
-`HANDOFF-LAYOUT-existing-identity-save-retention.md`.
-The lease now includes the single authorized fence migration above, after a
-fresh 60-open-PR reservation audit found no0171+ migration collision.
-Expand this lease with exact paths and a fresh audit before wiring consumers.
-Consumer wiring amendment: a fresh61-open-PR audit found only the already
-authorized overlaps with #3307/#2462/#2225. Expected additional writes are
-`apps/live-control-ui/src/planSurface/agentEdit/planPlacementCatalog.ts` and its
-owning test; `apps/live-control-ui/src/api/planAuthoringReviewApi.ts` and test;
-`apps/live_control_server/models/agent_turn.py`;
-`src/application_state/agent_conversation/native_execution.py`, `types.py` and
-`plan_jev_graph_packet.py`; and `apps/live_control_server/services/plan_jev_driver.py`.
-Limit the shared native/driver edits to the authorized catalog union/decoding.
-No dispatcher, retrieval ordering or writer-instruction change is included.
-Independent review exposed a coupled V2 decision-guidance correction in
-`src/application_state/agent_conversation/plan_authoring.py` (fresh open-PR file
-audit: no overlap): retain exact historical V1 wording while referring to the
-actual opaque V2 alias for after-heading choices. This remains the same paragraph
-placement capability; it changes no retrieval or writer contract. Eight dev cases
-were frozen before this adjustment in external `plan-ordinary-dev`, alongside
-the independently authored, unread 22-case held-out oracle.
-The normal-Send activation uses the explicitly authorized targeting-only split
-in `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`: request V2 for
-plain pages while retaining V1 for composed pages. A refreshed open-PR audit
-confirmed its only overlapping lanes are #3824/#1014/#1188, covered by that split.
-The existing mounted `PlanSurfacePage.test.tsx` ordinary-first-Send cases now
-assert that transport includes V2 paragraph choices; its overlaps with
-#1014/#1188 fall within the authorized contextual-targeting/test split.
-The consumer test lease also includes the existing native caller helper in
-`tests/test_plan_jev_authoring.py`: a fresh61-open-PR audit found no overlap.
-Limit the helper extension to an optional versioned placement fixture and its
-serialized-request checks; preserve existing default test behavior.
-The remaining planned owner chain is the frontend catalog/compiler and API
-catalog union, backend turn input, retained native action/selection decoders,
-actual decision proof and the existing proposal/apply/Save chain. No schema or
-public V2 write path is activated by inert classes/tests.
+Remaining acceptance: actual Jev scope-factor development, full actual-writer DEV,
+a newly independently authored/frozen heldout pass, actual normal-Send browser
+witness including selected recovery, final exact-head local checks and independent
+review. Preserve all failures and denominators. No full-goal, cross-surface,
+human/release acceptance or serving availability claim follows from a partial slice.
 
-One forward-only reader-fence allocation is authorized, subject to the explicit
-#4240 → 0170 → 0171 chain. Do not create an independent Alembic head, invent
-another compatibility owner, merge #4240 under this assignment, or run migrations
-against operator/live data. Inspect actual SQL admission in owned disposable
-PostgreSQL before deciding whether the fence alone suffices.
-
-## Contract critique and review map
-
-V1 explicitly admits caret/heading/section/end choices and validates real root
-headings. Do not smuggle paragraphs into those kinds or forge the original caret.
-V2 uses opaque local selectors and explicit before/after paragraph kinds; exact
-indices, offsets, World/document/revision hashes and capture receipts stay host-side.
-Model context contains semantic section/passage labels only. Keep V1 serialization
-and hashes unchanged and derive the existing boundary-capture format only from
-an admitted frozen choice and matching original capture. Explicit replacement
-selection must not broaden into insertion. Reject malformed/foreign/stale roots,
-unsupported/composed targets and mutated labels/digests. No page-top fallback.
-
-The catalog is durable in native actions and retained selection/proof replay.
-Old readers therefore require the existing application-schema fence before new
-records. Independent contract review by /root/plan_contract_review confirmed this
-and recommended reusing the existing root-boundary proposal/apply/Save machinery.
-
-Validation progresses from pure codec/compiler controls to actual ordinary model
-dispatch and real persistence. Positive: clear semantic target plus duplicate
-elsewhere, no selection; exact boundary and untouched neighbors; Undo/Redo; Save
-and fresh reopen. Negative: genuine ambiguity clarifies before reservation, plus
-missing/discussion/stale/foreign and deliberate-selection recovery. Never count
-scripted nomination, helper tests or mocked readback as ordinary routing proof.
-Retain frozen dev and independently authored held-out sets before tuning. The
-prior standalone Jev baseline consumed its held-out set and failed ambiguity;
-do not reuse it as fresh held-out acceptance or tune on its answers.
-
-Use owned disposable fixtures and per-test clones, external Projects evidence,
-the global frontend resource lock, exact-SHA owning contracts, hosted verifier
-and meaningful discovered diagnostic. Review cumulative base-to-head diffs and
-independent exact-head judgments before authorized merge. Preserve baseline red
-results and required human acceptance; do not claim release/deployment readiness.
-
-## Inert preparation checkpoint
-
-Added separate V2 option/catalog classes without changing V1 wire values or
-hashes. V2 selectors are local opaque aliases; host-only source indices bind
-explicit before/after paragraph kinds to actual nonempty root prose. Semantic
-labels are checked against the captured text/heading context. Existing boundary
-captures retain the real selection, and explicit replacements cannot broaden.
-Composed roots and unrelated object targets refuse in this first plain scope.
-No public request/retained-action decoder or default producer accepts V2 yet.
-
-All 48 owning placement tests pass as working-tree diagnostics in the existing
-locked environment and a task-owned disposable PostgreSQL template/per-test
-clone setup (container buddy-layout-save-a0jv7t, current loopback33132).
-Evidence: `/home/drakosfire/Projects/.codex/buddy-check.A0jV7T/plan-catalog-working.log`.
-Ruff reports two pre-existing E701 lines in the owning test file; no new lint
-diagnostics. Whitespace checks pass. Exact-source qualification, frontend
-compiler, consumer integration, reader fence and actual ordinary-path/model/
-persistence evidence remain unfinished. This checkpoint is not feature delivery.
-
-## Preparation review corrections
-
-Independent review of inert head164c3248 found two V2 contract gaps: named-table
-captions were treated as semantic headings, and after-section accepted a later
-boundary short of/beyond the actual section end. V2 now mirrors the frontend's
-exact plain/unmarked caption predicate, including meaningful marks/extra attrs,
-computes the next equal-or-higher-level semantic heading/end, and validates
-canonical heading/section/end labels. Captured caret/selection labels are also
-canonical, so they cannot claim an unrelated semantic destination.
-
-All 58 owning tests pass after these corrections, including caption variants,
-rehashed wrong section ends, wrong semantic labels and a mislabelled incidental
-caret. The changed backend module passes Ruff; the owning test file retains its
-two previously recorded E701 errors. Evidence: `plan-catalog-label-fix.log` under
-the existing external task. This is still inert preparation, not ordinary-path
-or migration qualification. V1 definitions and current public consumers remain
-unchanged. Independent reinspection is requested before relying on the V2 shape.
-
-## Reader-fence prerequisite settlement
-
-#4240 is merged and current main contains its0170. The new0171 is chained directly
-to that revision; no independent Alembic head or competing-slot reassignment.
-The fence uses the existing forward-only schema-version mechanism, with a
-disposable-database test for an older170 application's refusal and failed
-downgrade preserving the171 schema version. SQL admission of actual retained V2
-native records remains a required integration proof; a fence-only test does not
-establish it. Default/public V2 production paths are still not wired.
-
-All 59 owning placement/fence tests pass after chaining0171 onto the merged0170.
-The initial fence-test diagnostic queried the wrong version table and failed;
-the corrected test uses `application_state.schema_migrations`. Both attempts
-are retained separately as `plan-fence-working.log` and
-`plan-fence-corrected.log`. Backend module and new fence pass Ruff. These are
-working-tree diagnostics and do not qualify the unfinished ordinary path.
-
-## Consumer and ordinary-producer checkpoint
-
-V2 now passes through public turn input, requested-work preparation, retained
-native actions and selection/proof decoders. Shared explicit version dispatch
-preserves omitted-schema V1 compatibility and requires an explicit V2 tag.
-Plain Plan ordinary Send captures real root-paragraph aliases; composed pages
-retain V1. V2 after-heading decision guidance uses the actual opaque alias;
-historical V1 guidance is unchanged. No retrieval ordering/writer change.
-
-Working-tree diagnostics under `/home/drakosfire/Projects/.codex/buddy-check.A0jV7T`:
-
-- `plan-producer-composed-control.json`: 14 compiler tests pass, including actual
-  editor offsets, Undo/Redo, async stale capture and composed V1 fallback.
-- `plan-mounted-producer-activation.json`: nine mounted ordinary-first-Send cases
-  pass with V2 choices; 131 unrelated cases skipped by this focused command.
-- `plan-producer-typecheck.log`: TypeScript check passes under the global lock.
-- `plan-cross-language-witness.json`: actual TS producer catalog validates in
-  Python and prepares model state without the inspected host metadata. Synthetic.
-- `plan-decoder-owner-parity-corrected.log`: 67 placement/fence/consumer tests pass,
-  including public/requested-work/current retained-action raw version controls,
-  scripted native proposal plus actual explicit Save/cold read, and no-reservation
-  clarify/discuss. Its preceding failed attempt used an older action class in the
-  test; preserved separately. This is not real-model targeting evidence.
-- `plan-v2-authority-controls.log`: all70 tests pass after adding actual native
-  reservation/proof controls for changed capture, page and conversation.
-- `plan-owner-consumer-regression.log`: 132 pass, two mixed Rules replay failures.
-  Exact base6f8af81e reproduces both same test IDs and owning pinned-evidence error
-  in `plan-owner-base-mixed.log` (four other parameter cases pass).
-- `plan-consumer-lint-comparison.json`: current/base both42 diagnostics with equal
-  path/code/message multiset; full JSON retained. Lint remains red.
-
-Disposable task PostgreSQL is currently loopback33133; fixtures own their session
-template/per-test clones. No operator data or providers used by these diagnostics.
-Exact-SHA verifier/review, broader discovery comparison and a joined ordinary
-real-model/browser/Save/reopen witness remain required before merge. The fresh
-held-out oracle is unread. No release, cross-surface or full-goal completion claim.
-
-## Real Jev development and discovery evidence
-
-Exact95ee hosted verifier: 1421 tests and build pass; evidence validator passes
-at `plan-95ee-hosted/evidence.json`. Discovery remains red: head8375pass/104fail/
-2pending, exact base6f8 8371pass/103fail/2pending. The original103 IDs and primary
-failure lines match, with no missing tests and five added passes. Additional
-Recap Load-button failure is a baseline-existing readiness race: controlled
-deferred C2-read diagnostics reproduce session16 plus disabled Loading/no Load
-on both exact source sets, then preserve original campaign/session assertions
-after release. Independent review verified source/import/dependency and diagnostic
-integrity. Unmodified focused head failed and unmodified focused base passed;
-do not claim identical104 failures or a green diagnostic. Artifacts:
-`plan-discovered-base-comparison.json`, `recap-race-diagnostic/results.json`.
-
-The frozen eight dev documents were exported by the actual ordinary TS compiler,
-then cross-validated against Python. Actual native Jev opening/retrieval dispatch
-with a separately scripted writer scored6/8: four of five target cases correct,
-one of two clarification cases correct, discussion1/1. Incorrect before-paragraph
-chose before-heading; ambiguous duplicate passage guessed a paragraph and reserved
-an action. All sources unchanged, no Save. This is failed dev targeting acceptance,
-not success inferred from the eight harness tests passing. Exact model/config and
-all requests/responses/observations are retained under `plan-ordinary-dev`, with
-`nomination-native-score.json` and frozen runner/input hashes.
-
-V2 guidance was refined only on dev: match paragraph passage, requested
-side and section; use heading choices for heading requests; unresolved duplicate
-paragraphs clarify without order/caret tie-breaking. Preserve exact V1 guidance.
-Fresh held-out22-case oracle remains unread; do not consume until configuration
-is frozen. Real writer and joined browser/persistence qualification remain
-separate; the current benchmark uses real Jev nomination and scripted prose.
-Two earlier harness failures (dotenv fixture binding and HTTP client mismatch)
-are retained; credential loading now precedes fixtures with nested reloads aimed
-at an empty owned root and exact disposable-DSN guards. Actual writer attempt
-returned401; no page creation/write followed its failed reply. The user's one-shot
-Jev-versus-writer question is answered and marked handled in external continuation
-notes; do not repeat the credential request during targeting work.
-
-## Frozen nomination and joined browser evidence
-
-At c274197af9241485c78cb3615b2ff6172c16f17d, the corrected frozen dev run scored
-8/8 (five target, two clarification, one discussion), after the retained 6/8 run.
-The configuration was frozen before the independently authored 22-case holdout.
-Independent evaluation scored 22/22: 12 target, 6 clarify, 4 discuss; no wrong
-target, missed/unnecessary clarification, negative reservation/proposal, or source
-mutation. All 12 proposal captures passed boundary/selection/digest/basis checks.
-Actual Jev 1.14.0/typesafe made 34 calls. The 22 scripted shared-writer calls were
-12 authoring and 10 conversation calls, with no negative authoring-mode call.
-Producer/root never opened the private oracle. No tuning/provider rerun followed
-scoring. The aggregate report under the external task is
-`plan-heldout-review/execution/evaluator/summary-v2.json`, SHA256
-1200d554bee9d2f140c045f3fc3c524ffd61aac2bd7180634d864f89e39a2959.
-The provisional evaluator output remains with its documented shared-writer
-interpretation correction; it is not another model evaluation.
-
-The joined witness is `plan-browser/attempt-qdlwhhl6`, source c274197a with clean
-Git state. It uses the production UI bundle, actual browser Send/capture/catalog,
-real Jev, native turn/review owners, and disposable PostgreSQL templates/clones.
-It fabricates no proposal receipt and does not retarget a returned action.
-Auth/principal/readiness/World registry are fixture-controlled; prose is scripted.
-The passing flow proves:
-
-- An unrelated collapsed caret at 1 and duplicate prose elsewhere do not override
-  Preparation's after-paragraph boundary 3. The original editor and committed
-  revision remain unchanged while the inline proposal is displayed.
-- Keyboard Save confirms the real retained application. The entire inserted
-  payload matches the suggestion and sealed after-editor JSON; every unrelated
-  root is exact. The fragment includes both warning and partial-retrieval
-  disclosure; this is not warning-only insertion.
-- Native keyboard Undo/Redo compares complete editor JSON. A new browser context
-  with empty storage reads immutable committed Markdown, digest, revision_n and
-  WorkRevision identity matching the confirmed application.
-- A fresh-conversation ambiguous request sends only its normal Agent turn: no
-  Save/review/create request, editor change, proposal or authoring reservation.
-- Closing conversation, selecting the paragraph with Home/Shift+End, and sending
-  an explicit selected-text rewrite recovers through captured-only replacement
-  and native Save. Unrelated roots remain exact. One native empty parent-boundary
-  paragraph is retained; no normalization is performed.
-- The 390px proposal layout has no horizontal overflow. Screenshots and all
-  mutation requests are retained. Read-only Graph/source catalog POSTs are
-  separately recorded unavailable fixtures. Denied mutations are visible; none
-  occurred in the passing witness.
-
-Independent fixture review verified hashes, immutable reads, exact normal Send
-with null explicit operation, payload scope, no hidden denied mutations, loopback
-Host/same-Origin admission and resolved static-file containment. This is not
-hosted authorization, real-writer/minimum-question quality or deployment proof.
-Earlier fixture/probe failures remain retained separately.
-
-Reproduce from external task root
-`/home/drakosfire/Projects/.codex/buddy-check.A0jV7T`: use Node 22 and the frontend
-flock; run `plan-browser/test_browser_native.py` with `DMB_BROWSER_PHASE=joined`,
-its exact source guard, the owning locked Python environment and a task-owned
-`DMB_APPLICATION_STATE_TEST_DATABASE_URL`. The fixture records imported source
-paths, clean Git SHA, harness/bundle hashes and model wires. New servers bind
-loopback port 0 and close before database cleanup. Preload credentials before
-fixtures, redirect nested dotenv reloads to an owned empty root, and assert the
-exact disposable DSN. Never send credentials in commands or model-visible input.
-
-The repo-owned query-and-answer contract at c274197a passed 1,308 tests, exit 0.
-The first tracing/pin integration at 90fdeb8c passed 1,312 tests, hosted 1,421 tests
-and build/validator, and the strengthened joined browser witness with its own
-fresh 1331f24 environment (`plan-browser/attempt-c5yndays`). Those handles completed
-before another rebase. All five capability patches remain identical by range-diff;
-the frontend tree remains 8196f95e.
-
-Main's later cf89 integration changes only the native registry/inspection opt-in
-and locked Core pin. Independent source review found no changed Jev questions,
-labels, aliases, codecs, binding, writer instructions, editor application or Save.
-Standalone reads keep the default path; cached shared inspection reads use the
-verified-row option. The unavailable-Graph witness does not exercise that option.
-A fresh 046791d environment, auth-app inspection/principal controls, query-and-answer
-including explicit V2 placement controls, integrated browser and exact frontend
-verification remain required before final review/merge. Consume upstream merged
-Core proof for its row parser; do not claim our fixture qualifies that branch.
-Old-SHA evidence is labeled, not reused as exact-current-source qualification.
-Keep the one-shot holdout consumed; do not retune it or claim a fresh score after
-integration. Unchanged producer semantics support carrying its original evidence
-with accurate provenance, not inventing a new inference run.
+Superseded preparation/approval checkpoints are retained in Git history and their
+external immutable evidence, rather than as contradictory active instructions.

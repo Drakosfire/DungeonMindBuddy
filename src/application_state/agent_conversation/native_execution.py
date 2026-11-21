@@ -290,8 +290,13 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
     requested_placement_relation: Literal['captured', 'before_paragraph', 'after_paragraph',
         'before_heading', 'after_heading', 'after_section', 'end_page', 'unresolved']
     compatible_anchor_selectors: tuple[str, ...]
+    direct_anchor_selectors: tuple[str, ...]
+    compatible_passage_selectors: tuple[str, ...]
+    compatible_section_selectors: tuple[str, ...]
+    requested_paragraph_scope: Literal['unscoped', 'named', 'unresolved', 'not_applicable']
 
-    @field_validator('compatible_placement_selectors', 'compatible_anchor_selectors', mode='before')
+    @field_validator('compatible_placement_selectors', 'compatible_anchor_selectors',
+        'direct_anchor_selectors', 'compatible_passage_selectors', 'compatible_section_selectors', mode='before')
     @classmethod
     def selectors_tuple(cls, value):
         return tuple(value) if isinstance(value, list) else value
@@ -311,12 +316,13 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
     def exact_resolution(self):
         from .plan_authoring import PlanAuthoringCaptureV1
         from .plan_placement import decode_plan_placement_catalog
-        from .plan_contextual_targets import resolve_anchor_targets
+        from .plan_contextual_targets import resolve_component_targets
         if self.original_capture is None or self.placement_catalog is None:
             raise ValueError('Contextual selection requires its original captured catalog')
-        fields = resolve_anchor_targets(PlanAuthoringCaptureV1.model_validate(self.original_capture),
+        fields = resolve_component_targets(PlanAuthoringCaptureV1.model_validate(self.original_capture),
             decode_plan_placement_catalog(self.placement_catalog), self.requested_intent,
-            self.requested_placement_relation, self.compatible_anchor_selectors)
+            self.requested_placement_relation, self.requested_paragraph_scope,
+            self.direct_anchor_selectors, self.compatible_passage_selectors, self.compatible_section_selectors)
         if any(getattr(self, key) != value for key, value in fields.items()):
             raise ValueError('Contextual selection differs from its complete target resolution')
         return self
