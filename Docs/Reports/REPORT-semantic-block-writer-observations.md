@@ -82,9 +82,13 @@ needs to preserve the versioned decision packet used to verify older turns.
 
 ### Build controls
 
-- **B03:** Hosted Build proposed exactly two prose paragraphs with no callout.
-  The preview appeared before Arrival where the intended location was after
-  the Arrival paragraph. Dismiss preserved the saved blocks and save status.
+- **B03:** Hosted Build returned two ordinary paragraphs without a callout.
+  The preview appeared before Arrival in the initial and follow-up runs,
+  which were dismissed. The retained follow-up review kept the writer's
+  captured caret. The inline review card uses a visual anchor before the
+  containing block. In the save-and-reopen run on `09631231`, both exact
+  proposed paragraphs were saved immediately after Arrival. The existing
+  Warning, Rules, Read Aloud, and GM Note remained present.
 - **X01:** Hosted Build responded to the brainstorming request in chat and
   showed no page suggestion. The rendered saved blocks and save time matched
   their initial state. A subsequent read-only check found zero Build write
