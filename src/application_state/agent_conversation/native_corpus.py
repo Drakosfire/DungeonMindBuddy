@@ -665,6 +665,27 @@ def acquired_body_catalogs(execution):
     return catalogs
 
 
+def resolve_retained_body_citation(execution, citation):
+    """Resolve a typed citation against its own already validated execution."""
+    reads = [event for event in acquired_body_reads(execution) if event.event_id == citation.read_event_id]
+    if len(reads) != 1:
+        raise ValueError("Native body citation lacks its unique retained read")
+    excerpt = reads[0].excerpt
+    catalog = acquired_body_catalogs(execution).get(excerpt.catalog_sha256)
+    if catalog is None:
+        raise ValueError("Native body citation lacks its retained catalog")
+    section, text = excerpt.section, excerpt.text
+    if citation.section_id != section.section_id:
+        section, text = bounded_body_section(
+            catalog, excerpt, line_start=citation.line_start, line_end=citation.line_end,
+        )
+    if (citation.section_id != section.section_id
+            or (citation.line_start, citation.line_end) != (section.line_start, section.line_end)
+            or sha256(text.encode()).hexdigest() != citation.excerpt_sha256):
+        raise ValueError("Native body citation differs from the retained extent")
+    return catalog, section, text
+
+
 def selected_batch_covering_reads(execution, selection, handle, *, before_sequence=None, require_passage=False):
     """Exact source extent already obtained by this acknowledged read batch."""
     if (not handle.startswith('native-body:') or selection.operation != 'select_candidates'

@@ -396,6 +396,16 @@ def test_native_body_history_replay_and_current_access_open_original_revision(so
     from application_state.agent_conversation.repository import _plan_ask_history_attribution
     a = source_adapter
     _, _, completed = finish_body_answer(a)
+    from application_state.agent_conversation.native_corpus import resolve_retained_body_citation
+
+    citation = completed.completion.native_body_citations[0]
+    _, section, retained = resolve_retained_body_citation(completed.graph_context_execution, citation)
+    assert section.section_id == citation.section_id and retained == BODY
+    with pytest.raises(ValueError, match="retained extent"):
+        resolve_retained_body_citation(
+            completed.graph_context_execution, citation.model_copy(update={"excerpt_sha256": "0" * 64}),
+        )
+
     history = _plan_ask_history_attribution(completed)
     assert isinstance(history, t.PlanEvidenceHistoryAttributionV5)
     assert type(history).model_validate_json(history.model_dump_json()) == history
