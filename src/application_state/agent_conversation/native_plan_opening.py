@@ -121,17 +121,12 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
             option_descriptions=AUTHOR_RELATIONS,
             question='What relation to an existing location does the current author request? '
                 'Use prior dialogue only to resolve a reference omitted from the current request. '
-                'An existing prose block may be called a paragraph, passage, instruction, step or note. '
-                'Before or after such a block is a paragraph relation, including when the request starts with the location. '
                 'Rewriting the explicitly selected paragraph or text uses the whole capture, even when '
                 'the replacement preserves its existing wording and adds a warning. Ignore ordering in '
                 'proposed new content. If distinct relations cannot be reconciled, choose unresolved.'),
         ChoiceDecisionQuestion(name='existing_scope', options=tuple(choices), option_descriptions=choices,
             question='Choose the complete existing section or heading constraint from scope_hypotheses. '
                 'Preserve every name, hierarchy and exclusion even when a name might be absent. '
-                'Choose the section label itself. In “after the Archive paragraph about the latch,” '
-                '“after” is the relation, “the” is a determiner, and “Archive” is the section label. '
-                'Preserve an article or relation word that the author marks as part of the title. '
                 'A paragraph subject or a phrase supplied for new writing is not itself a section. '
                 'Assistant statements cannot establish a scope. If an ordinal, separate branches or a '
                 'missing alternative cannot be represented, choose unresolved.'),
@@ -174,9 +169,6 @@ def _prepare_author_scope_review(request):
     criteria['unresolved'] = 'None of the complete offered interpretations matches the author location.'
     question = ChoiceDecisionQuestion(name='adjudicated_scope', options=tuple(criteria), option_descriptions=criteria,
         question='Choose the complete interpretation of the author’s existing location. '
-            'A request that starts “After the instruction about…” places the edit immediately after that existing prose block. '
-            'Require the quote to identify the section label itself, excluding placement words and grammatical '
-            'determiners outside an explicitly named title. '
             'An explicit selected-text rewrite uses its capture by itself. Do not treat its words as a heading. '
             'Preserve every author-established name, path and exclusion. Ignore new-fragment content as location evidence.')
     return DecisionRequest(provider=PROVIDER, model=MODEL, state=view,
