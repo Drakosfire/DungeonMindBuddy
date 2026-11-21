@@ -10,7 +10,7 @@ chmod 777 "$work"
 net="app-recovery-test-$$-$(date +%s)"
 container=''
 cleanup() {
-  if [[ -n "$container" ]]; then docker rm -f "$container" >/dev/null 2>&1 || true; fi
+  if [[ -n "$container" ]]; then docker rm -fv "$container" >/dev/null 2>&1 || true; fi
   docker network rm "$net" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
