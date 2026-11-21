@@ -1,8 +1,21 @@
 # Manual composition in the World Plan editor
 
-Status: ACTIVE for the next serial slice on `codex/plan-manual-composition`.
-Isolated Plan checkout. Exact base `2e9f2bb7cd069f40ed7334b20a2fd21f113b4f56`
-includes #4345 and reader fence 0174.
+Status: MERGED in PR #4346 at `a210cdf11442464ca37984375978add72f27681f`.
+Independently reviewed head `7241b88b725768c61f372e073f2f23edaa0ad716`
+passed 1,465 selected frontend checks and the production build. Full discovery
+had 8,450 passes, 102 matching inherited failures and two skips, with all five
+new tests passing and no missing cases. The exact main baseline had 8,444
+passes, 103 failures and the same skips. Full discovery remains red.
+
+Chromium, real Plan Save routes and disposable PostgreSQL verified unchanged
+Markdown on layout-only Save, row dimensions, Undo/Redo, a 390px cold reopen,
+prose Save, retained identities after a committed-but-unacknowledged Save and
+newer Undo, and refusal of a stale revision without mutation. The exact
+browser packet is `manual-plan-7241-dpk8_xw1/witness-summary.json` under the
+task evidence root, SHA256
+`96eecc123742fe066ed0ff126dbdb5e8f9a25af7d4f817d77b71ca3b783c4799`.
+The next serial slice is the
+[native composed Plan review contract](HANDOFF-PLAN-composed-review-contract.md).
 
 Use the existing Page composer controls and checked PagePresentationV1
 projection in the saved, World-owned Plan's Document view. An author can
