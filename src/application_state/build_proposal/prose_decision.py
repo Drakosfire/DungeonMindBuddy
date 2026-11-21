@@ -166,7 +166,8 @@ def resolve_build_boundary_opening(catalog, request, response, *, question, titl
     })
     boundary_request = prepare_build_boundary_decision(question, title, (), catalog, version=version)
     resolution = resolve_build_boundary(catalog, decode_build_boundary_decision(boundary_request, boundary_response))
-    if resolution.disposition == "unique" and requested_work != "write_current_page":
+    write_dispositions = {"unique", "explicit_page_end", "explicit_page_body"} if version == 2 else {"unique"}
+    if resolution.disposition in write_dispositions and requested_work != "write_current_page":
         return BuildBoundaryResolution(disposition="unresolved")
     return resolution
 
