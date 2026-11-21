@@ -57,6 +57,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Composable spatial workspace](#deferred-composable-spatial-workspace) | Saved canvas arrangements; not page composition or a separate theme system. |
 | [Standalone Elderwyld demo World and timeline](#idea-standalone-elderwyld-demo-world-and-timeline) | Author a populated, shareable setting history for signed-out Buddy without using collaborative campaign material. |
 | [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
+| [Show what Buddy is doing while it works](#idea-show-what-buddy-is-doing-while-it-works--captured-2026-11-20) | Use actual tool and action events to give concise live progress updates. |
 | [Step through Buddy's work](Docs/Backlog/IDEA-conversation-search-replay.md) | Merged local replay mechanisms; retain hosted and broader trace acceptance gaps. |
 | [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Draft/variant/link/Combat mechanisms merged; ordinary live qualification remains open. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
@@ -388,3 +389,13 @@ a prototype is not a new durable authority.
 **Action:** Audit World creation, navigation, and empty states across Buddy. Keep provisioning and provenance in backend records and operator diagnostics. Hide provisional labels and internal publication states from the normal workspace. When setup prevents an action, show the next step the user can take, or explain when to retry.
 **Verification:** Open a new World before and after its first Graph publication. Check that user-facing surfaces show an inviting empty state or actionable feedback and that operators can still inspect the underlying state and provenance.
 **Surfaces when:** World onboarding, first Graph publication, or empty states across Buddy are being changed.
+
+## [IDEA] Show what Buddy is doing while it works — captured 2026-11-20
+
+**Context:** Buddy’s Thinking text can stay on “Getting Things Ready” while several different operations are underway.
+
+**Action:** Drive short, user-facing progress messages from real tool and action events. Show what Buddy is doing when it checks the saved page, searches the World, reads a source, or prepares a suggestion. Use a distinct status when Buddy is waiting on a tool. Coalesce repeated activity to keep the text steady, and keep technical detail in the trace.
+
+**First slice:** Test one ordinary Build request that reads a source and prepares an answer. Compare each visible status with the actual event sequence, including a slow or failed tool call.
+
+**Surfaces when:** Updating conversation progress, profiling pre-reply latency, or consolidating the trace.
