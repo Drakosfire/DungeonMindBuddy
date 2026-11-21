@@ -200,7 +200,7 @@ function checkedPlanPresentation(markdown: string, fields: PlanPresentationField
   if (presentationFingerprint(presentation) !== (fields.page_presentation_sha256 ?? null)) {
     throw new Error("The Plan layout fingerprint could not be verified.");
   }
-  if (presentation) hydratePresentation(markdown, presentation);
+  if (presentation !== null) hydratePresentation(markdown, presentation);
   return presentation;
 }
 
@@ -897,10 +897,21 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     return () => { cancelled = true; };
   }, [initialDocumentId, initialLoadAttempt, localDraft, worldId]);
 
+  const protectLayoutRecovery = () => {
+    if (!documentIdRef.current || !composing) return false;
+    const layoutPending = pendingWriteRef.current?.page_presentation_sha256 != null;
+    const layoutChanged = presentationFingerprint(presentationRef.current) !== presentationFingerprint(serverPresentationRef.current);
+    const sourceChanged = (presentationRef.current || serverPresentationRef.current)
+      && (markdownRef.current !== serverMarkdownRef.current || titleRef.current !== serverTitleRef.current);
+    if (!layoutPending && !layoutChanged && !sourceChanged) return false;
+    setError("Save or resolve this Plan’s layout draft before opening another Plan.");
+    return true;
+  };
+
   const openPlan = async (nextDocumentId: string, allowRetry = false, isCurrent:()=>boolean = ()=>true, expectedPin?:import('../guidedTour/protocol').TargetPin) => {
     if(!isCurrent())return;
     if(!expectedPin)tourNavigation?.discardDestination('plan');
-    if (savingRef.current || (statusRef.current !== "ready" && !allowRetry)) return;
+    if (savingRef.current || (statusRef.current !== "ready" && !allowRetry) || protectLayoutRecovery()) return;
     const epoch = ++selectionEpochRef.current;
     const priorDocumentId = documentIdRef.current;
     const priorSavedBasis = savedBasis;
@@ -1002,7 +1013,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const resetBlankPlan = () => {
-    if (statusRef.current !== "ready" || savingRef.current) return;
+    if (statusRef.current !== "ready" || savingRef.current || protectLayoutRecovery()) return;
     ++selectionEpochRef.current;
     startPlayRequestRef.current += 1;
     setStartingPlay(false);
@@ -2391,8 +2402,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             }} /> : null}
           <div className="world-plan-visual-editor" hidden={sourceEditing && !cardsViewActive}>
           {!composing && !cardsViewActive && !sourceEditing && documentId && savedBasis.status === "verified"
-            && !fidelityBlocked && !composerDisabledReason(markdown) ? (
-            <button type="button" disabled={saving || savedPlanDirty || recoveryConflict || autoSavePaused}
+            && !savedPlanDirty && !fidelityBlocked && !composerDisabledReason(markdown) ? (
+            <button type="button" disabled={saving || recoveryConflict || autoSavePaused}
               onClick={() => { setComposing(true); }}>Compose layout</button>
           ) : null}
           {composing && !cardsViewActive && !sourceEditing ? (

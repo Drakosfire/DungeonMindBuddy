@@ -4774,6 +4774,12 @@ it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement"] a
   const editor = (surface().querySelector(".ProseMirror") as HTMLElement & { editor: Editor }).editor;
   expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
   const rowBeforeUndo = editor.state.doc.firstChild?.toJSON();
+  if (receipt === "exact") {
+    fireEvent.click(screen.getByRole("button", { name: "New Plan" }));
+    expect(screen.getByText("Save or resolve this Plan’s layout draft before opening another Plan.")).toBeInTheDocument();
+    expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).document_id).toBe(savedAgentPlanId);
+  }
   act(() => { editor.commands.undo(); });
   expect(surface().querySelector("[data-page-row]")).toBeNull();
   act(() => { editor.commands.redo(); });
