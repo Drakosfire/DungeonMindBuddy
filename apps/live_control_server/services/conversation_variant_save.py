@@ -69,6 +69,10 @@ def validate_variant_review(definition, *, client=None):
         return None
     receipt = result.validation_receipt
     if receipt is None:
+        logger.warning(
+            "Statblock variant validation returned no receipt (category=%s).",
+            result.failure_category or "missing_receipt",
+        )
         return None
     if result.definition_digest != compute_definition_digest(definition) or receipt.definition_digest != result.definition_digest:
         logger.warning("Statblock validation did not match the submitted draft definition.")
