@@ -15,10 +15,13 @@ Plan without changing its representation.
 
 The user has delegated routine implementation and review for this lane. This
 slice owns only the internal Content transaction, typed snapshots and tests, and
-the predecessor handoff status. The observed open hosted-authorization PR #3824
-has leases on the Plan editor and Markdown Save router. They remain with that
-lane. Plan Snapshot HTTP types, editor activation, the successor reader fence,
-and nested agent placement belong to later assignments.
+the predecessor handoff status and verification selector expectation. The
+current hosted-authorization integration draft #3824 overlaps the Plan editor
+and Markdown Save router. Its active two-path scope is recorded in
+[the registered World fixture handoff](HANDOFF-BUDDY-v9-registered-world-fixture.md).
+The later assignment must reconcile the exact integration diff and preserve
+hosted authorization. Plan Snapshot HTTP types, editor activation, the
+successor reader fence, and nested agent placement belong to later assignments.
 
 Expected write set:
 
@@ -27,6 +30,8 @@ Expected write set:
 - `src/application_state/content/page_presentation.py`
 - `tests/application_state/test_authored_pages_postgres.py` for shared revision
   presentation storage coverage
+- `tests/test_ownership_ci_partition.py` for the exact four already-admitted
+  ordinary Plan selectors added by merged #4264
 - This handoff and the finished plain-Plan handoff
 
 Use the lane's locked Python environment and an owned disposable PostgreSQL

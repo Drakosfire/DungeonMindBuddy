@@ -25,6 +25,10 @@ def test_workflow_retains_every_original_selector_once_except_partitioned_module
         "tests/test_recap_object_dispositions.py",
         "tests/test_recap_quote_integrity.py",
         "tests/test_recap_semantic_candidate_correction.py",
+        "tests/application_state/test_plan_author_location.py",
+        "tests/application_state/test_plan_contextual_targets.py",
+        "tests/test_plan_jev_authoring.py::test_author_scope_input_admission_joins_exact_native_turn_without_granting_work",
+        "tests/test_plan_jev_authoring.py::test_source_blind_sdk_records_only_its_actual_native_scope_observation",
     ])
     assert actual == expected
     assert len(commands) == 4
