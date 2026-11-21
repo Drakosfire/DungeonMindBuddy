@@ -325,6 +325,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else "read" if read_optional_page and name.startswith("related_page_")
                     else {"paragraph_work": f"explicit_{contextual}" if contextual in {"page_end", "page_body"} else "place_paragraph",
+                          "paragraph_destination": "current_page",
                           "paragraph_relation": "after",
                           "paragraph_scope": "unscoped" if contextual == "ambiguous" else "named",
                           "paragraph_text0": "include", "paragraph_scope0": "exclude",
