@@ -119,7 +119,11 @@ confirm permanent withdrawal. A new owner can withdraw a current copy approved
 under an earlier ownership but cannot restore it. A separately gated
 `VITE_GUEST_RELEASE_PAGE=1` entry now renders a read-only snapshot at an exact
 guest path without mounting the private World provider, and the owner review
-can expose that link after publication. Browser and exact-head
+can expose that link after publication. Release-local URL fragments let readers
+link to a point or excerpt in that exact copy. Fragments resolve only against
+the fetched current copy; stale, invalid or foreign IDs fall back to the map and
+never trigger a private read. A later publication can make an old fragment
+unavailable even though the stable public World URL remains the same. Browser and exact-head
 qualification remain outstanding. A real Core
 fixture confirms unknown scope is common. A synthetic integration fixture now
 joins a committed APP page to a private Core source, stages and reviews two
