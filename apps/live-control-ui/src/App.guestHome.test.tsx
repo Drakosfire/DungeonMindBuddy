@@ -127,6 +127,17 @@ it("keeps legacy Home anchors on the ordinary welcome", async () => {
   expect(fetchMock.mock.calls.map(call => String(call[0]))).toEqual(["/api/auth/session"]);
 });
 
+it("switches between the demo and legacy Home anchor on history changes", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session" ? reply(401) : reply(200, manifest)));
+  render(<App />);
+  expect(await screen.findByText("Follow the threads.")).toBeInTheDocument();
+  act(() => { window.history.pushState({}, "", "/#buddy-about"); window.dispatchEvent(new PopStateEvent("popstate")); });
+  expect(await screen.findByText("Personal welcome")).toBeInTheDocument();
+  act(() => { window.history.pushState({}, "", "/"); window.dispatchEvent(new PopStateEvent("popstate")); });
+  expect(await screen.findByText("Follow the threads.")).toBeInTheDocument();
+  expect(screen.queryByTestId("private-world-provider")).not.toBeInTheDocument();
+});
+
 it("keeps malformed release fragments inside the configured demo without private reads", async () => {
   window.history.replaceState({}, "", "/#copy/copy/point/%E0%A4%A");
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session" ? reply(401) : reply(200, manifest));
