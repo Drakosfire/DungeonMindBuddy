@@ -18,7 +18,7 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
   if (error && !data) return error
   if (!data) return <p role="status">Loading execution trace…</p>
   const attempts = data.attempts
-  const incomplete = !running && attempts.some(trace => trace.closed_at == null || trace.capture_status === 'incomplete')
+  const incomplete = !running && (attempts.length === 0 || attempts.some(trace => trace.closed_at == null || trace.capture_status === 'incomplete'))
   const captureControls = error ?? ((!replyDetails || incomplete) && <>
     {incomplete && <p role="note">The turn has ended, but the saved trace is incomplete.</p>}
     <button type="button" onClick={refresh}>Refresh trace</button>
