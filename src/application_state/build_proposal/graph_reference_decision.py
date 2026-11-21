@@ -93,9 +93,12 @@ _QUOTED_AUTHOR_TEXT = re.compile(
     r''' "[^"\n]*" | “[^”\n]*” | ‘[^’\n]*’ | (?<!\w)'[^'\n]*' ''',
     flags=re.VERBOSE,
 )
-_AUTHOR_REQUEST_PREFIX = r"(?:(?:could|can|would|will)\s+you\s+)?(?:please\s+)?"
+_AUTHOR_REQUEST_PREFIX = (
+    r"(?:(?:could|can|would|will)\s+you\s+"
+    r"|I\s+(?:would\s+like|want)\s+you\s+to\s+)?(?:please\s+)?"
+)
 _AUTHOR_ACTION = r"(?P<action>add|insert|place|put|link|reference)"
-_AUTHOR_OBJECT = r"(?P<object>[^.,!?;:\n]+?)"
+_AUTHOR_OBJECT = r"(?P<object>[^.!?;:\n]+?)"
 _AUTHOR_ANCHOR = r"(?P<anchor>[^.,!?;:\n]+?)"
 _AUTHOR_RELATION = r"(?P<relation>before|after)"
 _NONPLACEMENT_LEAD = re.compile(
@@ -131,38 +134,46 @@ def _has_distinguishing_expression(question, chosen, candidates, kind):
         "", question[object_start:object_end], flags=re.IGNORECASE,
     )
     object_text = re.sub(r"^(?:(?:a|an|the|existing)\s+)+", "", object_text, flags=re.IGNORECASE)
-    quoted = _QUOTED_AUTHOR_TEXT.fullmatch(object_text)
-    if quoted is None and _QUOTED_AUTHOR_TEXT.search(object_text):
+    quotations = list(_QUOTED_AUTHOR_TEXT.finditer(object_text))
+    if len(quotations) > 1:
         return False
-    expression = _words(quoted[0][1:-1] if quoted else object_text)
+    quoted_name = _words(quotations[0][0][1:-1]) if quotations else None
+    expression = _words(object_text)
     if not expression or {"not", "except", "or", "and", "instead", "without"} & set(expression):
         return False
     available_kinds = {_words(candidate.entity_kind) for candidate in candidates}
     eligible = set()
     for candidate in candidates:
         description = _words(candidate.summary or "")
+        kind_words = _words(candidate.entity_kind)
+        permits_kind = kind is None or kind == candidate.entity_kind
+        matching_qualifiers = {kind_words, ("the", *kind_words), ("as", "a", *kind_words),
+                               ("as", "an", *kind_words)}
+        matching_qualifiers.update(
+            (*kind_words, "rather", "than", "the", *other)
+            for other in available_kinds - {kind_words}
+        )
         for name in _names(candidate):
-            kind_words = _words(candidate.entity_kind)
-            if quoted:
-                if expression == name:
-                    eligible.add(candidate.reference.node_id)
+            if quoted_name is not None and quoted_name != name:
                 continue
-            if kind == candidate.entity_kind and expression == (*kind_words, "named", *name):
+            if permits_kind and expression in {
+                (*kind_words, *name), (*kind_words, "named", *name), (*kind_words, "called", *name),
+            }:
                 eligible.add(candidate.reference.node_id)
-            if expression[:len(name)] != name:
                 continue
-            qualifier = expression[len(name):]
-            matching_qualifiers = {kind_words, ("as", "a", *kind_words), ("as", "an", *kind_words)}
-            matching_qualifiers.update(
-                (*kind_words, "rather", "than", "the", *other)
-                for other in available_kinds - {kind_words}
-            )
-            literal_kind = kind == candidate.entity_kind and qualifier in matching_qualifiers
-            literal_description = len(qualifier) >= 3 and "rather" not in qualifier and any(
+            if expression[:len(name)] == name:
+                qualifier = expression[len(name):]
+                if not qualifier or (permits_kind and qualifier in matching_qualifiers):
+                    eligible.add(candidate.reference.node_id)
+                    continue
+            elif expression[-len(name):] == name and expression[-len(name)-2:-len(name)] == ("version", "of"):
+                qualifier = expression[:-len(name)-2]
+            else:
+                continue
+            if quoted_name is None and len(qualifier) >= 3 and "rather" not in qualifier and any(
                 description[index:index + len(qualifier)] == qualifier
                 for index in range(len(description) - len(qualifier) + 1)
-            )
-            if not qualifier or literal_kind or literal_description:
+            ):
                 eligible.add(candidate.reference.node_id)
     return eligible == {chosen.reference.node_id}
 

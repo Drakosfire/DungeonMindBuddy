@@ -319,12 +319,21 @@ def test_graph_decision_shared_alias_requires_the_current_author_selected_identi
     ("After the moon in East, add a new link to Blue Watch.", {}, "construct:retuned-ivory"),
     ("Link the location named Ivory Sentry after the moon in East.",
      {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("Link the location Ivory Sentry after the moon in East.",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ('Link the location “Ivory Sentry” after the moon in East.',
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("I would like you to link Ivory Sentry, the location, after the moon in East.",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("Link the with a blue vane version of Ivory Sentry after the moon in East.", {}, "construct:retuned-ivory"),
     ("Link Ivory Sentry as a location after the moon in East.",
      {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
     ('Link Ivory Sentry after the paragraph about “Blue Watch”.', {}, None),
     ('Link Ivory Sentry “location” after the moon in East.',
      {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, None),
     ("Link Ivory Sentry after the paragraph about a blue vane.", {}, None),
+    ("Link Blue Watch, or link Ivory Sentry after the moon in East.", {}, None),
+    ("Link Ivory Sentry, the location, after the moon in East.", {}, None),
     ("Link Ivory Sentry construct after the moon in East.", {}, None),
 ])
 def test_graph_identity_expression_must_uniquely_match_the_authorized_inventory(
@@ -339,6 +348,19 @@ def test_graph_identity_expression_must_uniquely_match_the_authorized_inventory(
         assert result.disposition == "ambiguous_identity" and result.placement is None
     else:
         assert result.placement.reference.node_id == expected
+
+
+@pytest.mark.parametrize("question", [
+    "Link the with a blue vane version of Ivory Sentry after the moon in East.",
+    'Link “Blue Watch” after the moon in East.',
+])
+def test_graph_literal_qualifier_requires_uniqueness_across_excluded_candidates(graph_decision, question):
+    first, second, third = graph_decision.candidates
+    first = first.model_copy(update={"summary": second.summary, "aliases": ("Blue Watch",)})
+    second = second.model_copy(update={"aliases": ("Blue Watch",)})
+    decision = replace(graph_decision, question=question, author_selected=None, candidates=(first, second, third))
+    result = decision.resolve(graph_response())
+    assert result.disposition == "ambiguous_identity" and result.placement is None
 
 
 @pytest.mark.parametrize("question,nomination,expected", [
