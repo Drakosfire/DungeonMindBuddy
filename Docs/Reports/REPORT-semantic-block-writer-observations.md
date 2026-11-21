@@ -87,7 +87,13 @@ needs to preserve the versioned decision packet used to verify older turns.
   the Arrival paragraph. Dismiss preserved the saved blocks and save status.
 - **X01:** Hosted Build responded to the brainstorming request in chat and
   showed no page suggestion. The rendered saved blocks and save time matched
-  their initial state. Server write-reservation records were not checked.
+  their initial state. A subsequent read-only check found zero Build write
+  reservations for the completed turn.
+- **X01, Plan:** The first attempt hit an uncertain new-conversation command
+  and admitted no turn. Reopening the existing synthetic conversation allowed
+  the exact prompt to complete in chat with no page suggestion. The Plan
+  Markdown matched before and after. The retained decision was `discuss`,
+  with zero authoring reservations.
 
 ## Hosted Play and Combat follow-up
 
