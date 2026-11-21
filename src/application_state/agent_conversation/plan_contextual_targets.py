@@ -317,10 +317,20 @@ def contextual_work_choice(request, intent, answers):
             if choice == 'include':
                 selected.append(entry['view']['selector'])
         return selected
+    direct, passages = votes('anchor', inventory['direct']), votes('passage', inventory['passages'])
+    sections, ancestors = votes('section', inventory['sections']), votes('ancestor', inventory['ancestors'])
+    binding = getattr(request, 'author_scope_binding', None)
+    if binding is not None:
+        if answers['scope_qualifier'] not in SCOPE_QUALIFIERS:
+            raise ValueError('Scope qualifier was not offered')
+        return dict(author_scope_binding=binding, scope_document_title=request.page_title or None,
+            source_placement_relation=relation, requested_paragraph_scope=answers['paragraph_scope'],
+            requested_scope_qualifier=answers['scope_qualifier'],
+            compatible_section_selectors=tuple(sections), compatible_ancestor_selectors=tuple(ancestors),
+            **resolve_author_scope_targets(request.original_capture, request.placement_catalog,
+                intent, relation, binding.observation, direct, passages, document_title=request.page_title or None))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
-        answers['paragraph_scope'], votes('anchor', inventory['direct']),
-        votes('passage', inventory['passages']), votes('section', inventory['sections']),
-        answers['scope_qualifier'], votes('ancestor', inventory['ancestors']))
+        answers['paragraph_scope'], direct, passages, sections, answers['scope_qualifier'], ancestors)
 
 
 def _component_selection(entries, selectors):
@@ -372,7 +382,7 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
         document_title, description_matches=None, excluded_description_matches=None):
     """Join independent author scope to source nominations at their exact editor geometry."""
     from .native_plan_opening import NativePlanAuthorScopeObservationV1
-    from .plan_author_location import bind_scope
+    from .plan_author_location import DescribedScopeName, NamedScopePath, ScopeWithExclusion, bind_scope
 
     if type(observation) is not NativePlanAuthorScopeObservationV1 or relation not in RELATIONS:
         raise ValueError('Observed placement requires its exact author interpretation and source relation')
@@ -386,7 +396,15 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
     offered = {('captured' if entry.kind == 'captured_target' else entry.kind) for entry in catalog.entries}
     if relation not in offered:
         return evidence | resolve_anchor_targets(capture, catalog, intent, 'unresolved', ())
-    bound = bind_scope(capture, catalog, observation.scope, document_title=document_title,
+    scope = observation.scope
+    positive = scope.positive if isinstance(scope, ScopeWithExclusion) else scope
+    if (description_matches is None and isinstance(positive, NamedScopePath)
+            and any(isinstance(name, DescribedScopeName) for name in positive.names)):
+        return evidence | resolve_anchor_targets(capture, catalog, intent, relation, ())
+    if (excluded_description_matches is None and isinstance(scope, ScopeWithExclusion)
+            and any(isinstance(name, DescribedScopeName) for name in scope.excluded.names)):
+        return evidence | resolve_anchor_targets(capture, catalog, intent, relation, ())
+    bound = bind_scope(capture, catalog, scope, document_title=document_title,
         description_matches=description_matches, excluded_description_matches=excluded_description_matches)
     active = set()
     if bound.status in {'matched', 'unscoped'}:

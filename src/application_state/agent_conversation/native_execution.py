@@ -29,7 +29,9 @@ from .native_retrieval import (
     NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeReadBatchConcludedV1,
     NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2,
 )
-from .native_plan_opening import NativePlanAuthorScopeObservedV1
+from .native_plan_opening import (
+    NativePlanAuthorScopeObservedV1, NativePlanOpeningScopeBindingV1, require_retained_author_scope,
+)
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
 from .native_plan_assertions import NativeGraphQueryV4, NativePlanAssertionReadObservedV2
 
@@ -304,6 +306,10 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
     compatible_ancestor_selectors: tuple[str, ...]
     requested_paragraph_scope: Literal['unscoped', 'named', 'unresolved', 'not_applicable']
     requested_scope_qualifier: Literal['none', 'named', 'unresolved']
+    author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    scope_document_title: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_placement_relation: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator('compatible_placement_selectors', 'compatible_anchor_selectors',
         'direct_anchor_selectors', 'compatible_passage_selectors', 'compatible_section_selectors',
@@ -327,14 +333,23 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
     def exact_resolution(self):
         from .plan_authoring import PlanAuthoringCaptureV1
         from .plan_placement import decode_plan_placement_catalog
-        from .plan_contextual_targets import resolve_component_targets
+        from .plan_contextual_targets import resolve_author_scope_targets, resolve_component_targets
         if self.original_capture is None or self.placement_catalog is None:
             raise ValueError('Contextual selection requires its original captured catalog')
-        fields = resolve_component_targets(PlanAuthoringCaptureV1.model_validate(self.original_capture),
-            decode_plan_placement_catalog(self.placement_catalog), self.requested_intent,
-            self.requested_placement_relation, self.requested_paragraph_scope,
-            self.direct_anchor_selectors, self.compatible_passage_selectors, self.compatible_section_selectors,
-            self.requested_scope_qualifier, self.compatible_ancestor_selectors)
+        capture = PlanAuthoringCaptureV1.model_validate(self.original_capture)
+        catalog = decode_plan_placement_catalog(self.placement_catalog)
+        if self.author_scope_binding is not None:
+            fields = resolve_author_scope_targets(capture, catalog, self.requested_intent,
+                self.source_placement_relation, self.author_scope_binding.observation,
+                self.direct_anchor_selectors, self.compatible_passage_selectors,
+                document_title=self.scope_document_title)
+        else:
+            if self.source_placement_relation is not None or self.scope_document_title is not None:
+                raise ValueError('Source relation and title require their retained author scope')
+            fields = resolve_component_targets(capture, catalog, self.requested_intent,
+                self.requested_placement_relation, self.requested_paragraph_scope,
+                self.direct_anchor_selectors, self.compatible_passage_selectors, self.compatible_section_selectors,
+                self.requested_scope_qualifier, self.compatible_ancestor_selectors)
         if any(getattr(self, key) != value for key, value in fields.items()):
             raise ValueError('Contextual selection differs from its complete target resolution')
         return self
@@ -475,6 +490,12 @@ class SurfaceNativeExecutionV1(Strict):
                     (type(self.policy.action) is NativePlanActionV3)
                     != (type(event) is NativePlanOpeningSelectedV2)):
                 raise ValueError('Plan work selection differs from its action contract version')
+            if type(event) is NativePlanOpeningSelectedV2 and event.author_scope_binding is not None:
+                binding = event.author_scope_binding
+                require_retained_author_scope(self.model_copy(update={'events': self.events[:event.sequence]}),
+                    binding.observation_event_id, binding.observation)
+                if event.scope_document_title != self.policy.action.document_title:
+                    raise ValueError('Bound opening selection title differs from the frozen Content title')
             if isinstance(event,t.ProviderOutcomeEventV1) and event.outcome=='response_received':
                 producer=next(e for e in self.events[:event.sequence]
                     if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and e.provider_attempt_id==event.provider_attempt_id)

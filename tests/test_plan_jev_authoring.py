@@ -76,9 +76,10 @@ def test_foreign_or_stale_plan_capture_is_rejected_before_provider_dispatch(chan
 
 
 class SemanticWire(httpx2.AsyncBaseTransport):
-    def __init__(self, adapter, choice, compatible_selectors=None):
+    def __init__(self, adapter, choice, compatible_selectors=None, *, expect_examined=True):
         self.adapter, self.choice = adapter, choice
         self.compatible_selectors = compatible_selectors
+        self.expect_examined = expect_examined
 
     async def handle_async_request(self, request):
         body = json.loads(request.content)
@@ -97,7 +98,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             "placement_policy",
         }
         if opening:
-            expected_state |= {"candidates", "examined_subjects", "relevance_guidance", "conditional_read_plan_policy"}
+            expected_state |= {"candidates", "relevance_guidance", "conditional_read_plan_policy"}
+            if self.expect_examined:
+                expected_state.add("examined_subjects")
         contextual = 'placement_relation' in body['questions']
         if contextual:
             expected_state.difference_update({'offered_page_locations', 'intent_policy', 'placement_policy'})
@@ -559,6 +562,17 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
             observation.model_copy(update={'relation': 'after_heading'}))
     with pytest.raises(ValueError, match='no longer current'):
         current_selection(current)
+    opening = PlanJevDispatch.requested_work(plan_adapter, page_title='Preparation',
+        author_scope=events[-1])
+    work, _ = asyncio.run(opening.run(
+        transport=SemanticWire(plan_adapter, 'write:captured', expect_examined=False),
+        api_key='synthetic-not-secret'))
+    assert work == 'write_current_page'
+    confirmed = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
+    selection = confirmed.graph_context_execution.events[-1]
+    assert selection.author_scope_binding.observation_event_id == events[-1].event_id
+    assert selection.placement_selector == 'captured'
+    assert selection.target_capture_sha256 == current.graph_context_execution.policy.action.authoring_capture.sha256
 
 
 @pytest.mark.parametrize("mutation", ["content", "turn_revision", "capture", "pointer"])

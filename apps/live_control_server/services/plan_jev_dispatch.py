@@ -147,7 +147,7 @@ class PlanJevDispatch:
 
     @classmethod
     def requested_work(cls, adapter, *, page_title, dialogue=(), candidates=(), examined_candidates=(),
-            allowed_operations=('select_candidates', 'finish_retrieval')):
+            allowed_operations=('select_candidates', 'finish_retrieval'), author_scope=None):
         """Prepare the one actual opening producer selected by its admission codec."""
         dispatch = cls(adapter, (), dialogue=dialogue)
         capture = adapter.request.plan_authoring_capture
@@ -155,7 +155,10 @@ class PlanJevDispatch:
         operation = adapter.request.plan_requested_operation
         parent_type = PlanRequestedWorkInputV8 if isinstance(adapter.request.plan_context_policy,t.PlanContextPolicyV2) else PlanRequestedWorkInputV7
         from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
-        from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1, NativePlanOpeningInputV2
+        from application_state.agent_conversation.native_plan_opening import (
+            NativePlanAuthorScopeObservedV1, NativePlanOpeningInputV1, NativePlanOpeningInputV2,
+            NativePlanOpeningScopeBindingV1, require_retained_author_scope,
+        )
         from application_state.agent_conversation.native_execution import NativePlanActionV3
         from application_state.agent_conversation.native_retrieval import source_pins
         opening = adapter.fence is not None and type(adapter.fence.turn.graph_context_receipt.assembled_input) is NativePlanRequestAdmissionV1
@@ -167,6 +170,13 @@ class PlanJevDispatch:
                 page_title = adapter.fence.turn.graph_context_execution.policy.action.document_title or ''
         navigation = dict(candidates=tuple(candidates), examined_candidates=tuple(examined_candidates),
             allowed_operations=tuple(allowed_operations), **source_pins(adapter.fence.turn.graph_context_receipt)) if opening else {}
+        if author_scope is not None:
+            if parent_type is not NativePlanOpeningInputV2 or type(author_scope) is not NativePlanAuthorScopeObservedV1:
+                raise ValueError('Bound opening requires its actual contextual author scope observation')
+            require_retained_author_scope(adapter.fence.turn.graph_context_execution,
+                author_scope.event_id, author_scope.scope_observation)
+            navigation['author_scope_binding'] = NativePlanOpeningScopeBindingV1(
+                observation_event_id=author_scope.event_id, observation=author_scope.scope_observation)
         dispatch.parent = parent_type(
             plan_requested_operation=operation, authored_references=references,
             request_id=uuid4(), parent_attempt_id=uuid4(),
@@ -277,6 +287,8 @@ class PlanJevDispatch:
             auth_kind = 'native_plan_opening_authorized_v1' if opening else 'plan_requested_work_authorized_v2' if isinstance(self.parent, PlanRequestedWorkInputV2) else 'plan_requested_work_authorized_v1' if semantic else 'native_retrieval_authorized_v1' if native else 'plan_jev_provider_authorized_v1'
             if author_scope:
                 auth_type, auth_kind = NativePlanAuthorScopeAuthorizedV1, 'native_plan_author_scope_authorized_v1'
+            scope_binding = getattr(self.parent, 'author_scope_binding', None)
+            opening_fields = {'author_scope_event_id': scope_binding.observation_event_id} if scope_binding else {}
             auth = auth_type(kind=auth_kind, event_id=uuid4(),
                 sequence=len(execution.events), provider_attempt_id=UUID(prepared.attempt_id),
                 decision_request_id=self.parent.request_id, parent_request_sha256=self.parent.digest,
@@ -286,7 +298,8 @@ class PlanJevDispatch:
                 input_estimator=execution.policy.controller_continuation_accounting.policy if native_build else a.budget["estimator"],
                 input_tokens=estimate, output_token_reserve=0 if native_build else a.budget["outputReserveTokens"],
                 included_assertion_ids=[], included_relationship_ids=[], included_evidence_ref_ids=[],
-                included_graph_event_ids=[], included_source_read_event_ids=[],**({"build_context":build_context} if native else {}))
+                included_graph_event_ids=[], included_source_read_event_ids=[],
+                **({"build_context":build_context} if native else {}), **opening_fields)
             a.turn = _require_fresh_execution_append(a.fence.append("authorize_plan_jev_provider", "authorization", auth,
                 producer_proof={"parent_request_json": self.parent.model_dump_json(by_alias=True), "request_json": raw}))
             a.last_provider_attempt_id = auth.provider_attempt_id

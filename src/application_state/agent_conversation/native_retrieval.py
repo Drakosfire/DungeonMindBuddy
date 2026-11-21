@@ -36,6 +36,7 @@ class NativeRetrievalAuthorizedV1(t.PlanJevProviderAuthorizedV1):
 class NativePlanOpeningAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
     """One actual SDK envelope explicitly produces work and its first batch."""
     kind: Literal['native_plan_opening_authorized_v1'] = 'native_plan_opening_authorized_v1'
+    author_scope_event_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanAuthorScopeAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
@@ -605,6 +606,9 @@ def validate_decision_phases(execution):
             if type(event) in NATIVE_PLAN_OPENING_SELECTION_TYPES:
                 if type(auth) is not NativePlanOpeningAuthorizedV1:
                     raise ValueError('Opening selection requires its actual dual-purpose provider')
+                binding = getattr(event, 'author_scope_binding', None)
+                if auth.author_scope_event_id != (binding.observation_event_id if binding is not None else None):
+                    raise ValueError('Opening result differs from its authorized author scope')
                 if event.operation is not None:
                     selected = event
                     retrieval_started = True

@@ -23,14 +23,6 @@ class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecision
         default='dmb_native_plan_opening_input_v1', alias='schema')
 
 
-class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV1):
-    schema_: Literal['dmb_native_plan_opening_input_v2'] = Field(
-        default='dmb_native_plan_opening_input_v2', alias='schema')
-
-
-NATIVE_PLAN_OPENING_INPUT_TYPES = (NativePlanOpeningInputV1, NativePlanOpeningInputV2)
-
-
 class NativePlanAuthorScopeInputV1(Strict):
     """Source-blind parent for one proposed interpretation of author text."""
 
@@ -64,6 +56,21 @@ class NativePlanAuthorScopeObservedV1(t.GraphExecutionEventBaseV1):
     scope_observation: NativePlanAuthorScopeObservationV1
     actual_input_tokens: int | None = Field(default=None, strict=True, ge=0)
     actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
+
+
+class NativePlanOpeningScopeBindingV1(Strict):
+    observation_event_id: UUID
+    observation: NativePlanAuthorScopeObservationV1
+
+
+class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV1):
+    schema_: Literal['dmb_native_plan_opening_input_v2'] = Field(
+        default='dmb_native_plan_opening_input_v2', alias='schema')
+    author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+
+
+NATIVE_PLAN_OPENING_INPUT_TYPES = (NativePlanOpeningInputV1, NativePlanOpeningInputV2)
 
 
 class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
@@ -262,12 +269,28 @@ def validate_opening_parent(context, execution, parent, authorization):
             or opening_dialogue_sha256(parent.dialogue) != context.assembled_input.dialogue_sha256
             or any(getattr(parent, k) != v for k, v in _source_pins(context).items())):
         raise ValueError('Opening SDK parent differs from its actual request/source/dialogue admission')
-    validate_opening_prefix(context, execution.events[:authorization.sequence])
+    prefix = execution.events[:authorization.sequence]
+    binding = getattr(parent, 'author_scope_binding', None)
+    event_id = binding.observation_event_id if binding is not None else None
+    if authorization.author_scope_event_id != event_id:
+        raise ValueError('Opening authorization differs from its author scope parent')
+    if binding is not None:
+        require_retained_author_scope(execution.model_copy(update={'events': prefix}),
+            binding.observation_event_id, binding.observation)
+    validate_opening_prefix(context, prefix, author_scope_event_id=event_id)
 
 
-def validate_opening_prefix(context, prefix):
+def validate_opening_prefix(context, prefix, *, author_scope_event_id=None):
     from .native_corpus import NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
-    if any(isinstance(e, t.ProviderAttemptAuthorizedEventV1) for e in prefix):
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    attempts = [e for e in prefix if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
+    if author_scope_event_id is not None:
+        observations = [e for e in prefix if type(e) is NativePlanAuthorScopeObservedV1]
+        if (len(attempts) != 1 or type(attempts[0]) is not NativePlanAuthorScopeAuthorizedV1
+                or len(observations) != 1 or observations[0].event_id != author_scope_event_id
+                or observations[0].controller_attempt_id != attempts[0].provider_attempt_id):
+            raise ValueError('Scope-bound opening requires its one earlier observed author attempt')
+    elif attempts:
         raise ValueError('Opening SDK must be the first actual provider attempt')
     grants = [e for e in prefix if isinstance(e, NativePlanRequestSearchAuthorizedV1)]
     if isinstance(context.source_authority, NativeCorpusAuthorityV1):
@@ -349,5 +372,6 @@ def validate_request_admission(context, execution):
         if type(event) is NativePlanAuthorScopeAuthorizedV1 and type(action) is not NativePlanActionV3:
             raise ValueError('Author scope decisions require their actual contextual Plan action')
         if type(event) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1):
-            validate_opening_prefix(context, execution.events[:event.sequence])
+            validate_opening_prefix(context, execution.events[:event.sequence],
+                author_scope_event_id=getattr(event, 'author_scope_event_id', None))
     return admission
