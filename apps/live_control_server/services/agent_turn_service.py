@@ -1630,6 +1630,17 @@ class _TurnClaimRenewer:
         self._thread = Thread(target=self._run, name="agent-turn-claim-renewer", daemon=True)
         self._thread.start()
 
+    @property
+    def _turn(self) -> Turn:
+        from application_state.agent_conversation.native_plan_session import PlanSessionClaim
+        if isinstance(self._claim, PlanSessionClaim):
+            self._claim = self._claim.snapshot()
+        return self._claim
+
+    @_turn.setter
+    def _turn(self, turn: Turn) -> None:
+        self._claim = turn
+
     def current_turn(self) -> Turn:
         with self._lock:
             return self._turn
@@ -1645,7 +1656,7 @@ class _TurnClaimRenewer:
                     return
                 try:
                     if self._session is not None:
-                        self._turn = self._session.renew(expected_revision=self._turn.revision,
+                        self._turn = self._session.renew(expected_revision=self._claim.revision,
                             lease_seconds=self._lease_seconds)
                         continue
                     self._turn = self._service.renew_turn_claim(
@@ -1694,13 +1705,22 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self.commit(method_name, **{event_name: event}, **extras)
 
+    def authorize_session_body_grants(self, grants):
+        with self.renewer._lock:
+            if self.renewer._session is None:
+                return None
+            return self._commit('authorize_native_body_reads', body_grants_only=True, grants=grants)
+
     def commit(self, method_name: str, **fields: Any
                ) -> tuple[Turn, bool] | tuple[Turn, bool, TurnContextTraceV1]:
         """One moving claim owner for controller and source-navigation writes."""
+        return self._commit(method_name, **fields)
+
+    def _commit(self, method_name, *, body_grants_only=False, **fields):
         with self.renewer._lock:
             if self.renewer._error is not None:
                 raise ApplicationStateError('APP-STATE claim owner has stopped after a failed operation') from self.renewer._error
-            current = self.renewer._turn
+            current = self.renewer._claim
             session_owned = self.renewer._session is not None
             detailed_writer = (method_name == "authorize_native_writer"
                                and self.trace is not None and host_work_observer.get() is not None)
@@ -1717,6 +1737,11 @@ class _ClaimFence:
                             current = self.renewer._session.finish()
                         self.renewer._session = None
                         self.renewer._turn = current
+                    elif body_grants_only:
+                        claim, grants = self.renewer._session.authorize_body_grants(
+                            expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                        self.renewer._claim = claim
+                        return grants
                     else:
                         from application_state.agent_conversation.native_plan_session import PlanSessionCommand
                         updated, fresh = self.renewer._session.execute(PlanSessionCommand(method_name),
