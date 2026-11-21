@@ -9,7 +9,7 @@ import hashlib
 import os
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 from application_state import guest_release, media
 from application_state.errors import ApplicationStateUnavailableError
@@ -54,6 +54,27 @@ class NodeSelection(BaseModel):
     kind_source_index: int = Field(ge=0, strict=True)
 
 
+class SavedExampleSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=10_000)
+    source_indexes: list[StrictInt] = Field(min_length=2, max_length=10)
+    asset_id: UUID | None = None
+    image_description: str | None = Field(default=None, max_length=240)
+
+
+class SavedChoiceOption(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    label: str = Field(min_length=1, max_length=80)
+    outcome: str = Field(min_length=1, max_length=2000)
+
+
+class SavedChoiceSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    prompt: str = Field(min_length=1, max_length=240)
+    options: list[SavedChoiceOption] = Field(min_length=2, max_length=2)
+
+
 class ReleaseSelection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     graph_revision: str = Field(min_length=1, max_length=255)
@@ -61,6 +82,8 @@ class ReleaseSelection(BaseModel):
     relationships: list[RelationshipSelection] = Field(max_length=1000)
     sources: list[SourceSelection] = Field(max_length=500)
     asset_ids: list[UUID] = Field(max_length=100)
+    saved_example: SavedExampleSelection | None = None
+    saved_choice: SavedChoiceSelection | None = None
 
 
 def prepare(*, world_id: str, subject: str, selection: ReleaseSelection) -> tuple[UUID, str]:
@@ -122,18 +145,35 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         public_edges.append(public)
         evidence_bindings.append(private)
     graph = {"nodes": public_nodes, "edges": public_edges}
-    assets, manifest_assets = [], []
+    assets, manifest_assets, local_assets = [], [], {}
     owner = hosted_world_media_owner(world_id)
     for asset_id in selection.asset_ids:
         original = media.read_staged_bytes(asset_id, owner)
         mime, content = sanitize_release_image(original)
         release_asset_id = uuid4()
+        local_assets[asset_id] = release_asset_id
         assets.append((release_asset_id, mime, content))
         manifest_assets.append({"id": str(release_asset_id), "mime_type": mime,
                                 "sha256": hashlib.sha256(content).hexdigest()})
     manifest = {"schema": "buddy_guest_release_v1", "projection_version": "explicit_native_assertions_v3",
                 "image_sanitizer_version": "bounded_png_v1", "graph": graph, "sources": sources,
                 "assets": sorted(manifest_assets, key=lambda item: item["id"])}
+    if selection.saved_example is not None:
+        example = selection.saved_example
+        if (any(type(index) is not int or index < 0 or index >= len(sources) for index in example.source_indexes)
+            or (example.asset_id is None) != (example.image_description is None)
+            or (example.asset_id is not None and example.asset_id not in local_assets)):
+            raise GuestReleasePreparationError("Saved example selection is unavailable")
+        manifest["saved_example"] = {
+            "version": "owner_saved_scene_v1", "title": example.title, "body": example.body,
+            "references": [sources[index]["id"] for index in example.source_indexes],
+            "image": None if example.asset_id is None else {
+                "id": str(local_assets[example.asset_id]), "description": example.image_description},
+        }
+    if selection.saved_choice is not None:
+        if selection.saved_example is None:
+            raise GuestReleasePreparationError("Saved choice requires a saved example")
+        manifest["saved_choice"] = {"version": "owner_saved_choice_v1", **selection.saved_choice.model_dump()}
     return guest_release.stage(world_id=world_id, subject=subject, expected_owner_generation=generation,
         native_world_id=binding.native_world_id, native_binding_version=binding.binding_version,
         graph_revision=selection.graph_revision, manifest=manifest, assets=assets, source_bindings=bindings,

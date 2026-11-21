@@ -160,6 +160,11 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     sources = [preparation.SourceSelection(document_id=document_id, revision_n=revision.revision_n,
         sha256=revision.content_sha256, start=1, end=len(native_fixture.BODY), excerpt=native_fixture.BODY[1:],
         evidence_id=evidence_id) for evidence_id in evidence_ids]
+    # The root admission has a separate exact one-byte support span. It is
+    # retained independently of the later graph-publication interval.
+    sources.append(preparation.SourceSelection(document_id=document_id, revision_n=revision.revision_n,
+        sha256=revision.content_sha256, start=0, end=1, excerpt=native_fixture.BODY[:1],
+        evidence_id=case.root.bindings[0].evidence_ref_id))
     def index(assertion):
         return evidence_ids.index(assertion.metadata.evidence_ref_ids[0])
     nodes = [preparation.NodeSelection(entity_id=entity, name_assertion_id=names[entity].assertion_id,
@@ -167,7 +172,12 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
         kind_source_index=index(kinds[entity])) for entity in (edge.subject_entity_id, edge.value.entity_id)]
     selection = preparation.ReleaseSelection(graph_revision=graph_revision, nodes=nodes, sources=sources,
         relationships=[preparation.RelationshipSelection(assertion_id=edge.assertion_id, subject_id=edge.subject_entity_id,
-            predicate=edge.predicate, evidence_id=edge.metadata.evidence_ref_ids[0], source_index=index(edge))], asset_ids=[asset_id])
+            predicate=edge.predicate, evidence_id=edge.metadata.evidence_ref_ids[0], source_index=index(edge))], asset_ids=[asset_id],
+        saved_example=preparation.SavedExampleSelection(title="An owner scene", body="A saved scene",
+            source_indexes=[0, len(sources) - 1], asset_id=asset_id, image_description="A small red image"),
+        saved_choice=preparation.SavedChoiceSelection(prompt="What next", options=[
+            preparation.SavedChoiceOption(label="Enter", outcome="A bell rings"),
+            preparation.SavedChoiceOption(label="Wait", outcome="A lantern flickers")]))
     monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
     monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
     monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, "https://buddy.example")
@@ -210,6 +220,13 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     assert manifest["image_sanitizer_version"] == "bounded_png_v1"
     assert len(manifest["graph"]["edges"]) == 1
     assert len(manifest["assets"]) == 1
+    example = manifest["saved_example"]
+    assert example["title"] == "An owner scene" and example["body"] == "A saved scene"
+    assert example["references"] == [manifest["sources"][0]["id"], manifest["sources"][-1]["id"]]
+    assert example["image"] == {"id": manifest["assets"][0]["id"], "description": "A small red image"}
+    assert manifest["saved_choice"] == {"version": "owner_saved_choice_v1", "prompt": "What next", "options": [
+        {"label": "Enter", "outcome": "A bell rings"}, {"label": "Wait", "outcome": "A lantern flickers"}]}
+    assert str(document_id) not in str(example) and str(asset_id) not in str(example)
     released_asset = UUID(manifest["assets"][0]["id"])
     assert released_asset != asset_id
     assert guest_release.review_asset(world_id=world, subject="owner", release_id=release_id, asset_id=released_asset) == (mime, sanitized)

@@ -36,7 +36,7 @@ from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV
     NativePlanRequestSearchAuthorizedV1 as NativePlanRequestSearchAuthorizedV1,
     NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
     NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1 as NativeAuthoredSourceReadV1,
-    NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, NATIVE_BODY_EVENTS)
+    NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, NATIVE_BODY_EVENTS, PriorBodyCitationReferenceV1)
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived", "trashed"]
@@ -2429,6 +2429,23 @@ class NativeBodyExcerptCitationV1(StrictModel):
     line_start: int = Field(strict=True, ge=1)
     line_end: int = Field(strict=True, ge=1)
 
+    prior_reference: PriorBodyCitationReferenceV1 | None = Field(default=None,
+        exclude_if=lambda value: value is None)
+
+
+class PriorBodyCitationSupportV1(StrictModel):
+    reference: PriorBodyCitationReferenceV1
+    original_citation: NativeBodyExcerptCitationV1
+    claim_text: str = Field(min_length=1)
+    passage: str = Field(min_length=1)
+
+
+class BuildPriorBodyEvidenceAdmittedV1(StrictModel):
+    kind: Literal["build_prior_body_evidence_admitted_v1"] = "build_prior_body_evidence_admitted_v1"
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    work_event_id: UUID
+    supports: tuple[PriorBodyCitationSupportV1, ...] = Field(max_length=256)
 
 class SurfaceEvidenceCompletionV5(SurfaceEvidenceCompletionV4):
     surface_id: Literal["plan", "play"] = "plan"
@@ -4682,7 +4699,7 @@ class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
 class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
     kind: Literal['build_requested_work_resolved_v1']
     controller_response_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
-    requested_work: Literal['discuss', 'draft_in_conversation', 'clarify_request', 'plan', 'write_current_page', 'prepare_image', 'review_connected_page', 'review_relationship', 'review_variant_approval', 'review_lore_page', 'change_mechanics', 'build_encounter', 'place_map_coordinates', 'save_page', 'publish_relationships', 'other_creation', 'clarify_creation']
+    requested_work: Literal['discuss', 'draft_in_conversation', 'clarify_request', 'plan', 'write_current_page', 'prepare_image', 'review_connected_page', 'review_relationship', 'review_variant_approval', 'review_lore_page', 'review_lore_page_from_conversation', 'change_mechanics', 'build_encounter', 'place_map_coordinates', 'save_page', 'publish_relationships', 'other_creation', 'clarify_creation']
     intent_family: Literal['discuss', 'create']
     menu_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     resolver_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')

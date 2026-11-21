@@ -534,7 +534,8 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
                 variant_witnesses=evidence.variant_witnesses,
                 variant_carried_condition=evidence.variant_carried_condition,
                 variant_passage_review=evidence.variant_passage_review,
-                variant_trigger_retention=evidence.variant_trigger_retention)
+                variant_trigger_retention=evidence.variant_trigger_retention,
+                variant_passage_witnesses=evidence.variant_passage_witnesses)
         segments = tuple(segment.text for segment in base.answer_segments)
         if segments:
             composition = AnswerCompositionV1(schema='dmb_answer_composition_v1',base_disposition='approved',

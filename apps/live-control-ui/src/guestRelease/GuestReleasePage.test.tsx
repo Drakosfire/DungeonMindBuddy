@@ -1,9 +1,17 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { GuestReleasePage } from "./GuestReleasePage";
+import { isSavedChoice } from "./savedChoice";
+import choiceParity from "./savedChoiceParity.json";
 
-afterEach(() => { vi.unstubAllGlobals(); window.history.replaceState({}, "", "/"); });
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); window.history.replaceState({}, "", "/"); });
+
+it.each(choiceParity)("uses the shared Unicode choice contract: $name", ({ labels, repeat, valid }) => {
+  const choice = { version: "owner_saved_choice_v1", prompt: "What next", options: [
+    { label: labels[0].repeat(repeat ?? 1), outcome: "One" }, { label: labels[1], outcome: "Two" }] };
+  expect(isSavedChoice(choice)).toBe(valid);
+});
 
 it("follows a released relationship to its excerpt without loading private World APIs", async () => {
   const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ release_id: "copy", manifest: {
@@ -23,7 +31,7 @@ it("follows a released relationship to its excerpt without loading private World
   const citations = screen.getAllByRole("button", { name: "Read context 1" });
   await user.click(citations[citations.length - 1]);
   expect(screen.getByText("A saved excerpt.")).toBeInTheDocument();
-  expect(screen.getByText("Context for this claim; not direct support.")).toBeInTheDocument();
+  expect(screen.getByText("Evidence role: context, not direct support.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Link to this excerpt" })).toHaveAttribute("href", "#copy/copy/point/a/source/s");
   expect(screen.getByText(/shared World stays unchanged/i)).toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -40,7 +48,7 @@ it("opens only release-local deep links and ignores stale or invalid fragments",
   window.history.replaceState({}, "", "/visit/public#copy/copy/point/a/source/s");
   render(<GuestReleasePage publicId="public" />);
   expect(await screen.findByText("Safe excerpt")).toBeInTheDocument();
-  expect(screen.getByText("Supporting excerpt.")).toBeInTheDocument();
+  expect(screen.getByText("Evidence role: support.")).toBeInTheDocument();
   act(() => { window.history.pushState({}, "", "#copy/older-copy/point/a/source/s"); window.dispatchEvent(new PopStateEvent("popstate")); });
   expect(await screen.findByText("Every story has a trail.")).toBeInTheDocument();
   act(() => { window.history.pushState({}, "", "#copy/copy/point/a/source/s"); window.dispatchEvent(new PopStateEvent("popstate")); });
@@ -57,4 +65,81 @@ it("shows an unavailable state when a release is withdrawn", async () => {
   render(<GuestReleasePage publicId="public" />);
   expect(await screen.findByRole("alert")).toHaveTextContent("This guest World is unavailable");
   expect(screen.getByRole("link", { name: "Return to Buddy" })).toHaveAttribute("href", "/");
+});
+
+it("shows an unchanged saved example with release-only references and inline image", async () => {
+  const copy = { release_id: "copy", manifest: { graph: { nodes: [{ id: "a", label: "Shared", kind: "place", name_citations: [], kind_citations: [], name_basis: "asserted", kind_basis: "asserted" }], edges: [] },
+    sources: [{ id: "s1", text: "First clue", evidence_role: "support" }, { id: "s2", text: "Second clue", evidence_role: "context" }],
+    assets: [{ id: "image" }], saved_example: { version: "owner_saved_scene_v1", title: "A saved scene", body: "A line\nAnother line", references: ["s1", "s2"], image: { id: "image", description: "A red tent" } },
+    saved_choice: { version: "owner_saved_choice_v1", prompt: "What next", options: [
+      { label: "Enter", outcome: "A bell rings" }, { label: "Wait", outcome: "A lantern flickers" }] } } };
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify(copy), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" home />);
+  expect(await screen.findByRole("heading", { name: "A saved scene" })).toBeInTheDocument();
+  expect(screen.getByText(/Your temporary additions were not used/)).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "A red tent" })).toHaveAttribute("src", "/api/live/guest-releases/public/releases/copy/assets/image");
+  expect(screen.getByRole("group", { name: "What next" })).toBeInTheDocument();
+  expect(screen.queryByText("A bell rings")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Enter" }));
+  expect(screen.getByText("A bell rings")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Enter" })).toHaveAttribute("aria-pressed", "true");
+  expect(window.location.href).not.toContain("Enter");
+  await user.click(screen.getByRole("button", { name: "Wait" }));
+  expect(screen.getByText("A lantern flickers")).toBeInTheDocument();
+  expect(screen.queryByText("A bell rings")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Reset choice" }));
+  expect(screen.queryByText("A lantern flickers")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Reset choice" })).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "Enter" }));
+  await user.type(screen.getByLabelText("Point name"), "A visitor point");
+  await user.selectOptions(screen.getByLabelText("Connect to a shared point"), "a");
+  await user.click(screen.getByRole("button", { name: "Add temporary point" }));
+  expect(screen.getByText("A line Another line")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Reset my additions" }));
+  expect(screen.queryByText("A bell rings")).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "A saved scene" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Read context 2" }));
+  expect(screen.getByText("Second clue")).toBeInTheDocument();
+  expect(screen.getByText("Second clue").closest("aside")).toHaveFocus();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("keeps choices in each mounted copy, clears them on copy change and never persists them", async () => {
+  const manifest = { graph: { nodes: [], edges: [] }, sources: [{ id: "s1", text: "One", evidence_role: "support" }, { id: "s2", text: "Two", evidence_role: "context" }], assets: [],
+    saved_example: { version: "owner_saved_scene_v1", title: "Scene", body: "Saved scene", references: ["s1", "s2"], image: null },
+    saved_choice: { version: "owner_saved_choice_v1", prompt: "What next", options: [{ label: "Enter", outcome: "Bell" }, { label: "Wait", outcome: "Lantern" }] } };
+  const fetchMock = vi.fn(async (url: RequestInfo | URL) => new Response(JSON.stringify({ release_id: String(url).endsWith("/third") ? "other-copy" : "copy", manifest }), { status: 200 }));
+  const storage = vi.spyOn(Storage.prototype, "setItem");
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  const first = render(<GuestReleasePage publicId="first" />), second = render(<GuestReleasePage publicId="second" />);
+  const one = within(first.container), two = within(second.container);
+  await one.findByRole("group", { name: "What next" }); await two.findByRole("group", { name: "What next" });
+  await user.click(one.getByRole("button", { name: "Enter" }));
+  expect(one.getByText("Bell")).toBeInTheDocument();
+  expect(two.queryByText("Bell")).not.toBeInTheDocument();
+  expect(window.location.href).not.toContain("Enter");
+  act(() => { window.history.pushState({}, "", "#copy/copy/source/s1"); window.dispatchEvent(new PopStateEvent("popstate")); });
+  expect(one.getByText("Bell")).toBeInTheDocument();
+  expect(window.location.hash).not.toContain("Enter");
+  expect(storage).not.toHaveBeenCalled();
+  first.rerender(<GuestReleasePage publicId="third" />);
+  expect(one.queryByText("Bell")).not.toBeInTheDocument();
+  await one.findByRole("group", { name: "What next" });
+  expect(one.queryByText("Bell")).not.toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(storage).not.toHaveBeenCalled();
+  storage.mockRestore();
+});
+
+it("does not render an unrecognized saved choice", async () => {
+  const manifest = { graph: { nodes: [], edges: [] }, sources: [{ id: "s1", text: "One", evidence_role: "support" }, { id: "s2", text: "Two", evidence_role: "context" }], assets: [],
+    saved_example: { version: "owner_saved_scene_v1", title: "Scene", body: "Saved scene", references: ["s1", "s2"], image: null },
+    saved_choice: { version: "future", prompt: "What next", options: [] } };
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ release_id: "copy", manifest }), { status: 200 })));
+  render(<GuestReleasePage publicId="public" />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("saved choice is unavailable");
+  expect(screen.queryByRole("group", { name: "What next" })).not.toBeInTheDocument();
 });

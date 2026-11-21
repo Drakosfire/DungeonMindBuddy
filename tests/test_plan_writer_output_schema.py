@@ -357,6 +357,30 @@ def test_variant_writer_visible_reply_preserves_retained_edits_schema(monkeypatc
             variant["properties"][field]["items"] = rule
         assert witnessed["schema"] == native_output_format(evidence, rules(), witness_work, build_local=True, format_version=5)["schema"]
 
+    work_with_draft = work | {
+        "working_draft_context": {
+            "draft_markdown": "Repeated.\n\nRepeated.",
+            "record_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857",
+        },
+    }
+    current_version = native_build_work_view.variant_output_version(work_with_draft)
+    assert current_version == 11
+    current = native_output_format(evidence, rules(), work_with_draft, build_local=True,
+                                   format_version=current_version)
+    assert current["name"] == native_build_work_view.VARIANT_PASSAGE_WITNESS_FORMAT
+    variant = current["schema"]["properties"]["statblock_variant"]["properties"]
+    assert variant["passage_review"]["required"] == ["p1", "p2"]
+    for field in ("add_rules", "replace_rules"):
+        edit = variant[field]["items"]
+        assert "authored_quotes" not in edit["properties"]
+        assert edit["properties"]["authored_passages"]["items"]["enum"] == ["p1", "p2"]
+
+    retained = native_output_format(evidence, rules(), work_with_draft, build_local=True, format_version=10)
+    old_variant = retained["schema"]["properties"]["statblock_variant"]["properties"]
+    assert "authored_quotes" in old_variant["add_rules"]["items"]["properties"]
+    assert "authored_passages" not in old_variant["add_rules"]["items"]["properties"]
+    assert old_variant["passage_review"]["required"] == ["p1", "p2"]
+
 
 def test_anchored_discussion_schema_only_accepts_discussion_segments():
     from application_state.agent_conversation.build_primary_context import NATIVE_WORK_SCHEMA

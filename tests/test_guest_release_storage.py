@@ -1,5 +1,6 @@
 """Database boundary checks for guest release state (no public routes)."""
 import hashlib
+import copy
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from threading import Event, current_thread
 from time import monotonic
@@ -9,7 +10,7 @@ import psycopg
 import pytest
 
 from application_state import guest_release
-from application_state.content.pages import PageMetadata, commit_page, committed_page, create_page
+from application_state.content.pages import PageMetadata, commit_page, committed_page, create_page, snapshot_page
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError, ApplicationStateValidationError
 from application_state.world_catalog.service import create_world
 
@@ -101,6 +102,58 @@ def test_release_lifecycle_isolated_and_revocation(application_state_dsn):
     with pytest.raises(ApplicationStateNotFoundError):
         guest_release.restore(world_id=world, subject="owner", release_id=release_id,
                               expected_version=version + 1)
+
+
+def test_saved_example_is_reviewed_as_immutable_release_data(application_state_dsn):
+    world = create_world(name="Saved example fixture", owner_subject="owner").record.world_id
+    graph = _bind(application_state_dsn, world)
+    page = create_page(world_id=world, title="Private", metadata=PageMetadata(visibility_state="internal"))
+    committed, revision = commit_page(str(page.page.work_object_id), "first second", world_id=world,
+        expected_revision=page.page.object_revision, expected_working_copy_revision=None)
+    first, second, asset = uuid4(), uuid4(), uuid4()
+    def binding(local, start, end):
+        return (local, page.page.work_object_id, 0, 0, revision.revision_n, revision.content_sha256,
+                start, end, committed.page.object_revision, "internal", "synthetic-evidence")
+    manifest = {"graph": {"nodes": [], "edges": []},
+        "sources": [{"id": str(first), "text": "first", "evidence_role": "support"},
+                    {"id": str(second), "text": "second", "evidence_role": "context"}],
+        "assets": [{"id": str(asset), "mime_type": "image/png", "sha256": hashlib.sha256(b"image").hexdigest()}],
+        "saved_example": {"version": "owner_saved_scene_v1", "title": "Scene", "body": "A scene",
+                          "references": [str(first), str(second)], "image": {"id": str(asset), "description": "A tent"}},
+        "saved_choice": {"version": "owner_saved_choice_v1", "prompt": "What next", "options": [
+            {"label": "Enter", "outcome": "A bell rings"}, {"label": "Wait", "outcome": "A lantern flickers"}]}}
+    args = dict(world_id=world, subject="owner", expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
+        manifest=manifest, assets=[(asset, "image/png", b"image")], source_bindings=[binding(first, 0, 5), binding(second, 6, 12)], **graph)
+    invalid = copy.deepcopy(manifest)
+    invalid["saved_example"]["references"][1] = str(uuid4())
+    with pytest.raises(ApplicationStateValidationError):
+        guest_release.stage(**{**args, "manifest": invalid})
+    invalid = copy.deepcopy(manifest)
+    invalid["saved_choice"]["options"][1]["label"] = " enter "
+    with pytest.raises(ApplicationStateValidationError):
+        guest_release.stage(**{**args, "manifest": invalid})
+    release_id, digest = guest_release.stage(**args)
+    changed = copy.deepcopy(manifest)
+    changed["saved_example"]["body"] = "Another scene"
+    _, changed_digest = guest_release.stage(**{**args, "manifest": changed})
+    assert changed_digest != digest
+    changed = copy.deepcopy(manifest)
+    changed["saved_choice"]["options"][1]["outcome"] = "The lantern fades"
+    _, changed_digest = guest_release.stage(**{**args, "manifest": changed})
+    assert changed_digest != digest
+    assert guest_release.review(world_id=world, subject="owner", release_id=release_id) == (manifest, digest)
+    with pytest.raises(ApplicationStateConflictError):
+        _promote(world_id=world, subject="owner", release_id=release_id, digest="0" * 64, expected_version=0)
+    public_id, _ = _promote(world_id=world, subject="owner", release_id=release_id, digest=digest, expected_version=0)
+    assert guest_release.public_manifest(public_id) == (release_id, manifest)
+    current = snapshot_page(str(page.page.work_object_id), world_id=world)
+    commit_page(str(page.page.work_object_id), "private changed", world_id=world,
+        expected_revision=current.page.object_revision, expected_working_copy_revision=current.working_copy_revision)
+    assert guest_release.public_manifest(public_id) == (release_id, manifest)
+    assert str(page.page.work_object_id) not in str(manifest)
+    guest_release.revoke(world_id=world, subject="owner", release_id=release_id)
+    with pytest.raises(ApplicationStateNotFoundError):
+        guest_release.public_manifest(public_id)
 
 
 def test_transfer_away_and_back_invalidates_candidate(application_state_dsn):

@@ -82,12 +82,22 @@ needs to preserve the versioned decision packet used to verify older turns.
 
 ### Build controls
 
-- **B03:** Hosted Build proposed exactly two prose paragraphs with no callout.
-  The preview appeared before Arrival where the intended location was after
-  the Arrival paragraph. Dismiss preserved the saved blocks and save status.
+- **B03:** Hosted Build returned two ordinary paragraphs without a callout.
+  The preview appeared before Arrival in the initial and follow-up runs,
+  which were dismissed. The retained follow-up review kept the writer's
+  captured caret. The inline review card uses a visual anchor before the
+  containing block. In the save-and-reopen run on `09631231`, both exact
+  proposed paragraphs were saved immediately after Arrival. The existing
+  Warning, Rules, Read Aloud, and GM Note remained present.
 - **X01:** Hosted Build responded to the brainstorming request in chat and
   showed no page suggestion. The rendered saved blocks and save time matched
-  their initial state. Server write-reservation records were not checked.
+  their initial state. A subsequent read-only check found zero Build write
+  reservations for the completed turn.
+- **X01, Plan:** The first attempt hit an uncertain new-conversation command
+  and admitted no turn. Reopening the existing synthetic conversation allowed
+  the exact prompt to complete in chat with no page suggestion. The Plan
+  Markdown matched before and after. The retained decision was `discuss`,
+  with zero authoring reservations.
 
 ## Hosted Play and Combat follow-up
 
@@ -130,8 +140,11 @@ the exact two requested sentences. The earlier capture mismatch remains open.
   `a979e5f6-89c8-4f93-bea4-6ec87320b2bf` in Buddy Cloud Pilot Ingest showed
   the same revision 5 source text, its two saved callouts, and five accepted
   Graph changes. No authoring composer or delegation was offered in the review,
-  so the request was ineligible for submission. The UI comparison confirms
-  visible text and source identity. A byte-level comparison remains pending.
+  so the request was ineligible for submission. After later Build edits, the
+  retained extraction source still matched all 237 UTF-8 bytes and the
+  SHA-256 digest of the original immutable content revision. Workspace
+  revision 5 identified the extraction input, and content revision 4 stored
+  its matching bytes.
 
 ### Hosted Plan selected-callout rewrite
 
@@ -153,7 +166,15 @@ where Save applies the change.
 The proposal included the host's partial-retrieval disclosure as editable
 text, which fails document-content isolation. It was dismissed before Save.
 The original passage, private note, and Departure sentinel remained visible.
-Replacement persistence remains unverified.
+A follow-up on `09631231` selected the same exact body and used the same
+P02 prompt. The proposal contained a replacement sentence and the host
+disclosure. The operator removed the disclosure in the suggestion editor
+and verified that it was absent before Save. Reopening the Plan through its
+World route showed the new sentence inside the original titled **First
+sight** Read Aloud, with the original sentence and disclosure absent. The
+red-gate option marker and Departure sentinel remained present. This
+verifies replacement persistence after manual cleanup. Clean proposal
+generation remains open.
 
 A fresh P01 run against saved Plan revision 5 retained the original editor
 capture and offered 17 placements. Its opening decision selected `clarify`
@@ -177,8 +198,33 @@ existing Arrival paragraphs matched exactly and in order, the original callout
 titles and red-gate choice remained present, and the Departure card retained
 its sentinel sentence. The two fresh sessions used Play's scene edit mode.
 They confirm session-copy persistence with manually seeded Plan callouts.
-Adopting agent-authored P01 blocks, comparing the full parent Plan revision,
-and testing preservation of table and image fixtures remain pending.
+A read-only comparison of all three stored run editions verified that each
+pinned immutable parent Plan revision 5 with its matching content digest and
+saved the edit as session-copy revision 1. The new Pause for response note
+appeared only in the edited copies, and no parent Plan revision matched any
+edited session digest. The later hosted table pass is recorded below. The hosted
+artwork check is recorded below.
+The separate adoption diagnostic below covers reviewed agent-authored blocks.
+
+A fresh hosted Play run in Buddy Cloud Pilot
+(`2918d339-782b-470e-9df5-51e51f50cb1f`) started from Plan version 9. A two-column
+table was saved to session-copy revision 1. The exact PL01 prompt in
+**Propose scene edit** mode produced **Read Aloud · Arrival** and **GM Note ·
+Pause**, with the table visible in review. After Apply and reload, both
+callouts and the original table rendered. Removing only the two additions
+from the reopened revision 2 Markdown reproduced revision 1 exactly,
+including the table, original scene text, choice and Departure scene. This
+check exercised a table and did not include an image.
+
+The same synthetic run then saved a privately retained boardwalk illustration
+to session-copy revision 3. Image Studio reported a fetch error after
+generation, but the image was available in its library and could be placed
+without regeneration or public CDN upload. A reviewed scene-edit request
+added **Read Aloud · Lantern reflection** and **GM Note · Wait at the rail**.
+After Apply and reload, both blocks, the table, and the 1,024-pixel image
+rendered in revision 4. Removing only the two new blocks from reopened
+Markdown reproduced revision 3 exactly, including the artwork reference,
+scene text, choice, and Departure scene.
 
 Hosted Home showed no conversation composer in Buddy Cloud Pilot, so H01 had
 no eligible writer. Hosted Graph still reported unavailable native readback
@@ -207,3 +253,78 @@ The separate deterministic Play control in
 both titled additions, a sibling table and image reference, and the exact
 parent Plan record survive session-copy Save and readback. Hosted image
 rendering remains unverified.
+
+### Hosted Build Warning and Rules controls
+
+On release `f84b93e7`, the exact X02 Warning request produced a **Read
+Aloud** titled Boardwalk warning. The Rules request used the unsupported
+`[!NOTE]` marker inside a blockquote. Both proposals were dismissed.
+
+On release `09631231`, which includes
+[#4314](https://github.com/Drakosfire/DungeonMindBuddy/pull/4314), the same
+requests produced actual **Warning** and **Rules** blocks. The Warning
+saved at its proposed location. The Rules body contained only the supplied
+sentence. The editor rejected the proposed Rules insertion as unsafe;
+moving it to the boundary after the Arrival paragraph let it save.
+Both blocks, the original Arrival paragraph, and the existing callouts
+remained visible after reopening the saved Build page. This verifies
+block choice and persistence in one live repetition per kind. Safe
+automatic Rules placement and equivalent Plan runs remain open.
+
+### Hosted Plan Warning and Rules controls
+
+On release `09631231`, both exact X02 requests completed against the
+synthetic Plan with an original editor capture.
+
+| Case | Retained decision | Observed result |
+| --- | --- | --- |
+| Warning | `clarify`, no placement | Buddy returned a warning in chat. No editable callout was staged. |
+| Rules | `write_current_page`, captured placement | The editable suggestion had a canonical Rules block containing only the supplied rule. The host retrieval disclosure also appeared as a separate editable paragraph. |
+
+The Rules suggestion was dismissed before Save. The saved Plan still
+showed its original callouts, red-gate choice, and Departure scene. This
+confirms block choice for the Rules proposal. Clean save and reopening,
+and routing the Warning request to the page, remain to be verified.
+
+### Hosted Plan card-body save and native Graph fixture checks
+
+The exact P03 prompt on the focused Arrival card produced **GM Note ·
+Gate**. The retained application identified a playable-body replacement.
+After Save and reopening, the note, existing First sight block, scene and
+choice markers, and Departure text were present. The proposal included the
+retrieval disclosure. An attempted deletion in the suggestion editor did
+not reach the saved application. A read-only inspection confirmed the
+footer was absent from the original capture and present in the review
+Markdown and applied revision. The footer was subsequently removed through
+the synthetic Plan Markdown editor and verified absent on reopen.
+
+[#4320](https://github.com/Drakosfire/DungeonMindBuddy/pull/4320) verifies that
+a direct editor transaction followed immediately by Save passes the edited
+Markdown into the review command. It uses mocked persistence. The hosted
+keyboard-path discrepancy remains open, as does a clean, unassisted P03 run.
+
+The mounted native first-World HTTP publication test passed locally with
+Buddy's pinned DungeonMind Core source and an isolated pgvector database.
+It exercises hosted ownership, publication, and signed recovery. The cloud
+release still uses classic first-World publication. The local test does not
+supply the disposable native Graph or exercise the hosted G01 chat case.
+
+A later read-only capability check used the existing hosted Elderwyld native
+Graph on release `096312313`. The explorer loaded 3,012 objects. Selecting an
+object through Find opened its details, and its action menu offered no chat
+composer. The Graph workspace had no conversation launcher. G01 was therefore
+ineligible for submission on that hosted surface. No prompt was sent and no
+Graph update was attempted. This provides capability evidence on a loaded
+native Graph independently of the Pilot Graph availability failure.
+
+### Hosted Build selected-callout rewrite with artwork
+
+A fresh Buddy Cloud Pilot Build page
+(`b7d7d0c2-b01c-4e5e-94c2-b6e55e2e410d`) was saved and reopened with a
+three-sentence Read Aloud titled **First sight**, a table, neighboring
+Departure text, and the private boardwalk illustration used for Play.
+Selecting the whole callout body and sending the exact B02 prompt produced
+two quieter sentences in a replacement preview. After Save and reload, the
+new body was present in a Read Aloud still titled **First sight** and the old
+body was absent. The original table headers and cells, Departure sentence,
+and rendered 1,024-pixel illustration were present after reopening.

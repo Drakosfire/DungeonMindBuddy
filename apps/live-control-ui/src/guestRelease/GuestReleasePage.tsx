@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { dungeonMindLoginHref } from "../auth/HostedAuthGate";
+import { isSavedExample } from "./savedExample";
+import { isSavedChoice } from "./savedChoice";
 import "./guestReleasePage.css";
 
 type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_basis: string; kind_basis: string; temporary?: boolean };
 type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string; basis: string; temporary?: boolean };
 type Source = { id: string; text: string; evidence_role: "support" | "context" };
-type Snapshot = { release_id: string; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[] } };
+type Snapshot = { release_id: string; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[]; saved_example?: unknown; saved_choice?: unknown } };
 
 function fragment(release: string, node?: string | null, source?: string | null): string {
   const parts = ["copy", release];
@@ -60,8 +62,10 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const [relation, setRelation] = useState("connected to");
   const [target, setTarget] = useState("");
   const [formError, setFormError] = useState("");
+  const [selectedChoice, setSelectedChoice] = useState<0 | 1 | null>(null);
   const sequence = useRef(0);
   const additionCount = useRef(0);
+  const detailRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!snapshot) return;
     const sync = () => {
@@ -84,6 +88,10 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const nodes = [...sharedNodes, ...additions.nodes];
   const edges = [...sharedEdges, ...additions.edges];
   const sources = snapshot?.manifest.sources ?? [];
+  const exampleValue = snapshot?.manifest.saved_example;
+  const example = snapshot && isSavedExample(exampleValue, sources, snapshot.manifest.assets) ? exampleValue : null;
+  const choiceValue = snapshot?.manifest.saved_choice;
+  const choice = example && isSavedChoice(choiceValue) ? choiceValue : null;
   const labels = new Map(nodes.map(node => [node.id, node.label]));
   const source = sources.find(item => item.id === selectedSource);
   const active = nodes.find(item => item.id === selectedNode);
@@ -115,10 +123,11 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const reset = () => {
     additionCount.current = 0;
     setAdditions({ nodes: [], edges: [] }); setName(""); setRelation("connected to"); setTarget(""); setFormError("");
+    setSelectedChoice(null);
     setSelectedNode(null); setSelectedSource(null);
     if (snapshot) window.history.replaceState(null, "", fragment(snapshot.release_id));
   };
-  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => navigate(selectedNode, id)}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
+  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => { navigate(selectedNode, id); detailRef.current?.focus({ preventScroll: true }); detailRef.current?.scrollIntoView?.({ behavior: "auto", block: "nearest" }); }}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
   return <main className="guest-world">
     <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation"><a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href={dungeonMindLoginHref("/")}>Sign in to create your World →</a></nav></header>
     {unavailable ? <section role="alert"><h1>This guest World is unavailable</h1><p>The owner may have withdrawn it, or the link may have changed.</p><a href={home ? dungeonMindLoginHref("/") : "/"}>{home ? "Sign in to Buddy" : "Return to Buddy"}</a></section>
@@ -142,11 +151,32 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
             </form> : <p>This copy has no shared points to connect to yet.</p>}
             <button type="button" onClick={reset}>Reset my additions</button>
           </section>
-        </section><aside className="guest-world__detail" aria-live="polite"><p className="guest-world__eyebrow">{source ? "SOURCE EXCERPT" : "FOLLOW A THREAD"}</p>
-          {source ? <><h2>From the owner’s notes</h2><p>{source.evidence_role === "context" ? "Context for this claim; not direct support." : source.evidence_role === "support" ? "Supporting excerpt." : "Evidence role unavailable."}</p><p className="guest-world__excerpt">{source.text}</p><p><a href={fragment(snapshot.release_id, sharedNodes.some(node => node.id === selectedNode) ? selectedNode : null, source.id)}>Link to this excerpt</a></p><button type="button" onClick={() => navigate(selectedNode, null)}>← Back to connections</button></>
+        </section><aside ref={detailRef} tabIndex={-1} className="guest-world__detail" aria-live="polite"><p className="guest-world__eyebrow">{source ? "SOURCE EXCERPT" : "FOLLOW A THREAD"}</p>
+          {source ? <><h2>From the owner’s notes</h2><p>{source.evidence_role === "context" ? "Evidence role: context, not direct support." : source.evidence_role === "support" ? "Evidence role: support." : "Evidence role unavailable."}</p><p className="guest-world__excerpt">{source.text}</p><p><a href={fragment(snapshot.release_id, sharedNodes.some(node => node.id === selectedNode) ? selectedNode : null, source.id)}>Link to this excerpt</a></p><button type="button" onClick={() => navigate(selectedNode, null)}>← Back to connections</button></>
             : active ? <><h2>{active.label}</h2><p>{active.kind}</p>{active.temporary ? <p>This point is your temporary addition, not part of the shared World.</p> : <><small>Name: {active.name_basis} · Classification: {active.kind_basis}</small><p><a href={fragment(snapshot.release_id, active.id)}>Link to this point</a></p><div className="guest-world__citations">{[...new Set([...active.name_citations, ...active.kind_citations])].map(citationButton)}</div></>}<h3>Connections</h3>{connected.length ? <ul>{connected.map(edge => { const other = edge.source === active.id ? edge.target : edge.source; return <li key={edge.id}><p>{labels.get(edge.source)} <em>{edge.label}</em> {labels.get(edge.target)}</p><small>{edge.temporary ? "Your temporary connection · not sourced from the shared World" : <>{edge.basis} · {edge.temporal === "unknown" ? "When this happened is not specified" : edge.temporal === "timeless" ? "Timeless" : edge.temporal}</>}</small><div className="guest-world__citations"><button type="button" onClick={() => navigate(other, null)}>Explore {labels.get(other)}</button>{edge.citations.map(citationButton)}</div></li>; })}</ul> : <p>No connections were included for this point.</p>}</>
               : <><h2>Every story has a trail.</h2><p>Select a point to follow it through the owner’s shared notes.</p></>}
         </aside></div>
+        {exampleValue !== undefined && !example && <p role="alert">This saved example is unavailable.</p>}
+        {example && <section className="guest-world__example" aria-labelledby="guest-example-title">
+          <p className="guest-world__eyebrow">OWNER-AUTHORED SAVED EXAMPLE</p><h2 id="guest-example-title">{example.title}</h2>
+          <p>This is a saved scene, not a live generation. Your temporary additions were not used.</p>
+          <div className="guest-world__example-body">{example.body}</div>
+          {example.image && <img src={`/api/live/guest-releases/${encodeURIComponent(publicId)}/releases/${encodeURIComponent(snapshot.release_id)}/assets/${encodeURIComponent(example.image.id)}`} alt={example.image.description} />}
+          <p>Selected references. They do not automatically prove the scene.</p>
+          <div className="guest-world__citations">{example.references.map(citationButton)}</div>
+          {choiceValue !== undefined && !choice && <p role="alert">This saved choice is unavailable.</p>}
+          {choice && <section className="guest-world__choice" aria-labelledby="guest-choice-heading">
+            <h3 id="guest-choice-heading">{choice.prompt}</h3>
+            <p>Choose a prewritten possibility. These owner-authored outcomes are not a record of play and do not use your additions.</p>
+            <div role="group" aria-labelledby="guest-choice-heading" className="guest-world__choice-options">
+              {choice.options.map((option, index) => <button key={index} type="button" aria-pressed={selectedChoice === index}
+                onClick={() => setSelectedChoice(index as 0 | 1)}>{option.label}</button>)}
+            </div>
+            <div aria-live="polite" aria-atomic="true">{selectedChoice !== null && <p className="guest-world__choice-outcome">{choice.options[selectedChoice].outcome}</p>}</div>
+            <button type="button" onClick={() => setSelectedChoice(null)}>Reset choice</button>
+          </section>}
+        </section>}
+        {choiceValue !== undefined && !example && <p role="alert">This saved choice is unavailable.</p>}
         {snapshot.manifest.assets.length > 0 && <section className="guest-world__gallery"><h2>From the World</h2>{snapshot.manifest.assets.map((asset, index) => <img key={asset.id} src={`/api/live/guest-releases/${encodeURIComponent(publicId)}/releases/${encodeURIComponent(snapshot.release_id)}/assets/${encodeURIComponent(asset.id)}`} alt={`Shared World image ${index + 1}`} />)}</section>}
         <section className="guest-world__next"><h2>Make room for your own story.</h2><p>The shared World stays unchanged. Your temporary additions cannot be transferred to an account.</p><a href={dungeonMindLoginHref("/")}>Sign in to Buddy →</a></section></>}
     <footer className="guest-world__footer">A shared copy · Your private Worlds stay separate</footer>

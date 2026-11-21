@@ -359,7 +359,7 @@ def test_variant_passages_keep_exact_text_order_and_ignore_blank_separators():
 
     work = {"working_draft_context": {"draft_markdown": "First.\r\n\t\r\n  Second.\n\nThird.\n"}}
     assert variant_draft_passages(work) == {"p1": "First.", "p2": "  Second.", "p3": "Third.\n"}
-    assert variant_output_version(work) == 10
+    assert variant_output_version(work) == 11
     assert variant_output_version({}) == 8
 
 
@@ -417,3 +417,32 @@ def test_retained_v9_passage_disposition_keeps_its_completion_contract():
         normalize_statblock_variant(
             {"statblock_variant": proposal}, work, variant_trigger_retention=True, **options,
         )
+
+@pytest.mark.parametrize(
+    ("handle", "valid"),
+    [("p1", True), ("p2", False), ("p3", False), ("Only after the bell.", False)],
+)
+def test_variant_passage_witness_selects_exact_position_even_if_text_repeats(handle, valid):
+    from application_state.agent_conversation.native_completion import normalize_statblock_variant
+    from tests.test_statblock_acceptance_reconciliation import _definition
+
+    base = _definition().model_dump(mode="json")
+    work = {
+        "response_contract": {"requested_work": "draft_in_conversation", "operation": "answer_from_sources"},
+        "saved_statblocks": [{"event_id": "4c63e929-fcec-4d8a-b787-4f908b3ce857", "definition": base}],
+        "working_draft_context": {"draft_markdown": "Only after the bell.\n\nOnly after the bell."},
+    }
+    added = base["rule_elements"][0] | {"key": "truce"}
+    candidate = {"statblock_variant": {
+        "source": "statblock0", "passage_review": {"p1": "retain", "p2": "omit"},
+        "add_rules": [{"authored_passages": [handle], "carried_condition": None, "rule": added}],
+        "replace_rules": [],
+    }}
+    flags = dict(variant_edits=True, variant_witnesses=True, variant_carried_condition=True,
+                 variant_passage_review=True, variant_trigger_retention=True, variant_passage_witnesses=True)
+    if not valid:
+        with pytest.raises(ValueError, match="offered, non-omitted passage"):
+            normalize_statblock_variant(candidate, work, **flags)
+    else:
+        result = normalize_statblock_variant(candidate, work, **flags)
+        assert result.definition.model_dump()["rule_elements"][-1] == added

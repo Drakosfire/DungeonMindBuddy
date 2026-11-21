@@ -86,3 +86,138 @@ def test_adoption_and_generic_save_share_template_history(adoption_case,monkeypa
 from tests.test_world_mechanics_associations import prepared
 from tests.test_statblock_saved_revisions import revision_case
 from tests.test_combat_mechanics_adoption import adoption_case
+
+
+def test_prepare_exact_saved_encounter_leaves_original_and_replays(scene_case):
+    from application_state.combat_encounters import service as encounters
+    from application_state.combat_encounters.types import CreateCombatEncounterRequest, SaveCombatEncounterRequest
+
+    world_id = "elderwyld"
+    source = encounters.create_encounter(
+        world_id=world_id, request=CreateCombatEncounterRequest(title="Bath House roster"),
+    )
+    source = encounters.save_encounter(
+        world_id=world_id,
+        encounter_id=source.encounter_id,
+        request=SaveCombatEncounterRequest(
+            expected_revision=source.revision, draft=source.draft.model_copy(update={"title": "Bath House reserves"}),
+        ),
+    )
+    body = {
+        **scene_case.body,
+        "encounter": {
+            "schema_version": "dmb_scene_template_copy_saved_v1",
+            "source_encounter_id": str(source.encounter_id),
+            "expected_revision": source.revision - 1,
+        },
+    }
+    with pytest.raises(ApplicationStateConflictError, match="saved Combat encounter changed"):
+        service.create(world_id=world_id, request=CreateSceneTemplateRequest.model_validate(body))
+    assert read(scene_case).json() is None
+
+    body["encounter"]["expected_revision"] = source.revision
+    request = CreateSceneTemplateRequest.model_validate(body)
+    prepared = service.create(world_id=world_id, request=request)
+    assert prepared.encounter.encounter_id != source.encounter_id
+    assert prepared.encounter.revision == 1
+    assert prepared.encounter.draft == source.draft
+    assert prepared.encounter.ruleset_digest == source.ruleset_digest
+    assert len(prepared.versions) == 1
+    assert service.create(world_id=world_id, request=request) == prepared
+    assert encounters.get_encounter(world_id=world_id, encounter_id=source.encounter_id) == source
+
+    second = request.model_copy(update={"operation_id": uuid4()})
+    with pytest.raises(ApplicationStateConflictError, match="scene already has an encounter"):
+        service.create(world_id=world_id, request=second)
+
+
+def copy_intent(scene_case, source_id, revision):
+    return CreateSceneTemplateRequest.model_validate({
+        **scene_case.body,
+        "encounter": {
+            "schema_version": "dmb_scene_template_copy_saved_v1",
+            "source_encounter_id": source_id,
+            "expected_revision": revision,
+        },
+    })
+
+
+def test_copy_preserves_grouped_actors_and_exact_mechanics(scene_case, adoption_case):
+    from application_state.combat_encounters.service import get_encounter
+
+    world_id = "elderwyld"
+    source = get_encounter(world_id=world_id, encounter_id=adoption_case.before["encounter_id"])
+    assert len(source.draft.entities) == 2
+    assert source.draft.groups
+    assert all(actor.mechanics_snapshot for actor in source.draft.entities)
+    request = copy_intent(scene_case, source.encounter_id, source.revision)
+    prepared = service.create(world_id=world_id, request=request)
+    assert prepared.encounter.draft == source.draft
+    assert prepared.encounter.ruleset == source.ruleset
+    assert get_encounter(world_id=world_id, encounter_id=source.encounter_id) == source
+
+
+def test_copy_manual_profile_authorization_and_cancel(scene_case):
+    from application_state.combat_encounters.manual_encounters import CreateManualEncounterRequest
+    from application_state.combat_encounters.service import create_encounter
+    from tests.test_combat_manual_encounters import profile
+
+    world_id = "elderwyld"
+    source = create_encounter(world_id=world_id, request=CreateManualEncounterRequest(
+        title="Bath House clocks", profile=profile(),
+    ))
+    request = copy_intent(scene_case, source.encounter_id, source.revision)
+
+    def deny():
+        raise PermissionError("Write denied")
+
+    with pytest.raises(PermissionError, match="Write denied"):
+        service.create(world_id=world_id, request=request, authorize=deny)
+    assert read(scene_case).json() is None
+    assert service.cancel(world_id=world_id, request=request)["state"] == "canceled"
+    with pytest.raises(ApplicationStateConflictError, match="canceled"):
+        service.create(world_id=world_id, request=request)
+    assert read(scene_case).json() is None
+
+    retry = request.model_copy(update={"operation_id": uuid4()})
+    prepared = service.create(world_id=world_id, request=retry)
+    assert prepared.encounter.draft == source.draft
+    assert prepared.encounter.ruleset == source.ruleset
+
+
+def test_copy_refuses_foreign_source(scene_case):
+    from application_state.combat_encounters.service import create_encounter
+    from application_state.combat_encounters.types import CreateCombatEncounterRequest
+    from application_state.errors import ApplicationStateNotFoundError
+
+    foreign = create_encounter(world_id="other-world", request=CreateCombatEncounterRequest(title="Foreign"))
+    with pytest.raises(ApplicationStateNotFoundError, match="unavailable"):
+        service.create(world_id="elderwyld", request=copy_intent(scene_case, foreign.encounter_id, foreign.revision))
+    assert read(scene_case).json() is None
+
+
+def test_copy_refuses_run_instance(scene_case):
+    from application_state.content.service import commit_plan, create_world_plan
+    from application_state.errors import ApplicationStateNotFoundError
+    from application_state.play.session_encounters import materialize_encounter
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+    from tests.application_state.test_run_scene_encounters_postgres import materialization_case
+
+    world_id = "elderwyld"
+    run_id, initial, _ = materialization_case(scene_case)
+    fight = materialize_encounter(
+        world_id=world_id, run_id=run_id, scene_id="scene:gate", request=initial,
+    )["encounter"]
+    plan = create_world_plan(title="Unoccupied preparation", world_id=world_id)
+    plan, saved = commit_plan(
+        str(plan.work_object_id), V2_SOURCE_MARKDOWN,
+        expected_world_id=world_id, expected_revision=plan.object_revision,
+    )
+    request = copy_intent(scene_case, fight.encounter_id, fight.revision)
+    target = request.pin.model_copy(update={
+        "document_id": plan.work_object_id, "revision_n": saved.revision_n,
+        "work_revision_id": saved.work_revision_id, "content_sha256": saved.content_sha256,
+    })
+    with pytest.raises(ApplicationStateNotFoundError, match="unavailable"):
+        service.create(world_id=world_id, request=request.model_copy(update={"pin": target, "operation_id": uuid4()}))
+    assert service.read(world_id=world_id, document_id=plan.work_object_id, scene_id="scene:gate") is None
