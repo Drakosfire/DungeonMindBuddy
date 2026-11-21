@@ -130,7 +130,7 @@ def _observed_column(scope) -> str | None:
 
 _COLUMN_MENTION = re.compile(r'\b(?:only|left|middle|right)\s+column\b', re.IGNORECASE)
 _COLUMN_PREFIX = re.compile(r'\b(?:in|within|inside|from|of)\s+(?:the\s+)?$', re.IGNORECASE)
-_COLUMN_NAME_SUFFIX = re.compile(r'^\s+(?:heading|section|title|called|named|label(?:l)?ed)\b', re.IGNORECASE)
+_COLUMN_CLAUSE_END = re.compile(r'^\s*(?:[.!?,;:]|$)')
 
 
 def composed_author_column(request) -> ComposedColumn | None:
@@ -144,7 +144,7 @@ def composed_author_column(request) -> ComposedColumn | None:
         return None
     mention = mentions[0]
     prefix = _COLUMN_PREFIX.search(request.question[:mention.start()])
-    if prefix is None or _COLUMN_NAME_SUFFIX.match(request.question[mention.end():]):
+    if prefix is None or not _COLUMN_CLAUSE_END.match(request.question[mention.end():]):
         return None
     try:
         AuthorLocationQuote(utterance_index=len(request.dialogue), start=prefix.start(),

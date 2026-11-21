@@ -2174,6 +2174,8 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
         for question in (
             'Add a warning after the gate in the heading "Right Column".',
             'Add a warning after the gate in the Right Column heading.',
+            'Add a warning after the gate in the Right Column subsection.',
+            'Add a warning after the gate in the Right Column subheading.',
             'Add a warning after the quoted line "in the right column".',
         ):
             assert column_in(question) is None
