@@ -142,13 +142,26 @@ was confirmed by copying the exact First sight body before opening the
 composer. The ordinary Send request was “Rewrite this to emphasize the
 three lanterns.”
 
-The proposal retained Read Aloud and the First sight title. It appeared as
-an insertion above the original block, which was still present, and included
-the host's partial-retrieval disclosure as editable text. This fails
-replacement placement and document-content isolation. The pre-send copy
-does not prove what selection the Plan writer captured at Send. The proposal
-was dismissed, and the saved timestamp, original passage, private note, and
-Departure sentinel remained visible.
+The proposal retained Read Aloud and the First sight title. A read-only check
+of the retained opening decision confirmed `write_current_page` with the
+captured replacement target. The selected text matched the complete First
+sight body at positions 143–186, and the original and resolved capture
+digests matched. The review card appeared above the original, which remained
+visible while the proposal was pending. The card position does not establish
+where Save applies the change.
+
+The proposal included the host's partial-retrieval disclosure as editable
+text, which fails document-content isolation. It was dismissed before Save.
+The original passage, private note, and Departure sentinel remained visible.
+Replacement persistence remains unverified.
+
+A fresh P01 run against saved Plan revision 5 retained the original editor
+capture and offered 17 placements. Its opening decision selected `clarify`
+with no placement. The turn completed with a player-facing passage and a
+private cue in chat, with no page proposal. This run failed at routing before
+placement or persistence could be scored. A prior exact P01 run selected
+`write_current_page` with `under:1`, which shows that the same request can
+reach the authoring branch on a different fixture state.
 
 [Plan placement PR #4264](https://github.com/Drakosfire/DungeonMindBuddy/pull/4264)
 covers selection binding and keeping retrieval disclosure in conversation.
