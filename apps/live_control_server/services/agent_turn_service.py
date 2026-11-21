@@ -21,6 +21,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.context_trace import TracePromptReference, TraceProviderCall, TurnContextTraceV1
 from application_state.build_proposal.types import BuildWriteCapability
+from application_state.content.page_presentation import PagePresentation
 from application_state.agent_conversation.native_writer import json_container_count as _json_node_count
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
@@ -1407,6 +1408,7 @@ class BuildSavedSourceBasis:
     authority_state: str
     visibility_state: str
     markdown: str
+    page_presentation: PagePresentation | None = None
 
     def invocation_message(self, question: str) -> str:
         # This is source data; runtime capability admission remains the permission boundary.
@@ -5489,6 +5491,9 @@ def _submitted_turn_intent(
             **({"authored_references": request.build_authored_references} if request.build_authored_references is not None else {}), retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
             None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
             None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))),
+            build_image_move_capture_sha256=(
+                None if request.build_image_move_capture is None else
+                _canonical_sha256(request.build_image_move_capture.model_dump(mode="json"))),
             build_reference_image_id=request.build_write_capability.reference_image_id if request.build_write_capability else None)
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":
         if request.play_target is None:

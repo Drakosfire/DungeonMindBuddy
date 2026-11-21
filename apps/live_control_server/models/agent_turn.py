@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from application_state.agent_conversation.context_trace import TurnContextTraceV1, TraceHistoricalSourceReferenceV1, TraceSourcePassage
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
+from application_state.build_proposal.image_move_decision import BuildImageMoveCapture
 from application_state.agent_conversation.build_draft_context import BuildDraftContextRequestV1
 
 from application_state.agent_conversation.rules_authority_types import RulesAcceptedBinding, canonical_sha256
@@ -33,6 +34,7 @@ from application_state.agent_conversation.types import (
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
     BuildGraphReferenceCompletionV1,
+    BuildImageMoveCompletionV1,
     BuildImagePreparationCompletionV1,
     BuildSourcePassageCitationV1,
     SurfaceSourcePassageCitationV1,
@@ -269,6 +271,7 @@ class AgentTurnRequest(BaseModel):
     selected_knowledge: AgentKnowledgeSelection | None = None
     native_statement_selection: NativeStatementSelectionV1 | None = None
     build_write_capability: BuildWriteCapability | None = None
+    build_image_move_capture: BuildImageMoveCapture | None = None
     build_draft_context: BuildDraftContextRequestV1 | None = None
     build_authored_references: AuthoredReferenceInput | None = None
     authored_references: AuthoredReferencesV2 | None = None
@@ -364,6 +367,19 @@ class AgentTurnRequest(BaseModel):
                     or work.expected_revision != capture.base_revision
                     or work.expected_content_sha256 != capture.base_content_sha256):
                 raise ValueError("Plan authoring capture requires its exact current Plan and World")
+        image_capture = self.build_image_move_capture
+        if image_capture is not None:
+            basis = image_capture.basis
+            work = self.primary_work
+            if (self.surface.surface_id != "build" or self.client_work_state != "saved_clean"
+                    or self.owner_scope is None or self.owner_scope.kind != "world"
+                    or basis.world_id != self.owner_scope.world_id
+                    or work is None or work.kind != "build" or work.object_id != basis.document_id
+                    or work.expected_revision != basis.registry_revision
+                    or work.expected_content_sha256 != basis.content_sha256
+                    or self.graph_request.mode != "world"
+                    or self.reviewed_step is not None or self.retry_of is not None):
+                raise ValueError("Image movement requires an ordinary turn on its exact saved Build Page and World")
         draft = self.build_draft_context
         if draft is not None:
             snapshot = draft.snapshot
@@ -834,7 +850,7 @@ class AgentSurfaceNativeContextResponseV1(BaseModel):
     schema_: Literal['dmb_agent_surface_native_context_response_v1'] = Field(
         default='dmb_agent_surface_native_context_response_v1',alias='schema')
     receipt: SurfaceNativeContextReceiptV1
-    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | BuildGraphReferenceCompletionV1 | None
+    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | BuildGraphReferenceCompletionV1 | BuildImageMoveCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
     deferred_build_citations: DeferredBuildCitationMembership | None = Field(

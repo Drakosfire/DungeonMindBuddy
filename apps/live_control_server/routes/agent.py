@@ -200,9 +200,16 @@ def _build_work_resolver(body: AgentTurnRequest, owner: Mapping[str, Any] | None
         or record.authority_state not in {"draft", "reviewed", "canonical"}
         or record.visibility_state not in {"internal", "player_safe"}):
         raise AgentTurnServiceError("The saved Build source changed or is not available in this World", code="build_source_unavailable", status_code=409)
+    if body.build_image_move_capture is not None and (
+        record.visibility_state != "internal" or snapshot.page_presentation is None
+    ):
+        raise AgentTurnServiceError(
+            "Image movement requires the current internal composed Page.",
+            code="build_image_move_context_changed", status_code=409, provider_dispatched=False,
+        )
     basis = BuildSavedSourceBasis(record.document_id, str(owner["id"]), record.revision, digest,
         record.title, record.source_domain, record.document_class, record.authority_state,
-        record.visibility_state, snapshot.markdown)
+        record.visibility_state, snapshot.markdown, page_presentation=snapshot.page_presentation)
     return AgentTurnResolvedWork(kind="build", object_id=record.document_id, revision=record.revision,
         changed_since_expected=False, owner_kind="world", owner_id=str(owner["id"]),
         world_id=str(owner["id"]), build_source=basis,

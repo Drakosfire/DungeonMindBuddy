@@ -74,6 +74,18 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
                 graph_reference=disposition)
 
 
+@pytest.mark.parametrize(("message", "disposition"), [
+    ("Move the Harbour map to the empty slot on its right.", "ready"),
+    ("What would happen if we moved the Harbour map to the right?", "discussion"),
+    ("Move the Harbour map to the right slot in the Watchtower row.", "different_row"),
+    ("Move the Harbour map to the slot on its right.", "foreign_capture"),
+    ("Move the Harbour map to the slot on its right.", "forged_editor"),
+])
+def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
+    _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+                message=message, image_move=disposition)
+
+
 def test_graph_nomination_preparation_uses_the_admitted_build_capture(lane, tmp_path, monkeypatch):
     from application_state.errors import ApplicationStateConflictError
     from apps.live_control_server.services import build_graph_reference
@@ -130,7 +142,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -208,6 +220,43 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             + f"![Bath house map](dmb-media:{asset['asset_id']})\n\n")
     save_page(tmp_path, page.document_id, '# Working page\n\n'
         + (image_markdown if reference_image in {"saved", "wrong_same_page", "saved_large"} else '') + 'A proposed conversation.\n')
+    if image_move:
+        from io import BytesIO
+        from PIL import Image
+        from application_state import media
+        from application_state.content import pages
+        from application_state.content.markdown_source_blocks import source_block_spans
+        from application_state.content.page_presentation import BlockBinding, PagePresentation, Row, Slot
+
+        picture = BytesIO()
+        Image.new("RGB", (30, 20), (48, 75, 65)).save(picture, "PNG")
+        asset_id = str(media.stage_image(picture.getvalue(), "local_operator", {"fixture": "Harbour map"})["asset_id"])
+        markdown = f"![Harbour map](dmb-media:{asset_id})\n"
+        start, end = source_block_spans(markdown)[0]
+        block = BlockBinding(id="map-block", byte_start=start, byte_end=end,
+                             sha256=sha256(markdown.encode()[start:end]).hexdigest())
+        layout = PagePresentation(markdown_sha256=sha256(markdown.encode()).hexdigest(), items=[
+            Row(id="harbour-row", min_height=16, line_mode="border", slots=[
+                Slot(id="left-slot", width=7, blocks=[block]),
+                Slot(id="right-slot", width=5, blocks=[]),
+            ]),
+        ])
+        saved_basis = pages.committed_page(page.document_id, world_id=world)
+        pages.commit_page(page.document_id, markdown, world_id=world,
+                          expected_revision=saved_basis.page.object_revision,
+                          expected_working_copy_revision=saved_basis.working_copy_revision,
+                          page_presentation=layout)
+        image_editor = json.dumps({"type": "doc", "content": [{
+            "type": "pageRow", "attrs": {"id": "harbour-row", "min_height": 16, "line_mode": "border"},
+            "content": [
+                {"type": "pageSlot", "attrs": {"id": "left-slot", "width": 7}, "content": [{
+                    "type": "paragraph", "attrs": {"pageBlockId": "map-block"}, "content": [{
+                        "type": "mediaImage", "attrs": {"assetId": asset_id, "alt": "Harbour map"},
+                    }],
+                }]},
+                {"type": "pageSlot", "attrs": {"id": "right-slot", "width": 5}},
+            ],
+        }]})
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
     editor_json = None
@@ -402,6 +451,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
+                if name.startswith("image_move_"):
+                    assert image_move and "Harbour map" in str(body["state"]["interaction"]["image_move"])
+                    assert asset_id not in json.dumps(body)
+                    assert all(value not in json.dumps(body) for value in ("map-block", "harbour-row", "left-slot"))
+                    chosen = {"image_move_intent": "move_existing",
+                              "image_move_destination": "same_row_right", "image_move_occurrence": "image1"}[name]
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                                         probabilities={key: float(key == chosen) for key in choices})
+                    continue
                 if name == "typed_graph_reference":
                     chosen = "place_existing_reference" if graph_reference else "other_work"
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
@@ -788,6 +846,28 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         graph_request=dict(mode='world', world_id=world, campaign_id=None, revision_pin=None,
             focus=dict(kind='none', session_id=None, campaign_id=None)), graph_selection=None,
         build_authored_references=None if saved_statblock == 'by-name' or failure == 'deferred_graph_citation' else selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
+    if image_move:
+        from application_state.build_proposal.image_move_decision import BuildImageMoveCapture
+        from tests.application_state.test_agent_conversation_postgres import _new
+
+        service = AgentConversationService()
+        conversa = _new(service, world)
+        pointer = service.get_world_pointer(world)
+        capture = BuildImageMoveCapture(
+            basis=dict(world_id=world, document_id=page.document_id, registry_revision=source.loaded_revision,
+                       content_sha256=source.content_sha256, draft_sha256=source.content_sha256,
+                       editor_sha256=sha256(image_editor.encode()).hexdigest(), visibility="internal",
+                       draft_generation=0, selection_generation=0, caret=1),
+            editor_json=image_editor, conversation_id=conversa.conversation_id, expected_pointer_revision=pointer.revision,
+        )
+        body["build_image_move_capture"] = capture.model_dump(mode="json")
+        if image_move == "foreign_capture":
+            body["build_image_move_capture"]["basis"]["world_id"] = "foreign-world"
+        elif image_move == "forged_editor":
+            edited = image_editor.replace("Harbour map", "Forged map")
+            body["build_image_move_capture"]["editor_json"] = edited
+            body["build_image_move_capture"]["basis"]["editor_sha256"] = sha256(edited.encode()).hexdigest()
+        body["build_authored_references"] = None
     if draft is not None:
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
@@ -1036,6 +1116,35 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    if image_move:
+        from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
+        from application_state.errors import ApplicationStateNotFoundError
+
+        if image_move in {"foreign_capture", "forged_editor"}:
+            assert response.status_code == (422 if image_move == "foreign_capture" else 409), response.text
+            assert not decisions.calls and not writer.calls
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
+        assert response.status_code == 200, response.text
+        completion = response.json()["knowledge_context"]["completion"]
+        assert completion["disposition"] == image_move
+        turn_id = writer.adapter.turn.turn_id
+        if image_move == "ready":
+            review = BuildImageMoveReviewService().get(world, turn_id)
+            assert completion["action_id"] == str(turn_id) and review.state == "editing"
+            assert review.placement.image_block_id == "map-block"
+            assert review.placement.destination_slot_id == "right-slot"
+        else:
+            assert completion["action_id"] is None
+            with pytest.raises(ApplicationStateNotFoundError):
+                BuildImageMoveReviewService().get(world, turn_id)
+        replay = client.post("/api/live/agent/turn", json=body)
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["knowledge_context"]["completion"] == completion
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 1
+        assert not writer.calls
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        return
     if graph_reference:
         from application_state.build_proposal.graph_reference_review import BuildGraphReferenceReviewService
         from application_state.errors import ApplicationStateNotFoundError

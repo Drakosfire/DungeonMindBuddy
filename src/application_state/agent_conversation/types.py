@@ -8,7 +8,7 @@ from application_state.agent_conversation.identifier_limits import (
 )
 
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
-from application_state.build_proposal.types import BuildBoundaryResolution
+from application_state.build_proposal.types import BuildBoundaryResolution, BuildImageMoveDisposition
 
 import hashlib
 from hashlib import sha256
@@ -1061,6 +1061,9 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepBindingV3 | ReviewedStepBinding | None = None
     build_write_capability_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    build_image_move_capture_sha256: str | None = Field(
+        default=None, pattern=r"^[a-f0-9]{64}$", exclude_if=lambda value: value is None,
+    )
     build_reference_image_id: UUID | None = None
     build_draft_context_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     client_work_state: Literal["saved_clean", "saved_dirty"]
@@ -2284,6 +2287,44 @@ class BuildGraphReferenceCompletionV1(StrictModel):
         return [PlanWorldGraphConnectiveSegmentV1(kind="connective", text=text)]
 
 
+class BuildImageMoveCompletionV1(StrictModel):
+    schema_: Literal["dmb_build_image_move_completion_v1"] = Field(
+        default="dmb_build_image_move_completion_v1", alias="schema",
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    disposition: BuildImageMoveDisposition
+    action_id: UUID | None = None
+    placement_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @property
+    def answer_context_status(self):
+        return "proposal_ready" if self.disposition == "ready" else "clarification_required"
+
+    @model_validator(mode="after")
+    def exact_review(self):
+        if (self.action_id is None) != (self.placement_sha256 is None) or (
+            (self.disposition == "ready") != (self.action_id is not None)
+        ):
+            raise ValueError("Only a resolved image move can carry a Review")
+        return self
+
+    @property
+    def answer_segments(self):
+        text = {
+            "ready": "The image move is ready to review. Applying it updates the editor. Save when you're ready.",
+            "discussion": "To move an existing image, name or select it and ask to move it to the next slot on its right.",
+            "ambiguous": "Select the exact image you want to move.",
+            "missing": "I couldn't identify the image on this page. Select it and send the request again.",
+            "different_row": "This move supports the adjacent right slot in the image's current row.",
+            "unsupported": "This move supports one slot to the right in the current row.",
+            "unresolved": "Which image should move into the empty slot immediately to its right?",
+            "occupied": "The adjacent right slot is occupied.",
+            "unavailable": "The image has no slot immediately to its right.",
+            "changes_reading_order": "Moving that image would change the page's reading order.",
+        }[self.disposition]
+        return [PlanWorldGraphConnectiveSegmentV1(kind="connective", text=text)]
+
+
 BUILD_IMAGE_READY_TEXT = "Your image prompt is ready in Image Studio. Review it before generating. Nothing has been generated, inserted or saved."
 
 
@@ -2550,7 +2591,7 @@ class LoreSaveReviewReference(StrictModel):
         return f"Review and confirm the existing draft for {self.title} to create the page."
 
 
-GraphTurnCompletion = Union[LoreSaveReviewReference | BuildGraphReferenceCompletionV1 | SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
+GraphTurnCompletion = Union[LoreSaveReviewReference | BuildGraphReferenceCompletionV1 | BuildImageMoveCompletionV1 | SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -3832,6 +3873,11 @@ class BuildGraphReferenceCompletionBindingV1(CompletionBindingEventV1):
     decision_response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class BuildImageMoveCompletionBindingV1(CompletionBindingEventV1):
+    kind: Literal["build_image_move_completion_binding_v1"]
+    opening_event_id: UUID
+
+
 class SourceReadAuthorizationEventV2(GraphExecutionEventBaseV1):
     kind: Literal["source_read_authorized_v2"]
     read_call_id: UUID
@@ -4766,6 +4812,9 @@ class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
     typed_graph_reference: Literal["place_existing_reference", "other_work"] | None = Field(
         default=None, exclude_if=lambda value: value is None,
     )
+    typed_image_move: Literal["move_existing", "other", "unresolved"] | None = Field(
+        default=None, exclude_if=lambda value: value is None,
+    )
 
 
 class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):
@@ -4935,10 +4984,10 @@ def validate_controller_writer_execution(execution, *, reviewed_action=None) -> 
                 raise ValueError("acquisition cannot continue after writer authorization")
             if latest_attempt is not None and latest_outcome not in {"response_received", "known_not_sent"}:
                 raise ValueError("acquisition requires a resolved controller attempt")
-        elif type(event) is BuildGraphReferenceCompletionBindingV1:
+        elif type(event) in (BuildGraphReferenceCompletionBindingV1, BuildImageMoveCompletionBindingV1):
             if (writer_attempt is not None or latest_attempt != event.provider_attempt_id
                     or latest_outcome != "response_received" or event.claim_graph_event_ids):
-                raise ValueError("Graph reference completion must bind its acknowledged controller without a writer")
+                raise ValueError("Build placement completion must bind its acknowledged controller without a writer")
         elif isinstance(event, CompletionBindingEventV1):
             if writer_attempt is None or event.provider_attempt_id != writer_attempt:
                 raise ValueError("completion must bind the authorized writer attempt")

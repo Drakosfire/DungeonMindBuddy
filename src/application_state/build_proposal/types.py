@@ -13,6 +13,10 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
 Digest = str
+BuildImageMoveDisposition = Literal[
+    "ready", "discussion", "ambiguous", "missing", "different_row",
+    "unsupported", "unresolved", "occupied", "unavailable", "changes_reading_order",
+]
 
 
 class StrictModel(BaseModel):

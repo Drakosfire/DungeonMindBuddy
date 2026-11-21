@@ -294,6 +294,7 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
     related = actions.get('related_page_catalog')
     related = None if related is None else tuple(PagePointer.model_validate(row) for row in related)
     action = NativeBuildActionV1(intent=submitted_intent, write_capability=request.build_write_capability,
+        image_move_capture=request.build_image_move_capture,
         capabilities=caps, related_page_catalog=related,
         saved_source_char_count=len(basis.markdown), requested_work_menu_sha256=MENU_DIGEST,
         response_resolver_sha256=RESOLVER_DIGEST)
@@ -303,12 +304,23 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
         from application_state.agent_conversation.build_intentional_response import semantic_routing_state, semantic_request_id, digest
         from .agent_turn_service import _turn_idempotency_key
         host = json.loads(projection.host_interaction_json)
+        expected_state = semantic_routing_state(request.message, host, request.build_authored_references,
+                                                write_capability=request.build_write_capability)
+        if action.image_move_capture is not None:
+            from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
+
+            if basis.visibility_state != "internal" or basis.page_presentation is None:
+                raise ValueError("Build image movement requires the current internal composed Page")
+            move = BuildImageMoveDecision.from_saved(
+                action.image_move_capture, request.message, basis.markdown, basis.page_presentation,
+            )
+            move.require_opening_offer(body)
+            expected_state["interaction"][OPENING_STATE_KEY] = move.semantic_state()
         if (host['current_page']!={'document_id':basis.document_id,'title':basis.title}
             or host['allowed_operations']!=list(caps.operations)
             or host['capability_sha256']!=(digest(request.build_write_capability.model_dump(mode='json')) if request.build_write_capability is not None else None)
             or host.get('related_page_catalog')!=actions.get('related_page_catalog')
-            or body['state']!=semantic_routing_state(request.message,host,request.build_authored_references,
-                write_capability=request.build_write_capability)
+            or body['state']!=expected_state
             or projection.request_id!=semantic_request_id(body['state'],world_id=basis.world_id,
                 client_thread_id=request.client_thread_id,idempotency_key=_turn_idempotency_key(basis.world_id,request.turn_id))):
             raise ValueError('Semantic Build input differs from its captured work and capability')
