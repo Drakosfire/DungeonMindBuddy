@@ -48,3 +48,12 @@ Verify exact addresses for feasible candidates, duplicate/selection controls,
 missing and unsupported requests, host-only prompt exclusions and stable
 composition geometry. Keep scripted protocol evidence and actual-model results
 separate and obtain independent exact-head review before merge.
+
+At `9799bc413539536a10398012b1e33375298e3da1`, the real Jev development run
+matched 13 of 16 expected effects, including six of eight feasible writes and
+seven of eight controls. Two valid requests missed placement and one
+dormant scope vote caused a host protocol refusal. No wrong-slot nominations,
+writer calls or product mutations occurred. The follow-up separates page
+headings from slot-local headings, presents page-wide and section-relative
+ordinals explicitly, asks for independent edit confirmation, and keeps
+unqualified scope votes inert. The held-out pack remains sealed.
