@@ -45,9 +45,14 @@ class PageMetadata(BaseModel):
     connected_page_operation_id: UUID | None = None
 
 
+PAGE_LAYOUT_WRITER_PROFILE = "dmb_page_layout_writer_v1"
+PageLayoutWriterProfile = Literal["dmb_page_layout_writer_v1"]
+
+
 class PageState(BaseModel):
     page: AuthoredPageObject
     metadata: PageMetadata
+    layout_writer_profile: PageLayoutWriterProfile | None = None
 
 
 class CommittedPageSnapshot(PageState):
@@ -80,14 +85,16 @@ def _state(conn, document_id: str, world_id: str, *, lock: bool = False) -> Page
         raise ApplicationStateNotFoundError("authored page not found in selected World")
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            "SELECT document_class,authority_state,visibility_state,connected_page_operation_id "
-            "FROM content.page_metadata WHERE work_object_id=%s",
+            "SELECT m.document_class,m.authority_state,m.visibility_state,m.connected_page_operation_id,p.profile "
+            "FROM content.page_metadata m LEFT JOIN content.page_layout_writer_profile p USING (work_object_id) "
+            "WHERE m.work_object_id=%s",
             (ident,),
         )
         row = cur.fetchone()
     if row is None:
         raise ApplicationStateIntegrityError("authored page metadata is missing")
-    return PageState(page=page, metadata=PageMetadata.model_validate(row))
+    profile = row.pop("profile")
+    return PageState(page=page, metadata=PageMetadata.model_validate(row), layout_writer_profile=profile)
 
 
 def get_page(document_id: str, *, world_id: str) -> PageState:
@@ -289,6 +296,7 @@ def commit_page(
     expected_revision: int,
     expected_working_copy_revision: int | None,
     page_presentation=presentation.UNSET,
+    layout_writer_profile: PageLayoutWriterProfile | None = None,
     authorize_world=None,
 ) -> tuple[PageState, WorkRevision]:
     _basis_values(expected_revision, expected_working_copy_revision)
@@ -300,10 +308,18 @@ def commit_page(
             else None
         )
         current_presentation = presentation.read(conn, current_revision)
+        if state.layout_writer_profile is not None or layout_writer_profile is not None:
+            if layout_writer_profile != PAGE_LAYOUT_WRITER_PROFILE:
+                raise ApplicationStateConflictError("protected Page requires its layout-aware writer")
+            if page_presentation is None or page_presentation is presentation.UNSET:
+                raise ApplicationStateValidationError("protected Page requires an explicit retained presentation")
         proposed = presentation.candidate(
             page_presentation, normalize_markdown(markdown), current_presentation
         )
         changed = current_presentation != proposed
+        enrolling = layout_writer_profile is not None and state.layout_writer_profile is None
+        if enrolling and (not changed or current_presentation is None):
+            raise ApplicationStateValidationError("protect an existing Page layout through an explicit layout change")
         copy = repo.get_working_copy(conn, state.page.work_object_id)
         # An identical immediate retry may recover the shared committed result;
         # any intervening draft/metadata change invalidates this basis.
@@ -320,6 +336,14 @@ def commit_page(
             _basis(conn, state.page, expected_revision, expected_working_copy_revision)
         if authorize_world is not None:
             authorize_world(state.page.world_id)
+        if layout_writer_profile is not None:
+            page_id = state.page.work_object_id
+            conn.execute("SELECT set_config('dmb.page_layout_writer', %s, true)", (str(page_id),))
+            if enrolling:
+                conn.execute(
+                    "INSERT INTO content.page_layout_writer_profile (work_object_id,profile) VALUES (%s,%s)",
+                    (page_id, layout_writer_profile),
+                )
         _page, revision = content._commit_in_connection(
             conn,
             document_id,
@@ -477,14 +501,16 @@ def page_inventory(
             params.append(limit)
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
-                "SELECT w.*,m.document_class,m.authority_state,m.visibility_state,m.connected_page_operation_id "
+                "SELECT w.*,m.document_class,m.authority_state,m.visibility_state,m.connected_page_operation_id,p.profile "
                 "FROM content.work_object w LEFT JOIN content.page_metadata m ON m.work_object_id=w.work_object_id "
+                "LEFT JOIN content.page_layout_writer_profile p ON p.work_object_id=w.work_object_id "
                 "WHERE " + " AND ".join(clauses) + order,
                 params,
             )
             rows = cur.fetchall()
         result = []
         for row in rows:
+            profile = row.pop("profile")
             meta = {key: row.pop(key) for key in PageMetadata.model_fields}
             if meta["authority_state"] is None:
                 raise ApplicationStateIntegrityError(
@@ -494,6 +520,7 @@ def page_inventory(
                 PageState(
                     page=AuthoredPageObject.model_validate(row),
                     metadata=PageMetadata.model_validate(meta),
+                    layout_writer_profile=profile,
                 )
             )
         return result
