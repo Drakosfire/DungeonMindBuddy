@@ -44,6 +44,16 @@ function makeSession(overrides: Partial<MarkdownCanvasSessionValue> = {}): Markd
 describe("useBuildAutosave", () => {
   afterEach(() => vi.useRealTimers());
 
+  it("keeps a recovered protected draft out of autosave", async () => {
+    vi.useFakeTimers();
+    const session = makeSession({
+      phase: "ready_dirty", dirty: true, saveDisabled: false, manualSaveRequired: true,
+    });
+    renderHook(() => useBuildAutosave(session));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(session.saveMarkdown).not.toHaveBeenCalled();
+  });
+
   it("debounces dirty edits through the shared save command and reports the durable snapshot time", async () => {
     vi.useFakeTimers();
     const session = makeSession();

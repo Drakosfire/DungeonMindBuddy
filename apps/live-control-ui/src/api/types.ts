@@ -2732,6 +2732,7 @@ export interface WorkspaceDocumentRevisionRequest {
 }
 
 export interface WorkspaceDocumentSnapshot {
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   schema_version: "dmb_workspace_document_snapshot_v1";
   record: WorkspaceDocumentRecord;
   /** Saved Page body; null means no committed Page revision. Editor body remains separate. */
@@ -2999,6 +3000,7 @@ export type PlayRunReferenceManifest =
   | PlayRunReferenceManifestV2;
 
 export interface TiptapMarkdownWritePrepareRequest {
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   title?: string;
   document_id: string;
   markdown: string;
@@ -3030,6 +3032,7 @@ export interface TiptapMarkdownWritePrepareResponse {
 }
 
 export interface TiptapMarkdownWriteCommitRequest {
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   title?: string;
   document_id: string;
   markdown: string;
@@ -3042,6 +3045,7 @@ export interface TiptapMarkdownWriteCommitRequest {
 }
 
 export interface TiptapMarkdownWriteCommitResponse {
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   schema_version: "dmb_tiptap_markdown_write_commit_v1" | "dmb_tiptap_markdown_write_commit_v2";
   scope_mode?: "world" | null;
   world_id?: string | null;

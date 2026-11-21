@@ -925,7 +925,11 @@ def test_page_layout_writer_profile_fences_fresh_legacy_and_preserves_replay(com
         request = {**protected, "writer_confirm_token": offered.json()["writer_confirm_token"]}
         saved = client.post(commit, json=request)
         assert saved.status_code == 200, saved.text
+        assert saved.json()["layout_writer_profile"] == pages.PAGE_LAYOUT_WRITER_PROFILE
         assert client.post(commit, json=request).json() == saved.json()
+        snapshot = client.get(f"/api/live/workspace-documents/{document}/snapshot")
+        assert snapshot.status_code == 200, snapshot.text
+        assert snapshot.json()["layout_writer_profile"] == pages.PAGE_LAYOUT_WRITER_PROFILE
         current = pages.snapshot_page(document, world_id=world_id)
         assert current.layout_writer_profile == pages.PAGE_LAYOUT_WRITER_PROFILE
         assert current.presentation == moved and current.markdown == composed_page.markdown

@@ -257,6 +257,9 @@ class WorkspaceDocumentSnapshot(BaseModel):
     )
     record: WorkspaceDocumentRecord
     page_presentation: PagePresentation | None = None
+    layout_writer_profile: Literal["dmb_page_layout_writer_v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     page_presentation_sha256: str | None = None
     committed_markdown: str | None = None
     committed_content_sha256: str | None = None
@@ -886,6 +889,7 @@ def get_workspace_document_snapshot(
             record=_record_from_page(snap, from_working_copy=snap.from_working_copy),
             markdown=snap.markdown,
             page_presentation=snap.presentation,
+            layout_writer_profile=snap.layout_writer_profile,
             page_presentation_sha256=snap.presentation.fingerprint()
             if snap.presentation
             else None,
@@ -1347,6 +1351,7 @@ def get_committed_page_snapshot(
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap),
             page_presentation=snap.presentation,
+            layout_writer_profile=snap.layout_writer_profile,
             page_presentation_sha256=snap.presentation.fingerprint()
             if snap.presentation
             else None,
