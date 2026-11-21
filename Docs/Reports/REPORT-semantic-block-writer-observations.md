@@ -88,3 +88,26 @@ needs to preserve the versioned decision packet used to verify older turns.
 - **X01:** Hosted Build responded to the brainstorming request in chat and
   showed no page suggestion. The rendered saved blocks and save time matched
   their initial state. Server write-reservation records were not checked.
+
+## Hosted Play and Combat follow-up
+
+The [hosted extraction fix](https://github.com/Drakosfire/DungeonMindBuddy/pull/4291)
+produced reviewable run `a979e5f6-89c8-4f93-bea4-6ec87320b2bf` on the synthetic
+Boardwalk source. On release `ddfd7ea3`, the
+[first Graph transport fix](https://github.com/Drakosfire/DungeonMindBuddy/pull/4294)
+enabled publication of the four grounded locations and one grounded relationship
+in Buddy Cloud Pilot. Review excluded the unsupported west-of relationship.
+
+| Case | Observed in hosted Buddy Cloud Pilot |
+| --- | --- |
+| PL01 | A saved two-scene Plan started Play. Default chat returned proposed wording without a scene edit, including after an explicit request to edit. Selecting **Propose scene edit** and sending the exact benchmark prompt produced separate Read Aloud and GM Note blocks. Apply saved them to the session copy, and they rendered after reload alongside the original First sight block. The neighboring Departure sentinel remained readable. One live round trip. Additional repetitions and parent Plan revision comparison are pending. |
+| PL02 control | A fresh Play session adopted First sight and a manually seeded private GM Note from an exact saved Plan. The benchmark chat prompt returned First sight, omitted the private cue, and showed no staged edit. The joined case with both blocks authored by Buddy in Plan is still pending. |
+| C01 | The disposable Combat encounter reopened at saved revision 1. The surface offered no page-authoring composer or delegation control. The request was therefore ineligible for submission, and the encounter remained at revision 1. |
+| G01 | On subsequent release `d7be68ed`, the pilot Graph explorer returned HTTP 503. Read-only checks against the same database found that the active binding points to the committed classic Graph revision, while the native repository used by the explorer has no head for that World. Object selection and the Graph chat control remain pending. |
+
+The deployed [Build body rewrite fix](https://github.com/Drakosfire/DungeonMindBuddy/pull/4286)
+preserved the Read Aloud kind and title and the neighboring GM Note in two
+hosted saves and reloads. One stored selection excluded the final period despite
+the visible selection including it, which left duplicate punctuation after
+the rewrite. The second run captured all 119 selected characters and saved
+the exact two requested sentences. The earlier capture mismatch remains open.
