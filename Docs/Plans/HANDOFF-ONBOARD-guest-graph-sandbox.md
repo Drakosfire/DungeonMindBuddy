@@ -1,6 +1,7 @@
 # ONBOARD: temporary guest graph additions
 
-Status: ACTIVE, serial, authorized by the owner's onboarding goal. Bugbot
+Status: MERGED in PR #4304 at `b84831800c7d00e549bb73ea496633e1bd46d370`;
+default-off and not a released Sizzek demo. The serial slice was authorized by the owner's onboarding goal. Bugbot
 critiqued the design before activation; the decisions below adopt its findings.
 The owner authorized the full
 onboarding goal and explicitly asked visitors to add and connect a graph node.

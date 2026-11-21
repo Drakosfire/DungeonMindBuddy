@@ -11,9 +11,11 @@ it("requires explicit fields and evidence before staging the exact selection", a
       : init?.method === "POST" ? { release_id: "candidate", digest: "digest" } : {
       graph_revision: "rev", fields: [
         { assertion_id: "name", entity_id: "entity", kind: "name", value: "Sizzek", predicate: "dnd5e:name", target_id: null, temporal: "unknown", basis: "inferred", source_option_ids: ["option"] },
-        { assertion_id: "kind", entity_id: "entity", kind: "classification", value: "character", predicate: "dnd5e:classification", target_id: null, temporal: "unknown", basis: "inferred", source_option_ids: ["option"] },
+        { assertion_id: "kind", entity_id: "entity", kind: "classification", value: "character", predicate: "dnd5e:classification", target_id: null, temporal: "unknown", basis: "inferred", source_option_ids: ["option2"] },
       ], sources: [{ option_id: "option", document_id: "doc", document_title: "Apprentice", visibility: "internal", revision_n: 1,
-        sha256: "a".repeat(64), start: 0, end: 4, excerpt: "clue", evidence_id: "evidence", evidence_role: "context" }],
+        sha256: "a".repeat(64), start: 0, end: 4, excerpt: "clue", evidence_id: "evidence", evidence_role: "context" },
+        { option_id: "option2", document_id: "doc2", document_title: "Carnival", visibility: "internal", revision_n: 1,
+          sha256: "b".repeat(64), start: 0, end: 5, excerpt: "other", evidence_id: "evidence2", evidence_role: "support" }],
     };
     return new Response(JSON.stringify(body), { status: 200 });
   });
@@ -28,7 +30,8 @@ it("requires explicit fields and evidence before staging the exact selection", a
   expect(button).toBeDisabled();
   await user.click(name); await user.click(kind);
   expect(button).toBeDisabled();
-  for (const select of screen.getAllByRole("combobox", { name: "Source excerpt" })) await user.selectOptions(select, "option");
+  const sourceSelects = screen.getAllByRole("combobox", { name: "Source excerpt" });
+  await user.selectOptions(sourceSelects[0], "option"); await user.selectOptions(sourceSelects[1], "option2");
   expect(screen.getByText("clue")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: /context, not direct support/ })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Load World images" }));
@@ -37,11 +40,26 @@ it("requires explicit fields and evidence before staging the exact selection", a
   expect(imageChoice).toBeDisabled();
   fireEvent.load(image);
   await user.click(imageChoice);
+  await user.click(screen.getByRole("checkbox", { name: "Include an owner-authored saved example" }));
+  expect(button).toBeDisabled();
+  await user.type(screen.getByLabelText("Example title"), "Saved scene");
+  await user.type(screen.getByLabelText("Scene text"), "A scene");
+  await user.click(screen.getByRole("checkbox", { name: /Apprentice · context/ }));
+  await user.click(screen.getByRole("checkbox", { name: /Carnival · support/ }));
+  await user.click(kind);
+  expect(button).toBeDisabled();
+  expect(screen.getByText(/no longer included; remove this reference/)).toBeInTheDocument();
+  expect(screen.getByLabelText("Scene text")).toHaveValue("A scene");
+  await user.click(kind);
+  await user.selectOptions(screen.getAllByRole("combobox", { name: "Source excerpt" })[1], "option2");
+  await user.selectOptions(screen.getByLabelText("Inline image"), "image");
+  await user.type(screen.getByLabelText("Describe the image for guests"), "A red tent");
   await user.click(button);
   expect(await screen.findByRole("status")).toHaveTextContent("Copy prepared");
   expect(prepared).toHaveBeenCalledOnce();
   const posted = fetchMock.mock.calls.find(([input, init]) => init?.method === "POST" && !String(input).endsWith("/selection-media/list"));
   expect(JSON.parse(String(posted?.[1]?.body))).toMatchObject({ graph_revision: "rev", nodes: [{ entity_id: "entity",
-    name_assertion_id: "name", kind_assertion_id: "kind", name_source_index: 0, kind_source_index: 0 }],
-    sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }], relationships: [], asset_ids: ["image"] });
+    name_assertion_id: "name", kind_assertion_id: "kind", name_source_index: 0, kind_source_index: 1 }],
+    sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }, { document_id: "doc2" }], relationships: [], asset_ids: ["image"],
+    saved_example: { title: "Saved scene", body: "A scene", source_indexes: [0, 1], asset_id: "image", image_description: "A red tent" } });
 });

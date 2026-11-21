@@ -59,6 +59,30 @@ it("does not permit approval until the selected image has loaded", async () => {
   expect(approval).toBeDisabled();
 });
 
+it("shows the exact saved example and blocks a malformed example", async () => {
+  let malformed = false;
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    const body = url.endsWith("/candidates") ? { candidates: [{ release_id: "copy", created_at: "2026-11-20T00:00:00Z" }] }
+      : url.endsWith("/published") ? { releases: [] } : url.endsWith("/status") ? { version: 0 }
+      : { digest: "a".repeat(64), source_visibility: { first: "internal", second: "player_safe" }, manifest: {
+        graph: { nodes: [], edges: [] }, sources: [{ id: "first", text: "First", evidence_role: "support" }, { id: "second", text: "Second", evidence_role: "context" }], assets: [],
+        saved_example: { version: "owner_saved_scene_v1", title: "Scene title", body: "Owner text", references: ["first", malformed ? "foreign" : "second"], image: null } } };
+    return new Response(JSON.stringify(body), { status: 200 });
+  }));
+  const user = userEvent.setup();
+  render(<GuestReleaseReview worldId="world" />);
+  await user.click(screen.getByRole("button", { name: "Load prepared copies" }));
+  await user.click(await screen.findByRole("button", { name: /Review copy from/ }));
+  expect(await screen.findByText("Owner text")).toBeInTheDocument();
+  expect(screen.getByText(/excerpt 1 \(support\), excerpt 2 \(context, not direct support\)/)).toBeInTheDocument();
+  expect(screen.getByRole("checkbox", { name: /I reviewed this copy/ })).toBeEnabled();
+  malformed = true;
+  await user.click(screen.getByRole("button", { name: /Review copy from/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("malformed");
+  expect(screen.getByRole("checkbox", { name: /I reviewed this copy/ })).toBeDisabled();
+});
+
 it("requires confirmation to revoke and uses the observed pointer version to restore", async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
