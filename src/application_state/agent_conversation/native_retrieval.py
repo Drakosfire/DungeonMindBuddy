@@ -322,6 +322,11 @@ def verify_selection(turn, event, proof, trace):
 
 def current_selection(turn):
     _, execution = owner(turn)
+    return _current_selection_from_execution(execution)
+
+
+def _current_selection_from_execution(execution):
+    """Resolve the settled selection from an already validated native execution."""
     providers = [
         e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)
     ]
