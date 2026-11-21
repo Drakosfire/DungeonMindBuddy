@@ -127,8 +127,8 @@ evidence root). This includes actual disposable Content title-only rename CAS,
 manifest title substitution refusal, complete ancestry joins, literal slash and
 quote distinctions, duplicate/normalization occurrence expansion, and no missing
 literal-name fallback. The first broader diagnostic also ran the older
-`test_plan_jev_harness.py`: 63 passed, nine failed at the retired V1 contract
-guard; retain `author-location-title-focused.log` as red evidence, not a passing
+`test_plan_jev_harness.py`: 63 passed, nine failed with retired-contract assertions and writer-schema
+failures. Exact base b848 reproduces all nine IDs and primary messages. Retain `author-location-title-focused.log` as red evidence, not a passing
 boundary claim. These are working-tree diagnostics, not exact-head qualification.
 
 ActionV3 now freezes actual Content title only after matching document, World,
@@ -137,6 +137,15 @@ and actual SDK parent retain that title. Action1/2 wire branches are unchanged.
 This intentionally revises the unreleased ActionV3 behind172: earlier V3 DEV
 records remain evidence for their pinned source only, with no cross-revision
 resume compatibility claim. No deployed reader or production data is migrated.
+
+When a paragraph request has conflicting unscoped and section votes, the
+placement set stays empty. If the nominated passage families expand to more
+than one exact boundary, the clarification can describe those alternatives.
+The question alone grants no reservation or write. The a2fc browser witness
+verified scoped placement, apply, explicit Save, Undo/Redo, narrow review,
+cold reopen and selection recovery. Its duplicate request asked a generic
+missing-location question and failed the ambiguity witness. The new question
+path has focused coverage but requires an updated browser witness.
 
 ## Current semantic and native contract
 

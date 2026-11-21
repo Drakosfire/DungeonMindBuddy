@@ -451,22 +451,45 @@ def clarification_question(selection):
                     or selection.requested_scope_qualifier == 'named'
                     and not selection.compatible_ancestor_selectors))):
         return 'Could you select the intended paragraph, or name one unambiguous section path for it?'
-    if selection.target_resolution == "ambiguous":
+    question_selectors = selection.compatible_placement_selectors
+    ambiguous = selection.target_resolution == 'ambiguous'
+    conflicting_unscoped = (
+        selection.target_resolution == 'missing'
+        and getattr(selection, 'requested_placement_relation', None) in {'before_paragraph', 'after_paragraph'}
+        and getattr(selection, 'requested_paragraph_scope', None) == 'unscoped'
+        and selection.requested_scope_qualifier == 'none'
+        and selection.compatible_section_selectors
+        and not selection.compatible_ancestor_selectors
+        and not selection.direct_anchor_selectors
+        and selection.compatible_passage_selectors
+    )
+    if ambiguous or conflicting_unscoped:
         from .plan_authoring import PlanAuthoringCaptureV1
         from .plan_placement import decode_plan_placement_catalog
         capture = PlanAuthoringCaptureV1.model_validate(selection.original_capture)
         catalog = decode_plan_placement_catalog(selection.placement_catalog)
+        if conflicting_unscoped:
+            # These alternatives are for the question only. Conflicting scope
+            # votes continue to grant no compatible placement or write authority.
+            passages = set(selection.compatible_passage_selectors)
+            anchors = {anchor for row in component_inventory(capture, catalog)['passages']
+                if row['view']['selector'] in passages for anchor in row['anchors']}
+            alternatives = resolve_anchor_targets(
+                capture, catalog, 'clarify', selection.requested_placement_relation, anchors)
+            ambiguous = alternatives['target_resolution'] == 'ambiguous'
+            question_selectors = alternatives['compatible_placement_selectors']
         seen, labels = set(), []
         for entry in catalog.entries:
-            if entry.selector not in selection.compatible_placement_selectors:
+            if not ambiguous or entry.selector not in question_selectors:
                 continue
             target = catalog.resolve(capture, entry.selector)
             if target.sha256 not in seen:
                 seen.add(target.sha256)
                 labels.append(" ".join(entry.label.split())[:240])
-        if len(labels) <= 4 and len(set(labels)) == len(labels):
+        if ambiguous and len(labels) <= 4 and len(set(labels)) == len(labels):
             return "Which location do you mean: " + " or ".join(labels) + "?"
-        return "Several locations fit. Which section or paragraph do you mean? You can select the intended text."
+        if ambiguous:
+            return "Several locations fit. Which section or paragraph do you mean? You can select the intended text."
     if selection.requested_intent == "write_current_page" and selection.target_resolution == "missing":
         if selection.original_capture.get('target_kind') == 'replace_selection':
             return "Would you like to replace the current selection, or select the text at the intended location?"

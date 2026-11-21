@@ -443,6 +443,33 @@ def test_indistinguishable_target_labels_ask_for_selection_instead_of_identical_
         'Several locations fit. Which section or paragraph do you mean? You can select the intended text.')
 
 
+@pytest.mark.parametrize('duplicate', [False, True])
+def test_conflicting_unscoped_votes_offer_only_multiple_question_alternatives(duplicate):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.plan_contextual_targets import (
+        clarification_question, resolve_component_targets,
+    )
+    capture, catalog = family_catalog([
+        heading('Preparation'), prose('The gate is locked.'),
+        heading('Rumours'), prose('The gate is locked.' if duplicate else 'Another passage.'),
+    ])
+    result = resolve_component_targets(capture, catalog, 'write_current_page',
+        'after_paragraph', 'unscoped', (), ('passage0',), ('section0',))
+    assert result['requested_work'] == 'clarify'
+    assert result['target_resolution'] == 'missing'
+    assert result['compatible_placement_selectors'] == ()
+    assert result['placement_selector'] is None
+    assert result['target_capture_sha256'] is None
+    question = clarification_question(SimpleNamespace(**result,
+        original_capture=capture.model_dump(mode='json', by_alias=True),
+        placement_catalog=catalog.model_dump(mode='json', by_alias=True)))
+    if duplicate:
+        assert question.startswith('Which location do you mean: ')
+        assert 'Preparation' in question and 'Rumours' in question
+    else:
+        assert 'couldn’t identify' in question
+
+
 def two_native_locations(capture):
     from tests.application_state.test_plan_placement import native_paragraph_placement_fixture
     original, catalog = native_paragraph_placement_fixture(capture)
