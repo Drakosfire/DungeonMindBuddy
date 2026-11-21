@@ -524,3 +524,29 @@ def test_prospective_plan_is_explicit_independent_and_does_not_replace_fallback(
     answers.pop('post_read_plan')
     with pytest.raises(ValueError, match='Missing'):
         c.decode_selection(parent, result(answers=answers))
+
+
+def test_expanded_plan_relevance_changes_only_source_votes():
+    from application_state.agent_conversation import jev_retrieval_contract as c
+
+    fields = request().model_dump(exclude={'schema_', 'revision'})
+    fields.update(source_authority_status='available', source_revision='private', graph_revision='private')
+    fields['candidates'][0]['kind'] = 'Explicit admitted full-source read; metadata choice, not evidence'
+    parent = c.NativePlanBatchDecisionInputV3(**fields)
+    assert 'expanded_relevance_version' not in parent.model_dump(by_alias=True)
+    expanded = parent.model_copy(update={'expanded_relevance_version': 'v1'})
+    assert expanded.digest != parent.digest
+
+    original = c.prepare_decision(parent)
+    updated = c.prepare_decision(expanded)
+    assert original.state == updated.state
+    assert 'expanded_relevance_version' not in updated.model_dump_json()
+    original_questions = {q.name: q for q in original.questions}
+    for question in updated.questions:
+        before = original_questions[question.name]
+        if question.name == 'candidate_0':
+            assert question.question.startswith(before.question)
+            assert 'open a broader source only when it has a distinct evidence need' in question.question
+            assert question.options == before.options
+        else:
+            assert question == before

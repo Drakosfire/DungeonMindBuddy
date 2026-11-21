@@ -115,6 +115,10 @@ class NativePlanBatchDecisionInputV3(NativeRetrievalDecisionInputV2):
         default="dmb_native_plan_batch_decision_input_v3", alias="schema")
 
 
+    expanded_relevance_version: Literal["v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+
+
 class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):
     """Current Build navigation, retaining host-only accounting and phase."""
     schema_: Literal["dmb_native_build_retrieval_decision_input_v4"] = Field(
@@ -250,6 +254,15 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                 'that the selected sections are unlikely to cover, or further navigation is required. '
                 'This does not claim unseen evidence is complete. A failed, unsupported, or navigation-only selection requires review. '
                 'If every relevance vote excludes, the separate fallback question alone decides what happens.')))
+    navigation_kinds = {
+        "Explicit admitted full-source read; metadata choice, not evidence",
+        "Select passage from inspected source",
+    }
+    expanded_relevance = (
+        type(request) is NativePlanBatchDecisionInputV3
+        and request.expanded_relevance_version == "v1"
+        and any(candidate.kind in navigation_kinds for candidate in request.candidates)
+    )
     for index, _candidate in enumerate(request.candidates):
         if (_candidate.kind.startswith("Expand to all other admitted native sources")
                 and _planned_input(request)):
@@ -265,11 +278,18 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                     "Apply keyword_selection_guidance; include for source-content topics, exclude source scope, "
                     "grammar and future creative instructions. This independent metadata vote does not authorize a read.")))
             continue
+        guidance = "Apply relevance_guidance." if shared_relevance else "Apply relevance_guidance: " + _SHARED_RELEVANCE
+        if expanded_relevance and (_candidate.kind in navigation_kinds or _candidate.kind == "Exact source section"):
+            guidance += (
+                " Include this passage or navigation step only if its description gives a "
+                "specific reason to expect it will supply evidence for a part of the user’s "
+                "request that the acquired material does not establish. A shared term alone "
+                "is insufficient. Prefer an exact section when it targets the same detail; "
+                "open a broader source only when it has a distinct evidence need."
+            )
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
-            question=(f"Use {_candidate.label} ({_candidate.kind}) for user's question? "
-                      + ("Apply relevance_guidance." if shared_relevance else
-                         "Apply relevance_guidance: " + _SHARED_RELEVANCE))))
+            question=f"Use {_candidate.label} ({_candidate.kind}) for user's question? " + guidance))
     state = {"question": request.question,
              "relevance_guidance": (
                  "Judge usefulness for the current requested details, not general relatedness. "
