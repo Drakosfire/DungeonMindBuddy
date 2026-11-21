@@ -372,7 +372,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                         " With carried_condition, provide a typed trigger and write only "
                         "consequences in rule.rules_text. Do not restate or add another trigger."
                     )
-            if format_version in {9, 10}:
+            if format_version in {9, 10, 11}:
                 from .native_build_work_view import variant_draft_passages
 
                 passages = variant_draft_passages(work_frame)
