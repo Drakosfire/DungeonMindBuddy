@@ -20,6 +20,7 @@ from .plan_placement import PlanRequestedWorkInputV8, PlanRequestedWorkInputV9
 from .plan_authoring import PlanAuthoringComposedSnapshotV1, PlanRequestedWorkInputV1
 from .plan_composed_targeting import (
     ComposedPlanPlacementCatalogV1,
+    composed_literal_scope_matches,
     composed_nomination_from_answers,
     prepare_composed_plan_nomination,
     resolve_composed_plan_nomination,
@@ -94,6 +95,7 @@ class NativePlanOpeningInputV3(NativePlanOpeningInputV1):
     placement_catalog: ComposedPlanPlacementCatalogV1
     original_capture: PlanAuthoringComposedSnapshotV1
     author_scope_binding: NativePlanOpeningScopeBindingV1
+    column_scope_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 NATIVE_PLAN_OPENING_INPUT_TYPES = (
@@ -120,7 +122,7 @@ def _composed_work_request(request):
     return prepare_composed_plan_nomination(author, request.original_capture, request.placement_catalog)
 
 
-def resolve_composed_opening(snapshot, catalog, binding, nomination, operation):
+def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, *, column_scope_version=None):
     if operation == 'discuss' or binding.page_edit_intent == 'discussion':
         intent = 'discuss'
     elif nomination.confirmed_work == 'different_destination':
@@ -145,9 +147,14 @@ def resolve_composed_opening(snapshot, catalog, binding, nomination, operation):
                 path.occurrence is None and all(isinstance(name, LiteralScopeName) for name in path.names)
                 for path in paths
             )
-            headings = catalog.paragraph_for(capture.slot_address).heading_path
-            if (not supports_literal_scope or not matches_literal_scope_path(headings, positive)
-                    or excluded is not None and matches_literal_scope_path(headings, excluded)):
+            paragraph = catalog.paragraph_for(capture.slot_address)
+            def matches(path, *, exclusion=False):
+                if column_scope_version == 'v1':
+                    return composed_literal_scope_matches(catalog, paragraph, path, exclusion=exclusion)
+                return matches_literal_scope_path(paragraph.heading_path, path)
+
+            if (not supports_literal_scope or not matches(positive)
+                    or excluded is not None and matches(excluded, exclusion=True)):
                 return {'requested_work': 'clarify', 'target_resolution': 'unresolved',
                         'placement_selector': None, 'target_capture_sha256': None}
     return {
@@ -516,7 +523,8 @@ def _composed_opening_fields(request, answers):
     return resolve_composed_opening(
         request.original_capture, request.placement_catalog,
         request.author_scope_binding, nomination, request.plan_requested_operation,
-    ) | {"composed_nomination": nomination}
+        column_scope_version=request.column_scope_version,
+    ) | {"composed_nomination": nomination, "column_scope_version": request.column_scope_version}
 
 
 def composed_opening_fields(request, result):

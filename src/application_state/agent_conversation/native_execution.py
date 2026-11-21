@@ -385,6 +385,7 @@ class NativePlanOpeningSelectedV3(NativePlanOpeningSelectedV1):
     scope_document_title: str
     composed_nomination: ComposedPlanNominationV1
     target_resolution: Literal['not_applicable', 'missing', 'unique', 'ambiguous', 'unresolved']
+    column_scope_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def applicable_read_plan(self):
@@ -404,7 +405,7 @@ class NativePlanOpeningSelectedV3(NativePlanOpeningSelectedV1):
         if type(capture) is not PlanAuthoringComposedSnapshotV1 or type(catalog) is not ComposedPlanPlacementCatalogV1:
             raise ValueError('Composed opening requires its exact snapshot and catalog')
         expected = resolve_composed_opening(capture, catalog, self.author_scope_binding,
-            self.composed_nomination, self.author_operation)
+            self.composed_nomination, self.author_operation, column_scope_version=self.column_scope_version)
         if any(getattr(self, key) != value for key, value in expected.items()):
             raise ValueError('Composed opening differs from its complete target resolution')
         return self

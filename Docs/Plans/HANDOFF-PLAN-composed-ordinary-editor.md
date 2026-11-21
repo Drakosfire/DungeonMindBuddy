@@ -32,6 +32,13 @@ includes #3824 (`76c31187f3e9badecbc403f2d9c943994c5f5f9c`), #1014
 (`d9a27a7c36d4cebf8daa6e2584a36ed021409819`). Preserve their hosted
 authorization, rollout, welcome and legacy non-World retirement scope.
 Keep ordinary plain Plan, Cards and Play behavior outside this composition change.
+Include the integration defect discovered on the development witness: preserve
+the independent author scope when it names an existing column in the composed
+catalog. The composed-only resolver must retain heading/column conflicts and
+must refuse a missing ordinary heading. Retain the new interpretation on the
+opening parent and event, keep the original interpretation for historic V3
+records, and fence old readers with forward-only 0177. Verify old/new replay
+and schema compatibility against the exact base.
 
 ## Verification
 

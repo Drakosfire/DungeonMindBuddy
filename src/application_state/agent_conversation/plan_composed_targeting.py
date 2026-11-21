@@ -17,6 +17,7 @@ from .plan_authoring import (
     strict_json,
 )
 from .plan_slot_layout import PlanSlotAddressV1, PlanSlotParagraphV1
+from .plan_author_location import LiteralScopeName, NamedScopePath, matches_literal_scope_path, name_key
 from application_state.content.page_presentation import BlockBinding, Row
 
 
@@ -206,6 +207,32 @@ def _row_label(number: int) -> str:
     )
     return f"{ordinals[number - 1]} row" if number <= len(ordinals) else f"row {number}"
 
+
+def composed_literal_scope_matches(
+    catalog: ComposedPlanPlacementCatalogV1,
+    paragraph: ComposedParagraphV1,
+    scope: NamedScopePath,
+    *,
+    exclusion: bool = False,
+) -> bool:
+    """Bind ordinary named scope or an exact composed column cue."""
+    literal = scope.names[-1]
+    column = name_key(literal.text).removeprefix("the ")
+    if column not in {"only column", "left column", "middle column", "right column"}:
+        return matches_literal_scope_path(paragraph.heading_path, scope)
+    geometry = scope.model_copy(update={"names": (*scope.names[:-1], LiteralScopeName(text=column))})
+    def heading_matches(item: ComposedParagraphV1) -> bool:
+        return any(matches_literal_scope_path(item.heading_path, path) for path in (scope, geometry))
+
+    column_matches = paragraph.column == column and matches_literal_scope_path(
+        (*paragraph.heading_path, paragraph.column), geometry,
+    )
+    if any(heading_matches(item) for item in catalog.paragraphs):
+        # A same-named heading can also explain the author interpretation.
+        # Require both for inclusion and honor either for exclusion.
+        return (column_matches or heading_matches(paragraph) if exclusion
+                else column_matches and heading_matches(paragraph))
+    return column_matches
 
 def _row_choices(
     catalog: ComposedPlanPlacementCatalogV1,

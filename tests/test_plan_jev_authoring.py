@@ -2156,6 +2156,18 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
                 selection.author_operation,
             ) == dict(requested_work="clarify", target_resolution="unresolved",
                       placement_selector=None, target_capture_sha256=None)
+        column_scope = NamedScopePath(names=(LiteralScopeName(text="the right column"),))
+        composed_binding = binding.model_copy(update={
+            "observation": binding.observation.model_copy(update={"scope": column_scope}),
+        })
+        assert resolve_composed_opening(
+            capture, request.plan_placement_catalog, composed_binding, selection.composed_nomination,
+            selection.author_operation, column_scope_version="v1",
+        )["placement_selector"] == selection.placement_selector
+        assert resolve_composed_opening(
+            capture, request.plan_placement_catalog, composed_binding, selection.composed_nomination,
+            selection.author_operation,
+        )["target_resolution"] == "unresolved"
     else:
         assert selection.target_resolution == ("ambiguous" if outcome == "ambiguous" else "unresolved")
         assert response.plan_proposal is None and action is None
