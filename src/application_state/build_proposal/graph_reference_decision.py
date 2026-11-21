@@ -89,19 +89,71 @@ def _names(candidate: BuildGraphReferenceCandidate):
             if name != candidate.reference.node_id and (words := _words(name))}
 
 
+def _placement_clause(question: str):
+    request = re.sub(r''' "[^"\n]*" | “[^”\n]*” | ‘[^’\n]*’ | (?<!\w)'[^'\n]*' ''',
+                     " ", question, flags=re.VERBOSE)
+    return re.fullmatch(
+        r"\s*(?:please\s+)?(?P<action>add|insert|place|put|link|reference)\s+"
+        r"(?P<object>[^.,!?;:\n]+?)\s+(?:(?:just|right|immediately)\s+)?"
+        r"(?P<relation>before|after)\s+(?P<anchor>[^.,!?;:\n]+?)\s*[.!]?\s*",
+        request, flags=re.IGNORECASE,
+    )
+
+
+def _has_distinguishing_expression(question, chosen, candidates, kind):
+    clause = _placement_clause(question)
+    if clause is None:
+        return False
+    expression = re.sub(
+        r"^(?:(?:a|an|the|typed|existing|graph)\s+)*(?:reference|link)\s+to\s+",
+        "", clause["object"], flags=re.IGNORECASE,
+    )
+    expression = _words(expression)
+    while expression and expression[0] in {"a", "an", "the", "existing"}:
+        expression = expression[1:]
+    if not expression or {"not", "except", "or", "and", "instead", "without"} & set(expression):
+        return False
+    eligible = set()
+    for candidate in candidates:
+        description = _words(candidate.summary or "")
+        for name in _names(candidate):
+            if expression[:len(name)] != name:
+                continue
+            qualifier = expression[len(name):]
+            literal_kind = kind == candidate.entity_kind and qualifier == _words(candidate.entity_kind)
+            literal_description = len(qualifier) >= 3 and any(
+                description[index:index + len(qualifier)] == qualifier
+                for index in range(len(description) - len(qualifier) + 1)
+            )
+            if not qualifier or literal_kind or literal_description:
+                eligible.add(candidate.reference.node_id)
+    return eligible == {chosen.reference.node_id}
+
+
 def _explicit_ordinal_target(question, catalog, occurrence, relation):
     """Corroborate an occurrence vote with a literal paragraph ordinal and section."""
     chosen = next((item for item in catalog.passages if item.alias == occurrence), None)
     if chosen is None or not chosen.headings:
         return None
-    request = re.sub(r'''"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|(?<!\w)'[^'\n]*' ''', " ", question, flags=re.VERBOSE)
+    clause = _placement_clause(question)
+    if clause is None or clause["relation"].casefold() != relation:
+        return None
+    referent = clause["object"]
+    if {"not", "except", "instead", "unless", "without", "avoid", "whether", "saying", "quote"} & set(_words(referent)):
+        return None
+    if clause["action"].casefold() not in {"link", "reference"} and not re.fullmatch(
+        r"(?:(?:a|an|the|typed|existing|graph|selected)\s+)*(?:reference|link)(?:\s+to\s+.+)?"
+        r"|(?:the|an?)\s+(?:existing|selected)\s+.+\s+(?:reference|link)",
+        referent, flags=re.IGNORECASE,
+    ):
+        return None
     heading = re.escape(chosen.headings[-1])
-    mention = re.findall(
-        rf"\b(before|after)\s+(?:the\s+)?(first|second|third|last|[1-9][0-9]{{0,2}}(?:st|nd|rd|th))"
-        rf"\s+paragraph\s+(?:of|in|under)\s+(?:the\s+)?{heading}(?:\s+section)?\s*[.!?]?\s*$",
-        request, flags=re.IGNORECASE,
+    mention = re.fullmatch(
+        rf"(?:the\s+)?(first|second|third|last|[1-9][0-9]{{0,2}}(?:st|nd|rd|th))"
+        rf"\s+paragraph\s+(?:of|in|under)\s+(?:the\s+)?{heading}(?:\s+section)?",
+        clause["anchor"], flags=re.IGNORECASE,
     )
-    if len(mention) != 1 or mention[0][0].casefold() != relation:
+    if mention is None:
         return None
     # Repeated section names and gaps can hide another heading or non-prose
     # content, so a catalog ordinal must belong to one contiguous section.
@@ -111,7 +163,7 @@ def _explicit_ordinal_target(question, catalog, occurrence, relation):
     section = [item for item in catalog.passages if item.headings == chosen.headings]
     if any(left.after != right.before for left, right in zip(section, section[1:])):
         return None
-    ordinal = mention[0][1].casefold()
+    ordinal = mention[1].casefold()
     known = {"first": 0, "second": 1, "third": 2, "last": len(section) - 1}
     index = known[ordinal] if ordinal in known else int(ordinal[:-2]) - 1
     if index >= len(section) or section[index] != chosen:
@@ -295,6 +347,8 @@ class BuildGraphReferenceDecision:
         if self.author_selected is None and any(
             candidate.reference != chosen.reference and _names(candidate) & chosen_names
             for candidate in self.candidates
+        ) and not _has_distinguishing_expression(
+            self.question, chosen, self.candidates, kind,
         ):
             return BuildGraphReferenceNomination(disposition="ambiguous_identity")
         occurrence = answers["anchor_occurrence"]
@@ -302,17 +356,11 @@ class BuildGraphReferenceDecision:
         if target is not None and occurrence != target.alias.split(":", 1)[0]:
             return BuildGraphReferenceNomination(disposition="ambiguous_boundary")
         if placement.disposition == "ambiguous" and occurrence not in {"ambiguous", "missing"}:
-            # The exact occurrence vote may narrow other semantic paraphrases,
-            # but never break ties between identical text within an admitted scope.
             rows = request.state["paragraph_order"]
-            applicable = [row for row in rows if judgment.scope != "named" or row["section"] in judgment.scope_aliases]
-            chosen_row = next((row for row in applicable if row["occurrence"] == occurrence), None)
-            if chosen_row is not None and chosen_row["passage"] in judgment.passage_aliases:
-                if sum(row["passage"] == chosen_row["passage"] for row in applicable) == 1:
-                    operation = "insert_before" if judgment.relation == "before" else "insert_after"
-                    target = self.catalog.target(occurrence, operation)
-                else:
-                    target = _explicit_ordinal_target(self.question, self.catalog, occurrence, judgment.relation)
+            if any(row["occurrence"] == occurrence and row["passage"] in judgment.passage_aliases
+                   and (judgment.scope != "named" or row["section"] in judgment.scope_aliases)
+                   for row in rows):
+                target = _explicit_ordinal_target(self.question, self.catalog, occurrence, judgment.relation)
         if target is None:
             return BuildGraphReferenceNomination(disposition={
                 "ambiguous": "ambiguous_boundary", "missing": "missing_boundary",

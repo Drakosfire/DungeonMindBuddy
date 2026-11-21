@@ -298,7 +298,29 @@ def test_graph_decision_shared_alias_requires_the_current_author_selected_identi
     assert selected.placement.reference == second.reference
 
 
-def test_graph_occurrence_vote_can_narrow_distinct_passages_but_not_duplicate_text(graph_decision, captured_page):
+@pytest.mark.parametrize("question,overrides,expected", [
+    ("Add a reference to Ivory Sentry location after the moon in East.",
+     {"reference_kind": "class2", "object2": "exclude", "object3": "include"}, "location:ivory"),
+    ("Link Ivory Sentry with a blue vane after the moon in East.", {}, "construct:retuned-ivory"),
+    ("Link Blue Watch after the moon in East.", {}, "construct:retuned-ivory"),
+    ("Link Ivory Sentry after the paragraph about a blue vane.", {}, None),
+    ("Link Ivory Sentry construct after the moon in East.", {}, None),
+])
+def test_graph_identity_expression_must_uniquely_match_the_authorized_inventory(
+    graph_decision, question, overrides, expected,
+):
+    first, second, third = graph_decision.candidates
+    decision = replace(graph_decision, question=question, author_selected=None, candidates=(
+        first, second.model_copy(update={"aliases": ("Blue Watch",)}), third,
+    ))
+    result = decision.resolve(graph_response(**overrides))
+    if expected is None:
+        assert result.disposition == "ambiguous_identity" and result.placement is None
+    else:
+        assert result.placement.reference.node_id == expected
+
+
+def test_graph_occurrence_vote_cannot_override_multiple_compatible_passages(graph_decision, captured_page):
     votes = graph_response(scope="unscoped", anchor_occurrence="passage2")
     assert graph_decision.resolve(votes).disposition == "ambiguous_boundary"
 
@@ -309,12 +331,15 @@ def test_graph_occurrence_vote_can_narrow_distinct_passages_but_not_duplicate_te
     distinct = replace(graph_decision, basis=basis, catalog=freeze_build_prose_catalog(basis, editor, draft),
                        question="Reference the selected construct after the paragraph about the moon.")
     nominated = distinct.resolve(graph_response(scope="unscoped", text1="include", anchor_occurrence="passage2"))
-    assert nominated.placement.boundary.alias == "passage2:insert_after"
+    assert nominated.disposition == "ambiguous_boundary" and nominated.placement is None
 
 
 @pytest.mark.parametrize("question,occurrence,expected", [
     ("Add the selected reference after the first paragraph of the West section.", "passage1", "ready"),
     ("Add the selected reference after the first paragraph of the West section.", "passage2", "ambiguous_boundary"),
+    ("Do not add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
+    ("Put a note saying to add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
+    ("Explain whether to add the selected reference after the first paragraph of the West section.", "passage1", "ambiguous_boundary"),
     ("Add the selected reference after the first paragraph of the West Coast section.", "passage1", "ambiguous_boundary"),
     ('Add the selected reference beside “after the first paragraph of the West section”.', "passage1", "ambiguous_boundary"),
 ])
