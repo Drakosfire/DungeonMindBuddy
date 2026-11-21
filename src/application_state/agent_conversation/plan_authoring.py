@@ -14,6 +14,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from application_state.agent_conversation.plan_slot_layout import (
+    PlanSlotAddressV1,
+    require_slot_paragraph,
+)
+from application_state.content.page_presentation import Digest, PagePresentation
+from application_state.errors import ApplicationStateValidationError
+
 RequestedWork = Literal[
     "discuss", "clarify", "write_current_page", "different_destination"
 ]
@@ -219,7 +226,63 @@ class PlanAuthoringBoundaryCaptureV1(PlanAuthoringCaptureV1):
         return self
 
 
-PlanAuthoringCapture = PlanAuthoringBoundaryCaptureV1 | PlanAuthoringCaptureV1
+class PlanAuthoringSlotBoundaryCaptureV1(PlanAuthoringCaptureV1):
+    """A slot address authorizes the insertion. Range fields only witness selection."""
+
+    schema_: Literal["dmb_plan_authoring_slot_boundary_capture_v1"] = Field(
+        default="dmb_plan_authoring_slot_boundary_capture_v1", alias="schema"
+    )
+    target_kind: Literal["insert_at_slot_boundary"]
+    slot_address: PlanSlotAddressV1
+    base_page_presentation_sha256: Digest
+    draft_page_presentation: PagePresentation
+    draft_page_presentation_sha256: Digest
+    selection_witness_text: str = ""
+
+    @model_validator(mode="after")
+    def exact_snapshot(self):
+        selection = strict_json(self.selection_json)
+        if not isinstance(selection, dict):
+            raise ValueError("Plan slot insertion requires its original selection")
+        anchor, head = selection.get("anchor"), selection.get("head")
+        if type(anchor) is not int or type(head) is not int:
+            raise ValueError("Plan slot insertion requires integer selection positions")
+        original = self.model_dump(mode="python", by_alias=True, exclude={
+            "slot_address",
+            "base_page_presentation_sha256",
+            "draft_page_presentation",
+            "draft_page_presentation_sha256",
+            "selection_witness_text",
+        })
+        original.update(
+            schema="dmb_plan_authoring_capture_v1",
+            target_kind="insert_at_caret" if anchor == head else "replace_selection",
+            selected_text=self.selection_witness_text,
+            **{"from": min(anchor, head), "to": max(anchor, head)},
+        )
+        PlanAuthoringCaptureV1.model_validate(original)
+        if (self.from_, self.to) != (min(anchor, head), max(anchor, head)):
+            raise ValueError("Plan slot capture range differs from its selection witness")
+        if self.selected_text or self.playable_target is not None:
+            raise ValueError("A Plan slot insertion cannot replace an existing selection")
+        if self.draft_page_presentation.fingerprint() != self.draft_page_presentation_sha256:
+            raise ValueError("Plan draft layout fingerprint differs from its payload")
+        try:
+            self.draft_page_presentation.checked(self.draft_markdown)
+        except ApplicationStateValidationError as exc:
+            raise ValueError(str(exc)) from exc
+        require_slot_paragraph(
+            strict_json(self.editor_json), self.draft_markdown,
+            self.draft_page_presentation, self.slot_address,
+        )
+        return self
+
+
+PlanAuthoringCapture = (
+    PlanAuthoringSlotBoundaryCaptureV1
+    | PlanAuthoringBoundaryCaptureV1
+    | PlanAuthoringCaptureV1
+)
 
 
 def parse_authoring_capture(value):
