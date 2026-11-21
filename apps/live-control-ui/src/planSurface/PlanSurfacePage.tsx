@@ -488,10 +488,19 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       ? accepted.imported
       : markdownToTiptapDoc(markdownState.markdown);
   }, [markdownState, editorIdentity]);
-  const editorContent = useMemo(
-    () => presentation ? hydratePresentation(markdownState.markdown, presentation) : importedMarkdown.doc,
-    [presentation, markdownState.markdown, importedMarkdown],
-  );
+  const editorContent = useMemo(() => {
+    if (presentation) return hydratePresentation(markdownState.markdown, presentation);
+    if (!composing) return importedMarkdown.doc;
+    // The pre-layout history must already carry identities so Undo of the
+    // first row can retain them if that row's Save actually committed.
+    return {
+      ...importedMarkdown.doc,
+      content: importedMarkdown.doc.content?.map((block, index) => ({
+        ...block,
+        attrs: { ...block.attrs, pageBlockId: `block-${index}` },
+      })),
+    };
+  }, [composing, presentation, markdownState.markdown, importedMarkdown]);
   const fidelityWarnings = useMemo(
     () => markdownFidelityWarnings(importedMarkdown.diagnostics, flattenPresentation(editorContent)),
     [importedMarkdown, editorContent],
@@ -2448,8 +2457,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                       const original = previous
                         ? hydratePresentation(markdownRef.current, previous)
                         : markdownToTiptapDoc(markdownRef.current).doc;
+                      const awaitingEnrollment = pendingWriteRef.current?.phase === "commit"
+                        && pendingWriteRef.current.page_presentation_sha256 != null;
                       const projected = projectPresentation(json, markdownRef.current, original, previous,
-                        serverPresentationRef.current !== null);
+                        serverPresentationRef.current !== null || awaitingEnrollment);
                       next = projected.markdown;
                       nextPresentation = projected.presentation;
                     } else {

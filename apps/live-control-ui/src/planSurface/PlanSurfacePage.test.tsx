@@ -4717,7 +4717,7 @@ it.each(['restart','step'])('cancels a pending guided routed Plan after %s befor
  expect(screen.queryByDisplayValue(original.markdown)).not.toBeInTheDocument();expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
  expect(committed.document_id).toBe(savedAgentPlanId);
 });
-it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement"] as const)(
+it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement", "lost acknowledgement then Undo"] as const)(
   "handles a %s receipt for a layout-only Plan row", async receipt => {
   const markdown = "First paragraph.\n\nSecond paragraph.\n";
   const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, markdown);
@@ -4731,7 +4731,7 @@ it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement"] a
     title: record.title,
     target_relpath: path,
     target_display_path: path,
-    registry_revision: 7,
+    registry_revision: request.expected_revision ?? 7,
     page_presentation_sha256: receipt === "altered prepare" ? "f".repeat(64)
       : presentationFingerprint(request.page_presentation) ?? undefined,
     file_exists: true,
@@ -4741,22 +4741,25 @@ it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement"] a
     diagnostics: [],
   }));
   const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request => {
-    const saved = { ...record, revision: 8 };
+    const revision = (request.expected_revision ?? 7) + 1;
+    const saved = { ...record, revision };
     const fingerprint = presentationFingerprint(request.page_presentation) ?? undefined;
     const priorCommitted = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
     vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
-      ...priorCommitted, object_revision: 8, content_sha256: digest, has_divergent_working_copy: false,
+      ...priorCommitted, object_revision: revision, content_sha256: digest, has_divergent_working_copy: false,
     });
     vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({
       schema_version: "dmb_workspace_document_snapshot_v2", record: saved, markdown,
-      content_sha256: digest, loaded_revision: 8, file_exists: true, file_fingerprint: "postgres",
+      content_sha256: digest, loaded_revision: revision, file_exists: true, file_fingerprint: "postgres",
       page_presentation: request.page_presentation, page_presentation_sha256: fingerprint,
     });
-    if (receipt === "lost acknowledgement") throw new Error("Network disconnected after the write.");
+    if (receipt.startsWith("lost acknowledgement") && revision === 8) {
+      throw new Error("Network disconnected after the write.");
+    }
     return {
       schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
       document_id: savedAgentPlanId, title: record.title, target_relpath: path, target_display_path: path,
-      registry_revision: 8, committed_revision: 8, committed_record: saved,
+      registry_revision: revision, committed_revision: revision, committed_record: saved,
       normalized_content_sha256: digest, page_presentation_sha256: receipt === "altered commit" ? "f".repeat(64) : fingerprint,
       writer_ok: true, diagnostics: [],
     };
@@ -4796,11 +4799,26 @@ it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement"] a
     expect(recovery.pending_write.page_presentation_sha256).toBe(recovery.page_presentation_sha256);
     return;
   }
-  if (receipt === "lost acknowledgement") {
+  if (receipt.startsWith("lost acknowledgement")) {
     await screen.findByText("Network disconnected after the write.");
+    if (receipt === "lost acknowledgement then Undo") {
+      act(() => { editor.commands.undo(); });
+      expect(surface().querySelector("[data-page-row]")).toBeNull();
+    }
     fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
   }
   await screen.findByText("Saved to this World.");
+  if (receipt === "lost acknowledgement then Undo") {
+    expect(commit).toHaveBeenCalledTimes(2);
+    const initialRow = commit.mock.calls[0][0].page_presentation?.items[0];
+    const wrapperFree = commit.mock.calls[1][0].page_presentation?.items;
+    expect(initialRow?.kind).toBe("row");
+    const initialIds = initialRow?.kind === "row" ? initialRow.slots.flatMap(slot => slot.blocks.map(block => block.id)) : [];
+    expect(wrapperFree?.map(block => block.id)).toEqual(initialIds);
+    expect(wrapperFree?.map(block => block.kind)).toEqual(["block", "block"]);
+    expect(commit.mock.calls[1][0]).toMatchObject({ markdown, expected_revision: 8 });
+    return;
+  }
   expect(commit).toHaveBeenCalledTimes(1);
   const layout = commit.mock.calls[0][0].page_presentation;
   expect(layout?.items[0]).toMatchObject({ kind: "row", slots: [{ width: 6 }, { width: 6 }] });
