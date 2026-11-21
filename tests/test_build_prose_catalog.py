@@ -197,6 +197,7 @@ def graph_decision(captured_page):
 
 def graph_response(**changes):
     labels = dict(work="place_paragraph", destination="current_page", relation="after", scope="named",
+                  anchor_occurrence="passage2",
                   text0="include", scope0="exclude", scope1="include", reference_intent="place_existing",
                   reference_kind="class1", reference_kind_constraint="requires_or_excludes_type", object1="exclude",
                   object2="include", object3="exclude")
@@ -230,8 +231,8 @@ def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
 def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(graph_decision):
     request = graph_decision.request()
     assert request.state["paragraph_order"] == [
-        {"passage": "text0", "section": "scope0"},
-        {"passage": "text0", "section": "scope1"},
+        {"occurrence": "passage1", "passage": "text0", "section": "scope0"},
+        {"occurrence": "passage2", "passage": "text0", "section": "scope1"},
     ]
     assert "Choose unscoped when no heading" in next(q.question for q in request.questions if q.name == "scope")
     remapped = graph_decision.candidates[0].model_copy(update={
@@ -256,11 +257,13 @@ def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(g
 @pytest.mark.parametrize("choices,disposition", [
     ({"object1": "include", "object2": "exclude"}, "missing_identity"),
     ({"reference_kind": "class2"}, "wrong_kind"),
+    ({"reference_kind": "class2", "object2": "exclude"}, "wrong_kind"),
     ({"reference_kind": "class2", "text0": "exclude"}, "wrong_kind"),
     ({"reference_kind": "other_kind"}, "wrong_kind"),
     ({"reference_kind": "other_kind", "object2": "exclude"}, "wrong_kind"),
     ({"object2": "exclude"}, "missing_identity"),
     ({"scope": "unscoped"}, "ambiguous_boundary"),
+    ({"anchor_occurrence": "passage1"}, "ambiguous_boundary"),
     ({"scope1": "exclude"}, "missing_boundary"),
     ({"destination": "different_page"}, "different_page"),
     ({"reference_intent": "discussion"}, "discussion"),
@@ -293,6 +296,34 @@ def test_graph_decision_shared_alias_requires_the_current_author_selected_identi
     assert refusal.disposition == "ambiguous_identity" and refusal.placement is None
     selected = replace(shared, author_selected=second.reference).resolve(graph_response())
     assert selected.placement.reference == second.reference
+
+
+def test_graph_occurrence_vote_can_narrow_distinct_passages_but_not_duplicate_text(graph_decision, captured_page):
+    votes = graph_response(scope="unscoped", anchor_occurrence="passage2")
+    assert graph_decision.resolve(votes).disposition == "ambiguous_boundary"
+
+    basis, editor, draft = captured_page
+    editor = editor.replace("The moon is 🌘.", "The sun is high.", 1)
+    draft = draft.replace("The moon is 🌘.", "The sun is high.", 1)
+    basis = basis.model_copy(update={"editor_sha256": digest(editor), "draft_sha256": digest(draft)})
+    distinct = replace(graph_decision, basis=basis, catalog=freeze_build_prose_catalog(basis, editor, draft),
+                       question="Reference the selected construct after the paragraph about the moon.")
+    nominated = distinct.resolve(graph_response(scope="unscoped", text1="include", anchor_occurrence="passage2"))
+    assert nominated.placement.boundary.alias == "passage2:insert_after"
+
+
+@pytest.mark.parametrize("question,occurrence,expected", [
+    ("Add the selected reference after the first paragraph of the West section.", "passage1", "ready"),
+    ("Add the selected reference after the first paragraph of the West section.", "passage2", "ambiguous_boundary"),
+    ("Add the selected reference after the first paragraph of the West Coast section.", "passage1", "ambiguous_boundary"),
+    ('Add the selected reference beside “after the first paragraph of the West section”.', "passage1", "ambiguous_boundary"),
+])
+def test_graph_occurrence_ordinal_needs_literal_author_scope(graph_decision, question, occurrence, expected):
+    shaped = replace(graph_decision, question=question)
+    nomination = shaped.resolve(graph_response(scope0="include", anchor_occurrence=occurrence))
+    assert nomination.disposition == expected
+    if expected == "ready":
+        assert nomination.placement.boundary.alias == "passage1:insert_after"
 
 
 def test_graph_decision_rejects_foreign_stale_and_unoffered_identity_proof(graph_decision):

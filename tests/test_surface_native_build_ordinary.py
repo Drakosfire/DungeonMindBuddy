@@ -409,6 +409,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     continue
                 if "reference_intent" in body["questions"]:
                     chosen = {"work": "place_paragraph", "destination": "current_page", "relation": "after",
+                              "anchor_occurrence": "passage2",
                               "scope": "named", "text0": "include", "scope0": "exclude", "scope1": "include",
                               "reference_intent": "different_page" if graph_reference == "different_page" else "place_existing",
                               "object1": "include", "object2": "exclude",

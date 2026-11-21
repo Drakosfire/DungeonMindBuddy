@@ -89,6 +89,36 @@ def _names(candidate: BuildGraphReferenceCandidate):
             if name != candidate.reference.node_id and (words := _words(name))}
 
 
+def _explicit_ordinal_target(question, catalog, occurrence, relation):
+    """Corroborate an occurrence vote with a literal paragraph ordinal and section."""
+    chosen = next((item for item in catalog.passages if item.alias == occurrence), None)
+    if chosen is None or not chosen.headings:
+        return None
+    request = re.sub(r'''"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|(?<!\w)'[^'\n]*' ''', " ", question, flags=re.VERBOSE)
+    heading = re.escape(chosen.headings[-1])
+    mention = re.findall(
+        rf"\b(before|after)\s+(?:the\s+)?(first|second|third|last|[1-9][0-9]{{0,2}}(?:st|nd|rd|th))"
+        rf"\s+paragraph\s+(?:of|in|under)\s+(?:the\s+)?{heading}(?:\s+section)?\s*[.!?]?\s*$",
+        request, flags=re.IGNORECASE,
+    )
+    if len(mention) != 1 or mention[0][0].casefold() != relation:
+        return None
+    # Repeated section names and gaps can hide another heading or non-prose
+    # content, so a catalog ordinal must belong to one contiguous section.
+    if len({item.headings for item in catalog.passages if item.headings and
+            item.headings[-1].casefold() == chosen.headings[-1].casefold()}) != 1:
+        return None
+    section = [item for item in catalog.passages if item.headings == chosen.headings]
+    if any(left.after != right.before for left, right in zip(section, section[1:])):
+        return None
+    ordinal = mention[0][1].casefold()
+    known = {"first": 0, "second": 1, "third": 2, "last": len(section) - 1}
+    index = known[ordinal] if ordinal in known else int(ordinal[:-2]) - 1
+    if index >= len(section) or section[index] != chosen:
+        return None
+    return catalog.target(occurrence, "insert_before" if relation == "before" else "insert_after")
+
+
 @dataclass(frozen=True)
 class BuildGraphReferenceDecision:
     basis: BuildProposalBasis
@@ -130,7 +160,7 @@ class BuildGraphReferenceDecision:
         passages = {text: alias for alias, text in boundary.state["existing_passages"].items()}
         headings = {tuple(path): alias for alias, path in boundary.state["existing_heading_paths"].items()}
         paragraph_order = [
-            {"passage": passages[item.passage], "section": headings[item.headings]}
+            {"occurrence": item.alias, "passage": passages[item.passage], "section": headings[item.headings]}
             for item in self.catalog.passages
         ]
         boundary_questions = tuple(
@@ -170,6 +200,13 @@ class BuildGraphReferenceDecision:
                 **({"author_selected_object": selected_alias} if selected_alias is not None else {}),
             },
             "questions": (*boundary_questions,
+                ChoiceDecisionQuestion(name="anchor_occurrence", options=("missing", "ambiguous",
+                    *(item.alias for item in self.catalog.passages)),
+                    question=("Which single paragraph occurrence is the author's anchor? Use paragraph_order to join "
+                              "each occurrence to its passage and section. Select the exact occurrence only if it is "
+                              "uniquely identified by the request. Choose ambiguous when more than one fits and "
+                              "missing when none fits. The reference object, the proposed insertion, and the editor "
+                              "caret do not identify the anchor.")),
                 ChoiceDecisionQuestion(name="reference_intent", options=(
                     "place_existing", "discussion", "new_object", "different_page", "unresolved",
                 ), question=("Which action is requested? Choose place_existing for a request to attach a reference "
@@ -226,7 +263,8 @@ class BuildGraphReferenceDecision:
         boundary_response = result.model_copy(update={"answers": {
             question.name: result.answers[question.name] for question in boundary_request.questions
         }})
-        placement = resolve_build_boundary(self.catalog, decode_build_boundary_decision(boundary_request, boundary_response))
+        judgment = decode_build_boundary_decision(boundary_request, boundary_response)
+        placement = resolve_build_boundary(self.catalog, judgment)
         if placement.disposition in {"different_destination", "discuss"}:
             return BuildGraphReferenceNomination(disposition=(
                 "different_page" if placement.disposition == "different_destination" else "discussion"
@@ -235,8 +273,10 @@ class BuildGraphReferenceDecision:
         objects, kinds = self._offers()
         requested_kind = answers["reference_kind"]
         kind_constrained = answers["reference_kind_constraint"] == "requires_or_excludes_type"
-        if self.author_selected is not None and kind_constrained and requested_kind == "other_kind":
-            return BuildGraphReferenceNomination(disposition="wrong_kind")
+        if self.author_selected is not None and kind_constrained and requested_kind != "unspecified":
+            selected = next(item for item in self.candidates if item.reference == self.author_selected)
+            if kinds.get(requested_kind) != selected.entity_kind:
+                return BuildGraphReferenceNomination(disposition="wrong_kind")
         included = [candidate for alias, candidate in objects.items() if answers[alias] == "include"]
         if self.author_selected is not None:
             included = [candidate for candidate in included if candidate.reference == self.author_selected]
@@ -257,10 +297,26 @@ class BuildGraphReferenceDecision:
             for candidate in self.candidates
         ):
             return BuildGraphReferenceNomination(disposition="ambiguous_identity")
-        if placement.target is None:
+        occurrence = answers["anchor_occurrence"]
+        target = placement.target
+        if target is not None and occurrence != target.alias.split(":", 1)[0]:
+            return BuildGraphReferenceNomination(disposition="ambiguous_boundary")
+        if placement.disposition == "ambiguous" and occurrence not in {"ambiguous", "missing"}:
+            # The exact occurrence vote may narrow other semantic paraphrases,
+            # but never break ties between identical text within an admitted scope.
+            rows = request.state["paragraph_order"]
+            applicable = [row for row in rows if judgment.scope != "named" or row["section"] in judgment.scope_aliases]
+            chosen_row = next((row for row in applicable if row["occurrence"] == occurrence), None)
+            if chosen_row is not None and chosen_row["passage"] in judgment.passage_aliases:
+                if sum(row["passage"] == chosen_row["passage"] for row in applicable) == 1:
+                    operation = "insert_before" if judgment.relation == "before" else "insert_after"
+                    target = self.catalog.target(occurrence, operation)
+                else:
+                    target = _explicit_ordinal_target(self.question, self.catalog, occurrence, judgment.relation)
+        if target is None:
             return BuildGraphReferenceNomination(disposition={
                 "ambiguous": "ambiguous_boundary", "missing": "missing_boundary",
             }.get(placement.disposition, "unresolved"))
         return BuildGraphReferenceNomination(disposition="ready", placement=BuildGraphReferencePlacement(
-            basis=self.basis, reference=chosen.reference, entity_kind=chosen.entity_kind, boundary=placement.target,
+            basis=self.basis, reference=chosen.reference, entity_kind=chosen.entity_kind, boundary=target,
         ))
