@@ -196,8 +196,10 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
                 "If the author explicitly requests a copy of this paragraph, include its complete literal text "
                 "as an editable paragraph at the requested point. Use this passage even when saved Plan blocks "
                 "differ. Include the author's requested new material separately as part of the editable fragment. "
-                "If the author requests new advice or a warning, write that advice or caution. A duplicate "
-                "of the existing paragraph alone does not satisfy a request for new content.")
+                "If the author asks for a new note, reminder, recommendation or caution without specifying "
+                "the wording, draft a short editable proposal based on the nearby working text. The request "
+                "to draft it does not itself identify a missing fact. Avoid adding unsupported specifics. "
+                "A duplicate of the existing paragraph alone does not satisfy a request for new content.")
         frame['focused_edit_target']['fragment_scope'] = fragment_scope
     return frame
 
