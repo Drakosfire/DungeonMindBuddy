@@ -7,6 +7,7 @@ never chooses an available replacement for an unmatched component.
 from __future__ import annotations
 
 import json
+import re
 import unicodedata
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Literal
@@ -226,6 +227,101 @@ def literal_reference(text: str, *, path: bool, quoted: bool = False,
         raise ValueError('A literal path exceeds the complete six-level heading grammar')
     return NamedScopePath(names=tuple(LiteralScopeName(text=p) for p in parts),
         edges=('direct_parent',) * (len(parts) - 1), rooted=rooted)
+
+
+class AuthorScopeHypothesis(Strict):
+    """One replayable author quote and its separately declared grammar."""
+
+    evidence: AuthorLocationQuote
+    grammar: Literal['literal_name', 'literal_path', 'natural_path',
+        'document_title', 'description']
+
+    def compile(self, request: str, dialogue: tuple[RetrievalDialogue, ...]) -> NamedScopePath:
+        return _compile_scope_expression(self.evidence.verify(request, dialogue), self.grammar)
+
+
+_TITLE_REFERENCE = re.compile(
+    r'(?:(?:the )?section (?:with |having )(?:the )?)?'
+    r'same (?:name|title) as (?:this|the current) (?:page|document)', re.IGNORECASE)
+_DESCRIPTION_REFERENCE = re.compile(r'(?:the )?section about\s+(.+)', re.IGNORECASE)
+_NATURAL_CONNECTORS = re.compile(r'(?<=\s)(directly under|whose parent is|inside)(?=\s)', re.IGNORECASE)
+_COMPOUND_REFERENCE = re.compile(r'\b(?:either|or|both|and|except|rather than)\b', re.IGNORECASE)
+_LOCATION_CLAUSE = re.compile(r'\b(?:paragraph|heading)\s+(?:in|inside|under)\b', re.IGNORECASE)
+_ORDINAL_REFERENCE = re.compile(
+    r'^(?:the\s+)?(?:first|second|third|fourth|fifth|last|\d+(?:st|nd|rd|th))\b', re.IGNORECASE)
+
+
+def _scope_syntax(text: str) -> str:
+    """Keep original indices while treating quoted name content as data."""
+    result = []
+    closing = None
+    escaped = False
+    for index, char in enumerate(text):
+        if closing is not None:
+            result.append(' ')
+            joins_word = (char in {"'", '’'} and index and index + 1 < len(text)
+                and _word_member(text[index - 1]) and _word_member(text[index + 1]))
+            if char == closing and not escaped and not joins_word:
+                closing = None
+            escaped = not escaped and char == '\\'
+        elif char in _QUOTES and not (char == "'" and index and _word_member(text[index - 1])):
+            closing = _QUOTES[char]
+            result.append(' ')
+        else:
+            result.append(char)
+    return ''.join(result)
+
+
+def _compile_scope_expression(text: str, grammar: str, depth: int = 1) -> NamedScopePath:
+    if depth > 6:
+        raise ValueError('A scope hypothesis exceeds the complete six-level heading grammar')
+    if grammar == 'document_title':
+        if not _TITLE_REFERENCE.fullmatch(text):
+            raise ValueError('Document-title evidence must explicitly refer to the current page title')
+        return NamedScopePath(names=(DocumentTitleScopeName(),))
+    syntax = _scope_syntax(text)
+    if _COMPOUND_REFERENCE.search(syntax):
+        raise ValueError('A single scope hypothesis cannot omit compound or excluded operands')
+    if grammar == 'description':
+        match = _DESCRIPTION_REFERENCE.fullmatch(text)
+        if match is None:
+            raise ValueError('Description evidence must describe an existing section explicitly')
+        return NamedScopePath(names=(DescribedScopeName(text=match[1]),))
+    if _TITLE_REFERENCE.fullmatch(text) or _DESCRIPTION_REFERENCE.fullmatch(text):
+        raise ValueError('Typed reference evidence cannot be interpreted as a literal name')
+    if _LOCATION_CLAUSE.search(syntax):
+        raise ValueError('Literal scope evidence cannot include a separate location clause')
+    if _ORDINAL_REFERENCE.match(syntax):
+        raise ValueError('An ordinal scope requires an explicit occurrence interpretation')
+    if grammar == 'natural_path':
+        match = _NATURAL_CONNECTORS.search(syntax)
+        if match is None:
+            raise ValueError('A natural path must preserve its declared relationship')
+        child_text = re.sub(r'\s+section$', '', text[:match.start()].rstrip(), flags=re.IGNORECASE)
+        child = _compile_scope_expression(child_text, 'literal_name', depth + 1)
+        parent_text = text[match.end():].lstrip()
+        parent_syntax = _scope_syntax(parent_text)
+        parent_grammar = ('natural_path' if _NATURAL_CONNECTORS.search(parent_syntax) else
+            'document_title' if _TITLE_REFERENCE.fullmatch(parent_text) else
+            'literal_path' if '/' in parent_syntax else 'literal_name')
+        parent = _compile_scope_expression(parent_text, parent_grammar, depth + 1)
+        edge = 'any_ancestor' if match[1].casefold() == 'inside' else 'direct_parent'
+        return NamedScopePath(names=(*parent.names, *child.names), edges=(*parent.edges, edge))
+    if _NATURAL_CONNECTORS.search(syntax) or (grammar == 'literal_name' and '/' in syntax):
+        raise ValueError('Literal scope evidence cannot omit its path structure')
+    if grammar == 'literal_name':
+        return literal_reference(text, path=False)
+    separators = [index for index, char in enumerate(syntax) if char == '/']
+    if not separators:
+        raise ValueError('Literal path evidence must include its path separator')
+    positions = [-1, *separators, len(text)]
+    for start, end in zip(positions, positions[1:]):
+        component = text[start + 1:end].strip()
+        if _ORDINAL_REFERENCE.match(_scope_syntax(component)):
+            raise ValueError('An ordinal scope requires an explicit occurrence interpretation')
+        if _TITLE_REFERENCE.fullmatch(component) or _DESCRIPTION_REFERENCE.fullmatch(component):
+            raise ValueError('Typed reference evidence cannot be interpreted as a literal name')
+    return literal_reference(text, path=True)
 
 
 def source_heading_inventory(capture, catalog):

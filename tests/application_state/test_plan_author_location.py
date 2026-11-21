@@ -4,7 +4,8 @@ import json
 import pytest
 
 from application_state.agent_conversation.plan_author_location import (
-    AuthorLocationQuote, DescribedScopeName, DocumentTitleScopeName, LiteralScopeName, NamedScopePath,
+    AuthorLocationQuote, AuthorScopeHypothesis, DescribedScopeName, DocumentTitleScopeName,
+    LiteralScopeName, NamedScopePath,
     UnresolvedLocation, UnscopedLocation, bind_scope, literal_reference,
     source_heading_inventory,
 )
@@ -51,6 +52,50 @@ def test_location_quote_does_not_treat_plural_possessive_as_quote_opener():
 def test_location_quote_rejects_partial_or_cross_sentence_evidence(text, quote, error):
     with pytest.raises(ValueError, match=error):
         author_quote(text, quote).verify(text, ())
+
+
+@pytest.mark.parametrize('phrase,grammar,names,edges', [
+    ('Mill / Equipment', 'literal_path', (LiteralScopeName(text='Mill'),
+        LiteralScopeName(text='Equipment')), ('direct_parent',)),
+    ('“North / South”', 'literal_name', (LiteralScopeName(text='North / South'),), ()),
+    ('“Tea and Cakes”', 'literal_name', (LiteralScopeName(text='Tea and Cakes'),), ()),
+    ('“A paragraph in winter”', 'literal_name', (LiteralScopeName(text='A paragraph in winter'),), ()),
+    ('Equipment inside Atrium / East passage', 'natural_path', (LiteralScopeName(text='Atrium'),
+        LiteralScopeName(text='East passage'), LiteralScopeName(text='Equipment')),
+        ('direct_parent', 'any_ancestor')),
+    ('“Equipment inside” directly under “Mill / Atrium”', 'natural_path',
+        (LiteralScopeName(text='Mill / Atrium'), LiteralScopeName(text='Equipment inside')),
+        ('direct_parent',)),
+    ('Equipment whose parent is the section with the same name as this page', 'natural_path',
+        (DocumentTitleScopeName(), LiteralScopeName(text='Equipment')), ('direct_parent',)),
+    ('the section with the same title as this page', 'document_title', (DocumentTitleScopeName(),), ()),
+    ('the section about fired ceramics', 'description', (DescribedScopeName(text='fired ceramics'),), ()),
+])
+def test_author_scope_hypothesis_rebuilds_complete_typed_path(phrase, grammar, names, edges):
+    request = f'Use {phrase}.'
+    candidate = AuthorScopeHypothesis(evidence=author_quote(request, phrase), grammar=grammar)
+    assert candidate.compile(request, ()) == NamedScopePath(names=names, edges=edges)
+
+
+@pytest.mark.parametrize('phrase,grammar,error', [
+    ('the section with the same title as this page', 'literal_name', 'Typed reference'),
+    ('the section about fired ceramics', 'literal_name', 'Typed reference'),
+    ('Equipment', 'description', 'describe an existing section'),
+    ('Equipment', 'document_title', 'current page title'),
+    ('Mill / Equipment', 'literal_name', 'path structure'),
+    ('Mill', 'literal_path', 'path separator'),
+    ('Equipment directly under Mill', 'literal_name', 'path structure'),
+    ('Equipment and Depot', 'literal_path', 'compound or excluded'),
+    ('second Equipment', 'literal_name', 'ordinal scope'),
+    ('Mill / second Equipment', 'literal_path', 'ordinal scope'),
+    ('ceramic-weights paragraph in Atrium / East passage / Depot',
+        'literal_path', 'separate location clause'),
+])
+def test_author_scope_hypothesis_refuses_incomplete_or_substituted_grammar(phrase, grammar, error):
+    request = f'Use {phrase}.'
+    candidate = AuthorScopeHypothesis(evidence=author_quote(request, phrase), grammar=grammar)
+    with pytest.raises(ValueError, match=error):
+        candidate.compile(request, ())
 
 
 def bind(nodes, scope, **kwargs):
