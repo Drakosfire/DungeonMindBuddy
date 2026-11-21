@@ -57,10 +57,24 @@ class Generator:
 
 
 def test_http_propose_review_apply_and_replay_leave_plan_notes_and_other_scenes_intact(tmp_path, application_state_dsn, monkeypatch):
-    world, obj, pin, run = _create_real_world_play_context(tmp_path)
+    from application_state.content.service import get_plan
+    from tests.test_play_run_reference_manifest import C2S27_SHAPED_V2_MARKDOWN
+
+    table = "| Name | State |\n| --- | --- |\n| Lantern | Lit |"
+    image = "![Wagon map](media:wagon-map.png)"
+    original = C2S27_SHAPED_V2_MARKDOWN.replace(
+        "The line surges against the wagons.",
+        f"The line surges against the wagons.\n\n{table}\n\n{image}",
+    )
+    world, obj, pin, run = _create_real_world_play_context(tmp_path, markdown=original)
+    parent_before = get_plan(str(obj.work_object_id))
     content = read_content(world_id=world.world_id, run_id=run.run_id)
     start, end = service.scene_body_range(content.markdown, "scene:gate-line")
-    replacement = content.markdown[start:end].replace("Guards waver", "Guards brace") + "\n| Name | State |\n| --- | --- |\n| Lantern | Lit |\n\n> [!READ-ALOUD]\n> The gate is waiting.\n"
+    addition = (
+        "\n> [!READ-ALOUD] At the gate\n> The gate is waiting.\n"
+        "\n> [!GM-NOTE] Pause\n> Wait for a response.\n"
+    )
+    replacement = content.markdown[start:end] + addition
     generator = Generator(replacement)
     monkeypatch.setattr(service.GenerationClient, "from_env", lambda: generator)
     monkeypatch.setattr(service, "load_dungeonmindbuddy_dotenv", lambda: None)
@@ -71,7 +85,7 @@ def test_http_propose_review_apply_and_replay_leave_plan_notes_and_other_scenes_
     path = f"/api/live/world-play-runs/v2/{run.run_id}/content/proposals/{proposal_id}?world_id={world.world_id}"
     request = {"schema_version": "dmb_play_scene_edit_request_v1", "run_revision": run.run_revision,
         "content_basis": {"edition_revision": 0, "edition_revision_id": None, "content_sha256": content.content_sha256},
-        "scene_id": "scene:gate-line", "instruction": "Clarify this scene, preserving choices, and add the table/read aloud."}
+        "scene_id": "scene:gate-line", "instruction": "Add an arrival read aloud and a private cue to pause."}
     response = http(app, "POST", path, request)
     assert response.status_code == 200, response.text
     record = response.json()
@@ -91,6 +105,8 @@ def test_http_propose_review_apply_and_replay_leave_plan_notes_and_other_scenes_
     assert saved.json()["observed_run_revision"] == run.run_revision
     effective = read_content(world_id=world.world_id, run_id=run.run_id)
     assert effective.markdown == result["candidate_markdown"] and effective.edition_revision == 1
+    assert all(fragment in effective.markdown for fragment in (addition.strip(), table, image))
+    assert get_plan(str(obj.work_object_id)) == parent_before
     from apps.live_control_server.services.workspace_document_registry import get_committed_playable_revision
     assert get_committed_playable_revision(str(obj.work_object_id), revision_n=pin.revision_n, expected_sha256=pin.content_sha256, kind=None, expected_world_id=world.world_id).markdown == content.markdown
     from apps.live_control_server.services.play_run_registry import get_world_play_run
