@@ -4232,6 +4232,13 @@ class ProviderAttemptAuthorizedEventV5(ProviderAttemptAuthorizedEventV3):
     context_phase: Literal["select", "navigate", "assess", "coverage", "retention", "writer_selection", "graph_reference"]
     max_question_input_tokens: int = Field(strict=True, ge=0)
     dispatch_identity_sha256: Digest
+    graph_reference_inventory_sha256: Digest | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode="after")
+    def exact_graph_inventory(self):
+        if (self.context_phase == "graph_reference") != (self.graph_reference_inventory_sha256 is not None):
+            raise ValueError("Only the Graph nomination phase requires its host inventory commitment")
+        return self
 
 
 class ProviderAttemptAuthorizedEventV4(ProviderAttemptAuthorizedEventV3):

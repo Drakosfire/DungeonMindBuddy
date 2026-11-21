@@ -229,6 +229,12 @@ def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
 
 def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(graph_decision):
     request = graph_decision.request()
+    remapped = graph_decision.candidates[0].model_copy(update={
+        "reference": graph_decision.candidates[0].reference.model_copy(update={"node_id": "same-wire-foreign-id"}),
+    })
+    changed = replace(graph_decision, candidates=(remapped, *graph_decision.candidates[1:]))
+    assert changed.request() == request
+    assert changed.host_inventory_sha256() != graph_decision.host_inventory_sha256()
     model_input = request.model_dump_json()
     for private in ("private-world", "private-native", "private-document", "private-graph-revision",
                     "construct:retuned-ivory", "location:ivory", graph_decision.catalog.choices_sha256):

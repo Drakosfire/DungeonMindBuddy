@@ -3164,7 +3164,9 @@ class _PolicyExecutionAdapter:
             included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],
             included_graph_event_ids=[],included_source_read_event_ids=[],
             context_mode=view['contextMode'],context_phase=view['contextPhase'],
-            max_question_input_tokens=view['maxQuestionInputTokens'],dispatch_identity_sha256=view['dispatchIdentitySha256'])
+            max_question_input_tokens=view['maxQuestionInputTokens'],dispatch_identity_sha256=view['dispatchIdentitySha256'],
+            graph_reference_inventory_sha256=(graph_reference_decision.host_inventory_sha256()
+                                               if graph_reference_decision is not None else None))
         from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
         opening = view["contextPhase"] == "select" and isinstance(
             getattr(self.turn.graph_context_receipt, "native_query", None), NativeBuildQueryPendingV1,

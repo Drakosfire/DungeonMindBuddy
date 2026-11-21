@@ -64,7 +64,7 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
     )
 
 
-@pytest.mark.parametrize("disposition", ["ready", "wrong_kind"])
+@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "remapped_inventory"])
 def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, monkeypatch, disposition):
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
                 message="Insert a reference to the selected object after the orchid paragraph in East.",
@@ -234,16 +234,6 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     selected = AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
         native_world_id=world, binding_version=1, graph_revision=original_revision,
         node_id=lane.ids['B'], label='DISPLAY ONLY: never evidence'),))
-    if graph_reference:
-        from apps.live_control_server.services import build_graph_reference
-
-        reference = selected.references[0]
-        monkeypatch.setattr(build_graph_reference, "authoring_identities", lambda scope, principal: {
-            "scope": {"managed_world_id": world, "native_world_id": world, "binding_version": 1,
-                      "revision_id": original_revision, "scope_mode": "world", "campaign_id": None},
-            "identities": [{"node_id": reference.node_id, "label": reference.label,
-                            "kind": "threat", "selectable": True}],
-        })
     if saved_statblock in {"associated", "by-name"}:
         from apps.live_control_server.services import statblock_definition_validation
         from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import compute_definition_digest
@@ -316,6 +306,31 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     admit_unrelated(lane, 'after-human-pick-before-http')
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
+    if graph_reference:
+        from apps.live_control_server.services import build_graph_reference
+
+        reference = selected.references[0].model_copy(update={"graph_revision": current_revision})
+        selected = selected.model_copy(update={"references": (reference,)})
+        identities = [{"node_id": reference.node_id, "label": reference.label, "kind": "threat", "selectable": True}]
+        if graph_reference == "remapped_inventory":
+            from dataclasses import replace
+
+            identities.append({"node_id": "fixture-other", "label": "Other threat", "kind": "threat", "selectable": True})
+            original_complete = AgentConversationService.complete_build_graph_reference_turn
+
+            def complete_with_remap(service, *, decision, **kwargs):
+                first, second = decision.candidates
+                remapped = second.model_copy(update={"reference": second.reference.model_copy(update={"node_id": "fixture-remapped"})})
+                altered = replace(decision, candidates=(first, remapped))
+                assert altered.request() == decision.request()
+                return original_complete(service, decision=altered, **kwargs)
+
+            monkeypatch.setattr(AgentConversationService, "complete_build_graph_reference_turn", complete_with_remap)
+        monkeypatch.setattr(build_graph_reference, "authoring_identities", lambda scope, principal: {
+            "scope": {"managed_world_id": world, "native_world_id": world, "binding_version": 1,
+                      "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
+            "identities": identities,
+        })
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
@@ -392,7 +407,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if "reference_intent" in body["questions"]:
                     chosen = {"work": "place_paragraph", "destination": "current_page", "relation": "after",
                               "scope": "named", "text0": "include", "scope0": "exclude", "scope1": "include",
-                              "reference_intent": "place_existing", "object1": "include",
+                              "reference_intent": "place_existing", "object1": "include", "object2": "exclude",
                               "reference_kind": "other_kind" if graph_reference == "wrong_kind" else "class1"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                                          probabilities={key: float(key == chosen) for key in choices})
@@ -1018,13 +1033,20 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.build_proposal.graph_reference_review import BuildGraphReferenceReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
+        store = BuildGraphReferenceReviewService()
+        if graph_reference == "remapped_inventory":
+            assert response.status_code == 503, response.text
+            assert len(decisions.calls) == 2 and not writer.calls
+            with pytest.raises(ApplicationStateNotFoundError):
+                store.get(world, writer.adapter.turn.turn_id)
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
         assert response.status_code == 200, response.text
         completion = response.json()["knowledge_context"]["completion"]
         assert completion["disposition"] == graph_reference
         assert len(decisions.calls) == 2 and not writer.calls
         turn = writer.adapter.turn
         assert turn.status == "completed"
-        store = BuildGraphReferenceReviewService()
         if graph_reference == "ready":
             review = store.get(world, turn.turn_id)
             assert completion["action_id"] == str(review.action_id)

@@ -1943,14 +1943,26 @@ class AgentConversationService:
                     host_phase = 'select' if fresh_select else None
                     if event.context_phase == "graph_reference":
                         from application_state.build_proposal.graph_reference_decision import BuildGraphReferenceDecision
+                        from .native_execution import effective_native_query
                         from .source_writer_output import strict_json
 
                         if (not native_build_decision or type(graph_reference_decision) is not BuildGraphReferenceDecision
+                                or event.graph_reference_inventory_sha256 != graph_reference_decision.host_inventory_sha256()
                                 or not any(isinstance(e, BuildRequestedWorkResolutionV1)
                                            and e.typed_graph_reference == "place_existing_reference" for e in execution.events)
                                 or any(isinstance(e, ProviderAttemptAuthorizedEventV5)
                                        and e.context_phase == "graph_reference" for e in execution.events)):
                             raise ValueError("Graph nomination requires its unique admitted typed opening")
+                        query = effective_native_query(turn.graph_context_receipt, execution)
+                        authority = getattr(query, "authority", None)
+                        if authority is None or authority.scope_mode != "world" or any(
+                            (item.reference.managed_world_id, item.reference.native_world_id,
+                             item.reference.binding_version, item.reference.graph_revision) != (
+                                authority.managed_world_id, authority.native_world_id,
+                                authority.binding_version, authority.revision_id,
+                            ) for item in graph_reference_decision.candidates
+                        ):
+                            raise ValueError("Graph nomination inventory differs from the admitted World Graph pin")
                         graph_reference_decision.require_wire_request(strict_json(prepared_decision_json))
                         host_phase = "graph_reference"
                     if native_build_decision and event.context_phase=='writer_selection':
@@ -3152,6 +3164,7 @@ class AgentConversationService:
             if (opening is None or opening.typed_graph_reference != "place_existing_reference"
                     or type(authorization) is not t.ProviderAttemptAuthorizedEventV5
                     or authorization.context_phase != "graph_reference"
+                    or authorization.graph_reference_inventory_sha256 != decision.host_inventory_sha256()
                     or authorization.envelope_sha256 != hashlib.sha256(request_json.encode()).hexdigest()):
                 raise ApplicationStateValidationError("Graph nomination has no exact authorized request")
             trace_row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',

@@ -167,6 +167,16 @@ class BuildGraphReferenceDecision:
         if body != {"model": request.model, "state": request.state, "questions": questions}:
             raise ValueError("The Graph nomination request differs from the exact admitted offers")
 
+    def host_inventory_sha256(self) -> str:
+        from application_state.agent_conversation.rules_authority_types import canonical_sha256
+
+        return canonical_sha256({
+            "basis": self.basis.model_dump(mode="json", by_alias=True),
+            "candidates": [item.model_dump(mode="json", by_alias=True) for item in self.candidates],
+            "author_selected": (self.author_selected.model_dump(mode="json", by_alias=True)
+                                if self.author_selected is not None else None),
+        })
+
     def resolve(self, result) -> BuildGraphReferenceNomination:
         request = self.request()
         offered = {question.name: question.options for question in request.questions}
