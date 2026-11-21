@@ -101,6 +101,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             expected_state |= {"candidates", "relevance_guidance", "conditional_read_plan_policy"}
             if self.expect_examined:
                 expected_state.add("examined_subjects")
+        if self.adapter.request.plan_requested_operation is not None:
+            expected_state.add('plan_requested_operation')
         contextual = 'placement_relation' in body['questions']
         locator = None
         if contextual:
@@ -505,7 +507,7 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
 
 @pytest.mark.parametrize('provider_case', [
     'success', 'disagreeing_recheck', 'capture_rewrite_recheck', 'substituted_observation', 'unknown_outcome',
-    'discussion_veto', 'edit_permission_disagreement',
+    'discussion_veto', 'edit_permission_disagreement', 'explicit_editor_operation',
 ])
 def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         plan_adapter, monkeypatch, application_state_dsn, provider_case):
@@ -523,10 +525,17 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     if provider_case in {'discussion_veto', 'edit_permission_disagreement'}:
         message = 'Would a warning at the caret be too direct? I am asking for feedback first.'
     elif provider_case == 'capture_rewrite_recheck':
-        message = 'Rewrite the selected paragraph to keep its text and add a warning.'
+        message = 'Rewrite only the selected sentence to retain its meaning and add a precaution.'
     else:
         message = 'Add a note at the caret and mention the Equipment section.'
-    plan_adapter.request = plan_adapter.request.model_copy(update={'message': message})
+    operation = 'write_current_page' if provider_case == 'explicit_editor_operation' else None
+    request_fields = {'message': message, 'plan_requested_operation': operation}
+    if operation is not None:
+        from application_state.agent_conversation.types import PlanContextPolicyV2
+
+        request_fields['plan_context_policy'] = PlanContextPolicyV2(
+            policy='auto_plan_world', graph_source='reviewed_native_graph')
+    plan_adapter.request = plan_adapter.request.model_copy(update=request_fields)
     _, turn = _claim_contextual_scope_turn(plan_adapter)
     dispatch = PlanJevDispatch.author_scope(plan_adapter)
     requests = []
@@ -546,7 +555,11 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         current = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
         assert current.graph_context_execution.events[-1].outcome == 'sdk_entered'
         wire = json.loads(request.content)
-        assert set(wire['state']) == {'current_request', 'dialogue', 'scope_hypotheses'}
+        expected = {'current_request', 'dialogue', 'scope_hypotheses'}
+        if operation is not None:
+            expected.add('explicit_editor_operation')
+            assert wire['state']['explicit_editor_operation'] == operation
+        assert set(wire['state']) == expected
         assert turn.world_id not in request.content.decode()
         if provider_case == 'unknown_outcome':
             raise httpx2.ReadTimeout('synthetic unknown outcome', request=request)

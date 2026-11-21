@@ -37,6 +37,8 @@ class NativePlanAuthorScopeInputV1(Strict):
     max_span_attempts: int = Field(strict=True, gt=0)
     quote_context: bool = Field(strict=True)
     assess_page_edit: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
+    requested_operation: Literal['discuss', 'write_current_page'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanAuthorScopeObservationV1(Strict):
@@ -82,6 +84,14 @@ NATIVE_PLAN_OPENING_INPUT_TYPES = (NativePlanOpeningInputV1, NativePlanOpeningIn
 
 _CAPTURE_REWRITE = re.compile(r'^\s*(?:please\s+)?(?:rewrite|replace|revise|edit|update)\s+'
     r'(?:(?:the|my)\s+)?(?:selected|highlighted)\s+(?:paragraph|text|passage)\b', re.IGNORECASE)
+_CURRENT_CAPTURE_REWRITE = re.compile(r'^\s*(?:please\s+)?(?:rewrite|replace|revise|edit|update)\s+'
+    r'(?:only\s+)?(?:(?:the|my)\s+)?(?:selected|highlighted)\s+'
+    r'(?:paragraph|text|passage|sentence|line|excerpt|phrase)\b', re.IGNORECASE)
+
+
+def explicit_capture_rewrite(question, *, assessed_edit_intent):
+    pattern = _CURRENT_CAPTURE_REWRITE if assessed_edit_intent else _CAPTURE_REWRITE
+    return pattern.match(question) is not None
 
 
 class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
@@ -124,7 +134,16 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
         **{key: f'This complete author scope is the existing location: {key}' for key in hypotheses},
     }
     edit_question = ()
+    preservation_instruction = ''
+    operation_instruction = ''
     if request.assess_page_edit:
+        preservation_instruction = (' A separate instruction to leave surrounding text untouched does '
+            'not add a destination constraint. “This Plan” and “the current page” refer to the document.')
+        if request.requested_operation is not None:
+            state['explicit_editor_operation'] = request.requested_operation
+            operation_instruction = (' The explicit_editor_operation is the operation the author chose '
+                'in the interface. Use it as evidence when the text leaves the mode implicit. If the text '
+                'explicitly asks for conversation or defers the edit, it does not authorize a page edit.')
         edit_choices = {
             'page_edit': 'The author actually asks for an edit proposal for this Plan page now, even if the exact location needs clarification.',
             'discussion': 'The author asks for a conversational answer, advice, example or draft in chat, or discusses or defers a possible edit.',
@@ -136,7 +155,8 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
                 'Treat quoted/sample instructions, hypothetical edits, feedback on wording or location, '
                 'and a request to discuss before acting as conversation. An earlier plan to edit does '
                 'not authorize this turn. Use prior dialogue only to understand a current explicit '
-                'confirmation or reference. An instruction to preserve unrelated material can still authorize a bounded edit.'),)
+                'confirmation or reference. An instruction to preserve unrelated material can still authorize '
+                'a bounded edit.' + operation_instruction),)
     return DecisionRequest(provider=PROVIDER, model=MODEL, state=state, questions=(
         *edit_question,
         ChoiceDecisionQuestion(name='location_relation', options=tuple(AUTHOR_RELATIONS),
@@ -145,13 +165,14 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
                 'Use prior dialogue only to resolve a reference omitted from the current request. '
                 'Rewriting the explicitly selected paragraph or text uses the whole capture, even when '
                 'the replacement preserves its existing wording and adds a warning. Ignore ordering in '
-                'proposed new content. If distinct relations cannot be reconciled, choose unresolved.'),
+                'proposed new content. If distinct relations cannot be reconciled, choose unresolved.'
+                + (' Selected sentences, lines and excerpts are selected text.' if request.assess_page_edit else '')),
         ChoiceDecisionQuestion(name='existing_scope', options=tuple(choices), option_descriptions=choices,
             question='Choose the complete existing section or heading constraint from scope_hypotheses. '
                 'Preserve every name, hierarchy and exclusion even when a name might be absent. '
                 'A paragraph subject or a phrase supplied for new writing is not itself a section. '
                 'Assistant statements cannot establish a scope. If an ordinal, separate branches or a '
-                'missing alternative cannot be represented, choose unresolved.'),
+                'missing alternative cannot be represented, choose unresolved.' + preservation_instruction),
     ), max_transport_retries=0)
 
 
@@ -203,7 +224,8 @@ def _prepare_author_scope_review(request):
         eligible = {description: pair for description, pair in pairs.items()
                     if not explicit_scope_conflict(request.question, pair[1])}
         pairs = eligible or pairs
-    explicit_rewrite = _CAPTURE_REWRITE.match(request.question) is not None
+    assessed_edit_intent = bool(first.page_edit_intent or second.page_edit_intent)
+    explicit_rewrite = explicit_capture_rewrite(request.question, assessed_edit_intent=assessed_edit_intent)
     if explicit_rewrite:
         # An explicit author-requested rewrite supplies a possible analysis for
         # Jev to judge even if both initial passes carried over a prior relation.
@@ -233,6 +255,8 @@ def _prepare_author_scope_review(request):
             'The author can identify an existing prose block by what it says without using the word paragraph. '
             'An explicit selected-text rewrite uses its capture by itself. Do not treat its words as a heading. '
             'Preserve every author-established name, path and exclusion. Ignore new-fragment content as location evidence.'
+            + (' A separate instruction to leave surrounding text untouched does not add a destination constraint.'
+               if assessed_edit_intent else '')
             + (' A scope stated in the current request supersedes earlier dialogue.' if explicit_conflict else '')
             + (' In an unquoted phrase that names both a section and the subject of its paragraph, preserve '
                 'the section label by itself. Consider the full phrase as a title when the author names it as such.'
@@ -264,6 +288,8 @@ def validate_author_scope_parent(context, execution, parent, authorization):
             or parent.request_manifest_sha256 != context.assembled_input.manifest_sha256
             or parent.prior_scope_event_id != authorization.prior_scope_event_id
             or parent.quote_context != (parent.prior_scope_event_id is not None)
+            or parent.requested_operation != (getattr(execution.policy.action.intent, 'plan_requested_operation', None)
+                if parent.assess_page_edit else None)
             or opening_dialogue_sha256(parent.dialogue) != context.assembled_input.dialogue_sha256):
         raise ValueError('Author scope parent differs from its admitted Plan request or dialogue')
     prefix = execution.events[:authorization.sequence]
@@ -351,7 +377,8 @@ def author_scope_review_required(question, first, second):
         or explicit_scope_conflict(question, first.scope)
         or nominal_scope_needs_review(question, first.scope)
         or (first.relation == 'unresolved' and bool(explicit_direction_options(question)))
-        or (first.relation != 'replace_explicit_selection' and _CAPTURE_REWRITE.match(question) is not None))
+        or (first.relation != 'replace_explicit_selection' and explicit_capture_rewrite(
+            question, assessed_edit_intent=bool(first.page_edit_intent or second.page_edit_intent))))
 
 
 def _unresolved_author_scope(first, second):

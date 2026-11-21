@@ -100,8 +100,9 @@ def prepare_contextual_work(request):
             "Discussion without an edit excludes all location votes. "
             "The host resolves ambiguity and validates edit authority; these votes never Save."))
     binding = getattr(request, 'author_scope_binding', None)
-    if binding is not None and binding.page_edit_intent is not None:
-        state['author_page_edit_intent'] = binding.page_edit_intent
+    page_edit_intent = getattr(binding, 'page_edit_intent', None)
+    if page_edit_intent is not None:
+        state['author_page_edit_intent'] = page_edit_intent
         state['interpretation_policy'] += (
             " The author_page_edit_intent is independent evidence from the current author turn. "
             "Treat discussion as conversational, including examples of a possible editor action. "
@@ -442,7 +443,7 @@ def contextual_work_choice(request, intent, answers):
     sections, ancestors = votes('section', inventory['sections']), votes('ancestor', inventory['ancestors'])
     binding = getattr(request, 'author_scope_binding', None)
     if binding is not None:
-        from .native_plan_opening import _CAPTURE_REWRITE
+        from .native_plan_opening import explicit_capture_rewrite
         from .plan_author_location import explicit_scope_conflict, paragraph_label_conflict, unsupported_paragraph_scope
 
         if answers['scope_qualifier'] not in SCOPE_QUALIFIERS:
@@ -455,7 +456,8 @@ def contextual_work_choice(request, intent, answers):
                     answers['paragraph_scope'] == 'unresolved'
                     or paragraph_label_conflict(request.question, binding.observation.scope,
                         request.original_capture, request.placement_catalog))))
-        if (_CAPTURE_REWRITE.match(request.question)
+        page_edit_intent = getattr(binding, 'page_edit_intent', None)
+        if (explicit_capture_rewrite(request.question, assessed_edit_intent=page_edit_intent is not None)
                 and request.original_capture.target_kind != 'replace_selection'):
             relation = 'unresolved'
         descriptions, excluded = _description_matches(request, answers)
@@ -468,7 +470,7 @@ def contextual_work_choice(request, intent, answers):
                 intent, relation, binding.observation, direct, passages, document_title=request.page_title or None,
                 description_matches=descriptions, excluded_description_matches=excluded,
                 locator_passages=locator, literal_excerpt=literal_paragraph_locator(request), scope_refused=scope_refused,
-                page_edit_intent=binding.page_edit_intent))
+                page_edit_intent=page_edit_intent))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
         answers['paragraph_scope'], direct, passages, sections, answers['scope_qualifier'], ancestors)
 
@@ -658,7 +660,7 @@ def clarification_question(selection):
     if selection.requested_intent != 'write_current_page':
         return None  # Raw clarification owns content/work; only normalized writing owns a target question.
     binding = getattr(selection, 'author_scope_binding', None)
-    if binding is not None and binding.page_edit_intent == 'unresolved':
+    if getattr(binding, 'page_edit_intent', None) == 'unresolved':
         return 'Would you like wording in chat, or a page edit to review?'
     if getattr(selection, 'scope_refused', None):
         return 'Could you select the intended paragraph, or name one unambiguous section path for it?'
