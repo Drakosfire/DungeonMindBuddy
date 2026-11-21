@@ -52,6 +52,7 @@ class PlanSessionCommand(str, Enum):
 
 
 _EVENT = TypeAdapter(SurfaceNativeEvent)
+_EVENT_ID = TypeAdapter(UUID)
 
 
 def _owned_event(event):
@@ -221,6 +222,10 @@ class NativePlanSession:
                 for name in ('authorization', 'outcome', 'selection', 'event'):
                     if name in owned:
                         owned[name] = _owned_event(owned[name])
+                grant_ids = ()
+                if export_grants:
+                    grant_ids = tuple(_EVENT_ID.validate_python(grant['event_id'])
+                        for grant in owned['grants'])
                 self._pending = None
                 # This dispatch is closed over APP methods, not an arbitrary
                 # caller-supplied method name or a new admission implementation.
@@ -240,16 +245,15 @@ class NativePlanSession:
                 self._pending = None
                 if export_grants:
                     committed = self._committed
-                    ids = tuple(grant['event_id'] for grant in owned['grants'])
                     matches = {}
                     for event in reversed(committed.graph_context_execution.events):
-                        if event.event_id in ids:
+                        if event.event_id in grant_ids:
                             matches[event.event_id] = event
-                            if len(matches) == len(ids):
+                            if len(matches) == len(grant_ids):
                                 break
                     return (PlanSessionClaim(committed.world_id, committed.conversation_id,
                         committed.turn_id, committed.revision, committed.attempt, lambda: deepcopy(committed)),
-                        deepcopy(tuple(matches[event_id] for event_id in ids)))
+                        deepcopy(tuple(matches[event_id] for event_id in grant_ids)))
                 return deepcopy(self._committed), fresh
             except BaseException:
                 self._seal()
