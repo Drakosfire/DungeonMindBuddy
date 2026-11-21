@@ -162,7 +162,7 @@ def _lock_plan_session_image(conn, world_id, turn_id):
         f"pg_catalog.jsonb_send({name}) AS {name}" if name in json_columns else name
         for name in (*columns, "answer_composition_kind", "request_fingerprint",
                      "idempotency_fingerprint", "submitted_intent_schema"))
-    with conn.cursor(row_factory=dict_row) as cur:
+    with conn.cursor(row_factory=dict_row, binary=True) as cur:
         cur.execute(f"SELECT {selected} FROM agent.turn "
                     "WHERE world_id=%s AND turn_id=%s FOR UPDATE", (world_id, turn_id))
         row = cur.fetchone()
@@ -213,7 +213,7 @@ def _update_plan_session_execution(conn, *, world_id, turn_id, before, execution
     if (prior["world_id"], prior["turn_id"], prior["status"]) != (world_id, turn_id, "running"):
         raise ApplicationStateIntegrityError("Session execution ACK requires its running locked root")
     started = database_clock(conn)
-    with conn.cursor(row_factory=dict_row) as cur:
+    with conn.cursor(row_factory=dict_row, binary=True) as cur:
         # One parameter owns both the actual update and expected PostgreSQL
         # encoding. Do not compare JSONB semantic equality or Python JSON hashes.
         cur.execute("WITH expected AS (SELECT %s::jsonb AS execution) "
