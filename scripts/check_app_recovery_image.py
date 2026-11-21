@@ -37,7 +37,7 @@ def main() -> None:
     endpoint = json.loads(run("docker", "context", "inspect", "--format", "{{json .Endpoints.docker.Host}}"))
     if endpoint != "unix:///var/run/docker.sock":
         parser.error("Docker context must use the local default Unix socket")
-    image = json.loads(run("docker", "image", "inspect", args.runtime))[0]
+    image = json.loads(run("docker", "--host", "unix:///var/run/docker.sock", "image", "inspect", args.runtime))[0]
     labels = image.get("Config", {}).get("Labels") or {}
     if labels.get("org.opencontainers.image.revision") != args.runtime_sha:
         parser.error("runtime image revision label does not match runtime SHA")
@@ -45,7 +45,7 @@ def main() -> None:
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
         parser.error("runtime image has no valid immutable image ID")
     tag = f"buddy-app-recovery:{args.sha}-{args.runtime_sha}"
-    existing = run("docker", "image", "ls", "--format", "{{.Repository}}:{{.Tag}}")
+    existing = run("docker", "--host", "unix:///var/run/docker.sock", "image", "ls", "--format", "{{.Repository}}:{{.Tag}}")
     if tag in existing.splitlines():
         parser.error("recovery image tag already exists; choose an unused local image store")
     with tempfile.TemporaryDirectory(prefix="buddy-app-recovery-") as tmp:
@@ -57,7 +57,7 @@ def main() -> None:
                 ["git", "show", f"{args.sha if name == FILES[0] else args.runtime_sha}:{name}"], check=True, stdout=subprocess.PIPE
             ).stdout)
         subprocess.run([
-            "docker", "build", "--file", str(root / FILES[0]), "--build-arg", f"BUDDY_RUNTIME_IMAGE={image_id}",
+            "docker", "--host", "unix:///var/run/docker.sock", "build", "--file", str(root / FILES[0]), "--build-arg", f"BUDDY_RUNTIME_IMAGE={image_id}",
             "--label", f"org.opencontainers.image.revision={args.sha}",
             "--label", f"org.dungeonmind.runtime.revision={args.runtime_sha}",
             "--tag", tag, str(root),

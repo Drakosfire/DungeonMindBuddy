@@ -18,7 +18,8 @@ def invoke(label, tags=""):
             return json.dumps("unix:///var/run/docker.sock")
         if args[0] == "git":
             return SHA + "\n"
-        if args[2] == "inspect":
+        assert args[:3] == ("docker", "--host", "unix:///var/run/docker.sock")
+        if "inspect" in args:
             return json.dumps([{"Id": IMAGE_ID, "Config": {"Labels": {"org.opencontainers.image.revision": label}}}])
         return tags
     with patch.object(sys, "argv", ["builder", SHA, SHA, "runtime"]), patch.object(builder, "run", fake_run), patch.object(subprocess, "run") as execution:
@@ -44,7 +45,8 @@ def test_builds_with_distinct_tool_and_runtime_revisions():
             return json.dumps("unix:///var/run/docker.sock")
         if args[0] == "git":
             return args[3].removesuffix("^{commit}") + "\n"
-        if args[2] == "inspect":
+        assert args[:3] == ("docker", "--host", "unix:///var/run/docker.sock")
+        if "inspect" in args:
             return json.dumps([{"Id": IMAGE_ID, "Config": {"Labels": {"org.opencontainers.image.revision": runtime_sha}}}])
         return ""
 
@@ -59,6 +61,7 @@ def test_builds_with_distinct_tool_and_runtime_revisions():
     assert calls[0] == ["git", "show", f"{tool_sha}:Dockerfile.app-recovery"]
     assert calls[1] == ["git", "show", f"{runtime_sha}:scripts/application_state_authority.py"]
     build = calls[2]
+    assert build[:3] == ["docker", "--host", "unix:///var/run/docker.sock"]
     assert f"BUDDY_RUNTIME_IMAGE={IMAGE_ID}" in build
     assert f"org.opencontainers.image.revision={tool_sha}" in build
     assert f"org.dungeonmind.runtime.revision={runtime_sha}" in build
