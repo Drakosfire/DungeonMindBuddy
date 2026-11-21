@@ -134,6 +134,35 @@ def test_scope_hypotheses_offer_exact_names_from_author_turns_without_section_so
     assert all(v.evidence.utterance_index == len(dialogue) for v in offers.values())
 
 
+def test_named_paragraph_locator_keeps_the_complete_label_and_quoted_article():
+    request = 'After the North Arrival paragraph about the latch, add a warning.'
+    offers = author_scope_hypotheses(request, (), max_span_attempts=100)
+    ending_at_label = {v.evidence.text for v in offers.values()
+        if v.evidence.end == request.index(' paragraph')}
+    assert ending_at_label == {'North Arrival'}
+
+    request = 'After the “The Arrival” paragraph about the latch, add a warning.'
+    offers = author_scope_hypotheses(request, (), max_span_attempts=100)
+    assert any(v.evidence.text == '“The Arrival”'
+        and v.compile(request, ()) == literal_reference('The Arrival', path=False) for v in offers.values())
+
+
+def test_unquoted_locator_label_cannot_be_dropped_or_pick_between_article_titles():
+    from application_state.agent_conversation.plan_author_location import paragraph_label_conflict
+
+    request = 'Add a warning before the Arrival paragraph about the latch.'
+    scope = literal_reference('Arrival', path=False)
+    capture, catalog = family_catalog([heading('Arrival'), prose('Check the latch.')])
+    assert not paragraph_label_conflict(request, scope, capture, catalog)
+    assert paragraph_label_conflict(request, UnscopedLocation(), capture, catalog)
+    capture, catalog = family_catalog([heading('Arrival'), prose('Check the latch.'),
+        heading('The Arrival'), prose('Check the latch.')])
+    assert paragraph_label_conflict(request, scope, capture, catalog)
+    assert not paragraph_label_conflict(
+        'Add a warning before the “The Arrival” paragraph about the latch.',
+        literal_reference('The Arrival', path=False), capture, catalog)
+
+
 def test_scope_hypotheses_preserve_typed_references_and_refuse_budget_truncation():
     request = 'Use the paragraph in the section with the same title as this page.'
     offers = author_scope_hypotheses(request, (), max_span_attempts=100)

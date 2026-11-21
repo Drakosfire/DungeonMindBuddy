@@ -411,12 +411,15 @@ def contextual_work_choice(request, intent, answers):
     binding = getattr(request, 'author_scope_binding', None)
     if binding is not None:
         from .native_plan_opening import _CAPTURE_REWRITE
-        from .plan_author_location import unsupported_paragraph_scope
+        from .plan_author_location import paragraph_label_conflict, unsupported_paragraph_scope
 
         if answers['scope_qualifier'] not in SCOPE_QUALIFIERS:
             raise ValueError('Scope qualifier was not offered')
         if (unsupported_paragraph_scope(request.question)
-                or (relation in {'before_paragraph', 'after_paragraph'} and answers['paragraph_scope'] == 'unresolved')):
+                or (relation in {'before_paragraph', 'after_paragraph'} and (
+                    answers['paragraph_scope'] == 'unresolved'
+                    or paragraph_label_conflict(request.question, binding.observation.scope,
+                        request.original_capture, request.placement_catalog)))):
             relation = 'unresolved'
         if (_CAPTURE_REWRITE.match(request.question)
                 and request.original_capture.target_kind != 'replace_selection'):

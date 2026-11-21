@@ -420,6 +420,36 @@ _SCOPE_END = re.compile(r'\b(?:paragraph|heading|section)\b', re.IGNORECASE)
 _QUALIFIED_PROSE_LOCATION = re.compile(
     r'\b(?:before|after)\s+[^,.!?;]+?\b(?:paragraph|passage|instruction|step|note)\s+'
     r'(?:in|inside|under|within)\s+([^,.!?;]+)', re.IGNORECASE)
+_NAMED_PROSE_LOCATOR = re.compile(
+    r'\b(?i:before|after)\s+(?P<article>the\s+)?(?P<label>\w[^,.!?;/\n]*?)\s+'
+    r'(?i:paragraph|passage|instruction|step|note)\s+(?i:about)\b')
+
+
+def _paragraph_label_match(question: str):
+    matches = list(_NAMED_PROSE_LOCATOR.finditer(_scope_syntax(question)))
+    if len(matches) != 1:
+        return None
+    match = matches[0]
+    label = match['label']
+    if not label[0].isupper() or _NATURAL_CONNECTORS.search(label) or _COMPOUND_REFERENCE.search(label):
+        return None
+    return match
+
+
+def paragraph_label_conflict(question, scope, capture, catalog) -> bool:
+    """Preserve an explicit label and refuse an ambiguous unquoted article."""
+    match = _paragraph_label_match(question)
+    if match is None:
+        return False
+    path = scope.positive if isinstance(scope, ScopeWithExclusion) else scope
+    if (not isinstance(path, NamedScopePath) or not isinstance(path.names[-1], LiteralScopeName)
+            or name_key(path.names[-1].text) != name_key(match['label'])):
+        return True
+    if match['article'] is None or len(path.names) != 1:
+        return False
+    alternative = name_key(match['article'] + match['label'])
+    return any(name_key(heading['path'][-1]) == alternative
+        for heading in source_heading_inventory(capture, catalog)['headings'])
 
 
 def unsupported_paragraph_scope(question: str) -> bool:
@@ -454,6 +484,7 @@ def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...
     utterances.append((len(dialogue), request))
     for utterance_index, text in utterances:
         syntax = _scope_syntax(text)
+        label = _paragraph_label_match(text)
         tokens = list(_SCOPE_TOKEN.finditer(text))
         spans = set()
 
@@ -488,6 +519,8 @@ def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...
             offer(marker.start(), marker.end())
 
         for start, end in sorted(spans):
+            if label is not None and end == label.end('label') and start != label.start('label'):
+                continue
             quote = text[start:end]
             fragment = syntax[start:end]
             grammar = 'exclusion' if _EXCLUSION_SEPARATOR.search(fragment) else _path_grammar(quote, fragment)
