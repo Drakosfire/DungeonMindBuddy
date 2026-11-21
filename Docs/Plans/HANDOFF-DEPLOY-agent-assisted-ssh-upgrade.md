@@ -47,8 +47,14 @@ a production deployment, migration, backup, restore, or permission grant.
 - Therefore the checked-in host-side `uv run ... application_state_authority.py
   backup` example cannot be run as `alan` on this host as-is. Do not replace it
   with an unverified bare dump or claim a backup rehearsal from a checksum
-  alone. First identify and verify an operator-approved PG16 backup/restore
-  toolchain that preserves the authority tool's checksum and fingerprint gates.
+  alone.
+- The intended follow-up is a separately reviewed, disposable recovery image
+  built from an exact Buddy source SHA. It must package the APP authority CLI
+  and PostgreSQL 16 `pg_dump`/`pg_restore`, run without the Docker socket, and
+  reach only the APP database and its protected backup workspace. Validate the
+  snapshot-consistent dump, checksum/fingerprint sidecars, clean-target restore,
+  and fingerprint parity against an isolated PostgreSQL fixture before using
+  it for the 0172 rehearsal. This image is not implemented or approved yet.
 - Before any production migration, rehearse restore of the current APP
   authority into a separate empty target, verify fingerprint parity, apply the
   candidate migrations only to that target, and record the resulting schema
