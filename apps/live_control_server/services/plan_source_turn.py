@@ -48,13 +48,10 @@ def _selective_plan_fact_cache():
     return SelectiveFactCache()
 
 
-class _NoSelectiveProjection(Exception):
-    """The exact revision has no active Core projection."""
-
-
 def prepare_selective_query(managed_world_id, principal, resolve_query, *,
                             revision_id=None, phase, repository=None, resolve_identity=None):
     """Compose source authority and Graph query before releasing the Core scope."""
+    from dungeonmind.application.vnext import open_native_text_source_access_context
     from dungeonmind.application.vnext.admission import AlwaysAdmitPolicy
     from dungeonmind.infrastructure.postgres.selective_query import open_selective_source_query
     from graph_memory.vnext.domain_runtime import (
@@ -65,7 +62,7 @@ def prepare_selective_query(managed_world_id, principal, resolve_query, *,
     def resolve_descriptors(domain_ref, profile_ref):
         return resolve_dungeonbuddy_descriptors(domain_ref=domain_ref, profile_ref=profile_ref)
 
-    def open_access(*, repository, space_id, revision_id, audience_labels, **_):
+    def open_access(*, repository, space_id, revision_id, audience_labels, domain_contract, **_):
         nonlocal reader
         projection = DungeonBuddyVNextProjectionInput(
             world_id=space_id, revision_id=revision_id, role=principal.role, scope_mode='world',
@@ -79,7 +76,11 @@ def prepare_selective_query(managed_world_id, principal, resolve_query, *,
             fact_cache=_selective_plan_fact_cache(),
         ))
         if opened is None:
-            raise _NoSelectiveProjection
+            return open_native_text_source_access_context(
+                repository=repository, space_id=space_id, revision_id=revision_id,
+                domain_contract=domain_contract, audience_labels=audience_labels,
+                parsed_cache=turn_parsed_revision_cache, prefer_verified_source_rows=True,
+            )
         source, reader = opened
         return source
 
@@ -92,7 +93,7 @@ def prepare_selective_query(managed_world_id, principal, resolve_query, *,
                     repository=repository if repository is not None else turn_source_repository(),
                     resolve_identity=resolve_identity, open_access=open_access,
                 )
-        except (_NoSelectiveProjection, NativeSourceHeadUnavailable):
+        except NativeSourceHeadUnavailable:
             return None
         with phase("plan_native_statement_query"):
             query_context, query = resolve_query(replace(prepared, selective_query=reader))
