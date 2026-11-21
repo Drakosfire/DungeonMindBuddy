@@ -69,6 +69,8 @@ small guest-release example validation helper if needed;
 `apps/live_control_server/services/guest_release_validation.py` solely for
 revalidation of the example shape and closed references; guest-release owner
 selection/review and guest page components, their scoped styles and owning tests;
+`apps/live-control-ui/src/App.guestHome.test.tsx` solely for the signed-out root
+composition witness;
 affected `tests/test_guest_release_*` integration and validation tests and the
 smallest required CI classification. No auth middleware, migrations, model
 prompts, provider calls or shared editor changes are planned. Review current

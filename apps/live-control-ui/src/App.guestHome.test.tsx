@@ -61,6 +61,21 @@ it("adds and resets a temporary graph point at signed-out Home without private r
   expect(fetchMock.mock.calls.map(call => String(call[0])).sort()).toEqual(["/api/auth/session", `/api/live/guest-releases/${publicId}`].sort());
 });
 
+it("shows the saved example at signed-out Home without private reads", async () => {
+  const copy = { ...manifest, manifest: { ...manifest.manifest,
+    sources: [...manifest.manifest.sources, { id: "s2", text: "Another reference", evidence_role: "context" }],
+    saved_example: { version: "owner_saved_scene_v1", title: "Saved scene", body: "An owner-authored example", references: ["s", "s2"], image: null },
+  } };
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session" ? reply(401) : reply(200, copy));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  expect(await screen.findByRole("heading", { name: "Saved scene" })).toBeInTheDocument();
+  expect(screen.getByText("An owner-authored example")).toBeInTheDocument();
+  expect(screen.getByText(/Your temporary additions were not used/)).toBeInTheDocument();
+  expect(screen.queryByTestId("private-world-provider")).not.toBeInTheDocument();
+  expect(fetchMock.mock.calls.map(call => String(call[0])).sort()).toEqual(["/api/auth/session", `/api/live/guest-releases/${publicId}`].sort());
+});
+
 it("unmounts a pending guest fetch on sign-in and returns on sign-out", async () => {
   let session = "signed_out";
   let releaseRequests = 0;
