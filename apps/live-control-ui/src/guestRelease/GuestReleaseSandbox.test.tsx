@@ -67,6 +67,24 @@ it("clears a selected released fragment and all drafts on reset", async () => {
   expect(screen.getByText("Every story has a trail.")).toBeInTheDocument();
 });
 
+it("keeps additions while shared history changes but loses them on remount", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => response(copy())));
+  const user = userEvent.setup();
+  const view = render(<GuestReleasePage publicId="public" />);
+  await screen.findByRole("button", { name: /Shared point/ });
+  await user.type(screen.getByLabelText("Point name"), "My clue");
+  await user.selectOptions(screen.getByLabelText("Connect to a shared point"), "a");
+  await user.click(screen.getByRole("button", { name: "Add temporary point" }));
+  await user.click(screen.getByRole("button", { name: /Shared point/ }));
+  act(() => { window.history.pushState({}, "", "#copy/copy"); window.dispatchEvent(new PopStateEvent("popstate")); });
+  expect(screen.getByRole("button", { name: /My clue/ })).toBeInTheDocument();
+  expect(window.location.href).not.toContain("guest-local");
+  view.unmount();
+  render(<GuestReleasePage publicId="public" />);
+  await screen.findByRole("button", { name: /Shared point/ });
+  expect(screen.queryByText("My clue")).not.toBeInTheDocument();
+});
+
 it("never renders old additions against a changing public copy", async () => {
   let resolveNext!: (value: Response) => void;
   const next = new Promise<Response>(resolve => { resolveNext = resolve; });
@@ -110,6 +128,26 @@ it("rejects control characters and enforces the ten-point limit", async () => {
   expect(screen.getByText(/ten-point limit/)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Reset my additions" }));
   expect(screen.getByRole("button", { name: "Add temporary point" })).toBeEnabled();
+});
+
+it("bounds rapid submissions and rejects overlong text even if browser limits are bypassed", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => response(copy())));
+  render(<GuestReleasePage publicId="public" />);
+  await screen.findByRole("button", { name: /Shared point/ });
+  const name = screen.getByLabelText("Point name"), link = screen.getByLabelText("Connection"), target = screen.getByLabelText("Connect to a shared point");
+  const form = screen.getByRole("button", { name: "Add temporary point" }).closest("form")!;
+  fireEvent.change(name, { target: { value: "x".repeat(81) } });
+  fireEvent.change(target, { target: { value: "a" } });
+  fireEvent.submit(form);
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  fireEvent.change(name, { target: { value: "Rapid" } });
+  fireEvent.change(link, { target: { value: "x".repeat(61) } });
+  fireEvent.submit(form);
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  fireEvent.change(link, { target: { value: "connected to" } });
+  act(() => { for (let index = 0; index < 12; index++) fireEvent.submit(form); });
+  expect(screen.getAllByRole("button", { name: /Rapid Your addition/ })).toHaveLength(10);
+  expect(screen.getByRole("button", { name: "Add temporary point" })).toBeDisabled();
 });
 
 it("isolates additions in separate mounts", async () => {
