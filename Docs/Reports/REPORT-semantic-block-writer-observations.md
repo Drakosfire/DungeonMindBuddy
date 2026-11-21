@@ -111,3 +111,46 @@ hosted saves and reloads. One stored selection excluded the final period despite
 the visible selection including it, which left duplicate punctuation after
 the rewrite. The second run captured all 119 selected characters and saved
 the exact two requested sentences. The earlier capture mismatch remains open.
+
+### Hosted additive Play rerun and Ingest control
+
+- **PL01 before #4299, release `d7be68ed`:** On the synthetic Arrival scene
+  with two existing callouts, the exact benchmark prompt rewrote both callout
+  bodies and dropped the opening paragraph. The proposal was left unapplied.
+- **PL01 after [#4299](https://github.com/Drakosfire/DungeonMindBuddy/pull/4299),
+  release `f84b93e7`:** The same Play session and exact prompt produced two
+  separate callouts, Read Aloud **At the boardwalk** and GM Note **Pause for
+  response**. After Apply, the session reported Saved. Reopening the same run
+  rendered both new callouts. All original Arrival paragraphs matched exactly
+  and in order, including the bodies of **First sight** and **Private
+  benchmark cue**. Both titles and the red-gate choice remained present. The
+  Departure card still showed its sentinel sentence. This is one matched
+  rerun. Further repetitions and a parent Plan revision comparison are pending.
+- **I01, release `d7be68ed`:** Reopening exact extraction run
+  `a979e5f6-89c8-4f93-bea4-6ec87320b2bf` in Buddy Cloud Pilot Ingest showed
+  the same revision 5 source text, its two saved callouts, and five accepted
+  Graph changes. No authoring composer or delegation was offered in the review,
+  so the request was ineligible for submission. The UI comparison confirms
+  visible text and source identity. A byte-level comparison remains pending.
+
+### Hosted Plan selected-callout rewrite
+
+On release `f84b93e7`, the P02 fixture in Buddy Cloud Pilot had a marked
+Arrival scene, the titled **First sight** Read Aloud, a private GM Note,
+the red-gate choice, and the sibling Departure scene. The editor selection
+was confirmed by copying the exact First sight body before opening the
+composer. The ordinary Send request was “Rewrite this to emphasize the
+three lanterns.”
+
+The proposal retained Read Aloud and the First sight title. It appeared as
+an insertion above the original block, which was still present, and included
+the host's partial-retrieval disclosure as editable text. This fails
+replacement placement and document-content isolation. The pre-send copy
+does not prove what selection the Plan writer captured at Send. The proposal
+was dismissed, and the saved timestamp, original passage, private note, and
+Departure sentinel remained visible.
+
+[Plan placement PR #4264](https://github.com/Drakosfire/DungeonMindBuddy/pull/4264)
+covers selection binding and keeping retrieval disclosure in conversation.
+A hosted P02 rerun still needs to prove exact replacement, save and reopen
+on the same fixture.

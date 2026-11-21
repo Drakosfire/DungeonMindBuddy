@@ -173,6 +173,7 @@ describe("CombatRosterModule", () => {
     expect(projection).toBeInTheDocument();
     expect(within(projection).getByText('68 (8d10+24)')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('AC for Geomantic Drake'),{target:{value:'10'}});
+    await userEvent.click(screen.getByText("More", {selector: "summary"}));
     await userEvent.click(screen.getByRole('button',{name:'Revert',exact:true}));
     expect(screen.getByLabelText('AC for Geomantic Drake')).toHaveValue('21');
     expect(screen.getByLabelText('Maximum HP for Geomantic Drake')).toHaveValue('30');
@@ -232,7 +233,7 @@ describe("CombatRosterModule", () => {
     await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), current.encounter_id);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
-    const title = await screen.findByRole("textbox", { name: "Encounter title" });
+    const title = await screen.findByLabelText("Encounter title");
 
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), target.encounter_id);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
@@ -245,7 +246,7 @@ describe("CombatRosterModule", () => {
     expect(title).toHaveValue("Mireward Gate");
 
     pendingOpen.resolve(target);
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Encounter title" })).toHaveValue("Second encounter"));
+    await waitFor(() => expect(screen.getByLabelText("Encounter title")).toHaveValue("Second encounter"));
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
   });
 
@@ -264,7 +265,8 @@ describe("CombatRosterModule", () => {
     await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), current.encounter_id);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
-    const title = await screen.findByRole("textbox", { name: "Encounter title" });
+    const title = await screen.findByLabelText("Encounter title");
+    await userEvent.click(screen.getByText("More", {selector: "summary"}));
     await userEvent.clear(screen.getByRole("textbox", { name: "New encounter title" }));
     await userEvent.type(screen.getByRole("textbox", { name: "New encounter title" }), "New encounter");
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -276,7 +278,7 @@ describe("CombatRosterModule", () => {
     expect(title).toHaveValue("Mireward Gate");
 
     pendingCreate.resolve(created);
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Encounter title" })).toHaveValue("New encounter"));
+    await waitFor(() => expect(screen.getByLabelText("Encounter title")).toHaveValue("New encounter"));
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
   });
 
@@ -339,11 +341,15 @@ describe("CombatRosterModule", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "New encounter title" }), "Night ambush");
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
 
-    expect(await screen.findByRole("textbox", { name: "Encounter title" })).toHaveValue("New encounter");
+    const setup = await screen.findByText("Setup", {selector: "summary"});
+    expect(setup.closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(setup);
+    expect(setup.closest("details")).toHaveAttribute("open");
+    expect(screen.getByRole("textbox", {name: "Encounter title"})).toHaveValue("New encounter");
     expect(createSpy).toHaveBeenCalledWith("elderwyld", { title: "Night ambush", ruleset_id: "dnd5e.manual-tracking" });
 
-    await userEvent.clear(screen.getByRole("textbox", { name: "Encounter title" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Encounter title" }), "Night ambush");
+    await userEvent.clear(screen.getByLabelText("Encounter title"));
+    await userEvent.type(screen.getByLabelText("Encounter title"), "Night ambush");
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     expect(saveSpy).not.toHaveBeenCalled();
 
@@ -378,13 +384,13 @@ describe("CombatRosterModule", () => {
 
     staleCreate.resolve(record({ encounter_id: "stale-world-a" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Create" })).toBeDisabled());
-    expect(screen.queryByRole("textbox", { name: "Encounter title" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Encounter title")).not.toBeInTheDocument();
 
     currentCreate.resolve(record({
       encounter_id: "current-world-a",
       draft: { ...record().draft, title: "Current World A" },
     }));
-    expect(await screen.findByRole("textbox", { name: "Encounter title" })).toHaveValue("Current World A");
+    expect(await screen.findByLabelText("Encounter title")).toHaveValue("Current World A");
     expect(await screen.findByText("Saved · rev 1")).toBeInTheDocument();
   });
 
@@ -418,10 +424,10 @@ describe("CombatRosterModule", () => {
 
     staleOpen.resolve(record({ draft: { ...record().draft, title: "Stale World A" } }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Open" })).toBeDisabled());
-    expect(screen.queryByRole("textbox", { name: "Encounter title" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Encounter title")).not.toBeInTheDocument();
 
     currentOpen.resolve(record({ draft: { ...record().draft, title: "Current World A" } }));
-    expect(await screen.findByRole("textbox", { name: "Encounter title" })).toHaveValue("Current World A");
+    expect(await screen.findByLabelText("Encounter title")).toHaveValue("Current World A");
   });
 
   it("keeps edits made while a save is pending after the submitted snapshot commits", async () => {
@@ -435,7 +441,7 @@ describe("CombatRosterModule", () => {
     await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), initial.encounter_id);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
-    const title = await screen.findByRole("textbox", { name: "Encounter title" });
+    const title = await screen.findByLabelText("Encounter title");
     await userEvent.clear(title);
     await userEvent.type(title, "Submitted title");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -450,7 +456,7 @@ describe("CombatRosterModule", () => {
       draft: { ...initial.draft, title: "Submitted title" },
     }));
 
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Encounter title" })).toHaveValue("Newer edit while saving"));
+    await waitFor(() => expect(screen.getByLabelText("Encounter title")).toHaveValue("Newer edit while saving"));
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
@@ -477,7 +483,7 @@ describe("CombatRosterModule", () => {
     await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), initial.encounter_id);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
-    const title = await screen.findByRole("textbox", { name: "Encounter title" });
+    const title = await screen.findByLabelText("Encounter title");
     await userEvent.clear(title);
     await userEvent.type(title, "Local edit");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -490,10 +496,10 @@ describe("CombatRosterModule", () => {
     await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), initial.encounter_id);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
-    expect(await screen.findByRole("textbox", { name: "Encounter title" })).toHaveValue("Current World A");
+    expect(await screen.findByLabelText("Encounter title")).toHaveValue("Current World A");
 
     staleReload.resolve(record({ draft: { ...initial.draft, title: "Stale reload" } }));
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Encounter title" })).toHaveValue("Current World A"));
+    await waitFor(() => expect(screen.getByLabelText("Encounter title")).toHaveValue("Current World A"));
   });
 
   it("preserves a stale-write conflict and offers explicit reload", async () => {
@@ -506,13 +512,13 @@ describe("CombatRosterModule", () => {
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), record().encounter_id);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
     await screen.findAllByText("Geomantic Drake");
-    await userEvent.clear(screen.getByRole("textbox", { name: "Encounter title" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Encounter title" }), "Changed locally");
+    await userEvent.clear(screen.getByLabelText("Encounter title"));
+    await userEvent.type(screen.getByLabelText("Encounter title"), "Changed locally");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/changed since it was opened/i);
     expect(screen.getByRole("button", { name: "Reload latest revision" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Encounter title" })).toHaveValue("Changed locally");
+    expect(screen.getByLabelText("Encounter title")).toHaveValue("Changed locally");
   });
 
   it("locks encounter edits while reloading the latest revision", async () => {
@@ -530,7 +536,7 @@ describe("CombatRosterModule", () => {
     await screen.findByRole("option", { name: "Mireward Gate · rev 1" });
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Encounter" }), initial.encounter_id);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
-    const title = await screen.findByRole("textbox", { name: "Encounter title" });
+    const title = await screen.findByLabelText("Encounter title");
     await userEvent.clear(title);
     await userEvent.type(title, "Local edit");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -546,7 +552,7 @@ describe("CombatRosterModule", () => {
       revision: 2,
       draft: { ...initial.draft, title: "Server latest" },
     }));
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "Encounter title" })).toHaveValue("Server latest"));
+    await waitFor(() => expect(screen.getByLabelText("Encounter title")).toHaveValue("Server latest"));
     expect(await screen.findByText("Saved · rev 2")).toBeInTheDocument();
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
   });
@@ -612,11 +618,12 @@ describe("CombatRosterModule", () => {
     mount();await screen.findByRole("option",{name:"Mireward Gate · rev 1"});
     await userEvent.selectOptions(screen.getByRole("combobox",{name:"Encounter"}),initial.encounter_id);
     await userEvent.click(screen.getByRole("button",{name:"Open"}));
-    fireEvent.change(await screen.findByRole("textbox",{name:"Encounter title"}),{target:{value:"Keep this edit"}});
+    fireEvent.change(await screen.findByLabelText("Encounter title"),{target:{value:"Keep this edit"}});
     fireEvent.click(screen.getByText("Add combatants"));
     fireEvent.change(screen.getByLabelText("Combatant name"),{target:{value:"Overflow actor"}});
     expect(screen.getByRole("button",{name:"Add to encounter draft"})).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("encounter is full");
+    const assembly = screen.getByText("Add combatants", {selector: "summary"}).closest("details")!;
+    expect(within(assembly).getByRole("status")).toHaveTextContent("encounter is full");
     await userEvent.click(screen.getByRole("button",{name:"Save"}));
     expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][3].entities).toHaveLength(100);
     expect(save.mock.calls[0][3].title).toBe("Keep this edit");
@@ -636,7 +643,7 @@ describe("CombatRosterModule", () => {
     mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
-    const title=await screen.findByRole('textbox',{name:'Encounter title'});
+    const title=await screen.findByLabelText("Encounter title");
     await userEvent.clear(title);await userEvent.type(title,'Prior local edit');
     await userEvent.click(screen.getByText('Add combatants'));
     await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
@@ -736,7 +743,9 @@ describe("CombatRosterModule", () => {
     const submitted=save.mock.calls[0][3];await userEvent.clear(title);await userEvent.type(title,initial.draft.title);
     pending.reject(new Error('Connection lost'));await screen.findByRole('alert');
     expect(screen.getByText('Save outcome unconfirmed · exact request retained')).toBeInTheDocument();
-    expect(screen.getByRole('button',{name:'Save'})).toBeEnabled();expect(screen.getByRole('button',{name:'Revert'})).toBeEnabled();
+    expect(screen.getByRole('button',{name:'Save'})).toBeEnabled();
+    await userEvent.click(screen.getByText('More', {selector: 'summary'}));
+    expect(screen.getByRole('button',{name:'Revert'})).toBeEnabled();
     await userEvent.click(screen.getByRole('button',{name:'Save'}));await waitFor(()=>expect(save).toHaveBeenCalledTimes(2));
     expect(save.mock.calls[1][2]).toBe(1);expect(save.mock.calls[1][3]).toEqual(submitted);
     await screen.findByText('Unsaved changes');expect(title).toHaveValue(initial.draft.title);
@@ -787,6 +796,7 @@ describe("CombatRosterModule", () => {
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
     await userEvent.click(await screen.findByRole('button',{name:'Recover local Combat draft'}));
     expect(screen.queryByLabelText('HP for Living guard')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByText("More", {selector: "summary"}));
     await userEvent.click(screen.getByRole('button',{name:'Revert'}));
     expect(screen.getByLabelText('HP for Living guard')).toHaveValue('76');
     await userEvent.click(screen.getByRole('button',{name:'Remove Living guard from encounter draft'}));
@@ -851,7 +861,7 @@ describe("CombatRosterModule", () => {
       const adopt=vi.spyOn(combatApi,'adoptCombatMechanics').mockReturnValue(pending.promise);
       mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
       await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);await userEvent.click(screen.getByRole('button',{name:'Open'}));
-      await userEvent.click(screen.getByText('Encounter setup · saved mechanics'));
+      await userEvent.click(screen.getByText('Setup', {selector: 'summary'}));
       await userEvent.click(await screen.findByRole('button',{name:'Find saved creatures'}));await userEvent.click(await screen.findByRole('button',{name:'Drake source'}));
       await userEvent.click(await screen.findByRole('button',{name:'Preview exact version'}));await userEvent.click(await screen.findByLabelText('Select Geomantic Drake (1)'));
       await userEvent.click(screen.getByRole('button',{name:'Use version for selected actors'}));
@@ -908,6 +918,7 @@ describe("CombatRosterModule", () => {
     mount();await screen.findByRole('option',{name:'Mireward Gate · rev 1'});
     await userEvent.selectOptions(screen.getByRole('combobox',{name:'Encounter'}),initial.encounter_id);
     await userEvent.click(screen.getByRole('button',{name:'Open'}));
+    await userEvent.click(screen.getByText("More", {selector: "summary"}));
     await userEvent.click(await screen.findByRole('button',{name:'Sort initiative'}));
     const round=()=>screen.getByText('Round').parentElement;
     await userEvent.click(screen.getByRole('button',{name:'Next turn'}));
@@ -953,6 +964,7 @@ describe("CombatRosterModule", () => {
     expect(moved.groups).toEqual(initial.draft.groups);
     expect(moved).toMatchObject({active_turn_entity_id:'guard',round_start_entity_id:first.id,round:4});
     await userEvent.click(screen.getByRole('button',{name:'Move Geomantic Drake earlier'}));
+    await userEvent.click(screen.getByText("More", {selector: "summary"}));
     await userEvent.click(screen.getByRole('button',{name:'Revert',exact:true}));
     expect(screen.getByRole('button',{name:'Move Geomantic Drake later'})).toBeDisabled();
     await userEvent.click(screen.getByRole('button',{name:'Next turn'}));

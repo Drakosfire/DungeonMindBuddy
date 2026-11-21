@@ -10,8 +10,10 @@ vi.mock('../chrome/AppChrome', () => ({AppChrome: ({children}: {children: ReactN
 vi.mock('../agentInteraction/usePublishSurfaceInteraction', () => ({usePublishSurfaceInteraction: () => undefined}));
 vi.mock('../selectedWorld/SelectedWorldContext', () => ({useSelectedWorld: () => ({kind:'managed',worldId:'elderwyld'})}));
 vi.mock('../surface/modules/CombatRosterModule', () => ({
-  CombatRosterModule: ({scope}: {scope?: {worldId: string; encounterId: string}}) => (
-    <div>{scope ? `${scope.worldId} / ${scope.encounterId}` : 'Encounter picker'}</div>
+  CombatRosterModule: ({scope, encounterListHref}: {scope?: {worldId: string; encounterId: string}; encounterListHref?: string}) => (
+    <div>{scope ? `${scope.worldId} / ${scope.encounterId}` : 'Encounter picker'}
+      {encounterListHref && <a href={encounterListHref}>All encounters</a>}
+    </div>
   ),
 }));
 
