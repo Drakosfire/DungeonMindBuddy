@@ -2491,7 +2491,7 @@ def test_anchored_lore_label_on_eager_graph_route_preserves_related_context(lane
     assert not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events)
 
 
-@pytest.mark.parametrize("carry", [False, True])
+@pytest.mark.parametrize("carry", [None, "anchored", "uncertain"])
 def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry):
     from application_state.agent_conversation.native_corpus import acquired_body_reads
 
@@ -2510,7 +2510,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         message="Create a blank page for Glass Regent.",
         requested_work=lambda message: "review_lore_page_from_conversation" if message == synthesis else "review_lore_page",
         native_body="direct_support", dispatch=first, lore_limitation=True,
-        source_need=lambda message: "anchored" if message == synthesis else "source_lookup",
+        source_need=lambda message: carry if message == synthesis else "source_lookup",
     )
     blank = case.turn
     assert not blank.completion.answer_segments
@@ -2553,9 +2553,14 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
         assert isinstance(populated.graph_context_receipt.native_query, NativeBuildQueryPendingV1)
         assert not any(isinstance(e, NativeBuildQuerySettledV1) for e in populated.graph_context_execution.events)
+        from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+        assert native_conversation_terminal(populated)["reason"] == (
+            "native_lore_page_from_conversation_with_open_questions" if carry == "uncertain"
+            else "native_lore_page_from_conversation"
+        )
         assert not acquired_body_reads(populated.graph_context_execution)
         assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
-        for number in range(6):
+        for number in range(6 if carry == "anchored" else 0):
             response = workflow.capture_case(
                 case.client, case.world, template, {"question": synthesis},
                 tmp_path / f"lore-revision-{number}", build_thread_id=thread_id,
@@ -2565,9 +2570,10 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
         row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
         populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
-        assert producing.turn_id not in {
-            pin.turn_id for pin in populated.graph_context_receipt.assembled_input.included_history
-        }
+        if carry == "anchored":
+            assert producing.turn_id not in {
+                pin.turn_id for pin in populated.graph_context_receipt.assembled_input.included_history
+            }
         assert populated.completion.native_body_citations
         assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
 

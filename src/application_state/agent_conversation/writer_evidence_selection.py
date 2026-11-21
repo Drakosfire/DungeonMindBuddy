@@ -353,7 +353,9 @@ def native_conversation_terminal(turn):
     admissions = [event for event in events if isinstance(event, BuildPriorBodyEvidenceAdmittedV1)]
     if work is None or len(admissions) != 1 or admissions[0].work_event_id != work.event_id:
         return None
-    return {"status": "ready", "reason": "native_lore_page_from_conversation"}
+    reason = ("native_lore_page_from_conversation_with_open_questions"
+              if work.resolution.get("source_scope") == "uncertain" else "native_lore_page_from_conversation")
+    return {"status": "ready", "reason": reason}
 
 
 def native_terminal(turn, *, before_sequence=None):
@@ -438,6 +440,7 @@ def validate_selection_proof(turn, selection, trace, proof):
         if native_build(turn) and (scoped_terminal is not None
                 or selection.terminal_disposition.get("reason") in {
                     "native_variant_approval_requires_no_retrieval", "native_lore_page_from_conversation",
+                    "native_lore_page_from_conversation_with_open_questions",
                 }) and selection.terminal_disposition != scoped_terminal:
             raise ValueError("Empty scoped catalog must bind to the acknowledged work decision")
         judgments, historical, semantic = {}, {}, False

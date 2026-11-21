@@ -699,7 +699,7 @@ class PriorBodyCitationReferenceV1(Strict):
 
 
 def is_prior_conversation_work(label, source_scope):
-    return label == "review_lore_page_from_conversation" and source_scope == "anchored"
+    return label == "review_lore_page_from_conversation" and source_scope in {"anchored", "uncertain"}
 
 
 def prior_conversation_work(events):

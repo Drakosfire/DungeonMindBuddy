@@ -455,7 +455,9 @@ class PlanJevWriter:
                         "discussed by the author or described as existing draft material, use separate "
                         "invented_idea proposals. Preserve their tentative status and introduce no new ideas. "
                         "In open_questions, retain material unresolved identities, motives, and relationships, "
-                        "including open relationships named in a proposal."
+                        "including open relationships named in a proposal. Retain the alternatives already discussed. "
+                        "If there is too little material to draft accurately, leave the proposal empty and "
+                        "surface the specific gap for the author."
                     )
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
