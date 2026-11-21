@@ -1,6 +1,7 @@
 # Review a typed Graph reference at an exact Build boundary
 
-Status: ACTIVE for the reference identity and capture admission work. Authorized
+Status: ACTIVE for the reference identity, capture admission, and typed APP
+review state. Authorized
 under the contextual-layout lane. Serial base `75aefc7fa217b9422ee56731e5036177b458af42`
 after #4358, in the isolated `codex/build-contextual-graph-reference` checkout.
 
@@ -19,12 +20,19 @@ of the receiver. The producer in the successor must nominate only safe aliases.
 
 ## Ownership and validation
 
-The initial write set is this handoff,
+The current write set is this handoff,
 `src/application_state/build_proposal/graph_reference.py`,
+`src/application_state/build_proposal/graph_reference_review.py`,
 `apps/live_control_server/services/build_graph_reference.py`, and
-`tests/test_build_graph_reference.py`. Settle the complete receiver's durable
-action and reader contract before reserving a migration or editing shared
-Review, route, and editor files. #3824 at `76c31187f3e9badecbc403f2d9c943994c5f5f9c`
+`tests/test_build_graph_reference.py`. The APP owner uses the additive
+`agent.build_graph_reference_review` table and a forward reader fence at
+`20261122_0180`. The existing Build Markdown codecs and writer lifecycle keep
+their type boundaries. Graph verification and page compare-and-swap belong
+to separate storage owners. Apply attests one observed immutable Graph pin
+and uses the ordinary Content Save comparison for the page. There is no
+cross-store transaction. The migration is verified locally in disposable
+databases. Shared Review routes and editor files still require a bounded
+write split. #3824 at `76c31187f3e9badecbc403f2d9c943994c5f5f9c`
 retains its hosted authorization. Reference draft #3867 at
 `a2c5d9115bf1347f2cd84a2808d3dec29ddc3242` carries earlier prose-only changes.
 Neither lease grants a cross-lane edit.
