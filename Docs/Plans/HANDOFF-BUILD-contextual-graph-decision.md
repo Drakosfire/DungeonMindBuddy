@@ -7,7 +7,12 @@ Status: ACTIVE under the contextual-layout lane. Serial base
 Jev nominates an existing Graph identity and one root paragraph boundary.
 Use current native authoring identities as local aliases, with meaningful
 human references and separate classification. The host verifies alias
-membership, same-name ambiguity, exact classification and captured geometry.
+membership, shared-name and shared-alias ambiguity, exact classification and
+captured geometry. When names or aliases overlap, use one authenticated
+author-selected Graph identity that matches the current admitted pin. Jev must
+independently agree with that identity and its requested classification. Quoted
+paragraph text, descriptions and guessed classifications cannot authorize one
+of the competing identities.
 A resolved nomination must retain the existing immutable Graph identity and
 page basis. Ambiguity, missing targets, different destinations, discussion,
 and creation requests carry no typed placement authority.
@@ -30,13 +35,17 @@ frontend evidence and independent exact-head review gate merge.
 
 The frozen public inputs hash is
 `7534bb48585469ae3dd3789cdd427fe3573913c294bc3309e4a536c7f2b194d5`.
-The retained guidance at `b8419f2b7` passed 11 of 12 real Jev cases with
+The initial guidance at `b8419f2b7` passed 11 of 12 real Jev cases with
 three exact nominations and eight correct refusals. A fourth feasible case
 resolved the retuned namesake and scoped paragraph, then returned no side.
 Two inconsistent World or revision witnesses refused before any model call.
 Later side-question variants supplied weaker results and remain diagnostic.
-This evidence covers nomination alone. No writer, ordinary Send, or release
-qualification is claimed.
+Independent review found that request tokens could come from a quoted anchor
+and that different primary names could share an alias. The final guard
+requires authenticated human identity selection for these collisions. The
+runtime successor must join that selection to the existing author-reference
+admission and protect it through replay. These experiments cover nomination.
+No writer, ordinary Send, or release qualification is claimed.
 
 ## Completed predecessor
 
