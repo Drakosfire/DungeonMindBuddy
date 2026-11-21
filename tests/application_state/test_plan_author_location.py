@@ -147,6 +147,47 @@ def test_named_paragraph_locator_keeps_the_complete_label_and_quoted_article():
         and v.compile(request, ()) == literal_reference('The Arrival', path=False) for v in offers.values())
 
 
+def test_describing_is_an_explicit_paragraph_locator():
+    from application_state.agent_conversation.plan_author_location import explicit_paragraph_locator
+
+    request = 'Put a caution before the Courtyard paragraph describing the bell.'
+    offers = author_scope_hypotheses(request, (), max_span_attempts=100)
+    assert explicit_paragraph_locator(request, 'before_paragraph') == 'the bell'
+    assert {row.evidence.text for row in offers.values() if row.evidence.end == request.index(' paragraph')} == {
+        'Courtyard'}
+
+
+def test_nominal_label_prefix_is_only_an_alternative_when_both_titles_exist():
+    from application_state.agent_conversation.plan_author_location import paragraph_label_conflict
+
+    request = 'After the Approach rope paragraph, add a caution about the hook.'
+    offers = author_scope_hypotheses(request, (), max_span_attempts=100)
+    assert {'Approach', 'Approach rope'} <= {row.evidence.text for row in offers.values()}
+    scope = literal_reference('Approach', path=False)
+    one, one_catalog = family_catalog([heading('Approach'), prose('Check the rope.')])
+    assert not paragraph_label_conflict(request, scope, one, one_catalog)
+    both, both_catalog = family_catalog([heading('Approach'), prose('Check the rope.'),
+        heading('Approach Rope'), prose('Check the rope.')])
+    assert paragraph_label_conflict(request, scope, both, both_catalog)
+    assert paragraph_label_conflict(request, literal_reference('Approach Rope', path=False), both, both_catalog)
+
+
+def test_explicit_current_scope_and_durable_antecedent_have_distinct_authority():
+    from application_state.agent_conversation.plan_author_location import explicit_scope_conflict
+
+    current = 'Use Approach for this edit: add a note after the ferry rope paragraph.'
+    dialogue = (RetrievalDialogue(role='user', content='For the next edit, Equipment is the section I mean.'),
+        RetrievalDialogue(role='assistant', content='We are in Stores.'))
+    candidates = author_scope_hypotheses(current, dialogue, max_span_attempts=300)
+    assert any(item.evidence.text == 'Approach' and item.evidence.utterance_index == 2 for item in candidates.values())
+    assert explicit_scope_conflict(current, literal_reference('Equipment', path=False))
+    assert not explicit_scope_conflict(current, literal_reference('Approach', path=False))
+    reference = 'In that section, add a caution after the paragraph about securing the wheels.'
+    candidates = author_scope_hypotheses(reference, dialogue, max_span_attempts=300)
+    assert any(item.evidence.text == 'Equipment' and item.evidence.utterance_index == 0 for item in candidates.values())
+    assert not any(item.evidence.text in {'that', 'that section', 'Stores'} for item in candidates.values())
+
+
 def test_unquoted_locator_label_cannot_be_dropped_or_pick_between_article_titles():
     from application_state.agent_conversation.plan_author_location import paragraph_label_conflict
 

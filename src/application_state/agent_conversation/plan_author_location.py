@@ -288,6 +288,13 @@ _SCOPE_DIRECTIVE_CONTRAST = re.compile(
     r'(?P<excluded>[^,.!?;:\n]+)(?=[,:.!?;\n]|$)', re.IGNORECASE)
 _INCLUDE_DESCENDANTS = re.compile(
     r',\s*including\s+(?:all\s+)?(?:its\s+)?(?:subsections|descendant sections)\b', re.IGNORECASE)
+_NAMED_SCOPE_DECLARATIONS = (
+    re.compile(r'\buse\b(?P<label>[^,.!?;:\n]+?)\bfor (?:this|the next) (?:edit|change)(?=[:.!?;\n]|$)',
+        re.IGNORECASE),
+    re.compile(r'(?:^|[,;:\n])(?P<label>[^,.!?;:\n]+?)\bis\s+the\s+(?:section|heading)\s+I\s+mean\b',
+        re.IGNORECASE),
+)
+_DEMONSTRATIVE_SCOPE = re.compile(r'(?:that|this|the same)(?:\s+(?:section|heading|part))?', re.IGNORECASE)
 _ANCESTOR_EXCLUSION = re.compile(r'^the one inside\s+', re.IGNORECASE)
 _COMPOUND_REFERENCE = re.compile(r'\b(?:either|or|both|and|except|rather than)\b', re.IGNORECASE)
 _LOCATION_CLAUSE = re.compile(r'\b(?:paragraph|heading)\s+(?:in|inside|under)\b', re.IGNORECASE)
@@ -323,11 +330,34 @@ def _scope_directives(text: str):
             yield match
 
 
+def _declared_scope_spans(text: str):
+    syntax = _scope_syntax(text)
+    for pattern in _NAMED_SCOPE_DECLARATIONS:
+        for match in pattern.finditer(syntax):
+            start, end = _trimmed_span(text, match.span('label'))
+            label = text[start:end]
+            if label and (label[0].isupper() or label[0] in _QUOTES):
+                yield start, end
+
+
 def explicit_contrast_conflict(question: str, scope: ScopeExpression) -> bool:
     for directive in _scope_directives(question):
         start, end = _trimmed_span(question, directive.span())
         try:
             required = _compile_exclusion(question[start:end])
+        except ValueError:
+            return True
+        if scope != required:
+            return True
+    return False
+
+
+def explicit_scope_conflict(question: str, scope: ScopeExpression) -> bool:
+    if explicit_contrast_conflict(question, scope):
+        return True
+    for start, end in _declared_scope_spans(question):
+        try:
+            required = _declared_path(question[start:end])
         except ValueError:
             return True
         if scope != required:
@@ -343,6 +373,8 @@ def _compile_scope_expression(text: str, grammar: str, depth: int = 1) -> NamedS
             raise ValueError('Document-title evidence must explicitly refer to the current page title')
         return NamedScopePath(names=(DocumentTitleScopeName(),))
     syntax = _scope_syntax(text)
+    if _DEMONSTRATIVE_SCOPE.fullmatch(syntax.strip()):
+        raise ValueError('A demonstrative scope requires an earlier author reference')
     if _INCLUDE_DESCENDANTS.search(syntax):
         raise ValueError('Descendant coverage is a scope qualifier, not part of the heading label')
     if _COMPOUND_REFERENCE.search(syntax):
@@ -454,12 +486,17 @@ def _has_excluded_restatement(path: NamedScopePath, after: str) -> bool:
 _SCOPE_TOKEN = re.compile(r"\w+(?:['’]\w+)*|[^\w\s]", re.UNICODE)
 _SCOPE_START = re.compile(r'\b(?:in|within|under|inside)\b', re.IGNORECASE)
 _SCOPE_END = re.compile(r'\b(?:paragraph|heading|section)\b', re.IGNORECASE)
+_PROSE_LOCATION = r'(?:paragraph|passage|instruction|step|note)'
+_PROSE_DESCRIPTION = r'(?:about|describing|explaining|detailing|concerning)'
 _QUALIFIED_PROSE_LOCATION = re.compile(
     r'\b(?:before|after)\s+[^,.!?;]+?\b(?:paragraph|passage|instruction|step|note)\s+'
     r'(?:in|inside|under|within)\s+([^,.!?;]+)', re.IGNORECASE)
 _NAMED_PROSE_LOCATOR = re.compile(
     r'\b(?i:before|after)\s+(?P<article>the\s+)?(?P<label>\w[^,.!?;/\n]*?)\s+'
-    r'(?i:paragraph|passage|instruction|step|note)\s+(?i:about)\b')
+    rf'(?i:{_PROSE_LOCATION})\s+(?i:{_PROSE_DESCRIPTION})\b')
+_NOMINAL_PROSE_LOCATOR = re.compile(
+    r'\b(?i:before|after)\s+(?:the\s+)?(?P<label>\w[^,.!?;/\n]*?)\s+'
+    rf'(?i:{_PROSE_LOCATION})\b(?!\s+(?i:{_PROSE_DESCRIPTION}|in|under|within|inside)\b)')
 
 
 def _paragraph_label_match(question: str):
@@ -473,12 +510,35 @@ def _paragraph_label_match(question: str):
     return match
 
 
+def _nominal_scope_prefixes(text: str) -> tuple[str, tuple[tuple[int, int], ...]]:
+    matches = list(_NOMINAL_PROSE_LOCATOR.finditer(_scope_syntax(text)))
+    if len(matches) != 1:
+        return '', ()
+    match = matches[0]
+    start, end = match.span('label')
+    label = text[start:end]
+    if not label[0].isupper() or _COMPOUND_REFERENCE.search(_scope_syntax(label)):
+        return '', ()
+    prefixes = tuple((start, prefix_end) for word in _SCOPE_TOKEN.finditer(label)
+        if word.start() > 0 and word[0].islower()
+        and (prefix_end := start + len(label[:word.start()].rstrip())) > start)
+    return label, prefixes
+
+
 def paragraph_label_conflict(question, scope, capture, catalog) -> bool:
     """Preserve an explicit label and refuse an ambiguous unquoted article."""
     match = _paragraph_label_match(question)
-    if match is None:
-        return False
     path = scope.positive if isinstance(scope, ScopeWithExclusion) else scope
+    if match is None:
+        label, prefixes = _nominal_scope_prefixes(question)
+        if (prefixes and isinstance(path, NamedScopePath) and len(path.names) == 1
+                and isinstance(path.names[0], LiteralScopeName)):
+            alternatives = {name_key(label), *(name_key(question[start:end]) for start, end in prefixes)}
+            if name_key(path.names[0].text) in alternatives:
+                present = {name_key(heading['path'][-1])
+                    for heading in source_heading_inventory(capture, catalog)['headings']}
+                return len(alternatives & present) > 1
+        return False
     if (not isinstance(path, NamedScopePath) or not isinstance(path.names[-1], LiteralScopeName)
             or name_key(path.names[-1].text) != name_key(match['label'])):
         return True
@@ -502,7 +562,7 @@ def explicit_paragraph_locator(question: str, relation: str) -> str | None:
         return None
     side = relation.removesuffix('_paragraph')
     matches = list(re.finditer(rf'\b{side}\s+[^,.!?;\n]*?\b'
-        r'(?:paragraph|passage|instruction|step|note)\s+about\b([^,.!?;\n]+)',
+        rf'{_PROSE_LOCATION}\s+{_PROSE_DESCRIPTION}\b([^,.!?;\n]+)',
         _scope_syntax(question), re.IGNORECASE))
     if len(matches) != 1:
         return None
@@ -573,6 +633,10 @@ def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...
                         offer(start, token.end())
         for marker in _TITLE_REFERENCE.finditer(syntax):
             offer(marker.start(), marker.end())
+        for span in _declared_scope_spans(text):
+            offer(*span)
+        for span in _nominal_scope_prefixes(text)[1]:
+            offer(*span)
         contrasts = {_trimmed_span(text, match.span()) for match in _scope_directives(text)}
         for span in sorted(contrasts):
             offer(*span)
@@ -626,7 +690,10 @@ def is_complete_scope_recovery(hypothesis: AuthorScopeHypothesis, request: str,
     if hypothesis.grammar == 'exclusion':
         return True
     evidence = hypothesis.evidence
-    utterance = _scope_syntax(evidence._utterance(request, dialogue))
+    text = evidence._utterance(request, dialogue)
+    if (evidence.start, evidence.end) in _declared_scope_spans(text):
+        return True
+    utterance = _scope_syntax(text)
     prefix = re.split(r'[.!?;,:]', utterance[:evidence.start])[-1]
     suffix = utterance[evidence.end:]
     introducer = re.search(r'\b(?:in|within|inside|under)\s+(the\s+)?$', prefix, re.IGNORECASE)

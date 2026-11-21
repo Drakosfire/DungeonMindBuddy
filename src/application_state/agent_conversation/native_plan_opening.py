@@ -138,7 +138,7 @@ def _prepare_author_scope_review(request):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
     from .plan_contextual_targets import AUTHOR_RELATIONS
-    from .plan_author_location import explicit_direction_options, is_complete_scope_recovery
+    from .plan_author_location import explicit_direction_options, explicit_scope_conflict, is_complete_scope_recovery
 
     first, second = (row.observation for row in request.scope_review)
     hypotheses = _author_scope_offers(request)
@@ -155,7 +155,7 @@ def _prepare_author_scope_review(request):
                 'scope': options.get(prior.selected_alias, {'kind': prior.scope.kind})}
             key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
             pairs.setdefault(key, (relation, prior.scope))
-    if _unresolved_author_scope(first, second):
+    if _unresolved_author_scope(first, second) or explicit_scope_conflict(request.question, first.scope):
         complete = ((alias, hypothesis) for alias, hypothesis in hypotheses.items()
             if is_complete_scope_recovery(hypothesis, request.question, request.dialogue))
         for alias, hypothesis in complete:
@@ -272,10 +272,11 @@ def require_retained_author_scope(execution, observation_event_id: UUID,
 
 
 def author_scope_review_required(question, first, second):
-    from .plan_author_location import explicit_direction_options
+    from .plan_author_location import explicit_direction_options, explicit_scope_conflict
 
     return (first.relation != second.relation or first.scope != second.scope
         or _unresolved_author_scope(first, second)
+        or explicit_scope_conflict(question, first.scope)
         or (first.relation == 'unresolved' and bool(explicit_direction_options(question)))
         or (first.relation != 'replace_explicit_selection' and _CAPTURE_REWRITE.match(question) is not None))
 
