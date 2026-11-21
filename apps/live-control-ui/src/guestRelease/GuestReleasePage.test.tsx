@@ -91,6 +91,7 @@ it("shows an unchanged saved example with release-only references and inline ima
   expect(screen.queryByText("A bell rings")).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Reset choice" }));
   expect(screen.queryByText("A lantern flickers")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Reset choice" })).toHaveFocus();
   await user.click(screen.getByRole("button", { name: "Enter" }));
   await user.type(screen.getByLabelText("Point name"), "A visitor point");
   await user.selectOptions(screen.getByLabelText("Connect to a shared point"), "a");

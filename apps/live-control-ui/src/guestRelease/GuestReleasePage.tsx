@@ -173,7 +173,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
                 onClick={() => setSelectedChoice(index as 0 | 1)}>{option.label}</button>)}
             </div>
             <div aria-live="polite" aria-atomic="true">{selectedChoice !== null && <p className="guest-world__choice-outcome">{choice.options[selectedChoice].outcome}</p>}</div>
-            <button type="button" onClick={() => setSelectedChoice(null)} disabled={selectedChoice === null}>Reset choice</button>
+            <button type="button" onClick={() => setSelectedChoice(null)}>Reset choice</button>
           </section>}
         </section>}
         {choiceValue !== undefined && !example && <p role="alert">This saved choice is unavailable.</p>}
