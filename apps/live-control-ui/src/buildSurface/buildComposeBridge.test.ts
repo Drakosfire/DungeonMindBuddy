@@ -16,6 +16,50 @@ const testDigest=async (text:string)=>Array.from(
  new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),x=>x.toString(16).padStart(2,'0'),
 ).join('');
 
+it('prepares one typed Graph reference at its exact boundary and refuses changed editor bytes',async()=>{
+ const source='## Arrival\n\nThe gate is locked.\n\n## Rumours\n\nThe gate is locked.\n';
+ const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
+  content:markdownToTiptapDoc(source).doc});
+ try {
+  const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,
+   contentSha256:await testDigest(source),visibility:'internal',draftGeneration:0,selectionGeneration:0,
+   canEdit:true,pagePresentation:null,savedMarkdown:source};
+  const changed=vi.fn();
+  const bridge=createBuildComposeBridge(()=>state,changed);
+  const captured=await bridge.capture();
+  const scope=()=>({editor,scopeKey:'fixture-target',draftGeneration:0,canEdit:true});
+  const catalog=captureProseTargetCatalog(scope);
+  const choice=catalog.choices.find(candidate=>candidate.section==='Rumours'&&candidate.operation==='insert_after')!;
+  const target=resolveProseTarget(catalog,choice.selector,scope);
+  const boundary:BuildProseBoundaryTarget={schema:'dmb_build_prose_boundary_target_v1',alias:choice.selector,
+   catalog_sha256:await testDigest(JSON.stringify(catalog.choices)),operation:'insert_after',
+   from:target.from,to:target.to,before_text_sha256:await testDigest(choice.passage)};
+  const placement={basis:captured.basis,boundary,entity_kind:'threat',reference:{
+   schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:state.worldId,
+   native_world_id:'fixture-native',binding_version:1,graph_revision:'rev:fixture',node_id:'threat:lurker',label:'Lurker',
+  }};
+  await expect(bridge.prepareGraphReference!({
+   ...placement,basis:{...placement.basis,document_id:'foreign-page'},
+  })).rejects.toThrow();
+  const prepared=await bridge.prepareGraphReference!(placement);
+  expect(JSON.stringify(editor.getJSON())).toBe(captured.editorJson);
+  expect(changed).not.toHaveBeenCalled();
+  expect(prepared.afterDraft).toBe(source+'\n[Lurker](#dmb-ref:graph-node:threat:lurker)\n');
+  bridge.applyGraphReference!(prepared);
+  expect(changed).toHaveBeenCalledTimes(1);
+  expect(editor.getJSON().content?.at(-1)?.content).toEqual([{type:'runbookReference',attrs:{
+   kind:'ref',refType:'graph-node',refId:'threat:lurker',label:'Lurker',
+  }}]);
+  expect(editor.commands.undo()).toBe(true);
+  expect(JSON.stringify(editor.getJSON())).toBe(captured.editorJson);
+  expect(()=>bridge.applyGraphReference!(prepared)).toThrow('no longer available');
+  const other=await bridge.prepareGraphReference!(placement);
+  editor.commands.insertContentAt(1,'Changed ');
+  expect(()=>bridge.applyGraphReference!(other)).toThrow();
+  expect(editor.getJSON().content?.at(-1)?.content?.[0]?.type).toBe('text');
+ } finally { editor.destroy(); }
+});
+
 it.each(['plain','identity-only','composed'] as const)('places an exact Build prose boundary on a %s page without moving its authority',async mode=>{
  const markdown='## Arrival\n\nThe gate is locked.\n\n## Rumours\n\nThe gate is locked.\n';
  const original=markdownToTiptapDoc(markdown).doc;

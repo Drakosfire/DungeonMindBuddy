@@ -105,6 +105,6 @@ class BuildGraphReferencePlacement(StrictModel):
             raise ApplicationStateConflictError("The serialized Graph reference must be one typed link")
         children = parsed[1].children or []
         if ([token.type for token in children] != ["link_open", "text", "link_close"]
-                or children[0].attrs != {"href": f"dmb-node:{self.reference.node_id}"}
+                or children[0].attrs != {"href": f"#dmb-ref:graph-node:{self.reference.node_id}"}
                 or children[1].content != " ".join(self.reference.label.split())):
             raise ApplicationStateConflictError("The serialized Graph reference differs from the authorized identity")

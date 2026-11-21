@@ -285,7 +285,7 @@ def test_build_reference_accepts_only_the_exact_typed_editor_and_markdown(placem
     after["content"].append({"type": "paragraph", "attrs": {"pageBlockId": None}, "content": [atom]})
     index = placement.require_editor_insertion(editor, draft, json.dumps(after))
     assert index == 1
-    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    after_draft = "The moon shines.\n\n[Lurker](#dmb-ref:graph-node:threat:lurker)\n"
     placement.require_draft_insertion(draft, after_draft, index)
     with pytest.raises(ApplicationStateConflictError, match="authorized identity"):
         placement.require_draft_insertion(draft, after_draft.replace("threat:", "location:"), index)
@@ -325,7 +325,7 @@ def test_graph_reference_review_replays_exact_postimage_and_records_only_observe
         },
     }]})
     after_editor = json.dumps(after)
-    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    after_draft = "The moon shines.\n\n[Lurker](#dmb-ref:graph-node:threat:lurker)\n"
     after_digest = sha256(after_draft.encode()).hexdigest()
     apply = BuildGraphReferenceApply(
         apply_id=uuid4(), editor_sha256=sha256(after_editor.encode()).hexdigest(),
@@ -425,7 +425,7 @@ def test_graph_reference_review_route_joins_current_graph_and_independent_conten
     after["content"].append({"type": "paragraph", "content": [{"type": "runbookReference", "attrs": {
         "kind": "ref", "refType": "graph-node", "refId": "threat:lurker", "label": "Lurker",
     }}]})
-    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    after_draft = "The moon shines.\n\n[Lurker](#dmb-ref:graph-node:threat:lurker)\n"
     layout = None
     if identity_only:
         block_id = f"page-graph-ref-{placement.boundary.catalog_sha256[:32]}-{placement.boundary.from_}"

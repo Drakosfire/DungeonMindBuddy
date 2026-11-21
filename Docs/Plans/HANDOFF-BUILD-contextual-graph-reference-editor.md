@@ -21,6 +21,12 @@ serial dispatch successor after the receiver is verified. Its route remains
 off until then. No profile, migration, provider or deployment change belongs
 to this editor slice.
 
+The mounted editor emits `#dmb-ref:graph-node:` for a typed reference. The
+receiver snapshot test originally exercised the legacy `dmb-node:` importer
+form. The integration also owns the exact canonical href check and associated
+fixture updates in `src/application_state/build_proposal/graph_reference.py`
+and `tests/application_state/test_build_proposal_postgres.py`.
+
 Verify real mounted editor geometry, typed atom round trip, inert Review,
 stale and foreign refusal, explicit Save, lost acknowledgement, Undo/Redo,
 untouched siblings, and cold 390px reopen. Use the authenticated #4360 route

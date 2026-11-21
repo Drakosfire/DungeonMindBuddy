@@ -4,6 +4,7 @@ import { pickMediaInsertion,pickDocumentInsertion } from '../documentEditing/pic
 import type { Editor, JSONContent } from '@tiptap/core';
 import {closeHistory} from '@tiptap/pm/history';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
+import type { BuildGraphReferenceApply, BuildGraphReferencePlacement } from '../api/buildGraphReferenceReviewApi';
 import { TextSelection } from '@tiptap/pm/state';
 import {pageBodyReferences,preservePageBodyReferences} from './pageBodyTarget';
 import {isBuildProseBoundaryTarget,type BuildProposalBasis,type BuildPageBodyTarget,type BuildPageEndTarget,type BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
@@ -12,9 +13,10 @@ import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/seman
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
 import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
-import {flattenPresentation,hasPresentation,hydratePresentation,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
-import {stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
+import {flattenPresentation,hasPresentation,hydratePresentation,presentationFingerprint,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
+import {preserveLeadingYamlFrontmatter,stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
 import {preservePlainReviewBlockIdentities} from '../tiptap/pageComposer/PageRow';
+import {isValidGraphNodeId,normalizeRunbookReferenceAttrs} from '../tiptap/references/runbookReferences';
 
 export interface BuildComposeEditorState {
   editor: Editor; worldId: string; documentId: string; revision: number; contentSha256: string;
@@ -32,6 +34,13 @@ export interface CapturedBuildInsertion {
 export interface PreparedBuildProposal {
   captured: CapturedBuildInsertion; markdown: string; afterEditorSha256: string; afterDraftSha256: string;
 }
+export interface PreparedBuildGraphReference {
+  captured: CapturedBuildInsertion;
+  placement: BuildGraphReferencePlacement;
+  afterEditorJson: string;
+  afterDraft: string;
+  postimage: Omit<BuildGraphReferenceApply,'apply_id'>;
+}
 export interface PreparedWorkPlanPlacement {
   captured:CapturedBuildInsertion;reference:WorkPlanReference;afterEditorJson:string;afterEditorSha256:string;afterDraftSha256:string;
 }
@@ -45,6 +54,8 @@ export interface ProposalInspection {
   savedProjection?:SavedProposalProjection;
 }
 export interface BuildComposeBridge {
+  prepareGraphReference?: (placement: BuildGraphReferencePlacement) => Promise<PreparedBuildGraphReference>;
+  applyGraphReference?: (prepared: PreparedBuildGraphReference) => void;
   pickWorkPlanInsertion?: (options:{signal:AbortSignal;operationId:string})=>Promise<CapturedBuildInsertion>;
   observeWorkPlan?: (reference:WorkPlanReference,onPresence:(present:boolean)=>void)=>()=>void;
   prepareWorkPlan?: (captured:CapturedBuildInsertion,reference:WorkPlanReference)=>Promise<PreparedWorkPlanPlacement>;
@@ -104,6 +115,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       || (allowExactSave && current.revision > basis.registry_revision && current.contentSha256 === basis.draft_sha256);
   }
   const boundProse = new WeakSet<CapturedBuildInsertion>();
+  const preparedGraphs = new WeakSet<PreparedBuildGraphReference>();
   function proseState() {
     const now = getCurrent();
     return now ? {editor: now.editor, canEdit: now.canEdit, draftGeneration: now.draftGeneration,
@@ -130,20 +142,34 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     return result;
   }
   function proseTransaction(captured: CapturedBuildInsertion, content: JSONContent[]) {
+    if (content.length !== 1 || content[0]?.type !== 'paragraph'
+      || !(content[0].content ?? []).every(node => node.type === 'text'))
+      throw new Error('This Build suggestion must add one paragraph at the offered root boundary.');
+    return rootBoundaryTransaction(captured, content[0], 'page-prose');
+  }
+  function graphParagraph(placement: BuildGraphReferencePlacement): JSONContent {
+    const {basis,reference}=placement;
+    if (basis.visibility !== 'internal' || basis.world_id !== reference.managed_world_id
+      || !isValidGraphNodeId(reference.node_id) || !reference.label.trim())
+      throw new Error('Review the exact Graph identity on its original internal page.');
+    return {type:'paragraph',content:[{type:'runbookReference',attrs:normalizeRunbookReferenceAttrs({
+      kind:'ref',refType:'graph-node',refId:reference.node_id,label:reference.label,
+    })}]};
+  }
+  function rootBoundaryTransaction(captured: CapturedBuildInsertion, content: JSONContent, idPrefix: string) {
     const proof = captured.proseTarget;
     const editor = captured.editor;
-    if (!proof || !boundProse.has(captured) || !editor.isEditable || content.length !== 1 || content[0]?.type !== 'paragraph'
-      || !(content[0].content ?? []).every(node => node.type === 'text') || editor.state.doc.resolve(proof.from).depth !== 0)
+    if (!proof || !boundProse.has(captured) || !editor.isEditable || editor.state.doc.resolve(proof.from).depth !== 0)
       throw new Error('This Build suggestion must add one paragraph at the offered root boundary.');
     const original = JSON.parse(captured.editorJson) as JSONContent;
     const current = getCurrent();
     const presentation = current?.pagePresentation;
     const retainPlain = presentation?.items.every(item => item.kind === 'block') === true;
     const retainsIds = hasPresentation(original) || retainPlain;
-    const id = `page-prose-${proof.catalog_sha256.slice(0,32)}-${proof.from}`;
+    const id = `${idPrefix}-${proof.catalog_sha256.slice(0,32)}-${proof.from}`;
     if (retainsIds && !editor.schema.nodes.paragraph?.spec.attrs?.pageBlockId)
       throw new Error('This page editor cannot retain paragraph identities.');
-    const paragraph = retainsIds ? {...content[0], attrs: {...content[0].attrs, pageBlockId:id}} : content[0];
+    const paragraph = retainsIds ? {...content, attrs: {...content.attrs, pageBlockId:id}} : content;
     const transaction = editor.state.tr.insert(proof.from, editor.schema.nodeFromJSON(paragraph));
     if (!retainsIds) preservePlainReviewBlockIdentities(transaction);
     const after = transaction.doc.toJSON() as JSONContent;
@@ -160,7 +186,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     if (semanticMarkdownSerializationDiagnostics(flattenPresentation(after)).length
       || JSON.stringify(editor.schema.nodeFromJSON(reopened).toJSON()) !== JSON.stringify(after))
       throw new Error('Saving this insertion would change existing structure or block identities.');
-    return {transaction, after, body};
+    return {transaction, after, body, projection, savedMarkdown};
   }
   function assertSame(captured: CapturedBuildInsertion, originalAnchor = false) {
     const now = getCurrent(); const basis = captured.basis;
@@ -291,6 +317,33 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       return prepared;
     },
     applyPrepared(prepared) { bridge.insertProposal(prepared.captured,prepared.markdown); },
+    async prepareGraphReference(placement) {
+      const captured = await bridge.restore(placement.basis, undefined, undefined, placement.boundary);
+      const result = rootBoundaryTransaction(captured, graphParagraph(placement), 'page-graph-ref');
+      const afterEditorJson = JSON.stringify(result.after);
+      const [editor_sha256,draft_sha256,content_sha256] = await Promise.all([
+        sha256(afterEditorJson), sha256(result.body),
+        sha256(result.projection?.markdown ?? preserveLeadingYamlFrontmatter(result.savedMarkdown,result.body)),
+      ]);
+      assertSame(captured,true);
+      const prepared = Object.freeze({captured,placement,afterEditorJson,afterDraft:result.body,postimage:Object.freeze({
+        editor_sha256,draft_sha256,content_sha256,presentation_sha256:presentationFingerprint(result.projection?.presentation),
+      })});
+      preparedGraphs.add(prepared);
+      return prepared;
+    },
+    applyGraphReference(prepared) {
+      const {captured,placement} = prepared;
+      assertSame(captured,true);
+      if (!preparedGraphs.delete(prepared) || applied.has(captured))
+        throw new Error('This reference placement is no longer available. Review the current page.');
+      const result = rootBoundaryTransaction(captured,graphParagraph(placement),'page-graph-ref');
+      if (JSON.stringify(result.after) !== prepared.afterEditorJson || result.body !== prepared.afterDraft)
+        throw new Error('The prepared Graph reference changed. Review the current page.');
+      captured.editor.view.dispatch(closeHistory(result.transaction));
+      applied.add(captured);
+      changed(captured.editor);
+    },
     async prepareWorkPlan(captured,reference){
       assertSame(captured,true);
       if(captured.basis.selection||!workPlanBelongsTo(reference,{worldId:captured.basis.world_id,documentId:captured.basis.document_id}))
