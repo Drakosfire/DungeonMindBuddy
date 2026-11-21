@@ -5,7 +5,7 @@ import pytest
 
 from application_state.agent_conversation.plan_author_location import (
     AuthorLocationQuote, AuthorScopeHypothesis, DescribedScopeName, DocumentTitleScopeName,
-    LiteralScopeName, NamedScopePath,
+    LiteralScopeName, NamedScopePath, ScopeWithExclusion,
     UnresolvedLocation, UnscopedLocation, author_scope_hypotheses, author_scope_offer_view,
     bind_scope, literal_reference,
     source_heading_inventory,
@@ -108,6 +108,7 @@ def test_author_scope_hypothesis_refuses_incomplete_or_substituted_grammar(phras
     ('Use Equipment whose parent is Mill.', 'Mill', 'literal_name', 'natural path operand'),
     ('Use Equipment, rather than Depot.', 'Equipment', 'literal_name', 'exclusion operand'),
     ('Use Equipment except Depot.', 'Depot', 'literal_name', 'exclusion operand'),
+    ('Use Equipment except Depot.', 'Equipment except Depot.', 'exclusion', 'closing punctuation'),
 ])
 def test_author_scope_hypothesis_cannot_start_or_end_inside_a_path(utterance, fragment, grammar, error):
     candidate = AuthorScopeHypothesis(evidence=author_quote(utterance, fragment), grammar=grammar)
@@ -151,6 +152,52 @@ def test_scope_offer_view_has_local_aliases_and_author_text_without_host_offsets
     assert offer['author_quote'] == {'utterance': 'utterance0', 'text': 'Mill / Equipment',
         'text_before': 'Use the paragraph in ', 'text_after': '.'}
     assert json.loads(json.dumps(view)) == view
+
+
+def test_scope_hypothesis_retains_both_operands_of_a_restated_exclusion():
+    phrase = 'Conservatory / Supplies, the Supplies section directly under Conservatory rather than the one inside Loft'
+    request = f'Add a warning after the paragraph in {phrase}.'
+    offers = author_scope_hypotheses(request, (), max_span_attempts=300)
+    chosen = next(h for h in offers.values() if h.evidence.text == phrase)
+    compiled = chosen.compile(request, ())
+    assert compiled == ScopeWithExclusion(
+        positive=literal_reference('Conservatory / Supplies', path=True),
+        excluded=NamedScopePath(names=(LiteralScopeName(text='Loft'), LiteralScopeName(text='Supplies')),
+            edges=('any_ancestor',)),
+    )
+    assert not any(h.evidence.text == 'Conservatory / Supplies' for h in offers.values())
+    view = author_scope_offer_view(request, (), offers)
+    visible = next(v for v in view['scope_hypotheses'].values() if v['author_quote']['text'] == phrase)
+    assert visible['excluded_path'] == {'components': [
+        {'kind': 'literal_name', 'text': 'Loft'}, {'kind': 'literal_name', 'text': 'Supplies'}],
+        'edges': ['any_ancestor']}
+
+
+def test_compiled_scope_exclusion_removes_only_the_exact_matching_occurrence():
+    nodes = [heading('Conservatory', 1), heading('Supplies'), prose('Shared.'),
+        heading('Loft', 1), heading('Supplies'), prose('Shared.')]
+    request = 'Use Supplies rather than the one inside Loft.'
+    phrase = 'Supplies rather than the one inside Loft'
+    hypothesis = AuthorScopeHypothesis(evidence=author_quote(request, phrase), grammar='exclusion')
+    result = bind(nodes, hypothesis.compile(request, ()))
+    assert result.heading_indices == (1,)
+    assert len(result.paragraph_anchors) == 1
+
+
+def test_scope_exclusion_requires_frozen_title_for_symbolic_excluded_operand():
+    nodes = [heading('Supplies'), prose('Shared.')]
+    scope = ScopeWithExclusion(positive=literal_reference('Supplies', path=False),
+        excluded=NamedScopePath(names=(DocumentTitleScopeName(),)))
+    assert bind(nodes, scope).status == 'unsupported'
+    assert bind(nodes, scope, document_title='Supplies').status == 'missing'
+    assert bind(nodes, scope, document_title='Notes').status == 'matched'
+
+
+def test_scope_exclusion_rejects_restatement_that_changes_the_path():
+    phrase = 'Atrium / Supplies, the Supplies section directly under Loft rather than Depot'
+    hypothesis = AuthorScopeHypothesis(evidence=author_quote(phrase, phrase), grammar='exclusion')
+    with pytest.raises(ValueError, match='restated path'):
+        hypothesis.compile(phrase, ())
 
 
 def bind(nodes, scope, **kwargs):

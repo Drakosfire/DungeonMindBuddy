@@ -74,7 +74,13 @@ class UnresolvedLocation(Strict):
     reason: str = Field(min_length=1)
 
 
-ScopeExpression = Annotated[NamedScopePath | UnscopedLocation | UnresolvedLocation,
+class ScopeWithExclusion(Strict):
+    kind: Literal['scope_with_exclusion'] = 'scope_with_exclusion'
+    positive: NamedScopePath
+    excluded: NamedScopePath
+
+
+ScopeExpression = Annotated[NamedScopePath | ScopeWithExclusion | UnscopedLocation | UnresolvedLocation,
     Field(discriminator='kind')]
 
 
@@ -231,7 +237,8 @@ def literal_reference(text: str, *, path: bool, quoted: bool = False,
         edges=('direct_parent',) * (len(parts) - 1), rooted=rooted)
 
 
-ScopeGrammar = Literal['literal_name', 'literal_path', 'natural_path', 'document_title', 'description']
+ScopeGrammar = Literal[
+    'literal_name', 'literal_path', 'natural_path', 'document_title', 'description', 'exclusion']
 
 
 class AuthorScopeHypothesis(Strict):
@@ -240,8 +247,10 @@ class AuthorScopeHypothesis(Strict):
     evidence: AuthorLocationQuote
     grammar: ScopeGrammar
 
-    def compile(self, request: str, dialogue: tuple[RetrievalDialogue, ...]) -> NamedScopePath:
+    def compile(self, request: str, dialogue: tuple[RetrievalDialogue, ...]) -> NamedScopePath | ScopeWithExclusion:
         quote = self.evidence.verify(request, dialogue)
+        if _scope_syntax(quote).rstrip().endswith(('.', '!', '?', ';')):
+            raise ValueError('Unquoted closing punctuation is not part of a scope reference')
         utterance = self.evidence._utterance(request, dialogue)
         before = utterance[:self.evidence.start].rstrip()
         after = utterance[self.evidence.end:].lstrip()
@@ -249,9 +258,14 @@ class AuthorScopeHypothesis(Strict):
             raise ValueError('Location evidence cannot omit a slash-connected path component')
         if (_RELATION_BEFORE.search(before) or _RELATION_AFTER.match(after)):
             raise ValueError('Location evidence cannot omit a natural path operand')
-        if (_EXCLUSION_BEFORE.search(before) or _EXCLUSION_AFTER.match(after)):
+        if _EXCLUSION_BEFORE.search(before) or _EXCLUSION_AFTER.match(after):
             raise ValueError('Location evidence cannot omit an exclusion operand')
-        return _compile_scope_expression(quote, self.grammar)
+        if self.grammar == 'exclusion':
+            return _compile_exclusion(quote)
+        path = _compile_scope_expression(quote, self.grammar)
+        if after.startswith(',') and _has_excluded_restatement(path, after[1:]):
+            raise ValueError('Location evidence cannot omit a restated exclusion')
+        return path
 
 
 _TITLE_REFERENCE = re.compile(
@@ -261,8 +275,10 @@ _DESCRIPTION_REFERENCE = re.compile(r'(?:the )?section about\s+(.+)', re.IGNOREC
 _NATURAL_CONNECTORS = re.compile(r'(?<=\s)(directly under|whose parent is|inside)(?=\s)', re.IGNORECASE)
 _RELATION_BEFORE = re.compile(r'\b(?:directly under|whose parent is)$', re.IGNORECASE)
 _RELATION_AFTER = re.compile(r'^(?:section\s+)?(?:directly under|whose parent is|inside)\b', re.IGNORECASE)
-_EXCLUSION_BEFORE = re.compile(r'\b(?:rather than|except)$', re.IGNORECASE)
+_EXCLUSION_BEFORE = re.compile(r'\b(?:rather than|except)(?:\s+the one inside)?$', re.IGNORECASE)
 _EXCLUSION_AFTER = re.compile(r'^,?\s*(?:rather than|except)\b', re.IGNORECASE)
+_EXCLUSION_SEPARATOR = re.compile(r'\b(?:rather than|except)\b', re.IGNORECASE)
+_ANCESTOR_EXCLUSION = re.compile(r'^the one inside\s+', re.IGNORECASE)
 _COMPOUND_REFERENCE = re.compile(r'\b(?:either|or|both|and|except|rather than)\b', re.IGNORECASE)
 _LOCATION_CLAUSE = re.compile(r'\b(?:paragraph|heading)\s+(?:in|inside|under)\b', re.IGNORECASE)
 _ORDINAL_REFERENCE = re.compile(
@@ -316,6 +332,8 @@ def _compile_scope_expression(text: str, grammar: str, depth: int = 1) -> NamedS
         if match is None:
             raise ValueError('A natural path must preserve its declared relationship')
         child_text = re.sub(r'\s+section$', '', text[:match.start()].rstrip(), flags=re.IGNORECASE)
+        if child_text[:4].casefold() == 'the ':
+            child_text = child_text[4:]
         child = _compile_scope_expression(child_text, 'literal_name', depth + 1)
         parent_text = text[match.end():].lstrip()
         parent_syntax = _scope_syntax(parent_text)
@@ -340,6 +358,60 @@ def _compile_scope_expression(text: str, grammar: str, depth: int = 1) -> NamedS
         if _TITLE_REFERENCE.fullmatch(component) or _DESCRIPTION_REFERENCE.fullmatch(component):
             raise ValueError('Typed reference evidence cannot be interpreted as a literal name')
     return literal_reference(text, path=True)
+
+
+def _path_grammar(text: str, syntax: str) -> ScopeGrammar:
+    if _TITLE_REFERENCE.fullmatch(text):
+        return 'document_title'
+    if _DESCRIPTION_REFERENCE.fullmatch(text):
+        return 'description'
+    if _NATURAL_CONNECTORS.search(syntax):
+        return 'natural_path'
+    return 'literal_path' if '/' in syntax else 'literal_name'
+
+
+def _declared_path(text: str) -> NamedScopePath:
+    return _compile_scope_expression(text, _path_grammar(text, _scope_syntax(text)))
+
+
+def _path_key(path: NamedScopePath) -> tuple:
+    return (tuple((n.kind, name_key(getattr(n, 'text', ''))) for n in path.names), path.edges)
+
+
+def _compile_exclusion(text: str) -> ScopeWithExclusion:
+    syntax = _scope_syntax(text)
+    separators = list(_EXCLUSION_SEPARATOR.finditer(syntax))
+    if len(separators) != 1:
+        raise ValueError('Exclusion evidence requires one explicit excluded operand')
+    separator = separators[0]
+    positive_text = text[:separator.start()].rstrip().rstrip(',').rstrip()
+    comma = _scope_syntax(positive_text).find(',')
+    positive = _declared_path(positive_text if comma < 0 else positive_text[:comma].strip())
+    if comma >= 0 and _path_key(positive) != _path_key(_declared_path(positive_text[comma + 1:].strip())):
+        raise ValueError('A restated path must preserve every primary scope constraint')
+    excluded_text = text[separator.end():].strip()
+    if not excluded_text:
+        raise ValueError('Exclusion evidence must preserve its excluded path')
+    parent = _ANCESTOR_EXCLUSION.match(excluded_text)
+    if parent is not None:
+        ancestor = _declared_path(excluded_text[parent.end():])
+        excluded = NamedScopePath(names=(*ancestor.names, positive.names[-1]),
+            edges=(*ancestor.edges, 'any_ancestor'))
+    else:
+        excluded = _declared_path(excluded_text)
+    return ScopeWithExclusion(positive=positive, excluded=excluded)
+
+
+def _has_excluded_restatement(path: NamedScopePath, after: str) -> bool:
+    syntax = _scope_syntax(after)
+    clause = re.split(r'[.!?;]', syntax, maxsplit=1)[0]
+    separator = _EXCLUSION_SEPARATOR.search(clause)
+    if separator is None:
+        return False
+    try:
+        return _path_key(path) == _path_key(_declared_path(after[:separator.start()].strip()))
+    except ValueError:
+        return False
 
 
 _SCOPE_TOKEN = re.compile(r"\w+(?:['’]\w+)*|[^\w\s]", re.UNICODE)
@@ -393,17 +465,8 @@ def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...
 
         for start, end in sorted(spans):
             quote = text[start:end]
-            grammar: ScopeGrammar
-            if _TITLE_REFERENCE.fullmatch(quote):
-                grammar = 'document_title'
-            elif _DESCRIPTION_REFERENCE.fullmatch(quote):
-                grammar = 'description'
-            elif _NATURAL_CONNECTORS.search(syntax[start:end]):
-                grammar = 'natural_path'
-            elif '/' in syntax[start:end]:
-                grammar = 'literal_path'
-            else:
-                grammar = 'literal_name'
+            fragment = syntax[start:end]
+            grammar = 'exclusion' if _EXCLUSION_SEPARATOR.search(fragment) else _path_grammar(quote, fragment)
             evidence = AuthorLocationQuote(utterance_index=utterance_index, start=start, end=end, text=quote)
             hypothesis = AuthorScopeHypothesis(evidence=evidence, grammar=grammar)
             try:
@@ -429,8 +492,13 @@ def author_scope_offer_view(request: str, dialogue: tuple[RetrievalDialogue, ...
         if include_quote_context:
             quote.update(text_before=utterance[max(0, evidence.start - 32):evidence.start],
                 text_after=utterance[evidence.end:evidence.end + 32])
-        offers[alias] = {'components': [name.model_dump() for name in scope.names],
-            'edges': list(scope.edges), 'author_quote': quote}
+        positive = scope.positive if isinstance(scope, ScopeWithExclusion) else scope
+        offer = {'components': [name.model_dump() for name in positive.names],
+            'edges': list(positive.edges), 'author_quote': quote}
+        if isinstance(scope, ScopeWithExclusion):
+            offer['excluded_path'] = {'components': [n.model_dump() for n in scope.excluded.names],
+                'edges': list(scope.excluded.edges)}
+        offers[alias] = offer
     return {'current_request': request, 'dialogue': [
         {'role': row.role, 'content': row.content} for row in dialogue], 'scope_hypotheses': offers}
 
@@ -477,6 +545,7 @@ def _path_matches(path, keys, edges, rooted):
 
 def bind_scope(capture, catalog, scope: ScopeExpression, *, document_title: str | None,
                description_matches: dict[int, tuple[str, ...]] | None = None,
+               excluded_description_matches: dict[int, tuple[str, ...]] | None = None,
                allow_ordinal: bool = False) -> BoundScope:
     """Bind every mandatory name before expanding actual primary-heading ranges.
 
@@ -484,6 +553,20 @@ def bind_scope(capture, catalog, scope: ScopeExpression, *, document_title: str 
     This helper supplies no producer proof or mutation capability. Its caller
     must validate the actual interpretation and later matcher at their owners.
     """
+    if isinstance(scope, ScopeWithExclusion):
+        if document_title is None and any(isinstance(name, DocumentTitleScopeName) for name in scope.excluded.names):
+            return BoundScope('unsupported', (), ())
+        positive = bind_scope(capture, catalog, scope.positive, document_title=document_title,
+            description_matches=description_matches, allow_ordinal=allow_ordinal)
+        excluded = bind_scope(capture, catalog, scope.excluded, document_title=document_title,
+            description_matches=excluded_description_matches, allow_ordinal=allow_ordinal)
+        if positive.status == 'unsupported' or excluded.status == 'unsupported':
+            return BoundScope('unsupported', (), ())
+        headings = tuple(i for i in positive.heading_indices if i not in excluded.heading_indices)
+        paragraphs = tuple(alias for alias in positive.paragraph_anchors if alias not in excluded.paragraph_anchors)
+        return BoundScope('matched' if headings else 'missing', headings, paragraphs)
+    if excluded_description_matches is not None:
+        raise ValueError('An excluded description requires its own excluded path')
     inventory = source_heading_inventory(capture, catalog)
     if isinstance(scope, UnscopedLocation):
         return BoundScope('unscoped', (), inventory['paragraphs'])
