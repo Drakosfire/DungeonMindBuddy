@@ -19,6 +19,11 @@ PARAGRAPH_SCOPES = {
     'unresolved': 'The scope is unclear, uses ordinal/positional section occurrence selection, or requires independent OR/AND/contradictory section constraints.',
     'not_applicable': 'The placement is not a before/after-paragraph operation.',
 }
+SCOPE_QUALIFIERS = {
+    'none': 'No parent or ancestor qualification is stated for the primary section title.',
+    'named': 'The primary section is restricted by named parent/ancestor qualifications, even if absent.',
+    'unresolved': 'The ancestry qualification cannot be resolved as one supported section description.',
+}
 
 
 def current_resolution(execution):
@@ -57,7 +62,9 @@ def prepare_contextual_work(request):
     state.update(offered_page_anchors=[entry['view'] for entry in inventory['direct']],
         paragraph_passages=[entry['view'] for entry in inventory['passages']],
         paragraph_sections=[entry['view'] for entry in inventory['sections']],
+        section_ancestor_paths=[entry['view'] for entry in inventory['ancestors']],
         paragraph_scope_modes=scope_modes(request),
+        scope_qualifier_modes=dict(SCOPE_QUALIFIERS),
         placement_relations={key: RELATIONS[key] for key in offered_relations(request)},
         focused_edit_target=focused_target(request),
         interpretation_policy=(
@@ -68,15 +75,16 @@ def prepare_contextual_work(request):
             "setting, vocabulary or relevance alone does not identify that anchor. Repetition and "
             "ordering inside new content do not add page-placement relations. "
             "Include ALL matching families, never choose one winner. Paragraph passage votes ignore "
-            "section and insertion side. Section votes match EVERY explicitly named parent/child; "
-            "omitted parents permit every path matching the named child. A missing named section "
+            "section and insertion side. Section votes identify the primary section TITLE, independently "
+            "of parents. Qualifier votes separately match every named ancestor, in order, and respect "
+            "direct-parent constraints. No qualifier expands every occurrence of the primary title. A missing named section "
             "stays named with no matches, never unscoped or a substitute parent. An ancestor alone "
             "includes descendants; a named child requires that child. Compound OR/AND/contradictory "
             "and ordinal/positional paragraph section restrictions are unresolved. "
             "Only one existing-page relation is supported. Before/after means immediately adjacent. "
             "Directly under a heading before its body is one after_heading relation. An explicit "
             "selection is one exact span despite duplicate words; an incidental caret cannot "
-            "replace a named destination. Nonparagraph relations exclude paragraph factors. "
+            "replace a named destination. Paragraph factors are inactive for nonparagraph relations. "
             "Paragraph relations exclude direct anchors. Unscoped excludes section votes. "
             "Discussion without an edit excludes all location votes. "
             "The host resolves ambiguity and validates edit authority; these votes never Save."))
@@ -144,12 +152,12 @@ def component_inventory(capture, catalog):
     paths, stack = {}, []
     for heading in headings:
         title = ''.join(part['text'] for part in nodes[heading['index']].get('content', [])
-            if isinstance(part, dict) and part.get('type') == 'text' and isinstance(part.get('text'), str)).strip()
+            if isinstance(part, dict) and part.get('type') == 'text' and isinstance(part.get('text'), str))
         while stack and stack[-1][0] >= heading['level']:
             stack.pop()
         stack.append((heading['level'], title))
         paths[heading['index']] = tuple(text for _, text in stack)
-    direct, passages, sections = {}, {}, {}
+    direct, passages, sections, ancestors = {}, {}, {}, {}
     paragraphs = [(row, entries) for row, entries in groups if row['kind'] == 'paragraph']
     for row, entries in groups:
         if row['kind'] == 'paragraph':
@@ -170,16 +178,23 @@ def component_inventory(capture, catalog):
             direct[key]['anchors'].append(row['selector'])
     if paragraphs:
         for heading in headings:
-            key = paths[heading['index']]
-            if key not in sections:
-                sections[key] = dict(view=dict(selector=f'section{len(sections)}', heading_path=list(key)), anchors=[])
-            matches = sections[key]['anchors']
-            for row, entries in paragraphs:
-                if (heading['index'] < entries[0].source_root_index < heading['end']
-                        and row['selector'] not in matches):
-                    matches.append(row['selector'])
+            path = paths[heading['index']]
+            title, parent_path = path[-1], path[:-1]
+            if title not in sections:
+                sections[title] = dict(view=dict(selector=f'section{len(sections)}', title=title),
+                    anchors=[], occurrences=[])
+            matches = [row['selector'] for row, entries in paragraphs
+                if heading['index'] < entries[0].source_root_index < heading['end']]
+            section = sections[title]
+            section['occurrences'].append(dict(index=heading['index'], anchors=matches))
+            section['anchors'].extend(anchor for anchor in matches if anchor not in section['anchors'])
+            if parent_path:
+                if parent_path not in ancestors:
+                    ancestors[parent_path] = dict(view=dict(selector=f'ancestor{len(ancestors)}',
+                        heading_path=list(parent_path)), occurrences=[])
+                ancestors[parent_path]['occurrences'].append(heading['index'])
     return dict(all=groups, direct=list(direct.values()), passages=list(passages.values()),
-        sections=list(sections.values()))
+        sections=list(sections.values()), ancestors=list(ancestors.values()))
 
 
 def offered_relations(request):
@@ -227,6 +242,10 @@ def target_questions(request):
             question='For a paragraph placement, does the author impose one section description? '
                 'Judge section scope separately from paragraph content. Use not_applicable for other relations.',
             option_descriptions=scope_modes(request)),
+        ChoiceDecisionQuestion(name='scope_qualifier', options=tuple(SCOPE_QUALIFIERS),
+            question='Does the author qualify the primary section title by a parent or ancestor? '
+                'A primary section name alone has no ancestor qualification.',
+            option_descriptions=dict(SCOPE_QUALIFIERS)),
         *(ChoiceDecisionQuestion(name=f'anchor_{i}', options=('include', 'exclude'),
             option_descriptions={
                 'include': 'The requested relation uses this kind of direct destination and the author refers to this capture, heading path or page end.',
@@ -246,23 +265,32 @@ def target_questions(request):
                 'exclude': 'The described existing paragraph differs, or the edit is located relative to a heading, selection or page end instead.'})
             for i, entry in enumerate(inventory['passages'])),
         *(ChoiceDecisionQuestion(name=f'section_{i}', options=('include', 'exclude'),
-            question='Does the author name this section as the location of the existing paragraph? '
-                'A section name modifying "paragraph" counts as a section reference. '
-                'Only explicitly named parents restrict the match. An omitted parent permits every path with the named child. '
-                'Exclude for no named section, a nonparagraph destination, or unsupported compound/ordinal section constraints. '
+            question='Is this the PRIMARY section title named for the existing paragraph? '
+                'Judge the primary title independently of its parent or ancestor qualifications. '
+                'A title named only as an ancestor is not the primary title. '
                 'Judge paragraph_sections ' + entry['view']['selector'] + '.',
             option_descriptions={
-                'include': 'This path matches the section named for the paragraph, including every stated ancestor and child.',
-                'exclude': 'This is a different path, or the author does not name one supported section description for a paragraph.'})
-            for i, entry in enumerate(inventory['sections'])))
+                'include': 'This title describes the primary section containing the paragraph. Include every matching title family.',
+                'exclude': 'The primary section title differs, is unnamed, or this is only an ancestor qualifier.'})
+            for i, entry in enumerate(inventory['sections'])),
+        *(ChoiceDecisionQuestion(name=f'ancestor_{i}', options=('include', 'exclude'),
+            question='Does this ancestor path satisfy EVERY ancestor qualification of the primary section? '
+                'Respect stated order and whether an immediate parent or a more distant ancestor is requested. '
+                'An absent requested ancestor cannot be dropped. No qualification means exclude. '
+                'Judge section_ancestor_paths ' + entry['view']['selector'] + '.',
+            option_descriptions={
+                'include': 'All stated ancestor qualifications match this path, including order and any direct-parent requirement.',
+                'exclude': 'A stated ancestor differs or is missing, the hierarchy differs, or no ancestor qualification is requested.'})
+            for i, entry in enumerate(inventory['ancestors'])))
 
 
 def target_answer_keys(request):
     inventory = component_inventory(request.original_capture, request.placement_catalog)
-    return {'placement_relation', 'paragraph_scope',
+    return {'placement_relation', 'paragraph_scope', 'scope_qualifier',
         *(f'anchor_{i}' for i in range(len(inventory['direct']))),
         *(f'passage_{i}' for i in range(len(inventory['passages']))),
-        *(f'section_{i}' for i in range(len(inventory['sections'])))}
+        *(f'section_{i}' for i in range(len(inventory['sections']))),
+        *(f'ancestor_{i}' for i in range(len(inventory['ancestors'])))}
 
 
 def compatible_selectors(request, answers):
@@ -270,8 +298,8 @@ def compatible_selectors(request, answers):
 
 
 def contextual_work_choice(request, intent, answers):
-    keys = {key for key in answers if key.startswith(('anchor_', 'target_', 'passage_', 'section_'))
-        or key in {'placement_relation', 'paragraph_scope'}}
+    keys = {key for key in answers if key.startswith(('anchor_', 'target_', 'passage_', 'section_', 'ancestor_'))
+        or key in {'placement_relation', 'paragraph_scope', 'scope_qualifier'}}
     if keys != target_answer_keys(request):
         raise ValueError('Incomplete or foreign contextual-anchor judgments')
     relation = answers['placement_relation']
@@ -291,41 +319,51 @@ def contextual_work_choice(request, intent, answers):
         return selected
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
         answers['paragraph_scope'], votes('anchor', inventory['direct']),
-        votes('passage', inventory['passages']), votes('section', inventory['sections']))
+        votes('passage', inventory['passages']), votes('section', inventory['sections']),
+        answers['scope_qualifier'], votes('ancestor', inventory['ancestors']))
 
 
-def resolve_component_targets(capture, catalog, intent, relation, scope, direct, passages, sections):
+def resolve_component_targets(capture, catalog, intent, relation, scope, direct, passages, sections,
+                              qualifier='none', ancestors=()):
     inventory = component_inventory(capture, catalog)
-    if scope not in PARAGRAPH_SCOPES:
-        raise ValueError('Unknown paragraph scope mode')
-    def expand(entries, selected):
-        selected = tuple(selected)
-        if len(set(selected)) != len(selected) or set(selected) - {entry['view']['selector'] for entry in entries}:
+    if scope not in PARAGRAPH_SCOPES or qualifier not in SCOPE_QUALIFIERS:
+        raise ValueError('Unknown paragraph scope mode or ancestor qualifier')
+    def selected(entries, selectors):
+        selectors = tuple(selectors)
+        if len(set(selectors)) != len(selectors) or set(selectors) - {entry['view']['selector'] for entry in entries}:
             raise ValueError('Foreign or duplicate contextual component')
-        chosen = [entry for entry in entries if entry['view']['selector'] in selected]
-        return tuple(entry['view']['selector'] for entry in chosen), {
-            anchor for entry in chosen for anchor in entry['anchors']}
-    direct_ids, direct_anchors = expand(inventory['direct'], direct)
-    passage_ids, passage_anchors = expand(inventory['passages'], passages)
-    section_ids, section_anchors = expand(inventory['sections'], sections)
+        chosen = [entry for entry in entries if entry['view']['selector'] in selectors]
+        return tuple(entry['view']['selector'] for entry in chosen), chosen
+    def anchors(entries):
+        return {anchor for entry in entries for anchor in entry['anchors']}
+    direct_ids, direct_rows = selected(inventory['direct'], direct)
+    passage_ids, passage_rows = selected(inventory['passages'], passages)
+    section_ids, section_rows = selected(inventory['sections'], sections)
+    ancestor_ids, ancestor_rows = selected(inventory['ancestors'], ancestors)
+    # Join heading occurrences FIRST. Intersecting paragraph ranges can borrow an
+    # unrelated descendant's ancestry and authorize the wrong primary section.
+    qualified_occurrences = {index for entry in ancestor_rows for index in entry['occurrences']}
+    scoped_anchors = {anchor for entry in section_rows for occurrence in entry['occurrences']
+        if qualifier == 'none' or qualifier == 'named' and occurrence['index'] in qualified_occurrences
+        for anchor in occurrence['anchors']}
     paragraph_relation = relation in {'before_paragraph', 'after_paragraph'}
-    if scope in {'unscoped', 'not_applicable'} and section_ids:
-        raise ValueError('Inactive section scope cannot acquire a named restriction')
-    if paragraph_relation:
-        if scope == 'not_applicable' or direct_ids:
-            raise ValueError('Paragraph placement requires its applicable factors only')
-    elif relation != 'unresolved' and (scope != 'not_applicable' or passage_ids or section_ids):
-        raise ValueError('Nonparagraph placement cannot acquire paragraph factors')
-    if scope == 'named':
-        paragraph_anchors = passage_anchors & section_anchors
-    elif scope == 'unscoped' or relation == 'unresolved' and scope == 'not_applicable':
-        paragraph_anchors = passage_anchors
+    consistent = not direct_ids and qualifier != 'unresolved'
+    if scope == 'named' and not (qualifier == 'none' and ancestor_ids):
+        paragraph_anchors = anchors(passage_rows) & scoped_anchors
+    elif scope == 'unscoped' and not section_ids and qualifier == 'none' and not ancestor_ids:
+        paragraph_anchors = anchors(passage_rows)
     else:
-        paragraph_anchors = set()  # An unresolved scope cannot become writing through uniqueness.
-    anchors = direct_anchors | paragraph_anchors
+        paragraph_anchors = set()
+    if not consistent:
+        paragraph_anchors = set()
+    # Other kinds retain inert raw factors, but those factors grant no authority
+    # and cannot suppress an otherwise valid direct selection/heading/end target.
+    active_anchors = (paragraph_anchors if paragraph_relation else anchors(direct_rows)
+        if relation != 'unresolved' else anchors(direct_rows) | paragraph_anchors)
     return dict(direct_anchor_selectors=direct_ids, compatible_passage_selectors=passage_ids,
         compatible_section_selectors=section_ids, requested_paragraph_scope=scope,
-        **resolve_anchor_targets(capture, catalog, intent, relation, anchors))
+        requested_scope_qualifier=qualifier, compatible_ancestor_selectors=ancestor_ids,
+        **resolve_anchor_targets(capture, catalog, intent, relation, active_anchors))
 
 
 def resolve_anchor_targets(capture, catalog, intent, relation, anchors):
@@ -408,7 +446,10 @@ def clarification_question(selection):
     if (getattr(selection, 'requested_placement_relation', None) in {'before_paragraph', 'after_paragraph'}
             and (getattr(selection, 'requested_paragraph_scope', None) == 'unresolved'
                 or getattr(selection, 'requested_paragraph_scope', None) == 'named'
-                and not selection.compatible_section_selectors)):
+                and (not selection.compatible_section_selectors
+                    or selection.requested_scope_qualifier == 'unresolved'
+                    or selection.requested_scope_qualifier == 'named'
+                    and not selection.compatible_ancestor_selectors))):
         return 'Could you select the intended paragraph, or name one unambiguous section path for it?'
     if selection.target_resolution == "ambiguous":
         from .plan_authoring import PlanAuthoringCaptureV1

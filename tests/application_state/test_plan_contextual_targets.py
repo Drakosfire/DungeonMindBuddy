@@ -107,9 +107,13 @@ def component_result(capture, catalog, *, scope='unscoped', path=None, relation=
     from application_state.agent_conversation.plan_contextual_targets import component_inventory, resolve_component_targets
     inventory = component_inventory(capture, catalog)
     sections = tuple(entry['view']['selector'] for entry in inventory['sections']
-        if entry['view']['heading_path'] in (path or []))
+        if entry['view']['title'] in {p[-1] for p in (path or [])})
+    parents = [p[:-1] for p in (path or []) if len(p) > 1]
+    ancestors = tuple(entry['view']['selector'] for entry in inventory['ancestors']
+        if entry['view']['heading_path'] in parents)
     return resolve_component_targets(capture, catalog, 'write_current_page', relation, scope, (),
-        (inventory['passages'][0]['view']['selector'],), sections)
+        (inventory['passages'][0]['view']['selector'],), sections,
+        'named' if parents else 'none', ancestors)
 
 
 def test_passage_families_expand_all_occurrences_before_named_scope_filters():
@@ -166,13 +170,79 @@ def test_nested_scope_uses_complete_title_arrays_and_actual_containment():
     assert unknown_child['target_resolution'] == 'missing'
 
 
+def test_primary_title_without_ancestor_expands_every_parent_and_duplicate_path():
+    capture, catalog = family_catalog([heading('North', 1), heading('Supplies'), prose('Shared.'),
+        heading('South', 1), heading('Supplies'), prose('Shared.'), heading('Supplies'), prose('Shared.')])
+    all_parents = component_result(capture, catalog, scope='named', path=[['Supplies']])
+    assert all_parents['target_resolution'] == 'ambiguous'
+    assert len(all_parents['compatible_anchor_selectors']) == 3
+    north = component_result(capture, catalog, scope='named', path=[['North', 'Supplies']])
+    assert catalog.resolve(capture, north['placement_selector']).root_boundary == 3
+    south = component_result(capture, catalog, scope='named', path=[['South', 'Supplies']])
+    assert south['target_resolution'] == 'ambiguous'
+    assert len(south['compatible_anchor_selectors']) == 2
+
+
+def test_missing_ancestor_and_primary_cannot_drop_the_unsatisfied_constraint():
+    capture, catalog = family_catalog([heading('Garden', 1), heading('Shed'), prose('Shared.')])
+    for path in ([['Orchard', 'Shed']], [['Garden', 'Missing']]):
+        result = component_result(capture, catalog, scope='named', path=path)
+        assert result['requested_work'] == 'clarify' and result['target_resolution'] == 'missing'
+        assert result['placement_selector'] is None and result['target_capture_sha256'] is None
+
+
+def test_ancestor_join_uses_primary_occurrence_not_overlapping_paragraph_ranges():
+    capture, catalog = family_catalog([heading('Archive', 1), heading('Other'), prose('Shared.')])
+    # Other has Archive ancestry; Archive itself does not. Its broad range must
+    # not borrow the descendant's ancestry merely because both contain Shared.
+    impossible = component_result(capture, catalog, scope='named', path=[['Archive', 'Archive']])
+    assert impossible['target_resolution'] == 'missing' and impossible['placement_selector'] is None
+    same_named, same_catalog = family_catalog([heading('Archive', 1), heading('Archive'), prose('Shared.')])
+    valid = component_result(same_named, same_catalog, scope='named', path=[['Archive', 'Archive']])
+    assert valid['requested_work'] == 'write_current_page'
+    assert same_catalog.resolve(same_named, valid['placement_selector']).root_boundary == 3
+
+
+@pytest.mark.parametrize('relation,direct', [('captured', 'direct0'), ('after_heading', 'direct1')])
+def test_nonparagraph_authority_ignores_but_retains_noisy_paragraph_factors(relation, direct):
+    from application_state.agent_conversation.plan_contextual_targets import resolve_component_targets
+    capture, catalog = family_catalog([heading('Only'), prose('Unique.')], with_headings=True)
+    result = resolve_component_targets(capture, catalog, 'write_current_page', relation,
+        'unresolved', (direct,), ('passage0',), ('section0',), 'unresolved')
+    assert result['requested_work'] == 'write_current_page' and result['target_resolution'] == 'unique'
+    assert result['compatible_passage_selectors'] == ('passage0',)
+    assert result['compatible_section_selectors'] == ('section0',)
+    assert result['requested_scope_qualifier'] == 'unresolved'
+    target = catalog.resolve(capture, result['placement_selector'])
+    if relation == 'captured':
+        assert target.sha256 == capture.sha256
+    else:
+        assert target.root_boundary == 1
+
+
 def test_delimiter_in_heading_title_does_not_merge_a_distinct_structured_path():
     from application_state.agent_conversation.plan_contextual_targets import component_inventory
     capture, catalog = family_catalog([heading('A / B', 1), prose('Shared.'), heading('A', 1), heading('B'), prose('Shared.')])
-    paths = [entry['view']['heading_path'] for entry in component_inventory(capture, catalog)['sections']]
-    assert ['A / B'] in paths and ['A', 'B'] in paths
+    inventory = component_inventory(capture, catalog)
+    assert {'A / B', 'A', 'B'} == {entry['view']['title'] for entry in inventory['sections']}
+    assert [entry['view']['heading_path'] for entry in inventory['ancestors']] == [['A']]
     result = component_result(capture, catalog, scope='named', path=[['A / B']])
     assert catalog.resolve(capture, result['placement_selector']).root_boundary == 2
+
+
+def test_title_families_preserve_case_whitespace_and_structured_ancestor_paths():
+    from application_state.agent_conversation.plan_contextual_targets import component_inventory
+    capture, catalog = family_catalog([heading('Prep'), prose('Shared.'),
+        heading(' Prep'), prose('Shared.'), heading('prep'), prose('Shared.')])
+    assert [row['view']['title'] for row in component_inventory(capture, catalog)['sections']] == ['Prep', ' Prep', 'prep']
+    nested, nested_catalog = family_catalog([heading('A / B', 1), heading('Target', 3), prose('Shared.'),
+        heading('A', 1), heading('B', 2), heading('Target', 3), prose('Shared.')])
+    paths = [row['view']['heading_path'] for row in component_inventory(nested, nested_catalog)['ancestors']]
+    assert ['A / B'] in paths and ['A', 'B'] in paths
+    literal = component_result(nested, nested_catalog, scope='named', path=[['A / B', 'Target']])
+    assert nested_catalog.resolve(nested, literal['placement_selector']).root_boundary == 3
+    hierarchy = component_result(nested, nested_catalog, scope='named', path=[['A', 'B', 'Target']])
+    assert nested_catalog.resolve(nested, hierarchy['placement_selector']).root_boundary == 7
 
 
 def test_root_prose_is_not_silently_included_by_a_named_section():
@@ -218,12 +288,12 @@ def test_unresolved_scope_and_inconsistent_factors_cannot_acquire_a_target():
         ('after_paragraph', 'unscoped', (), ('passage0',), ('section0',)),
         ('after_paragraph', 'not_applicable', (), ('passage0',), ()),
         ('after_paragraph', 'unscoped', ('direct0',), ('passage0',), ()),
-        ('captured', 'not_applicable', ('direct0',), ('passage0',), ()),
-        ('after_paragraph', 'named', (), ('passage0',), ('foreign',)),
-        ('after_paragraph', 'unscoped', (), ('passage0', 'passage0'), ()),
     ]:
+        result = resolve_component_targets(capture, catalog, 'write_current_page', relation, scope, direct, passages, sections)
+        assert result['requested_work'] == 'clarify' and result['target_capture_sha256'] is None
+    for passages, sections in [(('passage0',), ('foreign',)), (('passage0', 'passage0'), ())]:
         with pytest.raises(ValueError):
-            resolve_component_targets(capture, catalog, 'write_current_page', relation, scope, direct, passages, sections)
+            resolve_component_targets(capture, catalog, 'write_current_page', 'after_paragraph', 'named', (), passages, sections)
 
 
 def test_equivalent_aliases_resolve_one_capture_without_discarding_nominations():
@@ -272,7 +342,8 @@ def test_capture_only_questions_cannot_offer_a_paragraph_scope():
     assert scope.options == ('not_applicable', 'unresolved')
     assert set(prepared.state['paragraph_scope_modes']) == {'not_applicable', 'unresolved'}
     answers = {key: 'exclude' for key in target_answer_keys(request)} | {
-        'placement_relation': 'captured', 'paragraph_scope': 'not_applicable', 'anchor_0': 'include'}
+        'placement_relation': 'captured', 'paragraph_scope': 'not_applicable',
+        'scope_qualifier': 'none', 'anchor_0': 'include'}
     resolved = contextual_work_choice(request, 'write_current_page', answers)
     assert resolved['target_capture_sha256'] == capture.sha256
     with pytest.raises(ValueError, match='scope was not offered'):
@@ -284,7 +355,7 @@ def test_location_votes_are_complete_and_model_view_contains_no_host_bindings():
     request = request_for(capture, catalog)
     from application_state.agent_conversation.plan_contextual_targets import target_answer_keys
     answers = {key: 'exclude' for key in target_answer_keys(request)} | {
-        'placement_relation': 'after_paragraph', 'paragraph_scope': 'unscoped'}
+        'placement_relation': 'after_paragraph', 'paragraph_scope': 'unscoped', 'scope_qualifier': 'none'}
     assert compatible_selectors(request, answers) == ()
     with pytest.raises(ValueError):
         compatible_selectors(request, answers | {'anchor_99': 'include'})
@@ -437,6 +508,8 @@ def test_actual_model_multiple_nominations_clarify_without_reservation_or_factua
                    {'compatible_anchor_selectors': ('anchor0',)},
                    {'requested_paragraph_scope': 'not_applicable'},
                    {'compatible_passage_selectors': ('foreign',)},
+                   {'compatible_ancestor_selectors': ('foreign',)},
+                   {'requested_scope_qualifier': 'unresolved'},
                    {'direct_anchor_selectors': ('direct0',)}):
         with pytest.raises(ValueError):
             NativePlanOpeningSelectedV2.model_validate(selection.model_dump() | fields)

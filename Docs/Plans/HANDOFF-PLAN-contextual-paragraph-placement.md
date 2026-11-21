@@ -4,7 +4,7 @@ Status: ACTIVE implementation in draft PR #4264; acceptance remains RED. This is
 one serial plain-Plan capability. No successor is dispatched and no deployment,
 production migration execution or serving-pin change is included.
 
-Latest development checkpoint: clean7cc75188, actual Jev with scripted writer,
+Retained development checkpoint: clean7cc75188, actual Jev with scripted writer,
 32 frozen cases:27/32 nomination/protocol dispositions correct. Two unnecessary
 missing-target clarifications, two capture-only scope decoding rejections and
 one unsafe abbreviated-section nomination remain RED. That unsafe case reserved
@@ -14,6 +14,29 @@ writer calls, zero OpenAI calls. Evidence:
 SHA256 `e0a329e6424845debd5022205b01b1429b3befd4b819ebcd7436aaad7be40223`.
 Follow-up remains in this PR: narrower capture-only scope choices and simpler
 passage/path questions; no writer-quality or current acceptance claim.
+
+Scope checkpoint after48782668: compact guidance remains RED28/32, with one
+unsafe abbreviated-section proposal and three inactive-factor protocol failures
+(no source writes). Further wording changes are insufficient. The same serial PR
+now factors exact section-title families from ancestor-path qualification.
+Jev nominates primary titles, qualifier mode and every compatible ancestor path;
+the host joins their actual heading occurrences before expanding paragraph
+ranges. It never intersects unrelated section ranges or parses request text.
+None qualifier expands every occurrence; missing named primary/ancestor and
+unresolved qualification cannot write. Nonparagraph relations retain inert raw
+paragraph votes but derive authority solely from direct anchors. Freeze new
+development controls for these failure cases before implementation. Required
+validation remains native SDK/admission/replay, actual-model development/heldout,
+and the ordinary editor/Save boundary; no additional capability or PR is added.
+Eight added controls were frozen before implementation at
+`plan-ordinary-dev/title-ancestor-dev-frozen/manifest.json`: producer SHA256
+`a827cf414268b6286fc4e14ff39794c086c08502f4101e274382076f16398a48`, oracle
+`6a19fdc9d327fbaf6567b7ad2c485507e5a673c37c956239f9fbbc82db57caec`.
+The original32 development objects are unchanged.4878's full report is
+`targeting-diagnostic-4878/evaluator/final-judgment.json`, SHA256
+`16636e2618ea2448a49c29f3d6066260044ac4966b3c5a65d36ee7ec6ec78285`.
+Its isolated backend query-and-answer contract passed1348 tests/159 warnings;
+that evidence is pinned to4878, not the subsequent title/ancestor proof revision.
 
 ## Authority, lane and dependencies
 
@@ -86,11 +109,14 @@ Jev retains all semantic targeting authority in one actual combined SDK batch:
   family to ALL eligible original occurrences with their individual marks, links,
   source roots, geometry and captures intact.
 - Paragraph scope is unscoped, one named semantic description, unresolved or
-  inapplicable. Structured heading-title tuples remain arrays; delimiter-joined
-  strings are not identities. Duplicate occurrences of one path expand to the
-  union of their actual semantic ranges. Descendants belong to an ancestor when
-  that ancestor alone is requested; a named child cannot fall back to its parent.
-  Abbreviated names may match multiple path families, all of which remain eligible.
+  inapplicable. Primary section-title families use exact visible title equality.
+  Ancestor paths remain structured arrays, separate from the primary occurrence
+  (including same-named ancestors). Jev identifies no qualifier, named qualification
+  or unresolved qualification and votes on every complete ancestor path. The host
+  joins title and ancestor matches by heading occurrence BEFORE expanding ranges.
+  No qualifier expands every primary-title occurrence across parents. Named but
+  missing primary or qualification produces no candidates. Descendants belong to
+  an ancestor when that ancestor alone is primary; named children cannot fall back.
 - Explicit independent OR/AND/contradictory scopes and paragraph ordinal/positional
   section qualifiers are unsupported and must remain unresolved. Selection is a
   recovery path. Direct heading occurrence labels retain legacy ordinal detail.
@@ -98,14 +124,16 @@ Jev retains all semantic targeting authority in one actual combined SDK batch:
   Pre-heading prose has no named heading scope. Named-table captions use the
   existing semantic-caption exclusion rules.
 - Direct capture, heading and end votes remain separate from paragraph factors.
-  Foreign/duplicate aliases and inconsistent inactive factors reject. An unresolved
-  relation or scope cannot become writing merely because another factor is unique.
+  Foreign/duplicate aliases reject. Contradictory active paragraph factors produce
+  no target. For nonparagraph relations raw paragraph factors remain inert and
+  cannot broaden or suppress direct authority. An unresolved placement relation
+  cannot write; unresolved scope/qualification cannot authorize paragraph writing.
 
 The host conjoins passage and scope, maps only existing frozen catalog entries,
 and writes only for one distinct canonical capture. No model confidence threshold,
 ranking tie-break, nearest-location substitute or page-top fallback is introduced.
-Raw relation, paragraph-scope mode, direct destinations and complete passage/section
-family votes are retained separately from derived complete source anchors and
+Raw relation, paragraph-scope/qualifier modes, direct destinations and complete
+passage/title/ancestor votes are retained separately from derived source anchors and
 placements. Admission and replay regenerate every field from exact protected SDK
 answers and the frozen parent capture/catalog; caller-supplied expansion is no
 additional authority. Question keys and enum values are closed and complete.

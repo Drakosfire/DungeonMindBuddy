@@ -103,7 +103,7 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             expected_state.difference_update({'offered_page_locations', 'intent_policy', 'placement_policy'})
             expected_state.update({'focused_edit_target', 'interpretation_policy',
                 'offered_page_anchors', 'placement_relations', 'paragraph_passages',
-                'paragraph_sections', 'paragraph_scope_modes'})
+                'paragraph_sections', 'paragraph_scope_modes', 'section_ancestor_paths', 'scope_qualifier_modes'})
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
@@ -118,10 +118,11 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         if opening:
             expected_questions |= {"operation", "post_read_plan", *(f"candidate_{i}" for i in range(len(body["state"]["candidates"])))}
         if contextual:
-            expected_questions |= {'placement_relation', 'paragraph_scope', *(f'anchor_{i}'
+            expected_questions |= {'placement_relation', 'paragraph_scope', 'scope_qualifier', *(f'anchor_{i}'
                 for i in range(len(body['state']['offered_page_anchors']))),
                 *(f'passage_{i}' for i in range(len(body['state']['paragraph_passages']))),
-                *(f'section_{i}' for i in range(len(body['state']['paragraph_sections'])))}
+                *(f'section_{i}' for i in range(len(body['state']['paragraph_sections']))),
+                *(f'ancestor_{i}' for i in range(len(body['state']['section_ancestor_paths'])))}
         assert set(body["questions"]) == expected_questions
         assert current.graph_context_execution.events[-1].outcome == "sdk_entered"
         choice = self.choice
@@ -156,6 +157,7 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         answers = {}
         for name, question in body["questions"].items():
             selected = (component_votes[name] if name in component_votes
+                else 'none' if name == 'scope_qualifier'
                 else paragraph_scope if name == 'paragraph_scope' else relation if name == 'placement_relation'
                 else choice if name == "requested_work" else
                 "finish_retrieval" if name == "operation" else

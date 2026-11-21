@@ -293,10 +293,13 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
     direct_anchor_selectors: tuple[str, ...]
     compatible_passage_selectors: tuple[str, ...]
     compatible_section_selectors: tuple[str, ...]
+    compatible_ancestor_selectors: tuple[str, ...]
     requested_paragraph_scope: Literal['unscoped', 'named', 'unresolved', 'not_applicable']
+    requested_scope_qualifier: Literal['none', 'named', 'unresolved']
 
     @field_validator('compatible_placement_selectors', 'compatible_anchor_selectors',
-        'direct_anchor_selectors', 'compatible_passage_selectors', 'compatible_section_selectors', mode='before')
+        'direct_anchor_selectors', 'compatible_passage_selectors', 'compatible_section_selectors',
+        'compatible_ancestor_selectors', mode='before')
     @classmethod
     def selectors_tuple(cls, value):
         return tuple(value) if isinstance(value, list) else value
@@ -322,7 +325,8 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
         fields = resolve_component_targets(PlanAuthoringCaptureV1.model_validate(self.original_capture),
             decode_plan_placement_catalog(self.placement_catalog), self.requested_intent,
             self.requested_placement_relation, self.requested_paragraph_scope,
-            self.direct_anchor_selectors, self.compatible_passage_selectors, self.compatible_section_selectors)
+            self.direct_anchor_selectors, self.compatible_passage_selectors, self.compatible_section_selectors,
+            self.requested_scope_qualifier, self.compatible_ancestor_selectors)
         if any(getattr(self, key) != value for key, value in fields.items()):
             raise ValueError('Contextual selection differs from its complete target resolution')
         return self
