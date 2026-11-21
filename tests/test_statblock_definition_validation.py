@@ -128,6 +128,18 @@ def test_validate_definition_service_maps_transport_failure() -> None:
     assert result.validation_receipt is None
 
 
+def test_variant_review_reports_transport_failure_without_private_details(caplog) -> None:
+    from apps.live_control_server.services.conversation_variant_save import validate_variant_review
+
+    class FakeClient:
+        def validate_definition(self, body):
+            raise StatblockIntegrationError(category="downstream_timeout", message="private detail")
+
+    assert validate_variant_review(_definition(), client=FakeClient()) is None
+    assert "category=downstream_timeout" in caplog.text
+    assert "private detail" not in caplog.text
+
+
 def test_validate_definition_service_maps_constructor_misconfigured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
