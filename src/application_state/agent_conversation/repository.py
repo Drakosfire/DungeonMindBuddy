@@ -258,15 +258,14 @@ def _update_plan_session_execution(conn, *, world_id, turn_id, before, execution
     return after
 
 
-def materialize_plan_checkpoint(conn, *, before):
+def materialize_plan_checkpoint(conn, *, before, expired=False):
     """Replace a locked checkpoint with the exact ordinary execution before handoff."""
-    from .plan_execution_checkpoints import load_checkpoint
+    from .plan_execution_checkpoints import load_checkpoint_head
 
     prior = dict(before[0])
-    stored = load_checkpoint(conn, prior["turn_id"])
-    if stored is None:
+    checkpoint = load_checkpoint_head(conn, prior["turn_id"])
+    if checkpoint is None:
         return None
-    checkpoint, _ = stored
     turn = lock_turn(conn, prior["world_id"], prior["turn_id"])
     if (turn is None or turn.revision != prior["revision"]
             or turn.attempt != checkpoint.attempt):
@@ -277,10 +276,13 @@ def materialize_plan_checkpoint(conn, *, before):
             UPDATE agent.turn AS turn SET graph_context_execution=expected.execution
             FROM expected
             WHERE turn.world_id=%s AND turn.turn_id=%s AND turn.attempt=%s AND turn.revision=%s
-              AND turn.status='running' AND turn.claim_expires_at>clock_timestamp()
+              AND turn.status='running' AND (
+                  CASE WHEN %s THEN turn.claim_expires_at IS NULL OR turn.claim_expires_at<=clock_timestamp()
+                       ELSE turn.claim_expires_at>clock_timestamp() END)
+
             RETURNING pg_catalog.jsonb_send(expected.execution) AS expected
             """, (Jsonb(turn.graph_context_execution.model_dump(mode="json", by_alias=True)),
-                  turn.world_id, turn.turn_id, turn.attempt, turn.revision))
+                  turn.world_id, turn.turn_id, turn.attempt, turn.revision, expired))
         acknowledgement = cur.fetchone()
     if acknowledgement is None:
         raise ApplicationStateIntegrityError("Plan checkpoint closure lost its live claim")
@@ -295,6 +297,17 @@ def materialize_plan_checkpoint(conn, *, before):
     if after is None or dict(after[0]) != expected or after[1:] != before[1:]:
         raise ApplicationStateIntegrityError("Plan checkpoint closure changed its locked storage image")
     return turn
+
+
+def settle_open_plan_checkpoint(conn, turn, *, expired=False):
+    """Fold the suffix before the locked lifecycle owner changes status or attempt."""
+    if turn.status == "running":
+        from .plan_execution_checkpoints import load_checkpoint_head
+
+        if load_checkpoint_head(conn, turn.turn_id) is not None:
+            image = _lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+            if materialize_plan_checkpoint(conn, before=image, expired=expired) != turn:
+                raise ApplicationStateIntegrityError("Plan checkpoint closure differs from the lifecycle Turn")
 
 
 def _references_from_rows(rows):

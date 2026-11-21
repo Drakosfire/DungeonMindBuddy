@@ -264,6 +264,39 @@ def test_session_commit_failure_seals_without_publishing_or_replaying(applicatio
     assert actual.revision == case.turn.revision + (phase == 'after_commit')
 
 
+@pytest.mark.parametrize("expire", [False, True])
+def test_open_checkpoint_survives_interruption(application_state_dsn, expire):
+    import psycopg
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+    from application_state.agent_conversation.types import TurnFailure
+
+    case = sdk_case(application_state_dsn, native="current", readonly_session=True)
+    session = NativePlanSession(case.turn)
+    step = case.steps[-1]
+    turn, fresh = session.execute(PlanSessionCommand.SELECTION,
+        expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+        selection=step.selection, producer_proof=step.proof)
+    assert fresh
+    session.abort()
+    if expire:
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' "
+                         "WHERE turn_id=%s", (turn.turn_id,))
+        with pytest.raises(ApplicationStateConflictError, match="cannot be reclaimed"):
+            case.service.claim_turn(turn.world_id, turn.conversation_id, turn.turn_id,
+                expected_revision=turn.revision)
+    else:
+        case.service.fail_turn(TurnFailure(world_id=turn.world_id, conversation_id=turn.conversation_id,
+            turn_id=turn.turn_id, expected_revision=turn.revision,
+            failure_code="plan_context_delivery_failure"), interrupted=True)
+    recovered = case.service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert recovered.status == "interrupted"
+    assert recovered.graph_context_execution.events[:len(turn.graph_context_execution.events)] == turn.graph_context_execution.events
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM agent.plan_execution_checkpoint "
+                            "WHERE turn_id=%s", (turn.turn_id,)).fetchone() == (0,)
+
+
 def test_session_refuses_unchanged_revision_storage_corruption(application_state_dsn):
     import psycopg
     from application_state.errors import ApplicationStateIntegrityError

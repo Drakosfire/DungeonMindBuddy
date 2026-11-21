@@ -159,27 +159,27 @@ def load_checkpoint(conn, turn_id):
 
 
 
-def trace_checkpoint_execution(conn, turn_id, attempt, execution, *, provider_attempt_id):
+def trace_checkpoint_execution(conn, turn_id, attempt, execution, *, revision, selector):
     """Select trace witnesses under the already-locked Turn claim."""
     head = load_checkpoint_head(conn, turn_id)
     if head is None:
         return execution
-    if head.attempt != attempt:
-        raise ApplicationStateIntegrityError("Plan trace checkpoint belongs to another attempt")
-    if provider_attempt_id is None:
+    if head.attempt != attempt or head.revision > revision:
+        raise ApplicationStateIntegrityError("Plan trace checkpoint belongs to another claim")
+    if selector is None:
         from pydantic_core import to_json
 
         checkpoint, groups = load_checkpoint(conn, turn_id)
         prefix = SurfaceNativeExecutionV1.model_validate_json(to_json(execution))
         return recover_execution(turn_id=turn_id, attempt=attempt, revision=head.revision,
             prefix=prefix, checkpoint=checkpoint, groups=groups).model_dump(mode="json", by_alias=True)
-    selector = str(provider_attempt_id)
+    field, value = selector
     suffix = conn.execute("""
         SELECT event FROM agent.plan_execution_checkpoint_group
         CROSS JOIN LATERAL jsonb_array_elements(events) AS event
-        WHERE turn_id=%s AND attempt=%s AND event->>'provider_attempt_id'=%s
-        """, (turn_id, attempt, selector)).fetchall()
+        WHERE turn_id=%s AND attempt=%s AND event->>%s=%s
+        """, (turn_id, attempt, field, value)).fetchall()
     return execution | {"events": [
-        *(event for event in execution["events"] if event.get("provider_attempt_id") == selector),
+        *(event for event in execution["events"] if event.get(field) == value),
         *(event for (event,) in suffix),
     ]}

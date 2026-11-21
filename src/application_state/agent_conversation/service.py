@@ -1457,6 +1457,7 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "turn claim fence changed before it could be acquired"
                 )
+            repo.settle_open_plan_checkpoint(conn, turn, expired=True)
             if turn.graph_context_execution is not None and any(
                 isinstance(event, ProviderAttemptAuthorizedEventV1)
                 for event in turn.graph_context_execution.events
@@ -3716,6 +3717,7 @@ class AgentConversationService:
                 )
             if turn.revision != failure.expected_revision or turn.status != "running":
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
+            repo.settle_open_plan_checkpoint(conn, turn)
             from .rules_authority_store import fail_execution_locked
             fail_execution_locked(conn, turn)
             updated = repo.fail_claimed_turn(

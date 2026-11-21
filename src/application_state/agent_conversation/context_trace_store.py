@@ -321,7 +321,9 @@ class TurnContextTraceStore:
                 "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
                 # Only these exact observation types never inspect execution.
                 # Keep it available for all other and future validators.
-                (type(observation) not in {TraceProviderCall, TraceContextDecision},
+                (type(observation) not in {TraceProviderCall, TraceContextDecision}
+                 and (type(observation) is not TraceContextSnapshot
+                      or any(material.historical_source_reads for material in observation.materials)),
                  world_id, turn_id),
             ).fetchone()
             if turn is None or turn[0] != conversation_id:
@@ -335,9 +337,15 @@ class TurnContextTraceStore:
             if execution is not None:
                 from .plan_execution_checkpoints import trace_checkpoint_execution
 
+                selector = None
+                if isinstance(observation, TracePromptReference):
+                    selector = ("provider_attempt_id", str(observation.provider_attempt_id))
+                elif isinstance(observation, TraceGraphTool):
+                    selector = ("event_id", str(observation.execution_event_id))
+                elif isinstance(observation, TraceAuthoredGraphReferenceV1):
+                    selector = ("event_id", str(observation.execution_event.event_id))
                 execution = trace_checkpoint_execution(conn, turn_id, attempt, execution,
-                    provider_attempt_id=observation.provider_attempt_id
-                    if isinstance(observation, TracePromptReference) else None)
+                    revision=expected_revision, selector=selector)
             row = _trace_row(conn, turn_id, attempt)
             if row is None:
                 raise ApplicationStateNotFoundError("context trace was not started")
