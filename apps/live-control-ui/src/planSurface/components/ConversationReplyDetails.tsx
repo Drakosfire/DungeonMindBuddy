@@ -39,8 +39,8 @@ export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load,
     <summary>Details</summary>
     {children}
     {open && busy && <p role="status">Loading reply details…</p>}
-    {open && error && <details><summary>Some reply details couldn’t load</summary>
+    {open && error && <div>
       <p role="alert">{error}</p><button type="button" onClick={inspect}>Retry details</button>
-    </details>}
+    </div>}
   </details></>;
 }
