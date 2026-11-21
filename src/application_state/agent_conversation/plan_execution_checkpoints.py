@@ -117,7 +117,25 @@ def append_group(conn, *, world_id, root_revision, checkpoint, events):
         RETURNING append_revision
         """, (world_id, checkpoint.turn_id, checkpoint.attempt, root_revision, checkpoint.revision,
               first, after, first, after, Jsonb(payload), t.canonical_sha256(payload))).fetchone()
-    return None if row is None else row[0]
+    if row is None:
+        return None
+    stored = conn.execute("""
+        SELECT after_sequence, append_revision, events, events_sha256
+        FROM agent.plan_execution_checkpoint_group
+        WHERE turn_id=%s AND attempt=%s AND first_sequence=%s
+        FOR SHARE
+        """, (checkpoint.turn_id, checkpoint.attempt, first)).fetchone()
+    if stored != (after, row[0], payload, t.canonical_sha256(payload)):
+        raise ApplicationStateIntegrityError("Plan checkpoint append changed its stored event group")
+    return row[0]
+
+
+def load_checkpoint_head(conn, turn_id):
+    row = conn.execute("""
+        SELECT turn_id, attempt, base_revision, revision, first_sequence, next_sequence, prefix_sha256
+        FROM agent.plan_execution_checkpoint WHERE turn_id=%s
+        """, (turn_id,)).fetchone()
+    return None if row is None else EventCheckpoint(*row)
 
 
 def load_checkpoint(conn, turn_id):

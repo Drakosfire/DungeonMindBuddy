@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from copy import deepcopy
+from dataclasses import replace
 from datetime import timedelta
 from enum import Enum
 from threading import RLock
@@ -18,6 +19,7 @@ from pydantic import BaseModel, TypeAdapter
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from application_state.unit_of_work import unit_of_work
 from . import repository as repo
+from .plan_execution_checkpoints import append_group, load_checkpoint_head, start_checkpoint
 from .native_execution import (
     NativePlanActionV2, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeEvent,
     SurfaceNativeExecutionV1, _join_turn_fields, _join_turn_lifecycle,
@@ -119,11 +121,29 @@ class _SessionAdmission(AgentConversationService):
         owner = self._owner
         if expected_revision != owner._committed.revision:
             raise ApplicationStateConflictError('Session append has a stale revision')
+        turn = owner._committed
         with owner._measure("plan_append_storage_write_ack"):
-            image = repo._update_plan_session_execution(conn, world_id=world_id,
-                turn_id=turn_id, before=owner._image, execution=execution)
-        if image is None:
-            return None
+            started = repo.database_clock(conn)
+            checkpoint = owner._checkpoint
+            if checkpoint is None:
+                checkpoint = start_checkpoint(conn, world_id=world_id, turn_id=turn_id,
+                    attempt=turn.attempt, revision=turn.revision, prefix=turn.graph_context_execution)
+            group = execution.events[checkpoint.next_sequence:]
+            revision = append_group(conn, world_id=world_id, root_revision=turn.revision,
+                checkpoint=checkpoint, events=group)
+            if revision is None:
+                raise ApplicationStateConflictError('Plan checkpoint append lost its running claim')
+            expected_checkpoint = replace(checkpoint, revision=revision, next_sequence=len(execution.events))
+            image = repo._lock_plan_session_image(conn, world_id, turn_id)
+            current = dict(image[0]) if image is not None else {}
+            finished = repo.database_clock(conn)
+            expected_root = dict(owner._image[0]) | {
+                'revision': turn.revision + 1, 'updated_at': current.get('updated_at'),
+            }
+            if (current != expected_root or image[1:] != owner._image[1:]
+                    or not started <= current['updated_at'] <= finished
+                    or load_checkpoint_head(conn, turn_id) != expected_checkpoint):
+                raise ApplicationStateIntegrityError('Plan checkpoint append changed its locked storage image')
         root = dict(image[0])
         # The complete prospective execution has just passed the existing
         # context owner. All other root/provenance fields are byte-identical to
@@ -134,7 +154,7 @@ class _SessionAdmission(AgentConversationService):
         _join_turn_fields(candidate.graph_context_receipt, execution,
                           candidate.completion, candidate.assistant_text)
         _join_turn_lifecycle(candidate)
-        owner._pending = candidate, image
+        owner._pending = candidate, image, expected_checkpoint
         return candidate
 
 
@@ -144,7 +164,7 @@ class NativePlanSession:
     def __init__(self, expected, *, measure=None):
         self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
-        self._committed = self._image = self._pending = None
+        self._committed = self._image = self._pending = self._checkpoint = None
         self._sealed = False
         self._busy = False
         with unit_of_work(_ready_dsn()) as conn:
@@ -157,6 +177,7 @@ class NativePlanSession:
                     or current.claim_expires_at <= repo.database_clock(conn)
                     or repo._lock_plan_session_image(conn, expected.world_id, expected.turn_id) != image):
                 raise ApplicationStateConflictError('Readonly session requires its current classified Plan claim')
+            self._checkpoint = load_checkpoint_head(conn, expected.turn_id)
         self._committed, self._image = current, image
         self._admission = _SessionAdmission(self)
 
@@ -174,13 +195,13 @@ class NativePlanSession:
         self._require_live()
         turn = self._committed
         current = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
-        if current != self._image:
+        if current != self._image or load_checkpoint_head(conn, turn.turn_id) != self._checkpoint:
             raise ApplicationStateIntegrityError('Plan session differs from current locked storage')
         return current
 
     def _seal(self):
         self._sealed = True
-        self._committed = self._image = self._pending = None
+        self._committed = self._image = self._pending = self._checkpoint = None
 
     def abort(self):
         """Discard a generation when its runtime owner refuses before dispatch."""
@@ -213,7 +234,7 @@ class NativePlanSession:
                 if fresh:
                     if self._pending is None or updated is not self._pending[0]:
                         raise ApplicationStateIntegrityError('Session append has no committed successor')
-                    self._committed, self._image = self._pending
+                    self._committed, self._image, self._checkpoint = self._pending
                 elif updated is not self._committed or self._pending is not None:
                     raise ApplicationStateIntegrityError('Session replay changed its committed generation')
                 self._pending = None
@@ -230,9 +251,14 @@ class NativePlanSession:
             try:
                 self._enter()
                 with unit_of_work(_ready_dsn()) as conn:
-                    self._guard_locked(conn)
+                    image = self._guard_locked(conn)
                     turn = self._committed
-                    return repo.lock_turn(conn, turn.world_id, turn.turn_id)
+                    if self._checkpoint is None:
+                        return repo.lock_turn(conn, turn.world_id, turn.turn_id)
+                    materialized = repo.materialize_plan_checkpoint(conn, before=image)
+                    if materialized != turn:
+                        raise ApplicationStateIntegrityError('Plan checkpoint closure changed its committed execution')
+                    return materialized
             finally:
                 self._seal()
                 self._busy = False
@@ -254,6 +280,8 @@ class NativePlanSession:
                         lease_seconds=lease_seconds)
                     if renewed is None:
                         raise ApplicationStateConflictError('Session claim expired during renewal')
+                    if self._checkpoint is not None:
+                        renewed = renewed.model_copy(update={'graph_context_execution': turn.graph_context_execution})
                     image = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
                     finished = repo.database_clock(conn)
                     root = dict(image[0])

@@ -39,6 +39,24 @@ def upgrade():
         )
     """)
 
+    op.execute("""
+        CREATE FUNCTION agent.protect_plan_execution_checkpoint_group() RETURNS trigger
+        LANGUAGE plpgsql AS $$
+        BEGIN
+            IF TG_OP = 'UPDATE' OR EXISTS (
+                SELECT 1 FROM agent.plan_execution_checkpoint
+                WHERE turn_id=OLD.turn_id AND attempt=OLD.attempt
+            ) THEN
+                RAISE EXCEPTION 'Open Plan checkpoint groups are immutable';
+            END IF;
+            RETURN OLD;
+        END
+        $$;
+        CREATE TRIGGER protect_plan_execution_checkpoint_group
+        BEFORE UPDATE OR DELETE ON agent.plan_execution_checkpoint_group
+        FOR EACH ROW EXECUTE FUNCTION agent.protect_plan_execution_checkpoint_group();
+    """)
+
 
 def downgrade():
     raise RuntimeError("Use forward recovery to materialize open Plan checkpoints before removal.")
