@@ -4346,10 +4346,10 @@ it('serializes two mounted Plan hosts so only one pending application can mutate
   first.unmount();second.unmount();
 });
 
-it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lost_confirm','lost_confirm_newer','lost_before_commit','newer_draft','move','composed'] as const)('ordinary first Send stages an editable Plan object, saves once and reloads it without drafting in chat (%s)',async mode=>{
+it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lost_confirm','lost_confirm_newer','lost_before_commit','newer_draft','move','composed','composed_lost_ack'] as const)('ordinary first Send stages an editable Plan object, saves once and reloads it without drafting in chat (%s)',async mode=>{
   const nativeNavigator=navigator;
   vi.stubGlobal('navigator',new Proxy(nativeNavigator,{get:(target,key)=>key==='locks'?{request:async(_name:string,work:()=>unknown)=>work()}:Reflect.get(target,key,target)}));
-  const composed = mode === 'composed';
+  const composed = mode === 'composed' || mode === 'composed_lost_ack';
   const source = composed ? 'Original préparation.\n\nOriginal préparation.\n\n## Retained heading\n'
     : '# Plan\n\nOriginal preparation.\n';
   const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,source);
@@ -4424,6 +4424,7 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
   vi.spyOn(reviewApi,'readPlanAuthoringReview').mockImplementation(async()=>({schema:'dmb_plan_authoring_review_snapshot_v1',
     world_id:worldId,action_id:action,origin_sha256:originHash,review}));
   const commands=vi.spyOn(reviewApi,'commandPlanAuthoringReview').mockImplementation(async(_world,_action,command)=>{
+    if (mode==='composed_lost_ack' && command.command_id===review?.last_command_id) return review;
     expect(command.expected_revision).toBe(review?.revision??0);expect(command.origin_sha256).toBe(originHash);
     if(command.operation==='open')review={schema:'dmb_plan_authoring_review_v1',world_id:worldId,action_id:action,origin_sha256:originHash,
       revision:0,state:'editing',markdown:proposal.replacement_markdown,markdown_sha256:hash(proposal.replacement_markdown),capture:proposal.capture,applications:[]};
@@ -4445,7 +4446,7 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
       review={...review,state:'applied',applications:[{...application,outcome:'saved',saved_work_revision_id:'00000000-0000-4000-8000-000000000005',saved_revision_n:5}]};
     }
     review={...review,revision:review.revision+1,last_command_id:command.command_id,last_command_sha256:'a'.repeat(64),updated_at:'2026-10-26T00:00:00Z'};
-    if(command.operation==='confirm'&&(mode==='lost_confirm'||mode==='lost_confirm_newer')&&!lostConfirm){lostConfirm=true;throw new Error('Lost confirmation after commit');}
+    if(command.operation==='confirm'&&(mode==='lost_confirm'||mode==='lost_confirm_newer'||mode==='composed_lost_ack')&&!lostConfirm){lostConfirm=true;throw new Error('Lost confirmation after commit');}
     return review;
   });
   const ordinary=vi.spyOn(liveApi,'prepareTiptapMarkdownWrite');
@@ -4495,6 +4496,24 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
   act(()=>{suggestionEditor.commands.setTextSelection(suggestionEditor.state.doc.content.size-1);suggestionEditor.commands.insertContent(' Keep this cue.');});
   const region=screen.getByRole('region',{name:'Suggestion review'});
   fireEvent.click(within(region).getByRole('button',{name:'Save',exact:true}));
+  if(mode==='composed_lost_ack'){
+    await waitFor(()=>expect(document.body.textContent).toContain('Lost confirmation'));
+    vi.spyOn(editor.view, 'scrollToSelection').mockImplementation(()=>{});
+    act(()=>editor.commands.undo());
+    await openPlanConversation();
+    const details=await screen.findByText('Details',{selector:'summary'});
+    if(!details.closest('details')?.open)fireEvent.click(details);
+    const retry=screen.queryByRole('button',{name:'Retry exact confirm operation'});
+    if(retry)fireEvent.click(retry);
+    const acknowledge=await screen.findByRole('button',{name:'Acknowledge saved result'});
+    fireEvent.click(acknowledge);
+    await waitFor(()=>expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:plan-application-hold:'))).toHaveLength(0));
+    await act(async()=>{await new Promise(resolve=>setTimeout(resolve,800));});
+    expect(ordinary).not.toHaveBeenCalled();
+    expect(await liveApi.getWorldOwnedPlanSnapshot(savedAgentPlanId)).toMatchObject({markdown:expect.stringContaining('Keep this cue.')});
+    expect(screen.getByTestId('world-owned-plan-markdown-editor')).not.toHaveTextContent('Keep this cue.');
+    mounted.unmount();return;
+  }
   if(mode==='lost_confirm'||mode==='lost_confirm_newer'||mode==='lost_before_commit'){
     await waitFor(()=>expect(document.body.textContent).toContain('Lost confirmation'));
     expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:plan-application-hold:'))).toHaveLength(1);

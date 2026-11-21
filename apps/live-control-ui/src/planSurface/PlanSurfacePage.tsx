@@ -1571,11 +1571,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       if(typeof hold!=='object'||!('action_id' in hold))throw new Error('The application recovery hold needs inspection.');
       clearPlanApplicationHold({world_id:worldId,document_id:exactId,action_id:String(hold.action_id),application_id:application.application_id});
     }
-    authoringHoldRef.current=readPlanApplicationHold(worldId,exactId);setAutoSavePaused(authoringHoldRef.current!==null);
+    authoringHoldRef.current=readPlanApplicationHold(worldId,exactId);
+    const newerComposedDraft = application.after_page_presentation_sha256 !== undefined && (
+      markdownRef.current !== application.after_markdown
+      || presentationFingerprint(presentationRef.current) !== application.after_page_presentation_sha256
+      || (titleRef.current.trim() || 'Plan') !== application.after_title
+    );
+    setAutoSavePaused(authoringHoldRef.current!==null || newerComposedDraft);
     setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot));setLastSavedAt(durableTimestamp(snapshot.record.updated_at));
     setRecords(current=>current.map(record=>record.document_id===exactId?snapshot.record:record));
     setRecoveryConflict(false);setServerDraft(null);setCreateUncertain(false);
-    setMessage('Suggestion saved to this Plan.');
+    setMessage(newerComposedDraft ? 'Suggestion saved. Your newer draft is retained.' : 'Suggestion saved to this Plan.');
   };
   authoringReconcileRef.current=async(actionId,applicationId)=>{
     const exactId=documentIdRef.current,epoch=selectionEpochRef.current;
