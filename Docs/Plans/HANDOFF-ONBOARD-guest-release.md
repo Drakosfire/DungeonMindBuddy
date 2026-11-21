@@ -146,6 +146,15 @@ item classification and a custom relationship as well as ordinary terms;
 the custom test includes the compiler-admitted hyphenated predicate
 `works-for`. They do not establish complete vocabulary coverage.
 
+The guest-release Python tests are inventoried as domain-integration and grouped
+under the `guest-release` local contract. The guest entry and component tests
+are classified and included in the shared hosted frontend contract. The
+hosted verifier passed at earlier integrated SHA
+`a3c3d8121823e236c31606d2524f6f01959da461`, but that earlier contract omitted
+these guest frontend tests and cannot qualify the updated head. Re-run and
+validate exact-head hosted and discovered evidence after the integration and
+remaining changes settle; retain the known discovered failures honestly.
+
 An experimental signed-out API now exposes only the current release manifest
 and assets pinned to that release, behind both `DMB_GUEST_RELEASE_ENABLED=1`
 and `DMB_GUEST_RELEASE_PUBLIC_ENABLED=1`. The hosted exception is restricted to
