@@ -16,9 +16,15 @@ export function isNativeSourceCitation(v:unknown):v is NativeSourceSectionCitati
 }
 
 export function isNativeBodyCitation(v:unknown):v is NativeBodyExcerptCitationV1 {
+  const prior=typeof v==='object'&&v!==null&&'prior_reference' in v;
   return exact(v,['segment_index','text_sha256','provider_attempt_id','envelope_sha256','read_event_id',
     'catalog_sha256','source_artifact_id','native_source_revision_id','content_sha256','excerpt_sha256',
-    'section_id','selector_policy','source_name','section_title','line_start','line_end'])
+    'section_id','selector_policy','source_name','section_title','line_start','line_end',
+    ...(prior?['prior_reference']:[])])
+    && (!prior || exact(v.prior_reference,['turn_id','completion_sha256','citation_index'])
+      && uuid(v.prior_reference.turn_id) && hash(v.prior_reference.completion_sha256)
+      && Number.isSafeInteger(v.prior_reference.citation_index)
+      && Number(v.prior_reference.citation_index)>=0 && Number(v.prior_reference.citation_index)<=16383)
     && Number.isSafeInteger(v.segment_index) && Number(v.segment_index)>=0
     && [v.text_sha256,v.envelope_sha256,v.catalog_sha256,v.content_sha256,v.excerpt_sha256,v.section_id].every(hash)
     && [v.provider_attempt_id,v.read_event_id].every(uuid)

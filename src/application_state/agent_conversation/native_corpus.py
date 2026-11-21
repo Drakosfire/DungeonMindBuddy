@@ -665,6 +665,86 @@ def acquired_body_catalogs(execution):
     return catalogs
 
 
+def resolve_retained_body_citation(execution, citation):
+    """Resolve a typed citation against its own already validated execution."""
+    reads = [event for event in acquired_body_reads(execution) if event.event_id == citation.read_event_id]
+    if len(reads) != 1:
+        raise ValueError("Native body citation lacks its unique retained read")
+    excerpt = reads[0].excerpt
+    catalog = acquired_body_catalogs(execution).get(excerpt.catalog_sha256)
+    if catalog is None:
+        raise ValueError("Native body citation lacks its retained catalog")
+    if (citation.catalog_sha256 != catalog.catalog_sha256
+            or citation.source_artifact_id != catalog.source.artifact.source_artifact_id
+            or citation.native_source_revision_id != catalog.source.revision.source_revision_id
+            or citation.content_sha256 != catalog.source.revision.content_sha256
+            or citation.selector_policy != excerpt.selector_policy):
+        raise ValueError("Native body citation differs from the retained source identity")
+    section, text = excerpt.section, excerpt.text
+    if citation.section_id != section.section_id:
+        section, text = bounded_body_section(
+            catalog, excerpt, line_start=citation.line_start, line_end=citation.line_end,
+        )
+    if (citation.section_id != section.section_id
+            or (citation.line_start, citation.line_end) != (section.line_start, section.line_end)
+            or sha256(text.encode()).hexdigest() != citation.excerpt_sha256):
+        raise ValueError("Native body citation differs from the retained extent")
+    return catalog, section, text
+
+
+class PriorBodyCitationReferenceV1(Strict):
+    turn_id: UUID
+    completion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    citation_index: int = Field(ge=0, le=16383, strict=True)
+
+
+def is_prior_conversation_work(label, source_scope):
+    return label == "review_lore_page_from_conversation" and source_scope in {"anchored", "uncertain"}
+
+
+def prior_conversation_work(events):
+    from .types import BuildRequestedWorkResolutionV1
+
+    work = [event for event in events if isinstance(event, BuildRequestedWorkResolutionV1)]
+    if (len(work) == 1 and is_prior_conversation_work(work[0].requested_work, work[0].resolution.get("source_scope"))
+            and work[0].resolution.get("barrier") is None):
+        return work[0]
+    return None
+
+
+def conversation_route_can_admit(receipt, execution):
+    from .native_context import NativeBuildQueryPendingV1
+    from .native_execution import NativeBuildQuerySettledV1
+
+    return (isinstance(getattr(receipt, "native_query", None), NativeBuildQueryPendingV1)
+            and not any(isinstance(event, NativeBuildQuerySettledV1) for event in execution.events))
+
+
+def resolve_prior_body_citation(current, prior, reference, *, history_turn_ids):
+    """Only the frozen dialogue window can lend exact support to the current turn."""
+    from . import types as t
+    from .rules_authority_reads import MixedCompletedTurnV1
+
+    if isinstance(prior, MixedCompletedTurnV1):
+        if prior.base_projection.kind != "approved":
+            raise ValueError("Prior citation requires an approved completion")
+        prior = prior.base_projection.turn
+    if (prior.turn_id != reference.turn_id or prior.turn_id not in history_turn_ids
+            or prior.world_id != current.world_id or prior.conversation_id != current.conversation_id
+            or prior.sequence >= current.sequence or prior.status != "completed"):
+        raise ValueError("Prior citation is outside the completed conversation history")
+    completion = prior.completion
+    if (completion is None or prior.graph_context_execution is None
+            or t.canonical_sha256(completion) != reference.completion_sha256):
+        raise ValueError("Prior citation differs from its retained completion")
+    citations = getattr(completion, "native_body_citations", ())
+    if reference.citation_index >= len(citations):
+        raise ValueError("Prior citation ordinal is unavailable")
+    citation = citations[reference.citation_index]
+    _, _, passage = resolve_retained_body_citation(prior.graph_context_execution, citation)
+    return completion.answer_segments[citation.segment_index].text, passage
+
+
 def selected_batch_covering_reads(execution, selection, handle, *, before_sequence=None, require_passage=False):
     """Exact source extent already obtained by this acknowledged read batch."""
     if (not handle.startswith('native-body:') or selection.operation != 'select_candidates'
@@ -961,8 +1041,37 @@ def producing_bodies(turn, authorization, raw):
         catalogs[reads[identity].excerpt.catalog_sha256]) for identity in stored.read_event_ids)
 
 
+@dataclass(frozen=True)
+class PriorBodyWriterSupport:
+    handle: str
+    admission: object
+    support: object
+
+    def frame(self):
+        citation = self.support.original_citation
+        return dict(excerpt_handle=self.handle, source_name=citation.source_name,
+            section_title=citation.section_title, extent_kind="section",
+            line_start=citation.line_start, line_end=citation.line_end,
+            campaign_scope="unestablished", session_scope="unestablished",
+            text=self.support.passage, prior_claim=self.support.claim_text)
+
+
+def prior_body_writer_supports(execution):
+    from .types import BuildPriorBodyEvidenceAdmittedV1
+
+    return tuple(PriorBodyWriterSupport(f"prior{i}", event, support)
+        for event in execution.events if isinstance(event, BuildPriorBodyEvidenceAdmittedV1)
+        for i, support in enumerate(event.supports))
+
+
 def body_citation(support, *, index, text, producer, envelope_sha256):
     from . import types as t
+    if isinstance(support, PriorBodyWriterSupport):
+        return support.support.original_citation.model_copy(update={
+            "segment_index": index, "text_sha256": sha256(text.encode()).hexdigest(),
+            "provider_attempt_id": producer, "envelope_sha256": envelope_sha256,
+            "prior_reference": support.support.reference,
+        })
     read, catalog = support.read, support.catalog
     excerpt = read.excerpt
     section, passage = support.passage()
@@ -1010,11 +1119,17 @@ def validate_body_support_citations(completion, supports, *, producer, envelope_
     """Use only exact supports verified by the actual producing-input owner."""
     reads = {
         (support.read.event_id, support.passage()[0].section_id): support
-        for support in supports
+        for support in supports if not isinstance(support, PriorBodyWriterSupport)
     }
+    prior = {support.support.reference: support for support in supports
+             if isinstance(support, PriorBodyWriterSupport)}
     for citation in completion.native_body_citations:
-        support = reads.get((citation.read_event_id, citation.section_id))
-        read = support.read if support is not None else None
+        if citation.prior_reference is None:
+            support = reads.get((citation.read_event_id, citation.section_id))
+            read = support.read if support is not None else None
+        else:
+            support = prior.get(citation.prior_reference)
+            read = support.admission if support is not None else None
         if read is None or read.sequence >= before_sequence:
             raise ValueError('Native body citation was not included in its producing writer')
         expected = body_citation(support, index=citation.segment_index,

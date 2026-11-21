@@ -424,14 +424,20 @@ def test_retained_resolution_uses_the_frozen_work_inventory():
         c.validate_resolution_metadata(event, policy)
 
 
-def test_lore_page_request_cannot_fall_through_to_connected_location_review():
+@pytest.mark.parametrize("work", ["review_lore_page", "review_lore_page_from_conversation"])
+def test_lore_page_request_cannot_fall_through_to_connected_location_review(work):
     caps = c.Capabilities(("answer_from_sources",), ("connected_page",), False)
-    route = c.resolve("review_lore_page", caps)
-    assert route["requested_work"] == "review_lore_page"
+    route = c.resolve(work, caps)
+    assert route["requested_work"] == work
+    assert c.resolve(work, c.Capabilities(("answer_from_sources",), ("lore_page",), False))["barrier"] is None
     assert route["purpose"] == "explain_capability"
     assert route["barrier"] == "requested_review_not_offered"
     assert all(item["id"] != "review_connected_page" for item in route["available_followups"])
     assert c.resolve("review_connected_page", caps)["barrier"] is None
+
+    previous_lore_menu = c.digest(c.question(guidance=c._PRE_CONVERSATION_LORE_GUIDANCE,
+                                             work_options=c._PRE_CONVERSATION_LORE_WORK))
+    assert c.known_semantics(previous_lore_menu, c._resolver_digest(c._PRE_CONVERSATION_LORE_WORK))
 
     prior = c.digest(c.question(guidance=c._PRE_LORE_PAGE_GUIDANCE,
                                 work_options=c._PRE_LORE_PAGE_WORK))

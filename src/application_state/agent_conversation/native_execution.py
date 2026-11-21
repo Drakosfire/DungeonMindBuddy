@@ -21,6 +21,7 @@ from .native_context import (
     PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, NativePlanRequestAdmissionV1, work_world_id,
 )
 from .native_statement_input import Strict
+from .native_corpus import prior_conversation_work
 from .plan_authoring import PlanAuthoringCaptureV1
 from .plan_placement import PlanPlacementCatalogV1
 
@@ -269,7 +270,8 @@ def native_read_event_ids(events):
     """One inclusion inventory for the current native writer."""
     return tuple(sorted((event.event_id for event in events if isinstance(event, (
         t.NativePlanStatementReadObservedV1, t.NativePlanAssertionReadObservedV1,
-        t.NativeBodyReadObservedV1, t.NativeAuthoredSourceReadV1, BuildAuthoredReferenceReadV2))), key=str))
+        t.NativeBodyReadObservedV1, t.NativeAuthoredSourceReadV1, BuildAuthoredReferenceReadV2,
+        t.BuildPriorBodyEvidenceAdmittedV1))), key=str))
 
 
 class NativeBuildQuerySettledV1(Strict):
@@ -298,7 +300,17 @@ def effective_native_query(context, execution):
     if len(settlements) > 1:
         raise ValueError("Build can settle its pending Graph query only once")
     settlement = settlements[0] if settlements else None
-    events = execution.events if settlement is None else execution.events[:settlement.sequence]
+    conversation_work = prior_conversation_work(execution.events)
+    if settlement is None and conversation_work is not None:
+        from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
+
+        if any(isinstance(event, (*t.NATIVE_BODY_EVENTS, NativeRetrievalAuthorizedV1,
+                                 NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, t.RelatedPageRead))
+               for event in execution.events):
+            raise ValueError("Conversation draft without Graph settlement cannot acquire new evidence")
+        events = execution.events[:conversation_work.sequence]
+    else:
+        events = execution.events if settlement is None else execution.events[:settlement.sequence]
     authorization = None
     responded = False
     for event in events:
@@ -337,7 +349,7 @@ SurfaceNativeEvent = Annotated[
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
-    | t.BuildDraftContextCapturedV1 | NativeBuildQuerySettledV1
+    | t.BuildDraftContextCapturedV1 | NativeBuildQuerySettledV1 | t.BuildPriorBodyEvidenceAdmittedV1
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
@@ -349,7 +361,7 @@ SurfaceNativeEvent = Annotated[
 
 
 _BUILD_WORK_EVENTS = (
-    t.BuildDraftContextCapturedV1, NativeBuildQuerySettledV1,
+    t.BuildDraftContextCapturedV1, NativeBuildQuerySettledV1, t.BuildPriorBodyEvidenceAdmittedV1,
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
@@ -387,6 +399,15 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError('Shared native writer response requires its exact selected output acknowledgement')
             if isinstance(event, _BUILD_WORK_EVENTS) and not isinstance(self.policy.action, NativeBuildActionV1):
                 raise ValueError("Build work event cannot acquire another action family")
+            if isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1):
+                prefix = self.events[:event.sequence]
+                work = prior_conversation_work(prefix)
+                references = [support.reference for support in event.supports]
+                if (work is None or work.event_id != event.work_event_id
+                        or len(set((r.turn_id, r.citation_index) for r in references)) != len(references)
+                        or any(isinstance(prior, t.BuildPriorBodyEvidenceAdmittedV1)
+                               or type(prior) in NATIVE_WRITER_TYPES for prior in prefix)):
+                    raise ValueError("Prior body evidence requires the unique producing Build work decision")
             if isinstance(event, BuildSavedStatblockReadV1):
                 validate_saved_statblock_read(event, self)
             if isinstance(event, t.RelatedPageRead) and type(self.policy.action) not in (NativeBuildActionV1, NativePlanActionV2):
@@ -558,6 +579,10 @@ def _join_context_binding(context, execution):
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
                 t.validate_provider_envelope_accounting(assembled,
                     execution.model_copy(update={"events": execution.events[:index]}), event)
+    from .native_corpus import conversation_route_can_admit
+    if (any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events)
+            and not conversation_route_can_admit(context, execution)):
+        raise ValueError("Conversation body evidence requires a Graph query that was never settled")
     query = effective_native_query(context, execution)
     if isinstance(query, t.NativePlanQueryV2):
         request = action.intent.graph_request

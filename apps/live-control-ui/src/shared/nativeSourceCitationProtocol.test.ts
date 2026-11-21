@@ -3,6 +3,7 @@ import {createElement} from 'react';
 import {render,screen,fireEvent,cleanup} from '@testing-library/react';
 import {createHash,webcrypto} from 'node:crypto';
 import type {SurfaceEvidenceCompletionV3} from '../api/types';
+import {isNativeBodyCitation} from './nativeSourceCitationProtocol';
 import {isSurfaceEvidenceCompletion} from './surfaceEvidenceProtocol';
 import {SurfaceEvidenceAnswer} from '../planSurface/components/SurfaceEvidenceAnswer';
 import {getAgentNativeSourceSection,getAgentNativeBodyExcerpt} from '../api/liveApi';
@@ -71,4 +72,12 @@ it.each(['exact','hash','citation','world','turn','index','family','retired_fami
  expect(getAgentNativeBodyExcerpt).toHaveBeenLastCalledWith('world',id,0);
  expect(getAgentNativeSourceSection).not.toHaveBeenCalled();
  expect(screen.queryByText('Changed bytes.')).toBeNull();
+});
+
+it('accepts a carried citation with a bounded original completion reference', () => {
+ const current = bodyCompletion().native_body_citations[0]!;
+ const prior_reference = {turn_id:id, completion_sha256:'a'.repeat(64), citation_index:0};
+ expect(isNativeBodyCitation({...current, prior_reference})).toBe(true);
+ expect(isNativeBodyCitation({...current, prior_reference:{...prior_reference, citation_index:-1}})).toBe(false);
+ expect(isNativeBodyCitation({...current, prior_reference:{...prior_reference, completion_sha256:'forged'}})).toBe(false);
 });
