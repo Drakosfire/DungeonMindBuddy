@@ -173,6 +173,23 @@ cases/false collection-parity flag. They establish no release qualification.
 The frontend tree is unchanged by the backend-only factored amendment; final
 exact-head hosted/backend verification and independent review remain required.
 
+Factored DEVb653 is retained RED:20/22 work/target, two falsely missing clear
+Preparation paragraphs, one raw content clarification overridden by a fixed
+placement question and one replacement duplicating the selected paragraph.
+Eight intended writes reached correct destinations;8/8 core meaning,7/8 full
+clean payloads;9/10 required questions and2/2 discussions useful. Both frozen
+multi-relation controls clarified without effects. No wrong-boundary/negative
+authoring or source mutation was observed in this run.
+
+The next amendment restricts fixed target questions to raw writing normalized
+to clarification. Raw clarification retains its requested content/work topic.
+Paragraph/heading questions use direct language, and V3 replacement guidance
+requests one replacement with preserved text once unless repetition was
+explicitly requested. No duplicate-text filter or SDK-output mutation is added.
+Eighteen target/clarification controls then passed;28 guidance/native-empty-output
+controls passed. Fresh actual DEV22 remains required; these source diagnostics
+do not erase the four observed acceptance failures.
+
 Alan's latest instruction grants full authority over this lane and directs no
 further routine approval requests. This supersedes the pending bounded #3307
 admission split and synthetic OpenAI/browser payload questions below. It covers

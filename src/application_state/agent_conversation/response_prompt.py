@@ -67,13 +67,11 @@ TASKS = {
         'Return only the location question required by the supplied question schema. The host '
         'derived its alternatives from the complete location judgment. Do not choose an alternative, '
         'answer the request, draft prose, or turn this into an evidence quotation.'),
-    'contextual_content_question': ResponsePromptComponent('contextual_content_question_task', '1',
-        'The destination is already identified. Ask one concise question resolving the uncertainty '
-        'about the requested content or intent. Do not ask which location, quote evidence instead '
-        'of asking, draft the page, or answer a factual question. Use the question field.'),
-    'contextual_request_question': ResponsePromptComponent('contextual_request_question_task', '1',
-        'Ask one concise question resolving what the user wants to do next. Do not supply the '
-        'requested prose or substitute evidence quotations. Use the question field.'),
+    'contextual_content_question': ResponsePromptComponent('contextual_content_question_task', '2',
+        'Ask one concise question resolving the uncertainty about the requested content or intended '
+        'work. Honor the clarification topic in the current message. Do not substitute a placement '
+        'question, quote evidence instead of asking, draft the page, or answer a factual question. '
+        'Use the question field.'),
     'answer': None,
     'build_discussion': ResponsePromptComponent('build_discussion_task', '4',
         'For a brainstorm opener, briefly mirror the aim and name the current page and attachments '

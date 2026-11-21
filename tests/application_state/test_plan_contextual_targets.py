@@ -136,6 +136,19 @@ def test_unresolved_relation_retains_anchor_but_cannot_authorize_partial_placeme
         'Should I place the fragment before or after the identified text, or use another location?')
 
 
+@pytest.mark.parametrize('relation,anchors', [('unresolved', ('anchor1',)),
+    ('after_paragraph', ('anchor1', 'anchor2'))])
+def test_raw_content_clarification_is_not_overridden_by_host_target_question(relation, anchors):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.plan_contextual_targets import clarification_question
+    capture, catalog = captured_catalog()
+    fields = resolve_anchor_targets(capture, catalog, 'clarify', relation, anchors)
+    assert clarification_question(SimpleNamespace(**fields)) is None
+    fields = resolve_anchor_targets(capture, catalog, 'write_current_page', relation, anchors)
+    assert clarification_question(SimpleNamespace(**fields, original_capture=capture.model_dump(mode='json', by_alias=True),
+        placement_catalog=catalog.model_dump(mode='json', by_alias=True)))
+
+
 @pytest.mark.parametrize('selected', [False, True])
 def test_unresolved_captured_relation_never_offers_unavailable_before_after_operations(selected):
     from types import SimpleNamespace
@@ -162,7 +175,7 @@ def test_indistinguishable_target_labels_ask_for_selection_instead_of_identical_
             target_capture_sha256='0' * 64)
         rows.append(row.model_copy(update={'target_capture_sha256': row.derived_target(capture).sha256}))
     catalog = catalog.model_copy(update={'entries': (catalog.entries[0], *rows)})
-    selection = SimpleNamespace(requested_work='clarify', target_resolution='ambiguous',
+    selection = SimpleNamespace(requested_intent='write_current_page', requested_work='clarify', target_resolution='ambiguous',
         original_capture=capture.model_dump(mode='json', by_alias=True),
         placement_catalog=catalog.model_dump(mode='json', by_alias=True),
         compatible_placement_selectors=('place1', 'place2'))

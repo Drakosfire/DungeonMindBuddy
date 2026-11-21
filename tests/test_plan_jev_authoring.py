@@ -1315,7 +1315,7 @@ def _shared_plan_authoring_case(
                 from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
                 from application_state.agent_conversation.response_prompt import compose_response_prompt
                 question_field = payload["text"]["format"]["schema"]["properties"].get("question", {})
-                task = (("contextual_target_question" if 'enum' in question_field else "contextual_request_question")
+                task = (("contextual_target_question" if 'enum' in question_field else "contextual_content_question")
                         if payload["text"]["format"]["name"] == "plan_contextual_question_v1"
                         else "plan_placement_clarify" if routing == "clarify"
                         and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
@@ -1326,7 +1326,7 @@ def _shared_plan_authoring_case(
                 assert payload["instructions"] == compose_response_prompt(task=task).instructions
                 schema = payload["text"]["format"]["schema"]
                 base = schema.get("$defs", {}).get("Base", schema)
-                if task in {"contextual_request_question", "contextual_target_question"}:
+                if task in {"contextual_content_question", "contextual_target_question"}:
                     assert base["properties"]["question"]["minLength"] == 1
                 else:
                     assert base["properties"]["answer_segments"].get("minItems", 0) == (

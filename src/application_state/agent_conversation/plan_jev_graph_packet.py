@@ -176,7 +176,10 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
         frame['focused_edit_target']['fragment_scope'] = dict(
             operation='replace_selected_text' if replace else 'insert_new_content',
             instruction=("Rewrite only the captured selected text. Retain its words when the user "
-                "asks to keep them. Do not repeat unselected surrounding context."
+                "asks to keep them. Return one replacement, with preserved text appearing only once "
+                "across all answer segments unless repetition was explicitly requested. Do not "
+                "emit both an unchanged excerpt and a revised draft that repeats the same excerpt. "
+                "Do not repeat unselected surrounding context."
                 if replace else "Only the new fragment is inserted. The named anchor paragraph "
                 "remains in the page. Do not copy it as context or repeat it unless the user "
                 "explicitly requests restatement. Return only the requested new content.") +

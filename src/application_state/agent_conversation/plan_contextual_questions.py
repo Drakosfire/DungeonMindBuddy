@@ -39,4 +39,4 @@ def response_task(execution):
         return None
     if clarification_question(selected) is not None:
         return 'contextual_target_question'
-    return 'contextual_content_question' if selected.target_resolution == 'unique' else 'contextual_request_question'
+    return 'contextual_content_question'

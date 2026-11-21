@@ -150,8 +150,8 @@ def focused_target(request):
 def target_questions(request):
     from generationengine.types import ChoiceDecisionQuestion
     questions = {
-        'paragraph': 'Is this the EXISTING PARAGRAPH identified as the placement anchor?',
-        'heading': 'Is this HEADING or ENTIRE SECTION itself the placement anchor, rather than context for a paragraph?',
+        'paragraph': 'Does the user mean this existing paragraph when saying where to add or change text? Match its passage and any named section.',
+        'heading': 'Does the user want text at this heading or around its whole section, rather than beside a paragraph within it?',
         'captured': 'Does the request use this captured selection or caret, rather than another named anchor?',
         'page_end': 'Does the request choose the current page end as its destination?',
     }
@@ -248,6 +248,8 @@ def clarification_question(selection):
     """A fixed target question follows the retained set, never a source-text guess."""
     if selection.requested_work != "clarify":
         raise ValueError("Question requested for non-clarification work")
+    if selection.requested_intent != 'write_current_page':
+        return None  # Raw clarification owns content/work; only normalized writing owns a target question.
     if (getattr(selection, 'requested_placement_relation', None) == 'unresolved'
             and selection.compatible_anchor_selectors):
         original = getattr(selection, 'original_capture', None) or {}
