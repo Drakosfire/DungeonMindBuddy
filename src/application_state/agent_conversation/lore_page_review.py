@@ -3,7 +3,7 @@
 import re
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from .collaboration import Closed
 
@@ -98,3 +98,13 @@ class ProposedLorePage(Closed):
     use invented-idea segments only for material explicitly presented as proposed."""
     kind: Literal["lore_page"]
     destination: LorePageTitleWitness
+
+    open_questions: tuple[str, ...] = Field(default=(), max_length=24,
+        exclude_if=lambda value: not value)
+
+    @field_validator("open_questions")
+    @classmethod
+    def meaningful_questions(cls, value):
+        if any(not question.strip() or len(question) > 1000 for question in value):
+            raise ValueError("Open questions require concise nonblank text")
+        return value

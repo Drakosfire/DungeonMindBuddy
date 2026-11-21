@@ -524,6 +524,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     "kind": "lore_page",
                     "destination": {"instruction": author_text, "title": "Glass Regent"},
                 }
+                if current_work == "review_lore_page_from_conversation":
+                    candidate["collaboration"]["open_questions"] = ["Why did the Regent leave?"]
             if connected_review:
                 section=next(row for row in sections if 'A proposed conversation.' in source_text(row))
                 candidate['answer_segments']=([dict(kind='proposal',label='invented_idea',
@@ -2588,6 +2590,9 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     assert reopened.page.title == "Glass Regent"
     assert str(reopened.revision.work_revision_id) == receipt["revision_id"]
     assert completion.answer_segments[0].text in reopened.revision.markdown
+    if carry:
+        assert completion.collaboration.open_questions == ("Why did the Regent leave?",)
+        assert "## Open questions\n\n- Why did the Regent leave?" in reopened.revision.markdown
     assert f"/conversation/turns/{populated.turn_id}/native-body-excerpts/0" in reopened.revision.markdown
     assert {segment.kind for segment in completion.answer_segments} == {"source_passage_claim", "limitation"}
     assert all(segment.text not in reopened.revision.markdown for segment in completion.answer_segments

@@ -57,6 +57,9 @@ def _body(turn: Turn) -> str:
             paragraphs.append(f"{segment.text}\n\n{' '.join(citations[index])}")
         else:
             raise ApplicationStateConflictError("Lore review has no reopenable passage for a claim")
+    questions = turn.completion.collaboration.open_questions
+    if questions:
+        paragraphs.append("## Open questions\n\n" + "\n".join(f"- {question}" for question in questions))
     return "\n\n".join(paragraphs)
 
 

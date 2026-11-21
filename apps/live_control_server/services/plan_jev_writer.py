@@ -446,6 +446,12 @@ class PlanJevWriter:
 
                 if not explicit_blank_lore_page(destination["instruction"]):
                     instructions += "\n" + LORE_PROPOSAL_GUIDANCE
+                work = self.provider_work["build_work"]["requested_work"]
+                if work["requested_work"] == "review_lore_page_from_conversation":
+                    instructions += (
+                        "\nUse open_questions for relevant unresolved questions or disagreements from "
+                        "the discussion. Keep these separate from cited claims and proposed ideas."
+                    )
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
             if single_variant_base:

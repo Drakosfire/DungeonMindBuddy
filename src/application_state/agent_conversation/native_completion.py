@@ -160,7 +160,8 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
                 raise ValueError("Lore draft lacks its admitted Build review")
             completion.collaboration.destination.bind(
                 execution.policy.action.intent.message,
-                has_body=any(segment.kind != "limitation" for segment in completion.answer_segments),
+                has_body=bool(completion.collaboration.open_questions) or any(
+                    segment.kind != "limitation" for segment in completion.answer_segments),
             )
         if completion.collaboration is not None and completion.collaboration.kind=='connected_page':
             from .connected_page_origins import execution_rows

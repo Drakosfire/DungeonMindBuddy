@@ -18,6 +18,7 @@ it('saves only on explicit confirmation and submits the displayed digest', async
     collaboration: {
       kind: 'lore_page',
       destination: {instruction: 'Create a page for Rowan.', title: 'Rowan'},
+      open_questions: ['Why did Rowan leave?'],
     },
     answer_segments: [],
     saved_source_citations: [],
@@ -36,6 +37,7 @@ it('saves only on explicit confirmation and submits the displayed digest', async
     worldId="fixture-world" conversationId="fixture-conversation" turnId="fixture-turn"
     completion={completion} digest={async () => digest} disabled={false}
   />);
+  expect(screen.getByRole("region", {name: "Open questions"})).toHaveTextContent("Why did Rowan leave?");
   expect(api).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', {name: 'Review save of Rowan'}));
   const confirm = await screen.findByRole('button', {name: 'Confirm save of Rowan'});

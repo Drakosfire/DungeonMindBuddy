@@ -39,7 +39,8 @@ does not qualify the runtime.
 
 Write scope is the Build semantic routing and harness, APP native Build
 execution and writer evidence/validation, exact citation readback and lore
-confirmation, the corresponding owner tests, and this handoff. The narrow
+confirmation, the browser citation wire and lore review presentation, the
+corresponding owner tests, and this handoff. The narrow
 resolver preparation already shares exact extent checking with the ordinary
 citation opener. Keep old rows readable without changing their older proof.
 

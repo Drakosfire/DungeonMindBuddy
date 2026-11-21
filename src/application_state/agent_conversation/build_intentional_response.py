@@ -967,6 +967,12 @@ def native_review_schema(frame, *, local=False):
         raise ValueError('Plan review lacks its pre-writer selection contract')
     schema=model.model_json_schema()
     definitions=schema.pop('$defs',{})
+    if kind == "lore_page":
+        if contract["requested_work"] == "review_lore_page_from_conversation":
+            schema["properties"]["open_questions"].pop("default", None)
+            schema["required"].append("open_questions")
+        else:
+            schema["properties"].pop("open_questions")
     if kind in {'connected_page','relationship'}:
         rows=native_origin_rows(frame) if kind=='connected_page' else frame['artifact_under_edit']['sections']
         if not rows:
@@ -997,7 +1003,7 @@ def normalize_native_review(candidate, segments, frame, *, author_text):
     validate_collaboration(review,segments,frame['response_contract'],
         primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
     if isinstance(review, ProposedLorePage):
-        review.destination.bind(author_text, has_body=bool(segments))
+        review.destination.bind(author_text, has_body=bool(segments or review.open_questions))
     if isinstance(review,ProposedPlanV3) and not selection_packet(frame):
         raise ValueError('Plan review lacks its pre-writer selection contract')
     return review
