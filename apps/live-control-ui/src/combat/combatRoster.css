@@ -382,7 +382,14 @@
   .combat-roster-condition-list { grid-area:conditions; }
   .combat-roster-note-preview { grid-area:notes; }
   .combat-roster-row-actions { grid-area:actions; }
-  .combat-roster-table [data-empty] { display:none; }
+  .combat-roster-workspace .combat-roster-table [data-empty] {
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    overflow:hidden;
+    clip-path:inset(50%);
+  }
   .combat-roster-workspace .combat-roster-table :is(.combat-roster-init,.combat-roster-defense,.combat-roster-health)::before {
     content:attr(data-column);
     display:block;
