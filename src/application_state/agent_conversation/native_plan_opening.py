@@ -132,10 +132,8 @@ def resolve_composed_opening(snapshot, catalog, binding, nomination, operation):
     resolved = resolve_composed_plan_nomination(snapshot, catalog, intent, nomination)
     capture = resolved.capture
     if capture is not None:
-        observed_relation = {
-            'before_paragraph': 'before', 'after_paragraph': 'after',
-        }.get(binding.observation.relation)
-        if observed_relation is not None and observed_relation != capture.slot_address.relation:
+        observed_relation = binding.observation.relation
+        if observed_relation not in ('unresolved', f'{capture.slot_address.relation}_paragraph'):
             return {'requested_work': 'clarify', 'target_resolution': 'unresolved',
                     'placement_selector': None, 'target_capture_sha256': None}
         scope = binding.observation.scope

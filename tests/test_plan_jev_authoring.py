@@ -2145,16 +2145,17 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
         from application_state.agent_conversation.native_plan_opening import resolve_composed_opening
         from application_state.agent_conversation.plan_author_location import LiteralScopeName, NamedScopePath
 
-        missing_scope = NamedScopePath(names=(LiteralScopeName(text="Missing heading"),))
         binding = selection.author_scope_binding
-        constrained = binding.model_copy(update={
-            "observation": binding.observation.model_copy(update={"scope": missing_scope}),
-        })
-        assert resolve_composed_opening(
-            capture, request.plan_placement_catalog, constrained, selection.composed_nomination,
-            selection.author_operation,
-        ) == dict(requested_work="clarify", target_resolution="unresolved",
-                  placement_selector=None, target_capture_sha256=None)
+        missing_scope = NamedScopePath(names=(LiteralScopeName(text="Missing heading"),))
+        for conflict in ({"scope": missing_scope}, {"relation": "replace_explicit_selection"}):
+            constrained = binding.model_copy(update={
+                "observation": binding.observation.model_copy(update=conflict),
+            })
+            assert resolve_composed_opening(
+                capture, request.plan_placement_catalog, constrained, selection.composed_nomination,
+                selection.author_operation,
+            ) == dict(requested_work="clarify", target_resolution="unresolved",
+                      placement_selector=None, target_capture_sha256=None)
     else:
         assert selection.target_resolution == ("ambiguous" if outcome == "ambiguous" else "unresolved")
         assert response.plan_proposal is None and action is None
