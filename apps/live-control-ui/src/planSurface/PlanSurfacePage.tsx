@@ -1197,13 +1197,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         : pendingWriteRef.current;
       if (previousPending) {
         const snapshot = await getWorldOwnedPlanSnapshot(exactId);
-        if (snapshot.record.world_id !== worldId || snapshot.record.campaign_id !== null) {
+        if (snapshot.record.document_id !== exactId || snapshot.record.world_id !== worldId || snapshot.record.campaign_id !== null) {
           throw new Error("Pending write recovery resolved outside the selected World.");
         }
         let committedMarkdown: string | null = null;
         try {
           const committedRevision = await getWorldOwnedPlanCommittedRevision(exactId);
-          if (committedRevision.world_id !== worldId || committedRevision.campaign_id !== null) {
+          if (committedRevision.document_id !== exactId || committedRevision.world_id !== worldId || committedRevision.campaign_id !== null) {
             throw new Error("Committed revision recovery resolved outside the selected World.");
           }
           committedMarkdown = committedRevision.markdown;
@@ -1217,9 +1217,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         const snapshotFingerprint = presentationFingerprint(snapshotPresentation);
         const layoutWrite = previousPending.page_presentation_sha256 != null;
         const priorLayoutMatches = snapshotFingerprint === (previousPending.base_page_presentation_sha256 ?? null);
+        const layoutWriteWasNoOp = priorLayoutMatches && previousPending.markdown === previousPending.base_markdown
+          && previousPending.title === previousPending.base_title;
         const committed = committedMarkdown === previousPending.markdown
           && snapshotFingerprint === (previousPending.page_presentation_sha256 ?? null)
-          && (!layoutWrite || (snapshot.loaded_revision === previousPending.base_revision + 1
+          && (!layoutWrite || (snapshot.loaded_revision === previousPending.base_revision + (layoutWriteWasNoOp ? 0 : 1)
             && snapshot.markdown === previousPending.markdown && snapshot.record.content_status === "committed"))
           && (previousPending.title === undefined || snapshot.record.title === previousPending.title);
         const priorTitleMatches = priorLayoutMatches
@@ -1388,12 +1390,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         writer_confirm_token: prepared.writer_confirm_token,
         ...(submittedPresentation ? { page_presentation: submittedPresentation } : {}),
       });
+      const layoutWriteWasNoOp = submittedMarkdown === baseMarkdown && submittedTitle === preparing.base_title
+        && submittedPresentationFingerprint === preparing.base_page_presentation_sha256;
       if (committed.world_id !== worldId || committed.committed_record.schema_version !== "dmb_world_owned_plan_record_v2"
         || committed.title !== submittedTitle || committed.committed_record.title !== submittedTitle
         || (committed.page_presentation_sha256 ?? null) !== submittedPresentationFingerprint
         || (submittedPresentation && (committed.document_id !== exactId || committed.committed_record.document_id !== exactId
           || committed.committed_record.world_id !== worldId || committed.committed_record.campaign_id !== null
-          || committed.registry_revision !== baseRevision + 1 || committed.committed_revision !== committed.registry_revision
+          || committed.registry_revision !== baseRevision + (layoutWriteWasNoOp ? 0 : 1)
+          || committed.committed_revision !== committed.registry_revision
           || committed.normalized_content_sha256 !== submittedPresentation.markdown_sha256))) {
         throw new Error("Commit receipt did not preserve World-owned Plan scope.");
       }
@@ -1527,7 +1532,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setMessage('Application reconciled. Your current draft is unchanged.');
   };
   authoringSaveRef.current=async(target,prepared,application,expected,binding,commit)=>{
-    if(savingRef.current||authoringHoldRef.current!==null||pendingWriteRef.current||!isCurrentEditTarget())
+    if(composing||savingRef.current||authoringHoldRef.current!==null||pendingWriteRef.current||!isCurrentEditTarget())
       throw new Error('Resolve the current Plan Save before applying this suggestion.');
     if(application.outcome!=='applying'||application.capture.world_id!==worldId
       ||application.capture.document_id!==target.request.document_id

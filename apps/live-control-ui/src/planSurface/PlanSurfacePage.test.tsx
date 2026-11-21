@@ -4717,7 +4717,7 @@ it.each(['restart','step'])('cancels a pending guided routed Plan after %s befor
  expect(screen.queryByDisplayValue(original.markdown)).not.toBeInTheDocument();expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
  expect(committed.document_id).toBe(savedAgentPlanId);
 });
-it.each(["exact", "altered prepare", "altered commit"] as const)(
+it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement"] as const)(
   "handles a %s receipt for a layout-only Plan row", async receipt => {
   const markdown = "First paragraph.\n\nSecond paragraph.\n";
   const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, markdown);
@@ -4748,6 +4748,7 @@ it.each(["exact", "altered prepare", "altered commit"] as const)(
       content_sha256: digest, loaded_revision: 8, file_exists: true, file_fingerprint: "postgres",
       page_presentation: request.page_presentation, page_presentation_sha256: fingerprint,
     });
+    if (receipt === "lost acknowledgement") throw new Error("Network disconnected after the write.");
     return {
       schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
       document_id: savedAgentPlanId, title: record.title, target_relpath: path, target_display_path: path,
@@ -4768,12 +4769,14 @@ it.each(["exact", "altered prepare", "altered commit"] as const)(
   fireEvent.click(twoColumns);
   const editor = (surface().querySelector(".ProseMirror") as HTMLElement & { editor: Editor }).editor;
   expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
+  const rowBeforeUndo = editor.state.doc.firstChild?.toJSON();
   act(() => { editor.commands.undo(); });
   expect(surface().querySelector("[data-page-row]")).toBeNull();
   act(() => { editor.commands.redo(); });
   expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
+  expect(editor.state.doc.firstChild?.toJSON()).toEqual(rowBeforeUndo);
   fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
-  if (receipt !== "exact") {
+  if (receipt === "altered prepare" || receipt === "altered commit") {
     await screen.findByText(receipt === "altered prepare"
       ? "Plan write could not be prepared." : "Commit receipt did not preserve World-owned Plan scope.");
     expect(commit).toHaveBeenCalledTimes(receipt === "altered prepare" ? 0 : 1);
@@ -4783,7 +4786,12 @@ it.each(["exact", "altered prepare", "altered commit"] as const)(
     expect(recovery.pending_write.page_presentation_sha256).toBe(recovery.page_presentation_sha256);
     return;
   }
+  if (receipt === "lost acknowledgement") {
+    await screen.findByText("Network disconnected after the write.");
+    fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  }
   await screen.findByText("Saved to this World.");
+  expect(commit).toHaveBeenCalledTimes(1);
   const layout = commit.mock.calls[0][0].page_presentation;
   expect(layout?.items[0]).toMatchObject({ kind: "row", slots: [{ width: 6 }, { width: 6 }] });
   expect(prepare).toHaveBeenCalledWith(expect.objectContaining({
