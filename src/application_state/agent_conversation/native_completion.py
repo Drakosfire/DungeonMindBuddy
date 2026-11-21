@@ -541,11 +541,46 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
     _join_retained_completion(completion, receipt, execution, producer, bindings)
 
 
+def _join_build_graph_reference_completion(completion, receipt, execution, producer, claims):
+    from .native_execution import NativeBuildActionV1
+
+    binding = execution.events[-1] if execution.events else None
+    if (not isinstance(execution.policy.action, NativeBuildActionV1)
+            or type(binding) is not t.BuildGraphReferenceCompletionBindingV1
+            or claims != {} or binding.claim_graph_event_ids != {}
+            or binding.provider_attempt_id != producer
+            or binding.completion_sha256 != t.canonical_sha256(completion)
+            or completion.context_receipt_sha256 != receipt.context_receipt_sha256):
+        raise ValueError("Graph reference result differs from its retained decision binding")
+    opening = next((event for event in execution.events if (
+        isinstance(event, t.BuildRequestedWorkResolutionV1) and event.event_id == binding.opening_event_id
+    )), None)
+    if opening is None or opening.typed_graph_reference != "place_existing_reference":
+        raise ValueError("Graph reference result requires its typed opening choice")
+    authorization = next((event for event in execution.events if (
+        isinstance(event, t.ProviderAttemptAuthorizedEventV1) and event.provider_attempt_id == producer
+    )), None)
+    response = execution.events[-2] if len(execution.events) >= 2 else None
+    if (type(authorization) is not t.ProviderAttemptAuthorizedEventV5
+            or authorization.context_phase != "graph_reference" or authorization.sequence <= opening.sequence
+            or (authorization.provider, authorization.model, authorization.api_mode)
+                != execution.policy.provider_roles.controller.identity()
+            or not isinstance(response, t.ProviderOutcomeEventV1)
+            or response.provider_attempt_id != producer or response.outcome != "response_received"):
+        raise ValueError("Graph reference result requires the final acknowledged nomination")
+
+
 def _join_retained_completion(completion, receipt, execution, producer, bindings):
     """Check the completion against an already validated context and execution."""
     from .native_execution import NATIVE_WRITER_TYPES, _validate_owned_context_binding
     from .native_writer import _model_frame_from_validated_prefix, read_evidence_records
     from .surface_evidence_answer import validate_authored_owners
+
+    if type(completion) is t.BuildGraphReferenceCompletionV1:
+        _join_build_graph_reference_completion(completion, receipt, execution, producer, bindings)
+        return
+    if any(type(event) is t.BuildGraphReferenceCompletionBindingV1 for event in execution.events):
+        raise ValueError("A Graph reference binding requires its exact typed completion")
 
     if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
         from .build_authoring import validate_native_authoring_binding

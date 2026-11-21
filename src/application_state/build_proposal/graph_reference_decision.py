@@ -19,6 +19,35 @@ from application_state.build_proposal.prose_decision import (
 from application_state.build_proposal.types import BuildProposalBasis, StrictModel
 
 
+GRAPH_REFERENCE_OPENING = ChoiceDecisionQuestion(
+    name="typed_graph_reference",
+    options=("place_existing_reference", "other_work"),
+    question=(
+        "Does the author ask to insert a typed reference to one existing World Graph object on the open page? "
+        "Choose place_existing_reference even if the object or exact paragraph is unclear. Choose other_work for "
+        "ordinary prose, requests about an object, creation of a new object, and discussion without insertion."
+    ),
+)
+
+
+def resolve_graph_reference_opening(request, result) -> Literal["place_existing_reference", "other_work"] | None:
+    """Read a typed opening answer from the actual request and response; older turns omit it."""
+    question = GRAPH_REFERENCE_OPENING
+    offered = request["questions"].get(question.name)
+    if offered is None and question.name not in result.answers:
+        return None
+    expected = {"type": "choice", "instructions": question.question, "criteria": dict.fromkeys(question.options)}
+    if offered != expected or set(result.answers) != set(request["questions"]):
+        raise ValueError("Graph reference opening differs from the exact admitted offer")
+    projected = result.model_copy(update={"answers": {question.name: result.answers[question.name]}})
+    selected = validated_choice_answers(projected, {question.name})[question.name]
+    if selected == "place_existing_reference":
+        return "place_existing_reference"
+    if selected == "other_work":
+        return "other_work"
+    raise ValueError("Graph reference opening has an unoffered answer")
+
+
 class BuildGraphReferenceCandidate(StrictModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -104,7 +133,8 @@ class BuildGraphReferenceDecision:
                     "Include every independently matching object, even if it shares a name. Use only qualification "
                     "actually applied to the named object. A page or heading qualifier used only for paragraph placement "
                     "does not qualify the Graph object. If the author selected an object, the requested reference must "
-                    "agree with it. Creation and discussion grant no placement."
+                    "agree with it. The current request's object type and exclusions still apply to a selected object. "
+                    "Read type constraints from the request independently of the available objects. Creation and discussion grant no placement."
                 ),
                 "graph_objects": {alias: {
                     "name": candidate.reference.label, "description": candidate.summary or "",
@@ -121,12 +151,39 @@ class BuildGraphReferenceDecision:
                              "cannot be located. Other choices are discussion, creating a new object, a different "
                              "page, or an action that is itself unclear.")),
                 ChoiceDecisionQuestion(name="reference_kind", options=("unspecified", "other_kind", *kinds),
-                    question=("Which Graph classification does the author require for the named object? "
-                              "Choose other_kind if a required classification is absent and unspecified if none is required.")),
+                    question=("Read the user's words before considering what is available. Which classification must the referenced "
+                              "object have? Choose its graph_classifications alias only if it is allowed by the request. If a "
+                              "required classification is missing, or the request excludes the available classification, choose "
+                              "other_kind. Choose unspecified only when the request permits an object of any classification. "
+                              "An instruction to use a location instead of a threat requires a location even if a threat is selected.")),
+                ChoiceDecisionQuestion(name="reference_kind_constraint", options=("any_type", "requires_or_excludes_type"),
+                    question=("Ignoring what objects exist and what the author selected, does the user expressly require or rule "
+                              "out a type for the object being referenced? For example 'as an existing location', 'use the "
+                              "construct', and 'do not use a threat' all impose a type constraint. A location mentioned only "
+                              "as the destination or heading is not a type constraint on the object.")),
                 *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
                     question=f"Does graph_objects {alias} match the requested name and all object qualifiers, independently of classification?")
                   for alias in objects),
             ),
+        })
+
+    def require_wire_request(self, body) -> None:
+        request = self.request()
+        questions = {
+            q.name: {"type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options)}
+            for q in request.questions
+        }
+        if body != {"model": request.model, "state": request.state, "questions": questions}:
+            raise ValueError("The Graph nomination request differs from the exact admitted offers")
+
+    def host_inventory_sha256(self) -> str:
+        from application_state.agent_conversation.rules_authority_types import canonical_sha256
+
+        return canonical_sha256({
+            "basis": self.basis.model_dump(mode="json", by_alias=True),
+            "candidates": [item.model_dump(mode="json", by_alias=True) for item in self.candidates],
+            "author_selected": (self.author_selected.model_dump(mode="json", by_alias=True)
+                                if self.author_selected is not None else None),
         })
 
     def resolve(self, result) -> BuildGraphReferenceNomination:
@@ -156,6 +213,8 @@ class BuildGraphReferenceDecision:
         if not included:
             return BuildGraphReferenceNomination(disposition="missing_identity")
         requested_kind = answers["reference_kind"]
+        if requested_kind == "unspecified" and answers["reference_kind_constraint"] == "requires_or_excludes_type":
+            return BuildGraphReferenceNomination(disposition="wrong_kind")
         kind = kinds.get(requested_kind)
         matches = included if requested_kind == "unspecified" else [candidate for candidate in included if candidate.entity_kind == kind]
         if not matches:

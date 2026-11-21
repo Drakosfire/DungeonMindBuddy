@@ -512,6 +512,11 @@ class BuildJevDriver:
             )
             questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
                                for q in placement_questions)
+            if a.request.build_write_capability.basis.visibility == "internal":
+                from application_state.build_proposal.graph_reference_decision import GRAPH_REFERENCE_OPENING
+
+                q = GRAPH_REFERENCE_OPENING
+                questions += (DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options),)
         if 'related_page_catalog' in self._interaction:
             from application_state.agent_conversation.build_related_pages import PagePointer, question_name, question_text
             questions += tuple(DecisionQuestion(name=question_name(i),kind='choice',
@@ -1231,9 +1236,12 @@ class BuildJevDriver:
                 from uuid import uuid4
                 from application_state.agent_conversation.build_intentional_response import paragraph_placement_for, source_need
                 from application_state.build_proposal.prose_decision import OPENING_QUESTION_PREFIX
+                from application_state.build_proposal.graph_reference_decision import (
+                    GRAPH_REFERENCE_OPENING, resolve_graph_reference_opening,
+                )
 
                 expected_answers = {question.name for question in self._selection_intent.questions
-                                    if question.name in {"requested_work", "source_need"}
+                                    if question.name in {"requested_work", "source_need", GRAPH_REFERENCE_OPENING.name}
                                     or question.name.startswith(OPENING_QUESTION_PREFIX)}
                 if (model != self._selection_intent.model or set(answers) != expected_answers
                     or not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response).get('requested_work') != answers['requested_work']):
@@ -1242,6 +1250,7 @@ class BuildJevDriver:
                 label = requested_work(json.loads(raw))
                 execution = a._broker_execution()
                 request = json.loads(prepared.body)
+                graph_reference = resolve_graph_reference_opening(request, actual_response)
                 resolution = resolution_for(execution.policy, label,
                     source_scope=source_need(request, json.loads(raw)))
                 placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
@@ -1253,6 +1262,7 @@ class BuildJevDriver:
                     requested_work=label, intent_family=resolution['intent_family'], menu_sha256=MENU_DIGEST, resolver_sha256=RESOLVER_DIGEST,
                     response_capabilities_sha256=(digest(asdict(execution.policy.action.capabilities)) if self._native else execution.policy.response_capabilities_sha256), resolution=resolution,
                     paragraph_placement=placement,
+                    typed_graph_reference=graph_reference,
                     operation=selected, broker_operation_id=operation_id(a.turn, plan.request_id, label),
                     capability_sha256=self._interaction['capability_sha256'],
                     arguments_sha256=digest({'instruction': a.request.message} if selected != 'answer_from_sources' else {}))
@@ -1260,6 +1270,10 @@ class BuildJevDriver:
                 a.turn = _require_fresh_execution_append(a.fence.append('record_build_requested_work_resolution', 'selection', event,
                     producer_proof={'request_json': prepared.body.decode(), 'response_json': raw}))
                 self.operation, self.selection = selected, event
+                if graph_reference == "place_existing_reference":
+                    self._selection_intent = None
+                    self._pending = None
+                    return self.step
                 from application_state.agent_conversation.build_intentional_response import is_anchored_discussion
                 from application_state.agent_conversation.build_intentional_response import is_variant_approval
                 from application_state.agent_conversation.build_related_pages import is_anchored_conversation_draft

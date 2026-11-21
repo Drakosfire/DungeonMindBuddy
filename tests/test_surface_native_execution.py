@@ -78,6 +78,34 @@ def component(surface="plan", *, unavailable=False):
     return context, execution(context.context_receipt_sha256, policy)
 
 
+def test_typed_graph_completion_projects_distinct_review_and_clarification():
+    from pydantic import TypeAdapter
+
+    from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+    from apps.live_control_server.models.agent_turn import AgentSurfaceNativeContextResponseV1
+
+    context, _ = component("build")
+    reviewed = t.BuildGraphReferenceCompletionV1(
+        context_receipt_sha256=context.context_receipt_sha256,
+        disposition="ready", action_id=uuid4(), placement_sha256="a" * 64,
+    )
+    response = AgentSurfaceNativeContextResponseV1(
+        receipt=context, completion=reviewed, execution=None, delivery_replay=True,
+    )
+    assert response.model_validate_json(response.model_dump_json(by_alias=True)).completion == reviewed
+    codec = TypeAdapter(t.GraphTurnCompletion)
+    codec.rebuild(_types_namespace={"SurfaceNativeCompletionV1": SurfaceNativeCompletionV1})
+    assert codec.validate_json(reviewed.model_dump_json(by_alias=True)) == reviewed
+
+    clarification = t.BuildGraphReferenceCompletionV1(
+        context_receipt_sha256=context.context_receipt_sha256, disposition="ambiguous_identity",
+    )
+    assert clarification.action_id is None
+    assert clarification.answer_segments[0].text == "Select the exact Graph object you want to reference."
+    with pytest.raises(ValidationError, match="Only a resolved Graph nomination"):
+        codec.validate_json(clarification.model_copy(update={"action_id": uuid4()}).model_dump_json(by_alias=True))
+
+
 def execution(context_sha, policy, events=()):
     data = dict(schema="dmb_surface_native_execution_v1", context_receipt_sha256=context_sha,
         policy=policy.model_dump(mode="json", by_alias=True))

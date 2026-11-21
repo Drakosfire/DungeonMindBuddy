@@ -356,11 +356,12 @@ def _variants(surface):
 def test_current_native_storage_function_is_one_non_strict_invoker_owner(application_state_dsn):
     owner = import_module(MIGRATION)
     old = import_module('application_state.migrations.versions.20261101_0103_shared_native_turns')
+    graph = import_module('application_state.migrations.versions.20261122_0181_build_graph_reference_dispatch_fence')
     with psycopg.connect(application_state_dsn) as conn:
         props = conn.execute('SELECT proisstrict,provolatile,proparallel,prosecdef,proconfig,'
             'pg_get_functiondef(oid) FROM pg_proc WHERE oid=to_regprocedure(%s)', (owner._SIGNATURE,)).fetchone()
         assert props[:5] == (False, 'i', 's', False, ['search_path=pg_catalog'])
-        assert props[5].count(old._NATIVE) == 1
+        assert props[5].count(graph.extend_native_storage_shape(old._NATIVE)) == 1
         assert props[5].count("|| '{}'::jsonb") == 2
         assert _definition(conn).count(owner._FUNCTION + '(') == 1
         assert conn.execute("SELECT to_regclass('pg_temp.dmb_native_json_owner_shape')").fetchone() == (None,)

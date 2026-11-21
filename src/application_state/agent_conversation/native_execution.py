@@ -500,6 +500,7 @@ SurfaceNativeEvent = Annotated[
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | NativePlanOpeningAuthorizedV1
     | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
+    | t.BuildGraphReferenceCompletionBindingV1
     | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1 | NativePlanOpeningSelectedV2 | NativePlanOpeningSelectedV3
     | t.NativeBodySearchAuthorizedV1 | t.NativeInitialSourceSearchAuthorizedV1 | t.NativePlanRequestSearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
@@ -579,6 +580,8 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError('Shared native writer response requires its exact selected output acknowledgement')
             if isinstance(event, _BUILD_WORK_EVENTS) and not isinstance(self.policy.action, NativeBuildActionV1):
                 raise ValueError("Build work event cannot acquire another action family")
+            if type(event) is t.BuildGraphReferenceCompletionBindingV1 and not isinstance(action, NativeBuildActionV1):
+                raise ValueError("Graph reference completion requires its native Build action")
             if isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1):
                 prefix = self.events[:event.sequence]
                 work = prior_conversation_work(prefix)
