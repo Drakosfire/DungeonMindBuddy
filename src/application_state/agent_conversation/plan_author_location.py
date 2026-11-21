@@ -635,7 +635,7 @@ def is_complete_scope_recovery(hypothesis: AuthorScopeHypothesis, request: str,
         and (introducer[1] is None or label[0] in _QUOTES)
         and not label.startswith('the ')
         and _COMPOUND_REFERENCE.search(prefix) is None
-        and re.search(r'\bnot\b', prefix, re.IGNORECASE) is None
+        and re.search(r'\bnot\b', prefix + _scope_syntax(label), re.IGNORECASE) is None
         and not re.match(r'\s*[,;:]?\s*(?:not|either|and not)\b', suffix, re.IGNORECASE)
         and re.match(r'\s*(?:(?:section|heading)\b\s*)?(?:[.!?;,:]|$)', suffix, re.IGNORECASE) is not None)
 
