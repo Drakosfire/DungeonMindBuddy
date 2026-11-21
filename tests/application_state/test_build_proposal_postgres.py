@@ -285,7 +285,7 @@ def test_build_reference_accepts_only_the_exact_typed_editor_and_markdown(placem
     after["content"].append({"type": "paragraph", "attrs": {"pageBlockId": None}, "content": [atom]})
     index = placement.require_editor_insertion(editor, draft, json.dumps(after))
     assert index == 1
-    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    after_draft = "The moon shines.\n\n[Lurker](#dmb-ref:graph-node:threat:lurker)\n"
     placement.require_draft_insertion(draft, after_draft, index)
     with pytest.raises(ApplicationStateConflictError, match="authorized identity"):
         placement.require_draft_insertion(draft, after_draft.replace("threat:", "location:"), index)
@@ -296,8 +296,9 @@ def test_build_reference_accepts_only_the_exact_typed_editor_and_markdown(placem
         placement.require_editor_insertion(editor, draft, json.dumps(after))
 
 
+@pytest.mark.parametrize("href", ["dmb-node:threat:lurker", "#dmb-ref:graph-node:threat:lurker"])
 def test_graph_reference_review_replays_exact_postimage_and_records_only_observed_save(
-    placement_capture, application_state_dsn,
+    placement_capture, application_state_dsn, href,
 ):
     placement, editor, draft = placement_capture
     world = placement.basis.world_id
@@ -325,7 +326,7 @@ def test_graph_reference_review_replays_exact_postimage_and_records_only_observe
         },
     }]})
     after_editor = json.dumps(after)
-    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    after_draft = f"The moon shines.\n\n[Lurker]({href})\n"
     after_digest = sha256(after_draft.encode()).hexdigest()
     apply = BuildGraphReferenceApply(
         apply_id=uuid4(), editor_sha256=sha256(after_editor.encode()).hexdigest(),
@@ -360,8 +361,9 @@ def test_graph_reference_review_replays_exact_postimage_and_records_only_observe
 
 
 @pytest.mark.parametrize("identity_only", [False, True])
+@pytest.mark.parametrize("href", ["dmb-node:threat:lurker", "#dmb-ref:graph-node:threat:lurker"])
 def test_graph_reference_review_route_joins_current_graph_and_independent_content_save(
-    placement_capture, application_state_dsn, monkeypatch, tmp_path, identity_only,
+    placement_capture, application_state_dsn, monkeypatch, tmp_path, identity_only, href,
 ):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -425,7 +427,7 @@ def test_graph_reference_review_route_joins_current_graph_and_independent_conten
     after["content"].append({"type": "paragraph", "content": [{"type": "runbookReference", "attrs": {
         "kind": "ref", "refType": "graph-node", "refId": "threat:lurker", "label": "Lurker",
     }}]})
-    after_draft = "The moon shines.\n\n[Lurker](dmb-node:threat:lurker)\n"
+    after_draft = f"The moon shines.\n\n[Lurker]({href})\n"
     layout = None
     if identity_only:
         block_id = f"page-graph-ref-{placement.boundary.catalog_sha256[:32]}-{placement.boundary.from_}"
