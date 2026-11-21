@@ -204,7 +204,7 @@ def question(*, guidance=None, work_options=None):
 
 
 SOURCE_NEED_OPTIONS = ("anchored", "source_lookup", "uncertain")
-SOURCE_NEED_GUIDANCE = (
+_RETAINED_SOURCE_NEED_GUIDANCE = (
     "Does answering this turn require looking beyond the current page, explicitly referenced or "
     "carried material, and dialogue? Choose anchored for creative feedback on a supplied premise "
     "or brainstorming where the GM asks for no new world fact. Choose source_lookup for a factual "
@@ -212,14 +212,20 @@ SOURCE_NEED_GUIDANCE = (
     "Choose uncertain if the request cannot safely be answered from the anchored material alone."
 )
 
+SOURCE_NEED_GUIDANCE = _RETAINED_SOURCE_NEED_GUIDANCE + (
+    " When the user asks to turn existing material into a draft, choose anchored if the draft can faithfully "
+    "record the known material and leave disagreements or questions open. A gap in the story is not by "
+    "itself a request to investigate; choose source_lookup when the task calls for fresh evidence."
+)
+
 
 def source_need(request, response):
     question = request["questions"].get("source_need")
     if question is None:
         return None
-    expected = {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
-                "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
-    if question != expected:
+    expected = {"type": "choice", "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+    if question not in (expected | {"instructions": guidance}
+                        for guidance in (SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
         raise ValueError("Build source scope differs from its offered decision")
     return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS)
 
@@ -1003,7 +1009,8 @@ def normalize_native_review(candidate, segments, frame, *, author_text):
     validate_collaboration(review,segments,frame['response_contract'],
         primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
     if isinstance(review, ProposedLorePage):
-        review.destination.bind(author_text, has_body=bool(segments or review.open_questions))
+        review.destination.bind(author_text, has_body=bool(segments or review.open_questions),
+            conversational=frame["response_contract"]["requested_work"] == "review_lore_page_from_conversation")
     if isinstance(review,ProposedPlanV3) and not selection_packet(frame):
         raise ValueError('Plan review lacks its pre-writer selection contract')
     return review

@@ -258,3 +258,8 @@ def test_open_questions_stay_literal_in_saved_markdown():
     with pytest.raises(ValueError, match="Open questions"):
         ProposedLorePage(kind="lore_page", destination=destination,
                          open_questions=("Did Rowan leave?\n# Established fact",))
+
+
+def test_page_timing_modifier_is_separate_from_the_name():
+    assert explicit_lore_page_witness("Create a page for the Blue Lantern now.", conversational=True).title == "Blue Lantern"
+    assert explicit_lore_page_witness('Create a page titled "Blue Lantern Now".', conversational=True).title == "Blue Lantern Now"

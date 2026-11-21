@@ -17,7 +17,7 @@ _PAGE_REQUEST = re.compile(
 )
 
 
-def _requested_title(subject: str) -> str:
+def _requested_title(subject: str, *, conversational: bool = False) -> str:
     subject = subject.strip()
     if (subject[0], subject[-1]) in {('"', '"'), ('“', '”'), ("'", "'")}:
         return subject[1:-1].strip()
@@ -25,6 +25,8 @@ def _requested_title(subject: str) -> str:
         raise ValueError("Lore page request has a compound destination. Quote one intended title.")
     # A request may describe the subject before giving its explicit name.
     title = re.split(r'\bthat is\b', subject, flags=re.IGNORECASE)[-1].strip()
+    if conversational:
+        title = re.sub(r'\s+now$', '', title, flags=re.IGNORECASE)
     return re.sub(r'^the\s+', '', title, flags=re.IGNORECASE)
 
 
@@ -41,13 +43,13 @@ class LorePageTitleWitness(Closed):
         description="Quote the requested page title from that instruction.",
     )
 
-    def bind(self, author_text: str, *, has_body: bool = False) -> str:
+    def bind(self, author_text: str, *, has_body: bool = False, conversational: bool = False) -> str:
         """Check the literal witness against the producing author turn."""
         if self.instruction != self.instruction.strip() or self.title != self.title.strip():
             raise ValueError("Lore page witness has surrounding whitespace")
         if not self.title or not self.instruction or author_text.count(self.instruction) != 1:
             raise ValueError("Lore page instruction must occur once in the author turn")
-        request, title = _explicit_request(author_text)
+        request, title = _explicit_request(author_text, conversational=conversational)
         if not self.instruction.startswith(request["request"].rstrip()):
             raise ValueError("Lore page witness must quote the explicit page request")
         if self.title != title:
@@ -57,7 +59,7 @@ class LorePageTitleWitness(Closed):
         return self.title
 
 
-def _explicit_request(author_text: str) -> tuple[re.Match[str], str]:
+def _explicit_request(author_text: str, *, conversational: bool = False) -> tuple[re.Match[str], str]:
     requests = list(_PAGE_REQUEST.finditer(author_text))
     if len(requests) != 1:
         raise ValueError("Lore page requires one explicit page request")
@@ -72,7 +74,7 @@ def _explicit_request(author_text: str) -> tuple[re.Match[str], str]:
             r"\s+and\s+(?:populate|fill|leave|keep)\b", subject,
             maxsplit=1, flags=re.IGNORECASE,
         )[0]
-    return request, _requested_title(subject)
+    return request, _requested_title(subject, conversational=conversational)
 
 
 def _requests_blank_page(request: re.Match[str]) -> bool:
@@ -84,11 +86,11 @@ def explicit_blank_lore_page(author_text: str) -> bool:
     return _requests_blank_page(request)
 
 
-def explicit_lore_page_witness(author_text: str) -> LorePageTitleWitness:
+def explicit_lore_page_witness(author_text: str, *, conversational: bool = False) -> LorePageTitleWitness:
     """Derive the review destination from the author's literal instruction."""
-    request, title = _explicit_request(author_text)
+    request, title = _explicit_request(author_text, conversational=conversational)
     witness = LorePageTitleWitness(instruction=request["request"].rstrip(), title=title)
-    witness.bind(author_text)
+    witness.bind(author_text, conversational=conversational)
     return witness
 
 

@@ -160,6 +160,7 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
                 raise ValueError("Lore draft lacks its admitted Build review")
             completion.collaboration.destination.bind(
                 execution.policy.action.intent.message,
+                conversational=reviews[0].requested_work == "review_lore_page_from_conversation",
                 has_body=bool(completion.collaboration.open_questions) or any(
                     segment.kind != "limitation" for segment in completion.answer_segments),
             )
