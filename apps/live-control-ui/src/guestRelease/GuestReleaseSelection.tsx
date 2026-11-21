@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isSavedChoice } from "./savedChoice";
 
 type Field = { assertion_id: string; entity_id: string; kind: "name" | "classification" | "relationship"; value: string; predicate: string; target_id: string | null; temporal: string; basis: string; source_option_ids: string[] };
 type Source = { option_id: string; document_id: string; document_title: string; visibility: string; revision_n: number; sha256: string; start: number; end: number; excerpt: string; evidence_id: string; evidence_role: "support" | "context" };
@@ -23,10 +24,15 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const [exampleReferences, setExampleReferences] = useState<Set<string>>(new Set());
   const [exampleImage, setExampleImage] = useState("");
   const [exampleImageDescription, setExampleImageDescription] = useState("");
+  const [choiceEnabled, setChoiceEnabled] = useState(false);
+  const [choicePrompt, setChoicePrompt] = useState("");
+  const [choiceLabels, setChoiceLabels] = useState<[string, string]>(["", ""]);
+  const [choiceOutcomes, setChoiceOutcomes] = useState<[string, string]>(["", ""]);
   const base = `/api/live/worlds/${encodeURIComponent(worldId)}/guest-releases`;
   async function load() {
     setBusy(true); setError(null); setOptions(null); setChosen({}); setPrepared(false);
     setExampleEnabled(false); setExampleTitle(""); setExampleBody(""); setExampleReferences(new Set()); setExampleImage(""); setExampleImageDescription("");
+    setChoiceEnabled(false); setChoicePrompt(""); setChoiceLabels(["", ""]); setChoiceOutcomes(["", ""]);
     try {
       const response = await fetch(`${base}/selection-options`, { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) throw new Error("unavailable");
@@ -67,11 +73,13 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
     && [...exampleReferences].every(id => evidenceIds.includes(id))
     && referenceSpans.every(Boolean) && new Set(referenceSpans).size === referenceSpans.length
     && (!exampleImage || (selectedAssets.has(exampleImage) && loadedAssets.has(exampleImage) && exampleImageDescription.trim().length > 0)));
+  const choiceReady = !choiceEnabled || (exampleEnabled && isSavedChoice({ version: "owner_saved_choice_v1", prompt: choicePrompt,
+    options: choiceLabels.map((label, index) => ({ label, outcome: choiceOutcomes[index] })) }));
   const ready = nodes.size > 0 && [...nodes.values()].every(node => node.name && node.classification && !node.duplicate)
     && selected.every(field => field.source_option_ids.includes(chosen[field.assertion_id]) && sources.has(chosen[field.assertion_id]))
     && selected.filter(field => field.kind === "relationship").every(field => nodes.has(field.entity_id) && field.target_id !== null && nodes.has(field.target_id));
   async function prepare() {
-    if (!options || !ready || !exampleReady) return;
+    if (!options || !ready || !exampleReady || !choiceReady) return;
     const body = {
       graph_revision: options.graph_revision,
       nodes: [...nodes].map(([entity_id, item]) => ({ entity_id, name_assertion_id: item.name!.assertion_id,
@@ -86,6 +94,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       ...(exampleEnabled ? { saved_example: { title: exampleTitle, body: exampleBody,
         source_indexes: [...exampleReferences].map(id => evidenceIds.indexOf(id)),
         asset_id: exampleImage || null, image_description: exampleImage ? exampleImageDescription : null } } : {}),
+      ...(choiceEnabled ? { saved_choice: { prompt: choicePrompt, options: choiceLabels.map((label, index) => ({ label, outcome: choiceOutcomes[index] })) } } : {}),
     };
     setBusy(true); setError(null);
     try {
@@ -131,7 +140,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       {nextAssets && <button type="button" disabled={busy} onClick={() => loadImages(nextAssets)}>Load more images</button>}
       {assets && <p>{selectedAssets.size} of 100 images selected.</p>}
       <h4>Optional saved scene example</h4>
-      <label><input type="checkbox" checked={exampleEnabled} disabled={busy} onChange={event => setExampleEnabled(event.target.checked)} /> Include an owner-authored saved example</label>
+      <label><input type="checkbox" checked={exampleEnabled} disabled={busy} onChange={event => { setExampleEnabled(event.target.checked); if (!event.target.checked) setChoiceEnabled(false); }} /> Include an owner-authored saved example</label>
       {exampleEnabled && <div>
         <p>This is a saved example, not a live generation. Choose related excerpts; they do not automatically prove the scene. The entire example will be reviewed before publication.</p>
         <label>Example title <input value={exampleTitle} maxLength={120} onChange={event => setExampleTitle(event.target.value)} /></label>
@@ -142,9 +151,19 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
         <label>Inline image <select value={exampleImage} onChange={event => setExampleImage(event.target.value)}><option value="">No image</option>{(assets ?? []).map((asset, index) => selectedAssets.has(asset.id) && loadedAssets.has(asset.id) ? <option key={asset.id} value={asset.id}>Selected image {index + 1}</option> : null)}</select></label>
         {exampleImage && <label>Describe the image for guests <input value={exampleImageDescription} maxLength={240} onChange={event => setExampleImageDescription(event.target.value)} /></label>}
         {!exampleReady && <p>Complete the scene and select at least two different included excerpts. An inline image must remain selected and have a description.</p>}
+        <label><input type="checkbox" checked={choiceEnabled} onChange={event => setChoiceEnabled(event.target.checked)} /> Include a prewritten guest choice</label>
+        {choiceEnabled && <fieldset><legend>Prewritten choice</legend>
+          <p>Both outcomes will be public, even before someone chooses. They are possibilities, not a record of play.</p>
+          <label>Choice prompt <input value={choicePrompt} maxLength={480} onChange={event => setChoicePrompt(event.target.value)} /></label>
+          {([0, 1] as const).map(index => <div key={index}>
+            <label>Option {index + 1} label <input value={choiceLabels[index]} maxLength={160} onChange={event => { const value = event.target.value; setChoiceLabels(previous => { const next: [string, string] = [...previous]; next[index] = value; return next; }); }} /></label>
+            <label>Option {index + 1} outcome <textarea value={choiceOutcomes[index]} maxLength={4000} onChange={event => { const value = event.target.value; setChoiceOutcomes(previous => { const next: [string, string] = [...previous]; next[index] = value; return next; }); }} /></label>
+          </div>)}
+          {!choiceReady && <p>Complete the prompt and both distinct options and outcomes.</p>}
+        </fieldset>}
       </div>}
       <p>For each object, select exactly one name and classification. Relationships require both objects and an excerpt.</p>
-      <button type="button" disabled={!ready || !exampleReady || busy} onClick={prepare}>Prepare copy for review</button>
+      <button type="button" disabled={!ready || !exampleReady || !choiceReady || busy} onClick={prepare}>Prepare copy for review</button>
     </div>}
   </section>;
 }

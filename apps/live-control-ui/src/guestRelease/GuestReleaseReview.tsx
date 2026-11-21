@@ -2,13 +2,14 @@ import { useState } from "react";
 import "./guestReleaseReview.css";
 import { GuestReleaseSelection } from "./GuestReleaseSelection";
 import { isSavedExample } from "./savedExample";
+import { isSavedChoice } from "./savedChoice";
 
 type Candidate = { release_id: string; created_at: string };
 type Published = { release_id: string; published_at: string; current: boolean; reviewable: boolean };
 type Source = { id: string; text: string; evidence_role: "support" | "context" };
 type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_temporal: string; kind_temporal: string; name_basis: string; kind_basis: string };
 type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string; basis: string };
-type Review = { digest: string; source_visibility: Record<string, string>; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[]; saved_example?: unknown } };
+type Review = { digest: string; source_visibility: Record<string, string>; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[]; saved_example?: unknown; saved_choice?: unknown } };
 
 async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { credentials: "same-origin", cache: "no-store", ...init });
@@ -61,7 +62,7 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
     finally { setBusy(false); }
   }
   async function publish() {
-    if (!approved || !review || !selected || version === null || !imagesReady || !sourcesReady || !exampleReady) return;
+    if (!approved || !review || !selected || version === null || !imagesReady || !sourcesReady || !exampleReady || !choiceReady) return;
     setBusy(true); setError(null);
     const op = operationId ?? crypto.randomUUID();
     setOperationId(op);
@@ -95,6 +96,9 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
   const example = review?.manifest.saved_example;
   const validExample = review && isSavedExample(example, review.manifest.sources, review.manifest.assets) ? example : null;
   const exampleReady = !!review && (example === undefined || validExample !== null);
+  const choice = review?.manifest.saved_choice;
+  const validChoice = validExample && isSavedChoice(choice) ? choice : null;
+  const choiceReady = !!review && (choice === undefined || validChoice !== null);
   return <section aria-labelledby="guest-review-heading" className="guest-release-review">
     <h2 id="guest-review-heading">Guest release review</h2>
     <GuestReleaseSelection worldId={worldId} onPrepared={() => { setCandidates(null); setReview(null); setSelected(null); }} />
@@ -124,13 +128,15 @@ export function GuestReleaseReview({ worldId }: { worldId: string }) {
       <h4>Source excerpts</h4>
       {review.manifest.sources.map((source, index) => <section key={source.id}><h5>Excerpt {index + 1} · {review.source_visibility[source.id] === "internal" ? "private source" : review.source_visibility[source.id] === "player_safe" ? "player-safe source" : "source visibility unavailable"} · {source.evidence_role === "context" ? "context, not direct support" : source.evidence_role === "support" ? "support" : "evidence role unavailable"}</h5><p style={{ whiteSpace: "pre-wrap" }}>{source.text}</p></section>)}
       {validExample && <section><h4>Owner-authored saved example</h4><h5>{validExample.title}</h5><p style={{ whiteSpace: "pre-wrap" }}>{validExample.body}</p><p>Selected references: {validExample.references.map(id => { const source = review.manifest.sources.find(item => item.id === id)!; return `excerpt ${sourceNumbers.get(id)} (${source.evidence_role === "context" ? "context, not direct support" : "support"})`; }).join(", ")}. These references do not automatically prove the scene.</p>{validExample.image && <p>Inline image: selected release image {(review.manifest.assets.findIndex(asset => asset.id === validExample.image!.id) + 1)}. Description: {validExample.image.description}</p>}</section>}
+      {validChoice && <section><h4>Prewritten guest choice</h4><p>Both outcomes are public and describe possibilities, not recorded play.</p><h5>{validChoice.prompt}</h5><ol>{validChoice.options.map((option, index) => <li key={index}><strong>{option.label}</strong><p style={{ whiteSpace: "pre-wrap" }}>{option.outcome}</p></li>)}</ol></section>}
       {!exampleReady && <p role="alert">The saved example is malformed and cannot be approved.</p>}
+      {!choiceReady && <p role="alert">The saved choice is malformed and cannot be approved.</p>}
       <h4>Images</h4>
       {review.manifest.assets.length === 0 ? <p>No images selected.</p> : review.manifest.assets.map((asset, index) => <img key={asset.id} src={`${base}/candidates/${encodeURIComponent(selected)}/assets/${encodeURIComponent(asset.id)}`} alt={`Selected release image ${index + 1}`} style={{ maxWidth: "100%" }} onLoad={() => setLoadedAssets(previous => new Set(previous).add(asset.id))} onError={() => { setLoadedAssets(previous => { const next = new Set(previous); next.delete(asset.id); return next; }); setApproved(false); setError("An image could not be loaded. Reload this copy before approving it."); }} />)}
       {!imagesReady && <p>All selected images must load before approval.</p>}
       {!sourcesReady && <p>Source visibility and evidence role must be available before approval.</p>}
       <p>Snapshot digest: <code>{review.digest}</code></p>
-      {!published && <><label><input type="checkbox" checked={approved} onChange={event => setApproved(event.target.checked)} disabled={busy || !imagesReady || !sourcesReady || !exampleReady} /> I reviewed this copy and approve making these exact contents available to guests.</label><br /><button type="button" disabled={!approved || busy || !imagesReady || !sourcesReady || !exampleReady} onClick={publish}>{selectedKind === "candidate" ? "Publish this copy" : "Restore this copy"}</button></>}
+      {!published && <><label><input type="checkbox" checked={approved} onChange={event => setApproved(event.target.checked)} disabled={busy || !imagesReady || !sourcesReady || !exampleReady || !choiceReady} /> I reviewed this copy and approve making these exact contents available to guests.</label><br /><button type="button" disabled={!approved || busy || !imagesReady || !sourcesReady || !exampleReady || !choiceReady} onClick={publish}>{selectedKind === "candidate" ? "Publish this copy" : "Restore this copy"}</button></>}
       {published && <div role="status"><p>Copy {selectedKind === "candidate" ? "published" : "restored"}. Reload to check the current copy.</p>{import.meta.env.VITE_GUEST_RELEASE_PAGE === "1" && publicId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(publicId) ? <a href={`/visit/${publicId}`}>Open guest link</a> : <p>Guest page delivery is not yet available on this deployment.</p>}</div>}
     </div>}
   </section>;

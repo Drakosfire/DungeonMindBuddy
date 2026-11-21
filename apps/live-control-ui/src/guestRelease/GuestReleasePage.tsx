@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { dungeonMindLoginHref } from "../auth/HostedAuthGate";
 import { isSavedExample } from "./savedExample";
+import { isSavedChoice } from "./savedChoice";
 import "./guestReleasePage.css";
 
 type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_basis: string; kind_basis: string; temporary?: boolean };
 type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string; basis: string; temporary?: boolean };
 type Source = { id: string; text: string; evidence_role: "support" | "context" };
-type Snapshot = { release_id: string; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[]; saved_example?: unknown } };
+type Snapshot = { release_id: string; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[]; saved_example?: unknown; saved_choice?: unknown } };
 
 function fragment(release: string, node?: string | null, source?: string | null): string {
   const parts = ["copy", release];
@@ -61,6 +62,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const [relation, setRelation] = useState("connected to");
   const [target, setTarget] = useState("");
   const [formError, setFormError] = useState("");
+  const [selectedChoice, setSelectedChoice] = useState<0 | 1 | null>(null);
   const sequence = useRef(0);
   const additionCount = useRef(0);
   const detailRef = useRef<HTMLElement>(null);
@@ -88,6 +90,8 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const sources = snapshot?.manifest.sources ?? [];
   const exampleValue = snapshot?.manifest.saved_example;
   const example = snapshot && isSavedExample(exampleValue, sources, snapshot.manifest.assets) ? exampleValue : null;
+  const choiceValue = snapshot?.manifest.saved_choice;
+  const choice = example && isSavedChoice(choiceValue) ? choiceValue : null;
   const labels = new Map(nodes.map(node => [node.id, node.label]));
   const source = sources.find(item => item.id === selectedSource);
   const active = nodes.find(item => item.id === selectedNode);
@@ -119,6 +123,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const reset = () => {
     additionCount.current = 0;
     setAdditions({ nodes: [], edges: [] }); setName(""); setRelation("connected to"); setTarget(""); setFormError("");
+    setSelectedChoice(null);
     setSelectedNode(null); setSelectedSource(null);
     if (snapshot) window.history.replaceState(null, "", fragment(snapshot.release_id));
   };
@@ -159,7 +164,19 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
           {example.image && <img src={`/api/live/guest-releases/${encodeURIComponent(publicId)}/releases/${encodeURIComponent(snapshot.release_id)}/assets/${encodeURIComponent(example.image.id)}`} alt={example.image.description} />}
           <p>Selected references. They do not automatically prove the scene.</p>
           <div className="guest-world__citations">{example.references.map(citationButton)}</div>
+          {choiceValue !== undefined && !choice && <p role="alert">This saved choice is unavailable.</p>}
+          {choice && <section className="guest-world__choice" aria-labelledby="guest-choice-heading">
+            <h3 id="guest-choice-heading">{choice.prompt}</h3>
+            <p>Choose a prewritten possibility. These owner-authored outcomes are not a record of play and do not use your additions.</p>
+            <div role="group" aria-labelledby="guest-choice-heading" className="guest-world__choice-options">
+              {choice.options.map((option, index) => <button key={index} type="button" aria-pressed={selectedChoice === index}
+                onClick={() => setSelectedChoice(index as 0 | 1)}>{option.label}</button>)}
+            </div>
+            <div aria-live="polite" aria-atomic="true">{selectedChoice !== null && <p className="guest-world__choice-outcome">{choice.options[selectedChoice].outcome}</p>}</div>
+            <button type="button" onClick={() => setSelectedChoice(null)}>Reset choice</button>
+          </section>}
         </section>}
+        {choiceValue !== undefined && !example && <p role="alert">This saved choice is unavailable.</p>}
         {snapshot.manifest.assets.length > 0 && <section className="guest-world__gallery"><h2>From the World</h2>{snapshot.manifest.assets.map((asset, index) => <img key={asset.id} src={`/api/live/guest-releases/${encodeURIComponent(publicId)}/releases/${encodeURIComponent(snapshot.release_id)}/assets/${encodeURIComponent(asset.id)}`} alt={`Shared World image ${index + 1}`} />)}</section>}
         <section className="guest-world__next"><h2>Make room for your own story.</h2><p>The shared World stays unchanged. Your temporary additions cannot be transferred to an account.</p><a href={dungeonMindLoginHref("/")}>Sign in to Buddy →</a></section></>}
     <footer className="guest-world__footer">A shared copy · Your private Worlds stay separate</footer>
