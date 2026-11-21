@@ -405,6 +405,79 @@ def test_agent_reservation_marks_both_owners_before_commit_and_replays_exactly(
     )
 
 
+def test_author_scope_input_admission_joins_exact_native_turn_without_granting_work(plan_adapter):
+    from hashlib import sha256
+
+    from application_state.agent_conversation.native_plan_opening import (
+        NativePlanAuthorScopeParentV1, prepare_author_scope_decision,
+    )
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
+    from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    from application_state.agent_conversation.native_writer import json_container_count
+    from application_state.agent_conversation.plan_jev_decision import scope_digest
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2, PlanPlacementOptionV2
+    from application_state.agent_conversation.types import (
+        NativeCorpusUnavailableV1, PlanContextPolicyV2, ProviderOutcomeEventV1,
+    )
+    from application_state.errors import ApplicationStateValidationError
+
+    capture, _ = admitted_authoring(plan_adapter, admit=False)
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=capture.sha256,
+        editor_sha256=capture.editor_sha256, entries=(PlanPlacementOptionV2(
+            selector='captured', kind='captured_target', label='At the captured text caret',
+            source_root_index=None, root_boundary=None, position=None, target_capture_sha256=capture.sha256),))
+    plan_adapter.request = plan_adapter.request.model_copy(update={'plan_placement_catalog': catalog,
+        'plan_context_policy': PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
+    plan_adapter.submitted_intent = _submitted_turn_intent(plan_adapter.request, world_id='world:one')
+    plan_adapter.bootstrap = None
+    plan_adapter.native_source_authority = NativeCorpusUnavailableV1(
+        managed_world_id='world:one', failure_code='native_source_head_unavailable')
+    plan_adapter.native_query = NativePlanQueryUnavailableV1(
+        managed_world_id='world:one', reason='native_graph_binding_unavailable')
+    turn = plan_adapter.claim_native_plan_request(dialogue=())
+    admission = turn.graph_context_receipt.assembled_input
+    parent = NativePlanAuthorScopeParentV1(question=turn.user_text, dialogue=(),
+        max_span_attempts=2048, quote_context=False, request_id=uuid4(), parent_attempt_id=uuid4(),
+        scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256)
+    decision = prepare_author_scope_decision(parent)
+    payload = {'model': decision.model, 'state': decision.state,
+        'questions': {q.name: {'type': 'choice', 'instructions': q.question,
+            'criteria': q.option_descriptions} for q in decision.questions}}
+    wire = json.dumps(payload, separators=(',', ':'))
+    authorization = NativePlanAuthorScopeAuthorizedV1(event_id=uuid4(),
+        sequence=len(turn.graph_context_execution.events), decision_request_id=parent.request_id,
+        parent_request_sha256=parent.digest, provider_attempt_id=parent.parent_attempt_id,
+        provider=decision.provider, model=decision.model, api_mode='decision',
+        envelope_sha256=sha256(wire.encode()).hexdigest(), serializer_version='typesafe-sdk-json-v1',
+        tool_schema_sha256=sha256(b'[]').hexdigest(), input_accounting_kind='conservative_upper_bound',
+        input_estimator=admission.tokenizer_name, input_tokens=len(wire.encode())+64*(1+json_container_count(payload)),
+        output_token_reserve=plan_adapter.budget['outputReserveTokens'], included_assertion_ids=[],
+        included_relationship_ids=[], included_evidence_ref_ids=[], included_graph_event_ids=[],
+        included_source_read_event_ids=[])
+
+    def admit(value):
+        return plan_adapter.service.authorize_plan_jev_provider(
+            turn.world_id, turn.conversation_id, turn.turn_id, expected_revision=turn.revision,
+            expected_attempt=turn.attempt,
+            authorization=authorization.model_copy(update={'parent_request_sha256': value.digest}),
+            producer_proof={'parent_request_json': value.model_dump_json(by_alias=True), 'request_json': wire})
+
+    foreign = parent.model_copy(update={'request_manifest_sha256': '0' * 64})
+    with pytest.raises(ApplicationStateValidationError, match='admitted Plan request or dialogue'):
+        admit(foreign)
+    stored, fresh = admit(parent)
+    assert fresh
+    assert stored.graph_context_execution.events == [*turn.graph_context_execution.events, authorization]
+    assert len(stored.graph_context_execution.events) == 1
+    assert stored.graph_context_execution.policy.action.intent.plan_authoring_capture_sha256 == capture.sha256
+    entered = ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(),
+        sequence=1, provider_attempt_id=authorization.provider_attempt_id, outcome='sdk_entered')
+    with pytest.raises(ApplicationStateValidationError, match='exact admitted prepared authorization'):
+        plan_adapter.service.record_provider_outcome(
+            stored.world_id, stored.conversation_id, stored.turn_id,
+            expected_revision=stored.revision, expected_attempt=stored.attempt, outcome=entered)
+
+
 @pytest.mark.parametrize("mutation", ["content", "turn_revision", "capture", "pointer"])
 def test_rejected_authoring_reservation_rolls_back_its_pending_action(
     plan_adapter, application_state_dsn, mutation

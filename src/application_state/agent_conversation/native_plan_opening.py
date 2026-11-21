@@ -4,6 +4,7 @@ Request admission and provider dispatch are distinct commitments in the existing
 Turn. Neither this manifest nor a navigation catalog is provider/body authority.
 """
 from typing import Literal
+from uuid import UUID
 
 from pydantic import Field
 
@@ -14,7 +15,7 @@ from .plan_author_location import (
     author_scope_hypotheses, author_scope_offer_view,
 )
 from .plan_placement import PlanRequestedWorkInputV8, PlanRequestedWorkInputV9
-from .jev_retrieval_contract import NativePlanBatchDecisionInputV3, RetrievalDialogue
+from .jev_retrieval_contract import Digest, NativePlanBatchDecisionInputV3, RetrievalDialogue
 
 
 class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecisionInputV3):
@@ -47,6 +48,22 @@ class NativePlanAuthorScopeObservationV1(Strict):
     relation: str
     selected_alias: str
     scope: ScopeExpression
+
+
+class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
+    """Host binding for the exact source-blind SDK request."""
+
+    schema_: Literal['dmb_native_plan_author_scope_parent_v1'] = Field(
+        default='dmb_native_plan_author_scope_parent_v1', alias='schema')
+    request_id: UUID
+    parent_attempt_id: UUID
+    scope_sha256: Digest
+    request_manifest_sha256: Digest
+    max_span_attempts: int = Field(strict=True, gt=0, le=2048)
+
+    @property
+    def digest(self) -> str:
+        return t.canonical_sha256(self.model_dump(mode='json', by_alias=True))
 
 
 def _author_scope_offers(request):
@@ -90,6 +107,21 @@ def validate_author_scope_wire(request: NativePlanAuthorScopeInputV1, payload: b
         for q in expected.questions}
     if strict_json(payload.decode('utf-8')) != {'model': expected.model, 'state': expected.state, 'questions': questions}:
         raise ValueError('Author scope wire differs from its reconstructed local choices')
+
+
+def validate_author_scope_parent(context, execution, parent, authorization):
+    from .native_context import NativePlanRequestAdmissionV1
+    from .native_execution import NativePlanActionV3
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+
+    if (type(authorization) is not NativePlanAuthorScopeAuthorizedV1
+            or type(parent) is not NativePlanAuthorScopeParentV1
+            or type(execution.policy.action) is not NativePlanActionV3
+            or type(context.assembled_input) is not NativePlanRequestAdmissionV1
+            or parent.request_manifest_sha256 != context.assembled_input.manifest_sha256
+            or opening_dialogue_sha256(parent.dialogue) != context.assembled_input.dialogue_sha256):
+        raise ValueError('Author scope parent differs from its admitted Plan request or dialogue')
+    validate_opening_prefix(context, execution.events[:authorization.sequence])
 
 
 def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
@@ -223,13 +255,13 @@ def validate_opening_sdk_entry(execution, outcome, expected_authorization):
     This is the same real authorization already proven against prepared bytes,
     not a new receipt or permission to replay an interrupted provider.
     """
-    from .native_retrieval import NativePlanOpeningAuthorizedV1
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
     authorizations = [e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
     current = authorizations[-1] if authorizations else None
-    opening_entry = (type(current) is NativePlanOpeningAuthorizedV1
+    opening_entry = (type(current) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1)
         and outcome.outcome == 'sdk_entered' and outcome.provider_attempt_id == current.provider_attempt_id)
     if opening_entry:
-        if type(expected_authorization) is not NativePlanOpeningAuthorizedV1 or expected_authorization != current:
+        if type(expected_authorization) is not type(current) or expected_authorization != current:
             raise ValueError('Opening SDK entry differs from its exact admitted prepared authorization')
     elif expected_authorization is not None:
         raise ValueError('Opening SDK authorization cannot be borrowed by another lifecycle transition')
@@ -284,6 +316,9 @@ def validate_request_admission(context, execution):
         if isinstance(event, NativeInitialSourceSearchAuthorizedV1):
             raise ValueError('Request-admitted Plan cannot borrow the historical work-owned search')
         from .native_retrieval import NativePlanOpeningAuthorizedV1
-        if type(event) is NativePlanOpeningAuthorizedV1:
+        from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+        if type(event) is NativePlanAuthorScopeAuthorizedV1 and type(action) is not NativePlanActionV3:
+            raise ValueError('Author scope decisions require their actual contextual Plan action')
+        if type(event) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1):
             validate_opening_prefix(context, execution.events[:event.sequence])
     return admission

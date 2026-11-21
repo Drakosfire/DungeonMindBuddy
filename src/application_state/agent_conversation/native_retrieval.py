@@ -38,6 +38,12 @@ class NativePlanOpeningAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
     kind: Literal['native_plan_opening_authorized_v1'] = 'native_plan_opening_authorized_v1'
 
 
+class NativePlanAuthorScopeAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
+    """Source-blind interpretation input. It cannot settle opening work."""
+
+    kind: Literal['native_plan_author_scope_authorized_v1'] = 'native_plan_author_scope_authorized_v1'
+
+
 class NativeRetrievalSelectedV1(t.PlanJevRetrievalSelectionV1):
     kind: Literal["native_retrieval_selected_v1"] = "native_retrieval_selected_v1"
 
@@ -590,8 +596,8 @@ def validate_decision_phases(execution):
                 else:
                     auth, outcome = None, None
             else:
-                if type(auth) is NativePlanOpeningAuthorizedV1:
-                    raise ValueError('Opening SDK cannot settle as historical work-only selection')
+                if type(auth) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1):
+                    raise ValueError('Current Plan SDK cannot settle as historical work-only selection')
                 auth, outcome = None, None
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
             if type(event) is NativeRetrievalSelectedV2:

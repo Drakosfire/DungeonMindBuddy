@@ -114,8 +114,20 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
     parent, raw = proof["parent_request_json"], proof["request_json"]
     if not isinstance(parent, str) or not isinstance(raw, str):
         raise ValueError("Plan decision request proof must carry exact serialized bytes")
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    author_scope = type(auth) is NativePlanAuthorScopeAuthorizedV1
     semantic = isinstance(auth, t.PlanRequestedWorkAuthorizedV1)
-    if semantic:
+    if author_scope:
+        from .native_plan_opening import NativePlanAuthorScopeParentV1, validate_author_scope_parent
+        from .native_writer import json_container_count
+
+        request = NativePlanAuthorScopeParentV1.model_validate(strict_json(parent))
+        validate_author_scope_parent(receipt, execution, request, auth)
+        if (auth.input_accounting_kind != 'conservative_upper_bound'
+                or auth.input_estimator != receipt.assembled_input.tokenizer_name
+                or auth.input_tokens != len(raw.encode()) + 64 * (1 + json_container_count(strict_json(raw)))):
+            raise ValueError('Author scope SDK accounting differs from its exact protected request bytes')
+    elif semantic:
         from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
         if native_action is None and not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
             raise ValueError('Plan destination decision requires its frozen authoring policy')
@@ -188,7 +200,10 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
             or auth.included_evidence_ref_ids or auth.included_graph_event_ids
             or auth.included_source_read_event_ids):
         raise ValueError("Plan Jev prepared request differs from its actual owner/authorization")
-    if semantic:
+    if author_scope:
+        from .native_plan_opening import validate_author_scope_wire
+        validate_author_scope_wire(request, raw.encode())
+    elif semantic:
         validate_requested_work_wire(request, raw.encode())
     else:
         validate_wire_body(request, raw.encode())
