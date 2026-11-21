@@ -2535,6 +2535,22 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         assert not any(isinstance(e, NativeBuildQuerySettledV1) for e in populated.graph_context_execution.events)
         assert not acquired_body_reads(populated.graph_context_execution)
         assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
+        for number in range(6):
+            response = workflow.capture_case(
+                case.client, case.world, template, {"question": synthesis},
+                tmp_path / f"lore-revision-{number}", build_thread_id=thread_id,
+                expected_conversation_id=str(blank.conversation_id),
+            )
+            assert response.status_code == 200, response.text
+        history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
+        row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
+        populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
+        assert producing.turn_id not in {
+            pin.turn_id for pin in populated.graph_context_receipt.assembled_input.included_history
+        }
+        assert populated.completion.native_body_citations
+        assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
+
     completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
     followup = workflow.capture_case(

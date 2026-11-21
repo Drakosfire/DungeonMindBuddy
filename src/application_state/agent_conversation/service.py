@@ -2440,7 +2440,8 @@ class AgentConversationService:
         from collections import Counter
         from hashlib import sha256
         from .native_corpus import (
-            PriorBodyCitationReferenceV1, conversation_route_can_admit, prior_conversation_work, resolve_prior_body_citation,
+            PriorBodyCitationReferenceV1, conversation_route_can_admit, prior_body_writer_supports,
+            prior_conversation_work, resolve_prior_body_citation,
         )
         from .native_reads import _owner
         from .types import BuildPriorBodyEvidenceAdmittedV1, PriorBodyCitationSupportV1
@@ -2474,20 +2475,33 @@ class AgentConversationService:
                 completion_digest = canonical_sha256(completion)
                 citation_counts = Counter(citation.segment_index for citation in citations)
                 for ordinal, citation in enumerate(citations):
-                    if citation.prior_reference is not None:
-                        continue
-                    reference = PriorBodyCitationReferenceV1(turn_id=prior_id,
-                        completion_sha256=completion_digest, citation_index=ordinal)
-                    claim, passage = resolve_prior_body_citation(current, prior, reference,
-                        history_turn_ids=history_turn_ids)
+                    reference = citation.prior_reference
+                    if reference is None:
+                        reference = PriorBodyCitationReferenceV1(turn_id=prior_id,
+                            completion_sha256=completion_digest, citation_index=ordinal)
+                        claim, passage = resolve_prior_body_citation(current, prior, reference,
+                            history_turn_ids=history_turn_ids)
+                        support = PriorBodyCitationSupportV1(reference=reference,
+                            original_citation=citation, claim_text=claim, passage=passage)
+                    else:
+                        support = next((item.support for item in prior_body_writer_supports(
+                            prior.graph_context_execution) if item.support.reference == reference), None)
+                        if support is None:
+                            raise ValueError("Carried citation lacks its producing admission")
+                        origin = repo.get_turn(conn, current.world_id, reference.turn_id)
+                        if origin is None:
+                            raise ValueError("Carried citation origin is unavailable")
+                        claim, passage = resolve_prior_body_citation(prior, origin, reference,
+                            history_turn_ids={reference.turn_id})
+                        if (claim, passage) != (support.claim_text, support.passage):
+                            raise ValueError("Carried citation changed its exact original support")
                     extent = (citation.source_artifact_id, citation.native_source_revision_id,
                         citation.content_sha256, citation.section_id, citation.excerpt_sha256)
                     # Prefer a claim with one cited passage over broader
                     # compound claims that selected the same extent.
                     rank = (citation_counts[citation.segment_index], -prior.sequence, ordinal)
                     if extent not in supports or rank < supports[extent][0]:
-                        supports[extent] = (rank, PriorBodyCitationSupportV1(
-                            reference=reference, original_citation=citation, claim_text=claim, passage=passage))
+                        supports[extent] = (rank, support)
             def redundant(rank, support):
                 citation = support.original_citation
                 for other_rank, other in supports.values():
