@@ -117,9 +117,15 @@ support is unqualified for the grounded zero-retrieval case. Do not backfill
 its prior turns with facts recovered by the failing creation turn. A read-only
 check of the hosted prefix found that completed turns 7, 8 and 12 mention
 Maelthor, Ethel and the password and each retain two native body citations.
-Turn 8 contains two distinct passage-claim segments. Use the retained
-citation records to verify precisely which claims each span supports before
-scoring.
+The frozen 12-turn prefix has SHA-256
+`ff14046ef3e593a61957eb5e2df5f6d5295e9389057d722b698d186834cdcb4b`.
+Turn 8 supplies the two cleanly separated passage claims. The admitted dream
+excerpt hashes to `7080c5f78d97bc39d2ac21a08e7f8b889da77844c376e64d67ea9269f5468bec`
+and the password excerpt hashes to
+`c4fe6d1592e97a550d250fb88bd914d239134868a48c3905ace8bb3162800b94`.
+Both citation records bind the original answer segment digest and the
+original read event and section. The frozen prefix and supporting records
+stay in the isolated evaluator evidence workspace.
 
 | Boundary | Acceptance |
 | --- | --- |
