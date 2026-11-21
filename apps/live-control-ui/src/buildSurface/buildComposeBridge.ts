@@ -14,6 +14,7 @@ import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownA
 import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
 import {flattenPresentation,hasPresentation,hydratePresentation,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
 import {stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
+import {preservePlainReviewBlockIdentities} from '../tiptap/pageComposer/PageRow';
 
 export interface BuildComposeEditorState {
   editor: Editor; worldId: string; documentId: string; revision: number; contentSha256: string;
@@ -25,6 +26,7 @@ export interface CapturedBuildInsertion {
   pageBodyOffer?:BuildPageBodyTarget; pageBodyTarget?:BuildPageBodyTarget;
   pageEndOffer?:BuildPageEndTarget; pageEndTarget?:BuildPageEndTarget;
   proseTarget?:BuildProseBoundaryTarget;
+  contextualProse?:true;
   basis: BuildProposalBasis; draftMarkdown: string; editor: Editor; editorJson: string;
 }
 export interface PreparedBuildProposal {
@@ -143,6 +145,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       throw new Error('This page editor cannot retain paragraph identities.');
     const paragraph = retainsIds ? {...content[0], attrs: {...content[0].attrs, pageBlockId:id}} : content[0];
     const transaction = editor.state.tr.insert(proof.from, editor.schema.nodeFromJSON(paragraph));
+    if (!retainsIds) preservePlainReviewBlockIdentities(transaction);
     const after = transaction.doc.toJSON() as JSONContent;
     const before = original.content ?? [];
     const index = editor.state.doc.resolve(proof.from).index(0);
@@ -227,6 +230,10 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
           editor_sha256: await sha256(editorJson), caret, draft_generation: draftGeneration, selection_generation: selectionGeneration,
           ...(!selection.empty ? {selection:{end:selection.to,text:selectedText}} : {}) } };
       assertSame(captured);
+      if (selection.empty && supportsRootProse(now.editor.getJSON()) &&
+          canonicalProjection(now.editor, draftMarkdown, true)) {
+        captured.contextualProse = true;
+      }
       try{
         admitMarkdownInsertion(draftMarkdown);
         pageBodyReferences(JSON.parse(editorJson));
@@ -400,13 +407,28 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
 }
 
 /** A representable current projection cannot hide dropped nodes or attributes. */
-function canonicalProjection(editor:Editor,markdown:string):boolean {
+function supportsRootProse(doc: JSONContent): boolean {
+  return doc.type === 'doc' && !!doc.content?.length && doc.content.every(node => {
+    if (Object.entries(node.attrs ?? {}).some(([key, value]) =>
+      value != null && key !== 'pageBlockId' && key !== 'level')) return false;
+    if (node.type === 'horizontalRule') return !node.content?.length;
+    if (node.type !== 'paragraph' && node.type !== 'heading') return false;
+    return !!node.content?.some(child => child.type === 'text' && child.text?.trim())
+      && node.content.every(child => child.type === 'hardBreak' ||
+        child.type === 'text' && (child.marks ?? []).every(mark =>
+          ['bold', 'italic', 'strike', 'code', 'underline', 'link'].includes(mark.type ?? '')));
+  });
+}
+
+function canonicalProjection(editor:Editor,markdown:string,ignorePageBlockIds=false):boolean {
   try{
     const json=editor.getJSON(),parsed=markdownToTiptapDoc(markdown);
     if(semanticMarkdownSerializationDiagnostics(json).length || parsed.diagnostics.some(issue=>issue.level==='warning'))return false;
     const reopened=editor.schema.nodeFromJSON(parsed.doc).toJSON();
     const stable=(value:unknown):unknown=>Array.isArray(value)?value.map(stable)
-      :value&&typeof value==='object'?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,stable(item)])):value;
+      :value&&typeof value==='object'?Object.fromEntries(Object.entries(value)
+        .filter(([key])=>!ignorePageBlockIds || key!=='pageBlockId')
+        .sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,stable(item)])):value;
     return JSON.stringify(stable(json))===JSON.stringify(stable(reopened)) && tiptapJsonToSemanticMarkdown(reopened)===markdown;
   }catch{return false;}
 }

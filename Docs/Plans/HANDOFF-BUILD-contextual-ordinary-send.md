@@ -24,6 +24,13 @@ Build capture choice and the display/cleanup of its placement clarification.
 Own the directly associated tests and these two handoffs. Follow the existing
 receiver, auth, history, retry and Save authorities.
 
+The mounted Save witness exposed a transaction mismatch on sidecar-free
+Build pages with the real composer extensions. The identity plugin assigned
+new IDs after the Review hash was prepared. The bounded repair also owns the
+plain reviewed-insertion and history checks in `tiptap/pageComposer/PageRow.tsx`.
+Keep the existing identity behavior for enrolled or composed pages and
+ordinary document edits. The checked active heads have no PageRow overlap.
+
 The bounded UI split preserves #3824's hosted auth at
 `76c31187f3e9badecbc403f2d9c943994c5f5f9c` and #3816's existing conversation
 changes at `a4bd3a75f64a1202fa50f19a96a3bbb84ca7ff27`. The relevant #3812

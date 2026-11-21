@@ -383,6 +383,30 @@ it('carries the frozen page-end offer through ordinary chat preparation without 
  expect(prepared?.draftContext?.snapshot.draft_markdown).toBe('# Edge');
 });
 
+it.each(['eligible', 'unsupported', 'selected'] as const)(
+ 'prepares contextual Send without surrendering the original caret or explicit selection (%s)', async mode => {
+  const eligible = mode === 'eligible';
+  const selection = mode === 'selected' ? {end: 5, text: 'Edge'} : undefined;
+  const frozen = {...captured, ...(eligible ? {contextualProse: true as const} : {}),
+    basis: {...captured.basis, ...(selection ? {selection} : {})}};
+  vi.mocked(bridge.capture).mockResolvedValue(frozen);
+  const hook = renderHook(() => useBuildCompose({worldId:'world', pageDocumentId:'doc',
+    history, bridge, enabled:true, onHistory:vi.fn()}));
+  let prepared: Awaited<ReturnType<typeof hook.result.current.prepareHarnessTurn>> | undefined;
+  await act(async () => {
+    prepared = await hook.result.current.prepareHarnessTurn(
+      '33333333-3333-4333-8333-333333333333', false, false, false, undefined, true,
+    );
+  });
+  expect(prepared?.draftContext?.snapshot.draft_markdown).toBe(captured.draftMarkdown);
+  if (mode === 'unsupported') {
+    expect(prepared?.capability).toBeUndefined();
+  } else {
+    expect(prepared?.capability?.basis).toEqual(frozen.basis);
+    expect(prepared?.capability?.boundary_editor_json).toBe(eligible ? frozen.editorJson : undefined);
+  }
+});
+
 it('keeps a generated suggestion readable after insertion without offering another insertion',async()=>{
  vi.mocked(api.listBuildProposals).mockResolvedValue([{...receipt(),inserted_in_draft:true}]);
  const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));

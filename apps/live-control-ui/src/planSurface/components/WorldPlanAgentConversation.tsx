@@ -4546,7 +4546,8 @@ export function WorldPlanAgentConversation({
       const terminalMatches = sharedConversation?.history && await confirmedReadOnlyTurn(sharedConversation.history, stored);
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       const buildTargetUnavailable = request.surface.surface_id === "build"
-        && reason instanceof LiveApiError && reason.code === "build_compose_target_unavailable";
+        && reason instanceof LiveApiError
+        && (reason.code === "build_compose_target_unavailable" || reason.code === "build_contextual_placement_unresolved");
       if (terminalMatches && sharedConversation) {
         if (buildTargetUnavailable) setError(reason.message);
         if (clearSavedPlayTurn(stored)) sharedConversation.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
@@ -4753,7 +4754,7 @@ export function WorldPlanAgentConversation({
         try {
           const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss',
             freshBuildRetry?.context.author_interaction==='select_passage',!!freshBuildRetry?.context.reference_image_id,
-            freshBuildRetry?.context.reference_image_id);
+            freshBuildRetry?.context.reference_image_id, !explicitRequest && !freshBuildRetry);
           if(prepared.placementError){
             if(latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===placementFence
               &&latestRef.current.buildPlacementEpoch===epoch&&latestRef.current.buildPlacementBridge===bridge

@@ -1,8 +1,8 @@
 import { PAGE_IMAGE_TEXT_EXTENSIONS, PageImageTextTools, stackAtSelection, wrapPageImageText } from './PageImageText';
 import { Extension, Node, mergeAttributes, type Editor } from '@tiptap/core';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
-import { Plugin, Selection } from '@tiptap/pm/state';
-import { closeHistory } from '@tiptap/pm/history';
+import { Plugin, Selection, type Transaction } from '@tiptap/pm/state';
+import { closeHistory, isHistoryTransaction } from '@tiptap/pm/history';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { layoutHandle, layoutEditabilityPlugin, LAYOUT_EDITABILITY_EVENT, LAYOUT_CONTROLS_EVENT, type LayoutRequest } from './contextualLayout';
@@ -11,6 +11,11 @@ import './PageRow.css';
 const BLOCKS = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'table', 'callout', 'horizontalRule'];
 const SLOT_BLOCKS = [...BLOCKS, 'pageImageText'];
 const newId = () => `page-${crypto.randomUUID()}`;
+const PLAIN_REVIEW_INSERTION = 'dmbPlainReviewInsertion';
+
+export function preservePlainReviewBlockIdentities(transaction: Transaction): Transaction {
+  return transaction.setMeta(PLAIN_REVIEW_INSERTION, true);
+}
 const clampWidth = (width: number, total = 12) => Math.max(2, Math.min(total - 2, Math.round(width)));
 
 function rowAtSelection(editor: Editor) {
@@ -146,7 +151,16 @@ export const PageBlockIdentity = Extension.create({
       appendTransaction(transactions, _oldState, state) {
         // Never change untouched hydration. Stamp only after a real document
         // transaction and only source-level blocks, not paragraphs inside tables.
-        if (!transactions.some(transaction => transaction.docChanged)) return null;
+        const changed = transactions.filter(transaction => transaction.docChanged);
+        if (!changed.length) return null;
+        let hasIdentities = false;
+        state.doc.forEach(block => {
+          if (!BLOCKS.includes(block.type.name) || block.attrs.pageBlockId) hasIdentities = true;
+        });
+        // An exact reviewed insertion and its history must keep a plain page
+        // sidecar-free rather than changing the snapshot recorded by Review.
+        if (!hasIdentities && changed.every(transaction =>
+          transaction.getMeta(PLAIN_REVIEW_INSERTION) === true || isHistoryTransaction(transaction))) return null;
         const seen = new Set<string>();
         const tr = state.tr;
         const stamp = (block: PMNode, pos: number) => {

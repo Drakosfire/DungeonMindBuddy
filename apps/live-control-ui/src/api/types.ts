@@ -857,7 +857,9 @@ export interface WorldBuildAgentTurnRequestV1 {
   retry_of?: {turn_id:string;revision:number;retained_snapshot_sha256?:string};
   reviewed_step?: ReviewedStepReference;
   build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
-  build_write_capability?: Omit<import("./buildDocumentProposalApi").BuildProposalRequest, "instruction" | "origin">;
+  build_write_capability?: Omit<import("./buildDocumentProposalApi").BuildProposalRequest, "instruction" | "origin"> & {
+    boundary_editor_json?: string;
+  };
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
   turn_id: string;

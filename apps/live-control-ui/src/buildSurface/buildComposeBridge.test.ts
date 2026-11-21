@@ -32,12 +32,15 @@ it.each(['plain','identity-only','composed'] as const)('places an exact Build pr
   :{schema_version:'dmb_page_presentation_v1' as const,markdown_sha256:await testDigest(source),
     items:admittedPresentationBlocks(markdown).map(({node:_node,...binding},index)=>
       ({...binding,kind:'block' as const,id:`existing-${index}`}))};
- const editor=new Editor({extensions:mode==='plain'?DEFAULT_MARKDOWN_EDITOR_EXTENSIONS:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
+ const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
   content:presentation?hydratePresentation(source,presentation):markdownToTiptapDoc(source).doc});
  try {
   const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,contentSha256:await testDigest(source),
    visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true,pagePresentation:presentation,savedMarkdown:source};
   const changed=vi.fn(),bridge=createBuildComposeBridge(()=>state,changed);
+  const ordinaryCapture = await bridge.capture();
+  expect(ordinaryCapture.contextualProse).toBe(mode === 'composed' ? undefined : true);
+  expect(ordinaryCapture.editorJson).toBe(JSON.stringify(editor.getJSON()));
   const local=()=>({editor,scopeKey:'fixture-target',draftGeneration:0,canEdit:true});
   const catalog=captureProseTargetCatalog(local);
   const offered=catalog.choices.find(choice=>choice.section==='Rumours'&&choice.operation==='insert_after')!;
