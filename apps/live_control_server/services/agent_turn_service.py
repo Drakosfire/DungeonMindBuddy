@@ -7468,14 +7468,31 @@ def execute_agent_turn(
     )
     policy_bootstrap: AgentPlanWorldGraphBootstrap | None = None
     if native_surface_sources:
-        from .plan_source_turn import prepare
+        from .plan_source_turn import prepare, prepare_selective_query
         if native_principal is None or native_principal.role != "gm":
             raise AgentTurnServiceError("Plan source inspection requires GM authority.",
                 code="native_source_access_denied", status_code=403, provider_dispatched=False)
         frozen = durable_turn.graph_context_receipt if durable_turn is not None else None
-        with trace.phase("plan_native_source_authority"):
-            native_corpus_context, native_source_authority = prepare(canonical_world_id, native_principal,
-                revision_id=getattr(frozen.source_authority, "revision_id", None) if frozen is not None else None)
+        source_revision = getattr(frozen.source_authority, "revision_id", None) if frozen is not None else None
+        selective_plan = None
+        if (os.environ.get("DMB_PLAN_SELECTIVE_QUERY") == "1"
+                and request.surface.surface_id == "plan"
+                and isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)
+                and request.authored_references is None
+                and native_graph_query_resolver is not None
+                and (frozen is None or isinstance(frozen, graph_types.PlanNativeContextReceiptV1))):
+            selective_plan = prepare_selective_query(
+                canonical_world_id, native_principal,
+                lambda source: native_graph_query_resolver(request, owner, work, frozen, source),
+                revision_id=source_revision, phase=trace.phase,
+            )
+        if selective_plan is None:
+            with trace.phase("plan_native_source_authority"):
+                native_corpus_context, native_source_authority = prepare(
+                    canonical_world_id, native_principal, revision_id=source_revision,
+                )
+        else:
+            native_corpus_context, native_source_authority, native_query_context, native_query = selective_plan
         # The source owner is established first. A provisioning-only World has
         # no Graph capability; missing Graph cannot suppress source/Rules work.
         frozen_graph = frozen.graph_capability if isinstance(frozen, graph_types.PlanSourceContextReceiptV1) else None
@@ -7508,7 +7525,7 @@ def execute_agent_turn(
                         if fresh.authority != native_source_authority:
                             raise ValueError("Build source authority changed before Graph settlement")
                         return native_graph_query_resolver(request, owner, work, frozen, fresh)
-            if prepare_deferred_build_query is None:
+            if selective_plan is None and prepare_deferred_build_query is None:
                 with trace.phase('plan_native_statement_query'):
                     native_query_context, native_query = native_graph_query_resolver(
                         request, owner, work, frozen, native_corpus_context)

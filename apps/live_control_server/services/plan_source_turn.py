@@ -3,7 +3,10 @@
 This module creates no request runner and opens no document body. Its output is
 host-only authority for the existing claim/authorization and navigation owners.
 """
+from contextlib import ExitStack
+from dataclasses import replace
 from hashlib import sha256
+from functools import lru_cache
 import json
 
 from application_state.agent_conversation import types as t
@@ -36,6 +39,64 @@ def prepare(managed_world_id, principal, *, revision_id=None, repository=None, r
         return None, t.NativeCorpusUnavailableV1(managed_world_id=managed_world_id,
             failure_code="native_source_head_unavailable")
     return context, context.authority
+
+
+@lru_cache(maxsize=1)
+def _selective_plan_fact_cache():
+    from dungeonmind.infrastructure.postgres.selective_query import SelectiveFactCache
+
+    return SelectiveFactCache()
+
+
+class _NoSelectiveProjection(Exception):
+    """The exact revision has no active Core projection."""
+
+
+def prepare_selective_query(managed_world_id, principal, resolve_query, *,
+                            revision_id=None, phase, repository=None, resolve_identity=None):
+    """Compose source authority and Graph query before releasing the Core scope."""
+    from dungeonmind.application.vnext.admission import AlwaysAdmitPolicy
+    from dungeonmind.infrastructure.postgres.selective_query import open_selective_source_query
+    from graph_memory.vnext.domain_runtime import (
+        DUNGEONBUDDY_POLICY_ID, DungeonBuddyVNextProjectionInput,
+        build_dungeonbuddy_projection_request, resolve_dungeonbuddy_descriptors,
+    )
+
+    def resolve_descriptors(domain_ref, profile_ref):
+        return resolve_dungeonbuddy_descriptors(domain_ref=domain_ref, profile_ref=profile_ref)
+
+    def open_access(*, repository, space_id, revision_id, audience_labels, **_):
+        nonlocal reader
+        projection = DungeonBuddyVNextProjectionInput(
+            world_id=space_id, revision_id=revision_id, role=principal.role, scope_mode='world',
+        )
+        opened = stack.enter_context(open_selective_source_query(
+            repository,
+            request=build_dungeonbuddy_projection_request(projection),
+            resolve_descriptors=resolve_descriptors,
+            domain_policy=AlwaysAdmitPolicy(policy_id=DUNGEONBUDDY_POLICY_ID),
+            source_audience_labels=audience_labels,
+            fact_cache=_selective_plan_fact_cache(),
+        ))
+        if opened is None:
+            raise _NoSelectiveProjection
+        source, reader = opened
+        return source
+
+    reader = None
+    with ExitStack() as stack:
+        try:
+            with phase("plan_native_source_authority"):
+                prepared = prepare_native_source_context(
+                    managed_world_id=managed_world_id, principal=principal, revision_id=revision_id,
+                    repository=repository if repository is not None else turn_source_repository(),
+                    resolve_identity=resolve_identity, open_access=open_access,
+                )
+        except (_NoSelectiveProjection, NativeSourceHeadUnavailable):
+            return None
+        with phase("plan_native_statement_query"):
+            query_context, query = resolve_query(replace(prepared, selective_query=reader))
+    return prepared, prepared.authority, query_context, query
 
 
 def _plan_basis(work):

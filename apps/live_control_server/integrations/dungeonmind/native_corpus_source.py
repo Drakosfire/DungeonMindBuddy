@@ -47,6 +47,7 @@ class NativeCorpusContext:
     resolve_identity: Callable
     principal: Any
     repository: Any
+    selective_query: Any = None
 
     @cached_property
     def source_presentation(self):
@@ -73,7 +74,8 @@ class NativeSourceHeadUnavailable(ValueError):
 
 
 def prepare_native_source_context(*, managed_world_id, principal, revision_id=None,
-                                  repository=None, resolve_identity=None, parsed_cache=None):
+                                  repository=None, resolve_identity=None, parsed_cache=None,
+                                  open_access=None):
     """Freeze membership in R and one coherent acquisition epoch, never latest IDs.
 
     Dependencies are trusted host/test seams. No request supplies a repository,
@@ -103,7 +105,8 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
         return domain
 
     try:
-        access = open_native_text_source_access_context(repository=repo, space_id=space,
+        opener = open_access or open_native_text_source_access_context
+        access = opener(repository=repo, space_id=space,
             revision_id=revision_id, domain_contract=resolve_domain,
             audience_labels=(GM_LABEL, PLAYER_LABEL), parsed_cache=parsed_cache,
             prefer_verified_source_rows=True)
