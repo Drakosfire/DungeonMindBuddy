@@ -346,7 +346,7 @@ class PlanJevWriter:
                     format_version = 7
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
-                    variant_passage_review=format_version in {9, 10}, bind_lore_page=True,
+                    variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
