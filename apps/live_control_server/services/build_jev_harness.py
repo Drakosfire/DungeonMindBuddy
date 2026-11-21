@@ -247,6 +247,24 @@ class BuildJevHarness:
             )
             if driver._selection_intent is not None:
                 asyncio.run(self._decide(adapter, driver))
+            if getattr(driver.selection, "typed_graph_reference", None) == "place_existing_reference":
+                from application_state.agent_conversation.jev_retrieval_contract import RetrievalDialogue
+                from application_state.errors import ApplicationStateConflictError
+                from .agent_turn_service import AgentTurnServiceError
+                from .build_graph_reference import BuildGraphReferenceDriver, prepare_build_graph_reference_decision
+
+                try:
+                    dialogue = tuple(RetrievalDialogue(role=role, content=row[role])
+                                     for row in history for role in ("user", "assistant"))
+                    nomination = prepare_build_graph_reference_decision(
+                        adapter._broker_execution(), adapter.native_query_context.principal,
+                        title=driver._interaction["current_page"]["title"], dialogue=dialogue,
+                    )
+                    reference_driver = BuildGraphReferenceDriver(adapter, nomination)
+                    asyncio.run(self._decide(adapter, reference_driver))
+                    return reference_driver.completed
+                except ApplicationStateConflictError as exc:
+                    raise AgentTurnServiceError(str(exc), code="build_graph_reference_conflict", status_code=409) from exc
             capability = adapter.request.build_write_capability
             if capability is not None and capability.reference_image_id is not None and (
                 driver.operation != "propose_build_insertion" or adapter.native_source_authority is None
@@ -583,7 +601,8 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
-        prepare_deferred_query = getattr(adapter, "prepare_deferred_build_query", None)
+        prepare_deferred_query = (None if plan.host_phase == "graph_reference"
+                                  else getattr(adapter, "prepare_deferred_build_query", None))
         pending_query = None
         opening_dispatched = False
         wait_for_work = False
@@ -647,10 +666,14 @@ class BuildJevHarness:
                 if wait_for_work:
                     from application_state.agent_conversation.build_intentional_response import selected, source_need
                     from application_state.agent_conversation.native_corpus import is_prior_conversation_work
+                    from application_state.build_proposal.graph_reference_decision import resolve_graph_reference_opening
 
                     response = result.model_dump(mode="json")
                     request = json.loads(adapter._prepared_build_decision.body)
-                    conversation_only = is_prior_conversation_work(selected(response), source_need(request, response))
+                    conversation_only = (
+                        resolve_graph_reference_opening(request, result) != "place_existing_reference"
+                        and is_prior_conversation_work(selected(response), source_need(request, response))
+                    )
                 if not conversation_only:
                     if pending_query is None:
                         pending_query = asyncio.get_running_loop().run_in_executor(

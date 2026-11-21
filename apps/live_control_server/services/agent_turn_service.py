@@ -3119,7 +3119,7 @@ class _PolicyExecutionAdapter:
             build_section_bindings=source_bindings, **proof))
         return self.turn
 
-    def authorize_native_build_decision(self, prepared, view, projection):
+    def authorize_native_build_decision(self, prepared, view, projection, *, graph_reference_decision=None):
         """Admit the actual Build semantic SDK request through the existing APP owner."""
         from .build_jev_dispatch import prepared_driver_view
         from .build_jev_driver import canonical
@@ -3138,7 +3138,8 @@ class _PolicyExecutionAdapter:
                 for e in self._broker_execution().events)
             and self.last_provider_attempt_id is None)
         if (self.failure is not None or not self._is_build_turn()
-                or self.fence is not None and view.get('contextPhase')!='writer_selection' and not reviewed_auxiliary
+                or self.fence is not None and view.get('contextPhase') not in {'writer_selection', 'graph_reference'} and not reviewed_auxiliary
+                or (view.get('contextPhase') == 'graph_reference') != (graph_reference_decision is not None)
                 or self.native_source_authority is None
                 or canonical(view) != canonical(prepared_driver_view(prepared,projection,accounting=self._build_jev_accounting))):
             return False
@@ -3174,6 +3175,7 @@ class _PolicyExecutionAdapter:
             self.turn = _require_fresh_execution_append(self.fence.append(
                 'authorize_provider_attempt_v2', 'provider_attempt_event', event,
                 prepared_decision_json=view['payloadJson'],
+                **({"graph_reference_decision": graph_reference_decision} if graph_reference_decision is not None else {}),
             ))
         self.last_provider_attempt_id = event.provider_attempt_id
         self._prepared_build_decision = prepared

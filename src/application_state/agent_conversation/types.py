@@ -2241,6 +2241,49 @@ class BuildAuthoringCompletionV1(StrictModel):
         return self
 
 
+class BuildGraphReferenceCompletionV1(StrictModel):
+    """Writer-free acknowledgement of the exact Graph nomination outcome."""
+
+    schema_: Literal["dmb_build_graph_reference_completion_v1"] = Field(
+        default="dmb_build_graph_reference_completion_v1", alias="schema",
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    disposition: Literal[
+        "ready", "discussion", "new_object", "different_page", "ambiguous_identity", "wrong_kind",
+        "missing_identity", "ambiguous_boundary", "missing_boundary", "unresolved",
+    ]
+    action_id: UUID | None = None
+    placement_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @property
+    def answer_context_status(self):
+        return "proposal_ready" if self.disposition == "ready" else "clarification_required"
+
+    @model_validator(mode="after")
+    def exact_review(self):
+        if (self.action_id is None) != (self.placement_sha256 is None) or (
+            (self.disposition == "ready") != (self.action_id is not None)
+        ):
+            raise ValueError("Only a resolved Graph nomination can carry a Review")
+        return self
+
+    @property
+    def answer_segments(self):
+        text = {
+            "ready": "The Graph reference is ready to review. The page is unchanged.",
+            "discussion": "If you want to add a reference, tell me which existing Graph object and where it should go.",
+            "new_object": "Choose an existing Graph object to reference on this page.",
+            "different_page": "Open the intended page and send the request there.",
+            "ambiguous_identity": "Select the exact Graph object you want to reference.",
+            "wrong_kind": "The matching Graph object has a different classification. Select the intended object.",
+            "missing_identity": "I couldn't find that Graph object. Select the existing object you want to reference.",
+            "ambiguous_boundary": "Which paragraph should the reference go next to? Include its heading or select the paragraph.",
+            "missing_boundary": "I couldn't find that paragraph on this page. Give its heading or exact text.",
+            "unresolved": "Tell me which existing Graph object to reference and where it should go on this page.",
+        }[self.disposition]
+        return [PlanWorldGraphConnectiveSegmentV1(kind="connective", text=text)]
+
+
 BUILD_IMAGE_READY_TEXT = "Your image prompt is ready in Image Studio. Review it before generating. Nothing has been generated, inserted or saved."
 
 
@@ -2507,7 +2550,7 @@ class LoreSaveReviewReference(StrictModel):
         return f"Review and confirm the existing draft for {self.title} to create the page."
 
 
-GraphTurnCompletion = Union[LoreSaveReviewReference | SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
+GraphTurnCompletion = Union[LoreSaveReviewReference | BuildGraphReferenceCompletionV1 | SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -3783,6 +3826,12 @@ class CompletionBindingEventV1(GraphExecutionEventBaseV1):
     claim_graph_event_ids: dict[str, list[UUID]] = Field(max_length=256)
 
 
+class BuildGraphReferenceCompletionBindingV1(CompletionBindingEventV1):
+    kind: Literal["build_graph_reference_completion_binding_v1"]
+    opening_event_id: UUID
+    decision_response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class SourceReadAuthorizationEventV2(GraphExecutionEventBaseV1):
     kind: Literal["source_read_authorized_v2"]
     read_call_id: UUID
@@ -4180,7 +4229,7 @@ class ProviderAttemptAuthorizedEventV3(ProviderAttemptAuthorizedEventV2):
 class ProviderAttemptAuthorizedEventV5(ProviderAttemptAuthorizedEventV3):
     kind: Literal["provider_attempt_authorized_v5"]
     context_mode: Literal["default", "long_context"]
-    context_phase: Literal["select", "navigate", "assess", "coverage", "retention", "writer_selection"]
+    context_phase: Literal["select", "navigate", "assess", "coverage", "retention", "writer_selection", "graph_reference"]
     max_question_input_tokens: int = Field(strict=True, ge=0)
     dispatch_identity_sha256: Digest
 
@@ -4707,6 +4756,9 @@ class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
     response_capabilities_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     resolution: dict
     paragraph_placement: BuildBoundaryResolution | None = Field(default=None, exclude_if=lambda value: value is None)
+    typed_graph_reference: Literal["place_existing_reference", "other_work"] | None = Field(
+        default=None, exclude_if=lambda value: value is None,
+    )
 
 
 class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):
@@ -4876,6 +4928,10 @@ def validate_controller_writer_execution(execution, *, reviewed_action=None) -> 
                 raise ValueError("acquisition cannot continue after writer authorization")
             if latest_attempt is not None and latest_outcome not in {"response_received", "known_not_sent"}:
                 raise ValueError("acquisition requires a resolved controller attempt")
+        elif type(event) is BuildGraphReferenceCompletionBindingV1:
+            if (writer_attempt is not None or latest_attempt != event.provider_attempt_id
+                    or latest_outcome != "response_received" or event.claim_graph_event_ids):
+                raise ValueError("Graph reference completion must bind its acknowledged controller without a writer")
         elif isinstance(event, CompletionBindingEventV1):
             if writer_attempt is None or event.provider_attempt_id != writer_attempt:
                 raise ValueError("completion must bind the authorized writer attempt")

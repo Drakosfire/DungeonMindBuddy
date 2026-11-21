@@ -7,7 +7,8 @@ from generationengine.types import ChoiceDecisionAnswer, DecisionResult, Inferen
 
 from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
 from application_state.build_proposal.graph_reference_decision import (
-    BuildGraphReferenceCandidate, BuildGraphReferenceDecision,
+    GRAPH_REFERENCE_OPENING, BuildGraphReferenceCandidate, BuildGraphReferenceDecision,
+    resolve_graph_reference_opening,
 )
 from application_state.build_proposal.prose_catalog import freeze_build_prose_catalog
 from application_state.build_proposal.prose_decision import (
@@ -205,6 +206,25 @@ def graph_response(**changes):
         observation=InferenceObservation(provider="typesafe", resolved_model="jev-1.14.0", response_model="jev-1.14.0",
             latency_ms=100, retry_count=0, state="completed", provider_attempt_count=1),
     )
+
+
+def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
+    question = GRAPH_REFERENCE_OPENING
+    wire = {"type": "choice", "instructions": question.question, "criteria": dict.fromkeys(question.options)}
+    request = {"questions": {question.name: wire}}
+    response = graph_response().model_copy(update={"answers": {
+        question.name: ChoiceDecisionAnswer(selected="place_existing_reference"),
+    }})
+    assert resolve_graph_reference_opening(request, response) == "place_existing_reference"
+    with pytest.raises(ValueError, match="exact admitted offer"):
+        resolve_graph_reference_opening({"questions": {}}, response)
+    with pytest.raises(ValueError, match="exact admitted offer"):
+        resolve_graph_reference_opening(request, graph_response())
+    with pytest.raises(ValueError, match="unoffered answer"):
+        resolve_graph_reference_opening(request, response.model_copy(update={"answers": {
+            question.name: ChoiceDecisionAnswer(selected="write_current_page"),
+        }}))
+    assert resolve_graph_reference_opening({"questions": {}}, graph_response()) is None
 
 
 def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(graph_decision):

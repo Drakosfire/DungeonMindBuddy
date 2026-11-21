@@ -19,6 +19,35 @@ from application_state.build_proposal.prose_decision import (
 from application_state.build_proposal.types import BuildProposalBasis, StrictModel
 
 
+GRAPH_REFERENCE_OPENING = ChoiceDecisionQuestion(
+    name="typed_graph_reference",
+    options=("place_existing_reference", "other_work"),
+    question=(
+        "Does the author ask to insert a typed reference to one existing World Graph object on the open page? "
+        "Choose place_existing_reference even if the object or exact paragraph is unclear. Choose other_work for "
+        "ordinary prose, requests about an object, creation of a new object, and discussion without insertion."
+    ),
+)
+
+
+def resolve_graph_reference_opening(request, result) -> Literal["place_existing_reference", "other_work"] | None:
+    """Read a typed opening answer from the actual request and response; older turns omit it."""
+    question = GRAPH_REFERENCE_OPENING
+    offered = request["questions"].get(question.name)
+    if offered is None and question.name not in result.answers:
+        return None
+    expected = {"type": "choice", "instructions": question.question, "criteria": dict.fromkeys(question.options)}
+    if offered != expected or set(result.answers) != set(request["questions"]):
+        raise ValueError("Graph reference opening differs from the exact admitted offer")
+    projected = result.model_copy(update={"answers": {question.name: result.answers[question.name]}})
+    selected = validated_choice_answers(projected, {question.name})[question.name]
+    if selected == "place_existing_reference":
+        return "place_existing_reference"
+    if selected == "other_work":
+        return "other_work"
+    raise ValueError("Graph reference opening has an unoffered answer")
+
+
 class BuildGraphReferenceCandidate(StrictModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -128,6 +157,15 @@ class BuildGraphReferenceDecision:
                   for alias in objects),
             ),
         })
+
+    def require_wire_request(self, body) -> None:
+        request = self.request()
+        questions = {
+            q.name: {"type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options)}
+            for q in request.questions
+        }
+        if body != {"model": request.model, "state": request.state, "questions": questions}:
+            raise ValueError("The Graph nomination request differs from the exact admitted offers")
 
     def resolve(self, result) -> BuildGraphReferenceNomination:
         request = self.request()

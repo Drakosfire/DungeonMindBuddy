@@ -64,6 +64,59 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
     )
 
 
+@pytest.mark.parametrize("disposition", ["ready", "wrong_kind"])
+def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, monkeypatch, disposition):
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
+                message="Insert a reference to the selected object after the orchid paragraph in East.",
+                graph_reference=disposition)
+
+
+def test_graph_nomination_preparation_uses_the_admitted_build_capture(lane, tmp_path, monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services import build_graph_reference
+
+    message = "After the orchid paragraph in East, add a line about a copper lamp."
+    prepared = []
+
+    def inspect(adapter, provider):
+        if provider != "typesafe" or prepared:
+            return
+        execution = adapter.fence.turn.graph_context_execution
+        principal = adapter.native_query_context.principal
+        selected = build_graph_reference.captured_build_graph_reference(execution)
+        assert selected is not None
+
+        def admitted_candidates(world_id, caller):
+            assert world_id == lane.world.world_id
+            assert caller is principal
+            return (build_graph_reference.BuildGraphReferenceCandidate(reference=selected, entity_kind="threat"),)
+
+        monkeypatch.setattr(build_graph_reference, "read_build_graph_reference_candidates", admitted_candidates)
+        decision = build_graph_reference.prepare_build_graph_reference_decision(
+            execution, principal, title="Edge", dialogue=(),
+        )
+        assert decision.question == message
+        assert decision.basis == execution.policy.action.write_capability.basis
+        assert decision.author_selected == selected
+        state = decision.request().state
+        assert state["author_selected_object"] == "object1"
+        assert state["graph_objects"]["object1"]["name"] == selected.label
+        assert selected.node_id not in decision.request().model_dump_json()
+        with monkeypatch.context() as patch:
+            changed = selected.model_copy(update={"graph_revision": "changed"})
+            candidate = build_graph_reference.BuildGraphReferenceCandidate(reference=changed, entity_kind="threat")
+            patch.setattr(build_graph_reference, "read_build_graph_reference_candidates", lambda *_: (candidate,))
+            with pytest.raises(ApplicationStateConflictError, match="identity changed"):
+                build_graph_reference.prepare_build_graph_reference_decision(
+                    execution, principal, title="Edge", dialogue=(),
+                )
+        prepared.append(decision)
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True,
+                contextual="unique", message=message, before_provider=inspect)
+    assert len(prepared) == 1
+
+
 @pytest.mark.parametrize("reference_image", ["saved", "unbound", "wrong_same_page", "saved_large"])
 def test_build_selected_revision_uses_only_the_bound_saved_image(lane, tmp_path, monkeypatch, reference_image):
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, reference_image=reference_image)
@@ -74,7 +127,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -181,6 +234,16 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     selected = AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
         native_world_id=world, binding_version=1, graph_revision=original_revision,
         node_id=lane.ids['B'], label='DISPLAY ONLY: never evidence'),))
+    if graph_reference:
+        from apps.live_control_server.services import build_graph_reference
+
+        reference = selected.references[0]
+        monkeypatch.setattr(build_graph_reference, "authoring_identities", lambda scope, principal: {
+            "scope": {"managed_world_id": world, "native_world_id": world, "binding_version": 1,
+                      "revision_id": original_revision, "scope_mode": "world", "campaign_id": None},
+            "identities": [{"node_id": reference.node_id, "label": reference.label,
+                            "kind": "threat", "selectable": True}],
+        })
     if saved_statblock in {"associated", "by-name"}:
         from apps.live_control_server.services import statblock_definition_validation
         from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import compute_definition_digest
@@ -321,6 +384,19 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
+                if name == "typed_graph_reference":
+                    chosen = "place_existing_reference" if graph_reference else "other_work"
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                                         probabilities={key: float(key == chosen) for key in choices})
+                    continue
+                if "reference_intent" in body["questions"]:
+                    chosen = {"work": "place_paragraph", "destination": "current_page", "relation": "after",
+                              "scope": "named", "text0": "include", "scope0": "exclude", "scope1": "include",
+                              "reference_intent": "place_existing", "object1": "include",
+                              "reference_kind": "other_kind" if graph_reference == "wrong_kind" else "class1"}[name]
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                                         probabilities={key: float(key == chosen) for key in choices})
+                    continue
                 chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else (source_need(writer.adapter.request.message) if callable(source_need) else source_need) if name=='source_need'
                     else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
@@ -938,6 +1014,31 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    if graph_reference:
+        from application_state.build_proposal.graph_reference_review import BuildGraphReferenceReviewService
+        from application_state.errors import ApplicationStateNotFoundError
+
+        assert response.status_code == 200, response.text
+        completion = response.json()["knowledge_context"]["completion"]
+        assert completion["disposition"] == graph_reference
+        assert len(decisions.calls) == 2 and not writer.calls
+        turn = writer.adapter.turn
+        assert turn.status == "completed"
+        store = BuildGraphReferenceReviewService()
+        if graph_reference == "ready":
+            review = store.get(world, turn.turn_id)
+            assert completion["action_id"] == str(review.action_id)
+            assert review.state == "editing" and review.placement.reference == selected.references[0]
+        else:
+            assert completion["action_id"] is None
+            with pytest.raises(ApplicationStateNotFoundError):
+                store.get(world, turn.turn_id)
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        replay = client.post('/api/live/agent/turn', json=body)
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["knowledge_context"]["completion"] == completion
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 2
+        return
     if contextual in {"stale", "foreign"}:
         from application_state.build_proposal.service import BuildProposalService
 
