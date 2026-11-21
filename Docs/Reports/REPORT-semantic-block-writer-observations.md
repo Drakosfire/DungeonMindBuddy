@@ -207,3 +207,20 @@ The separate deterministic Play control in
 both titled additions, a sibling table and image reference, and the exact
 parent Plan record survive session-copy Save and readback. Hosted image
 rendering remains unverified.
+
+### Hosted Build Warning and Rules controls
+
+On release `f84b93e7`, the exact X02 Warning request produced a **Read
+Aloud** titled Boardwalk warning. The Rules request used the unsupported
+`[!NOTE]` marker inside a blockquote. Both proposals were dismissed.
+
+On release `09631231`, which includes
+[#4314](https://github.com/Drakosfire/DungeonMindBuddy/pull/4314), the same
+requests produced actual **Warning** and **Rules** blocks. The Warning
+saved at its proposed location. The Rules body contained only the supplied
+sentence. The editor rejected the proposed Rules insertion as unsafe;
+moving it to the boundary after the Arrival paragraph let it save.
+Both blocks, the original Arrival paragraph, and the existing callouts
+remained visible after reopening the saved Build page. This verifies
+block choice and persistence in one live repetition per kind. Safe
+automatic Rules placement and equivalent Plan runs remain open.
