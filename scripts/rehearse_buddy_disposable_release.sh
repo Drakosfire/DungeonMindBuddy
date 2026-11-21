@@ -17,10 +17,14 @@ if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
 else
   trusted=$(git rev-parse refs/remotes/origin/main)
 fi
-if [[ "$(git cat-file -t "$candidate")" != commit || "$(git cat-file -t "$prior")" != commit ]] ||
-  ! git merge-base --is-ancestor "$candidate" "$trusted" ||
-  ! git merge-base --is-ancestor "$prior" "$candidate"; then
-  echo 'Both commits must belong to the initiating main history, prior before candidate.' >&2
+# Exclude intermediate side-branch commits that reached main only as ancestors
+# of a reviewed merge. Do not short-circuit the producer under pipefail.
+on_first_parent() {
+  git rev-list --first-parent "$1" | grep -Fx -- "$2" >/dev/null
+}
+if ! on_first_parent "$trusted" "$candidate" ||
+  ! on_first_parent "$candidate" "$prior"; then
+  echo 'Both commits must belong to the first-parent main history, prior before candidate.' >&2
   exit 2
 fi
 
