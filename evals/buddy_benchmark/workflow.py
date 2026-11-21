@@ -28,13 +28,17 @@ def read_pin(pin, base):
     return data
 
 
-def load_manifest(path, *, schema="dmb_ordinary_benchmark_v1"):
+def load_manifest(path, *, schema="dmb_ordinary_benchmark_v1", expected_sha256=None):
     path = Path(path).resolve()
+    if expected_sha256 is None:
+        data = path.read_bytes()
+    else:
+        data = read_pin({"path": str(path), "sha256": expected_sha256}, path.parent)
     if schema == "dmb_ordinary_benchmark_v1":
-        manifest = json.loads(path.read_text())
+        manifest = json.loads(data)
     else:
         from application_state.agent_conversation.source_writer_output import strict_json
-        manifest = strict_json(path.read_text())
+        manifest = strict_json(data.decode("utf-8"))
     if manifest.get("schema") != schema:
         raise ValueError("Unknown ordinary benchmark manifest")
     cases = manifest["cases"]
@@ -467,9 +471,10 @@ def verify_capture_environment(expected):
 
 
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
-            browser_case=None):
+            browser_case=None, cohort_manifest_sha256=None):
     """Explicit live entry point; never invoked by offline reporting."""
-    manifest, base = load_manifest(manifest_path)
+    manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
+    cohort_member = cohort_manifest_sha256 is not None
     if os.environ.get("DMB_AGENT_GRAPH_LOCAL_PROFILE"):
         raise ValueError("Capture cannot use a hidden local profile")
     if not manifest.get("pins"):
@@ -528,11 +533,15 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
         with psycopg.connect(dsn, options="-c default_transaction_read_only=on", row_factory=dict_row) as conn:
             yield conn
     native_dsn = dsns["DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"]
-    native_before = row_inventory(native_dsn, readonly=readonly)
-    expected_native = json.loads(read_pin(manifest["isolation"]["native"]["inventory"], base))
-    if native_before != expected_native:
-        raise ValueError("Native corpus differs from pinned inventory")
-    immutable_save(output, "native-before", native_before)
+    if cohort_member:
+        from .cohort_capture import require_read_only_core
+        require_read_only_core(native_dsn)
+    else:
+        native_before = row_inventory(native_dsn, readonly=readonly)
+        expected_native = json.loads(read_pin(manifest["isolation"]["native"]["inventory"], base))
+        if native_before != expected_native:
+            raise ValueError("Native corpus differs from pinned inventory")
+        immutable_save(output, "native-before", native_before)
     token = secrets.token_urlsafe(32)
     owned_env = dict(dsns, DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN=token,
         DMB_AGENT_GRAPH_SESSION_STORE=str(output / "isolated-session.json"),
@@ -597,15 +606,17 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
                     if response.status_code != 200:
                         raise ValueError("Build turn failed; later turns not dispatched")
                     conversation_id = _wrapped(directory / "history-after.json")["body"]["active_conversation_id"]
-                checkpoint = row_inventory(native_dsn, readonly=readonly)
-                immutable_save(output, "native-after-" + case["id"], checkpoint)
-                if checkpoint != native_before:
-                    raise ValueError("Native authority changed; later questions not dispatched")
+                if not cohort_member:
+                    checkpoint = row_inventory(native_dsn, readonly=readonly)
+                    immutable_save(output, "native-after-" + case["id"], checkpoint)
+                    if checkpoint != native_before:
+                        raise ValueError("Native authority changed; later questions not dispatched")
     finally:
-        native_after = row_inventory(native_dsn, readonly=readonly)
-        immutable_save(output, "native-after", native_after)
+        if not cohort_member:
+            native_after = row_inventory(native_dsn, readonly=readonly)
+            immutable_save(output, "native-after", native_after)
         immutable_save(output, "report", report(output / "capture-manifest.json"))
-        if native_before != native_after:
+        if not cohort_member and native_before != native_after:
             raise ValueError("Native authority changed during ordinary capture")
 
 
@@ -1234,9 +1245,11 @@ def action_report(manifest_path):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
+    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context",
+        "capture-context-cohort", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
     parser.add_argument("--citation-readback", help="Retained excerpt citation readback JSONL")
     parser.add_argument("--writer-transport", action="store_true",
@@ -1275,6 +1288,9 @@ def main(argv=None):
         options = {"browser_case": args.case} if args.case is not None else {}
         capture(args.manifest, args.output, context_only=True, writer_transport=args.writer_transport,
                 detailed_trace=args.detailed_trace, **options)
+    elif args.mode == "capture-context-cohort":
+        from .cohort_capture import capture_cohort
+        capture_cohort(args.manifest, args.output, workers=args.workers)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     elif args.mode == "context-tasting":
