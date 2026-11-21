@@ -522,23 +522,30 @@ def source_heading_inventory(capture, catalog):
             titles[title] = f'title{len(titles)}'
         while stack and stack[-1][0] >= heading['level']:
             stack.pop()
-        stack.append((heading['level'], title))
-        headings.append(dict(index=heading['index'], end=heading['end'], path=tuple(t for _, t in stack),
+        stack.append((heading['level'], title, heading['index']))
+        headings.append(dict(selector=f'heading{len(headings)}', index=heading['index'], end=heading['end'],
+            path=tuple(title for _, title, _ in stack), occurrence_path=tuple(index for _, _, index in stack),
             anchors=tuple(alias for alias, index in paragraphs
                 if heading['index'] < index < heading['end'])))
     return dict(titles=tuple(dict(selector=alias, text=title) for title, alias in titles.items()),
         headings=tuple(headings), paragraphs=tuple(alias for alias, _ in paragraphs))
 
 
-def _path_matches(path, keys, edges, rooted):
+def _path_matches(heading, keys, edges, rooted):
     """A complete embedding ending at this primary occurrence, never a range join."""
-    if len(path) < len(keys) or name_key(path[-1]) not in keys[-1]:
+    path = heading['path']
+
+    def matches(component, position):
+        return (name_key(path[position]) in keys[component]
+            or heading['occurrence_path'][position] in keys[component])
+
+    if len(path) < len(keys) or not matches(len(keys) - 1, len(path) - 1):
         return False
     def previous(component, position):
         if component == 0:
             return not rooted or position == 0
         candidates = (position - 1,) if edges[component - 1] == 'direct_parent' else range(position)
-        return any(index >= 0 and name_key(path[index]) in keys[component - 1]
+        return any(index >= 0 and matches(component - 1, index)
             and previous(component - 1, index) for index in candidates)
     return previous(len(keys) - 1, len(path) - 1)
 
@@ -582,7 +589,7 @@ def bind_scope(capture, catalog, scope: ScopeExpression, *, document_title: str 
     descriptions = {i for i, component in enumerate(scope.names) if isinstance(component, DescribedScopeName)}
     if set(matches) != descriptions:
         raise ValueError('Only every declared description may receive semantic title matches')
-    offered = {row['selector']: row['text'] for row in inventory['titles']}
+    offered = {row['selector']: row['index'] for row in inventory['headings']}
     keys = []
     for i, component in enumerate(scope.names):
         if isinstance(component, LiteralScopeName):
@@ -592,10 +599,10 @@ def bind_scope(capture, catalog, scope: ScopeExpression, *, document_title: str 
         else:
             selected = matches[i]
             if len(set(selected)) != len(selected) or set(selected) - offered.keys():
-                raise ValueError('Foreign or duplicate semantic title nomination')
-            keys.append({name_key(offered[alias]) for alias in selected})
+                raise ValueError('Foreign or duplicate semantic heading nomination')
+            keys.append({offered[alias] for alias in selected})
     selected = [heading for heading in inventory['headings']
-        if _path_matches(heading['path'], keys, scope.edges, scope.rooted)]
+        if _path_matches(heading, keys, scope.edges, scope.rooted)]
     if scope.occurrence is not None:
         selected = selected[scope.occurrence - 1:scope.occurrence]
     # Union ranges only AFTER joining the primary occurrence to ALL constraints.

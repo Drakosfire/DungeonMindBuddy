@@ -395,17 +395,42 @@ def test_description_matches_cannot_override_a_literal_name_or_missing_component
     capture, catalog = family_catalog(nodes)
     scope = literal_reference('Mill / Equipment', path=True)
     with pytest.raises(ValueError, match='declared description'):
-        bind_scope(capture, catalog, scope, document_title='Greenhouse', description_matches={0: ('title0',)})
+        bind_scope(capture, catalog, scope, document_title='Greenhouse', description_matches={0: ('heading0',)})
     described = NamedScopePath(names=(DescribedScopeName(text='the equipment area'),))
     with pytest.raises(ValueError, match='declared description'):
         bind_scope(capture, catalog, described, document_title=None)
     assert bind_scope(capture, catalog, described, document_title=None,
-        description_matches={0: ('title1',)}).heading_indices == (1,)
+        description_matches={0: ('heading1',)}).heading_indices == (1,)
     assert bind_scope(capture, catalog, described, document_title=None,
         description_matches={0: ()}).status == 'missing'
-    for matches in [('foreign',), ('title1', 'title1')]:
+    for matches in [('foreign',), ('title1',), ('heading1', 'heading1')]:
         with pytest.raises(ValueError, match='Foreign or duplicate'):
             bind_scope(capture, catalog, described, document_title=None, description_matches={0: matches})
+
+
+def test_description_binds_the_nominated_ancestor_occurrence_and_exclusion():
+    nodes = [heading('West', 1), heading('Workshop', 2), prose('Clay is fired.'),
+        heading('Notes', 3), prose('Shared.'),
+        heading('East', 1), heading('Workshop', 2), prose('Wood is sawn.'),
+        heading('Notes', 3), prose('Shared.')]
+    capture, catalog = family_catalog(nodes)
+    ceramics = DescribedScopeName(text='the workshop for fired ceramics')
+    notes = LiteralScopeName(text='Notes')
+    scope = NamedScopePath(names=(ceramics, notes), edges=('direct_parent',))
+    assert bind_scope(capture, catalog, scope, document_title=None,
+        description_matches={0: ('heading1',)}).heading_indices == (3,)
+    assert bind_scope(capture, catalog, scope, document_title=None,
+        description_matches={0: ('heading1', 'heading4')}).heading_indices == (3, 8)
+
+    east = NamedScopePath(names=(LiteralScopeName(text='East'), ceramics, notes),
+        edges=('direct_parent', 'direct_parent'))
+    assert bind_scope(capture, catalog, east, document_title=None,
+        description_matches={1: ('heading1',)}).status == 'missing'
+
+    excluded = ScopeWithExclusion(positive=NamedScopePath(names=(notes,)),
+        excluded=NamedScopePath(names=(ceramics,)))
+    assert bind_scope(capture, catalog, excluded, document_title=None,
+        excluded_description_matches={0: ('heading1',)}).heading_indices == (8,)
 
 
 def test_ordinal_never_enables_paragraph_scope_and_only_explicitly_selects_heading():
