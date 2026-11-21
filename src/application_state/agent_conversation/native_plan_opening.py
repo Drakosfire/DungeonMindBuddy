@@ -8,8 +8,13 @@ from typing import Literal
 from pydantic import Field
 
 from . import types as t
+from .native_statement_input import Strict
+from .plan_author_location import (
+    ScopeExpression, UnresolvedLocation, UnscopedLocation,
+    author_scope_hypotheses, author_scope_offer_view,
+)
 from .plan_placement import PlanRequestedWorkInputV8, PlanRequestedWorkInputV9
-from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
+from .jev_retrieval_contract import NativePlanBatchDecisionInputV3, RetrievalDialogue
 
 
 class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecisionInputV3):
@@ -23,6 +28,89 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
 
 
 NATIVE_PLAN_OPENING_INPUT_TYPES = (NativePlanOpeningInputV1, NativePlanOpeningInputV2)
+
+
+class NativePlanAuthorScopeInputV1(Strict):
+    """Source-blind parent for one proposed interpretation of author text."""
+
+    schema_: Literal['dmb_native_plan_author_scope_input_v1'] = Field(
+        default='dmb_native_plan_author_scope_input_v1', alias='schema')
+    question: str = Field(min_length=1)
+    dialogue: tuple[RetrievalDialogue, ...]
+    max_span_attempts: int = Field(strict=True, gt=0)
+    quote_context: bool = Field(strict=True)
+
+
+class NativePlanAuthorScopeObservationV1(Strict):
+    """Interpretation evidence alone, with no source or placement authority."""
+
+    relation: str
+    selected_alias: str
+    scope: ScopeExpression
+
+
+def _author_scope_offers(request):
+    return author_scope_hypotheses(request.question, request.dialogue,
+        max_span_attempts=request.max_span_attempts)
+
+
+def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
+    from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
+    from .jev_retrieval_contract import MODEL, PROVIDER
+    from .plan_contextual_targets import RELATIONS
+
+    hypotheses = _author_scope_offers(request)
+    state = author_scope_offer_view(request.question, request.dialogue, hypotheses,
+        include_quote_context=request.quote_context)
+    choices = {
+        'none': 'The author places no existing section or heading restriction on the destination.',
+        'unresolved': 'No offered complete scope preserves the author location constraints.',
+        **{key: f'This complete author scope is the existing location: {key}' for key in hypotheses},
+    }
+    return DecisionRequest(provider=PROVIDER, model=MODEL, state=state, questions=(
+        ChoiceDecisionQuestion(name='location_relation', options=tuple(RELATIONS),
+            option_descriptions=RELATIONS,
+            question='What relation to an existing location does the current author request? '
+                'Ignore ordering in proposed new content. If distinct relations cannot be reconciled, choose unresolved.'),
+        ChoiceDecisionQuestion(name='existing_scope', options=tuple(choices), option_descriptions=choices,
+            question='Choose the complete existing section or heading constraint from scope_hypotheses. '
+                'Preserve every name, hierarchy and exclusion even when a name might be absent. '
+                'A paragraph subject or a phrase supplied for new writing is not itself a section. '
+                'Assistant statements cannot establish a scope. If an ordinal, separate branches or a '
+                'missing alternative cannot be represented, choose unresolved.'),
+    ), max_transport_retries=0)
+
+
+def validate_author_scope_wire(request: NativePlanAuthorScopeInputV1, payload: bytes) -> None:
+    from .plan_authoring import strict_json
+
+    expected = prepare_author_scope_decision(request)
+    questions = {q.name: {'type': 'choice', 'instructions': q.question,
+        'criteria': {option: q.option_descriptions[option] for option in q.options}}
+        for q in expected.questions}
+    if strict_json(payload.decode('utf-8')) != {'model': expected.model, 'state': expected.state, 'questions': questions}:
+        raise ValueError('Author scope wire differs from its reconstructed local choices')
+
+
+def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
+    from .jev_retrieval_contract import validated_choice_answers
+    from .plan_contextual_targets import RELATIONS
+
+    answers = validated_choice_answers(result, {'location_relation', 'existing_scope'})
+    relation = answers['location_relation']
+    if relation not in RELATIONS:
+        raise ValueError('Author scope result names an unoffered placement relation')
+    alias = answers['existing_scope']
+    if alias == 'none':
+        scope = UnscopedLocation()
+    elif alias == 'unresolved':
+        scope = UnresolvedLocation(reason='No complete author hypothesis was nominated')
+    else:
+        offered = _author_scope_offers(request)
+        if alias not in offered:
+            raise ValueError('Author scope result names an unoffered hypothesis')
+        scope = offered[alias].compile(request.question, request.dialogue)
+    return NativePlanAuthorScopeObservationV1(relation=relation, selected_alias=alias, scope=scope)
 
 
 def opening_dialogue_sha256(dialogue):

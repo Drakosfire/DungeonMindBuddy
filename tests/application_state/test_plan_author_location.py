@@ -1,7 +1,10 @@
 """Literal reference binding exercises names and occurrences, not editor offsets."""
+import asyncio
 import json
 
+import httpx2
 import pytest
+from apps.live_control_server.services.plan_jev_dispatch import decision_client
 
 from application_state.agent_conversation.plan_author_location import (
     AuthorLocationQuote, AuthorScopeHypothesis, DescribedScopeName, DocumentTitleScopeName,
@@ -11,6 +14,10 @@ from application_state.agent_conversation.plan_author_location import (
     source_heading_inventory,
 )
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalDialogue
+from application_state.agent_conversation.native_plan_opening import (
+    NativePlanAuthorScopeInputV1, decode_author_scope_decision, prepare_author_scope_decision,
+    validate_author_scope_wire,
+)
 from tests.application_state.test_plan_contextual_targets import family_catalog, heading, prose
 
 
@@ -193,11 +200,71 @@ def test_scope_exclusion_requires_frozen_title_for_symbolic_excluded_operand():
     assert bind(nodes, scope, document_title='Notes').status == 'matched'
 
 
+def test_scope_exclusion_removes_descendant_heading_and_paragraph_addresses_together():
+    nodes = [heading('North', 1), heading('Equipment'), prose('First.'),
+        heading('South', 1), heading('Equipment'), prose('Second.')]
+    positive = literal_reference('Equipment', path=False)
+    scope = ScopeWithExclusion(positive=positive, excluded=literal_reference('North', path=False))
+    result = bind(nodes, scope)
+    assert result.heading_indices == (4,)
+    assert len(result.paragraph_anchors) == 1
+    assert bind(nodes[:3], scope).status == 'missing'
+
+
 def test_scope_exclusion_rejects_restatement_that_changes_the_path():
     phrase = 'Atrium / Supplies, the Supplies section directly under Loft rather than Depot'
     hypothesis = AuthorScopeHypothesis(evidence=author_quote(phrase, phrase), grammar='exclusion')
     with pytest.raises(ValueError, match='restated path'):
         hypothesis.compile(phrase, ())
+
+
+def test_source_blind_author_scope_round_trips_through_sdk_and_reconstructs_offered_quote():
+    parent = NativePlanAuthorScopeInputV1(question='Add a note after the heading in Mill / Equipment.',
+        dialogue=(), max_span_attempts=100, quote_context=True)
+    decision = prepare_author_scope_decision(parent)
+    alias = next(key for key, offer in decision.state['scope_hypotheses'].items()
+        if offer['author_quote']['text'] == 'Mill / Equipment')
+    prepared_payloads = []
+
+    async def authorize(prepared):
+        validate_author_scope_wire(parent, prepared.body)
+        prepared_payloads.append(prepared.body)
+        return True
+
+    async def record(_):
+        return True
+
+    async def respond(request):
+        assert request.content == prepared_payloads[0]
+        body = json.loads(request.content)
+        assert set(body['state']) == {'current_request', 'dialogue', 'scope_hypotheses'}
+        selections = {'location_relation': 'after_heading', 'existing_scope': alias}
+        answers = {name: {'type': 'choice', 'choice': selection, 'confidence': 1.0,
+            'probabilities': {key: float(key == selection) for key in body['questions'][name]['criteria']}}
+            for name, selection in selections.items()}
+        return httpx2.Response(200, request=request,
+            json={'model': decision.model, 'answers': answers, 'usage': {'input_tokens': 40, 'output_tokens': 8}})
+
+    async def run():
+        client = decision_client(authorize=authorize, record=record,
+            transport=httpx2.MockTransport(respond), api_key='synthetic-not-secret')
+        try:
+            return await client.decide(decision)
+        finally:
+            await client.aclose()
+
+    result = asyncio.run(run())
+    observation = decode_author_scope_decision(parent, result)
+    assert observation.relation == 'after_heading'
+    assert observation.scope == literal_reference('Mill / Equipment', path=True)
+    modified = json.loads(prepared_payloads[0])
+    modified['state']['scope_hypotheses'][alias]['components'].pop(0)
+    with pytest.raises(ValueError, match='reconstructed local choices'):
+        validate_author_scope_wire(parent, json.dumps(modified).encode())
+    foreign = result.answers['existing_scope'].model_copy(update={'selected': 'scope999'})
+    with pytest.raises(ValueError, match='unoffered hypothesis'):
+        decode_author_scope_decision(parent,
+            result.model_copy(update={'answers': {**result.answers, 'existing_scope': foreign}}))
 
 
 def bind(nodes, scope, **kwargs):

@@ -523,7 +523,7 @@ def source_heading_inventory(capture, catalog):
         while stack and stack[-1][0] >= heading['level']:
             stack.pop()
         stack.append((heading['level'], title))
-        headings.append(dict(index=heading['index'], path=tuple(t for _, t in stack),
+        headings.append(dict(index=heading['index'], end=heading['end'], path=tuple(t for _, t in stack),
             anchors=tuple(alias for alias, index in paragraphs
                 if heading['index'] < index < heading['end'])))
     return dict(titles=tuple(dict(selector=alias, text=title) for title, alias in titles.items()),
@@ -562,7 +562,13 @@ def bind_scope(capture, catalog, scope: ScopeExpression, *, document_title: str 
             description_matches=excluded_description_matches, allow_ordinal=allow_ordinal)
         if positive.status == 'unsupported' or excluded.status == 'unsupported':
             return BoundScope('unsupported', (), ())
-        headings = tuple(i for i in positive.heading_indices if i not in excluded.heading_indices)
+        # A named section excludes its subtree, including descendant heading
+        # addresses as well as paragraphs in that same range.
+        excluded_headings = set(excluded.heading_indices)
+        ranges = [(row['index'], row['end']) for row in source_heading_inventory(capture, catalog)['headings']
+            if row['index'] in excluded_headings]
+        headings = tuple(i for i in positive.heading_indices
+            if not any(start <= i < end for start, end in ranges))
         paragraphs = tuple(alias for alias in positive.paragraph_anchors if alias not in excluded.paragraph_anchors)
         return BoundScope('matched' if headings else 'missing', headings, paragraphs)
     if excluded_description_matches is not None:
