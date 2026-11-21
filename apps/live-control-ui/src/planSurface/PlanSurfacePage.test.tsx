@@ -4743,6 +4743,10 @@ it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement"] a
   const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request => {
     const saved = { ...record, revision: 8 };
     const fingerprint = presentationFingerprint(request.page_presentation) ?? undefined;
+    const priorCommitted = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...priorCommitted, object_revision: 8, content_sha256: digest, has_divergent_working_copy: false,
+    });
     vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({
       schema_version: "dmb_workspace_document_snapshot_v2", record: saved, markdown,
       content_sha256: digest, loaded_revision: 8, file_exists: true, file_fingerprint: "postgres",

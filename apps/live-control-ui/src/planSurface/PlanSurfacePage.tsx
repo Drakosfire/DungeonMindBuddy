@@ -29,6 +29,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools, pageComposerActions } from "../tiptap/pageComposer/PageRow";
+import { LAYOUT_EDITABILITY_EVENT } from "../tiptap/pageComposer/contextualLayout";
 import {
   composerDisabledReason,
   flattenPresentation,
@@ -472,6 +473,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [selectedPlayableEditTarget, setSelectedPlayableEditTarget] = useState<SelectedWorldPlanPlayableEditTarget | null>(null);
   const [playableEditTargetGeneration, setPlayableEditTargetGeneration] = useState(0);
   const [composing, setComposing] = useState(false);
+  const [layoutAvailabilityVersion, refreshLayoutAvailability] = useState(0);
   const [presentation, setPresentation] = useState<PagePresentation | null>(null);
   const presentationRef = useRef<PagePresentation | null>(null);
   const serverPresentationRef = useRef<PagePresentation | null>(null);
@@ -587,6 +589,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     && documentIdRef.current === expectedDocumentId;
 
   const navigationIdentity = `${worldId}:${documentId ?? localDraftId}:${selectionEpochRef.current}`;
+  const cardsViewActive = Boolean(documentId) && status === "ready"
+    && (selectedCardViewIdentity === navigationIdentity
+      || (routeCardsViewRequested && documentId === initialDocumentId));
   const editorIdentityRef = useRef(editorIdentity);
   editorIdentityRef.current = editorIdentity;
   const isCurrentEditTarget = useMemo(() => {
@@ -614,6 +619,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     editor.on("selectionUpdate", onSelectionUpdate);
     return () => { editor.off("selectionUpdate", onSelectionUpdate); };
   }, [editor]);
+  useEffect(() => {
+    if (!composing || !editor || editor.isDestroyed) return;
+    const dom = editor.view.dom;
+    const refresh = () => refreshLayoutAvailability(version => version + 1);
+    dom.addEventListener(LAYOUT_EDITABILITY_EVENT, refresh);
+    editor.on("transaction", refresh);
+    return () => {
+      dom.removeEventListener(LAYOUT_EDITABILITY_EVENT, refresh);
+      editor.off("transaction", refresh);
+    };
+  }, [composing, editor]);
 
   const worldEditStateGetterRef = useRef<(applicationId?:string) => WorldPlanEditEditorState>(() => ({
     editor: null,
@@ -1201,12 +1217,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           throw new Error("Pending write recovery resolved outside the selected World.");
         }
         let committedMarkdown: string | null = null;
+        let committedReadMatchesSnapshot = false;
         try {
           const committedRevision = await getWorldOwnedPlanCommittedRevision(exactId);
           if (committedRevision.document_id !== exactId || committedRevision.world_id !== worldId || committedRevision.campaign_id !== null) {
             throw new Error("Committed revision recovery resolved outside the selected World.");
           }
           committedMarkdown = committedRevision.markdown;
+          committedReadMatchesSnapshot = committedRevision.object_revision === snapshot.loaded_revision
+            && committedRevision.content_sha256 === snapshot.content_sha256
+            && !committedRevision.has_divergent_working_copy;
         } catch (reason) {
           if (!(reason instanceof LiveApiError && (reason.status === 404 || reason.status === 409))) {
             throw reason;
@@ -1221,7 +1241,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           && previousPending.title === previousPending.base_title;
         const committed = committedMarkdown === previousPending.markdown
           && snapshotFingerprint === (previousPending.page_presentation_sha256 ?? null)
-          && (!layoutWrite || (snapshot.loaded_revision === previousPending.base_revision + (layoutWriteWasNoOp ? 0 : 1)
+          && (!layoutWrite || (committedReadMatchesSnapshot
+            && snapshot.loaded_revision === previousPending.base_revision + (layoutWriteWasNoOp ? 0 : 1)
             && snapshot.markdown === previousPending.markdown && snapshot.record.content_status === "committed"))
           && (previousPending.title === undefined || snapshot.record.title === previousPending.title);
         const priorTitleMatches = priorLayoutMatches
@@ -1755,6 +1776,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       if (isCurrentEditTarget()) void saveRef.current();
     },
   }), [getLiveFidelityWarnings, isCurrentEditTarget]);
+  const layoutActions = useMemo(
+    () => composing && !cardsViewActive && editor && !editor.isDestroyed && editor.schema.nodes.pageRow
+      ? pageComposerActions(editor).filter(action => action.id !== "image-text")
+      : [],
+    [composing, cardsViewActive, editor, layoutAvailabilityVersion],
+  );
   const editorToolsGeneration = useMemo(() => status === "ready" ? toAppChromeToolsGeneration({
     sections: [
       {
@@ -1772,19 +1799,30 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <input value={title} disabled={fidelityBlocked} onChange={(event) => documentActions.onTitleChange(event.target.value)} />
         </label>,
       },
+      ...(layoutActions.length ? [{
+        id: "world-plan-layout",
+        title: "Page layout",
+        actions: layoutActions.map(action => ({
+          id: action.id,
+          label: action.label,
+          disabled: !action.enabled || saving || recoveryConflict || fidelityBlocked,
+          onClick: () => {
+            if (!editor || editorRef.current !== editor || !isCurrentEditTarget() || recoveryConflict) return;
+            const current = pageComposerActions(editor).find(candidate => candidate.id === action.id);
+            if (current?.enabled) current.invoke();
+          },
+        })),
+      }] : []),
       ...(toolbarModel.sections ?? []),
     ],
   }, workObject) : null, [status, saving, fidelityBlocked, createUncertain, recoveryConflict, uncertainCreateDraft,
-    documentId, markdown, title, documentActions, toolbarModel, workObject]);
+    documentId, markdown, title, documentActions, toolbarModel, workObject, layoutActions, editor, isCurrentEditTarget]);
   const [cardEditNotice, setCardEditNotice] = useState<string | null>(null);
   const cardEditingExtensions = useMemo(() => [SemanticMarkdownPaste, PlanCardEditing.configure({ onBlocked: () => setCardEditNotice("This change reaches outside the selected scene or changes its structure. Use Document to make it.") })], []);
   const documentEditingExtensions = useMemo(
     () => composing ? [SemanticMarkdownPaste, ...PAGE_COMPOSER_EXTENSIONS] : cardEditingExtensions,
     [composing, cardEditingExtensions],
   );
-  const cardsViewActive = Boolean(documentId) && status === "ready"
-    && (selectedCardViewIdentity === navigationIdentity
-      || (routeCardsViewRequested && documentId === initialDocumentId));
   const selectPlanView = (view: "cards" | "document") => {
     const url = new URL(window.location.href);
     if (view === "cards") {
@@ -1975,9 +2013,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   if (cardScopeEpoch.current.key !== cardScopeKey) cardScopeEpoch.current = { key: cardScopeKey, generation: cardScopeEpoch.current.generation + 1 };
   const focusedCardEditable = Boolean(!composing && cardsViewActive && editor && planCardRange(editor.state.doc, navigationSceneId));
   useLayoutEffect(() => {
-    if (editor && !editor.isDestroyed) setPlanCardScope(editor, { active: cardsViewActive, sceneId: navigationSceneId });
+    if (!composing && editor && !editor.isDestroyed) setPlanCardScope(editor, { active: cardsViewActive, sceneId: navigationSceneId });
     setCardEditNotice(null);
-  }, [editor, cardsViewActive, navigationSceneId, navigationIdentity]);
+  }, [editor, cardsViewActive, composing, navigationSceneId, navigationIdentity]);
 
   const navigatePlanScene = (sceneId: string | null) => {
     if (!isCurrentEditTarget(true) || (sceneId !== null && !navigationScenes.some(scene => scene.id === sceneId))) return;
@@ -2358,20 +2396,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           ) : null}
           {composing && !cardsViewActive && !sourceEditing ? (
             <>
-              <div className="page-composer-tools" role="group" aria-label="Plan layout">
-                {!presentation && !serverPresentationRef.current && !savedPlanDirty ? (
-                  <button type="button" disabled={saving} onClick={() => { setComposing(false); }}>Exit layout editing</button>
-                ) : null}
-                {editor && !editor.isDestroyed && editor.schema.nodes.pageRow
-                  ? pageComposerActions(editor).filter(action => action.id !== "image-text").map(action => (
-                    <button key={action.id} type="button"
-                      disabled={!action.enabled || saving || recoveryConflict || fidelityBlocked}
-                      onClick={() => { if (isCurrentEditTarget() && !recoveryConflict) action.invoke(); }}>
-                      {action.label}
-                    </button>
-                  ))
-                  : null}
-              </div>
+              {!presentation && !serverPresentationRef.current && !savedPlanDirty ? (
+                <button type="button" disabled={saving} onClick={() => { setComposing(false); }}>Exit layout editing</button>
+              ) : null}
               <PageComposerTools editor={editor}
                 disabledReason={status !== "ready" || saving || recoveryConflict || fidelityBlocked
                   ? "Recover the Plan before editing its layout." : null} />
