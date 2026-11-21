@@ -90,7 +90,15 @@ def test_run_scoped_exact_adoption_reuses_existing_writer_and_offline_receipt(ad
     request['encounters'][0]['template']={'encounter_id':str(saved.encounter_id),'revision':saved.revision,'digest':view.versions[0].digest}
     from application_state.play.session_encounter_types import WorldSessionCreateRequest
     run_id=uuid4();sessions.create_session(world_id='elderwyld',run_id=run_id,request=WorldSessionCreateRequest.model_validate(request))
-    preview=sessions.preview_encounter(world_id='elderwyld',run_id=run_id,scene_id='scene:gate')
+    preview_path=f'/api/live/combat/run-encounters/{run_id}/scenes/scene:gate'
+    preview_response=p.client.get(preview_path+'/preview?world_id=elderwyld')
+    assert preview_response.status_code==200,preview_response.text
+    preview=preview_response.json()
+    assert preview['saved_mechanics']==[snapshot.model_dump(mode='json')]
+    assert p.client.get(preview_path+'?world_id=elderwyld').json() is None
+    assert preview['preview_digest']==sessions.digest({
+        key:value for key,value in preview.items() if key not in {'preview_digest','saved_mechanics'}
+    })
     materialize=MaterializeSceneEncounterRequest(schema_version='dmb_scene_encounter_materialize_v1',operation_id=uuid4(),expected_preparation_digest=preview['preparation_digest'],template=preview['template'],initialization_policy='dmb_fresh_scene_encounter_v1',preview_digest=preview['preview_digest'])
     fight=sessions.materialize_encounter(world_id='elderwyld',run_id=run_id,scene_id='scene:gate',request=materialize)['encounter']
     intent={**p.intent,'operation_id':str(uuid4()),'expected_revision':1,'actors':[{**p.intent['actors'][0],'actor_id':fight.draft.entities[0].id}]}
