@@ -165,27 +165,34 @@ def test_author_scope_placement_joins_complete_path_and_agreed_relation(path, re
 
 
 def test_described_scope_votes_join_only_the_nominated_heading_occurrence():
-    from types import SimpleNamespace
-    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.native_plan_opening import (
+        NativePlanAuthorScopeObservationV1, NativePlanOpeningInputV2, NativePlanOpeningScopeBindingV1,
+    )
     from application_state.agent_conversation.plan_author_location import DescribedScopeName, NamedScopePath
     from application_state.agent_conversation.plan_contextual_targets import (
-        contextual_work_choice, description_factors, description_questions, target_questions,
+        contextual_work_choice, description_factors, prepare_contextual_work, target_answer_keys,
     )
 
     capture, catalog = family_catalog([heading('Workshop'), prose('Clay is fired.'), prose('Pack the tile.'),
         heading('Workshop'), prose('Wood is sawn.'), prose('Pack the tile.')])
     observation = NativePlanAuthorScopeObservationV1(relation='after_paragraph', selected_alias='scope0',
         scope=NamedScopePath(names=(DescribedScopeName(text='fired ceramics'),)))
-    request = SimpleNamespace(question='Add a warning after the tile step in the section about fired ceramics.',
-        original_capture=capture, placement_catalog=catalog, page_title='Workshop notes',
-        author_scope_binding=SimpleNamespace(observation=observation))
+    base_request = request_for(capture, catalog)
+    fields = {name: getattr(base_request, name)
+              for name in PlanRequestedWorkInputV9.model_fields if name != 'schema_'}
+    fields.update(question='Add a warning after the tile step in the section about fired ceramics.',
+        page_title='Workshop notes', author_scope_binding=NativePlanOpeningScopeBindingV1(
+            observation_event_id=uuid4(), observation=observation))
+    request = NativePlanOpeningInputV2.model_construct(**fields)
     descriptions, headings = description_factors(request)
     assert descriptions == {'description_positive_0': 'fired ceramics'}
     assert headings == [
         {'selector': 'heading0', 'path': ['Workshop'], 'passages': ['Clay is fired.', 'Pack the tile.']},
         {'selector': 'heading1', 'path': ['Workshop'], 'passages': ['Wood is sawn.', 'Pack the tile.']},
     ]
-    questions = (*target_questions(request), *description_questions(descriptions, headings))
+    prepared = prepare_contextual_work(request)
+    questions = prepared.questions[1:]
+    assert {question.name for question in questions} == target_answer_keys(request)
     answers = {question.name: question.options[-1] for question in questions}
     answers.update(placement_relation='after_paragraph', paragraph_scope='named', scope_qualifier='none',
         passage_1='include', description_positive_0_heading0='include')
