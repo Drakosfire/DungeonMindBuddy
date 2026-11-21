@@ -235,6 +235,10 @@ def require_retained_author_scope(execution, observation_event_id: UUID,
     return matches[0]
 
 
+def author_scope_observations_agree(first, second):
+    return first.relation == second.relation and first.scope == second.scope
+
+
 def opening_dialogue_sha256(dialogue):
     from .jev_retrieval_contract import RetrievalDialogue
     return t.canonical_sha256([RetrievalDialogue.model_validate(
@@ -352,7 +356,7 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
             raise ValueError('Scope-bound stage requires its exact earlier observed author attempts')
         if len(observations) >= 2:
             first, second = (event.scope_observation for event in observations[:2])
-            disagreement = first.relation != second.relation or first.scope != second.scope
+            disagreement = not author_scope_observations_agree(first, second)
             prior_ids = tuple(event.event_id for event in observations[:2])
             if review_event_ids is not None and (review_event_ids != prior_ids or not disagreement):
                 raise ValueError('Author scope review requires the exact disagreeing pair')

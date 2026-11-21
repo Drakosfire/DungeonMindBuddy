@@ -324,9 +324,7 @@ def contextual_work_choice(request, intent, answers):
         if answers['scope_qualifier'] not in SCOPE_QUALIFIERS:
             raise ValueError('Scope qualifier was not offered')
         return dict(author_scope_binding=binding, scope_document_title=request.page_title or None,
-            source_placement_relation=relation, requested_paragraph_scope=answers['paragraph_scope'],
-            requested_scope_qualifier=answers['scope_qualifier'],
-            compatible_section_selectors=tuple(sections), compatible_ancestor_selectors=tuple(ancestors),
+            source_placement_relation=relation,
             **resolve_author_scope_targets(request.original_capture, request.placement_catalog,
                 intent, relation, binding.observation, direct, passages, document_title=request.page_title or None))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
@@ -382,22 +380,31 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
         document_title, description_matches=None, excluded_description_matches=None):
     """Join independent author scope to source nominations at their exact editor geometry."""
     from .native_plan_opening import NativePlanAuthorScopeObservationV1
-    from .plan_author_location import DescribedScopeName, NamedScopePath, ScopeWithExclusion, bind_scope
+    from .plan_author_location import (
+        DescribedScopeName, NamedScopePath, ScopeWithExclusion, UnresolvedLocation, bind_scope,
+    )
 
     if type(observation) is not NativePlanAuthorScopeObservationV1 or relation not in RELATIONS:
         raise ValueError('Observed placement requires its exact author interpretation and source relation')
     inventory = component_inventory(capture, catalog)
     direct_ids, direct_rows = _component_selection(inventory['direct'], direct)
     passage_ids, passage_rows = _component_selection(inventory['passages'], passages)
-    evidence = {'direct_anchor_selectors': direct_ids, 'compatible_passage_selectors': passage_ids}
+    scope = observation.scope
+    positive = scope.positive if isinstance(scope, ScopeWithExclusion) else scope
+    paragraph_relation = relation in {'before_paragraph', 'after_paragraph'}
+    scope_mode = ('not_applicable' if not paragraph_relation else
+        'named' if isinstance(positive, NamedScopePath) else
+        'unresolved' if isinstance(scope, UnresolvedLocation) else 'unscoped')
+    evidence = {'direct_anchor_selectors': direct_ids, 'compatible_passage_selectors': passage_ids,
+        'compatible_section_selectors': (), 'compatible_ancestor_selectors': (),
+        'requested_paragraph_scope': scope_mode,
+        'requested_scope_qualifier': ('named' if scope_mode == 'named' and len(positive.names) > 1 else 'none')}
     if relation != observation.relation or relation == 'unresolved':
         return evidence | resolve_anchor_targets(capture, catalog, intent, 'unresolved', ())
 
     offered = {('captured' if entry.kind == 'captured_target' else entry.kind) for entry in catalog.entries}
     if relation not in offered:
         return evidence | resolve_anchor_targets(capture, catalog, intent, 'unresolved', ())
-    scope = observation.scope
-    positive = scope.positive if isinstance(scope, ScopeWithExclusion) else scope
     if (description_matches is None and isinstance(positive, NamedScopePath)
             and any(isinstance(name, DescribedScopeName) for name in positive.names)):
         return evidence | resolve_anchor_targets(capture, catalog, intent, relation, ())
@@ -408,7 +415,7 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
         description_matches=description_matches, excluded_description_matches=excluded_description_matches)
     active = set()
     if bound.status in {'matched', 'unscoped'}:
-        if relation in {'before_paragraph', 'after_paragraph'}:
+        if paragraph_relation:
             if not direct_ids:
                 active = {a for row in passage_rows for a in row['anchors']} & set(bound.paragraph_anchors)
         else:

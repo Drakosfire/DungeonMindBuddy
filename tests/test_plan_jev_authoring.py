@@ -1490,14 +1490,29 @@ def _shared_plan_authoring_case(
 
     class Choices(Finish):
         async def handle_async_request(self, request):
-            if "requested_work" in json.loads(request.content)["questions"]:
+            body = json.loads(request.content)
+            if 'existing_scope' in body['questions']:
+                self.calls.append(request)
+                catalog = plan_adapter.request.plan_placement_catalog
+                nominated = semantic_compatible or (placement,)
+                entry = next((e for e in catalog.entries if e.selector in nominated), None)
+                relation = 'unresolved'
+                if entry is not None and (routing not in {'discuss', 'clarify'}
+                        or semantic_intent == 'write_current_page'):
+                    relation = 'captured' if entry.kind == 'captured_target' else entry.kind
+                choices = {'location_relation': relation, 'existing_scope': 'none'}
+                answers = {name: dict(type='choice', choice=value, confidence=1,
+                    probabilities={key: float(key == value) for key in body['questions'][name]['criteria']})
+                    for name, value in choices.items()}
+                return httpx2.Response(200, request=request, json=dict(model=body['model'], answers=answers,
+                    usage=dict(input_tokens=31, output_tokens=7)))
+            if "requested_work" in body["questions"]:
                 self.calls.append(request)
                 return await SemanticWire(
                     wire.adapter, semantic_intent or (("write_current_page" if routing == "write_without_capture" else routing)
                     if routing else "write:" + placement), compatible_selectors=semantic_compatible,
                 ).handle_async_request(request)
             if mode != "base":
-                body = json.loads(request.content)
                 self.calls.append(request)
                 selected = {
                     i
@@ -1650,6 +1665,8 @@ def _shared_plan_authoring_case(
     writer = Proposed(None, "")
     harness.decision_transport = decisions
     harness.writer_transport = writer
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
+    author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
     if routing is not None:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         from application_state.plan_action_dialogue.repository import get_authoring_for_turn
@@ -1660,7 +1677,7 @@ def _shared_plan_authoring_case(
             with pytest.raises(AgentTurnServiceError) as failed:
                 execute_agent_turn(plan_adapter.request, **kwargs)
             assert failed.value.code == refused[routing]
-            assert not writer.calls and len(decisions.calls) == 1
+            assert not writer.calls and len(decisions.calls) == 1 + author_scope_calls
             response = None
         else:
             from time import perf_counter
@@ -1670,7 +1687,7 @@ def _shared_plan_authoring_case(
             capture_ms = (perf_counter() - started) * 1000
             assert response.answer.status == "ok" and response.plan_proposal is None
             assert "plan_proposal" not in response.model_dump(mode="json")
-            assert len(writer.calls) == 1 and len(decisions.calls) == 1
+            assert len(writer.calls) == 1 and len(decisions.calls) == 1 + author_scope_calls
         turn = kwargs["conversation_service"].inspect_turn(
             world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id)
         assert turn.graph_context_receipt.schema_ == "dmb_surface_native_context_receipt_v1"
@@ -1678,6 +1695,12 @@ def _shared_plan_authoring_case(
         selected = [event for event in turn.graph_context_execution.events
             if isinstance(event, t.PlanRequestedWorkSelectedV2)]
         assert len(selected) == 1
+        if author_scope_calls:
+            from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+            scopes = [event for event in turn.graph_context_execution.events
+                if type(event) is NativePlanAuthorScopeObservedV1]
+            assert len(scopes) == author_scope_calls
+            assert selected[0].author_scope_binding.observation_event_id == scopes[-1].event_id
         assert selected[0].requested_work == ("write_current_page" if routing == "write_without_capture" else routing)
         assert selected[0].original_capture_sha256 == (None if routing == "write_without_capture" else capture.sha256)
         action = PlanActionDialogueService().get_by_key(
@@ -1829,13 +1852,13 @@ def _shared_plan_authoring_case(
         1 if failure == "save_after_send" else 0
     )
     assert (
-        len(decisions.calls) == (2 if mode == "base" else 3) and len(writer.calls) == 1
+        len(decisions.calls) == (2 if mode == "base" else 3) + author_scope_calls and len(writer.calls) == 1
     )
     replay = execute_agent_turn(plan_adapter.request, **kwargs)
     assert (
         replay.plan_proposal == response.plan_proposal
         and len(writer.calls) == 1
-        and len(decisions.calls) == (2 if mode == "base" else 3)
+        and len(decisions.calls) == (2 if mode == "base" else 3) + author_scope_calls
     )
     return response
 
