@@ -21,12 +21,13 @@ export function CombatSurfacePage(){
     identity:buildSurfaceInteractionIdentity({surfaceId:'combat',instanceParts:encounterId?[worldId,encounterId]:[worldId]}),
     canvas:null,agentContext:null,tools:[],editCommands:[],projections:[],projectionBindings:[]}),[worldId,encounterId]);
   usePublishSurfaceInteraction(publication);
+  const encounterListHref=worldId ? '/combat?'+new URLSearchParams({world:worldId}) : '/combat';
   const admittedVariant=variant?.worldId===worldId?variant:undefined;
   return <AppChrome activeRoute="combat"><main className="native-combat-surface" aria-label="Combat encounters">
-    {target && <a href={worldId ? '/combat?'+new URLSearchParams({world:worldId}) : '/combat'}>All encounters</a>}
+    {target && !encounterId && <a href={encounterListHref}>All encounters</a>}
     {target === 'invalid' ? <p role="alert">This encounter link is invalid.</p>
       : target && worldId && encounterId ? <CombatRosterModule
-          scope={{worldId,encounterId,label:'Saved encounter'}} variant={admittedVariant}/>
+          scope={{worldId,encounterId,label:'Saved encounter'}} variant={admittedVariant} encounterListHref={encounterListHref}/>
       : target ? <p role="status">Open this link in its World to view the encounter.</p>
       : <CombatRosterModule variant={admittedVariant}/>}
   </main></AppChrome>;
