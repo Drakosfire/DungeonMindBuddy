@@ -220,6 +220,33 @@ export function isBuildGraphReferenceCompletion(value: unknown, receiptHash: str
       : value.action_id === null && value.placement_sha256 === null);
 }
 
+type ImageMoveCompletion = import('../api/types').WorldBuildImageMoveCompletionV1;
+
+const imageMoveReplies: Record<ImageMoveCompletion['disposition'], string> = {
+  ready: "The image move is ready to review. Applying it updates the editor. Save when you're ready.",
+  discussion: "To move an existing image, name or select it and ask to move it to the next slot on its right.",
+  ambiguous: "Select the exact image you want to move.",
+  missing: "I couldn't identify the image on this page. Select it and send the request again.",
+  different_row: "This move supports the adjacent right slot in the image's current row.",
+  unsupported: "This move supports one slot to the right in the current row.",
+  unresolved: "Which image should move into the empty slot immediately to its right?",
+  occupied: "The adjacent right slot is occupied.",
+  unavailable: "The image has no slot immediately to its right.",
+  changes_reading_order: "Moving that image would change the page's reading order.",
+};
+
+export function imageMoveReply(completion: ImageMoveCompletion): string {
+  return imageMoveReplies[completion.disposition];
+}
+
+export function isBuildImageMoveCompletion(value: unknown, receiptHash: string): value is ImageMoveCompletion {
+  return exact(value, ['schema', 'context_receipt_sha256', 'disposition', 'action_id', 'placement_sha256'])
+    && value.schema === 'dmb_build_image_move_completion_v1' && value.context_receipt_sha256 === receiptHash
+    && typeof value.disposition === 'string' && Object.prototype.hasOwnProperty.call(imageMoveReplies, value.disposition)
+    && (value.disposition === 'ready' ? uuid(value.action_id) && hash(value.placement_sha256)
+      : value.action_id === null && value.placement_sha256 === null);
+}
+
 /** The shared response envelope is independent of the surface-owned work shape. */
 export function isSurfaceNativeContext(
   v:unknown, validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1,
@@ -232,7 +259,8 @@ export function isSurfaceNativeContext(
     ||v.execution!==null&&!validateExecution(v.execution)||typeof v.delivery_replay!=='boolean'
     ||(v.completion===null?membership:!(isSurfaceNativeCompletion(v.completion,v.receipt,v.deferred_build_citations)
       ||!membership&&v.receipt.work_context.surface_id==='build'&&(isBuildAuthoringCompletion(v.completion,v.receipt.context_receipt_sha256)||isBuildImageCompletion(v.completion,v.receipt.context_receipt_sha256)
-        ||isBuildGraphReferenceCompletion(v.completion,v.receipt.context_receipt_sha256)))))return false;
+        ||isBuildGraphReferenceCompletion(v.completion,v.receipt.context_receipt_sha256)
+        ||isBuildImageMoveCompletion(v.completion,v.receipt.context_receipt_sha256)))))return false;
   const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
   return v.completion===null?history&&(execution===null||execution.claimability!=='completed')
     :execution!==null&&execution.claimability==='completed'&&execution.authorization_state==='response_received';

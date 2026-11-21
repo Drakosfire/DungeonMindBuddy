@@ -9,6 +9,8 @@ import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
 import {createBuildComposeBridge,type BuildComposeBridge,type BuildComposeEditorState,type PreparedBuildGraphReference} from './buildComposeBridge';
 import {BuildPageProposal} from './BuildPageProposal';
 import {BuildGraphReferenceReview} from './BuildGraphReferenceReview';
+import {BuildImageMoveReview} from './BuildImageMoveReview';
+import {imageMoveReview,type BuildImageMoveReviewRecord} from '../api/buildImageMoveReviewApi';
 import {BuildGraphReferenceReviewError,graphReferenceReview,type BuildGraphReferenceReviewRecord} from '../api/buildGraphReferenceReviewApi';
 import {proposalReview,type BuildProposalReview} from '../api/buildProposalReviewApi';
 import type {BuildProposalRecord,BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
@@ -18,6 +20,10 @@ vi.mock('../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
 vi.mock('../api/buildGraphReferenceReviewApi',async importOriginal=>({
   ...await importOriginal<typeof import('../api/buildGraphReferenceReviewApi')>(),
   graphReferenceReview:vi.fn(),
+}));
+vi.mock('../api/buildImageMoveReviewApi',async importOriginal=>({
+  ...await importOriginal<typeof import('../api/buildImageMoveReviewApi')>(),
+  imageMoveReview:vi.fn(),
 }));
 let editor:Editor;let state:BuildComposeEditorState;let bridge:ReturnType<typeof createBuildComposeBridge>;
 let record:BuildProposalRecord;let saved:BuildProposalReview;let lostAck=false;let lostPrepare=false;
@@ -667,4 +673,40 @@ describe('typed Graph reference Review', () => {
     expect(bridge.prepareGraphReference).not.toHaveBeenCalled();
     expect(bridge.saveProposal).not.toHaveBeenCalled();
   });
+});
+
+it('reconciles a lost image claim acknowledgment without applying or issuing a new claim', async () => {
+  const placement = {
+    basis:{...record.reservation.basis,draft_sha256:record.reservation.basis.content_sha256},
+    presentation_sha256:'2'.repeat(64),row_id:'row',source_slot_id:'left',
+    destination_slot_id:'right',image_block_id:'map',
+  };
+  const action = 'test-image-action';
+  let stored: BuildImageMoveReviewRecord = {
+    schema:'dmb_build_image_move_review_v1',action_id:action,conversation_id:'conversation',
+    expected_pointer_revision:1,placement,after_editor_sha256:'3'.repeat(64),
+    after_presentation_sha256:'4'.repeat(64),state:'editing',claim_id:null,saved_revision:null,
+    revision:1,updated_at:'',
+  };
+  const commandBridge = {
+    ...bridge,
+    canReviewImageMove:() => true,
+    prepareImageMove:vi.fn().mockResolvedValue({editorJson:'before',afterEditorJson:'after'}),
+    applyPreparedImageMove:vi.fn(),
+  };
+  vi.mocked(imageMoveReview).mockImplementation(async (_world,_action,command) => {
+    if (command?.operation === 'claim') {
+      stored = {...stored,state:'claimed',claim_id:command.claim_id,revision:2};
+      throw new Error('Claim acknowledgment unavailable.');
+    }
+    return {review:stored,issued:false};
+  });
+  render(<BuildImageMoveReview world="world" action={action} conversation="conversation"
+    documentId="doc" savedRevision={1} bridge={commandBridge} placementSha256={await digest(canonical(placement))}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Apply image move'}));
+  expect(await screen.findByRole('status')).toHaveTextContent('already claimed');
+  expect(screen.queryByRole('button',{name:'Apply image move'})).not.toBeInTheDocument();
+  expect(commandBridge.applyPreparedImageMove).not.toHaveBeenCalled();
+  expect(imageMoveReview).toHaveBeenCalledTimes(3);
+  expect(vi.mocked(imageMoveReview).mock.calls.filter(call=>call[2]?.operation==='claim')).toHaveLength(1);
 });

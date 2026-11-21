@@ -461,6 +461,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/related-pages\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted|review))?)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/build-image-moves\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(pathname)
     || pathname === "/api/live/agent/turn"
     || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)
@@ -625,6 +626,17 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/build-proposals\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/review$/.test(path)) {
     return (method === "GET" && init?.body == null)
       || (method === "POST" && isRecord(requestBodyRecord(init?.body)));
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-image-moves\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(path)) {
+    if (method === "GET") return init?.body == null;
+    const command = requestBodyRecord(init?.body);
+    if (method !== "POST" || typeof command?.claim_id !== "string"
+      || !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(command.claim_id)) return false;
+    return command.operation === "confirm" && Object.keys(command).length === 2
+      || command.operation === "claim" && Object.keys(command).length === 5
+        && typeof command.expected_revision === "number" && Number.isSafeInteger(command.expected_revision)
+        && command.expected_revision > 0 && typeof command.editor_json === "string"
+        && typeof command.after_editor_json === "string";
   }
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(path)) {
     if (method === "GET") return init?.body == null;

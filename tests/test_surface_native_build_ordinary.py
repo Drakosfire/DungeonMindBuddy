@@ -1134,6 +1134,32 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert completion["action_id"] == str(turn_id) and review.state == "editing"
             assert review.placement.image_block_id == "map-block"
             assert review.placement.destination_slot_id == "right-slot"
+            feed = client.get(f"/api/live/agent/worlds/{world}/conversations/active/messages")
+            assert feed.status_code == 200, feed.text
+            row = next(row for row in feed.json()["messages"] if row["turn_id"] == str(turn_id))
+            assert row["reply_object"] == {
+                "kind": "build_image_move", "placement_sha256": completion["placement_sha256"],
+                "source": {"world_id": world, "conversation_id": str(review.conversation_id),
+                           "document_id": page.document_id, "turn_id": str(turn_id), "surface_id": "build"},
+            }
+            endpoint = f"/api/live/agent/worlds/{world}/build-image-moves/{turn_id}/review"
+            fetched = client.get(endpoint)
+            assert fetched.status_code == 200 and fetched.json() == {
+                "review": review.model_dump(mode="json"), "issued": False,
+            }
+            modified = json.loads(image_editor)
+            left, right = modified["content"][0]["content"]
+            right["content"] = [left.pop("content")[0]]
+            claim = {"operation": "claim", "expected_revision": review.revision, "claim_id": str(uuid4()),
+                     "editor_json": image_editor, "after_editor_json": json.dumps(modified)}
+            invalid = client.post(endpoint, json={**claim, "after_editor_json": image_editor})
+            assert invalid.status_code == 409, invalid.text
+            claimed = client.post(endpoint, json=claim)
+            assert claimed.status_code == 200 and claimed.json()["issued"], claimed.text
+            duplicate = client.post(endpoint, json=claim)
+            assert duplicate.status_code == 200 and duplicate.json() == claimed.json() | {"issued": False}, duplicate.text
+            premature = client.post(endpoint, json={"operation": "confirm", "claim_id": claim["claim_id"]})
+            assert premature.status_code == 409, premature.text
         else:
             assert completion["action_id"] is None
             with pytest.raises(ApplicationStateNotFoundError):

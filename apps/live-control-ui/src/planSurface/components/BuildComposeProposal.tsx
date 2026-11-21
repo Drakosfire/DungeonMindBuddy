@@ -99,18 +99,25 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
     } finally { running.current = false; if (mounted.current) setBusy(false); }
   }
   async function prepareHarnessTurn(turnId:string,discussionOnly=false,requirePassage=false,useImageAbove=false,
-    expectedReferenceImageId?:string,contextualPlacement=false) {
+    expectedReferenceImageId?:string,contextualPlacement=false,offerImageMove=false) {
     const start=current.current;
     if(!start.enabled||!start.bridge||!start.history)throw new Error('Open the current page and conversation before sending.');
     const snapshot=await start.bridge.captureContext();
     let captured:CapturedBuildInsertion|undefined;
+    let selectedImage = false;
     if(!discussionOnly){
       try{captured=await start.bridge.capture();}
-      catch(reason){return {placementError:reason instanceof Error?reason.message:'Choose where this writing should go.'};}
-      if(captured.basis.world_id!==snapshot.world_id||captured.basis.document_id!==snapshot.document_id
+      catch(reason){
+        if (offerImageMove) {
+          try { selectedImage = Boolean(start.bridge.captureImageMoves?.().selected); }
+          catch { /* A non-image selection retains the normal placement guidance. */ }
+        }
+        if (!selectedImage) return {placementError:reason instanceof Error?reason.message:'Choose where this writing should go.'};
+      }
+      if(captured && (captured.basis.world_id!==snapshot.world_id||captured.basis.document_id!==snapshot.document_id
         ||captured.basis.registry_revision!==snapshot.registry_revision||captured.basis.content_sha256!==snapshot.content_sha256
         ||captured.basis.visibility!==snapshot.visibility||captured.basis.draft_sha256!==snapshot.draft_sha256
-        ||captured.basis.editor_sha256!==snapshot.editor_sha256||captured.basis.draft_generation!==snapshot.draft_generation)throw new Error('The page changed while preparing this request. Send again.');
+        ||captured.basis.editor_sha256!==snapshot.editor_sha256||captured.basis.draft_generation!==snapshot.draft_generation))throw new Error('The page changed while preparing this request. Send again.');
     }
     if((requirePassage||useImageAbove)&&!captured?.basis.selection?.text.trim())
       return {placementError:'Select the passage on the page before continuing. Nothing was sent.'};
@@ -198,11 +205,19 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
         ||pointer.pointer_revision!==created.pointer_revision)throw new Error('The active conversation changed. Send again to use the current conversation.');
     }
     if(!pointer.conversation_id||pointer.conversation_id!==pointer.active_conversation_id)throw new Error('Open the current World conversation first.');
+    const imageMoveCapture = offerImageMove ? await start.bridge.captureImageMoveTurn?.(pointer.conversation_id, pointer.pointer_revision) : null;
+    if ((selectedImage && !imageMoveCapture) || (imageMoveCapture &&
+      (imageMoveCapture.basis.editor_sha256 !== snapshot.editor_sha256
+       || imageMoveCapture.basis.draft_generation !== snapshot.draft_generation
+       || imageMoveCapture.basis.content_sha256 !== snapshot.content_sha256))
+      || !mounted.current || current.current.bridge !== start.bridge) {
+      throw new Error('The Page changed while capturing the image move. Send again.');
+    }
     const action=crypto.randomUUID();
     const useContextualProse = contextualPlacement && !captured?.basis.selection && !requirePassage && !useImageAbove;
     const proposalCapture = captured && (!useContextualProse || captured.contextualProse) ? captured : undefined;
     if(proposalCapture)captures.current.set(action,proposalCapture);
-    return {history:pointer,initializedConversation,draftContext:{snapshot,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision},
+    return {history:pointer,initializedConversation,imageMoveCapture,draftContext:{snapshot,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision},
       capability:proposalCapture?{idempotency_key:action,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision,
         basis:proposalCapture.basis,draft_markdown:proposalCapture.draftMarkdown,
         ...(useContextualProse ? {boundary_editor_json:proposalCapture.editorJson} : {}),

@@ -9,8 +9,10 @@ import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
 import { ConversationReplyDetails } from './ConversationReplyDetails';
-import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply} from '../../shared/surfaceNativeProtocol';
+import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply,imageMoveReply} from '../../shared/surfaceNativeProtocol';
 import { BuildGraphReferenceReview } from '../../buildSurface/BuildGraphReferenceReview';
+import { BuildImageMoveReview } from '../../buildSurface/BuildImageMoveReview';
+import { isBuildImageMoveCapture } from '../../api/buildImageMoveReviewApi';
 import {isNativePlanQuery} from '../../shared/nativeStatementAnswerProtocol';
 import {isNativeStatementContext,nativeStatementDigestsBound,nativeAnswerText} from "../../shared/nativeStatementAnswerProtocol";
 import {NativeStatementAnswer} from "./NativeStatementAnswer";
@@ -367,6 +369,7 @@ function readPendingPlayTurn(worldId: string, serialized: string|null = window.l
       ...(isRecord(value.request) && isRecord(value.request.surface) && value.request.surface.surface_id === "play" ? ["play_target"] : []),
       ...(isRecord(value.request) && "build_write_capability" in value.request ? ["build_write_capability"] : []),
       ...(isRecord(value.request) && "build_draft_context" in value.request ? ["build_draft_context"] : []),
+      ...(isRecord(value.request) && "build_image_move_capture" in value.request ? ["build_image_move_capture"] : []),
       ...(isRecord(value.request) && "reviewed_step" in value.request ? ["reviewed_step"] : []),
       ...(isRecord(value.request) && "retry_of" in value.request ? ["retry_of"] : []),
       ...(isRecord(value.request) && "build_authored_references" in value.request ? ["build_authored_references"] : []),
@@ -394,6 +397,12 @@ function readPendingPlayTurn(worldId: string, serialized: string|null = window.l
     || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
     || ("build_draft_context" in value.request && (value.request.surface.surface_id!=="build"
       || !isStoredBuildDraftContext(value.request.build_draft_context,value.request)))
+    || ("build_image_move_capture" in value.request && (value.request.surface.surface_id !== 'build'
+      || value.request.client_work_state !== 'saved_clean' || !isRecord(value.request.graph_request) || value.request.graph_request.mode !== 'world'
+      || 'reviewed_step' in value.request || 'retry_of' in value.request
+      || typeof value.request.primary_work.expected_content_sha256 !== 'string'
+      || !isBuildImageMoveCapture(value.request.build_image_move_capture, worldId, value.request.primary_work.object_id,
+        value.request.primary_work.expected_revision, value.request.primary_work.expected_content_sha256)))
     || ("retry_of" in value.request && (value.request.surface.surface_id!=='build'
       || !hasExactKeys(value.request.retry_of,['turn_id','revision',...(isRecord(value.request.retry_of)&&'retained_snapshot_sha256' in value.request.retry_of?['retained_snapshot_sha256']:[])])
       || ('retained_snapshot_sha256' in value.request.retry_of && (typeof value.request.retry_of.retained_snapshot_sha256!=='string'||!/^[a-f0-9]{64}$/.test(value.request.retry_of.retained_snapshot_sha256)||'build_write_capability' in value.request))
@@ -1851,7 +1860,9 @@ function isHistoryTurn(
     return value.lifecycle_status === "completed"
       ? completion !== null && (completion.schema === 'dmb_build_graph_reference_completion_v1'
         ? value.assistant_text === graphReferenceReply(completion) && (completion.action_id === null || completion.action_id === value.turn_id)
-        : value.assistant_text === completion.answer_segments.map(segment => segment.text).join("\n"))
+        : completion.schema === 'dmb_build_image_move_completion_v1'
+          ? value.assistant_text === imageMoveReply(completion) && (completion.action_id === null || completion.action_id === value.turn_id)
+          : value.assistant_text === completion.answer_segments.map(segment => segment.text).join("\n"))
       : completion === null;
   }
   if (!hasPlanContext) return true;
@@ -4490,7 +4501,8 @@ export function WorldPlanAgentConversation({
           ||!await isReceiptDigestBound(context.receipt)||!buildReceiptMatchesRequest(context.receipt,request as WorldBuildAgentTurnRequestV1)
           ||!buildReceiptMatchesGraph(context.receipt,response.graph)
           ||!mixed&&(response.answer.text!==(context.completion.schema === 'dmb_build_graph_reference_completion_v1'
-            ? graphReferenceReply(context.completion) : context.completion.answer_segments.map(s=>s.text).join('\n'))
+            ? graphReferenceReply(context.completion) : context.completion.schema === 'dmb_build_image_move_completion_v1'
+              ? imageMoveReply(context.completion) : context.completion.answer_segments.map(s=>s.text).join('\n'))
             ||response.answer.graph_grounded!==(context.completion.answer_context_status==='graph_grounded'||context.completion.answer_context_status==='graph_grounded_partial')
             ||response.answer.status!=='ok'||response.answer.code!==null||response.answer.message!==null)) {
           throw new Error('The reply did not match the saved Build source and World Graph. Check World history before continuing.');
@@ -4758,7 +4770,8 @@ export function WorldPlanAgentConversation({
         try {
           const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss',
             freshBuildRetry?.context.author_interaction==='select_passage',!!freshBuildRetry?.context.reference_image_id,
-            freshBuildRetry?.context.reference_image_id, !explicitRequest && !freshBuildRetry);
+            freshBuildRetry?.context.reference_image_id, !explicitRequest && !freshBuildRetry,
+            !explicitRequest && !freshBuildRetry && !discussionOnly && !source.dirty);
           if(prepared.placementError){
             if(latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===placementFence
               &&latestRef.current.buildPlacementEpoch===epoch&&latestRef.current.buildPlacementBridge===bridge
@@ -4772,6 +4785,7 @@ export function WorldPlanAgentConversation({
           initializedConversation=!!prepared.initializedConversation;
           request.build_draft_context=prepared.draftContext;
           if(prepared.capability)request.build_write_capability=prepared.capability;
+          if(prepared.imageMoveCapture)request.build_image_move_capture=prepared.imageMoveCapture;
           expectedPlacementFence=JSON.stringify([scopeKey,source,prepared.history.conversation_id,
             prepared.history.active_conversation_id,prepared.history.conversation_state,prepared.history.pointer_revision,useWorldGraphForAsk]);
         } catch (reason) {
@@ -5699,7 +5713,7 @@ export function WorldPlanAgentConversation({
     const { completion, execution } = context;
     const terminalFailureConfirmed = isHistoryTurnFailureConfirmed(turn.turn_id);
     const terminalFailureRecorded = isWorldHistoryTurnFailed(turn.turn_id);
-    if (completion?.schema === 'dmb_build_graph_reference_completion_v1') return null;
+    if (completion?.schema === 'dmb_build_graph_reference_completion_v1' || completion?.schema === 'dmb_build_image_move_completion_v1') return null;
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     if (completion?.schema === 'dmb_surface_native_completion_v1' && turn.lifecycle_status === 'completed') return null;
     const citations = completion && "citation_map" in completion ? completion.citation_map?.entries ?? [] : [];
@@ -6606,7 +6620,21 @@ export function WorldPlanAgentConversation({
       ? <BuildGraphReferenceReview key={`${history.conversation_id}:${turn.turn_id}`} world={verifiedWorldId}
           action={turn.turn_id} bridge={buildMode.composeBridge} conversationId={history.conversation_id}
           documentId={buildMode.savedSource.documentId} placementSha256={referenceDigest}/> : null;
-    const pageSuggestion = graphReview ? { element: graphReview } : buildCompose.items.find(item => item.originTurnId === turn.turn_id);
+    const imageMoveDigest = completion?.schema === 'dmb_build_image_move_completion_v1'
+      ? completion.action_id === turn.turn_id ? completion.placement_sha256 : null
+      : !completion && descriptor?.kind === 'build_image_move'
+        && descriptor.source.document_id === turn.provenance.primary_work.object_id ? descriptor.placement_sha256 : null;
+    const imageReview = imageMoveDigest && visible && isBuild && !historicalAttempt
+      && verifiedWorldId && turn.provenance.world_id === verifiedWorldId
+      && history?.conversation_id && history.active_conversation_id === history.conversation_id
+      && buildMode?.savedSource?.worldId === verifiedWorldId
+      && buildMode.savedSource.documentId === turn.provenance.primary_work.object_id && buildMode.composeBridge
+      ? <BuildImageMoveReview key={`${history.conversation_id}:${turn.turn_id}`} world={verifiedWorldId}
+          action={turn.turn_id} bridge={buildMode.composeBridge} conversation={history.conversation_id}
+          documentId={buildMode.savedSource.documentId} savedRevision={buildMode.savedSource.revision}
+          placementSha256={imageMoveDigest}/> : null;
+    const pageSuggestion = graphReview || imageReview ? { element: graphReview || imageReview }
+      : buildCompose.items.find(item => item.originTurnId === turn.turn_id);
     const savedStatblockLinks=savedMessage?.saved_statblocks?.map(reference=><div key={reference.draft_id+':'+reference.revision_id}>
       <a href={savedStatblockHref({worldId:reference.world_id,draftId:reference.draft_id,revisionId:reference.revision_id})}>Open {reference.name} statblock</a>
       {reference.pdf_sources && <SavedStatblockPdfEvidence sources={reference.pdf_sources}/>}
@@ -6665,7 +6693,8 @@ export function WorldPlanAgentConversation({
       </article></BuddyTurnInspection>;
     const replyText = turn.assistant_text ?? '';
     const completed=graphContextForTurn(turn)?.completion;
-    const sourcedCompletion = completed?.schema === 'dmb_build_graph_reference_completion_v1' ? null : completed;
+    const sourcedCompletion = completed?.schema === 'dmb_build_graph_reference_completion_v1'
+      || completed?.schema === 'dmb_build_image_move_completion_v1' ? null : completed;
     const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
     const loreTitle = collaboration?.kind === 'lore_page' ? collaboration.destination.title : null;
     const loreDraftSuperseded = loreTitle !== null && history?.turns.some((later) => {

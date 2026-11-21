@@ -5,6 +5,7 @@ import type { Editor, JSONContent } from '@tiptap/core';
 import {closeHistory} from '@tiptap/pm/history';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
 import type { BuildGraphReferenceApply, BuildGraphReferencePlacement } from '../api/buildGraphReferenceReviewApi';
+import type { BuildImageMoveCapture, BuildImageMovePlacement } from '../api/buildImageMoveReviewApi';
 import { TextSelection } from '@tiptap/pm/state';
 import {pageBodyReferences,preservePageBodyReferences} from './pageBodyTarget';
 import {isBuildProseBoundaryTarget,type BuildProposalBasis,type BuildPageBodyTarget,type BuildPageEndTarget,type BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
@@ -15,7 +16,10 @@ import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownA
 import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
 import {flattenPresentation,hasPresentation,hydratePresentation,presentationFingerprint,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
 import {preserveLeadingYamlFrontmatter,stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
-import {applyAgentImageMove, captureAgentImageMoves, preservePlainReviewBlockIdentities, type CapturedAgentImageMoves} from '../tiptap/pageComposer/PageRow';
+import {
+  applyAgentImageMove, captureAgentImageMoves, matchAgentImageMove, preservePlainReviewBlockIdentities,
+  previewAgentImageMove, selectedAgentImageBlock, type CapturedAgentImageMoves,
+} from '../tiptap/pageComposer/PageRow';
 import {isValidGraphNodeId,normalizeRunbookReferenceAttrs} from '../tiptap/references/runbookReferences';
 
 export interface BuildComposeEditorState {
@@ -41,6 +45,10 @@ export interface PreparedBuildGraphReference {
   afterDraft: string;
   postimage: Omit<BuildGraphReferenceApply,'apply_id'>;
 }
+export interface PreparedBuildImageMove {
+  editorJson: string;
+  afterEditorJson: string;
+}
 export interface PreparedWorkPlanPlacement {
   captured:CapturedBuildInsertion;reference:WorkPlanReference;afterEditorJson:string;afterEditorSha256:string;afterDraftSha256:string;
 }
@@ -56,6 +64,10 @@ export interface ProposalInspection {
 export interface BuildComposeBridge {
   captureImageMoves?: () => CapturedAgentImageMoves;
   applyImageMove?: (capture: CapturedAgentImageMoves, alias: string) => void;
+  captureImageMoveTurn?: (conversationId: string, pointerRevision: number) => Promise<BuildImageMoveCapture | null>;
+  canReviewImageMove?: (placement: BuildImageMovePlacement) => boolean;
+  prepareImageMove?: (placement: BuildImageMovePlacement) => Promise<PreparedBuildImageMove>;
+  applyPreparedImageMove?: (prepared: PreparedBuildImageMove) => void;
   canReviewGraphReference?: (worldId: string, documentId: string) => boolean;
   prepareGraphReference?: (placement: BuildGraphReferencePlacement) => Promise<PreparedBuildGraphReference>;
   applyGraphReference?: (prepared: PreparedBuildGraphReference) => void;
@@ -236,9 +248,80 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     }
     return current;
   }
+  const preparedImageMoves = new WeakMap<PreparedBuildImageMove, {capture: CapturedAgentImageMoves; alias: string}>();
+  function savedImageMoveScope(current: BuildComposeEditorState) {
+    if (!current.canEdit || !current.pagePresentation || current.savedMarkdown === undefined) {
+      throw new Error('Open the saved editable composed Page.');
+    }
+    const initial = hydratePresentation(current.savedMarkdown, current.pagePresentation);
+    const projection = projectPresentation(current.editor.getJSON(), current.savedMarkdown, initial, current.pagePresentation);
+    if (projection.markdown !== current.savedMarkdown
+      || presentationFingerprint(projection.presentation) !== presentationFingerprint(current.pagePresentation)) {
+      throw new Error('Save the current Page before asking to move an image.');
+    }
+  }
   const bridge: BuildComposeBridge = {
     captureImageMoves: () => captureAgentImageMoves(imageMoveScope()),
     applyImageMove: (capture, alias) => applyAgentImageMove(imageMoveScope(), capture, alias),
+    async captureImageMoveTurn(conversationId, pointerRevision) {
+      const live = getCurrent();
+      if (!live?.canEdit || live.visibility !== 'internal' || live.editor.isDestroyed
+        || !live.pagePresentation?.items.some(item => item.kind === 'row')) return null;
+      const start = {...live};
+      const capture = captureAgentImageMoves(start);
+      if (!capture.offers.length) return null;
+      savedImageMoveScope(start);
+      const editorJson = JSON.stringify(start.editor.getJSON());
+      const selected = selectedAgentImageBlock(capture);
+      const editorDigest = await sha256(editorJson);
+      const current = imageMoveScope();
+      if (current.editor !== start.editor || current.documentId !== start.documentId || current.worldId !== start.worldId
+        || current.revision !== start.revision || current.contentSha256 !== start.contentSha256
+        || current.draftGeneration !== start.draftGeneration || current.selectionGeneration !== start.selectionGeneration
+        || JSON.stringify(current.editor.getJSON()) !== editorJson) {
+        throw new Error('The editor changed while its image context was captured. Send again.');
+      }
+      return {
+        conversation_id: conversationId, expected_pointer_revision: pointerRevision, editor_json: editorJson,
+        author_selected_block_id: selected, basis: {
+          world_id: start.worldId, document_id: start.documentId, registry_revision: start.revision,
+          content_sha256: start.contentSha256, visibility: 'internal', draft_sha256: start.contentSha256,
+          editor_sha256: editorDigest, caret: start.editor.state.selection.from,
+          draft_generation: start.draftGeneration, selection_generation: start.selectionGeneration,
+        },
+      };
+    },
+    async prepareImageMove(placement) {
+      const current = imageMoveScope(), basis = placement.basis;
+      if (current.worldId !== basis.world_id || current.documentId !== basis.document_id
+        || current.revision !== basis.registry_revision || current.contentSha256 !== basis.content_sha256
+        || current.draftGeneration !== basis.draft_generation
+        || presentationFingerprint(current.pagePresentation) !== placement.presentation_sha256) {
+        throw new Error('The Page changed before the image move. Send the request again.');
+      }
+      savedImageMoveScope(current);
+      const capture = captureAgentImageMoves(current);
+      const alias = matchAgentImageMove(capture, placement);
+      const editorJson = JSON.stringify(current.editor.getJSON());
+      if (await sha256(editorJson) !== basis.editor_sha256) throw new Error('The editor no longer matches the image Review.');
+      const afterEditorJson = previewAgentImageMove(imageMoveScope(), capture, alias);
+      const prepared = {editorJson, afterEditorJson};
+      preparedImageMoves.set(prepared, {capture, alias});
+      return prepared;
+    },
+    canReviewImageMove(placement) {
+      const current = getCurrent(), basis = placement.basis;
+      return Boolean(current?.canEdit && !current.editor.isDestroyed && current.visibility === 'internal'
+        && current.worldId === basis.world_id && current.documentId === basis.document_id
+        && current.revision === basis.registry_revision && current.contentSha256 === basis.content_sha256
+        && current.draftGeneration === basis.draft_generation);
+    },
+    applyPreparedImageMove(prepared) {
+      const bound = preparedImageMoves.get(prepared);
+      if (!bound) throw new Error('The prepared image move is unavailable.');
+      preparedImageMoves.delete(prepared);
+      applyAgentImageMove(imageMoveScope(), bound.capture, bound.alias);
+    },
     canReviewGraphReference(worldId, documentId) {
       const current = getCurrent();
       return Boolean(current?.canEdit && !current.editor.isDestroyed && current.visibility === 'internal'
