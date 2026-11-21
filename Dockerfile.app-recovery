@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1.19
+# The runtime image must be independently verified to match the exact Buddy
+# source used for this build. This image is not a serving or migration image.
+ARG BUDDY_RUNTIME_IMAGE
+FROM ${BUDDY_RUNTIME_IMAGE} AS buddy-runtime
+FROM postgres:16@sha256:63e83b5a3dc36a917dccb76fe1bd2ac51f1ec9c1deb47ff20d4f04233bf6eae9 AS recovery
+COPY --from=buddy-runtime /usr/local/ /usr/local/
+COPY --from=buddy-runtime /app/.venv/ /app/.venv/
+COPY scripts/application_state_authority.py /app/scripts/application_state_authority.py
+ENV PATH="/app/.venv/bin:/usr/lib/postgresql/16/bin:/usr/local/bin:/usr/bin:/bin" \
+    PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+USER 10001:10001
+ENTRYPOINT ["/app/.venv/bin/python", "/app/scripts/application_state_authority.py"]
