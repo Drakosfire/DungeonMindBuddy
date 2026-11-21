@@ -142,13 +142,26 @@ was confirmed by copying the exact First sight body before opening the
 composer. The ordinary Send request was “Rewrite this to emphasize the
 three lanterns.”
 
-The proposal retained Read Aloud and the First sight title. It appeared as
-an insertion above the original block, which was still present, and included
-the host's partial-retrieval disclosure as editable text. This fails
-replacement placement and document-content isolation. The pre-send copy
-does not prove what selection the Plan writer captured at Send. The proposal
-was dismissed, and the saved timestamp, original passage, private note, and
-Departure sentinel remained visible.
+The proposal retained Read Aloud and the First sight title. A read-only check
+of the retained opening decision confirmed `write_current_page` with the
+captured replacement target. The selected text matched the complete First
+sight body at positions 143–186, and the original and resolved capture
+digests matched. The review card appeared above the original, which remained
+visible while the proposal was pending. The card position does not establish
+where Save applies the change.
+
+The proposal included the host's partial-retrieval disclosure as editable
+text, which fails document-content isolation. It was dismissed before Save.
+The original passage, private note, and Departure sentinel remained visible.
+Replacement persistence remains unverified.
+
+A fresh P01 run against saved Plan revision 5 retained the original editor
+capture and offered 17 placements. Its opening decision selected `clarify`
+with no placement. The turn completed with a player-facing passage and a
+private cue in chat, with no page proposal. This run failed at routing before
+placement or persistence could be scored. A prior exact P01 run selected
+`write_current_page` with `under:1`, which shows that the same request can
+reach the authoring branch on a different fixture state.
 
 [Plan placement PR #4264](https://github.com/Drakosfire/DungeonMindBuddy/pull/4264)
 covers selection binding and keeping retrieval disclosure in conversation.
@@ -171,3 +184,26 @@ Hosted Home showed no conversation composer in Buddy Cloud Pilot, so H01 had
 no eligible writer. Hosted Graph still reported unavailable native readback
 and disabled object selection in the pilot. G01 requires a disposable native
 Graph where the fixture object can be selected.
+
+### Hosted Plan-to-Play adoption diagnostic
+
+An explicit request to edit the synthetic Plan in Arrival produced two
+canonical callouts, Read Aloud **Boardwalk** and GM Note **Tower**. The draft
+also contained the host retrieval disclosure, which was removed manually
+before Save. The blocks were saved before the opening paragraph, one
+paragraph earlier than requested. This diagnostic leaves ordinary P01
+routing, placement, and clean proposal generation open.
+
+The document-specific Plan reload returned `owned_world_access_required`.
+Reopening through the World-scoped Plan entry recovered the saved blocks.
+Starting Play from that saved Plan carried both authored callouts, the
+previous callouts, the red-gate choice, and the Departure sentinel into
+a fresh session. The exact PL02 chat request quoted **Boardwalk**, omitted
+both private notes, and staged no scene edit. This checks adoption and the
+chat-only boundary after the manually reviewed save.
+
+The separate deterministic Play control in
+[#4309](https://github.com/Drakosfire/DungeonMindBuddy/pull/4309) verifies that
+both titled additions, a sibling table and image reference, and the exact
+parent Plan record survive session-copy Save and readback. Hosted image
+rendering remains unverified.
