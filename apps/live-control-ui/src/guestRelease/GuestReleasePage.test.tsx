@@ -25,7 +25,7 @@ it("follows a released relationship to its excerpt without loading private World
   expect(screen.getByText("A saved excerpt.")).toBeInTheDocument();
   expect(screen.getByText("Context for this claim; not direct support.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Link to this excerpt" })).toHaveAttribute("href", "#copy/copy/point/a/source/s");
-  expect(screen.getByText(/read-only snapshot/i)).toBeInTheDocument();
+  expect(screen.getByText(/shared World stays unchanged/i)).toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock.mock.calls[0][0]).toBe("/api/live/guest-releases/public");
   expect(fetchMock.mock.calls[0][1]).toMatchObject({ credentials: "omit", cache: "no-store" });
