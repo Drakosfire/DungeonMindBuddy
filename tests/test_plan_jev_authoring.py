@@ -2004,7 +2004,7 @@ def test_under_heading_selection_survives_actual_dispatch_reservation_and_retain
     assert not fresh_again and again.action_id == action.action_id
 
 
-@pytest.mark.parametrize("outcome", ["selected", "ambiguous", "stale_layout", "foreign"])
+@pytest.mark.parametrize("outcome", ["selected", "ambiguous", "relation_conflict", "stale_layout", "foreign"])
 def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tmp_path, outcome):
     from dataclasses import replace
 
@@ -2039,8 +2039,9 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
     )
     raw["plan_placement_catalog"] = None
     raw["plan_context_policy"] = {"policy": "auto_plan_world", "graph_source": "reviewed_native_graph"}
+    qualified = outcome in {"selected", "relation_conflict"}
     raw["message"] = ("Insert a lantern warning after the locked gate in the right column."
-                      if outcome == "selected" else "Insert a lantern warning after the locked gate.")
+                      if qualified else "Insert a lantern warning after the locked gate.")
     raw["plan_authoring_capture"].update(
         schema="dmb_plan_authoring_composed_snapshot_v1", target_kind="offer_slot_placement",
         base_revision=obj.object_revision, base_content_sha256=revision.content_sha256,
@@ -2072,15 +2073,17 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
             body = json.loads(request.content)
             questions = body["questions"]
             if "existing_scope" in questions:
-                choices = dict(location_relation="after_paragraph", existing_scope="none",
-                               page_edit_intent="page_edit")
+                choices = dict(
+                    location_relation="before_paragraph" if outcome == "relation_conflict" else "after_paragraph",
+                    existing_scope="none", page_edit_intent="page_edit",
+                )
             elif "confirmed_work" in questions:
                 locations = {row["alias"]: row["description"] for row in body["state"]["locations"]}
                 choices = dict(confirmed_work="write_current_page", relation="after", row_choice="any_row",
-                               scope="qualified" if outcome == "selected" else "unscoped")
+                               scope="qualified" if qualified else "unscoped")
                 choices.update({name: "include" for name in questions if name.startswith("passage")})
                 choices.update({
-                    alias: "include" if outcome == "selected" and "right column" in label else "exclude"
+                    alias: "include" if qualified and "right column" in label else "exclude"
                     for alias, label in locations.items()
                 })
                 choices.update({name: "exclude" for name in questions if name.startswith("candidate_")})
@@ -2101,7 +2104,7 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
             body = json.loads(request.content)
             self.adapter = wire.adapter
             assert capture.draft_page_presentation_sha256 not in request.content.decode()
-            if outcome == "ambiguous":
+            if outcome in {"ambiguous", "relation_conflict"}:
                 response = {"question": body["text"]["format"]["schema"]["properties"]["question"]["enum"][0]}
             else:
                 response = dict(schema=POLICY, answer_segments=[dict(
@@ -2139,6 +2142,19 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
         assert response.plan_proposal.capture.slot_address.slot_id == "right"
         assert replay.plan_proposal == response.plan_proposal
         assert action is not None and action.target_kind == "insert_at_slot_boundary"
+        from application_state.agent_conversation.native_plan_opening import resolve_composed_opening
+        from application_state.agent_conversation.plan_author_location import LiteralScopeName, NamedScopePath
+
+        missing_scope = NamedScopePath(names=(LiteralScopeName(text="Missing heading"),))
+        binding = selection.author_scope_binding
+        constrained = binding.model_copy(update={
+            "observation": binding.observation.model_copy(update={"scope": missing_scope}),
+        })
+        assert resolve_composed_opening(
+            capture, request.plan_placement_catalog, constrained, selection.composed_nomination,
+            selection.author_operation,
+        ) == dict(requested_work="clarify", target_resolution="unresolved",
+                  placement_selector=None, target_capture_sha256=None)
     else:
-        assert selection.target_resolution == "ambiguous"
+        assert selection.target_resolution == ("ambiguous" if outcome == "ambiguous" else "unresolved")
         assert response.plan_proposal is None and action is None

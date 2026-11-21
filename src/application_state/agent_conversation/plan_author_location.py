@@ -814,10 +814,11 @@ def source_heading_inventory(capture, catalog):
 def _path_matches(heading, keys, edges, rooted):
     """A complete embedding ending at this primary occurrence, never a range join."""
     path = heading['path']
+    occurrences = heading.get('occurrence_path')
 
     def matches(component, position):
         return (name_key(path[position]) in keys[component]
-            or heading['occurrence_path'][position] in keys[component])
+            or (occurrences is not None and occurrences[position] in keys[component]))
 
     if len(path) < len(keys) or not matches(len(keys) - 1, len(path) - 1):
         return False
@@ -828,6 +829,15 @@ def _path_matches(heading, keys, edges, rooted):
         return any(index >= 0 and matches(component - 1, index)
             and previous(component - 1, index) for index in candidates)
     return previous(len(keys) - 1, len(path) - 1)
+
+
+def matches_literal_scope_path(path: tuple[str, ...], scope: NamedScopePath) -> bool:
+    """Check a literal scope against the parent headings of a paragraph."""
+    keys = [{name_key(name.text)} for name in scope.names]
+    return any(
+        _path_matches({"path": path[:end]}, keys, scope.edges, scope.rooted)
+        for end in range(1, len(path) + 1)
+    )
 
 
 def bind_scope(capture, catalog, scope: ScopeExpression, *, document_title: str | None,

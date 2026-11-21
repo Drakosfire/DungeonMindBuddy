@@ -12,8 +12,9 @@ from pydantic import Field
 from . import types as t
 from .native_statement_input import Strict
 from .plan_author_location import (
-    ScopeExpression, UnresolvedLocation, UnscopedLocation,
-    author_scope_hypotheses, author_scope_offer_view,
+    LiteralScopeName, NamedScopePath, ScopeExpression, ScopeWithExclusion,
+    UnresolvedLocation, UnscopedLocation, author_scope_hypotheses,
+    author_scope_offer_view, matches_literal_scope_path,
 )
 from .plan_placement import PlanRequestedWorkInputV8, PlanRequestedWorkInputV9
 from .plan_authoring import PlanAuthoringComposedSnapshotV1, PlanRequestedWorkInputV1
@@ -130,6 +131,27 @@ def resolve_composed_opening(snapshot, catalog, binding, nomination, operation):
         intent = 'write_current_page'
     resolved = resolve_composed_plan_nomination(snapshot, catalog, intent, nomination)
     capture = resolved.capture
+    if capture is not None:
+        observed_relation = {
+            'before_paragraph': 'before', 'after_paragraph': 'after',
+        }.get(binding.observation.relation)
+        if observed_relation is not None and observed_relation != capture.slot_address.relation:
+            return {'requested_work': 'clarify', 'target_resolution': 'unresolved',
+                    'placement_selector': None, 'target_capture_sha256': None}
+        scope = binding.observation.scope
+        if isinstance(scope, (NamedScopePath, ScopeWithExclusion)):
+            positive = scope.positive if isinstance(scope, ScopeWithExclusion) else scope
+            excluded = scope.excluded if isinstance(scope, ScopeWithExclusion) else None
+            paths = (positive, excluded) if excluded is not None else (positive,)
+            supports_literal_scope = all(
+                path.occurrence is None and all(isinstance(name, LiteralScopeName) for name in path.names)
+                for path in paths
+            )
+            headings = catalog.paragraph_for(capture.slot_address).heading_path
+            if (not supports_literal_scope or not matches_literal_scope_path(headings, positive)
+                    or excluded is not None and matches_literal_scope_path(headings, excluded)):
+                return {'requested_work': 'clarify', 'target_resolution': 'unresolved',
+                        'placement_selector': None, 'target_capture_sha256': None}
     return {
         'requested_work': resolved.work,
         'target_resolution': resolved.resolution,
