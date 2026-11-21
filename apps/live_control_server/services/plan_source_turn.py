@@ -76,6 +76,7 @@ def prepare_selective_query(managed_world_id, principal, resolve_query, *,
             fact_cache=_selective_plan_fact_cache(),
         ))
         if opened is None:
+            stack.close()
             return open_native_text_source_access_context(
                 repository=repository, space_id=space_id, revision_id=revision_id,
                 domain_contract=domain_contract, audience_labels=audience_labels,
