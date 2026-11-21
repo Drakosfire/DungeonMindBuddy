@@ -188,6 +188,8 @@
 
 .plan-conversation-dock__scope { margin: .5rem 0; font-weight: 600; }
 .plan-conversation-dock__messages { max-inline-size:72rem; margin-inline:auto; }
+.plan-conversation-dock .conversation-dock__header { position: relative; }
+.plan-conversation-dock .conversation-dock__menu { position: static; }
 .conversation-dock__menu > div {
   position: absolute;
   top: calc(100% + 0.5rem);
@@ -196,6 +198,10 @@
   z-index: 110;
   inline-size: min(24rem, calc(100vw - 2rem));
   max-block-size: min(20rem, 40dvh);
+}
+.plan-conversation-dock .conversation-dock__menu > div {
+  inline-size: min(24rem, 100%);
+  min-inline-size: 0;
 }
 
 /* Conversation takes precedence over optional scope details. */
@@ -216,9 +222,7 @@
 .plan-conversation-dock.is-fullscreen .conversation-dock__menu > div { max-block-size: calc(100dvh - 8rem); }
 
 @media (max-width: 42rem) {
-  .plan-conversation-dock .conversation-dock__header { position: relative; }
-  .conversation-dock__menu { position: static; }
-  .conversation-dock__menu > div {
+  .plan-conversation-dock .conversation-dock__menu > div {
     left: 0;
     right: 0;
     inline-size: 100%;
