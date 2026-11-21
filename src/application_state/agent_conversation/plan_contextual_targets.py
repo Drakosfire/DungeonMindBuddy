@@ -321,8 +321,13 @@ def contextual_work_choice(request, intent, answers):
     sections, ancestors = votes('section', inventory['sections']), votes('ancestor', inventory['ancestors'])
     binding = getattr(request, 'author_scope_binding', None)
     if binding is not None:
+        from .native_plan_opening import _CAPTURE_REWRITE
+
         if answers['scope_qualifier'] not in SCOPE_QUALIFIERS:
             raise ValueError('Scope qualifier was not offered')
+        if (_CAPTURE_REWRITE.match(request.question)
+                and request.original_capture.target_kind != 'replace_selection'):
+            relation = 'unresolved'
         return dict(author_scope_binding=binding, scope_document_title=request.page_title or None,
             source_placement_relation=relation,
             **resolve_author_scope_targets(request.original_capture, request.placement_catalog,

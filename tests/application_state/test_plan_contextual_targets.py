@@ -55,6 +55,25 @@ def request_for(capture, catalog):
         plan_requested_operation=None)
 
 
+@pytest.mark.parametrize("selected", [False, True])
+def test_bound_selected_rewrite_requires_an_actual_selection(selected):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.plan_author_location import UnscopedLocation
+    from application_state.agent_conversation.plan_contextual_targets import target_questions
+
+    capture, catalog = captured_catalog(selected=selected)
+    observation = NativePlanAuthorScopeObservationV1(
+        relation="captured", selected_alias="none", scope=UnscopedLocation())
+    request = SimpleNamespace(original_capture=capture, placement_catalog=catalog,
+        author_scope_binding=SimpleNamespace(observation=observation), page_title="A page",
+        question="Rewrite the selected paragraph to add a warning.")
+    answers = {question.name: question.options[0] for question in target_questions(request)}
+    answers["placement_relation"] = "captured"
+    answers["anchor_0"] = "include"
+    assert compatible_selectors(request, answers) == (("captured",) if selected else ())
+
+
 def family_catalog(nodes, *, with_headings=False):
     """Occurrence geometry fixture; production compiler parity is checked separately."""
     def size(node):
