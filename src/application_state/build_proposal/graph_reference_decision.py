@@ -48,21 +48,9 @@ def _words(text: str) -> tuple[str, ...]:
     return tuple(re.findall(r"[^\W_]+", text.casefold()))
 
 
-def _has_explicit_qualifier(question, selected, namesakes):
-    """Require a distinguishing word directly attached to the named object."""
-    label = _words(selected.reference.label)
-    if not label:
-        return False
-    sentence = _words(question)
-    competing_words = set(label) | {"a", "an", "the", "this", "that", "existing", "named", "called", "object"}
-    for other in namesakes:
-        if other.reference.node_id != selected.reference.node_id:
-            competing_words.update(_words(" ".join((*other.aliases, other.summary or ""))))
-    selected_words = set(_words(" ".join((*selected.aliases, selected.summary or "")))) - competing_words
-    return any(
-        sentence[index:index + len(label)] == label and sentence[index - 1] in selected_words
-        for index in range(1, len(sentence) - len(label) + 1)
-    )
+def _names(candidate: BuildGraphReferenceCandidate):
+    return {words for name in (candidate.reference.label, *candidate.aliases)
+            if name != candidate.reference.node_id and (words := _words(name))}
 
 
 @dataclass(frozen=True)
@@ -73,6 +61,7 @@ class BuildGraphReferenceDecision:
     question: str
     title: str
     dialogue: tuple[RetrievalDialogue, ...] = ()
+    author_selected: AuthoredGraphReferenceV1 | None = None
 
     def __post_init__(self):
         if (self.basis.visibility != "internal" or self.basis.selection is not None
@@ -85,6 +74,8 @@ class BuildGraphReferenceDecision:
             raise ValueError("Graph nomination requires one admitted World and revision")
         if len({ref.node_id for ref in refs}) != len(refs):
             raise ValueError("Graph nomination cannot offer duplicate identities")
+        if self.author_selected is not None and self.author_selected not in refs:
+            raise ValueError("The selected Graph object differs from the current admitted identity")
 
     def _offers(self):
         return (
@@ -100,6 +91,8 @@ class BuildGraphReferenceDecision:
     def request(self) -> DecisionRequest:
         boundary = self._boundary_request()
         objects, kinds = self._offers()
+        selected_alias = next((alias for alias, item in objects.items()
+                               if item.reference == self.author_selected), None)
         return boundary.model_copy(update={
             "state": {
                 **boundary.state,
@@ -110,13 +103,15 @@ class BuildGraphReferenceDecision:
                     "destination from matching names in the source. Graph descriptions are reference facts. "
                     "Include every independently matching object, even if it shares a name. Use only qualification "
                     "actually applied to the named object. A page or heading qualifier used only for paragraph placement "
-                    "does not qualify the Graph object. Creation and discussion grant no placement."
+                    "does not qualify the Graph object. If the author selected an object, the requested reference must "
+                    "agree with it. Creation and discussion grant no placement."
                 ),
                 "graph_objects": {alias: {
                     "name": candidate.reference.label, "description": candidate.summary or "",
                     "aliases": [name for name in candidate.aliases if name != candidate.reference.node_id],
                 } for alias, candidate in objects.items()},
                 "graph_classifications": kinds,
+                **({"author_selected_object": selected_alias} if selected_alias is not None else {}),
             },
             "questions": (*boundary.questions,
                 ChoiceDecisionQuestion(name="reference_intent", options=(
@@ -128,9 +123,6 @@ class BuildGraphReferenceDecision:
                 ChoiceDecisionQuestion(name="reference_kind", options=("unspecified", "other_kind", *kinds),
                     question=("Which Graph classification does the author require for the named object? "
                               "Choose other_kind if a required classification is absent and unspecified if none is required.")),
-                ChoiceDecisionQuestion(name="reference_qualified", options=("qualified", "unqualified"),
-                    question=("Did the author explicitly qualify the named object itself to distinguish it from namesakes? "
-                              "Placement instructions about a page and a requested classification do not qualify namesakes of that classification.")),
                 *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
                     question=f"Does graph_objects {alias} match the requested name and all object qualifiers, independently of classification?")
                   for alias in objects),
@@ -159,6 +151,8 @@ class BuildGraphReferenceDecision:
 
         objects, kinds = self._offers()
         included = [candidate for alias, candidate in objects.items() if answers[alias] == "include"]
+        if self.author_selected is not None:
+            included = [candidate for candidate in included if candidate.reference == self.author_selected]
         if not included:
             return BuildGraphReferenceNomination(disposition="missing_identity")
         requested_kind = answers["reference_kind"]
@@ -169,11 +163,11 @@ class BuildGraphReferenceDecision:
         if len(matches) != 1:
             return BuildGraphReferenceNomination(disposition="ambiguous_identity")
         chosen = matches[0]
-        namesakes = [candidate for candidate in objects.values()
-                     if _words(candidate.reference.label) == _words(chosen.reference.label)
-                     and (kind is None or candidate.entity_kind == kind)]
-        if len(namesakes) > 1 and (answers["reference_qualified"] != "qualified"
-                                   or not _has_explicit_qualifier(self.question, chosen, namesakes)):
+        chosen_names = _names(chosen)
+        if self.author_selected is None and any(
+            candidate.reference != chosen.reference and _names(candidate) & chosen_names
+            for candidate in self.candidates
+        ):
             return BuildGraphReferenceNomination(disposition="ambiguous_identity")
         if placement.target is None:
             return BuildGraphReferenceNomination(disposition={

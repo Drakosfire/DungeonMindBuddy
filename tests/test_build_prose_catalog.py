@@ -190,13 +190,14 @@ def graph_decision(captured_page):
     return BuildGraphReferenceDecision(
         basis, freeze_build_prose_catalog(*captured_page), candidates,
         "Insert a reference to the retuned Ivory Sentry construct after the moon in East.", "Gate",
+        author_selected=candidates[1].reference,
     )
 
 
 def graph_response(**changes):
     labels = dict(work="place_paragraph", destination="current_page", relation="after", scope="named",
                   text0="include", scope0="exclude", scope1="include", reference_intent="place_existing",
-                  reference_kind="class1", reference_qualified="qualified", object1="exclude",
+                  reference_kind="class1", object1="exclude",
                   object2="include", object3="exclude")
     labels.update(changes)
     return DecisionResult(
@@ -213,6 +214,7 @@ def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(g
                     "construct:retuned-ivory", "location:ivory", graph_decision.catalog.choices_sha256):
         assert private not in model_input
     assert request.state["graph_objects"]["object2"]["name"] == "Ivory Sentry"
+    assert request.state["author_selected_object"] == "object2"
     placement = graph_decision.resolve(graph_response()).placement
     assert placement.reference.node_id == "construct:retuned-ivory"
     assert placement.entity_kind == "construct"
@@ -220,8 +222,7 @@ def test_graph_decision_offers_only_semantic_aliases_and_binds_typed_placement(g
 
 
 @pytest.mark.parametrize("choices,disposition", [
-    ({"reference_qualified": "unqualified"}, "ambiguous_identity"),
-    ({"object1": "include"}, "ambiguous_identity"),
+    ({"object1": "include", "object2": "exclude"}, "missing_identity"),
     ({"reference_kind": "class2"}, "wrong_kind"),
     ({"reference_kind": "class2", "text0": "exclude"}, "wrong_kind"),
     ({"reference_kind": "other_kind"}, "wrong_kind"),
@@ -238,15 +239,38 @@ def test_graph_decision_refuses_without_a_unique_identity_boundary_and_intent(gr
     assert result.placement is None
 
 
-def test_graph_decision_cannot_invent_an_object_qualifier_or_foreign_pin(graph_decision):
-    unqualified = replace(graph_decision, question=graph_decision.question.replace("retuned ", ""))
+def test_graph_decision_cannot_take_identity_from_a_quoted_anchor_or_guessed_class(graph_decision):
+    unqualified = replace(graph_decision, author_selected=None,
+        question='Link Ivory Sentry after the paragraph “retuned Ivory Sentry”.')
     refusal = unqualified.resolve(graph_response())
     assert refusal.disposition == "ambiguous_identity" and refusal.placement is None
+    guessed_kind = unqualified.resolve(graph_response(reference_kind="class2", object2="exclude", object3="include"))
+    assert guessed_kind.disposition == "ambiguous_identity" and guessed_kind.placement is None
+
+
+def test_graph_decision_shared_alias_requires_the_current_author_selected_identity(graph_decision):
+    first, second, third = graph_decision.candidates
+    first = first.model_copy(update={"reference": first.reference.model_copy(update={"label":"Ivory Guard"}),
+                                   "aliases": ("Gate Watch",)})
+    second = second.model_copy(update={"reference": second.reference.model_copy(update={"label":"Moon Guard"}),
+                                      "aliases": ("gate watch",)})
+    shared = replace(graph_decision, candidates=(first, second, third), author_selected=None,
+        question="Place a reference to Gate Watch after the moon in East.")
+    refusal = shared.resolve(graph_response())
+    assert refusal.disposition == "ambiguous_identity" and refusal.placement is None
+    selected = replace(shared, author_selected=second.reference).resolve(graph_response())
+    assert selected.placement.reference == second.reference
+
+
+def test_graph_decision_rejects_foreign_stale_and_unoffered_identity_proof(graph_decision):
     original = graph_decision.candidates[0]
     foreign = original.model_copy(update={"reference": original.reference.model_copy(update={
         "managed_world_id": "foreign",
     })})
     with pytest.raises(ValueError, match="admitted World and revision"):
         replace(graph_decision, candidates=(foreign,))
+    stale = graph_decision.author_selected.model_copy(update={"graph_revision": "stale"})
+    with pytest.raises(ValueError, match="selected Graph object differs"):
+        replace(graph_decision, author_selected=stale)
     with pytest.raises(ValueError, match="unoffered answer"):
         graph_decision.resolve(graph_response(reference_kind="private-id"))
