@@ -98,6 +98,18 @@ def test_plan_session_storage_image_covers_root_and_locked_provenance(applicatio
                 repo._update_plan_session_execution(conn, world_id=turn.world_id,
                     turn_id=turn.turn_id, before=before, execution=turn.graph_context_execution)
         assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        with conn.transaction(force_rollback=True):
+            conn.execute("CREATE FUNCTION pg_temp.change_session_execution() RETURNS trigger "
+                         "LANGUAGE plpgsql AS $$ BEGIN NEW.graph_context_execution := "
+                         "jsonb_set(NEW.graph_context_execution, '{execution_policy_sha256}', "
+                         "to_jsonb(repeat('f',64))); "
+                         "RETURN NEW; END $$")
+            conn.execute("CREATE TRIGGER change_session_execution BEFORE UPDATE ON agent.turn "
+                         "FOR EACH ROW EXECUTE FUNCTION pg_temp.change_session_execution()")
+            with pytest.raises(ApplicationStateIntegrityError, match='actual SQL acknowledgement'):
+                repo._update_plan_session_execution(conn, world_id=turn.world_id,
+                    turn_id=turn.turn_id, before=before, execution=turn.graph_context_execution)
+        assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
         conn.rollback()
 
 

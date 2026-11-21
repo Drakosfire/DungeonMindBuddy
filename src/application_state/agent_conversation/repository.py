@@ -221,14 +221,15 @@ def _update_plan_session_execution(conn, *, world_id, turn_id, before, execution
                     "revision=revision+1,updated_at=clock_timestamp() FROM expected "
                     "WHERE world_id=%s AND turn_id=%s AND status='running' "
                     "AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp() "
-                    "RETURNING pg_catalog.jsonb_send(agent.turn.graph_context_execution) AS actual, "
+                    "RETURNING (pg_catalog.jsonb_send(agent.turn.graph_context_execution) "
+                    "IS NOT DISTINCT FROM pg_catalog.jsonb_send(expected.execution)) AS matches, "
                     "pg_catalog.jsonb_send(expected.execution) AS expected",
                     (Jsonb(execution.model_dump(mode="json", by_alias=True)),
                      world_id, turn_id, prior["revision"], prior["attempt"]))
         acknowledgement = cur.fetchone()
     if acknowledgement is None:
         return None
-    if bytes(acknowledgement["actual"]) != bytes(acknowledgement["expected"]):
+    if acknowledgement["matches"] is not True:
         raise ApplicationStateIntegrityError("Session execution differs from its actual SQL acknowledgement")
     after = _lock_plan_session_image(conn, world_id, turn_id)
     finished = database_clock(conn)
