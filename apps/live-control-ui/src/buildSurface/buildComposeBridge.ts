@@ -1,23 +1,30 @@
 import {readSavedConversationVariantTarget,savedConversationVariantHref,type SavedConversationVariantTarget} from "../statblocks/savedStatblockLocation";
 import {workPlanFence,workPlanBelongsTo,parseWorkPlanFence,workPlanIdentity,type WorkPlanReference} from '../surface/workPlans/workPlanReference';
 import { pickMediaInsertion,pickDocumentInsertion } from '../documentEditing/pickMediaInsertion';
-import type { Editor } from '@tiptap/core';
+import type { Editor, JSONContent } from '@tiptap/core';
+import {closeHistory} from '@tiptap/pm/history';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
 import { TextSelection } from '@tiptap/pm/state';
 import {pageBodyReferences,preservePageBodyReferences} from './pageBodyTarget';
-import type { BuildProposalBasis, BuildPageBodyTarget, BuildPageEndTarget } from '../api/buildDocumentProposalApi';
+import {isBuildProseBoundaryTarget,type BuildProposalBasis,type BuildPageBodyTarget,type BuildPageEndTarget,type BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
 import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
 import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/semanticMarkdownSafety';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
+import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
+import {flattenPresentation,hasPresentation,hydratePresentation,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
+import {stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
 
 export interface BuildComposeEditorState {
   editor: Editor; worldId: string; documentId: string; revision: number; contentSha256: string;
   visibility: 'internal' | 'player_safe'; draftGeneration: number; selectionGeneration: number; canEdit: boolean;
+  pagePresentation?: PagePresentation | null;
+  savedMarkdown?: string;
 }
 export interface CapturedBuildInsertion {
   pageBodyOffer?:BuildPageBodyTarget; pageBodyTarget?:BuildPageBodyTarget;
   pageEndOffer?:BuildPageEndTarget; pageEndTarget?:BuildPageEndTarget;
+  proseTarget?:BuildProseBoundaryTarget;
   basis: BuildProposalBasis; draftMarkdown: string; editor: Editor; editorJson: string;
 }
 export interface PreparedBuildProposal {
@@ -47,9 +54,12 @@ export interface BuildComposeBridge {
   placeSavedVariantLink?: (captured: CapturedBuildInsertion, variant: SavedConversationVariantTarget) => Promise<PreparedBuildProposal>;
   prepareProposal: (captured: CapturedBuildInsertion, markdown: string) => Promise<PreparedBuildProposal>;
   applyPrepared: (prepared: PreparedBuildProposal) => void;
-  saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection) => Promise<void>;
-  inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<ProposalInspection>;
-  restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget) => Promise<CapturedBuildInsertion>;
+  saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection,
+    proseTarget?: BuildProseBoundaryTarget) => Promise<void>;
+  inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string,
+    proseTarget?: BuildProseBoundaryTarget) => Promise<ProposalInspection>;
+  restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget,
+    proseTarget?:BuildProseBoundaryTarget) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
 async function sha256(value: string) {
@@ -90,6 +100,64 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       // Only proposal recovery may cross a save of this exact captured draft.
       // Callers independently check the complete editor document and anchor.
       || (allowExactSave && current.revision > basis.registry_revision && current.contentSha256 === basis.draft_sha256);
+  }
+  const boundProse = new WeakSet<CapturedBuildInsertion>();
+  function proseState() {
+    const now = getCurrent();
+    return now ? {editor: now.editor, canEdit: now.canEdit, draftGeneration: now.draftGeneration,
+      scopeKey: JSON.stringify([now.worldId, now.documentId, now.revision, now.contentSha256, now.visibility])} : null;
+  }
+  async function bindProse(captured: CapturedBuildInsertion, proof: BuildProseBoundaryTarget) {
+    if (!isBuildProseBoundaryTarget(proof) || captured.basis.selection || captured.pageBodyTarget || captured.pageEndTarget)
+      throw new Error('This suggestion does not have one exact Build paragraph boundary.');
+    const catalog = captureProseTargetCatalog(proseState);
+    const offered = catalog.choices.find(choice => choice.selector === proof.alias);
+    const [catalogSha, passageSha] = await Promise.all([
+      sha256(JSON.stringify(catalog.choices)), offered ? sha256(offered.passage) : Promise.resolve(null),
+    ]);
+    const target = resolveProseTarget(catalog, proof.alias, proseState);
+    if (target.from !== proof.from || target.to !== proof.to || target.operation !== proof.operation
+      || target.editorJson !== captured.editorJson || catalogSha !== proof.catalog_sha256 || passageSha !== proof.before_text_sha256)
+      throw new Error('The exact offered passage differs. Ask again on the current page.');
+    assertSame(captured, true);
+    const saved = getCurrent()?.savedMarkdown;
+    if (saved !== undefined && stripLeadingYamlFrontmatter(saved).markdown !== captured.draftMarkdown)
+      throw new Error('The saved source differs from the exact editable Markdown. Save or recover the current page before requesting a paragraph insertion.');
+    const result = {...captured, proseTarget:Object.freeze({...proof})};
+    boundProse.add(result);
+    return result;
+  }
+  function proseTransaction(captured: CapturedBuildInsertion, content: JSONContent[]) {
+    const proof = captured.proseTarget;
+    const editor = captured.editor;
+    if (!proof || !boundProse.has(captured) || !editor.isEditable || content.length !== 1 || content[0]?.type !== 'paragraph'
+      || !(content[0].content ?? []).every(node => node.type === 'text') || editor.state.doc.resolve(proof.from).depth !== 0)
+      throw new Error('This Build suggestion must add one paragraph at the offered root boundary.');
+    const original = JSON.parse(captured.editorJson) as JSONContent;
+    const current = getCurrent();
+    const presentation = current?.pagePresentation;
+    const retainPlain = presentation?.items.every(item => item.kind === 'block') === true;
+    const retainsIds = hasPresentation(original) || retainPlain;
+    const id = `page-prose-${proof.catalog_sha256.slice(0,32)}-${proof.from}`;
+    if (retainsIds && !editor.schema.nodes.paragraph?.spec.attrs?.pageBlockId)
+      throw new Error('This page editor cannot retain paragraph identities.');
+    const paragraph = retainsIds ? {...content[0], attrs: {...content[0].attrs, pageBlockId:id}} : content[0];
+    const transaction = editor.state.tr.insert(proof.from, editor.schema.nodeFromJSON(paragraph));
+    const after = transaction.doc.toJSON() as JSONContent;
+    const before = original.content ?? [];
+    const index = editor.state.doc.resolve(proof.from).index(0);
+    if (after.content?.length !== before.length + 1 || before.some((node,i) =>
+      JSON.stringify(node) !== JSON.stringify(after.content?.[i < index ? i : i+1])))
+      throw new Error('The insertion would change an unrelated block.');
+    const body = tiptapJsonToSemanticMarkdown(flattenPresentation(after));
+    const savedMarkdown = current?.savedMarkdown ?? captured.draftMarkdown;
+    const projectedBefore = presentation ? hydratePresentation(savedMarkdown, presentation) : original;
+    const projection = retainsIds ? projectPresentation(after, savedMarkdown, projectedBefore, presentation, retainPlain) : null;
+    const reopened = projection?.presentation ? hydratePresentation(projection.markdown, projection.presentation) : markdownToTiptapDoc(body).doc;
+    if (semanticMarkdownSerializationDiagnostics(flattenPresentation(after)).length
+      || JSON.stringify(editor.schema.nodeFromJSON(reopened).toJSON()) !== JSON.stringify(after))
+      throw new Error('Saving this insertion would change existing structure or block identities.');
+    return {transaction, after, body};
   }
   function assertSame(captured: CapturedBuildInsertion, originalAnchor = false) {
     const now = getCurrent(); const basis = captured.basis;
@@ -206,11 +274,12 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     async prepareProposal(captured, markdown) {
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
-      const result = prepareReviewedMarkdownAtAnchor(captured.editor,target(captured),admitted.content,captured.editorJson);
+      const prose = captured.proseTarget ? proseTransaction(captured, admitted.content) : null;
+      const result = prose?.after ?? prepareReviewedMarkdownAtAnchor(captured.editor,target(captured),admitted.content,captured.editorJson);
       if(captured.pageBodyTarget)preservePageBodyReferences(JSON.parse(captured.editorJson),result);
       if(captured.pageEndTarget)preservePrefix(JSON.parse(captured.editorJson),result);
       const prepared = {captured, markdown: admitted.markdown, afterEditorSha256: await sha256(JSON.stringify(result)),
-        afterDraftSha256: await sha256(tiptapJsonToSemanticMarkdown(result))};
+        afterDraftSha256: await sha256(prose?.body ?? tiptapJsonToSemanticMarkdown(result))};
       assertSame(captured, true);
       return prepared;
     },
@@ -234,16 +303,18 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       insertReviewedMarkdownAtAnchor(captured.editor,captured.basis.caret,content,captured.editorJson);
       applied.add(captured);changed(captured.editor);
     },
-    async saveProposal(basis,afterEditor,afterDraft,savedProjection) {
+    async saveProposal(basis,afterEditor,afterDraft,savedProjection,proseTarget) {
       if(!persist)throw new Error('Page saving is unavailable. Your insertion is retained for recovery.');
-      await persist(basis,afterEditor,afterDraft,savedProjection);
+      if (proseTarget) await persist(basis,afterEditor,afterDraft,savedProjection,proseTarget);
+      else await persist(basis,afterEditor,afterDraft,savedProjection);
     },
-    async inspectProposal(basis,afterEditor,afterDraft) {
+    async inspectProposal(basis,afterEditor,afterDraft,proseTarget) {
       const now=getCurrent();
       if(!now?.canEdit||now.editor.isDestroyed||now.worldId!==basis.world_id||now.documentId!==basis.document_id
         ||now.visibility!==basis.visibility||now.revision<basis.registry_revision)return {state:'changed'};
       const start={...now};
-      const json=JSON.stringify(now.editor.getJSON());const markdown=tiptapJsonToSemanticMarkdown(now.editor.getJSON());
+      const doc=now.editor.getJSON(),json=JSON.stringify(doc);
+      const markdown=tiptapJsonToSemanticMarkdown(proseTarget ? flattenPresentation(doc) : doc);
       function assertCurrent(){
         const current=getCurrent();
         if(!current?.canEdit||current.editor.isDestroyed||current.editor!==start.editor||current.worldId!==start.worldId
@@ -263,12 +334,12 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
         &&savedPageMatches(now,basis,true))return {state:'before'};
       return {state:'changed'};
     },
-    async restore(basis,pageBodyTarget,pageEndTarget) {
+    async restore(basis,pageBodyTarget,pageEndTarget,proseTarget) {
       if (!basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Open the original editable Build page first.');
       const editorJson = JSON.stringify(now.editor.getJSON());
-      const draftMarkdown = tiptapJsonToSemanticMarkdown(now.editor.getJSON());
+      const draftMarkdown = tiptapJsonToSemanticMarkdown(proseTarget ? flattenPresentation(now.editor.getJSON()) : now.editor.getJSON());
       const captured: CapturedBuildInsertion = {editor: now.editor, editorJson, draftMarkdown, pageBodyTarget, pageEndTarget,
         basis: {...basis, draft_generation: now.draftGeneration, selection_generation: now.selectionGeneration}};
       if (await sha256(editorJson) !== basis.editor_sha256 || await sha256(draftMarkdown) !== basis.draft_sha256
@@ -276,6 +347,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
         throw new Error('This page has changed since the proposal. Nothing was inserted.');
       }
       assertSame(captured, true);
+      if (proseTarget) return bindProse(captured, proseTarget);
       target(captured);
       return captured;
     },
@@ -284,6 +356,11 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       if (applied.has(captured)) throw new Error('This proposal has already been inserted.');
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
+      if (captured.proseTarget) {
+        captured.editor.view.dispatch(closeHistory(proseTransaction(captured, admitted.content).transaction));
+        applied.add(captured);changed(captured.editor);
+        return;
+      }
       const range=target(captured);
       if(captured.pageBodyTarget||captured.pageEndTarget){
         const result=prepareReviewedMarkdownAtAnchor(captured.editor,range,admitted.content,captured.editorJson);

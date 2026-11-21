@@ -30,6 +30,9 @@ fence and their necessary tests. #3824
 Preserve legacy target/reader behavior and image capture/application.
 The shared native Build driver, harness, controller and conversation owner
 are outside this receiver assignment.
+The existing Build Save forwarding may carry the boundary proof into
+`saveBuildProposal` to verify the committed sidecar. Hosted authorization
+and the other proposal kinds retain their current forwarding.
 
 ## Verification
 

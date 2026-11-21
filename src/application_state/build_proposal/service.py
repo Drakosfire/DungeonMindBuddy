@@ -7,19 +7,30 @@ from uuid import UUID, uuid5, NAMESPACE_URL
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import BuildProposalRecord, BuildProposalReservation, normalize_proposal_output
+from application_state.build_proposal.types import (
+    BuildProposalRecord, BuildProposalReservation, BuildProseBoundaryProposalRecord,
+    BuildProseBoundaryReservation, normalize_boundary_proposal_output,
+    normalize_proposal_output,
+)
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from application_state.unit_of_work import unit_of_work
 
 
+_MARKDOWN_CODECS = {
+    'dmb_build_document_proposal_v1': BuildProposalRecord,
+    'dmb_build_document_proposal_v3': BuildProseBoundaryProposalRecord,
+}
+
+
 def _load(row) -> BuildProposalRecord:
-    if row[0].get('schema_version') != 'dmb_build_document_proposal_v1':
+    codec = _MARKDOWN_CODECS.get(row[0].get('schema_version'))
+    if codec is None:
         raise ApplicationStateNotFoundError('Markdown proposal unavailable')
-    return BuildProposalRecord.model_validate(row[0])
+    return codec.model_validate(row[0])
 
 
 def _save(conn, previous, updated):
-    checked = BuildProposalRecord.model_validate(updated)
+    checked = type(previous).model_validate(updated)
     result = conn.execute("UPDATE agent.build_proposal SET payload=%s, revision=%s WHERE world_id=%s AND action_id=%s AND revision=%s",
         (Jsonb(checked.model_dump(mode="json")), checked.revision, checked.reservation.basis.world_id, checked.action_id, previous.revision))
     if result.rowcount != 1:
@@ -47,7 +58,13 @@ def _require_origin_claim(conn, reservation):
 
 
 class BuildProposalService:
+    def __init__(self, *, admit_prose_boundary=None):
+        self.admit_prose_boundary = admit_prose_boundary
+
     def reserve(self, reservation: BuildProposalReservation) -> tuple[BuildProposalRecord, bool]:
+        boundary = type(reservation) is BuildProseBoundaryReservation
+        if boundary and self.admit_prose_boundary is None:
+            raise ApplicationStateConflictError("Build prose boundaries require their admitted catalog owner")
         world = reservation.basis.world_id
         with unit_of_work(_ready_dsn()) as conn:
             # Same World serialization also covers concurrent duplicate submissions.
@@ -67,8 +84,11 @@ class BuildProposalService:
             if not conversation:
                 raise ApplicationStateNotFoundError("Active World conversation is unavailable")
             _require_origin_claim(conn, reservation)
+            if boundary:
+                self.admit_prose_boundary(conn, reservation)
             now = datetime.now(timezone.utc)
-            result = BuildProposalRecord(action_id=reservation.idempotency_key, reservation=reservation, request_fingerprint=reservation.fingerprint,
+            codec = BuildProseBoundaryProposalRecord if boundary else BuildProposalRecord
+            result = codec(action_id=reservation.idempotency_key, reservation=reservation, request_fingerprint=reservation.fingerprint,
                 after_turn_sequence=conversation[0] - 1, revision=1, state="reserved", created_at=now, updated_at=now,
                 claim_expires_at=now + timedelta(seconds=180))
             conn.execute("INSERT INTO agent.build_proposal(action_id,world_id,conversation_id,idempotency_key,revision,payload) VALUES(%s,%s,%s,%s,1,%s)",
@@ -89,7 +109,7 @@ class BuildProposalService:
                 raise ApplicationStateNotFoundError("World conversation unavailable")
             rows = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND conversation_id=%s ORDER BY payload->>'created_at', action_id",
                 (world_id, conversation_id)).fetchall()
-        return [_load(row) for row in rows if row[0].get("schema_version") == "dmb_build_document_proposal_v1"]
+        return [_load(row) for row in rows if row[0].get("schema_version") in _MARKDOWN_CODECS]
 
     def advance(self, world_id: str, action_id: UUID, *, expected_revision: int, state: str, **fields) -> BuildProposalRecord:
         allowed = {"reserved": {"authorized", "failed"}, "authorized": {"sdk_entered", "failed"},
@@ -115,8 +135,11 @@ class BuildProposalService:
             if state == "proposed":
                 # The proposal owner derives its result from the acknowledged raw
                 # final. Caller-created Markdown cannot replace the writer result.
-                proposal = normalize_proposal_output(previous.raw_response,
-                    previous.reservation.page_body_offer, previous.reservation.page_end_offer)
+                if type(previous) is BuildProseBoundaryProposalRecord:
+                    proposal = normalize_boundary_proposal_output(previous.raw_response)
+                else:
+                    proposal = normalize_proposal_output(previous.raw_response,
+                        previous.reservation.page_body_offer, previous.reservation.page_end_offer)
                 if "raw_response" in fields or "proposal" in fields and fields["proposal"] != proposal:
                     raise ApplicationStateConflictError("Build proposal differs from its captured writer result")
                 fields["proposal"] = proposal

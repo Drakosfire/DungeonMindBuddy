@@ -8,6 +8,28 @@ export interface BuildProposalBasis {
 }
 export interface BuildPageBodyTarget { end: number }
 export interface BuildPageEndTarget { end: number }
+export interface BuildProseBoundaryTarget {
+  schema: 'dmb_build_prose_boundary_target_v1';
+  catalog_sha256: string;
+  alias: string;
+  operation: 'insert_before' | 'insert_after';
+  from: number;
+  to: number;
+  before_text_sha256: string;
+}
+
+export function isBuildProseBoundaryTarget(value: unknown): value is BuildProseBoundaryTarget {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== 7) return false;
+  const target = value as Partial<BuildProseBoundaryTarget>;
+  const digest = /^[a-f0-9]{64}$/;
+  return target.schema === 'dmb_build_prose_boundary_target_v1'
+    && (target.operation === 'insert_before' || target.operation === 'insert_after')
+    && typeof target.alias === 'string' && /^passage[1-9][0-9]*:insert_(?:before|after)$/.test(target.alias)
+    && target.alias.endsWith(`:${target.operation}`) && target.alias.length <= 128
+    && typeof target.from === 'number' && Number.isSafeInteger(target.from) && target.from >= 0 && target.from === target.to
+    && typeof target.catalog_sha256 === 'string' && digest.test(target.catalog_sha256)
+    && typeof target.before_text_sha256 === 'string' && digest.test(target.before_text_sha256);
+}
 export interface BuildProposalRequest {
   page_body_offer?: BuildPageBodyTarget | null;
   page_end_offer?: BuildPageEndTarget | null;
@@ -17,14 +39,14 @@ export interface BuildProposalRequest {
   origin?: { client_turn_id: string; durable_turn_id: string; turn_attempt: number; broker_operation_id: string; arguments_sha256: string } | null;
 }
 export interface BuildProposalRecord {
-  schema_version: 'dmb_build_document_proposal_v1'; action_id: string;
-  reservation: Omit<BuildProposalRequest, 'draft_markdown'>;
+  schema_version: 'dmb_build_document_proposal_v1' | 'dmb_build_document_proposal_v3'; action_id: string;
+  reservation: Omit<BuildProposalRequest, 'draft_markdown'> & {prose_target?: BuildProseBoundaryTarget};
   request_fingerprint: string; after_turn_sequence: number; revision: number;
   state: 'reserved' | 'authorized' | 'sdk_entered' | 'response_received' | 'proposed' | 'failed' | 'unknown';
   created_at: string; updated_at: string; claim_expires_at: string;
   authorization: null | { provider_attempt_id: string; provider: string; model: string; api_mode: string;
     payload_sha256: string; payload_utf8_bytes: number; evidence_id: string | null; serializer_version: string };
-  proposal: null | { replacement_markdown: string; summary: string; assumptions: string[]; target?: 'captured' | 'page_body' | 'page_end' | null };
+  proposal: null | { replacement_markdown: string; summary: string; assumptions: string[]; target?: 'captured' | 'page_body' | 'page_end' | 'prose_target' | null };
   failure_code: string | null; inserted_in_draft: boolean;
 }
 const root = (world: string) => `/api/live/agent/worlds/${encodeURIComponent(world)}/build-proposals`;
@@ -34,7 +56,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 function checked(record: BuildProposalRecord, world: string, action?: string, conversation?: string) {
-  if (record.schema_version !== 'dmb_build_document_proposal_v1' || record.reservation.basis.world_id !== world
+  const boundary = record.schema_version === 'dmb_build_document_proposal_v3';
+  if ((!boundary && record.schema_version !== 'dmb_build_document_proposal_v1') || record.reservation.basis.world_id !== world
+    || (boundary ? !isBuildProseBoundaryTarget(record.reservation.prose_target) || (!!record.proposal && record.proposal.target !== 'prose_target')
+      : record.reservation.prose_target !== undefined || record.proposal?.target === 'prose_target')
     || (action && record.action_id !== action) || (conversation && record.reservation.conversation_id !== conversation)) {
     throw new Error('The returned proposal does not belong to this conversation.');
   }
