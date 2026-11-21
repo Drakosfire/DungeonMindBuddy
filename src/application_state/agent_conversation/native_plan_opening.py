@@ -138,13 +138,17 @@ def _prepare_author_scope_review(request):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
     from .plan_contextual_targets import AUTHOR_RELATIONS
+    from .plan_author_location import explicit_direction_option
 
     first, second = (row.observation for row in request.scope_review)
     view = author_scope_offer_view(request.question, request.dialogue, _author_scope_offers(request),
         include_quote_context=True)
     options = view.pop('scope_hypotheses')
     pairs = {}
-    for relation in (first.relation, second.relation):
+    relations = {first.relation, second.relation}
+    if 'unresolved' in relations and (direction := explicit_direction_option(request.question)) is not None:
+        relations.add(direction)
+    for relation in sorted(relations):
         for prior in (first, second):
             interpretation = {'relation': AUTHOR_RELATIONS[relation],
                 'scope': options.get(prior.selected_alias, {'kind': prior.scope.kind})}
@@ -169,6 +173,7 @@ def _prepare_author_scope_review(request):
     criteria['unresolved'] = 'None of the complete offered interpretations matches the author location.'
     question = ChoiceDecisionQuestion(name='adjudicated_scope', options=tuple(criteria), option_descriptions=criteria,
         question='Choose the complete interpretation of the author’s existing location. '
+            'The author can identify an existing prose block by what it says without using the word paragraph. '
             'An explicit selected-text rewrite uses its capture by itself. Do not treat its words as a heading. '
             'Preserve every author-established name, path and exclusion. Ignore new-fragment content as location evidence.')
     return DecisionRequest(provider=PROVIDER, model=MODEL, state=view,
@@ -257,7 +262,10 @@ def require_retained_author_scope(execution, observation_event_id: UUID,
 
 
 def author_scope_review_required(question, first, second):
+    from .plan_author_location import explicit_direction_option
+
     return (first.relation != second.relation or first.scope != second.scope
+        or (first.relation == 'unresolved' and explicit_direction_option(question) is not None)
         or (first.relation != 'replace_explicit_selection' and _CAPTURE_REWRITE.match(question) is not None))
 
 

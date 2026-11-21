@@ -252,6 +252,11 @@ class AuthorScopeHypothesis(Strict):
         if _scope_syntax(quote).rstrip().endswith(('.', '!', '?', ';')):
             raise ValueError('Unquoted closing punctuation is not part of a scope reference')
         utterance = self.evidence._utterance(request, dialogue)
+        for contrast in _SCOPE_DIRECTIVE_CONTRAST.finditer(_scope_syntax(utterance)):
+            start, end = _trimmed_span(utterance, contrast.span())
+            if (self.evidence.start < end and self.evidence.end > start
+                    and ((self.evidence.start, self.evidence.end) != (start, end) or self.grammar != 'exclusion')):
+                raise ValueError('Location evidence must preserve both parts of an explicit scope contrast')
         before = utterance[:self.evidence.start].rstrip()
         after = utterance[self.evidence.end:].lstrip()
         if before.endswith('/') or after.startswith('/'):
@@ -278,6 +283,11 @@ _RELATION_AFTER = re.compile(r'^(?:section\s+)?(?:directly under|whose parent is
 _EXCLUSION_BEFORE = re.compile(r'\b(?:rather than|except)(?:\s+the one inside)?$', re.IGNORECASE)
 _EXCLUSION_AFTER = re.compile(r'^,?\s*(?:rather than|except)\b', re.IGNORECASE)
 _EXCLUSION_SEPARATOR = re.compile(r'\b(?:rather than|except)\b', re.IGNORECASE)
+_SCOPE_DIRECTIVE_CONTRAST = re.compile(
+    r'\buse\b(?P<positive>[^,.!?;:\n]+?)\bfor this (?:change|edit),\s*not\b'
+    r'(?P<excluded>[^,.!?;:\n]+)(?=[,:.!?;\n]|$)', re.IGNORECASE)
+_INCLUDE_DESCENDANTS = re.compile(
+    r',\s*including\s+(?:all\s+)?(?:its\s+)?(?:subsections|descendant sections)\b', re.IGNORECASE)
 _ANCESTOR_EXCLUSION = re.compile(r'^the one inside\s+', re.IGNORECASE)
 _COMPOUND_REFERENCE = re.compile(r'\b(?:either|or|both|and|except|rather than)\b', re.IGNORECASE)
 _LOCATION_CLAUSE = re.compile(r'\b(?:paragraph|heading)\s+(?:in|inside|under)\b', re.IGNORECASE)
@@ -314,6 +324,8 @@ def _compile_scope_expression(text: str, grammar: str, depth: int = 1) -> NamedS
             raise ValueError('Document-title evidence must explicitly refer to the current page title')
         return NamedScopePath(names=(DocumentTitleScopeName(),))
     syntax = _scope_syntax(text)
+    if _INCLUDE_DESCENDANTS.search(syntax):
+        raise ValueError('Descendant coverage is a scope qualifier, not part of the heading label')
     if _COMPOUND_REFERENCE.search(syntax):
         raise ValueError('A single scope hypothesis cannot omit compound or excluded operands')
     if grammar == 'description':
@@ -380,6 +392,12 @@ def _path_key(path: NamedScopePath) -> tuple:
 
 def _compile_exclusion(text: str) -> ScopeWithExclusion:
     syntax = _scope_syntax(text)
+    directive = _SCOPE_DIRECTIVE_CONTRAST.fullmatch(syntax)
+    if directive is not None:
+        start, end = directive.span('positive')
+        positive = _declared_path(text[start:end].strip())
+        start, end = directive.span('excluded')
+        return ScopeWithExclusion(positive=positive, excluded=_declared_path(text[start:end].strip()))
     separators = list(_EXCLUSION_SEPARATOR.finditer(syntax))
     if len(separators) != 1:
         raise ValueError('Exclusion evidence requires one explicit excluded operand')
@@ -473,6 +491,20 @@ def explicit_paragraph_locator(question: str, relation: str) -> str | None:
     return question[start:end].strip() or None
 
 
+def explicit_direction_option(question: str) -> str | None:
+    """Offer a clear direction for adjudication without choosing a target."""
+    syntax = _scope_syntax(question)
+    directions = re.findall(r'\b(before|after)\b', syntax, re.IGNORECASE)
+    adjacent = re.search(r'\b(?:just|directly|immediately|right)\s+(before|after)\b', syntax, re.IGNORECASE)
+    return f'{adjacent[1].casefold()}_paragraph' if len(directions) == 1 and adjacent else None
+
+
+def _trimmed_span(text: str, span: tuple[int, int]) -> tuple[int, int]:
+    start, end = span
+    value = text[start:end]
+    return start + len(value) - len(value.lstrip()), start + len(value.rstrip())
+
+
 def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...], *,
                             max_span_attempts: int) -> dict[str, AuthorScopeHypothesis]:
     """Offer checked author-only hypotheses. Capacity exhaustion grants no partial offer."""
@@ -517,13 +549,16 @@ def author_scope_hypotheses(request: str, dialogue: tuple[RetrievalDialogue, ...
                         offer(start, token.end())
         for marker in _TITLE_REFERENCE.finditer(syntax):
             offer(marker.start(), marker.end())
+        for contrast in _SCOPE_DIRECTIVE_CONTRAST.finditer(syntax):
+            offer(*_trimmed_span(text, contrast.span()))
 
         for start, end in sorted(spans):
             if label is not None and end == label.end('label') and start != label.start('label'):
                 continue
             quote = text[start:end]
             fragment = syntax[start:end]
-            grammar = 'exclusion' if _EXCLUSION_SEPARATOR.search(fragment) else _path_grammar(quote, fragment)
+            grammar = ('exclusion' if _EXCLUSION_SEPARATOR.search(fragment)
+                or _SCOPE_DIRECTIVE_CONTRAST.fullmatch(fragment) else _path_grammar(quote, fragment))
             evidence = AuthorLocationQuote(utterance_index=utterance_index, start=start, end=end, text=quote)
             hypothesis = AuthorScopeHypothesis(evidence=evidence, grammar=grammar)
             try:
