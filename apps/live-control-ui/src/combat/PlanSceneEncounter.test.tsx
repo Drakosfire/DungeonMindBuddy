@@ -21,6 +21,38 @@ function deferred<T>(){let resolve!:(value:T)=>void;const promise=new Promise<T>
 beforeEach(()=>{tourReadings.clear();sessionStorage.clear();Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});vi.spyOn(api,'getSceneTemplate').mockResolvedValue(null);vi.spyOn(liveApi,'getWorldOwnedPlanCommittedRevision').mockResolvedValue(committed as any);});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe('Plan scene encounter preparation',()=>{
+ it('reopens a retained review only if the source still matches the reviewed revision',async()=>{
+  const source={...manualCombatRecord(),world_id:context.worldId,revision:7};
+  api.retainEncounterReview(context,{pin,source});
+  const read=vi.spyOn(liveApi,'authenticatedApiFetch').mockImplementation(async()=>({
+   response:Response.json(source),
+  }) as any);
+  expect(await api.recoverEncounterReview(context)).toEqual({pin,source});
+  expect(read.mock.calls[0][0]).toContain('/preview-saved?world_id=elderwyld');
+  read.mockImplementation(async()=>({response:Response.json({...source,revision:8})}) as any);
+  await expect(api.recoverEncounterReview(context)).rejects.toThrow('The saved encounter changed');
+ });
+ it('requires confirmation of the exact reviewed Buddy encounter',async()=>{
+  const source={...manualCombatRecord(),world_id:context.worldId,revision:7};
+  const write=vi.spyOn(api,'createSceneTemplate').mockImplementation((_world,intent)=>result(intent));
+  render(<PlanSceneEncounter context={{...context,attachmentReview:{source,pin}}}/>);
+  const confirm=await screen.findByRole('button',{name:'Confirm Buddy encounter copy'});
+  expect(write).not.toHaveBeenCalled();
+  await userEvent.click(confirm);
+  await screen.findByTestId('scoped-combat');
+  expect(write.mock.calls[0][1]).toMatchObject({pin,encounter:{
+   source_encounter_id:source.encounter_id,expected_revision:7,
+  }});
+ });
+ it('does not apply a Buddy preview after the saved work revision changes',async()=>{
+  const source={...manualCombatRecord(),world_id:context.worldId};
+  const write=vi.spyOn(api,'createSceneTemplate');
+  vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({...committed,revision_n:2} as any);
+  render(<PlanSceneEncounter context={{...context,attachmentReview:{source,pin}}}/>);
+  await userEvent.click(await screen.findByRole('button',{name:'Confirm Buddy encounter copy'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('The saved Plan changed');
+  expect(write).not.toHaveBeenCalled();
+ });
  it('previews an exact saved source and retries the same confirmed intent after reopening', async()=>{
   const source=manualCombatRecord();
   const list=vi.spyOn(combatApi,'listAnyWorldCombatEncounters').mockResolvedValue([

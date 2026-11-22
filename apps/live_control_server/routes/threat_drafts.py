@@ -78,7 +78,11 @@ def _admit_world_scope(world_id: str, revision_id: str | None) -> None:
 @router.post("")
 def post_threat_draft(
     body: CreateThreatDraftRequest | CreateWorldThreatDraftRequest,
+    request: Request,
 ) -> dict[str, Any]:
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_threat_draft_create
+
+    require_hosted_threat_draft_create(request, body.world_id if isinstance(body, CreateWorldThreatDraftRequest) else None)
     root = statblock_data_root(repo_root())
     if isinstance(body, CreateWorldThreatDraftRequest):
         _admit_world_scope(body.world_id, body.graph_context_snapshot.graph_revision_id)

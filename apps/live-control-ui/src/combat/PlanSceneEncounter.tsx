@@ -9,7 +9,7 @@ import {combatDraftEqual} from './combatRecovery';
 import {listAnyWorldCombatEncounters} from './combatApi';
 import {sameEncounterScope} from '../guidedTour/EncounterScope';
 import {CombatRosterModule,type PreparedCombatOwnerReading} from '../surface/modules/CombatRosterModule';
-import {assertSceneCreation,assertSceneTemplate,cancelSceneTemplateCreation,sceneCreationDigest,createSceneTemplate,getSceneTemplate,getSceneTemplateVersion,inspectSceneTemplateCreation,type PlanEncounterContext,type SavedEncounterCopy,type SceneTemplateIntent,type SceneTemplateView} from './sceneTemplatesApi';
+import {assertSceneCreation,assertSceneTemplate,cancelSceneTemplateCreation,sceneCreationDigest,createSceneTemplate,getSceneTemplate,getSceneTemplateVersion,inspectSceneTemplateCreation,recoverEncounterReview,type EncounterAttachmentReview,type PlanEncounterContext,type SavedEncounterCopy,type SceneTemplateIntent,type SceneTemplateView} from './sceneTemplatesApi';
 import type {AnyCombatRecord,ManualCombatProfile} from './ManualCombatTypes';
 import {isManualCombatRecord} from './ManualCombatTypes';
 import {ManualCombatProfileForm} from './ManualCombatProfileForm';
@@ -43,8 +43,11 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const [copySources,setCopySources]=useState<AnyCombatRecord[]|null>(null);
  const [copySourceId,setCopySourceId]=useState('');
  const copySource=copySources?.find(source=>source.encounter_id===copySourceId);
+ const [recoveredReview,setRecoveredReview]=useState<{identity:string;review:EncounterAttachmentReview}|null>(null);
+ const [reviewRecoveryError,setReviewRecoveryError]=useState<string|null>(null);
  const [title,setTitle]=useState(defaultTitle(context.sceneTitle));
  const identity=JSON.stringify([context.worldId,context.documentId,context.sceneId,context.objectRevision,context.contentSha256,context.verifiedPlan??null]);
+ const review=context.attachmentReview??(recoveredReview?.identity===identity?recoveredReview.review:null);
  const [admittedIdentity,setAdmittedIdentity]=useState<string|null>(null);
  const [roster,setRoster]=useState<PreparedCombatOwnerReading|null>(null);
  const receiveRoster=useCallback((reading:PreparedCombatOwnerReading|null)=>setRoster(reading),[]);
@@ -69,6 +72,16 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   })();
   return()=>{epoch.current++;};
  },[identity]);
+ useEffect(()=>{
+  let active=true;
+  setRecoveredReview(null);setReviewRecoveryError(null);
+  if(loaded&&!view&&!pending&&!context.attachmentReview){
+   void recoverEncounterReview(context)
+    .then(result=>{if(active&&result)setRecoveredReview({identity,review:result});})
+    .catch(caught=>{if(active)setReviewRecoveryError(caught instanceof Error?caught.message:String(caught));});
+  }
+  return()=>{active=false;};
+ },[identity,loaded,view,pending,context.canCreate,context.attachmentReview]);
  async function loadCopySources(){
   if(busy||!latest.current.canCreate)return;
   const current=epoch.current;setBusy(true);setError(null);setCopySourceId('');
@@ -79,7 +92,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   finally{if(current===epoch.current)setBusy(false);}
  }
 
- async function create(retry=false,manual?:{title:string;profile:ManualCombatProfile},copy?:SavedEncounterCopy){
+ async function create(retry=false,manual?:{title:string;profile:ManualCombatProfile},copy?:SavedEncounterCopy,reviewedPin?:SceneTemplateIntent['pin']){
   const tourDispatch=guidance?.captureScope()??null;
   if(busy||(!retry&&!latest.current.canCreate))return;
   const current=epoch.current;setBusy(true);setError(null);
@@ -92,6 +105,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
     const now=latest.current;
     if(current!==epoch.current)return;
     if(!now.canCreate||committed.schema_version!=='dmb_workspace_committed_revision_v2'||committed.scope_mode!=='world'||committed.world_id!==context.worldId||committed.document_id!==context.documentId||committed.kind!=='plan'||committed.status!=='active'||committed.has_divergent_working_copy||committed.object_revision!==now.objectRevision||committed.content_sha256!==now.contentSha256)throw new Error('Save and reopen this Plan before preparing its encounter.');
+    if(reviewedPin&&(reviewedPin.document_id!==committed.document_id||reviewedPin.scene_id!==now.sceneId||reviewedPin.revision_n!==committed.revision_n||reviewedPin.work_revision_id!==committed.work_revision_id||reviewedPin.content_sha256!==committed.content_sha256))throw new Error('The saved Plan changed. Ask Buddy to review the encounter again.');
     intent={schema_version:'dmb_scene_template_create_v1',operation_id:crypto.randomUUID(),pin:{document_id:context.documentId,scene_id:context.sceneId,revision_n:committed.revision_n,work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256},encounter:copy??(manual?{schema_version:'dmb_manual_combat_create_v2',title:encounterTitle,profile:manual.profile}:{title:encounterTitle})};
     sessionStorage.setItem(recoveryKey(context),JSON.stringify(intent));setPending(intent);
    }
@@ -165,6 +179,16 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   {error&&<p role="alert">{error}</p>}{!loaded&&error&&!recoveryInvalid&&<button disabled={busy} onClick={()=>void refresh()}>Retry opening encounter</button>}
   {pending&&<section aria-label="Encounter creation recovery"><p>Creation outcome is unconfirmed. Its exact request is retained.</p><button disabled={busy} onClick={()=>void inspect()}>Check creation</button><button disabled={busy} onClick={()=>void create(true)}>Retry same creation</button><button disabled={busy} onClick={()=>void cancel()}>Cancel creation</button>{view&&view.binding.operation_id!==pending.operation_id&&<button disabled={busy} onClick={()=>{sessionStorage.removeItem(recoveryKey(context));setPending(null);}}>Open existing scene encounter</button>}</section>}
   {!loaded&&!error&&<p>Opening scene encounter…</p>}
+  {reviewRecoveryError&&!review&&<p role="status">{reviewRecoveryError}</p>}
+  {loaded&&!view&&!pending&&!recoveryInvalid&&review&&<section aria-label="Buddy encounter review">
+   <h3>{review.source.draft.title} · revision {review.source.revision}</h3>
+   <p>Copy to {context.sceneTitle}.</p>
+   <ul aria-label="Combatants">{review.source.draft.entities.map(actor=><li key={actor.id}>{actor.name}</li>)}</ul>
+   {!!review.source.draft.groups.length&&<ul aria-label="Groups">{review.source.draft.groups.map(group=><li key={'group_key' in group ? group.group_key : group.id}>{group.label}</li>)}</ul>}
+   <button type="button" disabled={busy||!context.canCreate} onClick={()=>void create(false,undefined,{
+    schema_version:'dmb_scene_template_copy_saved_v1',source_encounter_id:review.source.encounter_id,expected_revision:review.source.revision,
+   },review.pin)}>Confirm Buddy encounter copy</button>
+  </section>}
   {loaded&&!view&&!pending&&!recoveryInvalid&&<><label>Encounter name<input aria-label="Prepared encounter name" maxLength={160} value={title} onChange={event=>setTitle(event.target.value)}/></label><button disabled={busy||!context.canCreate||!title.trim()} onClick={()=>void create()}>Prepare encounter</button>{!context.canCreate&&<p>Save the Plan before creating its encounter. Your Plan draft is retained.</p>}</>}
   {loaded&&!view&&!pending&&!recoveryInvalid&&<ManualCombatProfileForm disabled={busy||!context.canCreate} onCreate={(title,profile)=>create(false,{title,profile})}/>}
   {loaded&&!view&&!pending&&!recoveryInvalid&&<section aria-label="Prepare from saved Combat">

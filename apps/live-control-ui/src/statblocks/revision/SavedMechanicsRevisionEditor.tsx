@@ -133,7 +133,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
   async function validate() {
     if(!editor)return;const token=++epoch.current,working=editor.workingCopy;setBusy(true);setIssues([]);setMessage('Validating new mechanics…');
     try {
-      const result=await validateStatblockDefinition({definition:working});if(token!==epoch.current)return;
+      const result=await validateStatblockDefinition({definition:working},draftId);if(token!==epoch.current)return;
       if(result.outcome!=='success'||!result.validation_receipt)throw new Error('Mechanics validation is unavailable. Your edits are retained; try again when it is available.');
       setIssues(result.validation_receipt.issues??[]);
       if(result.validation_receipt.status==='invalid'

@@ -1,6 +1,6 @@
 import {authenticatedApiFetch} from '../api/liveApi';
 import type {AnyCombatRecord,ManualCombatProfile} from './ManualCombatTypes';
-export type PlanEncounterContext={worldId:string;documentId:string;sceneId:string;sceneTitle:string;canCreate:boolean;objectRevision:number|null;contentSha256:string|null;verifiedPlan?:{revisionN:number;workRevisionId:string;contentSha256:string}|null};
+export type PlanEncounterContext={worldId:string;documentId:string;sceneId:string;sceneTitle:string;canCreate:boolean;objectRevision:number|null;contentSha256:string|null;verifiedPlan?:{revisionN:number;workRevisionId:string;contentSha256:string}|null;attachmentReview?:EncounterAttachmentReview|null};
 export type SavedEncounterCopy = {
  schema_version: 'dmb_scene_template_copy_saved_v1';
  source_encounter_id: string;
@@ -8,7 +8,36 @@ export type SavedEncounterCopy = {
 };
 export type SceneTemplateIntent={schema_version:'dmb_scene_template_create_v1';operation_id:string;pin:{document_id:string;scene_id:string;revision_n:number;work_revision_id:string;content_sha256:string};encounter:{title:string}|{schema_version:'dmb_manual_combat_create_v2';title:string;profile:ManualCombatProfile}|SavedEncounterCopy};
 export type SceneTemplateView={binding:{schema_version:'dmb_scene_template_binding_v1';world_id:string;encounter_id:string;origin:SceneTemplateIntent['pin'];operation_id:string;request_digest:string;created_at:string};encounter:AnyCombatRecord;versions:{revision:number;digest:string;saved_at:string}[];scene_present:boolean};
-async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent):Promise<T>{
+export type NamedEncounterPreviewRequest = {pin: SceneTemplateIntent['pin']; title: string};
+export type EncounterAttachmentReview = {pin: SceneTemplateIntent['pin']; source: AnyCombatRecord};
+function reviewStorageKey(context:Pick<PlanEncounterContext,'worldId'|'documentId'|'sceneId'>){
+ return 'dmb-buddy-encounter-review-v1:'+JSON.stringify([context.worldId,context.documentId,context.sceneId]);
+}
+export function retainEncounterReview(context:PlanEncounterContext, review:EncounterAttachmentReview){
+ const {source,pin}=review;
+ try{
+  sessionStorage.setItem(reviewStorageKey(context),JSON.stringify({
+   pin,title:source.draft.title,id:source.encounter_id,revision:source.revision,
+  }));
+ }catch{/* Storage availability does not prevent immediate review. */}
+}
+export async function recoverEncounterReview(context:PlanEncounterContext):Promise<EncounterAttachmentReview|null>{
+ let stored:string|null;
+ try{stored=sessionStorage.getItem(reviewStorageKey(context));}catch{return null;}
+ if(!stored || !context.canCreate)return null;
+ const retained=JSON.parse(stored);
+ const pin=retained?.pin;
+ if(pin?.document_id!==context.documentId || pin?.scene_id!==context.sceneId
+   || pin?.content_sha256!==context.contentSha256 || typeof retained.title!=='string'){
+  throw new Error('The saved Plan changed. Ask Buddy to review the encounter again.');
+ }
+ const source=await previewNamedEncounter(context.worldId,{pin,title:retained.title});
+ if(source.world_id!==context.worldId || source.encounter_id!==retained.id || source.revision!==retained.revision){
+  throw new Error('The saved encounter changed. Ask Buddy to review its current revision.');
+ }
+ return {pin,source};
+}
+async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent|NamedEncounterPreviewRequest):Promise<T>{
  const response=(await authenticatedApiFetch(`/api/live/combat/scene-templates${path}?${new URLSearchParams({world_id:worldId})}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined)).response;
  const data=await response.json();
  if(!response.ok)throw new Error(typeof data?.detail==='string'?data.detail:`Encounter preparation failed (HTTP ${response.status})`);
@@ -17,6 +46,8 @@ async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent):
 export const sceneTemplatePath=(context:Pick<PlanEncounterContext,'documentId'|'sceneId'>)=>`/${encodeURIComponent(context.documentId)}/scenes/${encodeURIComponent(context.sceneId)}`;
 export const getSceneTemplate=(context:PlanEncounterContext)=>request<SceneTemplateView|null>(context.worldId,sceneTemplatePath(context));
 export const createSceneTemplate=(worldId:string,intent:SceneTemplateIntent)=>request<SceneTemplateView>(worldId,'',intent);
+export const previewNamedEncounter=(worldId:string,body:NamedEncounterPreviewRequest)=>
+ request<AnyCombatRecord>(worldId,'/preview-saved',body);
 export const inspectSceneTemplateCreation=(worldId:string,operationId:string)=>request<SceneTemplateView|null>(worldId,`/operations/${encodeURIComponent(operationId)}`);
 export const getSceneTemplateVersion=(context:PlanEncounterContext,revision:number)=>request<AnyCombatRecord>(context.worldId,`${sceneTemplatePath(context)}/versions/${revision}`);
 export function assertSceneTemplate(view:SceneTemplateView,context:PlanEncounterContext){
