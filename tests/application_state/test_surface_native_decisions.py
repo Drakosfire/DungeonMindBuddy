@@ -920,3 +920,27 @@ def test_current_plan_shared_guidance_sdk_admission_replay_and_codec_refusal(app
     sent=len(case.sent)
     assert not append(case) and len(case.sent)==sent
     assert case.service.inspect_turn(world_id=case.turn.world_id,turn_id=case.turn.turn_id)==case.turn
+
+
+def test_execution_append_checks_schema_on_its_own_connection(application_state_dsn, monkeypatch):
+    from contextlib import contextmanager
+
+    from application_state.agent_conversation import service as service_owner
+    from application_state.errors import ApplicationStateMigrationError
+
+    case = sdk_case(application_state_dsn, native="current")
+    before = case.turn
+    original = service_owner.unit_of_work
+
+    @contextmanager
+    def different_schema(dsn):
+        with original(dsn) as conn:
+            conn.execute("UPDATE application_state.schema_migrations SET version_num='fixture-stale'")
+            yield conn
+
+    with monkeypatch.context() as patch:
+        patch.setattr(service_owner, "unit_of_work", different_schema)
+        with pytest.raises(ApplicationStateMigrationError, match="behind Alembic head"):
+            append(case)
+    assert case.service.inspect_turn(world_id=before.world_id, turn_id=before.turn_id) == before
+    assert append(case)
