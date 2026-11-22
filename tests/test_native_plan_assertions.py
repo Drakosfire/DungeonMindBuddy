@@ -659,8 +659,13 @@ def _ordinary_native_case(
             output_schema = output_format['schema']
             base_schema = output_schema.get('$defs', {}).get('Base', output_schema)
             assert base_schema['properties']['schema']['const'] == NATIVE_ANSWER_POLICY
-            if not authoring and not connected_review:
+            if authoring:
+                assert 'copy all Markdown outside the requested change verbatim' in body['instructions']
+                assert 'existing callout titles and bodies, prose, tables, and artwork references' in body['instructions']
+                assert 'requested material as a separate block' in body['instructions']
+            elif not connected_review:
                 assert NATIVE_ANSWER_POLICY not in body['instructions']
+                assert 'copy all Markdown outside the requested change verbatim' not in body['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
             if prose is not None:
