@@ -165,6 +165,25 @@ def test_manual_rule_replacement_resolves_only_local_multiattack_targets(add_loc
     assert definition["rule_elements"][0]["mechanic"]["kind"] == "human_adjudicated"
 
 
+def test_variant_name_correction_requires_exact_reviewed_name() -> None:
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.conversation_variant_save import (
+        CorrectConversationVariant, apply_variant_text_corrections,
+    )
+
+    definition = _definition().model_dump(mode="json")
+    name = definition["identity"]["name"]
+    correction = CorrectConversationVariant(
+        expected_revision=1,
+        replacements=[{"field": "name", "replace_exact": name, "with_text": "Edge Meat Mind"}],
+    )
+    edited = apply_variant_text_corrections(definition, correction.replacements)
+    assert edited.identity.name == "Edge Meat Mind"
+    assert definition["identity"]["name"] == name
+    with pytest.raises(ApplicationStateConflictError):
+        apply_variant_text_corrections(edited.model_dump(mode="json"), correction.replacements)
+
+
 def test_validate_definition_service_maps_constructor_misconfigured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
