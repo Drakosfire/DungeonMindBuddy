@@ -32,47 +32,50 @@ a production deployment, migration, backup, restore, or permission grant.
   expected result at a time; wait for the output and verify it before the next
   step. Do not pipe passwords or automate interactive `sudo` over SSH.
 
-## Current 774aa063 deployment checkpoint
+## Release candidate and live verification
 
-- Read-only checks observed Buddy serving image
-  `dungeonmindbuddy:177b187d57f3ad077fac1d4acfce08fb563a35ba` as healthy.
-- The production APP schema is at `20261119_0169`. Candidate `774aa063` has
-  APP migration head `20261120_0172`; it is not the serving image.
-- The cloud host has Python 3.12.3 but no `uv`, `pg_dump`, or `pg_restore` on
-  its PATH. The running Buddy image includes the APP authority Python module
-  but no `pg_dump`; PostgreSQL 16.14 client tools are available inside the
-  database container. The release checkout contains
-  `scripts/application_state_authority.py`. `/srv/dungeonmindbuddy/backups`
-  is root-only.
-- Therefore the checked-in host-side `uv run ... application_state_authority.py
-  backup` example cannot be run as `alan` on this host as-is. Do not replace it
-  with an unverified bare dump or claim a backup rehearsal from a checksum
-  alone.
+- Candidate `774aa06344eb0a9411855eccdc7e33e7fead89c4` is the merge commit for
+  PR #4264 (Plan contextual paragraph placement). It is an ancestor of current
+  Buddy `main` at `ebb8161672ed49d3be7fdaa48ad17fbaf55dd9eb`; it is not the
+  production image observed below.
+- On 2026-11-22 at 02:17 UTC, a strict, read-only SSH check to
+  `alan@191.101.14.169` returned host `srv586875` and user `alan`.
+- The Buddy Compose project reported container `buddy-buddy-1`, tag
+  `dungeonmindbuddy:84df46088596fd45771b12158fa62c4500be102d`, image ID
+  `sha256:213fd9dcdd74a8a535b343c60d6efedbde468a9dc241ea2d24aa31e44bea6f8d`,
+  and health `healthy`. This is a read-only service check; database migration
+  heads, backup state, and rollback-image identity were not checked.
+- Revision `84df46088596fd45771b12158fa62c4500be102d` resolves to a cherry-pick
+  of PR #4381's manual-summon fix. GitHub compares it with current `main` as
+  diverged (63 commits ahead, 886 behind). A healthy container does not prove
+  that the reviewed current-main release is serving. Before calling a release
+  current, stage and verify an image built from the exact reviewed SHA and
+  confirm that image ID and revision label on the running container.
+- Earlier host observations below are historical and must be refreshed before
+  production use: the APP schema was reported at `20261119_0169`; host
+  `uv`/PostgreSQL client availability was reported; and
+  `/srv/dungeonmindbuddy/backups` was reported root-only. The checked-in
+  host-side `uv run ... application_state_authority.py backup` example could
+  not run as `alan` at that time. Do not replace it with an unverified bare
+  dump or claim a backup rehearsal from a checksum alone.
 - The recovery tool was implemented in
   [#4364](https://github.com/Drakosfire/DungeonMindBuddy/pull/4364), merged as
   `54313c3b8adf0f20c77ee0b0ee5299744a7de38f` from source head
-  `20e7b404f0c101fcf373283eae83e615bbb074a0`. It is parallel-independent of
-  this documentation change. Five focused builder tests and a local synthetic
-  APP backup/clean-target restore proof passed with checksum and fingerprint
-  parity; corrupt dumps and nonempty restore targets were refused. The
-  non-root image was built against a locally labeled synthetic runtime image.
-- The exact-head hosted frontend verifier passed and its retained evidence was
-  validated at
-  `/home/drakosfire/Projects/.codex/onboard-recovery-20e-hosted/evidence.json`.
-  The full discovered diagnostic remains historically red. These results prove
-  the builder and fixture CLI contract, not production release provenance or
-  recovery. The tool has not been tested against the serving image, a
-  production backup, paired WorldGraph recovery, or a real restore. The 0172
-  backup/restore rehearsal, production migration, and deployment are not
-  evidenced here; no production database or service was modified.
-- Before any production migration, rehearse restore of the current APP
-  authority into a separate empty target, verify fingerprint parity, apply the
-  candidate migrations only to that target, and record the resulting schema
-  head and readiness. Migration `0172` is forward-only; after applying it, an
-  image-only rollback to code that expects `0169` is not a safe recovery plan.
-  Production migration and cutover remain separately authorized operator
-  actions.
-
+  `20e7b404f0c101fcf373283eae83e615bbb074a0`. Five focused builder tests and
+  a local synthetic APP backup/clean-target restore proof passed with checksum
+  and fingerprint parity; corrupt dumps and nonempty restore targets were
+  refused. The non-root image was built against a locally labeled synthetic
+  runtime image. The exact-head hosted frontend verifier passed; the full
+  discovered diagnostic remains historically red. These results do not prove
+  production release provenance or recovery.
+- The 0172 backup/restore rehearsal, paired WorldGraph recovery, production
+  migration, and cutover still need current evidence. Before any production
+  migration, rehearse restore of both authorities from one consistent backup
+  set into isolated targets, verify fingerprints and a known World read, apply
+  candidate migrations only to those targets, and record schema heads and
+  readiness. Migration `0172` is forward-only; after applying it, an image-only
+  rollback to code that expects `0169` is not a safe recovery plan. Production
+  migration and cutover remain operator-owned actions.
 ## Completion evidence
 
 This documentation slice is complete when the runbook gives agents and the
