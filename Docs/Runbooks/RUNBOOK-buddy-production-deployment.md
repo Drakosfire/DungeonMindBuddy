@@ -25,7 +25,7 @@ The current Buddy production host is `srv586875` and the SSH target is
    key on the workstation with `ssh-add -t 1h ~/.ssh/id_rsa` (substitute the
    configured key path). Never copy the private key into a checkout, chat, or
    server. Use the existing trusted host key. Check noninteractive access with
-   `ssh -F /dev/null -o BatchMode=yes -o ConnectTimeout=6 alan@191.101.14.169 true`.
+   `ssh -F /dev/null -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=yes alan@191.101.14.169 'hostname && whoami'`.
    If the agent refuses signing, have the operator refresh the key. Host-key
    errors require verifying the host identity through the established channel.
    The temporary identity is for the explicitly assigned release only; do not
