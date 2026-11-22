@@ -544,3 +544,29 @@ schema remained `20261120_0170`. All fixtures below were in Buddy Cloud Pilot.
   insertion after reload. Activating Check insertion cleared the warning
   with identical rendered content and exactly one copy of the new passage.
   Recovery worked. Automatic acknowledgement remains unresolved.
+
+### Hosted Plan placement on schema 0187
+
+On November 22, production revision `60c19c08` reported application schema
+`20261122_0187` after a separate rollout. A new synthetic Buddy Cloud Pilot
+Plan had Arrival and Departure scenes, the original First sight Read Aloud,
+a choice and its red-gate option, and a two-column table. It did not include
+artwork. The exact saved Markdown was captured before sending.
+
+- **P01, ordinary Send.** With a collapsed caret verified at the end of
+  the Arrival paragraph, the exact benchmark prompt completed in a fresh
+  thread and asked which paragraph or heading to use. There was no writable
+  proposal. A follow-up naming both the paragraph and its successor also
+  returned a before-or-after clarification. Neither reached Save.
+- **Single named-target follow-up.** A follow-up in the same thread named
+  only the first words of the Arrival paragraph and asked to add both
+  blocks after it. The preview showed Read Aloud and GM Note after that
+  paragraph, before the choice. Save confirmed the suggestion was saved
+  to this Plan. After exact-route reload, both rendered and their canonical
+  Markdown was present. Removing only the two added blocks reproduced
+  the baseline Markdown byte for byte, including the original Read Aloud,
+  scene and choice identities, Departure prose, and table.
+
+The named-target success verifies placement and persistence for that follow-up.
+Ordinary caret-based P01 still fails at routing, and matched independent
+repetitions are still open.
