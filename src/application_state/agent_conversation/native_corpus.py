@@ -732,10 +732,15 @@ def conversation_route_can_admit(receipt, execution):
 
     source = getattr(receipt, "source_authority", None)
     action = getattr(execution.policy, "action", None)
+    from .types import NativeCorpusUnavailableV1
+
     if (type(query) is not NativePlanQueryUnavailableV1
             or query.reason != "native_graph_binding_unavailable"
-            or type(source) is not NativeCorpusAuthorityV1
+            or type(source) not in (NativeCorpusAuthorityV1, NativeCorpusUnavailableV1)
             or type(action) is not NativeBuildActionV1):
+        return False
+    if (type(source) is NativeCorpusUnavailableV1
+            and source.failure_code != "native_source_head_unavailable"):
         return False
     intent = action.intent
     if (query.managed_world_id != source.managed_world_id

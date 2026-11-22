@@ -274,7 +274,7 @@ def test_conversation_route_can_reuse_source_support_without_active_graph():
     assert bodies.conversation_route_can_admit(receipt, record)
 
 
-@pytest.mark.parametrize('boundary', ['head', 'source', 'query_world', 'source_world',
+@pytest.mark.parametrize('boundary', ['head', 'identity', 'authority', 'query_world', 'source_world',
     'intent_world', 'plan', 'reviewed', 'reference', 'revision_pin', 'settled'])
 def test_source_only_conversation_route_refuses_unproved_context(boundary):
     from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
@@ -282,9 +282,9 @@ def test_source_only_conversation_route_refuses_unproved_context(boundary):
     receipt, record = source_only_route_case()
     if boundary == 'head':
         receipt.native_query = receipt.native_query.model_copy(update={'reason':'native_graph_head_unavailable'})
-    elif boundary == 'source':
+    elif boundary in {'identity', 'authority'}:
         receipt.source_authority = t.NativeCorpusUnavailableV1(managed_world_id='world-one',
-            failure_code='native_source_head_unavailable')
+            failure_code='native_source_' + boundary + '_unavailable')
     elif boundary == 'query_world':
         receipt.native_query = receipt.native_query.model_copy(update={'managed_world_id':'foreign'})
     elif boundary == 'source_world':
@@ -326,4 +326,22 @@ def test_source_only_conversation_reader_fence_refuses_downgrade():
     fence = import_module('application_state.migrations.versions.20261122_0187_source_only_conversation_fence')
     assert fence.down_revision == '20261122_0186'
     with pytest.raises(RuntimeError, match='Use forward recovery'):
+        fence.downgrade()
+
+
+def test_new_world_conversation_route_needs_no_native_corpus_head():
+    receipt, record = source_only_route_case()
+    receipt.source_authority = t.NativeCorpusUnavailableV1(managed_world_id='world-one',
+        failure_code='native_source_head_unavailable')
+    assert bodies.conversation_route_can_admit(receipt, record)
+    receipt.source_authority = receipt.source_authority.model_copy(update={'managed_world_id':'foreign'})
+    assert not bodies.conversation_route_can_admit(receipt, record)
+
+
+def test_unavailable_corpus_conversation_reader_fence_refuses_downgrade():
+    from importlib import import_module
+    fence = import_module('application_state.migrations.versions.20261122_0188_unavailable_corpus_conversation_fence')
+    assert fence.down_revision == '20261122_0187'
+    fence.upgrade()
+    with pytest.raises(RuntimeError, match='forward recovery'):
         fence.downgrade()
