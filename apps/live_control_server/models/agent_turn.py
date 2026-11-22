@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from application_state.agent_conversation.context_trace import TurnContextTraceV1, TraceHistoricalSourceReferenceV1, TraceSourcePassage
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
-from application_state.build_proposal.image_move_decision import BuildImageMoveCapture
+from application_state.build_proposal.image_move_capture import BuildImageMoveCapture
 from application_state.agent_conversation.build_draft_context import BuildDraftContextRequestV1
 
 from application_state.agent_conversation.rules_authority_types import RulesAcceptedBinding, canonical_sha256

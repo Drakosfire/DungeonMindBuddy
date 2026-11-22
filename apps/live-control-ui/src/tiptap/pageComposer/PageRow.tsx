@@ -141,6 +141,14 @@ interface BoundAgentImageMove {
   source: PMNode;
   position: number;
   destination: number | null;
+  location: AgentImageMoveLocation;
+}
+
+export interface AgentImageMoveLocation {
+  row_id: string;
+  source_slot_id: string;
+  destination_slot_id: string | null;
+  image_block_id: string;
 }
 
 const issuedImageMoves = new WeakMap<CapturedAgentImageMoves, {
@@ -194,6 +202,10 @@ export function captureAgentImageMoves(scope: AgentImageMoveScope): CapturedAgen
         targets.set(alias, {
           source: block, position,
           destination: destination === "empty_right" ? rowPosition + slotOffset + slot.nodeSize + 2 : null,
+          location: {
+            row_id: row.attrs.id, source_slot_id: slot.attrs.id, destination_slot_id: right?.attrs.id ?? null,
+            image_block_id: block.attrs.pageBlockId,
+          },
         });
         if (selection instanceof NodeSelection && selection.from === position + 1) selected = alias;
       });
@@ -204,10 +216,26 @@ export function captureAgentImageMoves(scope: AgentImageMoveScope): CapturedAgen
   return capture;
 }
 
-/** Apply exactly one offered move. Undo cannot make the old capture executable again. */
-export function applyAgentImageMove(
+export function selectedAgentImageBlock(capture: CapturedAgentImageMoves): string | null {
+  return capture.selected ? issuedImageMoves.get(capture)?.targets.get(capture.selected)?.location.image_block_id ?? null : null;
+}
+
+export function matchAgentImageMove(capture: CapturedAgentImageMoves, location: AgentImageMoveLocation): string {
+  const candidates = Array.from(issuedImageMoves.get(capture)?.targets ?? []);
+  const matches = candidates.filter(([, target]) => (
+    target.destination !== null
+    && target.location.row_id === location.row_id
+    && target.location.source_slot_id === location.source_slot_id
+    && target.location.destination_slot_id === location.destination_slot_id
+    && target.location.image_block_id === location.image_block_id
+  ));
+  if (matches.length !== 1) throw new Error("The reviewed occurrence and adjacent slot changed.");
+  return matches[0][0];
+}
+
+function agentImageMoveTransaction(
   scope: AgentImageMoveScope, capture: CapturedAgentImageMoves, alias: string,
-): void {
+) {
   const bound = issuedImageMoves.get(capture);
   const target = bound?.targets.get(alias);
   if (!bound || !target || target.destination === null) throw new Error("The image move was not offered.");
@@ -221,9 +249,23 @@ export function applyAgentImageMove(
   }
   const tr = editor.state.tr.delete(target.position, target.position + target.source.nodeSize);
   tr.insert(tr.mapping.map(target.destination), target.source);
-  requireManualSave(editor);
+  return tr;
+}
+
+export function previewAgentImageMove(
+  scope: AgentImageMoveScope, capture: CapturedAgentImageMoves, alias: string,
+): string {
+  return JSON.stringify(agentImageMoveTransaction(scope, capture, alias).doc.toJSON());
+}
+
+/** Apply exactly one offered move. Undo cannot make the old capture executable again. */
+export function applyAgentImageMove(
+  scope: AgentImageMoveScope, capture: CapturedAgentImageMoves, alias: string,
+): void {
+  const tr = agentImageMoveTransaction(scope, capture, alias);
+  requireManualSave(scope.editor);
   issuedImageMoves.delete(capture);
-  editor.view.dispatch(closeHistory(tr));
+  scope.editor.view.dispatch(closeHistory(tr));
 }
 
 export function resizePageRow(editor: Editor, pos: number, width: number, dividerIndex = 0): boolean {

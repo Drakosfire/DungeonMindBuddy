@@ -854,6 +854,7 @@ export type ReviewedStepReference = {conversation_id:string;source_turn_id:strin
 /** Build retains a verified saved basis and separately captured authored working context. */
 export interface WorldBuildAgentTurnRequestV1 {
   build_authored_references?: AuthoredReferenceInput;
+  build_image_move_capture?: import("./buildImageMoveReviewApi").BuildImageMoveCapture;
   retry_of?: {turn_id:string;revision:number;retained_snapshot_sha256?:string};
   reviewed_step?: ReviewedStepReference;
   build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
@@ -1262,7 +1263,7 @@ export interface SurfaceNativeCompletionV1 {
 }
 export interface AgentSurfaceNativeContextResponseV1 {
   schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
-  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|WorldBuildGraphReferenceCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
+  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|WorldBuildGraphReferenceCompletionV1|WorldBuildImageMoveCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
   deferred_build_citations?:DeferredBuildCitationMembership;
 }
 export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
@@ -1476,6 +1477,17 @@ export interface WorldBuildGraphReferenceCompletionV1 {
   context_receipt_sha256: string;
   disposition: "ready" | "discussion" | "new_object" | "different_page" | "ambiguous_identity" | "wrong_kind"
     | "missing_identity" | "ambiguous_boundary" | "missing_boundary" | "unresolved";
+  action_id: string | null;
+  placement_sha256: string | null;
+  answer_segments?: never;
+  answer_context_status?: never;
+}
+
+export interface WorldBuildImageMoveCompletionV1 {
+  schema: "dmb_build_image_move_completion_v1";
+  context_receipt_sha256: string;
+  disposition: "ready" | "discussion" | "ambiguous" | "missing" | "different_row" | "unsupported"
+    | "unresolved" | "occupied" | "unavailable" | "changes_reading_order";
   action_id: string | null;
   placement_sha256: string | null;
   answer_segments?: never;

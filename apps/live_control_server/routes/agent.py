@@ -3447,4 +3447,6 @@ def report_build_document_proposal_inserted(world_id: str, action_id: UUID, requ
 
 # Review is a separate owner from immutable generated proposal/provider evidence.
 from .build_proposal_reviews import router as build_proposal_review_router
+from .build_image_move_reviews import router as build_image_move_review_router
 router.include_router(build_proposal_review_router)
+router.include_router(build_image_move_review_router)

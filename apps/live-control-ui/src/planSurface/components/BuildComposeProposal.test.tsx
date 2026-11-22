@@ -383,6 +383,30 @@ it('carries the frozen page-end offer through ordinary chat preparation without 
  expect(prepared?.draftContext?.snapshot.draft_markdown).toBe('# Edge');
 });
 
+it('prepares ordinary Build Send with a selected image and no prose insertion authority', async () => {
+ const selectedBridge:BuildComposeBridge = {
+   ...bridge,
+   capture:vi.fn().mockRejectedValue(new Error('Select a text passage to revise')),
+   captureImageMoves:vi.fn().mockReturnValue({offers:[],selected:'image1'}),
+   captureImageMoveTurn:vi.fn().mockResolvedValue({
+     basis:{...captured.basis,draft_sha256:captured.basis.content_sha256},
+     editor_json:captured.editorJson, author_selected_block_id:'selected-map',
+     conversation_id:history.conversation_id,expected_pointer_revision:history.pointer_revision,
+   }),
+ };
+ const hook = renderHook(() => useBuildCompose({worldId:'world',pageDocumentId:'doc',
+   history,bridge:selectedBridge,enabled:true,onHistory:vi.fn()}));
+ let prepared: Awaited<ReturnType<typeof hook.result.current.prepareHarnessTurn>> | undefined;
+ await act(async () => {
+   prepared = await hook.result.current.prepareHarnessTurn(
+     '33333333-3333-4333-8333-333333333333', false, false, false, undefined, true, true,
+   );
+ });
+ expect(prepared?.imageMoveCapture?.author_selected_block_id).toBe('selected-map');
+ expect(prepared?.capability).toBeUndefined();
+ expect(selectedBridge.captureImageMoveTurn).toHaveBeenCalledWith(history.conversation_id,history.pointer_revision);
+});
+
 it.each(['eligible', 'unsupported', 'selected'] as const)(
  'prepares contextual Send without surrendering the original caret or explicit selection (%s)', async mode => {
   const eligible = mode === 'eligible';

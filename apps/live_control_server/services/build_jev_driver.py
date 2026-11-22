@@ -1265,10 +1265,13 @@ class BuildJevDriver:
                 self._pending = None
                 return self.step
             if (a.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
-                from application_state.agent_conversation.build_intentional_response import selected as requested_work, resolution_for, operation_id, MENU_DIGEST, RESOLVER_DIGEST
+                from application_state.agent_conversation.build_intentional_response import (
+                    MENU_DIGEST, RESOLVER_DIGEST, UnresolvedDiscussionSource,
+                    opening_image_choice, opening_work, operation_id, resolution_for,
+                )
                 from generationengine.types import DecisionResult
                 from uuid import uuid4
-                from application_state.agent_conversation.build_intentional_response import paragraph_placement_for, source_need
+                from application_state.agent_conversation.build_intentional_response import paragraph_placement_for
                 from application_state.build_proposal.prose_decision import OPENING_QUESTION_PREFIX
                 from application_state.build_proposal.graph_reference_decision import (
                     GRAPH_REFERENCE_OPENING, resolve_graph_reference_opening,
@@ -1283,14 +1286,22 @@ class BuildJevDriver:
                     or not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response).get('requested_work') != answers['requested_work']):
                     raise ValueError('Semantic selection requires its actual complete SDK response')
                 raw = canonical(actual_response.model_dump(mode='json'))
-                label = requested_work(json.loads(raw))
                 execution = a._broker_execution()
                 request = json.loads(prepared.body)
                 graph_reference = resolve_graph_reference_opening(request, actual_response)
-                image_move = (self.image_move.opening_answers(request, actual_response)["image_move_intent"]
-                              if self.image_move is not None else None)
-                resolution = resolution_for(execution.policy, label,
-                    source_scope=source_need(request, json.loads(raw)))
+                image_move = (opening_image_choice(
+                    execution.policy, json.loads(raw),
+                    self.image_move.opening_answers(request, actual_response), a.request.message,
+                ) if self.image_move is not None else None)
+                image_terminal = image_move in {"move_existing", "unresolved"}
+                try:
+                    label, source_scope = opening_work(execution.policy, request, json.loads(raw), image_move)
+                except UnresolvedDiscussionSource as exc:
+                    from .agent_turn_service import AgentTurnServiceError
+                    raise AgentTurnServiceError(
+                        str(exc), code="build_discussion_source_uncertain", status_code=409,
+                    ) from exc
+                resolution = resolution_for(execution.policy, label, source_scope=source_scope)
                 placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
                 selected = resolution['operation']
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
@@ -1309,11 +1320,11 @@ class BuildJevDriver:
                 a.turn = _require_fresh_execution_append(a.fence.append('record_build_requested_work_resolution', 'selection', event,
                     producer_proof={'request_json': prepared.body.decode(), 'response_json': raw}))
                 self.operation, self.selection = selected, event
-                if image_move in {"move_existing", "unresolved"}:
+                if image_terminal:
                     self.image_move_opening_proof = {
                         "request_json": prepared.body.decode(), "response_json": raw,
                     }
-                if image_move in {"move_existing", "unresolved"} or graph_reference == "place_existing_reference":
+                if image_terminal or graph_reference == "place_existing_reference":
                     self._selection_intent = None
                     self._pending = None
                     return self.step

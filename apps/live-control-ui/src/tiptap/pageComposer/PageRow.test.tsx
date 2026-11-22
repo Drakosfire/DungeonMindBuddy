@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NodeSelection } from "@tiptap/pm/state";
 import { Editor, type JSONContent } from '@tiptap/core';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../MarkdownEditorCore';
-import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools, applyAgentImageMove, captureAgentImageMoves, movePageBlock, resizePageRow, unwrapPageRow, wrapPageRow, updatePageRowPresentation } from './PageRow';
+import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools, applyAgentImageMove, captureAgentImageMoves, matchAgentImageMove, movePageBlock, previewAgentImageMove, resizePageRow, selectedAgentImageBlock, unwrapPageRow, wrapPageRow, updatePageRowPresentation } from './PageRow';
 import { flattenPresentation } from './presentation';
 import { requiresManualSave } from '../../workspaceDocument/draftSavePolicy';
 
@@ -425,10 +425,17 @@ describe('Build exact image occurrence moves', () => {
       ['image1','At the entrance','empty_right'],['image2','Measurements','empty_right'],
     ]);
     expect(JSON.stringify(capture)).not.toContain(assetId);
+    const alias=matchAgentImageMove(capture,{row_id:'notes',source_slot_id:'notes-left',
+      destination_slot_id:'notes-right',image_block_id:'notes-map'});
+    expect(alias).toBe('image2');
+    const preview=previewAgentImageMove(scope(),capture,alias);
+    expect(editor.getJSON()).toEqual(before);
+    expect(requiresManualSave(editor)).toBe(false);
     const holdObserved=vi.fn();
     editor.on('update',()=>holdObserved(requiresManualSave(editor)));
     applyAgentImageMove(scope(),capture,'image2');
     const after=editor.getJSON();
+    expect(JSON.parse(preview)).toEqual(after);
     expect(holdObserved).toHaveBeenCalledExactlyOnceWith(true);
     expect(after.content?.[0]).toEqual(before.content?.[0]);
     expect(after.content?.[1].content?.[1].content?.[0]).toEqual(before.content?.[1].content?.[0].content?.[1]);
@@ -445,6 +452,7 @@ describe('Build exact image occurrence moves', () => {
     editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc,3)));
     const capture=captureAgentImageMoves(scope());
     expect(capture.selected).toBe('image1');
+    expect(selectedAgentImageBlock(capture)).toBe('a');
     const secondPosition=editor.state.doc.child(0).nodeSize+3;
     editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc,secondPosition)));
     applyAgentImageMove(scope(),capture,capture.selected!);

@@ -80,10 +80,42 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
     ("Move the Harbour map to the right slot in the Watchtower row.", "different_row"),
     ("Move the Harbour map to the slot on its right.", "foreign_capture"),
     ("Move the Harbour map to the slot on its right.", "forged_editor"),
+    ("What would happen if we moved the Harbour map to the next slot?", "other_discussion"),
+    ("How would it look in the empty slot?", "other_discussion"),
+    ("How would it look in the empty slot?", "other_discussion_tied_work"),
+    ("Move the Harbour map to the empty slot on its right.", "tied_menu"),
+    ("Move the Harbour map beside the departure advice to the empty slot on its right.", "duplicate_context"),
 ])
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
                 message=message, image_move=disposition)
+
+
+def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_path, monkeypatch):
+    _fresh_case(
+        lane, tmp_path, monkeypatch, "discussion_source_tie", False, False, False,
+        message="Describe what the image shows and how it relates to the surrounding notes.",
+        requested_work="discuss",
+    )
+
+
+def test_deferred_image_advice_clarifies_before_graph_preparation(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+
+    def inspect(adapter, provider):
+        assert provider == "typesafe"
+        assert callable(adapter.prepare_deferred_build_query)
+
+    def unexpected_graph_settlement(*args):
+        raise AssertionError("Source-scope clarification must precede Graph settlement")
+
+    monkeypatch.setattr(_PolicyExecutionAdapter, "settle_deferred_build_query", unexpected_graph_settlement)
+
+    _fresh_case(
+        lane, tmp_path, monkeypatch, "discussion_source_tie", False, False, False,
+        message="How would the Harbour map look in the slot to its right?",
+        requested_work="discuss", image_move="other_discussion", before_provider=inspect,
+    )
 
 
 def test_graph_nomination_preparation_uses_the_admitted_build_capture(lane, tmp_path, monkeypatch):
@@ -231,15 +263,27 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         picture = BytesIO()
         Image.new("RGB", (30, 20), (48, 75, 65)).save(picture, "PNG")
         asset_id = str(media.stage_image(picture.getvalue(), "local_operator", {"fixture": "Harbour map"})["asset_id"])
-        markdown = f"![Harbour map](dmb-media:{asset_id})\n"
-        start, end = source_block_spans(markdown)[0]
-        block = BlockBinding(id="map-block", byte_start=start, byte_end=end,
-                             sha256=sha256(markdown.encode()[start:end]).hexdigest())
-        layout = PagePresentation(markdown_sha256=sha256(markdown.encode()).hexdigest(), items=[
-            Row(id="harbour-row", min_height=16, line_mode="border", slots=[
-                Slot(id="left-slot", width=7, blocks=[block]),
-                Slot(id="right-slot", width=5, blocks=[]),
-            ]),
+        media_markdown = f"![Harbour map](dmb-media:{asset_id})"
+        rows = [("harbour-row", "left-slot", "right-slot", [("map-block", media_markdown)])]
+        if image_move == "duplicate_context":
+            rows[0][3].insert(0, ("when-block", "Leave after sunset and the third bell."))
+            rows.append(("inn-row", "inn-left", "inn-right", [
+                ("coat-block", "Borrow a dry coat from the innkeeper."),
+                ("repeat-map", media_markdown),
+            ]))
+        markdown = "\n\n".join(text for _, _, _, row in rows for _, text in row) + "\n"
+        raw = markdown.encode()
+        bindings = {
+            block_id: BlockBinding(id=block_id, byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
+            for block_id, (start, end) in zip(
+                (block_id for _, _, _, row in rows for block_id, _ in row), source_block_spans(markdown), strict=True,
+            )
+        }
+        layout = PagePresentation(markdown_sha256=sha256(raw).hexdigest(), items=[
+            Row(id=row_id, min_height=16, line_mode="border", slots=[
+                Slot(id=left_id, width=7, blocks=[bindings[key] for key, _ in row]),
+                Slot(id=right_id, width=5, blocks=[]),
+            ]) for row_id, left_id, right_id, row in rows
         ])
         saved_basis = pages.committed_page(page.document_id, world_id=world)
         pages.commit_page(page.document_id, markdown, world_id=world,
@@ -247,16 +291,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                           expected_working_copy_revision=saved_basis.working_copy_revision,
                           page_presentation=layout)
         image_editor = json.dumps({"type": "doc", "content": [{
-            "type": "pageRow", "attrs": {"id": "harbour-row", "min_height": 16, "line_mode": "border"},
+            "type": "pageRow", "attrs": {"id": row_id, "min_height": 16, "line_mode": "border"},
             "content": [
-                {"type": "pageSlot", "attrs": {"id": "left-slot", "width": 7}, "content": [{
-                    "type": "paragraph", "attrs": {"pageBlockId": "map-block"}, "content": [{
-                        "type": "mediaImage", "attrs": {"assetId": asset_id, "alt": "Harbour map"},
-                    }],
-                }]},
-                {"type": "pageSlot", "attrs": {"id": "right-slot", "width": 5}},
+                {"type": "pageSlot", "attrs": {"id": left_id, "width": 7}, "content": [{
+                    "type": "paragraph", "attrs": {"pageBlockId": key}, "content": [
+                        {"type": "mediaImage", "attrs": {"assetId": asset_id, "alt": "Harbour map"}}
+                        if text == media_markdown else {"type": "text", "text": text},
+                    ],
+                } for key, text in row]},
+                {"type": "pageSlot", "attrs": {"id": right_id, "width": 5}},
             ],
-        }]})
+        } for row_id, left_id, right_id, row in rows]})
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
     editor_json = None
@@ -451,14 +496,26 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
+                if name == "source_need" and failure == "discussion_source_tie":
+                    answers[name] = dict(type="choice", choice="uncertain", confidence=.07,
+                                         probabilities={"anchored": .24, "source_lookup": .38, "uncertain": .38})
+                    continue
                 if name.startswith("image_move_"):
                     assert image_move and "Harbour map" in str(body["state"]["interaction"]["image_move"])
                     assert asset_id not in json.dumps(body)
                     assert all(value not in json.dumps(body) for value in ("map-block", "harbour-row", "left-slot"))
-                    chosen = {"image_move_intent": "move_existing",
-                              "image_move_destination": "same_row_right", "image_move_occurrence": "image1"}[name]
+                    advice = image_move in {"other_discussion", "other_discussion_tied_work"}
+                    chosen = {"image_move_intent": "other" if advice else "move_existing",
+                              "image_move_destination": "same_row_right", "image_move_occurrence": "image1",
+                              "image_move_affirmation": "description_or_discussion" if advice or image_move == "discussion"
+                                  else "author_requests_move", "image_move_contextual_identity": "image1"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                                          probabilities={key: float(key == chosen) for key in choices})
+                    continue
+                if name == "requested_work" and image_move in {"tied_menu", "other_discussion_tied_work"}:
+                    voting = {"discuss": .4, "clarify_request": .4, "other_creation": .2}
+                    answers[name] = dict(type="choice", choice="other_creation", confidence=.2,
+                                         probabilities={key: voting.get(key, 0) for key in choices})
                     continue
                 if name == "typed_graph_reference":
                     chosen = "place_existing_reference" if graph_reference else "other_work"
@@ -620,6 +677,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only'
+                    or image_move == "other_discussion"
                     or current_work in {"review_lore_page", "review_lore_page_from_conversation"})
             assert 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
@@ -667,6 +725,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if image_move == "other_discussion":
+                candidate["answer_segments"] = [
+                    dict(kind="discussion", text="The image would sit to the right of the nearby material."),
+                ]
             if saved_statblock in {"associated", "by-name"}:
                 candidate["answer_segments"] = [dict(kind="statblock_pdf_claim",
                     source="pdf0:0", quote="Hit Points 41")]
@@ -1124,10 +1186,25 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
-    if image_move:
+    if image_move and failure != "discussion_source_tie":
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
+        if image_move == "other_discussion":
+            assert response.status_code == 200, response.text
+            context = response.json()["knowledge_context"]
+            assert context["completion"]["schema"] != "dmb_build_image_move_completion_v1"
+            assert "The image would sit to the right" in str(context["completion"])
+            assert len(writer.calls) == 1
+            with pytest.raises(ApplicationStateNotFoundError):
+                BuildImageMoveReviewService().get(world, writer.adapter.turn.turn_id)
+            counts = len(decisions.calls), len(writer.calls)
+            replay = client.post("/api/live/agent/turn", json=body)
+            assert replay.status_code == 200 and replay.json()["knowledge_context"]["delivery_replay"] is True
+            assert (len(decisions.calls), len(writer.calls)) == counts
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            assert lane.repo.get_head(world).head_revision_id == current_revision
+            return
         if image_move in {"foreign_capture", "forged_editor"}:
             assert response.status_code == (422 if image_move == "foreign_capture" else 409), response.text
             assert not decisions.calls and not writer.calls
@@ -1135,13 +1212,43 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return
         assert response.status_code == 200, response.text
         completion = response.json()["knowledge_context"]["completion"]
-        assert completion["disposition"] == image_move
+        expected = {"tied_menu": "ready", "duplicate_context": "ready",
+                    "other_discussion_tied_work": "discussion"}.get(image_move, image_move)
+        assert completion["disposition"] == expected
         turn_id = writer.adapter.turn.turn_id
-        if image_move == "ready":
+        if expected == "ready":
             review = BuildImageMoveReviewService().get(world, turn_id)
             assert completion["action_id"] == str(turn_id) and review.state == "editing"
             assert review.placement.image_block_id == "map-block"
             assert review.placement.destination_slot_id == "right-slot"
+            feed = client.get(f"/api/live/agent/worlds/{world}/conversations/active/messages")
+            assert feed.status_code == 200, feed.text
+            row = next(row for row in feed.json()["messages"] if row["turn_id"] == str(turn_id))
+            assert row["reply_object"] == {
+                "kind": "build_image_move", "placement_sha256": completion["placement_sha256"],
+                "source": {"world_id": world, "conversation_id": str(review.conversation_id),
+                           "document_id": page.document_id, "turn_id": str(turn_id), "surface_id": "build"},
+            }
+            endpoint = f"/api/live/agent/worlds/{world}/build-image-moves/{turn_id}/review"
+            fetched = client.get(endpoint)
+            assert fetched.status_code == 200 and fetched.json() == {
+                "review": review.model_dump(mode="json"), "issued": False,
+            }
+            modified = json.loads(image_editor)
+            left, right = modified["content"][0]["content"]
+            right["content"] = [left["content"].pop()]
+            if not left["content"]:
+                del left["content"]
+            claim = {"operation": "claim", "expected_revision": review.revision, "claim_id": str(uuid4()),
+                     "editor_json": image_editor, "after_editor_json": json.dumps(modified)}
+            invalid = client.post(endpoint, json={**claim, "after_editor_json": image_editor})
+            assert invalid.status_code == 409, invalid.text
+            claimed = client.post(endpoint, json=claim)
+            assert claimed.status_code == 200 and claimed.json()["issued"], claimed.text
+            duplicate = client.post(endpoint, json=claim)
+            assert duplicate.status_code == 200 and duplicate.json() == claimed.json() | {"issued": False}, duplicate.text
+            premature = client.post(endpoint, json={"operation": "confirm", "claim_id": claim["claim_id"]})
+            assert premature.status_code == 409, premature.text
         else:
             assert completion["action_id"] is None
             with pytest.raises(ApplicationStateNotFoundError):
@@ -1300,6 +1407,16 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert not decisions.calls and not writer.calls and not classic_calls
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
+    if failure == "discussion_source_tie":
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == {
+            "code": "build_discussion_source_uncertain",
+            "message": "Should I answer from this Page alone, or look for other sources?",
+        }
+        assert len(decisions.calls) == 1 and not writer.calls and not classic_calls
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        assert lane.repo.get_head(world).head_revision_id == current_revision
         return
     if failure in {'section_scope','selection_text'}:
         assert response.status_code==503,response.text

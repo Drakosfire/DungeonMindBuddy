@@ -268,6 +268,8 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/recap-name-review"): resolve_hosted_recap_name_review,
     ("GET", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/build-proposals/{action_id}/review"): resolve_hosted_conversation_world,
+    ("GET", "/api/live/agent/worlds/{world_id}/build-image-moves/{action_id}/review"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/build-image-moves/{action_id}/review"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/plan-proposals/{action_id}/review"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/work-plans/{source_turn_id}"): resolve_hosted_conversation_world,

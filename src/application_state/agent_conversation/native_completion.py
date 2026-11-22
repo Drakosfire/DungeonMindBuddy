@@ -602,7 +602,8 @@ def _join_build_image_move_completion(completion, receipt, execution, producer, 
     opening = next((event for event in execution.events if isinstance(event, t.BuildRequestedWorkResolutionV1)
                     and event.event_id == binding.opening_event_id), None)
     if (opening is None or opening.typed_image_move not in {"move_existing", "unresolved"}
-            or opening.controller_attempt_id != producer):
+            or opening.controller_attempt_id != producer
+            or (opening.typed_image_move != "move_existing" and completion.disposition == "ready")):
         raise ValueError("Image move result requires its acknowledged opening choice")
 
 

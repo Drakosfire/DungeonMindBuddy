@@ -512,7 +512,7 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     from application_state.content.page_presentation import Row, Slot
 
     media = "dmb-media:11111111-1111-4111-8111-111111111111"
-    markdown = f'Approach.\n\n![Map]({media} "dmb-image:v1 width=80 collapsed=false")\n\n![Other occurrence]({media})\n'
+    markdown = f'## Approach\n\n![Map]({media} "dmb-image:v1 width=80 collapsed=false")\n\n![Other occurrence]({media})\n'
     raw = markdown.encode()
     text, first, second = [
         BlockBinding(id=id_, byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
@@ -557,7 +557,7 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     editor_before = {"type":"doc","content":[{
         "type":"pageRow","attrs":{"id":"approach-row","min_height":16,"line_mode":"border"},"content":[
             {"type":"pageSlot","attrs":{"id":"left-slot","width":7},"content":[
-                {"type":"paragraph","attrs":{"pageBlockId":"approach"},"content":[{"type":"text","text":"Approach."}]},
+                {"type":"heading","attrs":{"pageBlockId":"approach","level":2},"content":[{"type":"text","text":"Approach"}]},
                 node,
             ]},
             {"type":"pageSlot","attrs":{"id":"right-slot","width":5}},
@@ -586,22 +586,62 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     def change_row(value):
         value["content"][0]["attrs"]["min_height"] = 24
 
-    from application_state.build_proposal.image_move_decision import BuildImageMoveCapture, BuildImageMoveDecision
+    from application_state.build_proposal.image_move_decision import BuildImageMoveCapture, BuildImageMoveDecision, admitted_image_move_choice
 
     capture = BuildImageMoveCapture(
         basis=placement.basis, editor_json=original, conversation_id=uuid4(), expected_pointer_revision=1,
     )
-    choices = {"image_move_intent":"move_existing", "image_move_destination":"same_row_right", "image_move_occurrence":"image1"}
+    choices = {"image_move_intent":"move_existing", "image_move_destination":"same_row_right", "image_move_occurrence":"image1",
+               "image_move_affirmation":"author_requests_move"}
     for prompt, expected in (
         ("Move the Map to the next slot on the right.", "ready"),
         ("Move the Map to the next slot on its right.", "ready"),
+        ("In the Approach row, could we nudge the image to the empty right slot within the same row?", "ready"),
+        ("I'd like you to reposition the Map onto the vacant right column in its original row.", "ready"),
+        ("Could the Map be moved into the empty slot on its right?", "ready"),
+        ("I'd like the Map slid into the next empty slot on its right.", "ready"),
+        ("The Map belongs in the empty slot on its right.", "ready"),
+        ("The Map, one slot right.", "ready"),
+        ("The Map in the vacant right-hand slot immediately beside its current position.", "ready"),
+        ("The Map sits in the vacant right-hand slot immediately beside its current position.", "discussion"),
+        ("The Map is in the right column.", "discussion"),
+        ("No movement of the Map to the right column.", "discussion"),
+        ("The Map was in the empty slot on its right.", "discussion"),
+        ("I don't want the Map in the right column.", "discussion"),
+        ("How would the Map look in the slot on its right?", "discussion"),
+        ("Please slide the Map one slot to the right in the Approach row.", "ready"),
+        ("Push the Map to the empty slot immediately right of its current position.", "ready"),
+        ("Move the Map next to Approach into the space directly to its right.", "ready"),
+        ("Move the Map right one slot within this row.", "ready"),
+        ("Slide the Map right into the vacant slot.", "ready"),
+        ("Transfer the Map right; preserve unrelated figures.", "ready"),
+        ("Transfer the Map right; keep all existing paragraphs intact.", "ready"),
+        ("Transfer the Map right; retain the existing written material.", "ready"),
+        ("Transfer the Map right; remove unrelated figures.", "unsupported"),
+        ("Move the Map to the empty right column; retain the surrounding notes.", "ready"),
+        ("Move the Map to the empty right column; retain the surrounding notes and then remove the heading.", "unsupported"),
+        ("Move the Map to the empty left column; retain the surrounding notes.", "unsupported"),
+        ("Move the Map to the vacant slot on the right in the first row.", "ready"),
         ("Move an image right by one slot.", "ambiguous"),
         ("What would happen if we moved the Map to the right?", "discussion"),
         ("Please do not move the Map to the right.", "discussion"),
+        ("Could the Map not be moved to the right?", "discussion"),
+        ("Under Approach, could we hypothetically move the Map to the right?", "discussion"),
+        ("Move the Map to the right if I approve the redesign later.", "discussion"),
         ("Move the Map to another row on the right.", "different_row"),
+        ("In another row, move the Map to the right slot.", "different_row"),
+        ("In the Harbor Gate row, move the Map to the right slot.", "different_row"),
+        ("Move the Map below the Harbor Gate heading to the right slot.", "missing"),
+        ("In the “Approach” row, move the Map to the right slot.", "ready"),
         ("Move the Map to the right slot of the Harbor Gate row.", "different_row"),
+        ("Place the Map in the Harbor Gate row on the right.", "different_row"),
+        ("Move the Map to the right slot in row 2.", "different_row"),
+        ("Move the Map to the right slot in the Harbor Gate page.", "unsupported"),
         ("Move the Map two columns to the right.", "unsupported"),
         ("Move the Map to the right and then remove it.", "unsupported"),
+        ("Move the Map one slot to the right of the lantern.", "unsupported"),
+        ("Move the Map into the top-right slot.", "unsupported"),
+        ("Move the Map into the empty slot right before the lantern.", "unsupported"),
         ("Move the right bank map into the empty slot.", "unsupported"),
     ):
         decision = BuildImageMoveDecision.from_saved(capture, prompt, markdown, before)
@@ -611,6 +651,96 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     selected = capture.model_copy(update={"author_selected_block_id":"first-map"})
     decision = BuildImageMoveDecision.from_saved(selected, "Could you move this image right one slot?", markdown, before)
     assert decision.selected == "image1" and decision.resolve(choices).placement == placement
+    assert decision.resolve(choices | {"image_move_affirmation": "description_or_discussion"}).placement is None
+    assert decision.resolve({name: value for name, value in choices.items() if name != "image_move_affirmation"}).placement == placement
+    discussion = choices | {"image_move_intent": "other"}
+    assert admitted_image_move_choice(discussion, "How would it look in the empty slot?") == "unresolved"
+    assert admitted_image_move_choice(discussion, "Could you write a note about how to move this map to the empty slot?") == "other"
+
+    shared_title = "Gate-in North row"
+    matching_markdown = (markdown.replace("## Approach", "## North").replace("![Map]", f"![{shared_title}]")
+                         .replace("![Other occurrence]", f"![{shared_title}]"))
+    matching_raw = matching_markdown.encode()
+    heading, first_image, second_image = [
+        block.model_copy(update={"byte_start": start, "byte_end": end, "sha256": sha256(matching_raw[start:end]).hexdigest()})
+        for block, (start, end) in zip((text, first, second), source_block_spans(matching_markdown), strict=True)
+    ]
+    row = before.items[0]
+    matching_layout = before.model_copy(update={
+        "markdown_sha256": sha256(matching_raw).hexdigest(),
+        "items": [row.model_copy(update={"slots": [row.slots[0].model_copy(update={"blocks": [heading, first_image]}),
+                                                   row.slots[1]]}), second_image],
+    })
+    matching_editor = json.loads(original)
+    matching_editor["content"][0]["content"][0]["content"][0]["content"][0]["text"] = "North"
+    matching_editor["content"][0]["content"][0]["content"][1]["content"][0]["attrs"]["alt"] = shared_title
+    matching_editor["content"][1]["content"][0]["attrs"]["alt"] = shared_title
+    matching_json = json.dumps(matching_editor)
+    matching_capture = BuildImageMoveCapture(
+        basis=basis.model_copy(update={"content_sha256": matching_layout.markdown_sha256,
+                                      "draft_sha256": matching_layout.markdown_sha256,
+                                      "editor_sha256": sha256(matching_json.encode()).hexdigest()}),
+        editor_json=matching_json, conversation_id=uuid4(), expected_pointer_revision=1,
+    )
+    for prompt, expected in (
+        ("Move the Gate to the right slot.", "ambiguous"),
+        ("Move the image titled “Gate in North row” to the right slot.", "ambiguous"),
+        ('Move the image titled "Gate in North row" to the right slot.', "ambiguous"),
+        ("Move the image titled Gate in North row to the right slot.", "ambiguous"),
+        ("Move the Gate image, not the one near North, to the right slot.", "ambiguous"),
+        ("Move the image with the “North” caption to the right slot.", "ambiguous"),
+        ("Move the image under the “North” heading to the right slot.", "ready"),
+    ):
+        decision = BuildImageMoveDecision.from_saved(matching_capture, prompt, matching_markdown, matching_layout)
+        assert decision.resolve(choices).disposition == expected, prompt
+
+    from dataclasses import replace
+    from application_state.build_proposal.image_move_decision import CONTEXTUAL_IDENTITY
+
+    decision = BuildImageMoveDecision.from_saved(capture, "Move the map beside the departure advice to the empty slot on its right.",
+                                                markdown, before)
+    first_occurrence = replace(decision.occurrences[0], row_context="Leave at dusk after the harbor bell rings three times.")
+    second_occurrence = replace(
+        first_occurrence, alias="image2", row_number=2,
+        row_context="Ask the innkeeper to lend a dry coat for the crossing.",
+    )
+    decision = replace(decision, occurrences=(first_occurrence, second_occurrence), other_media=(),
+                       row_media_counts={1: 1, 2: 1})
+    proved = choices | {CONTEXTUAL_IDENTITY: "image1"}
+    assert decision.resolve(proved).disposition == "ready"
+    assert replace(
+        decision, question="Move the map alongside the departure advice to the empty slot on its right.",
+    ).resolve(proved).disposition == "ready"
+    assert replace(
+        decision, question="For the departure advice, the map belongs in the empty slot to its right.",
+    ).resolve(proved).disposition == "ready"
+    assert decision.resolve(choices).disposition == "ambiguous"
+    assert decision.resolve(proved | {CONTEXTUAL_IDENTITY: "image2"}).disposition == "ambiguous"
+    assert replace(decision, question="Move the map to the empty slot on its right.").resolve(proved).disposition == "ambiguous"
+    indistinguishable = replace(second_occurrence, row_context=first_occurrence.row_context)
+    assert replace(decision, occurrences=(first_occurrence, indistinguishable)).resolve(proved).disposition == "ambiguous"
+
+    def opening(include_contextual_identity, *, modern_language=True):
+        return {
+            "state": {"user_question": decision.question, "interaction": {"image_move": decision.semantic_state()}},
+            "questions": {
+                q.name: {"type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options)}
+                for q in decision.questions(include_contextual_identity=include_contextual_identity,
+                                            modern_language=modern_language)
+            },
+        }
+
+    decision.require_opening_offer(opening(True))
+    decision.require_opening_offer(opening(False), allow_retained=True)
+    predecessor = opening(True, modern_language=False)
+    decision.require_opening_offer(predecessor, allow_retained=True)
+    with pytest.raises(ValueError, match="exact admitted opening"):
+        decision.require_opening_offer(predecessor)
+    predecessor["questions"]["image_move_destination"] = opening(True)["questions"]["image_move_destination"]
+    with pytest.raises(ValueError, match="exact admitted opening"):
+        decision.require_opening_offer(predecessor, allow_retained=True)
+    with pytest.raises(ValueError, match="exact admitted opening"):
+        decision.require_opening_offer(opening(False))
 
     for alter in (change_sibling_text, change_unrelated_image, change_moved_image_width, change_row):
         forged = json.loads(original)
