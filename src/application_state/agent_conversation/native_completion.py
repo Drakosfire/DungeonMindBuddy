@@ -646,11 +646,13 @@ def _join_retained_completion(completion, receipt, execution, producer, bindings
         return
     prefix = execution.model_copy(update={'events': execution.events[:auth.sequence]})
     _validate_owned_context_binding(receipt, prefix)
-    frame = _model_frame_from_validated_prefix(receipt, prefix)
+    from .native_corpus import terminal_passage_exclusions
+    passages_only = completion.surface_id == 'plan' and bool(terminal_passage_exclusions(prefix))
+    frame = _model_frame_from_validated_prefix(receipt, prefix, passages_only=passages_only)
     from .build_primary_context import records
-    evidence=SimpleNamespace(**read_evidence_records(prefix,frame),
+    evidence=SimpleNamespace(**read_evidence_records(prefix,frame,passages_only=passages_only),
         saved_sections=records(prefix,receipt.work_context.source_basis) if completion.surface_id=='build' else ())
-    if completion.surface_id == 'plan':
+    if completion.surface_id == 'plan' and not passages_only:
         from .native_corpus import writer_passage_supports
         from .native_writer import body_handle
 

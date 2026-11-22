@@ -866,18 +866,9 @@ def writer_passage_supports(execution, selector, *, apply_admission=True):
             exact.add(handle)
     if not apply_admission:
         return tuple(supports)
-    from .native_retrieval import NativeReadBatchConcludedV1, NativeRetrievalSelectedV2
-
-    conclusion = next((event for event in reversed(execution.events)
-                       if isinstance(event, NativeReadBatchConcludedV1)), None)
-    selection = next((event for event in reversed(execution.events)
-                      if isinstance(event, native_selection_types())), None)
-    if (conclusion is None or not isinstance(selection, NativeRetrievalSelectedV2)
-            or conclusion.selection_event_id != selection.event_id
-            or not selection.excluded_acquired_passage_handles):
+    excluded = terminal_passage_exclusions(execution)
+    if not excluded:
         return tuple(supports)
-
-    excluded = set(selection.excluded_acquired_passage_handles)
     excluded_extents = {
         (read.excerpt.catalog_sha256, read.excerpt.section.byte_start, read.excerpt.section.byte_end)
         for read in reads.values()
@@ -893,6 +884,19 @@ def writer_passage_supports(execution, selector, *, apply_admission=True):
         retained.append(support)
     return tuple(retained)
 
+
+
+def terminal_passage_exclusions(execution):
+    from .native_retrieval import NativeReadBatchConcludedV1, NativeRetrievalSelectedV2, native_selection_types
+
+    conclusion = next((event for event in reversed(execution.events)
+                       if isinstance(event, NativeReadBatchConcludedV1)), None)
+    selection = next((event for event in reversed(execution.events)
+                      if isinstance(event, native_selection_types())), None)
+    if (conclusion is not None and isinstance(selection, NativeRetrievalSelectedV2)
+            and conclusion.selection_event_id == selection.event_id):
+        return frozenset(selection.excluded_acquired_passage_handles or ())
+    return frozenset()
 
 
 def body_selector(turn, read):
