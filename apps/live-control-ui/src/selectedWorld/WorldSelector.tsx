@@ -10,8 +10,7 @@ import { selectWorldFromLocation, worldScopedSurfaceHref } from "./worldSelectio
 
 export function WorldSelector({ compact = false, creationPath = "/plan" }: { compact?: boolean; creationPath?: string } = {}) {
   const auth = useHostedAuthStatus();
-  const canCreate = auth.status === "local_operator";
-  const canList = canCreate || auth.status === "authenticated" && auth.subject !== null;
+  const canList = auth.status === "local_operator" || auth.status === "authenticated" && auth.subject !== null;
   const selected = useSelectedWorld();
   const retrySelection = useRetrySelectedWorld();
   const [open, setOpen] = useState(false);
@@ -20,9 +19,17 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
   const [error, setError] = useState<string | null>(null);
   const [newWorldName, setNewWorldName] = useState("");
   const [creatingWorld, setCreatingWorld] = useState(false);
+  const [hostedCreationAvailable, setHostedCreationAvailable] = useState(false);
   const navigationChanged = useRef(false);
   const mounted = useRef(false);
   const requestSequence = useRef(0);
+  const authIdentity = `${auth.status}:${auth.subject ?? ""}`;
+  const authGuard = useRef({ identity: authIdentity, epoch: 0 });
+  if (authGuard.current.identity !== authIdentity) {
+    authGuard.current = { identity: authIdentity, epoch: authGuard.current.epoch + 1 };
+  }
+  const canCreate = auth.status === "local_operator" ||
+    (auth.status === "authenticated" && hostedCreationAvailable);
 
   useEffect(() => {
     mounted.current = true;
@@ -37,16 +44,29 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
     };
   }, []);
 
+  useEffect(() => {
+    requestSequence.current += 1;
+    setCreatingWorld(false);
+    setHostedCreationAvailable(false);
+    setWorlds([]);
+    setNewWorldName("");
+    setError(null);
+    setOpen(false);
+    setStatus("idle");
+  }, [authIdentity]);
+
   const refresh = useCallback(async () => {
     if (!canList) return;
     const sequence = ++requestSequence.current;
     setWorlds([]);
+    setHostedCreationAvailable(false);
     setStatus("loading");
     setError(null);
     try {
       const response = await listWorldContainers();
       if (!mounted.current || sequence !== requestSequence.current) return;
       setWorlds(response.records);
+      setHostedCreationAvailable(response.creation_available === true);
       setStatus("ready");
     } catch (reason) {
       if (!mounted.current || sequence !== requestSequence.current) return;
@@ -96,27 +116,50 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
             const name = newWorldName.trim();
             if (!canCreate || !name || creatingWorld) return;
             const startingLocation = getAppLocationSnapshot();
+            const startingAuthEpoch = authGuard.current.epoch;
+            let requestKey: string | undefined;
+            let storageKey: string | undefined;
+            if (auth.status === "authenticated" && auth.subject) {
+              try {
+                storageKey = `buddy:world-create:${encodeURIComponent(auth.subject)}:${encodeURIComponent(name)}`;
+                const raw = window.sessionStorage.getItem(storageKey);
+                const prior = raw ? JSON.parse(raw) as { name?: unknown; key?: unknown } : null;
+                requestKey = prior?.name === name && typeof prior.key === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(prior.key)
+                  ? prior.key : crypto.randomUUID().replaceAll("-", "");
+                window.sessionStorage.setItem(storageKey, JSON.stringify({ name, key: requestKey }));
+              } catch {
+                setError("World creation needs session storage for safe retries. Please enable it and try again.");
+                return;
+              }
+            }
             navigationChanged.current = false;
             setCreatingWorld(true);
             setError(null);
-            void createWorldContainer({ name }).then((world) => {
-              if (!mounted.current) return;
+            void createWorldContainer(requestKey ? { name, request_key: requestKey } : { name }).then((world) => {
+              if (!mounted.current || authGuard.current.epoch !== startingAuthEpoch) return;
+              if (storageKey) {
+                try {
+                  const current = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null") as { key?: unknown } | null;
+                  if (current?.key === requestKey) window.sessionStorage.removeItem(storageKey);
+                } catch { /* Completed result is authoritative. */ }
+              }
               setNewWorldName("");
               setOpen(false);
               if (!navigationChanged.current && getAppLocationSnapshot() === startingLocation) {
                 navigatePrimaryAppHref(worldScopedSurfaceHref(creationPath, world.world_id));
               }
             }).catch((reason) => {
-              if (mounted.current) setError(reason instanceof Error ? reason.message : "World could not be created.");
-            }).finally(() => { if (mounted.current) setCreatingWorld(false); });
+              if (mounted.current && authGuard.current.epoch === startingAuthEpoch) setError(reason instanceof Error ? reason.message : "World could not be created.");
+            }).finally(() => { if (mounted.current && authGuard.current.epoch === startingAuthEpoch) setCreatingWorld(false); });
           }}>
             <label>
               New World name
-              <input value={newWorldName} onChange={(event) => setNewWorldName(event.target.value)} />
+              <input value={newWorldName} maxLength={100} disabled={creatingWorld} onChange={(event) => setNewWorldName(event.target.value)} />
             </label>
             <button type="submit" disabled={!newWorldName.trim() || creatingWorld}>
-              {creatingWorld ? "Creating…" : creationPath === "/" ? "Create World and open graph" : "Create World and Plan"}
+              {creatingWorld ? "Creating…" : creationPath === "/" ? "Create World" : "Create World and Plan"}
             </button>
+            {error && status !== "error" ? <p role="alert">{error}</p> : null}
           </form> : null}
           {canCreate ? <a href={worldScopedSurfaceHref("/build", selected.kind === "managed" ? selected.worldId : null)}>
             {selected.kind === "managed" ? "Open this World in Build" : "New World in Build"}
@@ -124,7 +167,7 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
           <p className="app-world-selector__hint">
             {canCreate
               ? "Creating a World reserves its identity. Native graph initialization is not available in this explorer yet; compatible existing Worlds can be explored here. Open this World in Build to manage its content."
-              : "Only existing Worlds already owned by your signed-in account and enabled on this deployment are listed. Creating Worlds, assigning ownership, and initializing native graphs are not available here."}
+              : "Only existing Worlds already owned by your signed-in account and enabled on this deployment are listed. World creation is not available here."}
           </p>
           {selected.kind === "error" ? (
             <button type="button" onClick={retrySelection}>Retry selection</button>
