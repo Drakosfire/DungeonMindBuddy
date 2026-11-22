@@ -260,15 +260,33 @@ def pending_build_query(managed_world_id, question, source_context):
     )
 
 
-_NAMED_RECAP_ENDPOINT = re.compile(r"\b(?:by|at) the end of the ([\w-]+) recap\s*[?.!]?\s*$", re.I)
+_NAMED_RECAP_ENDPOINT = re.compile(
+    r"\b(?:by|at) the end of the ([\w-]+(?:[ \t]+[\w-]+){0,5}) recap\s*[?.!]?\s*$", re.I,
+)
+
+
+def _named_recap_words(question):
+    match = _NAMED_RECAP_ENDPOINT.search(question)
+    return tuple(re.findall(r"\w+", match[1].casefold())) if match else ()
+
+
+def _named_recap_matches(words, name):
+    tokens = tuple(re.findall(r"\w+", name.casefold()))
+    # Permit a descriptive word inside an otherwise ordered name, such as
+    # "warehouse wall collapse" for the requested "warehouse collapse".
+    return any(
+        tokens[start:start + len(words)] == words
+        or (len(words) > 1 and any(
+            window[:gap] + window[gap + 1:] == words for gap in range(1, len(words))
+        ))
+        for start in range(len(tokens))
+        if len(window := tokens[start:start + len(words) + 1]) >= len(words)
+    )
 
 
 def _resolve_named_recap_bound(question, read, *, selective):
-    endpoint = _NAMED_RECAP_ENDPOINT.search(question)
-    if endpoint is None:
-        return None
-    words = tuple(re.findall(r"\w+", endpoint[1].casefold()))
-    if len(words) < 2:
+    words = _named_recap_words(question)
+    if not words:
         return None
     limit = 512
     phrase = " ".join(words)
@@ -285,7 +303,7 @@ def _resolve_named_recap_bound(question, read, *, selective):
                     and getattr(assertion.metadata.temporal_scope, "schema_term", None)
                     == "dungeonbuddy.time:fictional_anchor_v1"
                     and isinstance(name, str)
-                    and set(words).issubset(re.findall(r"\w+", name.casefold()))):
+                    and _named_recap_matches(words, name)):
                 candidates.setdefault(hit.entity.entity_id, set()).add(assertion.assertion_id)
     if len(candidates) != 1:
         return None
@@ -312,7 +330,7 @@ def _resolve_named_recap_bound(question, read, *, selective):
 def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   revision_id=None, repository=None, resolve_binding=None,
                   scope_mode='world', campaign_id=None, authored_references=None,
-                  measure_work=None):
+                  measure_work=None, resolve_named_recap=False):
     _require_gm(principal)
     measure = measure_work or (lambda _name: nullcontext())
     if authored_references is not None:
@@ -490,8 +508,10 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
     labels = _navigation_labels(_entities,
         scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None)
     objects = [NativeObjectMatchV1(entity_id=identity,label=labels[identity]) for identity in discovered]
-    with measure("native_turn_graph_named_recap_bound"):
-        recap_bound = _resolve_named_recap_bound(question, pinned[0], selective=selective)
+    recap_bound = None
+    if resolve_named_recap and _named_recap_words(question):
+        with measure("native_turn_graph_named_recap_bound"):
+            recap_bound = _resolve_named_recap_bound(question, pinned[0], selective=selective)
     query = NativeGraphQueryV4(authority=authority, question=question, named_recap_bound=recap_bound,
         assertion_matches=assertion_matches,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,

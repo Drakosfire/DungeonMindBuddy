@@ -105,3 +105,24 @@ def test_event_backed_cutoff_retains_earlier_and_other_campaign_sources():
     assert post_named_recap_source_pairs(bound, {key: value for key, value in rows.items()
         if key != ("artifact", "revision")}) == set()
     assert post_named_recap_source_pairs(None, rows) == set()
+
+
+@pytest.mark.parametrize(("request_text", "words"), [
+    ("Was it done by the end of the warehouse-collapse recap?", ("warehouse", "collapse")),
+    ("By the end of the Wandering Forest recap.", ("wandering", "forest")),
+    ("What happened at the end of the Harvest recap?", ("harvest",)),
+    ("At the end of Session 10, what did the party know?", ()),
+])
+def test_named_recap_endpoint_words(request_text, words):
+    from apps.live_control_server.services.native_graph_reads import _named_recap_words
+
+    assert _named_recap_words(request_text) == words
+
+
+def test_named_recap_requires_ordered_close_event_name():
+    from apps.live_control_server.services.native_graph_reads import _named_recap_matches
+
+    assert _named_recap_matches(("warehouse", "collapse"), "Ironveil Warehouse wall collapse")
+    assert _named_recap_matches(("wandering", "forest"), "Return to the Wandering Forest")
+    assert not _named_recap_matches(("warehouse", "collapse"), "Collapse near the warehouse")
+    assert not _named_recap_matches(("warehouse", "collapse"), "Warehouse evacuates after distant collapse")
