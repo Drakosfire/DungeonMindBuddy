@@ -80,8 +80,14 @@ def variant_output_version(work_frame):
 
 
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
-                   variant_passage_review=False, bind_lore_page=False):
+                   variant_passage_review=False, bind_lore_page=False,
+                   retained_raw_markdown=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
+    from .model_markdown import project_model_markdown
+
+    def authored_text(value):
+        return value if retained_raw_markdown else project_model_markdown(value)
+
     if (host.get('schema') != NATIVE_WORK_SCHEMA
             or set(host) - ({'schema', 'source_basis', 'artifact_under_edit'} | _OPTIONAL)):
         raise ValueError('Unclassified native Build work fields')
@@ -92,6 +98,8 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
             raise ValueError('Unclassified Build saved section')
         result = {'selection': aliases[row['read_id']],
             **{key: deepcopy(row[key]) for key in ('line_start', 'line_end', 'text') if key in row}}
+        if 'text' in result:
+            result['text'] = authored_text(result['text'])
         if 'text_ref' in row:
             if row['text_ref'] != 'working_draft_context' or 'working_draft_context' not in host:
                 raise ValueError('Unknown Build body reuse')
@@ -103,8 +111,8 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
     if 'working_draft_context' in host:
         draft = host['working_draft_context']
         work['current_draft'] = {'selection': aliases[draft['record_id']],
-            **({'passages': variant_draft_passages(host)} if variant_passage_review
-               else {'markdown': draft['draft_markdown']})}
+            **({'passages': {alias: authored_text(text) for alias, text in variant_draft_passages(host).items()}}
+               if variant_passage_review else {'markdown': authored_text(draft['draft_markdown'])})}
     if 'response_contract' in host:
         contract = host['response_contract']
         allowed = {'policy', 'requested_work', 'intent_family', 'operation', 'purpose',
@@ -145,7 +153,7 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
                 if key in editor:
                     work['edit_target'][key] = deepcopy(editor[key])
         if 'draft_markdown' in editor:
-            work['editor_markdown'] = editor['draft_markdown']
+            work['editor_markdown'] = authored_text(editor['draft_markdown'])
     if 'reviewed_discussion_scope' in host:
         scope = host['reviewed_discussion_scope']['scope']
         work['reviewed_task'] = {'objective': scope['objective_context'],
@@ -160,7 +168,7 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
         related = host['related_authored_pages']
         work['related_pages'] = [{'selection': aliases[row['read_id']],
             'title': row['page']['title'], 'visibility': row['page']['visibility'],
-            'markdown': row['markdown']} for row in related['pages']]
+            'markdown': authored_text(row['markdown'])} for row in related['pages']]
         work['related_page_availability'] = [{'title': row['page']['title'],
             'visibility': row['page']['visibility'], 'acquisition': row['acquisition']}
             for row in related['availability']]

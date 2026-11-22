@@ -311,7 +311,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     evidence = verify_input_records(receipt,graph_execution,writer,prepared_request_json,
         provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
         world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
-        play_context_receipt=play_context_receipt)
+        play_context_receipt=play_context_receipt, retained_build_proof=allow_retained_format)
     scope, action = execution.scope, graph_execution.policy.action
     capability = rules_capability(graph=True)
     if (execution.state != 'active'

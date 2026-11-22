@@ -93,7 +93,7 @@ def _domain_meaning(entries):
     return result
 
 
-def semantic_frame(host):
+def semantic_frame(host, *, project_managed_images=False):
     """Explicit projection of an owner-reconstructed current native host frame.
 
     Literal/domain payloads are context and never recursively scrubbed. Only typed
@@ -232,6 +232,8 @@ def semantic_frame(host):
             )
         )
     bodies = []
+    from .model_markdown import project_model_markdown
+
     for i, row in enumerate(host["native_body_evidence"]["excerpts"]):
         bodies.append(
             dict(
@@ -251,6 +253,8 @@ def semantic_frame(host):
                 },
             )
         )
+        if project_managed_images:
+            bodies[-1]["text"] = project_model_markdown(row["text"])
         if "prior_claim" in row:
             bodies[-1]["prior_claim"] = row["prior_claim"]
         if "planning_line_ranges" in row:
@@ -377,13 +381,13 @@ def world_context_representation(frame):
     return next(iter(forms), "current")
 
 
-def expected_semantic_frame(host, actual):
+def expected_semantic_frame(host, actual, *, project_managed_images=False):
     """Reconstruct retained producing bytes by their closed actual slot shape.
 
     Current producers always use semantic_frame. This reader does not try hashes
     or emit alternate prompts; original request and frame bindings remain exact.
     """
-    expected = semantic_frame(host)
+    expected = semantic_frame(host, project_managed_images=project_managed_images)
     actual_collection = actual.get('native_assertions')
     if actual_collection is not None and 'qualifications' not in actual_collection:
         expected = _inline_qualifications(expected)
