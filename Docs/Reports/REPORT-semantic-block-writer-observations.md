@@ -605,3 +605,22 @@ selection voted for the capture. The independent author interpretation
 reported unresolved placement, so the combined decision admitted no anchor
 and clarified. This run did not reach the writer or test preservation of the
 callout title through a rewrite.
+
+#### Add a private note to an existing scene
+
+On hosted revision `60c19c08`, a fresh conversation on the same synthetic
+Plan started from the Arrival card in Cards view. The request was “Add a
+private reminder that the guide waits at the gate. Leave the spoken material
+alone.”
+
+The writable preview preserved both spoken passages and added a GM Note with
+“The guide waits at the gate.” It omitted the existing GM Note, “Keep the
+tower sealed unless the players investigate it.” I dismissed the preview
+before saving. After reopening the exact Plan, its Markdown matched the
+baseline byte for byte. The existing note was present and the new note had
+not been saved.
+
+The retained opening selected `replace_playable_body` for the captured scene
+and authorized the writer. This case reached a preview. It failed the
+preservation check because the proposed scene body dropped unrelated material
+during an additive edit.
