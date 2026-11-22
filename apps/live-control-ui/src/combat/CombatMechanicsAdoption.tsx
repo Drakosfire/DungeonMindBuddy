@@ -3,15 +3,19 @@ import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {useTourEncounter,sameEncounterScope} from '../guidedTour/EncounterScope';
 import {AdoptionTourObservation,type AcknowledgedMechanicsAdoption} from '../guidedTour/MechanicsObservations';
 import {useEffect,useRef,useState} from 'react';
-import {adoptCombatMechanics,listAcceptedCombatMechanics,previewSavedCombatMechanics} from './combatApi';
+import {adoptCombatMechanics,listAcceptedCombatMechanics,previewConversationPortrait,previewSavedCombatMechanics} from './combatApi';
 import {listSavedMechanicsVersions} from '../api/liveApi';
-import type {AcceptedCombatMechanicsChoice,ActorMechanicsAdoption,CombatEncounterRecord,MechanicsAdoptionPreview} from './combatTypes';
+import {openSavedConversationVariant} from '../api/conversationDraftApi';
+import {admittedSavedConversationVariantHref,readSavedConversationVariantTarget} from '../statblocks/savedStatblockLocation';
+import type {AcceptedCombatMechanicsChoice,ActorMechanicsAdoption,CombatEncounterRecord,ConversationPortraitSelection,ConversationVariantCombatSnapshot,MechanicsAdoptionPreview} from './combatTypes';
 import type {SavedMechanicsLocator} from '../statblocks/revision/savedMechanicsRevisionTypes';
 import {SavedStatblockButton,useSavedStatblockSession} from '../statblocks/SavedStatblockSession';
 import {useGenerationPlan} from '../guidedTour/GenerationObservations';
 import {CombatMechanicsInspection} from './CombatMechanicsInspection';
 import {SavedAdoptionHistory} from './SavedAdoptionHistory';
 import {readPendingAdoption,sameAdoptionValue,verifyAdoptionOutcome,type PendingMechanicsAdoption} from './CombatMechanicsAdoptionRecovery';
+
+type PortraitPreview = {snapshot:ConversationVariantCombatSnapshot;source:ConversationPortraitSelection;armor_class:null;hit_points:null};
 
 export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconciled,scope}:{record:CombatEncounterRecord;disabled:boolean;scope?:import("./runEncountersApi").RunEncounterScope;
   onLockChange:(locked:boolean)=>void;onReconciled:(current:CombatEncounterRecord)=>void}) {
@@ -26,7 +30,9 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
   const [message,setMessage]=useState(''),[choices,setChoices]=useState<AcceptedCombatMechanicsChoice[]>([]),[next,setNext]=useState<number|null>(0);
   const [source,setSource]=useState<AcceptedCombatMechanicsChoice|null>(null);
   const [versions,setVersions]=useState<{label:string;locator:SavedMechanicsLocator}[]>([]),[nextVersion,setNextVersion]=useState<number|null>(null);
-  const [selected,setSelected]=useState(''),[preview,setPreview]=useState<MechanicsAdoptionPreview|null>(null);
+  const [selected,setSelected]=useState(''),[preview,setPreview]=useState<MechanicsAdoptionPreview|PortraitPreview|null>(null);
+  const [portraitLink,setPortraitLink]=useState('');
+  const portraitPreview=preview&&'source' in preview?preview:null;
   const [actors,setActors]=useState<Record<string,ActorMechanicsAdoption>>({});
   useEffect(()=>{try{setPending(readPendingAdoption(localStorage.getItem(storageKey),worldId,encounterId));}catch(error){setFatal(true);setMessage(String(error));}
     return()=>{epoch.current++;};},[storageKey,worldId,encounterId]);
@@ -57,6 +63,32 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
       setPreview(result);setActors({});setMessage('Choose actors and tracker policies, then explicitly use this version.');}
     catch(error){if(token===epoch.current)setMessage(String(error));}finally{if(token===epoch.current)setBusy(false);}
   }
+  async function openPortraitPreview(){
+    const token=++epoch.current;
+    setBusy(true);setPreview(null);setActors({});setMessage('Checking exact portrait revision…');
+    try{
+      const url=new URL(portraitLink,window.location.origin);
+      const href=url.pathname+url.search;
+      if(url.origin!==window.location.origin||url.hash||!admittedSavedConversationVariantHref(href))
+        throw new Error('Use a saved portrait statblock link from this Buddy.');
+      const target=readSavedConversationVariantTarget(href);
+      if(!target?.portraitOperationId||target.worldId!==worldId)
+        throw new Error('Use an illustrated conversation variant saved in this World.');
+      const saved=await openSavedConversationVariant(target,target.reviewId,target.portraitOperationId);
+      if(token!==epoch.current)return;
+      const selection={conversation_id:target.conversationId,turn_id:target.turnId,review_id:target.reviewId,
+        portrait_operation_id:target.portraitOperationId,locator:saved.locator};
+      const {snapshot}=await previewConversationPortrait(worldId,selection);
+      if(token!==epoch.current)return;
+      if(snapshot.origin!=='conversation_variant_mechanics_v1'||snapshot.managed_world_id!==worldId
+        ||snapshot.conversation_id!==selection.conversation_id||snapshot.turn_id!==selection.turn_id
+        ||snapshot.review_id!==selection.review_id||!sameAdoptionValue(snapshot.locator,selection.locator))
+        throw new Error('Preview belongs to another portrait revision.');
+      setPreview({snapshot,source:selection,armor_class:null,hit_points:null});
+      setMessage('Choose which actors should use the illustrated version.');
+    }catch(error){if(token===epoch.current)setMessage(String(error));}
+    finally{if(token===epoch.current)setBusy(false);}
+  }
   async function submit(retained:PendingMechanicsAdoption,cancel=false){
     const token=++epoch.current,tourAtDispatch=tourScope,tourDispatch=guidance?.captureScope()??null;setBusy(true);setMessage(cancel?'Checking cancellation…':'Applying exact saved version…');
     try{
@@ -75,12 +107,14 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
     finally{if(token===epoch.current)setBusy(false);}
   }
   function begin(){
-    if(blocked||!writer||!preview||!source||!Object.keys(actors).length)return;
+    if(blocked||!writer||!preview||(!source&&!portraitPreview)||!Object.keys(actors).length)return;
     try{
       if(localStorage.getItem(storageKey))throw new Error('A pending adoption already exists; reopen its recovery.');
+      const intention={operation_id:crypto.randomUUID(),expected_revision:record.revision,actors:Object.values(actors)};
       const retained:PendingMechanicsAdoption={schema:'dmb_pending_combat_adoption_v1',worldId,encounterId,afterDigest:preview.snapshot.snapshot_digest,
-        request:{schema:'dmb_combat_mechanics_adoption_request_v1',operation_id:crypto.randomUUID(),expected_revision:record.revision,
-          draft_id:source.draft_id,locator:preview.snapshot.locator,actors:Object.values(actors)}};
+        request:portraitPreview
+          ?{...intention,schema:'dmb_combat_conversation_portrait_adoption_v1',source:portraitPreview.source}
+          :{...intention,schema:'dmb_combat_mechanics_adoption_request_v1',draft_id:source!.draft_id,locator:preview.snapshot.locator}};
       const raw=JSON.stringify(retained);localStorage.setItem(storageKey,raw);
       if(localStorage.getItem(storageKey)!==raw)throw new Error('Could not retain adoption choices. Nothing was sent.');
       setPending(retained);void submit(retained);
@@ -102,6 +136,14 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
     {!writer&&<p>Browser recovery is unavailable. Adoption is disabled.</p>}
     <fieldset disabled={blocked}>
       <button type="button" data-guided-control="adoption" onClick={()=>void sources()}>Find saved creatures</button>
+      {!scope&&record.draft.entities.some(actor=>actor.mechanics_snapshot&&'origin' in actor.mechanics_snapshot
+        &&actor.mechanics_snapshot.origin==='conversation_variant_mechanics_v1')&&<details>
+        <summary>Use a saved conversation portrait</summary>
+        <label>Saved portrait statblock link <input type="url" value={portraitLink} onChange={event=>{
+          setPortraitLink(event.target.value);if(portraitPreview){setPreview(null);setActors({});}
+        }}/></label>
+        <button type="button" disabled={!portraitLink.trim()} onClick={()=>void openPortraitPreview()}>Preview exact portrait</button>
+      </details>}
       {choices.map(choice=><button type="button" key={choice.draft_id} onClick={()=>void loadVersions(choice)}>{choice.name}</button>)}
       {next!==null&&choices.length>0&&<button type="button" onClick={()=>void sources(next)}>More saved creatures</button>}
       {source&&<>
@@ -119,18 +161,26 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
     </section>}
     {preview&&<>
       <CombatMechanicsInspection snapshot={preview.snapshot}/>
-      <p>Saved AC: {preview.armor_class??'unavailable'} · Maximum HP: {preview.hit_points??'unavailable'}</p>
-      <p>Keep preserves tracker values. Preserve current HP can leave it above the new maximum. Clamp uses the lower value. Reset heals to full but keeps defeated status, conditions and temporary HP.</p>
+      {portraitPreview?<p>This portrait version keeps the actor’s tracked stats, conditions and notes.</p>:<>
+       <p>Saved AC: {preview.armor_class??'unavailable'} · Maximum HP: {preview.hit_points??'unavailable'}</p>
+       <p>Keep preserves tracker values. Preserve current HP can leave it above the new maximum. Clamp uses the lower value. Reset heals to full but keeps defeated status, conditions and temporary HP.</p>
+      </>}
       <fieldset disabled={blocked}>
         {record.draft.entities.map((actor,index)=>{
-          const compatible=actor.mechanics_snapshot?.locator.statblock_id===preview.snapshot.locator.statblock_id;
+          const prior=actor.mechanics_snapshot;
+          const sameCreature=prior?.locator.statblock_id===preview.snapshot.locator.statblock_id;
+          const compatible=portraitPreview?!!(sameCreature&&prior&&'origin' in prior
+            &&prior.origin==='conversation_variant_mechanics_v1'&&prior.review_id===portraitPreview.source.review_id
+            &&prior.conversation_id===portraitPreview.source.conversation_id&&prior.turn_id===portraitPreview.source.turn_id
+            &&prior.locator.revision_id!==preview.snapshot.locator.revision_id)
+            :sameCreature;
           const choice=actors[actor.id],label=`${actor.name} (${index+1})`;
           return <div key={actor.id}>
             <label><input type="checkbox" aria-label={`Select ${label}`} disabled={!compatible}
               checked={!!choice} onChange={event=>setActors(old=>{const next={...old};if(event.target.checked)next[actor.id]={actor_id:actor.id,
                 expected_snapshot_digest:actor.mechanics_snapshot!.snapshot_digest,ac_policy:'keep',hp_policy:'keep'};else delete next[actor.id];return next;})}/>{label}</label>
             {!compatible&&<span> — Different or missing source mechanics</span>}
-            {choice&&<>
+            {choice&&!portraitPreview&&<>
               <label>AC {String(actor.ac??'unset')} → {choice.ac_policy==='keep'?String(actor.ac??'unset'):preview.armor_class}
                 <select aria-label={`AC policy for ${label}`} value={choice.ac_policy} onChange={event=>setActors(old=>({...old,[actor.id]:{...choice,ac_policy:event.target.value as ActorMechanicsAdoption['ac_policy']}}))}>
                   <option value="keep">Keep tracked AC</option><option value="use_saved" disabled={preview.armor_class===null}>Use saved AC</option>
