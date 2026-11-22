@@ -119,6 +119,8 @@ class NativePlanBatchDecisionInputV3(NativeRetrievalDecisionInputV2):
 
     expanded_relevance_version: Literal["v1"] | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    graph_relevance_version: Literal["v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):
@@ -288,6 +290,15 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                 "request that the acquired material does not establish. A shared term alone "
                 "is insufficient. Prefer an exact section when it targets the same detail; "
                 "open a broader source only when it has a distinct evidence need."
+            )
+        if (type(request) is NativePlanBatchDecisionInputV3
+                and request.graph_relevance_version == "v1"
+                and _candidate.kind.startswith("Native Graph object")):
+            guidance += (
+                " Include this Graph object only when it is likely to add a requested relationship, "
+                "identity, or qualification that the acquired material does not already establish. "
+                "A named subject or general topic match alone is insufficient. Include a promising "
+                "Graph object when a requested detail is still unresolved."
             )
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
