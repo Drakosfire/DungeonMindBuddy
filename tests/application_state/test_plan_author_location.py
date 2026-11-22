@@ -15,10 +15,10 @@ from application_state.agent_conversation.plan_author_location import (
 )
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalDialogue
 from application_state.agent_conversation.native_plan_opening import (
-    NativePlanAuthorScopeInputV1, decode_author_scope_decision, prepare_author_scope_decision,
+    NativePlanAuthorScopeInputV1, author_editor_focus, decode_author_scope_decision, prepare_author_scope_decision,
     validate_author_scope_wire,
 )
-from tests.application_state.test_plan_contextual_targets import family_catalog, heading, prose
+from tests.application_state.test_plan_contextual_targets import captured_catalog, family_catalog, heading, prose
 
 
 def author_quote(text, quote, utterance_index=0):
@@ -493,6 +493,43 @@ def test_selection_reference_guidance_keeps_historical_source_blind_wire():
     guidance = new_body['questions']['location_relation']['instructions']
     assert 'without saying “selected text.”' in guidance
     assert 'the request points to another location' in guidance
+
+
+@pytest.mark.parametrize("selected,expected,phrase", [
+    (True, "text_selection", "selected existing text"),
+    (False, "caret", "unstated insertion location"),
+])
+def test_author_editor_focus_projects_only_a_semantic_fact(selected, expected, phrase):
+    from types import SimpleNamespace
+
+    capture, catalog = captured_catalog(selected=selected)
+    action = SimpleNamespace(authoring_capture=capture, placement_catalog=catalog)
+    assert author_editor_focus(action) == expected
+    parent = NativePlanAuthorScopeInputV1(
+        question="Make a change to this.", dialogue=(), max_span_attempts=100,
+        quote_context=False, assess_page_edit=True, implicit_caret_version="v1",
+    )
+    legacy = prepare_author_scope_decision(parent)
+    current = prepare_author_scope_decision(parent.model_copy(update={"editor_focus": expected}))
+    assert set(current.state) == set(legacy.state) | {"current_editor_focus"}
+    assert phrase in current.state["current_editor_focus"]
+    state = json.dumps(current.state)
+    assert capture.document_id not in state
+    if selected:
+        assert capture.selected_text not in state
+    assert author_editor_focus(SimpleNamespace(authoring_capture=None, placement_catalog=None)) is None
+
+
+@pytest.mark.parametrize("quoted", [False, True])
+def test_explicit_plan_location_keeps_its_existing_provider_wire(quoted):
+    parent = NativePlanAuthorScopeInputV1(
+        question="Add a Read Aloud immediately after the first paragraph in Arrival.",
+        dialogue=(), max_span_attempts=100, quote_context=quoted, assess_page_edit=True,
+        implicit_caret_version="v1", selection_reference_version="v1",
+    )
+    named = prepare_author_scope_decision(parent)
+    with_caret = prepare_author_scope_decision(parent.model_copy(update={"editor_focus": "caret"}))
+    assert named == with_caret
 
 
 def bind(nodes, scope, **kwargs):

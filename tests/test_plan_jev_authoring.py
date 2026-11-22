@@ -296,14 +296,14 @@ def test_semantic_destination_unknown_outcome_never_resends(plan_adapter):
     )
 
 
-def admitted_authoring(plan_adapter, *, admit=True, placement="captured"):
+def admitted_authoring(plan_adapter, *, admit=True, placement="captured", selected=False):
     """Use actual Content, conversation and provider owners for a live target."""
     import asyncio
     from dataclasses import replace
     from application_state.content.service import create_world_plan, commit_plan
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.plan_authoring import (
-        PlanAuthoringCaptureV1,
+        PlanAuthoringCaptureV1, text_digest,
     )
     from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
 
@@ -334,7 +334,6 @@ def admitted_authoring(plan_adapter, *, admit=True, placement="captured"):
         expected_pointer_revision=pointer.revision,
     )
     if placement == "under:0":
-        from application_state.agent_conversation.plan_authoring import text_digest
         editor = json.dumps({"type": "doc", "content": [
             {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Preparation"}]},
             {"type": "paragraph", "content": [{"type": "text", "text": "Existing notes."}]},
@@ -342,6 +341,11 @@ def admitted_authoring(plan_adapter, *, admit=True, placement="captured"):
         draft = "## Preparation\n\nExisting notes."
         payload.update(editor_json=editor, editor_sha256=text_digest(editor),
             draft_markdown=draft, draft_sha256=text_digest(draft))
+    if selected:
+
+        selection = '{"type":"text","anchor":1,"head":14}'
+        payload.update(selection_json=selection, selection_sha256=text_digest(selection),
+            target_kind="replace_selection", selected_text="A live draft.", **{"from": 1, "to": 14})
     capture = PlanAuthoringCaptureV1.model_validate(payload)
     basis = plan_adapter.work.content_basis.model_copy(
         update={
@@ -372,10 +376,14 @@ def admitted_authoring(plan_adapter, *, admit=True, placement="captured"):
         end = PlanPlacementOptionV1(selector="under:0", kind="after_heading",
             label="Directly below the heading Preparation, before its existing body",
             root_boundary=1, position=13, target_capture_sha256="0"*64)
-    end = end.model_copy(update={"target_capture_sha256":end.derived_target(capture).sha256})
+    captured = PlanPlacementOptionV1(selector="captured", kind="captured_target",
+        label="Replace selected text" if selected else "At captured caret",
+        root_boundary=None, position=None, target_capture_sha256=capture.sha256)
+    entries = (captured,)
+    if not selected:
+        entries += (end.model_copy(update={"target_capture_sha256": end.derived_target(capture).sha256}),)
     catalog = PlanPlacementCatalogV1(original_capture_sha256=capture.sha256, editor_sha256=capture.editor_sha256,
-        entries=({"selector":"captured", "kind":"captured_target", "label":"At captured caret",
-            "root_boundary":None,"position":None,"target_capture_sha256":capture.sha256},end))
+        entries=entries)
     plan_adapter.request = plan_adapter.request.model_copy(
         update={"primary_work": primary, "plan_authoring_capture": capture, "plan_placement_catalog":catalog}
     )
@@ -428,15 +436,16 @@ def test_agent_reservation_marks_both_owners_before_commit_and_replays_exactly(
     )
 
 
-def _claim_contextual_scope_turn(plan_adapter):
+def _claim_contextual_scope_turn(plan_adapter, *, selected=False):
     from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2, PlanPlacementOptionV2
     from application_state.agent_conversation.types import NativeCorpusUnavailableV1, PlanContextPolicyV2
 
-    capture, _ = admitted_authoring(plan_adapter, admit=False)
+    capture, _ = admitted_authoring(plan_adapter, admit=False, selected=selected)
     catalog = PlanPlacementCatalogV2(original_capture_sha256=capture.sha256,
         editor_sha256=capture.editor_sha256, entries=(PlanPlacementOptionV2(
-            selector='captured', kind='captured_target', label='At the captured text caret',
+            selector='captured', kind='captured_target',
+            label='Replace only the captured selection' if selected else 'At the captured text caret',
             source_root_index=None, root_boundary=None, position=None, target_capture_sha256=capture.sha256),))
     plan_adapter.request = plan_adapter.request.model_copy(update={'plan_placement_catalog': catalog,
         'plan_context_policy': PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
@@ -492,6 +501,9 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
     foreign = parent.model_copy(update={'request_manifest_sha256': '0' * 64})
     with pytest.raises(ApplicationStateValidationError, match='admitted Plan request or dialogue'):
         admit(foreign)
+    forged_focus = parent.model_copy(update={'editor_focus': 'text_selection'})
+    with pytest.raises(ApplicationStateValidationError, match='admitted Plan request or dialogue'):
+        admit(forged_focus)
     stored, fresh = admit(parent)
     assert fresh
     assert stored.graph_context_execution.events == [*turn.graph_context_execution.events, authorization]
@@ -508,6 +520,7 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
 @pytest.mark.parametrize('provider_case', [
     'success', 'disagreeing_recheck', 'capture_rewrite_recheck', 'substituted_observation', 'unknown_outcome',
     'discussion_veto', 'edit_permission_disagreement', 'explicit_editor_operation',
+    'implicit_caret_request', 'deictic_selection_request',
 ])
 def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         plan_adapter, monkeypatch, application_state_dsn, provider_case):
@@ -528,6 +541,16 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         message = 'Rewrite only the selected sentence to retain its meaning and add a precaution.'
     else:
         message = 'Add a note at the caret and mention the Equipment section.'
+    if provider_case == 'implicit_caret_request':
+        message = ('Add what the players see and hear at the boardwalk. '
+                   'Give me a private reminder to leave the tower sealed unless the players investigate.')
+    selected = provider_case == 'deictic_selection_request'
+    if selected:
+        message = 'Rewrite this to emphasize the three lanterns.'
+    ordinary_relation = {
+        'deictic_selection_request': 'replace_explicit_selection',
+        'implicit_caret_request': 'unstated_insertion_location',
+    }.get(provider_case, 'insert_at_explicit_caret')
     operation = 'write_current_page' if provider_case == 'explicit_editor_operation' else None
     request_fields = {'message': message, 'plan_requested_operation': operation}
     if operation is not None:
@@ -536,7 +559,7 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         request_fields['plan_context_policy'] = PlanContextPolicyV2(
             policy='auto_plan_world', graph_source='reviewed_native_graph')
     plan_adapter.request = plan_adapter.request.model_copy(update=request_fields)
-    _, turn = _claim_contextual_scope_turn(plan_adapter)
+    capture, turn = _claim_contextual_scope_turn(plan_adapter, selected=selected)
     dispatch = PlanJevDispatch.author_scope(plan_adapter)
     requests = []
     if provider_case == 'substituted_observation':
@@ -555,7 +578,12 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         current = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
         assert current.graph_context_execution.events[-1].outcome == 'sdk_entered'
         wire = json.loads(request.content)
-        expected = {'current_request', 'dialogue', 'scope_hypotheses'}
+        expected = {'current_request', 'dialogue', 'scope_hypotheses', 'current_editor_focus'}
+        focus = wire['state']['current_editor_focus']
+        assert ('selected existing text' if selected else 'has a text caret') in focus
+        if selected:
+            assert capture.selected_text not in request.content.decode()
+        assert capture.document_id not in request.content.decode()
         if operation is not None:
             expected.add('explicit_editor_operation')
             assert wire['state']['explicit_editor_operation'] == operation
@@ -567,7 +595,7 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
             for row in wire['state']['scope_hypotheses'].values())
         relation = ('after_paragraph' if provider_case == 'capture_rewrite_recheck' else
             'after_heading' if len(requests) == 2 and provider_case == 'disagreeing_recheck'
-            else 'insert_at_explicit_caret')
+            else ordinary_relation)
         permission = ('discussion' if provider_case == 'discussion_veto'
             or (provider_case == 'edit_permission_disagreement' and len(requests) == 2) else 'page_edit')
         selections = {'location_relation': relation, 'existing_scope': 'none', 'page_edit_intent': permission}
@@ -601,7 +629,7 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
     assert type(events[-1]) is NativePlanAuthorScopeObservedV1
     assert events[-1].scope_observation == observation
     assert observation.relation == ('after_paragraph' if provider_case == 'capture_rewrite_recheck'
-        else 'insert_at_explicit_caret')
+        else ordinary_relation)
     assert observation.scope == UnscopedLocation()
     assert events[-1].actual_output_tokens == result.observation.output_tokens == 9
     assert require_retained_author_scope(current.graph_context_execution, events[-1].event_id, observation) == events[-1]
@@ -631,7 +659,7 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
 
         async def adjudicate(request):
             wire = json.loads(request.content)
-            assert set(wire['state']) == {'current_request', 'dialogue'}
+            assert set(wire['state']) == {'current_request', 'dialogue', 'current_editor_focus'}
             assert str(events[-1].event_id) not in request.content.decode()
             criteria = wire['questions']['adjudicated_scope']['criteria']
             desired = 'Replace the selected text' if provider_case == 'capture_rewrite_recheck' else 'Insert at the caret'
