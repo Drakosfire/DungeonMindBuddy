@@ -70,7 +70,7 @@ _PASSIVE_MOVE = re.compile(
 )
 _DESTINATION_START = re.compile(
     r"\s+(?:into\s+|onto\s+|(?<!next\s)(?<!close\s)to\s+|"
-    r"(?:(?:one|a)\s+(?:slot|column)\s+)?right(?=(?:[-\s]+hand\b)|\s+(?:by|one|a|in|within|on|from|slot|column)\b|[,.!?]|\s*$))",
+    r"(?:(?:one|a)\s+(?:slot|column)\s+)?right(?=(?:[-\s]+hand\b)|\s+(?:by|one|a|in|into|onto|within|on|from|slot|column)\b|[,.!?]|\s*$))",
     re.IGNORECASE,
 )
 _RIGHT_DIRECTION = re.compile(r"\bright(?:wards?)?\b", re.IGNORECASE)
@@ -96,6 +96,12 @@ _ALTERNATIVE_DIRECTION = re.compile(
     r"\b(?:left|above|below|up(?:wards?)?|down(?:wards?)?|diagonal(?:ly)?|top|bottom|"
     r"instead|or|far|rightmost|last|outermost|elsewhere|and then)\b|"
     r"\bright\s+(?:before|after|now|away)\b|;",
+    re.IGNORECASE,
+)
+_PRESERVE_SURROUNDINGS = re.compile(
+    r";\s*(?:keep|leave|retain|preserve)\s+(?:the\s+)?"
+    r"(?:surrounding\s+(?:notes|text|prose|content)|everything\s+else)"
+    r"(?:\s+(?:unchanged|untouched|intact))?[.!]?\s*$",
     re.IGNORECASE,
 )
 _CONDITIONAL = re.compile(r"\b(?:if|assuming|provided|hypothetical(?:ly)?)\b", re.IGNORECASE)
@@ -372,6 +378,9 @@ class BuildImageMoveDecision:
         if _EXCLUDED_TARGET.search(_mask_quoted_labels(location + " " + object_text)):
             return BuildImageMoveNomination("ambiguous")
         destination = masked_clause[split.start():]
+        preservation = _PRESERVE_SURROUNDINGS.search(destination) if affirmation is not None else None
+        if preservation is not None:
+            destination = destination[:preservation.start()]
         if _OTHER_ROW.search(masked_scope):
             return BuildImageMoveNomination("different_row")
         if (not _RIGHT_DIRECTION.search(destination) or _ALTERNATIVE_DIRECTION.search(destination)
