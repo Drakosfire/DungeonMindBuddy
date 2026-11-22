@@ -381,8 +381,7 @@ class PlanJevDispatch:
                 selected, first_batch = decode_opening_decision(self.parent, result)
             else:
                 selected = (decode_requested_work_decision if semantic else decode_selection)(self.parent, result)
-            turn = a.fence.turn
-            execution = turn.graph_context_execution
+            execution = a.fence.plan_execution_checkpoint()
             placement = isinstance(self.parent, PlanRequestedWorkInputV2)
             if composed:
                 resolved = composed_opening_fields(self.parent, result) | {
@@ -438,7 +437,7 @@ class PlanJevDispatch:
             else:
                 event_type, kind = t.PlanJevRetrievalSelectionV1, 'plan_jev_retrieval_selected_v1'
             event = event_type(kind=kind, event_id=uuid4(),
-                sequence=len(execution.events), context_receipt_sha256=execution.context_receipt_sha256,
+                sequence=execution.sequence, context_receipt_sha256=execution.context_receipt_sha256,
                 execution_policy_sha256=execution.execution_policy_sha256,
                 controller_attempt_id=self.authorization.provider_attempt_id, decision_request_id=self.parent.request_id,
                 controller_envelope_sha256=self.prepared.body_sha256, parent_request_sha256=self.parent.digest,
@@ -463,9 +462,9 @@ class PlanJevDispatch:
         )
 
         adapter = self.adapter
-        execution = adapter.fence.turn.graph_context_execution
+        execution = adapter.fence.plan_execution_checkpoint()
         observation = decode_author_scope_decision(self.parent, result)
-        event = NativePlanAuthorScopeObservedV1(event_id=uuid4(), sequence=len(execution.events),
+        event = NativePlanAuthorScopeObservedV1(event_id=uuid4(), sequence=execution.sequence,
             decision_request_id=self.parent.request_id, controller_attempt_id=self.authorization.provider_attempt_id,
             context_receipt_sha256=execution.context_receipt_sha256,
             execution_policy_sha256=execution.execution_policy_sha256,
