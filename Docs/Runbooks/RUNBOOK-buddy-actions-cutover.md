@@ -7,7 +7,7 @@ retain the separate paired backup rehearsal and migration procedure.
 
 ## One-time production setup
 
-1. An operator installs the reviewed scripts/activate_buddy_release.sh as
+1. An operator installs the reviewed deploy/production/activate-buddy-release as
    /usr/local/sbin/activate-buddy-release (root:root, mode 0755). Use a dedicated
    buddy-deploy OS account with no password login or Docker membership. Keep its
    SSH authorized-keys file and parent directories under operator control.

@@ -29,7 +29,7 @@ def cutover(tmp_path):
     )
     script = tmp_path / "activate"
     script.write_text(
-        (ROOT / "scripts/activate_buddy_release.sh").read_text()
+        (ROOT / "deploy/production/activate-buddy-release").read_text()
         .replace("/etc/buddy-deploy", str(tmp_path))
         .replace("/run/lock/buddy-production-deploy.lock", str(tmp_path / "lock"))
     )
@@ -73,7 +73,7 @@ esac
     )
     stub.chmod(0o755)
     for command, content in {
-        "curl": "exit 0\n",
+        "curl": 'if [[ ${*: -1} == https://buddy.dungeonmind.net/health/ready ]]; then printf 200; fi\n',
         "stat": "printf '0 600\\n'\n",
     }.items():
         stub = tmp_path / command
