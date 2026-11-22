@@ -1,6 +1,7 @@
 import { Fragment, memo, useMemo, type ReactNode } from "react";
-import type { Root, RootContent } from "mdast";
+import type { Blockquote, Root, RootContent } from "mdast";
 import { parseMarkdownAst } from "../../tiptap/markdown/parseMarkdownAst";
+import { defaultCalloutLabel } from "../../tiptap/markdown/calloutMarkdown";
 import { classifyLinkUrl } from "../../markdownReader/markdownReaderUrlPolicy";
 import "./WorldPlanAgentAnswer.css";
 import {SourceCitation} from "./SourceCitation";
@@ -63,7 +64,32 @@ function renderMarkdown(root: Root, source: string, allowedInternalLinks: Readon
       case "code": return <pre key={key}><code>{"value" in node ? node.value : null}</code></pre>;
       case "break": return <br key={key} />;
       case "thematicBreak": return <hr key={key} />;
-      case "blockquote": return <blockquote key={key}>{children(node)}</blockquote>;
+      case "blockquote": {
+        const quote = node as Blockquote;
+        const paragraph = quote.children[0];
+        if (paragraph?.type !== "paragraph") return <blockquote key={key}>{children(quote)}</blockquote>;
+        const first = paragraph.children[0];
+        if (first?.type !== "text") return <blockquote key={key}>{children(quote)}</blockquote>;
+
+        const marker = /^\[!READ-ALOUD\](?:[ \t]+|(?=\r?\n|$))/i.exec(first.value)?.[0];
+        if (!marker || !literal(first).startsWith(marker)) return <blockquote key={key}>{children(quote)}</blockquote>;
+
+        // Keep offsets in the original answer so verified citations still use their source positions.
+        const position = first.position;
+        const offset = position?.start.offset;
+        const text = {
+          ...first,
+          value: first.value.slice(marker.length),
+          position: position && offset !== undefined
+            ? { ...position, start: { ...position.start, offset: offset + marker.length } }
+            : position,
+        };
+        const visibleQuote = {
+          ...quote,
+          children: [{ ...paragraph, children: [text, ...paragraph.children.slice(1)] }, ...quote.children.slice(1)],
+        };
+        return <blockquote key={key}><p><strong>{defaultCalloutLabel("read-aloud")}</strong></p>{children(visibleQuote)}</blockquote>;
+      }
       case "heading": {
         const depth = "depth" in node ? node.depth : 2;
         const Tag = depth === 1 ? "h1" : depth === 2 ? "h2" : depth === 3 ? "h3" : depth === 4 ? "h4" : depth === 5 ? "h5" : "h6";
