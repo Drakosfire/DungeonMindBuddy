@@ -60,14 +60,44 @@ The current Buddy production host is `srv586875` and the SSH target is
    environment file. On the current server that file is
    `/srv/dungeonmindbuddy/secrets/buddy.env`. The operator runs the privileged
    Compose command with those inputs and the new image override last.
-   Immediately before cutover, require the mutable tag still resolves to the
-   immutable image ID recorded during step 3; stop if it differs:
-   `test "$(docker image inspect --format '{{.Id}}' "$buddy_tag")" = "$buddy_image_id"`.
-   Confirm `config --images buddy` resolves the exact staged tag, then run
-   `up -d --no-deps --pull never --wait --wait-timeout 180 buddy`. Afterward,
-   verify the running service container against the same image ID and release
-   SHA:
-   `running_buddy=$("${buddy_compose[@]}" ps -q buddy) && test -n "$running_buddy" && test "$(docker inspect --format '{{.Image}}' "$running_buddy")" = "$buddy_image_id" && test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$running_buddy")" = "$buddy_release"`.
+   Start with this setup in the operator's Bash session. Fill in the reviewed
+   SHA, the immutable image ID recorded during staging, and the verified
+   paths and project name from the release record. List the active Compose
+   files in their recorded order and put the staged image override last.
+   This setup also works when the image was staged from a source archive.
+
+   ```bash
+   buddy_release='<reviewed full release SHA>'
+   buddy_image_id='<recorded staging image ID including sha256:>'
+   buddy_tag="dungeonmindbuddy:$buddy_release"
+   buddy_compose=(sudo docker compose --project-name '<running Compose project>'
+     --env-file /srv/dungeonmindbuddy/secrets/buddy.env
+     -f '<absolute path to first active Compose file>'
+     -f '<absolute path to next active Compose file, if present>'
+     -f '<absolute path to staged image override>')
+   ```
+
+   Use one `-f` per active file before the staged override. The handoff
+   command must contain the actual values and paths. In the same Bash session,
+   check the staged image ID and resolved Compose image immediately before
+   switching. Continue only when both checks succeed.
+
+   ```bash
+   test "$(sudo docker image inspect --format '{{.Id}}' "$buddy_tag")" = "$buddy_image_id" &&
+     test "$("${buddy_compose[@]}" config --images buddy)" = "$buddy_tag" &&
+     "${buddy_compose[@]}" up -d --no-deps --pull never --wait --wait-timeout 180 buddy
+   ```
+
+   Afterward, verify the running container against the same image ID and
+   reviewed SHA.
+
+   ```bash
+   running_buddy=$("${buddy_compose[@]}" ps -q buddy) &&
+     test -n "$running_buddy" &&
+     test "$(sudo docker inspect --format '{{.Image}}' "$running_buddy")" = "$buddy_image_id" &&
+     test "$(sudo docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$running_buddy")" = "$buddy_release"
+   ```
+
    If either identity differs, stop and follow the rollback procedure. Keep the
    root-owned environment file in place and avoid printing rendered Compose
    config, which can contain secrets. Use narrowly formatted
