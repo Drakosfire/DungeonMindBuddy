@@ -701,7 +701,7 @@ def _revalidate_context_binding(context, execution):
     return context, _join_context_binding(context, execution)
 
 
-def _validate_owned_context_binding(context, execution, *, validate_records=None):
+def _validate_owned_context_binding(context, execution, *, record_fold=None):
     """Run the complete predicate owners on APP's exclusively owned prefix.
 
     This pure function grants no IO authority. A session caller must prove
@@ -715,10 +715,10 @@ def _validate_owned_context_binding(context, execution, *, validate_records=None
     if len(execution.events) > NATIVE_EXECUTION_EVENT_LIMIT:
         raise ValueError('Native execution exceeds its event bound')
     execution.actual_records()
-    return _join_context_binding(context, execution, validate_records=validate_records)
+    return _join_context_binding(context, execution, record_fold=record_fold)
 
 
-def _join_context_binding(context, execution, *, validate_records=None):
+def _join_context_binding(context, execution, *, record_fold=None):
     """Join components freshly validated by the calling construction owner."""
     action, work = execution.policy.action, context.work_context
     if (action.surface_id != work.surface_id or action.intent.world_id != work_world_id(work)
@@ -794,10 +794,14 @@ def _join_context_binding(context, execution, *, validate_records=None):
             raise ValueError("Native query differs from the unchanged submitted World question")
         if request.revision_pin is not None and request.revision_pin != query.authority.revision_id:
             raise ValueError("Native query cannot replace an explicitly requested revision")
-    if validate_records is None:
+    if record_fold is None:
         from .native_plan_statements import validate_selected_record_events
-        validate_records = validate_selected_record_events
-    validate_records(query, execution)
+        validate_selected_record_events(query, execution)
+    else:
+        from .native_record_execution import _OwnedRecordFold
+        if type(record_fold) is not _OwnedRecordFold or type(action) not in (NativePlanActionV2, NativePlanActionV3):
+            raise ValueError('Owned record fold requires the private Plan validation owner')
+        record_fold.validate(query, execution)
     from .authored_graph_references import validate_native_context
     validate_native_context(query, execution)
     from .native_batch_completion import selected_read_closure

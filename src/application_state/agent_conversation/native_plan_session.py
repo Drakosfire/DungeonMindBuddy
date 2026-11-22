@@ -26,7 +26,7 @@ from .native_execution import (
     SurfaceNativeExecutionV1, _join_turn_fields, _join_turn_lifecycle,
     _validate_owned_context_binding,
 )
-from .native_record_execution import _RecordState, _advance
+from .native_record_execution import _OwnedRecordFold
 from .service import AgentConversationService, _ready_dsn, _validate_turn_claim_lease
 from .types import ProviderAttemptAuthorizedEventV1
 
@@ -125,9 +125,13 @@ class _SessionAdmission(AgentConversationService):
         with self._owner._measure("plan_append_binding"):
             if type(candidate.events[-1]) is NativeWriterAuthorizedV1:
                 return _validate_owned_context_binding(context, candidate)
-            return _validate_owned_context_binding(
-                context, candidate, validate_records=self._owner._stage_record_validation,
-            )
+            committed = self._owner._record_validation
+            if committed is not None and committed[1] != count:
+                raise ApplicationStateIntegrityError('Record validation differs from the committed prefix')
+            fold = _OwnedRecordFold(committed)
+            validated = _validate_owned_context_binding(context, candidate, record_fold=fold)
+            self._owner._staged_record_validation = fold.staged
+            return validated
 
     def _persist_execution_append(self, conn, *, world_id, turn_id, expected_revision, execution):
         owner = self._owner
@@ -224,15 +228,6 @@ class NativePlanSession:
             raise ApplicationStateIntegrityError('Plan session differs from current locked storage')
         repo._verify_plan_checkpoint(conn, turn, self._checkpoint_base_count)
         return current
-
-    def _stage_record_validation(self, query, execution):
-        committed = self._record_validation
-        if committed is not None and query is committed[0]:
-            _, prior_count, state = committed
-        else:
-            prior_count, state = 0, _RecordState()
-        state = _advance(state, query, execution.events[prior_count:])
-        self._staged_record_validation = (query, len(execution.events), state)
 
     def _seal(self):
         self._sealed = True

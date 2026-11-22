@@ -166,3 +166,22 @@ def _advance(state, query, events):
 def validate(query, execution):
     """One recovery consumer; a pure record fold cannot authorize a full Turn."""
     _advance(_RecordState(), query, execution.events)
+
+
+class _OwnedRecordFold:
+    """Stage a selected-record fold against a session's guarded committed prefix."""
+
+    __slots__ = ("_committed", "staged")
+
+    def __init__(self, committed):
+        self._committed = committed
+        self.staged = None
+
+    def validate(self, query, execution):
+        committed = self._committed
+        if committed is not None and query is committed[0]:
+            _, prior_count, state = committed
+        else:
+            prior_count, state = 0, _RecordState()
+        state = _advance(state, query, execution.events[prior_count:])
+        self.staged = (query, len(execution.events), state)
