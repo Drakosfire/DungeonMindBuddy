@@ -231,7 +231,7 @@ def source_need(request, response):
 
 
 def selected(response, *, menu=None):
-    options = WORK if menu is None else _menu_work(menu)
+    options = _menu_work(MENU_DIGEST if menu is None else menu)
     return _selected_choice(response["answers"]["requested_work"], options)
 
 

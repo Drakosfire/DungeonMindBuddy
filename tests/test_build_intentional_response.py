@@ -482,3 +482,15 @@ def test_recovery_preserves_retained_aw10_collaboration_and_writer_schema():
     lore = schema["anyOf"][0]
     assert "open_questions" in lore["required"]
     assert label in c.WORK and label not in c.AUTHORING_WORK
+
+
+def test_recovery_opening_response_passes_the_harness_active_menu_check():
+    label = "review_lore_page"
+    response = {"answers": {"requested_work": {
+        "selected": label,
+        "probabilities": {key: float(key == label) for key in c.AUTHORING_WORK},
+    }}}
+    # The ordinary deferred-page harness uses this bare call after the actual
+    # controller has answered exactly the choices supplied by the driver.
+    assert c.selected(response) == label
+    assert c.selected(response, menu=c.MENU_DIGEST) == label
