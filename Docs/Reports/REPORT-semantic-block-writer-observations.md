@@ -410,3 +410,27 @@ was absent after reload. An earlier attempt in the same narrow viewport
 used the End key without verifying the caret and split a word in the
 Arrival paragraph. The synthetic fixture was restored before the scored
 run. That earlier attempt provides no paragraph-end placement evidence.
+
+### Hosted Play chat after adopting the ordinary Plan result
+
+On serving revision `03055f24`, starting Play from a stale open Plan tab
+reported that the selected Plan no longer matched its verified saved
+revision. Opening the World-scoped Plan route loaded the current saved
+document and allowed the normal Start session from Plan flow.
+
+The new Buddy Cloud Pilot session adopted the ordinary P01 output
+**At the Boardwalk** and its **Tower** GM Note. Arrival retained the older
+callouts and red-gate choice, and Departure was still available. The
+adopted source includes prior benchmark work, and the P01 blocks still
+precede the intended paragraph. This run therefore checks downstream
+adoption and chat without closing the clean Plan placement case.
+
+The exact PL02 request ran once in a continued World conversation and
+once in a fresh one. Both replies quoted **At the Boardwalk** and omitted
+the Tower instruction, lantern signal, and gate cue. Both displayed the
+literal `[!READ-ALOUD]` marker in chat. The fresh turn briefly showed a
+reply-details mismatch during generation and then completed. Refreshing
+the visible scene-proposal panel showed no edit. Arrival's rendered text
+was identical before the requests and after direct Play reload, and
+Departure remained selectable. Server-side edit reservations were not
+independently inspected.
