@@ -242,6 +242,25 @@ def selected(response, *, menu=None, tie_fallback=None):
     return _selected_choice(response["answers"]["requested_work"], options, tie_fallback=tie_fallback)
 
 
+def opening_image_choice(policy, response, answers, question):
+    from application_state.build_proposal.image_move_decision import (
+        IMAGE_MOVE_AFFIRMATION, admitted_image_move_choice,
+    )
+
+    choice = admitted_image_move_choice(answers, question)
+    if choice != "unresolved" or answers.get(IMAGE_MOVE_AFFIRMATION.name) != "description_or_discussion":
+        return choice
+    if answers["image_move_intent"] != "other":
+        return choice
+    _, _, menu, _ = _captured_semantics(policy)
+    try:
+        if selected(response, menu=menu) == "discuss":
+            return "other"
+    except ValueError:
+        pass  # An invalid or tied general vote cannot route ordinary discussion.
+    return choice
+
+
 def opening_work(policy, request, response, image_choice):
     _, _, menu, _ = _captured_semantics(policy)
     # An independently admitted image choice does not use otherwise valid

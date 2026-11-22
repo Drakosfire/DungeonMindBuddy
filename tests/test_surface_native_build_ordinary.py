@@ -82,6 +82,7 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
     ("Move the Harbour map to the slot on its right.", "forged_editor"),
     ("What would happen if we moved the Harbour map to the next slot?", "other_discussion"),
     ("How would it look in the empty slot?", "other_discussion"),
+    ("How would it look in the empty slot?", "other_discussion_tied_work"),
     ("Move the Harbour map to the empty slot on its right.", "tied_menu"),
     ("Move the Harbour map beside the departure advice to the empty slot on its right.", "duplicate_context"),
 ])
@@ -484,14 +485,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert image_move and "Harbour map" in str(body["state"]["interaction"]["image_move"])
                     assert asset_id not in json.dumps(body)
                     assert all(value not in json.dumps(body) for value in ("map-block", "harbour-row", "left-slot"))
-                    chosen = {"image_move_intent": "other" if image_move == "other_discussion" else "move_existing",
+                    advice = image_move in {"other_discussion", "other_discussion_tied_work"}
+                    chosen = {"image_move_intent": "other" if advice else "move_existing",
                               "image_move_destination": "same_row_right", "image_move_occurrence": "image1",
-                              "image_move_affirmation": "description_or_discussion" if image_move == "other_discussion"
+                              "image_move_affirmation": "description_or_discussion" if advice or image_move == "discussion"
                                   else "author_requests_move", "image_move_contextual_identity": "image1"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                                          probabilities={key: float(key == chosen) for key in choices})
                     continue
-                if name == "requested_work" and image_move == "tied_menu":
+                if name == "requested_work" and image_move in {"tied_menu", "other_discussion_tied_work"}:
                     voting = {"discuss": .4, "clarify_request": .4, "other_creation": .2}
                     answers[name] = dict(type="choice", choice="other_creation", confidence=.2,
                                          probabilities={key: voting.get(key, 0) for key in choices})
@@ -656,6 +658,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only'
+                    or image_move == "other_discussion"
                     or current_work in {"review_lore_page", "review_lore_page_from_conversation"})
             assert 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
@@ -703,6 +706,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if image_move == "other_discussion":
+                candidate["answer_segments"] = [
+                    dict(kind="discussion", text="The image would sit to the right of the nearby material."),
+                ]
             if saved_statblock in {"associated", "by-name"}:
                 candidate["answer_segments"] = [dict(kind="statblock_pdf_claim",
                     source="pdf0:0", quote="Hit Points 41")]
@@ -1164,6 +1171,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
+        if image_move == "other_discussion":
+            assert response.status_code == 200, response.text
+            context = response.json()["knowledge_context"]
+            assert context["completion"]["schema"] != "dmb_build_image_move_completion_v1"
+            assert "The image would sit to the right" in str(context["completion"])
+            assert len(writer.calls) == 1
+            with pytest.raises(ApplicationStateNotFoundError):
+                BuildImageMoveReviewService().get(world, writer.adapter.turn.turn_id)
+            counts = len(decisions.calls), len(writer.calls)
+            replay = client.post("/api/live/agent/turn", json=body)
+            assert replay.status_code == 200 and replay.json()["knowledge_context"]["delivery_replay"] is True
+            assert (len(decisions.calls), len(writer.calls)) == counts
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            assert lane.repo.get_head(world).head_revision_id == current_revision
+            return
         if image_move in {"foreign_capture", "forged_editor"}:
             assert response.status_code == (422 if image_move == "foreign_capture" else 409), response.text
             assert not decisions.calls and not writer.calls
@@ -1171,7 +1193,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return
         assert response.status_code == 200, response.text
         completion = response.json()["knowledge_context"]["completion"]
-        expected = {"other_discussion": "discussion", "tied_menu": "ready", "duplicate_context": "ready"}.get(image_move, image_move)
+        expected = {"tied_menu": "ready", "duplicate_context": "ready",
+                    "other_discussion_tied_work": "discussion"}.get(image_move, image_move)
         assert completion["disposition"] == expected
         turn_id = writer.adapter.turn.turn_id
         if expected == "ready":

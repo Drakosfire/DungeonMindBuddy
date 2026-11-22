@@ -615,6 +615,8 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("Move the Map right one slot within this row.", "ready"),
         ("Slide the Map right into the vacant slot.", "ready"),
         ("Transfer the Map right; preserve unrelated figures.", "ready"),
+        ("Transfer the Map right; keep all existing paragraphs intact.", "ready"),
+        ("Transfer the Map right; retain the existing written material.", "ready"),
         ("Transfer the Map right; remove unrelated figures.", "unsupported"),
         ("Move the Map to the empty right column; retain the surrounding notes.", "ready"),
         ("Move the Map to the empty right column; retain the surrounding notes and then remove the heading.", "unsupported"),

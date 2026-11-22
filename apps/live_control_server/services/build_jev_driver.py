@@ -1267,9 +1267,8 @@ class BuildJevDriver:
             if (a.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
                 from application_state.agent_conversation.build_intentional_response import (
                     MENU_DIGEST, RESOLVER_DIGEST, UnresolvedDiscussionSource,
-                    opening_work, operation_id, resolution_for,
+                    opening_image_choice, opening_work, operation_id, resolution_for,
                 )
-                from application_state.build_proposal.image_move_decision import admitted_image_move_choice
                 from generationengine.types import DecisionResult
                 from uuid import uuid4
                 from application_state.agent_conversation.build_intentional_response import paragraph_placement_for
@@ -1290,7 +1289,8 @@ class BuildJevDriver:
                 execution = a._broker_execution()
                 request = json.loads(prepared.body)
                 graph_reference = resolve_graph_reference_opening(request, actual_response)
-                image_move = (admitted_image_move_choice(
+                image_move = (opening_image_choice(
+                    execution.policy, json.loads(raw),
                     self.image_move.opening_answers(request, actual_response), a.request.message,
                 ) if self.image_move is not None else None)
                 image_terminal = image_move in {"move_existing", "unresolved"}

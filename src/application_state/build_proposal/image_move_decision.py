@@ -117,8 +117,9 @@ _ALTERNATIVE_DIRECTION = re.compile(
     re.IGNORECASE,
 )
 _PRESERVE_SURROUNDINGS = re.compile(
-    r";\s*(?:keep|leave|retain|preserve)\s+(?:the\s+)?"
-    r"(?:(?:surrounding|unrelated|other)\s+(?:notes|text|prose|content|images?|figures?)|everything\s+else)"
+    r";\s*(?:keep|leave|retain|preserve)\s+(?:(?:all|the)\s+)?"
+    r"(?:(?:surrounding|unrelated|other|existing)\s+"
+    r"(?:notes|text|prose|content|images?|figures?|paragraphs?|captions?|written\s+material)|everything\s+else)"
     r"(?:\s+(?:unchanged|untouched|intact))?[.!]?\s*$",
     re.IGNORECASE,
 )
