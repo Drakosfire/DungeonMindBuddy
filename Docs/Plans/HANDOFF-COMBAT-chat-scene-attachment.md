@@ -24,3 +24,7 @@ Likely integration owners are the native Plan ordinary-turn policy and output, t
 Prove the ordinary signed-in entry point routes to a typed, read-only preview. Test the scope boundary, model input, ambiguity, source and target staleness, an already prepared scene, confirmation, and same-request recovery. At the Combat owner verify the copy preserves exact actor snapshots, stats and groups and does not mutate the source. Reopen the preview after reload. Verify Play captures the prepared version and still requires explicit Start.
 
 The saved Old Bath House standalone encounter and the Edge Meat Mind revision already exist. The real hosted acceptance requires Alan's approved marked scene, approved minion, and an authorized disposable or test Play run. These are acceptance inputs and do not gate provider-free implementation.
+
+The hosted destination is Session 32 — Old Bath House, scene The welcome. The signed-in statblock workbench created and reopened the Bath House Meatling draft on the reviewed hosted route release. Two candidate-generation operations ended at the downstream provider with an authentication error, so there is no accepted Meatling revision yet.
+
+The Combat preview owner resolves the full title within the verified World, rejects ambiguous matches, and returns the exact copyable source revision after checking the saved target. This remains read-only. The ordinary Buddy turn integration and confirmation entry point are still pending.
