@@ -721,10 +721,38 @@ def prior_conversation_work(events):
 
 def conversation_route_can_admit(receipt, execution):
     from .native_context import NativeBuildQueryPendingV1
-    from .native_execution import NativeBuildQuerySettledV1
+    from .native_execution import NativeBuildActionV1, NativeBuildQuerySettledV1
+    from .native_plan_statements import NativePlanQueryUnavailableV1
 
-    return (isinstance(getattr(receipt, "native_query", None), NativeBuildQueryPendingV1)
-            and not any(isinstance(event, NativeBuildQuerySettledV1) for event in execution.events))
+    if any(isinstance(event, NativeBuildQuerySettledV1) for event in execution.events):
+        return False
+    query = getattr(receipt, "native_query", None)
+    if isinstance(query, NativeBuildQueryPendingV1):
+        return True
+
+    source = getattr(receipt, "source_authority", None)
+    action = getattr(execution.policy, "action", None)
+    if (type(query) is not NativePlanQueryUnavailableV1
+            or query.reason != "native_graph_binding_unavailable"
+            or type(source) is not NativeCorpusAuthorityV1
+            or type(action) is not NativeBuildActionV1):
+        return False
+    intent = action.intent
+    if (query.managed_world_id != source.managed_world_id
+            or intent.world_id != source.managed_world_id
+            or intent.reviewed_step is not None
+            or getattr(intent, "authored_references", None) is not None
+            or getattr(intent.graph_request, "revision_pin", None) is not None):
+        return False
+
+    # Unavailable queries bypass the pending-query validator. Preserve its
+    # no-acquisition invariant here, including checks after prior admission.
+    from . import types as t
+    from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
+
+    return not any(isinstance(event, (*t.NATIVE_BODY_EVENTS, NativeRetrievalAuthorizedV1,
+        NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, t.RelatedPageRead))
+        for event in execution.events)
 
 
 def resolve_prior_body_citation(current, prior, reference, *, history_turn_ids):
