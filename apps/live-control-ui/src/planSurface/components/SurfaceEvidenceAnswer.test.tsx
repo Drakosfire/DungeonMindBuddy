@@ -6,6 +6,31 @@ import {getAgentSourcePassage,getAgentNativeSourceClause,getAgentNativeAssertion
 vi.mock('../../api/liveApi',()=>({getAgentSourcePassage:vi.fn(),getAgentNativeSourceClause:vi.fn(),getAgentNativeAssertionSource:vi.fn(),getNativeRelatedRecaps:vi.fn(),readNativeRecapPage:vi.fn()}));
 import {SurfaceEvidenceAnswer} from './SurfaceEvidenceAnswer';
 import type {SurfaceEvidenceCompletionV1} from '../../api/types';
+
+it('shows the proposed source revision and scene only in the matching World Plan', () => {
+  const completion = structuredClone(sharedWire.context.completion) as import('../../api/types').SurfaceNativeCompletionV1;
+  completion.surface_id = 'plan';
+  completion.answer_segments = [];
+  completion.encounter_attachment_preview = {
+    world_id: 'elderwyld',
+    scene_title: 'Old Bath House',
+    encounter_title: 'Bath House roster',
+    source_revision: 3,
+    participants: ['Edge Meat Mind', 'Bath House Meatling'],
+    groups: ['Bench seam minions'],
+  };
+  const {rerender} = render(<SurfaceEvidenceAnswer completion={completion} worldId="elderwyld"/>);
+  const preview = screen.getByRole('region', {name: 'Proposed encounter attachment'});
+  expect(preview).toHaveTextContent('Bath House roster · revision 3');
+  expect(preview).toHaveTextContent('Prepare for Old Bath House');
+  expect(preview).toHaveTextContent('Edge Meat Mind');
+  expect(preview).toHaveTextContent('Bench seam minions');
+  rerender(<SurfaceEvidenceAnswer completion={completion} worldId="elsewhere"/>);
+  expect(screen.queryByRole('region', {name: 'Proposed encounter attachment'})).toBeNull();
+  rerender(<SurfaceEvidenceAnswer completion={{...completion, surface_id: 'play'}} worldId="elderwyld"/>);
+  expect(screen.queryByRole('region', {name: 'Proposed encounter attachment'})).toBeNull();
+});
+
 function evidence():SurfaceEvidenceCompletionV1 {
  return {schema:'dmb_surface_evidence_completion_v1',surface_id:'plan',context_receipt_sha256:'a'.repeat(64),
  answer_basis:'mixed_evidence',answer_context_status:'authored_grounded',citation_map:null,source_citations:[],answer_segments:[
