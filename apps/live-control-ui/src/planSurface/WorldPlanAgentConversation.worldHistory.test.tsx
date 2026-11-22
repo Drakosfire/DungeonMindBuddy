@@ -62,6 +62,7 @@ vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({
   usePublishAgentSurfaceContext: () => undefined,
 }));
 
+import * as hostedAuth from "../auth/HostedAuthGate";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { WorldAgentConversationProvider, useWorldAgentConversationState } from "../agentInteraction/WorldAgentConversation";
 import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
@@ -1467,6 +1468,32 @@ const cardEditScope: Partial<ConversationTestProps> = {
 };
 
 describe("World Plan conversation consumer", () => {
+
+  it.each(["authenticated", "local_operator"] as const)(
+    "loads legacy Plan action projections only for the local operator (%s)",
+    async (status) => {
+      vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+        status, refreshWarning: false, subject: status === "authenticated" ? "pilot-owner" : null,
+        displayName: null,
+      });
+      const api = setupApi(history("conversation-a", 4, []));
+      const documentActions = vi.mocked(liveApi.getWorldPlanDocumentEditActions);
+      const conversationActions = vi.mocked(liveApi.getWorldPlanConversationActions);
+
+      await mountComponent();
+      await waitForConversationReady();
+      expect(api.getMessages).toHaveBeenCalledWith(worldId, undefined, expect.any(AbortSignal));
+
+      if (status === "local_operator") {
+        expect(documentActions).toHaveBeenCalledWith(worldId, documentId);
+        await waitFor(() => expect(conversationActions).toHaveBeenCalledWith(worldId, "conversation-a"));
+      } else {
+        expect(documentActions).not.toHaveBeenCalled();
+        expect(conversationActions).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it.each(["failed", "indeterminate", "pending"] as const)("mounts lazy evidence inspection for a %s saved Action without an Ask identity", async (status) => {
     setupApi(history("conversation-a", 4, []));
     const action = {
