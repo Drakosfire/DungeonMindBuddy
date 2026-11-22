@@ -2985,6 +2985,7 @@ def test_anchored_lore_label_on_eager_graph_route_preserves_related_context(lane
     ("anchored", "Create a page for Glass Regent."),
     ("uncertain", "Create a page for Glass Regent."),
     ("anchored", "Create the page about Glass Regent"),
+    ("source_head_unavailable", "Create the page about Glass Regent"),
 ])
 def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry, synthesis):
     from application_state.agent_conversation.native_corpus import acquired_body_reads
@@ -3003,7 +3004,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         message="Create a blank page for Glass Regent.",
         requested_work=lambda message: "review_lore_page_from_conversation" if message == synthesis else "review_lore_page",
         native_body="direct_support", dispatch=first, lore_limitation=True,
-        source_need=lambda message: carry if message == synthesis else "source_lookup",
+        source_need=lambda message: ("anchored" if carry == "source_head_unavailable" else carry) if message == synthesis else "source_lookup",
     )
     blank = case.turn
     assert not blank.completion.answer_segments
@@ -3034,7 +3035,19 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
             pytest.fail("Conversation-only draft started Graph preparation")
 
         with monkeypatch.context() as patch:
-            patch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+            if carry == "source_head_unavailable":
+                from apps.live_control_server.services import plan_source_turn
+                from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
+
+                patch.setattr(plan_source_turn, "prepare", lambda world, *args, **kwargs: (
+                    None, t.NativeCorpusUnavailableV1(managed_world_id=world,
+                        failure_code="native_source_head_unavailable")))
+                # New Worlds have neither an admitted corpus head nor object Graph.
+                patch.setattr(native_graph_reads, "prepare_query", lambda world, *args, **kwargs: (
+                    None, NativePlanQueryUnavailableV1(managed_world_id=world,
+                        reason="native_graph_binding_unavailable")))
+            else:
+                patch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
             response = workflow.capture_case(
                 case.client, case.world, template, {"question": synthesis},
                 tmp_path / "lore-synthesis", build_thread_id=thread_id,
@@ -3044,7 +3057,10 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
         row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
         populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
-        assert isinstance(populated.graph_context_receipt.native_query, NativeBuildQueryPendingV1)
+        if carry == "source_head_unavailable":
+            assert populated.graph_context_receipt.source_authority.failure_code == "native_source_head_unavailable"
+        else:
+            assert isinstance(populated.graph_context_receipt.native_query, NativeBuildQueryPendingV1)
         assert not any(isinstance(e, NativeBuildQuerySettledV1) for e in populated.graph_context_execution.events)
         from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
         assert native_conversation_terminal(populated)["reason"] == (
