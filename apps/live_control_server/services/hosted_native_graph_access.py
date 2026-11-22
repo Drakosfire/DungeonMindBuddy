@@ -1070,7 +1070,7 @@ async def resolve_hosted_saved_artwork(request: Request) -> str:
     except ValueError:
         raise _denied() from None
 
-    for world_id in sorted(_owner_world_candidates(subject)):
+    for world_id in sorted(await run_in_threadpool(_owner_world_candidates, subject)):
         try:
             await run_in_threadpool(media.get_asset, asset_id, hosted_world_media_owner(world_id))
         except ApplicationStateNotFoundError:
