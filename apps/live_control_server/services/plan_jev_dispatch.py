@@ -128,6 +128,7 @@ class PlanJevDispatch:
             if initial_source_discovery_enabled(adapter.fence.turn.graph_context_execution):
                 from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
                 codec = NativePlanBatchDecisionInputV3
+                fields['graph_relevance_version'] = 'v1'
                 if bounded_continuation:
                     fields["bounded_continuation"] = bounded_continuation
                 if source_expansion_selected(adapter.fence.turn):
