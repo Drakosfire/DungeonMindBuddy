@@ -2259,8 +2259,31 @@ class AgentConversationService:
             try:
                 if isinstance(execution, SurfaceNativeExecutionV1):
                     with measure("first_jev_send_prospective_validation"):
-                        updated_execution = self._bind_execution_append(turn.graph_context_receipt,
-                            execution.model_copy(update={"events": events}))
+                        from .native_execution import (
+                            NativePlanActionV2, NativePlanActionV3,
+                            NATIVE_PLAN_WORK_SELECTION_TYPES, _validate_owned_context_binding,
+                        )
+
+                        if (
+                            type(self) is AgentConversationService
+                            and _connection is None
+                            and type(event) is ProviderOutcomeEventV1
+                            and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
+                            and native_source_materializer is None
+                            and len(events) == len(execution.events) + 1
+                            and events[-1] is event
+                            and not any(type(prior) in NATIVE_PLAN_WORK_SELECTION_TYPES for prior in execution.events)
+                        ):
+                            # The locked read decoded this prefix and receipt within
+                            # this transaction. Only the incoming outcome is external.
+                            outcome = ProviderOutcomeEventV1.model_validate_json(event.model_dump_json(by_alias=True))
+                            updated_execution = _validate_owned_context_binding(
+                                turn.graph_context_receipt,
+                                execution.model_copy(update={"events": [*execution.events, outcome]}),
+                            )
+                        else:
+                            updated_execution = self._bind_execution_append(turn.graph_context_receipt,
+                                execution.model_copy(update={"events": events}))
                 else:
                     execution_type = type(execution)
                     updated_execution = execution_type.model_validate_json(json.dumps(
