@@ -3439,6 +3439,8 @@ export function WorldPlanAgentConversation({
         if (submittedMessage?.scopeKey === scopeKey) { const key = submittedMessage.idempotencyKey ?? await worldTurnIdempotencyKey(verifiedWorldId, submittedMessage.id); if (key) keys.add(key); }
         if (documentId && !isReadOnly) for (const stored of pendingAtRead) { if (stored.envelope) { const key = await pendingPlanAskIdempotencyKey(stored); if (key) keys.add(key); } }
         for (const row of metadata.turns) {
+          // Pending activity uses the message status. Only a terminal receipt can settle a send.
+          if (row.lifecycle_status === "accepted" || row.lifecycle_status === "running") continue;
           const exactPendingTurn = row.turn_id === pendingPlayTurn?.request.turn_id;
           if ((!exactPendingTurn && !keys.has(row.idempotency_key))
             || page.turns.some(turn => sameSavedMessage(turn, row))) continue;
