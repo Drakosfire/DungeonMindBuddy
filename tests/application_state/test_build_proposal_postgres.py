@@ -150,7 +150,14 @@ def test_proposal_owner_rejects_results_unrelated_to_captured_final(reservation,
     assert advance('proposed').proposal==result
 
 
-def test_prose_boundary_review_keeps_original_caret_and_requires_exact_offered_target(reservation):
+@pytest.mark.parametrize("markdown", [
+    "Bring a second lantern.",
+    "> [!READ-ALOUD] Crossing\n> A second lantern lights up."
+    "\n\n> [!GM-NOTE] Wait\n> Keep the gate closed.",
+])
+def test_prose_boundary_review_keeps_original_caret_and_requires_exact_offered_target(
+    reservation, markdown,
+):
     from application_state.build_proposal.review import BuildProposalReviewService, BuildReviewCommand
 
     basis = reservation.basis.model_copy(update={"editor_sha256": "e" * 64})
@@ -181,7 +188,7 @@ def test_prose_boundary_review_keeps_original_caret_and_requires_exact_offered_t
     advance("sdk_entered")
     advance("response_received", raw_response=json.dumps({
         "destination": "current_page", "target": "prose_target",
-        "replacement_markdown": "Bring a second lantern.", "summary": "A proposed precaution.",
+        "replacement_markdown": markdown, "summary": "A proposed precaution.",
         "assumptions": [],
     }))
     advance("proposed")
@@ -194,6 +201,7 @@ def test_prose_boundary_review_keeps_original_caret_and_requires_exact_offered_t
     opened = review.execute(world, action, BuildReviewCommand(operation="open", expected_revision=0))
     assert opened.schema_version == "dmb_build_proposal_review_v5"
     assert opened.placement_caret == 1 and opened.prose_target == target
+    assert review.get(world, action).markdown == markdown
     with pytest.raises(ApplicationStateConflictError, match="offered paragraph boundary"):
         review.execute(world, action, BuildReviewCommand(
             operation="move", expected_revision=opened.revision, placement_caret=2,

@@ -130,11 +130,11 @@ def _editor_slot(editor: dict, address: PlanSlotParagraphV1) -> dict:
 
 
 def prose_editor_node_size(node: dict) -> int:
-    """ProseMirror size for already admitted prose and layout nodes."""
+    """ProseMirror size for an already admitted editor subtree."""
     kind = node["type"]
     if kind == "text":
         return len(node["text"].encode("utf-16-le")) // 2
-    if kind in {"horizontalRule", "hardBreak"}:
+    if kind in {"horizontalRule", "hardBreak", "mediaImage"}:
         return 1
     return 2 + sum(prose_editor_node_size(child) for child in node.get("content", []))
 
@@ -305,7 +305,12 @@ def require_matching_prose_block(node: dict, markdown: str) -> None:
         raise ValueError(
             "Plan slot authoring requires prose, headings, or horizontal rules"
         )
-    if _editor_runs(node) != _markdown_runs(tokens[1].children or []):
+    require_matching_prose_inline(node, tokens[1].children or [])
+
+
+def require_matching_prose_inline(node: dict, tokens) -> None:
+    """Compare the text and marks of editor prose with already parsed inline tokens."""
+    if _editor_runs(node) != _markdown_runs(tokens):
         raise ValueError("Plan editor text differs from its exact Markdown")
 
 
