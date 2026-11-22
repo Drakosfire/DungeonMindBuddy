@@ -173,6 +173,7 @@ class PlanJevDispatch:
         if parent_type is NativePlanOpeningInputV2:
             navigation['evidence_relevance_version'] = 'v1'
             navigation['opening_graph_relevance_version'] = 'v1'
+            navigation['opening_source_relevance_version'] = 'v1'
         elif parent_type is NativePlanOpeningInputV3:
             navigation['column_scope_version'] = 'v1'
         if author_scope is not None:

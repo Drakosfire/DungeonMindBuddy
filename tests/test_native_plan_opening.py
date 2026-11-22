@@ -82,6 +82,27 @@ def test_v2_evidence_relevance_changes_only_its_opening_guidance_and_preserves_h
     }
 
 
+def test_v2_source_relevance_changes_only_exact_section_votes():
+    from tests.application_state.test_plan_contextual_targets import family_catalog, heading, prose
+
+    capture, catalog = family_catalog([heading('Workshop'), prose('Clay is fired.')])
+    fields = opening_input().model_dump(exclude={'schema_'})
+    fields.update(original_capture=capture, placement_catalog=catalog,
+                  target_available=True, target_capture_sha256=capture.sha256)
+    historical = NativePlanOpeningInputV2.model_validate(fields)
+    marked = historical.model_copy(update={'opening_source_relevance_version': 'v1'})
+    before = prepare_opening_decision(historical)
+    after = prepare_opening_decision(marked)
+
+    assert 'opening_source_relevance_version' not in historical.model_dump_json()
+    assert NativePlanOpeningInputV2.model_validate_json(marked.model_dump_json(by_alias=True)) == marked
+    assert marked.digest != historical.digest
+    assert after.state == before.state
+    assert [(q.name, q.options) for q in after.questions] == [(q.name, q.options) for q in before.questions]
+    assert [a.name for a, b in zip(after.questions, before.questions) if a != b] == ['candidate_1']
+    assert 'Keep separate sections' in after.questions[-1].question
+
+
 @pytest.mark.parametrize('work,expected_operation,expected_handles', [
     ('discuss', 'select_candidates', ('saved-authored-page:host-id',)),
     ('clarify', 'discover_more', ()),

@@ -90,6 +90,8 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
         default=None, exclude_if=lambda value: value is None)
     opening_graph_relevance_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    opening_source_relevance_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanOpeningInputV3(NativePlanOpeningInputV1):
@@ -582,6 +584,17 @@ def prepare_opening_decision(request):
         )
         questions = tuple(q.model_copy(update={'question': q.question + guidance})
             if q.name in graph_votes else q for q in questions)
+    if type(request) is NativePlanOpeningInputV2 and request.opening_source_relevance_version == 'v1':
+        source_votes = {f"candidate_{index}" for index, candidate in enumerate(request.candidates)
+                        if candidate.kind == "Exact source section"}
+        guidance = (
+            " Select this section when its title or match directly targets a requested event, "
+            "relationship, or part of the answer. Keep separate sections when they cover distinct "
+            "requested details or establish a needed comparison. Skip a broad topic match when "
+            "a more specific offered section can cover the same detail."
+        )
+        questions = tuple(q.model_copy(update={'question': q.question + guidance})
+                          if q.name in source_votes else q for q in questions)
     return DecisionRequest(provider=work.provider, model=work.model,
         state=state, questions=(*work_questions, *questions), max_transport_retries=0)
 
