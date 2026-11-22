@@ -213,6 +213,20 @@ describe('Build image insertion boundary',()=>{
    expect(changed).not.toHaveBeenCalled();
   }finally{editor.destroy();}
  });
+ it('refuses an unsafe document before changing the editor or notifying its owner',async()=>{
+  const {editor,bridge,changed}=setup();
+  try{
+   editor.commands.setContent({type:'doc',content:[{type:'paragraph',content:[
+    {type:'text',text:'Keep this'},{type:'hardBreak'},
+   ]}]});
+   editor.commands.setTextSelection(2);
+   const before=editor.getJSON(),selection=editor.state.selection.from,capture=await bridge.capture();
+   expect(()=>bridge.insert(capture,mediaMarkdown(id,'Ticket'))).toThrow(/saving|structure/i);
+   expect(editor.getJSON()).toEqual(before);
+   expect(editor.state.selection.from).toBe(selection);
+   expect(changed).not.toHaveBeenCalled();
+  }finally{editor.destroy();}
+ });
  it.each(['heading','list','table'] as const)('places after the whole clicked %s without changing it',async kind=>{
   const source=kind==='heading'?'## The carnival\n\nFollowing paragraph.\n'
    :kind==='list'?'- First item\n- Second item\n\nFollowing paragraph.\n'

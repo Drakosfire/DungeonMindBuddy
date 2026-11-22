@@ -42,5 +42,10 @@ cover paragraph start/middle/end, heading/list/table, identity-only and composed
 layouts, serialization, Undo/Redo, stale capture and non-image refusal. The
 initial regression failed before the change; the affected suites passed after
 it. The old drop test now deliberately expects placement after the clicked
-block. Frontend build passed. These are working-tree diagnostics; durable Build
-Save/cold reopen, exact-SHA verification and final independent review remain.
+block. Frontend build passed. A mounted Build test now places the image, checks
+Undo/Redo, calls the actual canvas Save owner and cold-remounts with mocked
+prepare/commit/snapshot transport; it passes in isolation, but is not backend or
+browser persistence evidence. The full integration file has five failures on
+both this working tree and the unchanged base, with the same test identities;
+the combined run is not green. Exact-SHA verification and final independent
+review remain.
