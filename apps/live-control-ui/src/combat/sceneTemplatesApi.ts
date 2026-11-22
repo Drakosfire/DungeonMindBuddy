@@ -8,7 +8,8 @@ export type SavedEncounterCopy = {
 };
 export type SceneTemplateIntent={schema_version:'dmb_scene_template_create_v1';operation_id:string;pin:{document_id:string;scene_id:string;revision_n:number;work_revision_id:string;content_sha256:string};encounter:{title:string}|{schema_version:'dmb_manual_combat_create_v2';title:string;profile:ManualCombatProfile}|SavedEncounterCopy};
 export type SceneTemplateView={binding:{schema_version:'dmb_scene_template_binding_v1';world_id:string;encounter_id:string;origin:SceneTemplateIntent['pin'];operation_id:string;request_digest:string;created_at:string};encounter:AnyCombatRecord;versions:{revision:number;digest:string;saved_at:string}[];scene_present:boolean};
-async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent):Promise<T>{
+export type NamedEncounterPreviewRequest = {pin: SceneTemplateIntent['pin']; title: string};
+async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent|NamedEncounterPreviewRequest):Promise<T>{
  const response=(await authenticatedApiFetch(`/api/live/combat/scene-templates${path}?${new URLSearchParams({world_id:worldId})}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined)).response;
  const data=await response.json();
  if(!response.ok)throw new Error(typeof data?.detail==='string'?data.detail:`Encounter preparation failed (HTTP ${response.status})`);
@@ -17,6 +18,8 @@ async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent):
 export const sceneTemplatePath=(context:Pick<PlanEncounterContext,'documentId'|'sceneId'>)=>`/${encodeURIComponent(context.documentId)}/scenes/${encodeURIComponent(context.sceneId)}`;
 export const getSceneTemplate=(context:PlanEncounterContext)=>request<SceneTemplateView|null>(context.worldId,sceneTemplatePath(context));
 export const createSceneTemplate=(worldId:string,intent:SceneTemplateIntent)=>request<SceneTemplateView>(worldId,'',intent);
+export const previewNamedEncounter=(worldId:string,body:NamedEncounterPreviewRequest)=>
+ request<AnyCombatRecord>(worldId,'/preview-saved',body);
 export const inspectSceneTemplateCreation=(worldId:string,operationId:string)=>request<SceneTemplateView|null>(worldId,`/operations/${encodeURIComponent(operationId)}`);
 export const getSceneTemplateVersion=(context:PlanEncounterContext,revision:number)=>request<AnyCombatRecord>(context.worldId,`${sceneTemplatePath(context)}/versions/${revision}`);
 export function assertSceneTemplate(view:SceneTemplateView,context:PlanEncounterContext){

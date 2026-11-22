@@ -28,3 +28,5 @@ The saved Old Bath House standalone encounter and the Edge Meat Mind revision al
 The hosted destination is Session 32 — Old Bath House, scene The welcome. The signed-in statblock workbench created and reopened the Bath House Meatling draft on the reviewed hosted route release. Two candidate-generation operations ended at the downstream provider with an authentication error, so there is no accepted Meatling revision yet.
 
 The Combat preview owner resolves the full title within the verified World, rejects ambiguous matches, and returns the exact copyable source revision after checking the saved target. This remains read-only. The ordinary Buddy turn integration and confirmation entry point are still pending.
+
+The preview transport uses the Combat-owned scene-template router, a bounded request with the exact saved scene pin, and one hosted route entry with the same World admission as preparation. The narrow write set for this step is the scene-template request type, route, exact registration in `main.py`, the existing scene-template client, and the scene-template boundary test. Confirmation continues to use the existing copy endpoint.

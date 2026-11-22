@@ -21,6 +21,12 @@ class CopySavedEncounterRequest(BaseModel):
     expected_revision: int = Field(gt=0)
 
 
+class PreviewNamedEncounterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    pin: PlanScenePin
+    title: str = Field(min_length=1, max_length=160)
+
+
 class CreateSceneTemplateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     schema_version: Literal["dmb_scene_template_create_v1"] = "dmb_scene_template_create_v1"

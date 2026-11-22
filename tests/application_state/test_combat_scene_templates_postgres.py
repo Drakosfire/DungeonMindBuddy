@@ -161,6 +161,13 @@ def test_named_copy_preview_is_read_only_and_refuses_ambiguous_titles(scene_case
     request = CreateCombatEncounterRequest(title="Bath House")
     source = encounters.create_encounter(world_id=world, request=request)
     assert service.preview_named_copy(world_id=world, pin=pin, title=" bath house ") == source
+    preview = scene_case.client.post(
+        scene_case.base + "/preview-saved?world_id=elderwyld",
+        json={"pin": pin.model_dump(mode="json"), "title": "Bath House"},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["encounter_id"] == str(source.encounter_id)
+    assert preview.json()["revision"] == source.revision
     assert read(scene_case).json() is None
 
     encounters.create_encounter(world_id=world, request=request)
