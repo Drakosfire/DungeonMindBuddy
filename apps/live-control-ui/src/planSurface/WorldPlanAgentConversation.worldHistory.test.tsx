@@ -6348,7 +6348,7 @@ it('shows saved text immediately but keeps Send gated until a retained pending r
   expect(postAsk).toHaveBeenCalledTimes(1);
 });
 
-it.each(['accepted','running'] as const)('keeps live activity bound to admitted metadata while full receipt refreshes are pending · %s',async lifecycle=>{
+it.each(['accepted','running'] as const)('keeps live activity bound to admitted metadata without hydrating pending receipts · %s',async lifecycle=>{
   const api=setupApi(history('conversation-a',4,[]),false);
   const pending=deferred<ReturnType<typeof agentResponse>>();
   const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockReturnValue(pending.promise as any);
@@ -6366,7 +6366,7 @@ it.each(['accepted','running'] as const)('keeps live activity bound to admitted 
   const row={...makeTurn(1,durable,request.message,''),assistant_text:null,lifecycle_status:lifecycle,
     idempotency_key:await expectedHistoryCorrelationKey(worldId,request.turn_id)};
   api.setCurrent(await historyV3('conversation-a',4,[row]));
-  api.getHistory.mockReturnValue(new Promise(()=>{}));
+  api.getHistory.mockClear();
   fireEvent.click(screen.getByRole('button',{name:'Refresh activity fixture'}));
   const read=vi.mocked(liveApi.getWorldAgentTurnContextTrace);
   await waitFor(()=>expect(read).toHaveBeenCalledWith(worldId,durable,expect.any(AbortSignal)));
@@ -6384,6 +6384,7 @@ it.each(['accepted','running'] as const)('keeps live activity bound to admitted 
   const reads=read.mock.calls.length;
   await waitFor(()=>expect(read.mock.calls.length).toBeGreaterThan(reads),{timeout:3500});
   expect(post).toHaveBeenCalledTimes(1);
+  expect(api.getHistory).not.toHaveBeenCalled();
 });
 
 
