@@ -4,6 +4,8 @@ Active for the Combat-owned preview boundary under the authorized Old Bath House
 
 Current write lease is this handoff, `src/application_state/combat_encounters/scene_templates.py`, and `tests/application_state/test_combat_scene_templates_postgres.py`. No competing encounter PR was identified. Native Plan, routing, and UI writes still require an explicit scope amendment after checking their current leases.
 
+UI preview projection amendment at fetched main `8506cf3d3`: add `apps/live-control-ui/src/api/types.ts` and `apps/live-control-ui/src/planSurface/components/SurfaceEvidenceAnswer{,.test}.tsx` for the typed preview card only. The #3824 authorization changes to agent routes and conversation orchestration stay outside this amendment.
+
 ## Outcome
 
 From a saved Plan scene, ask Buddy to attach a named standalone Combat encounter. Buddy responds with a review card identifying the target scene, source encounter revision, roster, and groups. The review opens the existing Scene encounter panel with the exact source selected. Only Confirm encounter copy applies the attachment. A proposal never starts Play.
