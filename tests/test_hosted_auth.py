@@ -701,6 +701,90 @@ def test_world_assignment_is_per_dms_subject_and_does_not_claim_ownership() -> N
     assert unassigned.value.status_code == 403
 
 
+def test_hosted_workbench_admits_only_stored_world_drafts(monkeypatch):
+    from pathlib import Path
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import statblock_candidates as routes
+    from apps.live_control_server.services import hosted_native_graph_access as access, threat_draft_store
+
+    origin = "https://buddy.dungeonmind.net"
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "production")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
+    monkeypatch.setenv("AUTH_TRUSTED_FRONTEND_ORIGINS", origin)
+    monkeypatch.setattr("apps.live_control_server.services.hosted_auth.hosted_world_access",
+                        lambda: {"elderwyld": frozenset({"synthetic-owner"})})
+
+    def stored(_root, draft_id):
+        return SimpleNamespace(
+            scope_mode="campaign" if draft_id == "legacy" else "world",
+            world_id="elderwyld" if draft_id == "owned" else "foreign",
+        )
+
+    def owned(subject, world_id):
+        if (subject, world_id) != ("synthetic-owner", "elderwyld"):
+            raise HTTPException(status_code=403)
+        return SimpleNamespace(world_id=world_id)
+
+    operations = []
+
+    def generated(_root, *, draft_id, request):
+        operations.append(("generate", draft_id))
+        return SimpleNamespace(model_dump=lambda **_: {"generated": True})
+
+    def accepted(_root, *, draft_id, request):
+        operations.append(("accept", draft_id))
+        return routes.AcceptThreatDraftMechanicsResponseV1(
+            draft_id=draft_id, operation_id=request.operation_id, result_label="mechanics_saved",
+        )
+
+    monkeypatch.setattr(threat_draft_store, "get_threat_draft", stored)
+    monkeypatch.setattr(threat_draft_store, "find_threat_draft_for_candidate",
+                        lambda root, candidate_id: (stored(root, candidate_id), None))
+    monkeypatch.setattr(access, "_owned_world", owned)
+    monkeypatch.setattr(routes, "generate_candidate_from_draft", generated)
+    monkeypatch.setattr(routes, "begin_or_resume_acceptance", accepted)
+    monkeypatch.setattr(routes, "read_candidate", lambda *_args, **_kwargs:
+                        SimpleNamespace(model_dump=lambda **_: {"candidate": True}))
+    monkeypatch.setattr(
+        routes, "validate_definition",
+        lambda **_: routes.ValidateDefinitionBuddyResponseV1(outcome="failure"),
+    )
+    app = create_app()
+    app.state.dms_principal_resolver = _resolver(DmsPrincipal(subject="synthetic-owner"))
+    client = _AsyncASGITestClient(app)
+    headers = {"Origin": origin}
+    root = "/api/live/threat-drafts"
+    generation = {"expected_draft_version": 1}
+    for draft in ("foreign", "legacy"):
+        assert client.post(f"{root}/{draft}/candidates:generate", json=generation, headers=headers).status_code == 403
+        assert client.post(f"{root}/{draft}/mechanics:accept", json={}, headers=headers).status_code == 403
+    assert client.post(f"{root}/owned/candidates:generate", json=generation, headers=headers).json() == {"generated": True}
+    assert operations == [("generate", "owned")]
+    assert client.post(f"{root}/owned/acceptance-operations/op:reconcile?world_id=foreign", headers=headers).status_code == 403
+    assert client.get("/api/live/statblock-candidates/owned").json() == {"candidate": True}
+    assert client.get("/api/live/statblock-candidates/foreign").status_code == 403
+
+    fixtures = Path(__file__).parent / "fixtures/statblocks/v1"
+    definition = {"definition": json.loads((fixtures / "candidate-response.json").read_text())["definition"]}
+    receipt = json.loads((fixtures / "validate-response.json").read_text())
+    acceptance = {
+        **definition, "operation_id": str(uuid4()), "expected_draft_version": 1,
+        "validation_receipt": receipt["validation_receipt"],
+        "validation_definition_digest": receipt["definition_digest"], "change_summary": "Test",
+    }
+    response = client.post(f"{root}/owned/mechanics:accept", json=acceptance, headers=headers)
+    assert response.status_code == 200, response.text
+    assert operations == [("generate", "owned"), ("accept", "owned")]
+    validate = "/api/live/statblock-definitions:validate"
+    assert client.post(validate, json=definition, headers=headers).status_code == 403
+    assert client.post(f"{validate}?draft_id=foreign", json=definition, headers=headers).status_code == 403
+    response = client.post(f"{validate}?draft_id=owned", json=definition, headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.headers["Cache-Control"] == "no-store"
+
+
 def test_hosted_launch_denies_deferred_product_apis(monkeypatch):
     from apps.live_control_server.main import create_app
 

@@ -1,3 +1,5 @@
 # Admit hosted World statblock authoring
 
+Continuation at `f4ed8f7d04c5ebadaa735f6a6658075475a53ee4` under Alan's explicit generation and acceptance request. Extend the same serial #3824 slice only to exact draft read, generation, revision, readback, draft-scoped validation, acceptance and operation recovery. Write scope adds the hosted boundary, candidate routes, workbench validation transport and focused tests. Require stored draft ownership before provider or persistence work. No schema change. #4411 follows this slice and does not amend its authorization.
+
 ACTIVE under Alan's explicit request to fix the hosted route in #3824. Serial work on `codex/old-bath-3824-threat-route` from exact #3824 head `76c31187f3e9badecbc403f2d9c943994c5f5f9c` in the isolated Combat checkout. Start with the missing World ThreatDraft create admission. This amendment covers the exact route registration, its ownership resolver and create handler, and focused authorization tests. Preserve campaign-mode refusal in hosted use and existing local behavior. Any further candidate endpoints need their own resource checks, and no general fallback is permitted.

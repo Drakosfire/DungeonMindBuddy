@@ -498,7 +498,7 @@ def install_hosted_request_boundary(
     world_path_resolvers = [
         (method, path, compile_path(path)[0], resolver)
         for (method, path), resolver in route_resolvers.items()
-        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{encounter_id}", "{citation_id}", "{action_id}", "{operation_id}", "{request_id}"))
+        if any(marker in path for marker in ("{world_id}", "{document_id}", "{run_id}", "{asset_id}", "{draft_id}", "{candidate_id}", "{encounter_id}", "{citation_id}", "{action_id}", "{operation_id}", "{request_id}"))
     ]
     collections = dict(collection_authorizers or {})
     # Collection authorization is an explicit, code-owned read capability. It
@@ -611,6 +611,7 @@ def install_hosted_request_boundary(
                 request.state.hosted_route_run_id = params.get("run_id")
                 request.state.hosted_route_asset_id = params.get("asset_id")
                 request.state.hosted_route_draft_id = params.get("draft_id")
+                request.state.hosted_route_candidate_id = params.get("candidate_id")
         if resolver is None:
             return JSONResponse(
                 status_code=403,
@@ -649,6 +650,7 @@ def install_hosted_request_boundary(
         if any(hasattr(request.state, marker) for marker in (
             "hosted_native_graph_world", "hosted_build_pdf_world", "hosted_build_page_world",
             "hosted_plan_context_world", "hosted_combat_encounter_world", "hosted_conversation_world",
+            "hosted_threat_draft_world", "hosted_threat_draft_create_world",
         )):
             response.headers["Cache-Control"] = "no-store"
         return response

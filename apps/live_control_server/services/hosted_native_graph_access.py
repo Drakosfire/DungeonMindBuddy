@@ -458,6 +458,39 @@ async def resolve_hosted_threat_draft_create(request: Request) -> str:
     return world.world_id
 
 
+async def resolve_hosted_threat_draft_workbench(request: Request) -> str:
+    from apps.live_control_server.config import repo_root
+    from apps.live_control_server.routes.statblock_storage import statblock_data_root
+    from apps.live_control_server.services.threat_draft_store import (
+        find_threat_draft_for_candidate, get_threat_draft,
+    )
+
+    root = statblock_data_root(repo_root())
+    draft_id = getattr(request.state, "hosted_route_draft_id", None)
+    candidate_id = getattr(request.state, "hosted_route_candidate_id", None)
+    if request.url.path == "/api/live/statblock-definitions:validate":
+        draft_id = request.query_params.get("draft_id")
+        if not draft_id or request.query_params.multi_items() != [("draft_id", draft_id)]:
+            raise _denied()
+    elif request.query_params or (request.method == "GET" and await request.body()):
+        raise _denied()
+
+    if candidate_id is not None:
+        found = await run_in_threadpool(find_threat_draft_for_candidate, root, candidate_id)
+        if found is None:
+            raise _denied()
+        draft, _ = found
+    elif draft_id is not None:
+        draft = await run_in_threadpool(get_threat_draft, root, draft_id)
+    else:
+        raise _denied()
+    if getattr(draft, "scope_mode", None) != "world":
+        raise _denied()
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), draft.world_id)
+    request.state.hosted_threat_draft_world = world.world_id
+    return world.world_id
+
+
 def require_hosted_threat_draft_create(request: Request, world_id: str | None) -> None:
     if hosted_auth.deployment_environment() != hosted_auth.PRODUCTION_ENVIRONMENT:
         return
