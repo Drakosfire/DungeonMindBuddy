@@ -1531,7 +1531,7 @@ def test_current_authorization_rejects_parent_contract_substitution(plan_adapter
 
 def _shared_plan_authoring_case(
     plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None,
-    placement_factory=None, semantic_intent=None, semantic_compatible=None,
+    placement_factory=None, semantic_intent=None, semantic_compatible=None, author_scope_calls=None,
 ):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import (
@@ -1817,7 +1817,8 @@ def _shared_plan_authoring_case(
     harness.decision_transport = decisions
     harness.writer_transport = writer
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
-    author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
+    if author_scope_calls is None:
+        author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
     if routing is not None:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         from application_state.plan_action_dialogue.repository import get_authoring_for_turn
