@@ -1446,6 +1446,29 @@ it("uses hosted transport for the exact scene template read and cancel", async (
   expect(fetch).toHaveBeenCalledTimes(2);
 });
 
+it("admits only a bounded exact saved scene preview on hosted Buddy", async () => {
+  const api = await setup();
+  hostedOrigin();
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({}));
+  const path = "/api/live/combat/scene-templates/preview-saved?world_id=managed";
+  const pin = {
+    document_id: "11111111-1111-4111-8111-111111111111",
+    work_revision_id: "22222222-2222-4222-8222-222222222222",
+    revision_n: 1, scene_id: "scene:gate", content_sha256: "a".repeat(64),
+  };
+  const body = {pin,title:"Old Bath House Combat"};
+  const post = (value: unknown) => ({method:"POST",body:JSON.stringify(value)});
+  await api.authenticatedApiFetch(path, post(body));
+  expect(fetch).toHaveBeenCalledWith(path, expect.objectContaining({
+    method: "POST", credentials: "same-origin", mode: "same-origin",
+  }));
+  await expect(api.authenticatedApiFetch(path)).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path+"&world_id=foreign",post(body))).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path,post({...body,pin:{...pin,revision_n:0}}))).rejects.toThrow(/exact same-origin/);
+  await expect(api.authenticatedApiFetch(path,post({...body,override:true}))).rejects.toThrow(/exact same-origin/);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 it("uses hosted transport for exact run encounter routes and adoption pagination", async () => {
   const api = await setup();
   hostedOrigin();
