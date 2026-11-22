@@ -14,7 +14,7 @@ from psycopg.types.json import Jsonb
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
 from application_state.build_proposal.types import (
     StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer,
-    BuildProseBoundaryProposalRecord, BuildProseBoundaryTarget, admit_build_boundary_paragraph,
+    BuildProseBoundaryProposalRecord, BuildProseBoundaryTarget, admit_build_boundary_fragment,
 )
 from application_state.build_proposal.service import _load, _save
 from application_state.errors import (
@@ -156,7 +156,7 @@ class BuildProposalReview(StrictModel):
         if self.prose_target is not None:
             if self.page_body_target is not None or self.page_end_target is not None:
                 raise ValueError("A Build prose review cannot carry a competing target")
-            admit_build_boundary_paragraph(self.markdown)
+            admit_build_boundary_fragment(self.markdown)
         if self.apply and self.apply.prose_target != self.prose_target:
             raise ValueError("Apply differs from the exact reviewed prose boundary")
         if self.markdown_sha256 != digest(self.markdown):

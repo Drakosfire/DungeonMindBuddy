@@ -3,6 +3,7 @@ import {workPlanFence,workPlanBelongsTo,parseWorkPlanFence,workPlanIdentity,type
 import { pickMediaInsertion,pickDocumentInsertion } from '../documentEditing/pickMediaInsertion';
 import type { Editor, JSONContent } from '@tiptap/core';
 import {closeHistory} from '@tiptap/pm/history';
+import {Fragment} from '@tiptap/pm/model';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
 import type { BuildGraphReferenceApply, BuildGraphReferencePlacement } from '../api/buildGraphReferenceReviewApi';
 import type { BuildImageMoveCapture, BuildImageMovePlacement } from '../api/buildImageMoveReviewApi';
@@ -157,10 +158,16 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     return result;
   }
   function proseTransaction(captured: CapturedBuildInsertion, content: JSONContent[]) {
-    if (content.length !== 1 || content[0]?.type !== 'paragraph'
-      || !(content[0].content ?? []).every(node => node.type === 'text'))
-      throw new Error('This Build suggestion must add one paragraph at the offered root boundary.');
-    return rootBoundaryTransaction(captured, content[0], 'page-prose');
+    const isProse = (node: JSONContent) => node.type === 'paragraph'
+      && (node.content ?? []).every(child => child.type === 'text' || child.type === 'hardBreak');
+    const isCallout = (node: JSONContent) => node.type === 'callout'
+      && Boolean(node.content?.length) && (node.content ?? []).every(isProse);
+    const singleParagraph = content.length === 1 && content[0].type === 'paragraph'
+      && (content[0].content ?? []).every(node => node.type === 'text');
+    const calloutFragment = content.some(isCallout) && content.every(node => isProse(node) || isCallout(node));
+    if (!singleParagraph && !calloutFragment)
+      throw new Error('This Build suggestion must add prose or semantic callouts at the offered root boundary.');
+    return rootBoundaryTransaction(captured, content, 'page-prose');
   }
   function graphParagraph(placement: BuildGraphReferencePlacement): JSONContent {
     const {basis,reference}=placement;
@@ -171,27 +178,31 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       kind:'ref',refType:'graph-node',refId:reference.node_id,label:reference.label,
     })}]};
   }
-  function rootBoundaryTransaction(captured: CapturedBuildInsertion, content: JSONContent, idPrefix: string) {
+  function rootBoundaryTransaction(captured: CapturedBuildInsertion, content: JSONContent[], idPrefix: string) {
     const proof = captured.proseTarget;
     const editor = captured.editor;
     if (!proof || !boundProse.has(captured) || !editor.isEditable || editor.state.doc.resolve(proof.from).depth !== 0)
-      throw new Error('This Build suggestion must add one paragraph at the offered root boundary.');
+      throw new Error('This Build suggestion must use the offered root boundary.');
     const original = JSON.parse(captured.editorJson) as JSONContent;
     const current = getCurrent();
     const presentation = current?.pagePresentation;
     const retainPlain = presentation?.items.every(item => item.kind === 'block') === true;
     const retainsIds = hasPresentation(original) || retainPlain;
-    const id = `${idPrefix}-${proof.catalog_sha256.slice(0,32)}-${proof.from}`;
-    if (retainsIds && !editor.schema.nodes.paragraph?.spec.attrs?.pageBlockId)
-      throw new Error('This page editor cannot retain paragraph identities.');
-    const paragraph = retainsIds ? {...content, attrs: {...content.attrs, pageBlockId:id}} : content;
-    const transaction = editor.state.tr.insert(proof.from, editor.schema.nodeFromJSON(paragraph));
+    const baseId = `${idPrefix}-${proof.catalog_sha256.slice(0,32)}-${proof.from}`;
+    const inserted = content.map((node, index) => {
+      if (!retainsIds) return editor.schema.nodeFromJSON(node);
+      if (!node.type || !editor.schema.nodes[node.type]?.spec.attrs?.pageBlockId)
+        throw new Error('This page editor cannot retain block identities.');
+      const pageBlockId = index === 0 ? baseId : `${baseId}-${index}`;
+      return editor.schema.nodeFromJSON({...node, attrs: {...node.attrs, pageBlockId}});
+    });
+    const transaction = editor.state.tr.insert(proof.from, Fragment.fromArray(inserted));
     if (!retainsIds) preservePlainReviewBlockIdentities(transaction);
     const after = transaction.doc.toJSON() as JSONContent;
     const before = original.content ?? [];
     const index = editor.state.doc.resolve(proof.from).index(0);
-    if (after.content?.length !== before.length + 1 || before.some((node,i) =>
-      JSON.stringify(node) !== JSON.stringify(after.content?.[i < index ? i : i+1])))
+    if (after.content?.length !== before.length + inserted.length || before.some((node,i) =>
+      JSON.stringify(node) !== JSON.stringify(after.content?.[i < index ? i : i + inserted.length])))
       throw new Error('The insertion would change an unrelated block.');
     const body = tiptapJsonToSemanticMarkdown(flattenPresentation(after));
     const savedMarkdown = current?.savedMarkdown ?? captured.draftMarkdown;
@@ -419,7 +430,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     applyPrepared(prepared) { bridge.insertProposal(prepared.captured,prepared.markdown); },
     async prepareGraphReference(placement) {
       const captured = await bridge.restore(placement.basis, undefined, undefined, placement.boundary);
-      const result = rootBoundaryTransaction(captured, graphParagraph(placement), 'page-graph-ref');
+      const result = rootBoundaryTransaction(captured, [graphParagraph(placement)], 'page-graph-ref');
       const afterEditorJson = JSON.stringify(result.after);
       const [editor_sha256,draft_sha256,content_sha256] = await Promise.all([
         sha256(afterEditorJson), sha256(result.body),
@@ -437,7 +448,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       assertSame(captured,true);
       if (!preparedGraphs.delete(prepared) || applied.has(captured))
         throw new Error('This reference placement is no longer available. Review the current page.');
-      const result = rootBoundaryTransaction(captured,graphParagraph(placement),'page-graph-ref');
+      const result = rootBoundaryTransaction(captured,[graphParagraph(placement)],'page-graph-ref');
       if (JSON.stringify(result.after) !== prepared.afterEditorJson || result.body !== prepared.afterDraft)
         throw new Error('The prepared Graph reference changed. Review the current page.');
       captured.editor.view.dispatch(closeHistory(result.transaction));

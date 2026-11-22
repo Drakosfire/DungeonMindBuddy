@@ -10,6 +10,7 @@ import json
 from typing import Literal
 from uuid import UUID
 
+from markdown_it import MarkdownIt
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
 Digest = str
@@ -276,21 +277,55 @@ def _require_inert_markdown(markdown: str) -> None:
         raise BuildComposeError("build_compose_unsupported_markdown")
 
 
-def admit_build_boundary_paragraph(markdown: str) -> None:
+_BOUNDARY_CALLOUT_HEADER = re.compile(
+    r"^ {0,3}>[ \t]*\[!(?:READ-ALOUD|GM-NOTE|WARNING|RULES)\](?:[ \t]+.*)?$"
+)
+_BOUNDARY_QUOTE_LINE = re.compile(r"^ {0,3}>[ \t]?(.*)$")
+_BOUNDARY_MARKDOWN = MarkdownIt("commonmark").enable(("table", "strikethrough"))
+
+
+def _is_boundary_callout_fragment(text: str) -> bool:
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    env = {}
+    tokens = _BOUNDARY_MARKDOWN.parse(text, env)
+    if env.get("references"):
+        return False
+    has_callout = False
+    for token in tokens:
+        if token.type == "blockquote_open":
+            if token.level != 0 or token.map is None:
+                return False
+            start, end = token.map
+            if not _BOUNDARY_CALLOUT_HEADER.fullmatch(lines[start]):
+                return False
+            body = [_BOUNDARY_QUOTE_LINE.fullmatch(line) for line in lines[start + 1:end]]
+            if (any(line is None or line[1].lstrip().startswith("[!") for line in body)
+                    or not any(line is not None and line[1].strip() for line in body)):
+                return False
+            has_callout = True
+        elif token.type == "inline":
+            if any(child.type in {"image", "html_inline"} for child in token.children or ()):
+                return False
+        elif token.type not in {"paragraph_open", "paragraph_close", "blockquote_close"}:
+            return False
+    return has_callout
+
+
+def admit_build_boundary_fragment(markdown: str) -> None:
     _require_inert_markdown(markdown)
     text = markdown.strip()
     if (not text or "\n" in text or "\r" in text or "![" in text
             or re.match(r"^(?:#{1,6}\s|[-+*>]\s|[0-9]+[.)]\s|```|~~~|\|)", text)
-            or re.fullmatch(r"(?:[*_-]\s*){3,}", text)):
-        raise BuildComposeError("build_compose_boundary_requires_one_prose_paragraph")
+            or re.fullmatch(r"(?:[*_-]\s*){3,}", text)) and not _is_boundary_callout_fragment(markdown):
+        raise BuildComposeError("build_compose_boundary_requires_prose_or_callouts")
 
 
 class BuildProseBoundaryProposal(BuildGeneratedProposal):
     target: Literal["prose_target"]
 
     @model_validator(mode="after")
-    def exact_paragraph(self):
-        admit_build_boundary_paragraph(self.replacement_markdown)
+    def exact_fragment(self):
+        admit_build_boundary_fragment(self.replacement_markdown)
         return self
 
 
