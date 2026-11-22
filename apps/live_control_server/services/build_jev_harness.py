@@ -634,7 +634,7 @@ class BuildJevHarness:
             try:
                 explicit_lore_page_witness(adapter.request.message)
             except ValueError:
-                pass
+                wait_for_work = getattr(driver, "image_move", None) is not None
             else:
                 wait_for_work = any(q.name == "requested_work" for q in intent.questions)
 
@@ -686,7 +686,9 @@ class BuildJevHarness:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
                 conversation_only = False
                 if wait_for_work:
-                    from application_state.agent_conversation.build_intentional_response import opening_image_choice, selected, source_need
+                    from application_state.agent_conversation.build_intentional_response import (
+                        UnresolvedDiscussionSource, opening_image_choice, opening_work,
+                    )
                     from application_state.agent_conversation.native_corpus import is_prior_conversation_work
                     from application_state.build_proposal.graph_reference_decision import resolve_graph_reference_opening
 
@@ -694,13 +696,17 @@ class BuildJevHarness:
                     request = json.loads(adapter._prepared_build_decision.body)
                     image_opening = (driver.image_move.opening_answers(request, result)
                                      if getattr(driver, "image_move", None) is not None else None)
-                    conversation_only = (
-                        opening_image_choice(
-                            adapter._broker_execution().policy, response, image_opening, adapter.request.message,
-                        ) not in {"move_existing", "unresolved"}
-                        and resolve_graph_reference_opening(request, result) != "place_existing_reference"
-                        and is_prior_conversation_work(selected(response), source_need(request, response))
-                    )
+                    policy = adapter._broker_execution().policy
+                    image_choice = opening_image_choice(policy, response, image_opening, adapter.request.message)
+                    if (image_choice not in {"move_existing", "unresolved"}
+                            and resolve_graph_reference_opening(request, result) != "place_existing_reference"):
+                        try:
+                            conversation_only = is_prior_conversation_work(
+                                *opening_work(policy, request, response, image_choice),
+                            )
+                        except UnresolvedDiscussionSource:
+                            # The driver emits the checked clarification without admitting work.
+                            conversation_only = True
                 if not conversation_only:
                     if pending_query is None:
                         pending_query = asyncio.get_running_loop().run_in_executor(

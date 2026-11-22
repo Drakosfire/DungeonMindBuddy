@@ -99,6 +99,25 @@ def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_p
     )
 
 
+def test_deferred_image_advice_clarifies_before_graph_preparation(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+
+    def inspect(adapter, provider):
+        assert provider == "typesafe"
+        assert callable(adapter.prepare_deferred_build_query)
+
+    def unexpected_graph_settlement(*args):
+        raise AssertionError("Source-scope clarification must precede Graph settlement")
+
+    monkeypatch.setattr(_PolicyExecutionAdapter, "settle_deferred_build_query", unexpected_graph_settlement)
+
+    _fresh_case(
+        lane, tmp_path, monkeypatch, "discussion_source_tie", False, False, False,
+        message="How would the Harbour map look in the slot to its right?",
+        requested_work="discuss", image_move="other_discussion", before_provider=inspect,
+    )
+
+
 def test_graph_nomination_preparation_uses_the_admitted_build_capture(lane, tmp_path, monkeypatch):
     from application_state.errors import ApplicationStateConflictError
     from apps.live_control_server.services import build_graph_reference
@@ -1167,7 +1186,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
-    if image_move:
+    if image_move and failure != "discussion_source_tie":
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
