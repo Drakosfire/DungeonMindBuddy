@@ -584,6 +584,8 @@
       "apps/live-control-ui/src/worldGraph/worldGraphProjectionRequestKey.test.ts",
       "apps/live-control-ui/src/worldGraph/worldGraphSurfaceContext.test.ts",
       "tests/test_check_docs_links.py",
+      "tests/test_activate_buddy_release.py",
+      "tests/test_hosted_worker_gc.py",
       "tests/test_ci_contract.py",
       "tests/test_ci_local_frontend.py",
       "tests/test_combat_manual_profiles.py",
