@@ -90,10 +90,28 @@ class NativeObjectMatchV1(Strict):
     label: str = Field(min_length=1)
 
 
+class NativeNamedRecapBoundV1(Strict):
+    """Exact admitted support of an observed Event named as a recap endpoint."""
+    event_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+
+
+class NativeEpisodeCampaignFocusV1(Strict):
+    """One observed chronological edge with a shared exact source revision."""
+    predecessor_id: str = Field(min_length=1)
+    successor_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+
+
 class NativeGraphQueryV4(NativeGraphQueryV3):
     """Object selection expands to existing, frozen record witness sets."""
     schema_: Literal['dmb_native_graph_query_v4'] = Field(default='dmb_native_graph_query_v4', alias='schema')
     object_matches: tuple[NativeObjectMatchV1, ...]
+    episode_campaign_focus: NativeEpisodeCampaignFocusV1 | None = Field(default=None, exclude_if=lambda value: value is None)
+    named_recap_bound: NativeNamedRecapBoundV1 | None = Field(default=None, exclude_if=lambda value: value is None)
     discovery_hops: tuple[NeighborhoodReplayHop, ...] = Field(default=(), max_length=32, exclude_if=lambda value: not value)
 
     @model_validator(mode='after')
