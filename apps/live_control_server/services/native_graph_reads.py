@@ -354,7 +354,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         reader = EntityReadService()
         with measure("native_turn_graph_complete_entity_read"):
             if selective is not None:
-                results = selective.get_complete_entities(tuple(node for _, node in pending))
+                results = selective.get_entity_claims(tuple(node for _, node in pending))
             elif len(pending) == 1:
                 results = (reader.get_complete_entity(context[0], pending[0][1]),)
             else:

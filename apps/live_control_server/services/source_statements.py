@@ -285,7 +285,7 @@ def _bundle(repo, space, revision, campaign, statement_id, role="gm", pinned=Non
     )
     from dungeonmind.infrastructure.postgres.selective_query import RetainedSelectiveQuery
 
-    statement = (read.get_complete_entity(statement_id) if isinstance(read, RetainedSelectiveQuery)
+    statement = (read.get_entity_claim(statement_id) if isinstance(read, RetainedSelectiveQuery)
                  else EntityReadService().get_complete_entity(read, statement_id))
     if not statement.found:
         raise StatementUnavailableError("statement_bundle_unavailable", "Complete statement is unavailable")
