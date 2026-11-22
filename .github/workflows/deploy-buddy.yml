@@ -1,0 +1,58 @@
+name: Deploy Buddy (image only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full SHA of the approved, staged Buddy image
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: buddy-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    environment: buddy-production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Cut over to the approved Buddy image
+        env:
+          REVISION: ${{ inputs.revision }}
+          DEPLOY_HOST: ${{ vars.BUDDY_DEPLOY_HOST }}
+          DEPLOY_KEY: ${{ secrets.BUDDY_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ vars.BUDDY_DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          : "${DEPLOY_KEY:?Set the Buddy production deploy key}"
+          : "${KNOWN_HOSTS:?Set the pinned Buddy production SSH host key}"
+          umask 077
+          ssh_dir=$(mktemp -d)
+          trap 'rm -r -- "$ssh_dir"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          unset DEPLOY_KEY
+          ssh -nT -F /dev/null -i "$ssh_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o GlobalKnownHostsFile=/dev/null \
+            -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            "buddy-deploy@$DEPLOY_HOST" "$REVISION" | tee "$ssh_dir/result"
+          grep -Eq "^BUDDY_LIVE $REVISION sha256:[0-9a-f]{64}$" "$ssh_dir/result"
+
+      - name: Check public Buddy readiness and signed-out authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          public=https://buddy.dungeonmind.net
+          curl --connect-timeout 5 --max-time 15 -fsS "$public/health/ready" >/dev/null
+          status=$(curl --connect-timeout 5 --max-time 15 -sS -o /dev/null -w '%{http_code}' "$public/api/auth/current-user")
+          [[ "$status" == 401 ]]

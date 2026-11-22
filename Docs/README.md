@@ -20,7 +20,7 @@ describes is implemented or deployed.
 | Determine whether a handoff or evidence is current | [Handoff and evidence navigation](Guides/GUIDE-handoff-and-evidence-navigation.md) |
 | Find experiments, fixtures, or evaluation evidence | [Lab and evaluation guide](../evals/README.md) |
 | Find the accepted ingestion baseline and historical retrieval evidence | [Baseline and retrieval history report](Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md) |
-| Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md) and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
+| Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md), [manual Actions cutover](Runbooks/RUNBOOK-buddy-actions-cutover.md), and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
 
 From the repository root, run `uv run python scripts/check_docs_links.py .` to
 check the maintained entry points, domain guides, and local Play runbook named
