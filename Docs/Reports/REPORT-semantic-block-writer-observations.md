@@ -491,3 +491,24 @@ present. Each comparison used the state immediately before its own Send.
   only “Travel pace is set by the GM.” Save and direct reload retained it
   at the boundary, with the Warning and all other rendered content intact.
   The interrupted turn remains a failed repetition.
+
+### Hosted Build and Plan discussion-only controls
+
+On serving revision `03055f24`, the exact X01 prompt ran in fresh Pilot
+conversations on both surfaces. Both replies suggested revised wording in
+chat. No page suggestion appeared.
+
+- Build used a separate illustrated fixture. The saved First sight Read
+  Aloud was immediately followed by a GM Note containing “Wait for the
+  players to choose.” The rendered content and Saved timestamp matched their
+  baselines after direct reload, including the table and loaded artwork.
+- Plan reused the existing benchmark Plan, which already had several
+  callouts, a seeded private cue, the red-gate choice, and Departure.
+  The full Markdown editor value and Saved timestamp matched before and
+  after the reply. Reopening through the World route returned identical
+  Markdown, including the scene identities and choice markers. The old
+  history warning `hosted_world_route_policy_unverified` still appeared.
+
+These are observable chat-routing and no-change checks. Server-side write
+reservations were not independently inspected. The reused Plan is not a
+clean matched fixture repetition.
