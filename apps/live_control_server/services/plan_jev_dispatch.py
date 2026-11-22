@@ -128,6 +128,10 @@ class PlanJevDispatch:
                 from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
                 codec = NativePlanBatchDecisionInputV3
                 fields['graph_relevance_version'] = 'v1'
+                if (any(candidate.reviewed_passage is not None for candidate in fields['examined_candidates'])
+                        and any(candidate.kind.startswith('Expand to all other admitted native sources')
+                                for candidate in fields['candidates'])):
+                    fields['acquired_passage_vote_version'] = 'v1'
                 if source_expansion_selected(adapter.fence.turn):
                     fields['expanded_relevance_version'] = 'v1'
             self.parent = codec(**fields,**source_pins(receipt))
@@ -408,7 +412,9 @@ class PlanJevDispatch:
             from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
             planned = type(self.parent) is NativePlanBatchDecisionInputV3
             if planned:
+                from application_state.agent_conversation.jev_retrieval_contract import excluded_acquired_passages
                 selected_fields['post_read_plan'] = selected.post_read_plan
+                selected_fields['excluded_acquired_passage_handles'] = excluded_acquired_passages(self.parent, result)
             if opening:
                 selected_fields.update(operation=first_batch.operation if first_batch is not None else None,
                     selected_handles=list(first_batch.selected_handles) if first_batch is not None else [],

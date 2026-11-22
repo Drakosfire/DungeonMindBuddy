@@ -833,7 +833,7 @@ def writer_passage_reads(execution):
     )
 
 
-def writer_passage_supports(execution, selector):
+def writer_passage_supports(execution, selector, *, apply_admission=True):
     """Bind ordinary section votes to exact acquired text, including covering reads."""
     from .native_retrieval import native_selection_types
 
@@ -864,7 +864,35 @@ def writer_passage_supports(execution, selector):
                 raise ValueError("Covering source read changed its selected passage extent")
             supports.append(support)
             exact.add(handle)
-    return tuple(supports)
+    if not apply_admission:
+        return tuple(supports)
+    from .native_retrieval import NativeReadBatchConcludedV1, NativeRetrievalSelectedV2
+
+    conclusion = next((event for event in reversed(execution.events)
+                       if isinstance(event, NativeReadBatchConcludedV1)), None)
+    selection = next((event for event in reversed(execution.events)
+                      if isinstance(event, native_selection_types())), None)
+    if (conclusion is None or not isinstance(selection, NativeRetrievalSelectedV2)
+            or conclusion.selection_event_id != selection.event_id
+            or not selection.excluded_acquired_passage_handles):
+        return tuple(supports)
+
+    excluded = set(selection.excluded_acquired_passage_handles)
+    excluded_extents = {
+        (read.excerpt.catalog_sha256, read.excerpt.section.byte_start, read.excerpt.section.byte_end)
+        for read in reads.values()
+        if native_body_handle(read.excerpt.catalog_sha256, read.excerpt.section.section_id) in excluded
+    }
+    retained = []
+    for support in supports:
+        if not isinstance(support.read, NativeAuthoredSourceReadV1):
+            section, _ = support.passage()
+            extent = (support.catalog.catalog_sha256, section.byte_start, section.byte_end)
+            if extent in excluded_extents:
+                continue
+        retained.append(support)
+    return tuple(retained)
+
 
 
 def body_selector(turn, read):

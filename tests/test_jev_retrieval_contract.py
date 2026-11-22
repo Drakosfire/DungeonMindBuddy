@@ -606,3 +606,32 @@ def test_continued_plan_graph_relevance_changes_only_graph_votes():
             assert changed.options == original.options
         else:
             assert changed == original
+
+
+def test_plan_acquired_passage_votes_keep_acquisition_independent():
+    from application_state.agent_conversation import jev_retrieval_contract as c
+
+    fields = request().model_dump(exclude={'schema_', 'revision'})
+    fields.update(source_authority_status='available', source_revision='private', graph_revision='private')
+    fields['candidates'][0]['kind'] = 'Expand to all other admitted native sources'
+    fields['examined_candidates'] = (
+        RetrievalCandidate(handle='private-read', label='Reviewed source',
+                           kind='Acquired exact source text', reviewed_passage='Exact evidence.'),
+    )
+    parent = c.NativePlanBatchDecisionInputV3(**fields)
+    candidate = parent.model_copy(update={'acquired_passage_vote_version': 'v1'})
+    before, after = map(c.prepare_decision, (parent, candidate))
+    assert 'acquired_passage_vote_version' not in parent.model_dump(by_alias=True)
+    assert after.questions[:-1] == before.questions
+    assert after.questions[-1].name == 'retain_acquired_0'
+    assert after.state['selected_passages'] == [
+        {'selection_alias': 'passage_0', 'source': 'Reviewed source', 'text': 'Exact evidence.'},
+    ]
+    assert 'private-read' not in after.model_dump_json()
+    answers = dict(result().answers, post_read_plan=ChoiceDecisionAnswer(selected='review_after_reads'))
+    unchanged = c.decode_selection(parent, result(answers=answers))
+    for vote in ('include', 'exclude'):
+        with_vote = result(answers=answers | {'retain_acquired_0': ChoiceDecisionAnswer(selected=vote)})
+        assert c.decode_selection(candidate, with_vote) == unchanged
+    with pytest.raises(ValueError, match='Missing or unexpected decision answers'):
+        c.decode_selection(candidate, result(answers=answers))

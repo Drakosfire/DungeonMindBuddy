@@ -62,7 +62,7 @@ def _writer_assertion_reads(execution, *, passages_only):
     if not passages_only or not records:
         return records
     campaigns = {support.catalog.source.registered_campaign_id
-                 for support in bodies.writer_passage_supports(execution, body_handle)}
+                 for support in bodies.writer_passage_supports(execution, body_handle, apply_admission=False)}
     if len(campaigns) != 1 or None in campaigns:
         return records
     campaign, = campaigns

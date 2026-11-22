@@ -55,6 +55,8 @@ class NativeRetrievalSelectedV1(t.PlanJevRetrievalSelectionV1):
 class NativeRetrievalSelectedV2(NativeRetrievalSelectedV1):
     kind: Literal['native_retrieval_selected_v2'] = 'native_retrieval_selected_v2'
     post_read_plan: Literal['review_after_reads', 'finish_if_selected_reads_succeed']
+    excluded_acquired_passage_handles: tuple[str, ...] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
     exhausted_continuation_offer: Literal[True] | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
@@ -355,6 +357,22 @@ def verify_selection(turn, event, proof, trace):
         if event.exclusion_replay != retrieval_exclusions_for_replay(parent, result):
             raise ValueError("Replay exclusions differ from the exact native controller votes")
     pins = source_pins(receipt)
+    if type(event) is NativeRetrievalSelectedV2:
+        from .jev_retrieval_contract import acquired_passage_vote_candidates, excluded_acquired_passages
+        from .native_corpus import NativeAuthoredSourceReadV1, acquired_body_reads, native_body_handle
+        voted = acquired_passage_vote_candidates(parent)
+        if voted:
+            eligible = {
+                native_body_handle(read.excerpt.catalog_sha256, read.excerpt.section.section_id): read.excerpt.text
+                for read in acquired_body_reads(execution)
+                if not isinstance(read, NativeAuthoredSourceReadV1)
+                and read.excerpt.selector_policy != "native_full_document_v1"
+            }
+            handles = {candidate.handle for candidate in voted}
+            if len(handles) != len(voted) or any(eligible.get(c.handle) != c.reviewed_passage for c in voted):
+                raise ValueError("Passage vote differs from the exact acquired source")
+        if event.excluded_acquired_passage_handles != excluded_acquired_passages(parent, result):
+            raise ValueError("Passage admission differs from exact controller votes")
     validate_source_selection(
         parent,
         selected,
