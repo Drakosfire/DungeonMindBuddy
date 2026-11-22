@@ -1345,8 +1345,9 @@ def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
     with pytest.raises(ValueError, match="bundle differs"):
         browser_inputs(manifest, tmp_path)
 
+@pytest.mark.parametrize("browser", [False, True])
 @pytest.mark.parametrize("changed, missing_capture", [(False, False), (True, False), (False, True)])
-def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, changed, missing_capture):
+def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, changed, missing_capture, browser):
     from concurrent.futures import Future
     from evals.buddy_benchmark import cohort_capture as cohort
 
@@ -1361,6 +1362,7 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
             "schema": "dmb_ordinary_benchmark_v1",
             "cases": [{"id": f"case{number}", "question": f"Question {number}?"}],
             "isolation": {"native": native, "app": app},
+            **({"browser_capture": {}} if browser else {}),
         }))
     manifest = put(tmp_path / "cohort.json", {
         "schema": "dmb_context_capture_cohort_v1", "members": members,
@@ -1385,7 +1387,8 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
         def __exit__(self, *_):
             return False
 
-        def submit(self, member, manifest, output, app_dsn, manifest_sha256):
+        def submit(self, member, manifest, output, app_dsn, manifest_sha256, **options):
+            assert options == ({"browser_case": output.name, "detailed_trace": True} if browser else {})
             assert member is cohort._capture_member
             assert sha256(manifest.read_bytes()).hexdigest() == manifest_sha256
             events.append(output.name)
@@ -1402,14 +1405,14 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
     out = tmp_path / "result"
     if changed:
         with pytest.raises(ValueError, match="changed during cohort"):
-            cohort.capture_cohort(manifest["path"], out, workers=2)
+            cohort.capture_cohort(manifest["path"], out, workers=2, browser=browser, detailed_trace=browser)
     elif missing_capture:
         with pytest.raises(RuntimeError, match="cohort members failed"):
-            cohort.capture_cohort(manifest["path"], out, workers=2)
+            cohort.capture_cohort(manifest["path"], out, workers=2, browser=browser, detailed_trace=browser)
         outcomes = json.loads((out / "members.json").read_text())
         assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing"}}
     else:
-        cohort.capture_cohort(manifest["path"], out, workers=2)
+        cohort.capture_cohort(manifest["path"], out, workers=2, browser=browser, detailed_trace=browser)
     assert events == ["scan", "case1", "case2", "scan"]
 
 
