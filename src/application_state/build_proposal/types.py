@@ -13,6 +13,8 @@ from uuid import UUID
 from markdown_it import MarkdownIt
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
+from .boundary_markdown import split_boundary_callout
+
 Digest = str
 BuildImageMoveDisposition = Literal[
     "ready", "discussion", "ambiguous", "missing", "different_row",
@@ -277,10 +279,6 @@ def _require_inert_markdown(markdown: str) -> None:
         raise BuildComposeError("build_compose_unsupported_markdown")
 
 
-_BOUNDARY_CALLOUT_HEADER = re.compile(
-    r"^ {0,3}>[ \t]*\[!(?:READ-ALOUD|GM-NOTE|WARNING|RULES)\](?:[ \t]+.*)?$"
-)
-_BOUNDARY_QUOTE_LINE = re.compile(r"^ {0,3}>[ \t]?(.*)$")
 _BOUNDARY_MARKDOWN = MarkdownIt("commonmark").enable(("table", "strikethrough"))
 
 
@@ -296,11 +294,8 @@ def _is_boundary_callout_fragment(text: str) -> bool:
             if token.level != 0 or token.map is None:
                 return False
             start, end = token.map
-            if not _BOUNDARY_CALLOUT_HEADER.fullmatch(lines[start]):
-                return False
-            body = [_BOUNDARY_QUOTE_LINE.fullmatch(line) for line in lines[start + 1:end]]
-            if (any(line is None or line[1].lstrip().startswith("[!") for line in body)
-                    or not any(line is not None and line[1].strip() for line in body)):
+            callout = split_boundary_callout(lines[start:end])
+            if callout is None or not callout[2].strip():
                 return False
             has_callout = True
         elif token.type == "inline":

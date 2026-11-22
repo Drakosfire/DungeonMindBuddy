@@ -99,7 +99,7 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
  const protectedBlocks = mode === 'protected' ? [
   '> [!READ-ALOUD] First sight\n> Three blue lanterns light the crossing.',
   '> [!GM-NOTE] Keep it sealed\n> Wait for the players to investigate.',
-  '| Signal | State |\n| --- | --- |\n| Blue lanterns | Lit |',
+  '## Signal table\n\n| Signal | State |\n| --- | --- |\n| Blue lanterns | Lit |',
   mediaMarkdown(id, 'Saved boardwalk artwork'),
  ].join('\n\n') + '\n\n' : '';
  const markdown='## Arrival\n\nThe gate is locked.\n\n'+protectedBlocks+'## Rumours\n\nThe gate is locked.\n';
@@ -124,12 +124,20 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
    visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true,pagePresentation:presentation,savedMarkdown:source};
   const changed=vi.fn(),bridge=createBuildComposeBridge(()=>state,changed);
   const ordinaryCapture = await bridge.capture();
-  if (mode !== 'protected') expect(ordinaryCapture.contextualProse).toBe(mode === 'composed' ? undefined : true);
+  expect(ordinaryCapture.contextualProse).toBe(mode === 'composed' ? undefined : true);
   expect(ordinaryCapture.editorJson).toBe(JSON.stringify(editor.getJSON()));
   const local=()=>({editor,scopeKey:'fixture-target',draftGeneration:0,canEdit:true});
   const catalog=captureProseTargetCatalog(local);
-  const offered=catalog.choices.find(choice=>choice.section==='Arrival'&&choice.operation==='insert_after')!;
+  if (mode === 'protected') {
+   expect(catalog.choices.map(choice => [choice.selector, choice.section])).toEqual([
+    ['passage1:insert_before', 'Arrival'], ['passage1:insert_after', 'Arrival'],
+    ['passage2:insert_before', 'Rumours'], ['passage2:insert_after', 'Rumours'],
+   ]);
+  }
+  const targetSection = mode === 'protected' ? 'Rumours' : 'Arrival';
+  const offered=catalog.choices.find(choice=>choice.section===targetSection&&choice.operation==='insert_after')!;
   const location=resolveProseTarget(catalog,offered.selector,local);
+  if (mode === 'protected') expect(location.from).toBe(209);
   const proof:BuildProseBoundaryTarget={schema:'dmb_build_prose_boundary_target_v1',catalog_sha256:await testDigest(JSON.stringify(catalog.choices)),
    alias:offered.selector,operation:offered.operation,from:location.from,to:location.to,before_text_sha256:await testDigest(offered.passage)};
   const originalDoc=editor.getJSON(),caret=editor.state.selection.from;
