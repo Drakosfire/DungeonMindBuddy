@@ -262,6 +262,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
         route = f"{combat}/{encounter['encounter_id']}{world_query}"
         encounter["draft"]["entities"].append({
             "id": str(uuid4()), "name": "Saved variant", "order": 1, "mechanics_snapshot": snapshot,
+            "ac": 13, "hp": 6, "max_hp": 12, "temp_hp": 2, "conditions": ["Prone"], "notes": "Original note",
         })
         saved = client.put(route, json={"expected_revision": encounter["revision"], "draft": encounter["draft"]})
         assert saved.status_code == 200, saved.text
@@ -318,4 +319,40 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
         assert client.get(f"{review_path}/saved").json()["locator"] == recovered.json()
         assert len(admissions) == 1
         assert len(append_bodies) == 2
+
+        portrait_selection = {
+            **selection, "locator": saved_portrait.json(), "portrait_operation_id": operation_id,
+        }
+        portrait_preview_url = f"{combat}/saved-mechanics/preview{world_query}"
+        assert client.post(portrait_preview_url, json={**portrait_selection, **foreign}).status_code == 404
+        assert client.post(portrait_preview_url, json={**portrait_selection, "locator": recovered.json()}).status_code == 409
+        portrait_preview = client.post(portrait_preview_url, json=portrait_selection)
+        assert portrait_preview.status_code == 200, portrait_preview.text
+        illustrated_snapshot = portrait_preview.json()["snapshot"]
+        assert illustrated_snapshot["locator"] == saved_portrait.json()
+        assert illustrated_snapshot["resource"]["asset_bindings"] == append_bodies[0]["asset_bindings"]
+
+        old_actor = reopened.json()["draft"]["entities"][0]
+        adopt_url = f"{combat}/{encounter['encounter_id']}/mechanics-adoptions{world_query}"
+        adoption = {
+            "schema": "dmb_combat_conversation_portrait_adoption_v1",
+            "operation_id": str(uuid4()),
+            "expected_revision": reopened.json()["revision"],
+            "source": portrait_selection,
+            "actors": [{"actor_id": old_actor["id"], "expected_snapshot_digest": snapshot["snapshot_digest"]}],
+        }
+        assert client.post(adopt_url, json={**adoption, "expected_revision": encounter["revision"]}).status_code == 409
+        stale_actor = {**adoption["actors"][0], "expected_snapshot_digest": "sha256:" + "0" * 64}
+        assert client.post(adopt_url, json={**adoption, "actors": [stale_actor]}).status_code == 409
+        assert client.post(adopt_url, json={**adoption, "actors": [{**stale_actor, "hp_policy": "reset_full"}]}).status_code == 422
+        applied = client.post(adopt_url, json=adoption)
+        assert applied.status_code == 200, applied.text
+        assert applied.json()["encounter"]["draft"]["entities"][0] == {
+            **old_actor, "mechanics_snapshot": illustrated_snapshot,
+        }
+        assert client.get(route).json() == applied.json()["encounter"]
+        with monkeypatch.context() as replay:
+            replay.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", unexpected_client)
+            assert client.post(adopt_url, json=adoption).json() == applied.json()
+        assert client.get(f"{review_path}/saved").json()["locator"] == recovered.json()
     assert len(create_bodies) == 2
