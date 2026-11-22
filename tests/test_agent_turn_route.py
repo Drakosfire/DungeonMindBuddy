@@ -2986,8 +2986,9 @@ def test_graph_provenance_persists_actual_snapshot_and_selected_node() -> None:
     assert provenance.selected_object.revision == "snapshot-a"
 
 
+@pytest.mark.parametrize("policy_turn", [False, True])
 def test_historical_plan_retry_loads_exact_work_revision(
-    monkeypatch: Any,
+    monkeypatch: Any, policy_turn: bool,
 ) -> None:
     from apps.live_control_server.routes import agent as agent_route
 
@@ -3009,6 +3010,13 @@ def test_historical_plan_retry_loads_exact_work_revision(
         "client_work_state": "saved_dirty",
     }
     request = AgentTurnRequest.model_validate(payload)
+    if policy_turn:
+        from apps.live_control_server.models.agent_turn import PlanContextPolicyV2
+        request = request.model_copy(update={"plan_context_policy": PlanContextPolicyV2.model_validate({
+            "schema": "dmb_plan_context_policy_v2",
+            "graph_source": "reviewed_native_graph",
+            "policy": "auto_plan_world",
+        })})
     provenance = TurnProvenance(
         world_id=world_id,
         surface_resolution="resolved",
@@ -3057,7 +3065,16 @@ def test_historical_plan_retry_loads_exact_work_revision(
     assert resolved is not None
     assert resolved.revision == 7
     assert resolved.plan_markdown == "# Historical Plan"
-    assert resolved.content_basis is None
+    if policy_turn:
+        basis = resolved.content_basis
+        assert basis is not None
+        assert (basis.world_id, basis.document_id) == (world_id, document_id)
+        assert (basis.object_revision, basis.revision_n) == (7, 4)
+        assert (basis.work_revision_id, basis.content_sha256) == (str(work_revision_id), digest)
+        assert basis.committed_status == "committed"
+        assert not basis.has_divergent_working_copy
+    else:
+        assert resolved.content_basis is None
 
 
 def test_world_turn_claim_pending_does_not_dispatch_provider(tmp_path: Path) -> None:

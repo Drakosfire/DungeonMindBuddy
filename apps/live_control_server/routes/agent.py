@@ -522,10 +522,19 @@ def _historical_work_resolver(
             None if target_session is None else normalize_session_id(target_session)
         ),
         world_id=str(owner["id"]),
-        # The historical reference does not store editor divergence. The
-        # immutable pin is sufficient to reconstruct runtime input, not that
-        # transient response boolean.
-        content_basis=None,
+        content_basis=(
+            AgentTurnContentBasis(
+                world_id=str(owner["id"]),
+                document_id=reference.object_id,
+                object_revision=reference.object_revision,
+                work_revision_id=str(reference.work_revision_id),
+                revision_n=reference.revision_n,
+                content_sha256=reference.content_sha256,
+                committed_status="committed",
+                has_divergent_working_copy=False,
+            )
+            if body.plan_context_policy is not None else None
+        ),
         plan_markdown=committed.markdown,
         session_evidence=_planning_session_evidence(body,owner,provenance),
     )
@@ -772,6 +781,7 @@ def _plan_context_resolver(
         try:
             context, query = prepare_query(work.world_id, body.message, native_principal,
                 source_context=native_source_context,
+                resolve_event_source_scope=body.surface.surface_id == 'plan' and frozen_receipt is None,
                 measure_work=trace.measure_host_work if trace is not None else None,
                 authored_references=body.build_authored_references if body.surface.surface_id == 'build' else body.authored_references,
                 revision_id=frozen_query.authority.revision_id if isinstance(frozen_query, NativePlanQueryV1) else None)
@@ -780,12 +790,16 @@ def _plan_context_resolver(
                 code='native_graph_query_rejected',status_code=409,provider_dispatched=False) from exc
         if type(frozen_query) is NativePlanQueryV1 and isinstance(query, NativePlanQueryV1):
             from dataclasses import replace
-            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches','discovery_hops'}) | {'schema': 'dmb_native_plan_query_v1'})
+            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches','discovery_hops','named_recap_bound','episode_campaign_focus'}) | {'schema': 'dmb_native_plan_query_v1'})
             context = replace(context, query=query)
         elif hasattr(query, 'discovery_hops') and isinstance(frozen_query, NativePlanQueryV1):
             from dataclasses import replace
             # Retry reopens the original retrieval rather than recording a new discovery.
-            query = query.model_copy(update={'discovery_hops': getattr(frozen_query, 'discovery_hops', ())})
+            query = query.model_copy(update={
+                'discovery_hops': getattr(frozen_query, 'discovery_hops', ()),
+                'named_recap_bound': getattr(frozen_query, 'named_recap_bound', None),
+                'episode_campaign_focus': getattr(frozen_query, 'episode_campaign_focus', None),
+            })
             context = replace(context, query=query)
         return context, query
 
