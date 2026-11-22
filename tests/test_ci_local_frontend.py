@@ -33,6 +33,10 @@ def sandbox(tmp_path, monkeypatch):
     (ui / "package-lock.json").write_text('{"lockfileVersion":3}')
     (repo / ".gitignore").write_text("node_modules/\n")
     (repo / "ci").mkdir()
+    (repo / "scripts").mkdir()
+    (repo / "scripts/ci_frontend_collect.mjs").write_bytes(
+        (Path(__file__).resolve().parents[1] / "scripts/ci_frontend_collect.mjs").read_bytes()
+    )
     catalog = {
         "version": 1,
         "contracts": {
@@ -103,6 +107,11 @@ def sandbox(tmp_path, monkeypatch):
                     ]
                 )
             )
+        if len(argv) > 1 and argv[1].endswith("ci_frontend_collect.mjs"):
+            Path(argv[2]).write_text(json.dumps([{
+                "file": str(cwd / "src/owner.test.ts"),
+                "name": "owner > refuses stale write", "state": "pending",
+            }]))
         if "--reporter=json" in argv:
             dest = next(
                 x.split("=", 1)[1] for x in argv if x.startswith("--outputFile=")
@@ -142,6 +151,40 @@ def sandbox(tmp_path, monkeypatch):
         workers=8,
     )
     return args, calls, fake
+
+
+def test_complete_inventory_reconciles_skips_filters_and_duplicates(tmp_path):
+    def item(name, state):
+        return {"file": str(tmp_path / "a.test.ts"), "name": name, "state": state}
+    inventory = [item("selected", "pending"), item("filtered", "pending"),
+                 item("skipped", "skipped"), item("duplicate", "pending"),
+                 item("duplicate", "pending")]
+    selected = local.inventory_keys([inventory[0], *inventory[3:]], tmp_path)
+    def case(name, status):
+        return {"ancestorTitles": [], "title": name, "status": status}
+    cases = [case("selected", "passed"), case("filtered", "skipped"),
+             case("skipped", "skipped"), case("duplicate", "passed"),
+             case("duplicate", "passed")]
+    report = {"testResults": [{"name": str(tmp_path / "a.test.ts"), "assertionResults": cases}]}
+    assert local.complete_case_parity(selected, inventory, report, tmp_path)["collection_parity"]
+    cases.pop()
+    assert not local.complete_case_parity(selected, inventory, report, tmp_path)["collection_parity"]
+    cases.append(case("unexpected", "skipped"))
+    assert not local.complete_case_parity(selected, inventory, report, tmp_path)["collection_parity"]
+    cases[-1] = case("duplicate", "skipped")
+    assert not local.complete_case_parity(selected, inventory, report, tmp_path)["collection_parity"]
+    inventory.append(item("selected", "skipped"))
+    with pytest.raises(ValueError, match="ambiguous"):
+        local.complete_case_parity(selected, inventory, report, tmp_path)
+
+
+def test_collection_selectors_reject_unrecognized_controls():
+    assert local.collection_selectors(["src/a", "-t", "name", "src/b"]) == ["src/a", "src/b"]
+    assert local.collection_selectors(["src/a", "--testNamePattern=name"]) == ["src/a"]
+    with pytest.raises(ValueError, match="unsupported"):
+        local.collection_selectors(["--exclude", "src/a"])
+    with pytest.raises(ValueError, match="missing"):
+        local.collection_selectors(["-t"])
 
 
 @pytest.mark.parametrize("sparse", [False, True])
