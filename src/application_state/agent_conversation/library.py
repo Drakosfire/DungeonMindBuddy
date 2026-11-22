@@ -210,7 +210,7 @@ def _reply_object_projection(completion, provenance, world, conversation, turn_i
         'document_id':work.object_id,'surface_id':surface}
     if obj.kind=='questions':
         return {'kind':'questions','questions':[{'text':q.text} for q in obj.questions],'source':source}
-    if obj.kind in {'plan','connected_page','relationship'}:
+    if obj.kind in {'plan','connected_page','relationship','lore_page'}:
         return {'kind':'page_object','object_kind':obj.kind,'source':source}
     return None
 

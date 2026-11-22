@@ -131,3 +131,14 @@ it.each([422, 403])('negotiates legacy export only for the selector rejection (s
   expect(fetch).toHaveBeenCalledTimes(1);
  }
 });
+
+
+it('exposes a lore-page review descriptor only for its completed Build owner',async()=>{
+ const value=page();const lore={kind:'page_object',object_kind:'lore_page',source};
+ response({...value,turns:[{...value.turns[0],reply_object:lore}]});
+ expect((await readConversationTurns('world',cid)).turns[0].reply_object).toEqual(lore);
+ for(const change of [{status:'running'},{reply_object:{...lore,source:{...source,surface_id:'plan'}}},{reply_object:{...lore,source:{...source,world_id:'foreign'}}}]){
+  response({...value,turns:[{...value.turns[0],reply_object:lore,...change}]});
+  await expect(readConversationTurns('world',cid)).rejects.toThrow();
+ }
+});

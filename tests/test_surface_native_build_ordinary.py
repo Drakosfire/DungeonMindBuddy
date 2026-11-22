@@ -3088,6 +3088,15 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
 
     completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
+    from application_state.agent_conversation import library, repository
+    with monkeypatch.context() as patch:
+        patch.setattr(repository, "_turn_from_row", lambda *args, **kwargs: pytest.fail("Compact lore review decoded execution"))
+        compact = library.read_active_messages(case.world)
+    descriptor = compact["messages"][-1]["reply_object"]
+    assert descriptor == {"kind": "page_object", "object_kind": "lore_page", "source": {
+        "world_id": case.world, "conversation_id": str(populated.conversation_id),
+        "turn_id": str(populated.turn_id), "document_id": populated.provenance.primary_work.object_id,
+        "surface_id": "build"}}
     followup = workflow.capture_case(
         case.client, case.world, template,
         {"question": "Create the page"},

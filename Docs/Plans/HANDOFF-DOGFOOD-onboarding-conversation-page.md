@@ -10,8 +10,10 @@ Neither deployment nor a text-only proposal completes this goal.
 Serial slices: (1) runtime reuse admission, then (2) compact page review/save.
 Runtime branch codex/dogfood-onboarding-context-page, base merged dedicated
 release 4a49c269b29ab9b2bed9ffaed1e54a7c2d4568eb (same tree as serving60c19).
-The UI successor remains BLOCKED until this runtime PR merges; it will name that
-exact parent. Do not adopt unrelated main work or unmerged COMBAT #4441.
+The owner revised the UI successor to an ACTIVE stack on #4445 at exact
+c7f4dacd16c9800584d02b9cc2fb05e14311ac0c while backend qualification runs in
+the immutable parent checkout. Merge runtime first, then UI; the compact-lore
+handoff owns that bounded successor. Do not adopt unrelated main work or unmerged COMBAT #4441.
 
 Runtime write lease: native_corpus.py conversation-route predicate, the owning
 ordinary Build regression tests, native-body selection guard tests, forward reader
