@@ -434,3 +434,32 @@ the visible scene-proposal panel showed no edit. Arrival's rendered text
 was identical before the requests and after direct Play reload, and
 Departure remained selectable. Server-side edit reservations were not
 independently inspected.
+
+### Hosted Build protected fixture checks
+
+Both checks used serving revision `03055f24` and fresh conversations in
+Buddy Cloud Pilot.
+
+- **B01, protected Arrival fixture.** A separate saved page contained the
+  titled First sight Read Aloud, the ordinary Arrival and Departure
+  paragraphs, a table, and the retained boardwalk illustration. The fixture
+  was reopened before Send. The clipboard confirmed the last six characters
+  of Arrival (`reeds.`) before collapsing the selection to the paragraph
+  end. Ordinary Send proposed one Read Aloud followed by one GM Note. Only
+  the GM Note told the GM to wait for the players' choice. Save and direct
+  reload left both blocks immediately after Arrival and before Departure.
+  Removing just those two blocks from the rendered comparison reproduced
+  the entire baseline, including First sight, the table, Departure, and the
+  1,024-pixel illustration.
+- **B02, existing illustrated fixture.** The clipboard matched the complete
+  First sight body, including its closing punctuation. The request produced
+  two quieter sentences. Save and direct reload preserved the Read Aloud
+  kind, First sight title, table, Departure sentence, and loaded artwork.
+  Substituting the original passage into the comparison reproduced all
+  top-level rendered blocks. This was a fresh turn on a fixture that already
+  had benchmark edits, so it does not count as a clean matched repetition.
+
+The hosted build still showed Check insertion briefly after a successful
+Save. The B01 fixture also showed an artwork insertion inspection warning
+during setup. Direct reload confirmed the artwork was retained before the
+benchmark began. The remaining independent repetitions are open.
