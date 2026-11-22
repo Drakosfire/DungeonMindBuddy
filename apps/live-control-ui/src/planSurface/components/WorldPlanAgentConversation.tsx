@@ -173,6 +173,7 @@ export interface WorldPlanAgentConversationProps {
   savedDirty: boolean;
   pageReady: boolean;
   saveInFlight: boolean;
+  onReviewEncounterAttachment?: (title: string) => Promise<void>;
   playableTarget?: Omit<WorldPlanSelectedPlayableTargetV1, "schema"> | null;
   playableTargetBasis?: { revision: number; contentSha256: string } | null;
   playableTargetStale?: boolean;
@@ -2687,6 +2688,7 @@ export function WorldPlanAgentConversation({
   savedDirty,
   pageReady,
   saveInFlight,
+  onReviewEncounterAttachment,
   playableTarget = null,
   playableTargetBasis = null,
   playableTargetStale = false,
@@ -2831,6 +2833,7 @@ export function WorldPlanAgentConversation({
   const setComposerDrafts = sharedConversation?.worldId === worldId ? sharedConversation.setComposerDrafts : setLocalComposerDrafts;
   const composerDraftKey = isBuild ? `build:${buildMode?.savedSource?.documentId ?? "unavailable"}` : isReadOnly ? `play:${playMode?.admittedRun?.runId ?? "unadmitted"}` : `plan:${documentId ?? "unsaved"}`;
   const composerMessage = composerDrafts[composerDraftKey] ?? "";
+  const [encounterReviewBusy,setEncounterReviewBusy]=useState(false);
   const [appearanceProposal, setAppearanceProposal] = useState<AppearanceAccent | null>(null);
   const setComposerMessage = (action: string | ((current: string) => string)) => {
     setComposerDrafts((drafts) => {
@@ -4907,6 +4910,18 @@ export function WorldPlanAgentConversation({
     setComposerIntent(intent);
     setError(null);
     setEditError(null);
+    const encounterAttachment = composerMessage.trim().match(/^attach\s+(?:the\s+encounter\s+)?(.+?)\s+to\s+this\s+scene[.!]?$/iu);
+    if (onReviewEncounterAttachment && !continuationOfActionId && encounterAttachment) {
+      event.preventDefault();
+      if (composerBusy) return;
+      const title = encounterAttachment[1]!.trim().replace(/^[“"]|[”"]$/gu, "");
+      setEncounterReviewBusy(true);
+      void onReviewEncounterAttachment(title).then(() => {
+        setComposerMessage(current => current === composerMessage ? "" : current);
+      }).catch(caught => setError(caught instanceof Error ? caught.message : String(caught)))
+        .finally(() => setEncounterReviewBusy(false));
+      return;
+    }
     if (intent === "propose" && continuationOfActionId) void composeEdit(event, intent);
     else {
       const explicit = composerIntentCorrection?.message===composerMessage ? composerIntentCorrection.intent : null;
@@ -6422,7 +6437,7 @@ export function WorldPlanAgentConversation({
     : "discuss";
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
   const pendingPlayRecoveryHydrating = Boolean(verifiedWorldId && pendingPlayLoadedWorldId !== verifiedWorldId);
-  const composerBusy = conversationSwitching || (isReadOnly
+  const composerBusy = encounterReviewBusy || conversationSwitching || (isReadOnly
     ? surfacePreparing || buildCompose.busy || playCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext || pendingPlayRecoveryHydrating
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
