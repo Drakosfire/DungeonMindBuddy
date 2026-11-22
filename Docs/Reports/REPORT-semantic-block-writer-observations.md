@@ -463,3 +463,31 @@ The hosted build still showed Check insertion briefly after a successful
 Save. The B01 fixture also showed an artwork insertion inspection warning
 during setup. Direct reload confirmed the artwork was retained before the
 benchmark began. The remaining independent repetitions are open.
+
+### Hosted Build ordinary prose, Warning, and Rules controls
+
+On serving revision `03055f24`, each run used a fresh conversation and a
+verified insertion point after the Arrival paragraph on the protected
+illustrated Pilot fixture. Earlier synthetic benchmark blocks were already
+present. Each comparison used the state immediately before its own Send.
+
+- **B03.** The review contained two ordinary paragraphs and no new callout.
+  Save inserted them at the intended boundary. The browser then reported a
+  fetch failure, and Check insertion could not reconcile the retained draft.
+  The conflict viewer showed identical Markdown in the browser draft based
+  on version 4 and saved version 5. Opening the saved version showed each
+  paragraph exactly once. Removing the pair from the rendered comparison
+  reproduced the prior page, including the previous callouts, table,
+  Departure, and artwork. This verifies placement and persistence through
+  recovery. It leaves the clean Save acknowledgment failing on this release.
+  [#4407](https://github.com/Drakosfire/DungeonMindBuddy/pull/4407) adds exact
+  commit retry for a lost transport response. Hosted verification is pending.
+- **X02 Warning.** The exact request produced one Warning with the sentence
+  “The boardwalk is slippery.” Save and direct reload kept it at the boundary.
+  The remaining rendered page matched the pre-send comparison.
+- **X02 Rules.** The first request stopped before proposing a change and
+  left the rendered page and Saved timestamp unchanged. A fresh independent
+  conversation with the same prompt produced one Rules block containing
+  only “Travel pace is set by the GM.” Save and direct reload retained it
+  at the boundary, with the Warning and all other rendered content intact.
+  The interrupted turn remains a failed repetition.
