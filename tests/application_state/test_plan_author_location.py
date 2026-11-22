@@ -462,6 +462,39 @@ def test_source_blind_author_scope_round_trips_through_sdk_and_reconstructs_offe
             result.model_copy(update={'answers': {**result.answers, 'existing_scope': foreign}}))
 
 
+def test_selection_reference_guidance_keeps_historical_source_blind_wire():
+    historical = NativePlanAuthorScopeInputV1(
+        question='Rewrite this to emphasize the three lanterns.',
+        dialogue=(), max_span_attempts=100, quote_context=False, assess_page_edit=True,
+    )
+    current = historical.model_copy(update={'selection_reference_version': 'v1'})
+
+    def wire(parent):
+        decision = prepare_author_scope_decision(parent)
+        questions = {question.name: {
+            'type': 'choice',
+            'instructions': question.question,
+            'criteria': question.option_descriptions,
+        } for question in decision.questions}
+        return json.dumps({
+            'model': decision.model, 'state': decision.state, 'questions': questions,
+        }).encode()
+
+    old_wire, new_wire = wire(historical), wire(current)
+    validate_author_scope_wire(historical, old_wire)
+    validate_author_scope_wire(current, new_wire)
+    with pytest.raises(ValueError, match='reconstructed local choices'):
+        validate_author_scope_wire(historical, new_wire)
+
+    old_body, new_body = json.loads(old_wire), json.loads(new_wire)
+    assert old_body['state'] == new_body['state']
+    assert 'selection_reference_version' not in historical.model_dump()
+    assert new_body['questions']['location_relation']['criteria'] == old_body['questions']['location_relation']['criteria']
+    guidance = new_body['questions']['location_relation']['instructions']
+    assert 'without saying “selected text.”' in guidance
+    assert 'the request points to another location' in guidance
+
+
 def bind(nodes, scope, **kwargs):
     capture, catalog = family_catalog(nodes)
     original = capture.editor_json
