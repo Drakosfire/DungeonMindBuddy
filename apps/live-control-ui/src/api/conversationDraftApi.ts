@@ -80,12 +80,15 @@ export async function openVariantReview(scope: ConversationDraftScope, reviewId:
 
 export type VariantRuleField = "rules_text" | "timing_text" | "condition_text";
 
-export interface VariantTextReplacement {
+export type VariantTextReplacement = ({
   rule_key: string;
   field: VariantRuleField;
+} | {
+  field: "name";
+}) & {
   replace_exact: string;
   with_text: string;
-}
+};
 
 export async function correctVariantReview(
   scope: ConversationDraftScope, reviewId: string, revision: number, replacements: VariantTextReplacement[],
