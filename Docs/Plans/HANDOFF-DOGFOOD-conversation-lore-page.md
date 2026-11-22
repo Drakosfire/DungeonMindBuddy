@@ -1,6 +1,12 @@
 # DOGFOOD: create a lore page from retained conversation evidence
 
-Status ACTIVE. The operator explicitly authorized the Maelthor page, reuse of
+Status DELIVERED for the bounded destination-parser slice: PR #4402 merged as
+`90b95f43f06f2e92d2fabe67872e9ef446c91f6e` after independent exact-head PASS.
+Its implementation write lease is released. The full goal remains open;
+the consuming [release-selection handoff](HANDOFF-DOGFOOD-aw10-release-selection.md)
+owns serving adoption and records remaining latency and production evidence.
+
+The operator explicitly authorized the Maelthor page, reuse of
 already retrieved context without searching again, and fast execution in this
 chat. This first serial implementation slice repairs the generic explicit
 destination boundary; the full goal also requires actual Elderwyld page creation
@@ -37,10 +43,21 @@ eager Graph preparation. Conversation synthesis must retain the pending query,
 admit prior exact citations, and never start new Graph preparation.
 
 The supplied failed Maelthor turn selected the older research route and then
-returned a lore proposal that cannot satisfy the current literal parser.
-Its private exception diagnostic and preceding conversation are absent from the
-attachment; the exact production exception and eligible prior evidence remain
-to be inspected. Do not infer that the article fix alone proves live route choice.
+returned a lore proposal that cannot satisfy the literal parser. Subsequent
+inspection verified the retained preceding evidence and found serving revision
+`03055f248645c3a2bc67d2904825637b23687ada` lacks the merged conversation-reuse
+choice. The article fix alone does not prove hosted route availability.
+
+Independent review of exact head `d536c8e06ed976d829095bec14902b613c4462e4`
+found no actionable issues and independently ran 38 parser tests. Real-provider
+fresh-context acceptance created one populated Copperglass Watch page in a new
+empty conversation, retained all supplied proposed details and the open
+question, and independently reopened the committed page. Draft: 7.660 seconds;
+confirmation/reopen: 58 milliseconds; repeated confirmation returned the same
+receipt. This ordinary route prepared Graph/related-page context but read no
+source bodies. Separately, three Maelthor reuse replays performed zero new
+acquisition, retained exact citations, and saved/reopened one disposable page
+each; their 10.983–14.385-second drafts still miss the 10-second target.
 
 ## Validation and remaining goal
 
