@@ -187,6 +187,52 @@ def test_collection_selectors_reject_unrecognized_controls():
         local.collection_selectors(["-t"])
 
 
+@pytest.mark.skipif(
+    not os.environ.get("BUDDY_VITEST_NODE_MODULES"),
+    reason="real Vitest integration requires an explicitly provided locked installation",
+)
+def test_real_vitest_collection_and_failure_boundaries(tmp_path):
+    modules = Path(os.environ["BUDDY_VITEST_NODE_MODULES"]).resolve(strict=True)
+    (tmp_path / "node_modules").symlink_to(modules, target_is_directory=True)
+    (tmp_path / "cases.test.js").write_text("""
+import { it, describe } from 'vitest';
+describe('suite', () => {
+  it('selected', () => {}); it('duplicate', () => {}); it('duplicate', () => {});
+  it.skipIf(true)('conditional', () => {});
+  describe.skip('skipped suite', () => { it('child', () => {}); });
+});
+""")
+    (tmp_path / "bad.test.js").write_text("""
+import { describe } from 'vitest';
+describe('bad', () => { throw new Error('collection failure'); });
+""")
+    collector = Path(__file__).resolve().parents[1] / "scripts/ci_frontend_collect.mjs"
+    vitest = modules / "vitest/vitest.mjs"
+    common = ["--maxWorkers=1", "--minWorkers=1"]
+    with local.resource_lock():
+        subprocess.run(["node", str(collector), "all.json", "1", "cases.test.js"],
+                       cwd=tmp_path, check=True)
+        subprocess.run(["node", str(vitest), "list", "cases.test.js", "-t", "selected",
+                        "--json=selected.json", *common], cwd=tmp_path, check=True)
+        subprocess.run(["node", str(vitest), "run", "cases.test.js", "-t", "selected",
+                        "--reporter=json", "--outputFile=result.json", *common],
+                       cwd=tmp_path, check=True)
+        bad = subprocess.run(["node", str(collector), "bad.json", "1", "bad.test.js"],
+                             cwd=tmp_path, capture_output=True, text=True)
+        (tmp_path / "missing.test.js").write_text("import './not-found.js';\n")
+        missing = subprocess.run(["node", str(collector), "missing.json", "1", "missing.test.js"],
+                                 cwd=tmp_path, capture_output=True, text=True)
+    inventory = json.loads((tmp_path / "all.json").read_text())
+    selected = local.inventory_keys(json.loads((tmp_path / "selected.json").read_text()), tmp_path)
+    result = json.loads((tmp_path / "result.json").read_text())
+    assert len(inventory) == 5
+    assert sum(x["name"] == "suite > duplicate" for x in inventory) == 2
+    assert sum(x["state"] == "skipped" for x in inventory) == 2
+    assert local.complete_case_parity(selected, inventory, result, tmp_path)["collection_parity"]
+    assert bad.returncode and "collection error" in bad.stderr and not (tmp_path / "bad.json").exists()
+    assert missing.returncode and not (tmp_path / "missing.json").exists()
+
+
 @pytest.mark.parametrize("sparse", [False, True])
 def test_real_worktree_cleanup_and_source_bound_inventory(sandbox, sparse):
     args, calls, _ = sandbox
