@@ -192,7 +192,7 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
     evidence = verify_input_records(receipt,execution,authorization,prepared_request_json,
         provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
         world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
-        play_context_receipt=play_context_receipt)
+        play_context_receipt=play_context_receipt, retained_build_proof=True)
     responses = [e for e in execution.events if isinstance(e,t.ProviderOutcomeEventV1)
         and e.provider_attempt_id == authorization.provider_attempt_id and e.outcome == 'response_received']
     if (len(responses) != 1 or not responses[0].request_id

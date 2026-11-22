@@ -332,7 +332,8 @@ def _input_frames(raw,execution,work_schema, *, prose_frame=None, prose_work=Non
 
 
 def verify_input_records(receipt, execution, authorization, raw, *, provenance, idempotency_key,
-                         work_proof, world_id, conversation_id, turn_id, attempt, play_context_receipt=None):
+                         work_proof, world_id, conversation_id, turn_id, attempt, play_context_receipt=None,
+                         retained_build_proof=False):
     """Bind one shared native frame to the exact stored producing SDK request."""
     if ((type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1)
             or type(authorization) not in NATIVE_WRITER_TYPES):
@@ -426,7 +427,15 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         else prose_work if prose_work is not None
         else plan_work_view(expected_work,prefix) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
-        raise ValueError('Native writer changed or omitted its exact surface work')
+        if not build_local or not retained_build_proof:
+            raise ValueError('Native writer changed or omitted its exact surface work')
+        retained_work = build_work_view(
+            expected_work, prefix, include_variant=variant_format, variant_edits=variant_edits,
+            variant_passage_review=variant_passage_review,
+            bind_lore_page="lore_page_destination" in work_frame["build_work"], retained_raw_markdown=True,
+        )
+        if t.canonical_sha256(work_frame) != t.canonical_sha256(retained_work):
+            raise ValueError('Native writer changed or omitted its exact surface work')
     from .native_execution import NativeWriterEstimatedBudgetV1
     if isinstance(execution.policy.writer_context_budget, NativeWriterEstimatedBudgetV1):
         # Trusted host estimation has the same boundary as controller accounting.

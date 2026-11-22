@@ -1,0 +1,9 @@
+# BUILD project managed image evidence for provider input
+
+ACTIVE serial prerequisite for qualified delivery of draft #4380. The contextual layout lane owner has authorized this bounded correction and its verification. Branch `codex/build-managed-media-model-projection` starts at `59adf6a18ab2cc68129a7b8009b7c4900205d779`. The frozen #4380 run at `94abba3aceced30896f95c23ecb4cb49fa866c2b` intercepted a managed asset identifier in a native Build relevance request after a read-only image question took the ordinary work route.
+
+Provide author-visible image labels in the native Build relevance and writer projections. Retain the source line address, host catalog bytes, evidence provenance, exact citation mapping and editor/Save authority. Support exact completed historical proof while requiring the projected representation before fresh dispatch. Verify inline, reference and literal Markdown, fresh raw-input refusal, old proof reconstruction, exact ordinary request packets and the existing native Build evidence and writer contracts.
+
+The write split covers the new projection helper, native Build relevance projection/admission, Build work frame projection and the Build-only retained work check in native writer reconstruction. The shared `native_writer.py` overlap was inspected against #3307 `8cb62d310bba188ed328459def044dca7792b520`, #3290 `5bdc96519ff884ec4c499eb1e808f69d257747a8` and #2462 `9ff0a3eba17eb7309c05f398f0c301227acdf901`. Preserve their Plan retrieval ordering, source compaction, Graph evidence order, citation reconstruction and writer formats. Keep migration, deployment, production execution and serving changes outside this slice.
+
+Review and merge this prerequisite before integrating it into #4380. Requalify the mounted path with a fresh independently authored cohort after that integration.
