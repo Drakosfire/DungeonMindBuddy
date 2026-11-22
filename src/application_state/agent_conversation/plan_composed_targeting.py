@@ -16,7 +16,7 @@ from .plan_authoring import (
     prepare_requested_work_decision,
     strict_json,
 )
-from .plan_slot_layout import PlanSlotAddressV1, PlanSlotParagraphV1
+from .plan_slot_layout import PlanSlotAddressV1, PlanSlotParagraphV1, slot_paragraph_boundary
 from application_state.content.page_presentation import BlockBinding, Row
 
 
@@ -177,7 +177,7 @@ class ComposedPlanPlacementCatalogV1(Frozen):
 class ComposedPlanNominationV1(Frozen):
     confirmed_work: RequestedWork
     relation: Literal["before", "after", "unresolved"]
-    scope: Literal["unscoped", "qualified", "selected_paragraph", "unresolved"]
+    scope: Literal["unscoped", "qualified", "selected_paragraph", "caret_boundary", "unresolved"]
     row_choice: str = "any_row"
     passages: tuple[str, ...] = ()
     scopes: tuple[str, ...] = ()
@@ -236,10 +236,26 @@ def prepare_composed_plan_intent(author: PlanRequestedWorkInputV1):
     return base.model_copy(update={"state": state})
 
 
+def composed_caret_target(snapshot, catalog) -> PlanSlotAddressV1 | None:
+    if snapshot.from_ != snapshot.to:
+        return None
+    boundary = slot_paragraph_boundary(strict_json(snapshot.editor_json), snapshot.from_)
+    if boundary is None:
+        return None
+    indices, side = boundary
+    for paragraph in catalog.paragraphs:
+        address = paragraph.address
+        if (address.row_index, address.slot_index, address.child_index) == indices:
+            return PlanSlotAddressV1(**address.model_dump(), relation=side)
+    return None
+
+
 def prepare_composed_plan_nomination(
     author: PlanRequestedWorkInputV1,
     snapshot: PlanAuthoringComposedSnapshotV1,
     catalog: ComposedPlanPlacementCatalogV1,
+    *,
+    offer_caret: bool = False,
 ):
     """Keep model-visible labels separate from the retained placement proof."""
     from generationengine.types import ChoiceDecisionQuestion
@@ -282,6 +298,18 @@ def prepare_composed_plan_nomination(
         "available action is inserting text immediately before or after an existing paragraph. An "
         "edit to columns, layout, objects, a heading, or an empty slot is unresolved."
     )
+    scope_options = ("unscoped", "qualified", "selected_paragraph", "unresolved")
+    relation_guidance = scope_guidance = ""
+    caret = composed_caret_target(snapshot, catalog) if offer_caret else None
+    if caret is not None:
+        state["offered_caret_boundary"] = caret.relation
+        state["placement_policy"] += (
+            " If an actual insertion request leaves the page location open, use the offered caret boundary. "
+            "An uncertain, conflicting or explicitly named location must not default to the caret."
+        )
+        scope_options += ("caret_boundary",)
+        relation_guidance = " For open placement at the caret, select its offered side."
+        scope_guidance = " Choose caret_boundary only for an insertion with no stated page location."
     questions = (
         ChoiceDecisionQuestion(
             name="confirmed_work",
@@ -296,7 +324,7 @@ def prepare_composed_plan_nomination(
         ChoiceDecisionQuestion(
             name="relation",
             options=("before", "after", "unresolved"),
-            question="What one before/after relation to an existing paragraph did the author request?",
+            question="What one before/after relation to an existing paragraph did the author request?" + relation_guidance,
         ),
         ChoiceDecisionQuestion(
             name="row_choice",
@@ -318,8 +346,9 @@ def prepare_composed_plan_nomination(
         ),
         ChoiceDecisionQuestion(
             name="scope",
-            options=("unscoped", "qualified", "selected_paragraph", "unresolved"),
-            question="Ignoring row ordinals, does the request name a containing heading or column, explicitly refer to its selected paragraph, or give no additional location constraint?",
+            options=scope_options,
+            question=("Ignoring row ordinals, does the request name a containing heading or column, explicitly "
+                      "refer to its selected paragraph, or give no additional location constraint?" + scope_guidance),
         ),
         *(
             ChoiceDecisionQuestion(
@@ -407,6 +436,8 @@ def resolve_composed_plan_nomination(
     catalog: ComposedPlanPlacementCatalogV1,
     author_intent: RequestedWork,
     nomination: ComposedPlanNominationV1 | None,
+    *,
+    allow_caret: bool = False,
 ) -> ComposedPlanPlacementResolutionV1:
     catalog.require_snapshot(snapshot)
     if author_intent != "write_current_page":
@@ -432,6 +463,13 @@ def resolve_composed_plan_nomination(
         or nomination.row_choice not in {"any_row", *rows}
     ):
         raise ValueError("Composed Plan nomination differs from the offered scope")
+    if nomination.scope == "caret_boundary":
+        caret = composed_caret_target(snapshot, catalog) if allow_caret else None
+        if (caret is None or nomination.relation != caret.relation or nomination.row_choice != "any_row"
+                or nomination.passages or nomination.scopes):
+            return ComposedPlanPlacementResolutionV1(work="clarify", resolution="unresolved")
+        return ComposedPlanPlacementResolutionV1(work="write_current_page", resolution="unique",
+            capture=_derived_slot_capture(snapshot, caret))
     candidates = {
         row.address for alias in nomination.passages for row in passages[alias]
     }

@@ -297,6 +297,63 @@ export function updatePageRowPresentation(editor: Editor, pos: number, attrs: { 
   return true;
 }
 
+function forEachSourceBlock(doc: PMNode, visit: (block: PMNode, pos: number) => void) {
+  const walk = (block: PMNode, pos: number) => {
+    if (block.type.name === 'pageImageText') {
+      block.forEach((child, offset) => walk(child, pos + 1 + offset));
+    } else if (BLOCKS.includes(block.type.name)) {
+      visit(block, pos);
+    }
+  };
+  doc.forEach((block, pos) => {
+    if (block.type.name !== 'pageRow') {
+      walk(block, pos);
+    } else {
+      block.forEach((slot, slotOffset) => slot.forEach((child, childOffset) =>
+        walk(child, pos + 2 + slotOffset + childOffset)));
+    }
+  });
+}
+
+function hasSourceBlockIdentities(doc: PMNode): boolean {
+  let hasIdentities = false;
+  doc.forEach(block => {
+    if (!BLOCKS.includes(block.type.name) || block.attrs.pageBlockId) hasIdentities = true;
+  });
+  return hasIdentities;
+}
+
+function stampSourceBlockIdentities(tr: Transaction, allocate: (position: number) => string) {
+  const seen = new Set<string>();
+  forEachSourceBlock(tr.doc, (block, pos) => {
+    let id = block.attrs.pageBlockId;
+    if (typeof id !== 'string' || !id || seen.has(id)) {
+      id = allocate(pos);
+      tr.setNodeMarkup(pos, undefined, { ...block.attrs, pageBlockId: id });
+    }
+    seen.add(id);
+  });
+}
+
+/** Bind the same new identities each time Review prepares this exact draft and insertion. */
+export function prepareReviewedBlockIdentities(tr: Transaction): Transaction {
+  if (!tr.doc.type.schema.nodes.paragraph?.spec.attrs?.pageBlockId) return tr;
+  if (!hasSourceBlockIdentities(tr.doc)) return preservePlainReviewBlockIdentities(tr);
+
+  const reserved = new Set<string>();
+  forEachSourceBlock(tr.doc, block => {
+    if (typeof block.attrs.pageBlockId === 'string') reserved.add(block.attrs.pageBlockId);
+  });
+  stampSourceBlockIdentities(tr, position => {
+    const prefix = `page-review-${position}`;
+    let id = prefix;
+    for (let index = 1; reserved.has(id); index++) id = `${prefix}-${index}`;
+    reserved.add(id);
+    return id;
+  });
+  return tr;
+}
+
 export const PageBlockIdentity = Extension.create({
   name: 'pageBlockIdentity',
   addGlobalAttributes() { return [{ types: BLOCKS, attributes: { pageBlockId: { default: null, rendered: false } } }]; },
@@ -307,29 +364,11 @@ export const PageBlockIdentity = Extension.create({
         // transaction and only source-level blocks, not paragraphs inside tables.
         const changed = transactions.filter(transaction => transaction.docChanged);
         if (!changed.length) return null;
-        let hasIdentities = false;
-        state.doc.forEach(block => {
-          if (!BLOCKS.includes(block.type.name) || block.attrs.pageBlockId) hasIdentities = true;
-        });
-        // An exact reviewed insertion and its history must keep a plain page
-        // sidecar-free rather than changing the snapshot recorded by Review.
-        if (!hasIdentities && changed.every(transaction =>
+        // Exact reviewed insertion and history keep plain pages free of the sidecar.
+        if (!hasSourceBlockIdentities(state.doc) && changed.every(transaction =>
           transaction.getMeta(PLAIN_REVIEW_INSERTION) === true || isHistoryTransaction(transaction))) return null;
-        const seen = new Set<string>();
         const tr = state.tr;
-        const stamp = (block: PMNode, pos: number) => {
-          if (block.type.name === 'pageImageText') { block.forEach((child, offset) => stamp(child, pos + 1 + offset)); return; }
-          if (!BLOCKS.includes(block.type.name)) return;
-          let id = block.attrs.pageBlockId;
-          if (typeof id !== 'string' || !id || seen.has(id)) {
-            id = newId(); tr.setNodeMarkup(pos, undefined, { ...block.attrs, pageBlockId: id });
-          }
-          seen.add(id);
-        };
-        state.doc.forEach((block, pos) => {
-          if (block.type.name !== 'pageRow') { stamp(block, pos); return; }
-          block.forEach((slot, slotOffset) => slot.forEach((child, childOffset) => stamp(child, pos + 2 + slotOffset + childOffset)));
-        });
+        stampSourceBlockIdentities(tr, newId);
         return tr.docChanged ? tr : null;
       },
     })];

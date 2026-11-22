@@ -173,8 +173,10 @@ class PlanJevDispatch:
         if parent_type is NativePlanOpeningInputV2:
             navigation['evidence_relevance_version'] = 'v1'
             navigation['opening_graph_relevance_version'] = 'v1'
+            navigation['implicit_caret_version'] = 'v1'
         elif parent_type is NativePlanOpeningInputV3:
             navigation['column_scope_version'] = 'v1'
+            navigation['implicit_caret_version'] = 'v1'
         if author_scope is not None:
             if parent_type not in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) or type(author_scope) is not NativePlanAuthorScopeObservedV1:
                 raise ValueError('Bound opening requires its actual contextual author scope observation')
@@ -203,7 +205,8 @@ class PlanJevDispatch:
         from application_state.agent_conversation.native_execution import NativePlanActionV3
         from application_state.agent_conversation.native_plan_opening import (
             NativePlanAuthorScopeObservedV1, NativePlanAuthorScopeParentV1,
-            NativePlanOpeningScopeBindingV1, require_retained_author_scope,
+            NativePlanOpeningInputV2, NativePlanOpeningInputV3, NativePlanOpeningScopeBindingV1, opening_input_type,
+            require_retained_author_scope,
         )
 
         turn = adapter.fence.turn
@@ -224,6 +227,9 @@ class PlanJevDispatch:
         dispatch.parent = NativePlanAuthorScopeParentV1(
             question=turn.user_text, dialogue=tuple(dialogue), quote_context=prior_scope is not None,
             assess_page_edit=not review,
+            selection_reference_version='v1',
+            implicit_caret_version=('v1' if opening_input_type(turn.graph_context_execution.policy.action)
+                in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) else None),
             requested_operation=adapter.request.plan_requested_operation if not review else None,
             max_span_attempts=2048, request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256,
