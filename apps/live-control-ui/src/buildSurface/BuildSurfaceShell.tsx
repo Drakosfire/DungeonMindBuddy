@@ -332,6 +332,10 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     && (session.record.campaign_id === session.record.world_id
       || getWorldIdForCampaign(session.record.campaign_id) === session.record.world_id)
     ? session.record.campaign_id : null;
+  // This is the local conversation namespace, not a Core campaign association.
+  // A World-owned reviewed page can legitimately have no legacy campaign tag.
+  const acceptedConversationNamespace = acceptedDocumentCampaignId
+    ?? (session.record?.campaign_id == null ? conversationContext?.worldId ?? null : null);
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,
@@ -344,9 +348,9 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
 
   useEffect(() => {
     if (session.record) {
-      lastAcceptedCampaignRef.current = acceptedDocumentCampaignId ?? "build";
+      lastAcceptedCampaignRef.current = acceptedConversationNamespace ?? "build";
     }
-  }, [session.record, acceptedDocumentCampaignId]);
+  }, [session.record, acceptedConversationNamespace]);
 
   useEffect(() => {
     const publishNeutral = (ambientSummary: string) => {
@@ -389,12 +393,12 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
       return;
     }
 
-    if (!acceptedDocumentCampaignId) {
+    if (!acceptedConversationNamespace) {
       publishNeutral("This page has no admitted campaign context. Editing and Save remain available.");
       return;
     }
     rehydrateScope({
-      campaignId: acceptedDocumentCampaignId,
+      campaignId: acceptedConversationNamespace,
       sessionNumber: null,
       surfaceId: "build",
       documentId: session.record.document_id,
@@ -405,7 +409,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     publishSurfaceContext({
       surfaceId: "build",
       label: `${BUILD_SURFACE_LABEL} · ${session.record.title}`,
-      campaignId: acceptedDocumentCampaignId,
+      campaignId: acceptedConversationNamespace,
       documentId: session.record.document_id,
       sessionNumber: null,
       ambientSummary: [
@@ -443,7 +447,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     session.snapshot?.loaded_revision,
     publishSurfaceContext,
     rehydrateScope,
-    acceptedDocumentCampaignId,
+    acceptedConversationNamespace,
   ]);
 
   // Leaving Build (or remounting for a new documentId) must not leave prior accepted context.

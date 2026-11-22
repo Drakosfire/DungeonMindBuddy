@@ -252,7 +252,7 @@ afterAll(()=>{
 });
 
 describe("BuildSurfaceShell", () => {
-  it.each([null, "longmont-c2"])("keeps a Page editable without hydrating incompatible campaign tag %s", async campaign_id => {
+  it.each(["longmont-c2"])("keeps a Page editable without hydrating incompatible campaign tag %s", async campaign_id => {
     const snapshot=buildWorldbuildingSnapshot(DOC_ID);
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({...snapshot,record:{...snapshot.record,world_id:"elderwyld",campaign_id}});
     render(<BuildDocumentHarness documentId={DOC_ID}/>);
@@ -262,6 +262,32 @@ describe("BuildSurfaceShell", () => {
     expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-context-document-id","null");
     await act(async()=>{buildShellTestEditor!.commands.insertContentAt(1,"Editable ");});
     expect(buildShellTestEditor!.getText()).toContain("Editable");
+  });
+
+  it("publishes a reviewed World page without creating a campaign association", async () => {
+    const snapshot=buildWorldbuildingSnapshot(DOC_ID);
+    const record={...snapshot.record,world_id:"new-owned-world",campaign_id:null,authority_state:"reviewed" as const};
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({...snapshot,record});
+    render(<BuildDocumentHarness documentId={DOC_ID}/>);
+    await waitForEditor();
+    await waitFor(()=>expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-context-document-id",DOC_ID));
+    expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-campaign","new-owned-world");
+    expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-document-id",DOC_ID);
+    expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-envelope","present");
+    expect(record.campaign_id).toBeNull();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    await act(async()=>{buildShellTestEditor!.commands.insertContentAt(1,"Editable ");});
+    expect(buildShellTestEditor!.getText()).toContain("Editable");
+  });
+
+  it("does not publish conversation identity for a page without a World or campaign", async () => {
+    const snapshot=buildWorldbuildingSnapshot(DOC_ID);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({...snapshot,
+      record:{...snapshot.record,world_id:null,campaign_id:null}});
+    render(<BuildDocumentHarness documentId={DOC_ID}/>);
+    await waitForEditor();
+    await waitFor(()=>expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-context-document-id","null"));
+    expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-campaign","build");
   });
 
   it("keeps the actual editor draft, selection and undo history across contextual review toggles",async()=>{
