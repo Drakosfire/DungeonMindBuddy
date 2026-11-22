@@ -92,6 +92,14 @@ def test_plan_session_storage_image_covers_root_and_locked_provenance(applicatio
             assert dict(acknowledged[0])['revision'] == turn.revision + 1
             assert dict(acknowledged[0])['graph_context_execution'] == dict(before[0])['graph_context_execution']
             assert acknowledged[1:] == before[1:]
+            assert repo.update_graph_execution(conn, world_id=turn.world_id, turn_id=turn.turn_id,
+                expected_revision=turn.revision + 1, execution=candidate) is None
+            for change in (
+                "UPDATE agent.plan_execution_event SET payload=payload WHERE turn_id=%s",
+                "DELETE FROM agent.plan_execution_event WHERE turn_id=%s",
+            ):
+                with pytest.raises(psycopg.errors.CheckViolation), conn.transaction():
+                    conn.execute(change, (turn.turn_id,))
             assert repo._read_plan_checkpoint(conn, turn.turn_id, turn.revision + 1, turn.attempt) == (
                 candidate.model_dump(mode="json", by_alias=True)
             )

@@ -93,6 +93,12 @@ _TURN_COLS_T = (
     + ", t.answer_composition_kind, "
     + _rules_summary_select("t")
 )
+_TURN_READ_COLS_T = _TURN_COLS_T.replace(
+    "t.graph_context_execution, t.play_context_receipt",
+    "CASE WHEN t.surface_id = 'plan' AND t.status = 'running' THEN "
+    "agent.reconstruct_plan_execution(t.turn_id, t.revision, t.attempt, t.graph_context_execution) "
+    "ELSE t.graph_context_execution END AS graph_context_execution, t.play_context_receipt",
+)
 _DRAFT_COLS = """
     world_id, conversation_id, draft_id, revision, body, request_fingerprint,
     surface_resolution, surface_id, surface_instance_id,
@@ -219,6 +225,25 @@ def _activate_plan_checkpoint(conn, turn):
     )
 
 
+    checkpoint = conn.execute(
+        "SELECT base_count FROM agent.plan_execution_checkpoint WHERE turn_id=%s",
+        (turn.turn_id,),
+    ).fetchone()
+    _verify_plan_checkpoint(conn, turn, checkpoint[0])
+    return checkpoint[0]
+
+
+def _verify_plan_checkpoint(conn, turn, base_count):
+    actual = conn.execute(
+        "SELECT revision, attempt, base_count, event_count "
+        "FROM agent.plan_execution_checkpoint WHERE turn_id=%s",
+        (turn.turn_id,),
+    ).fetchone()
+    expected = (turn.revision, turn.attempt, base_count, len(turn.graph_context_execution.events))
+    if actual != expected:
+        raise ApplicationStateIntegrityError("Plan session differs from current event checkpoint")
+
+
 def _read_plan_checkpoint(conn, turn_id, revision, attempt):
     return conn.execute(
         "SELECT agent.reconstruct_plan_execution(turn_id,%s,%s,graph_context_execution) "
@@ -248,13 +273,22 @@ def _settle_plan_checkpoint(conn, row, *, prior_revision, prior_attempt):
     ).fetchone() is None:
         return
     execution = _read_plan_checkpoint(conn, row["turn_id"], prior_revision, prior_attempt)
+    world_id = row["world_id"]
+    before = _lock_plan_session_image(conn, world_id, row["turn_id"])
     stored = conn.execute(
-        "UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s "
-        "AND revision=%s AND attempt=%s RETURNING graph_context_execution",
+        "WITH expected AS (SELECT %s::jsonb AS execution) "
+        "UPDATE agent.turn SET graph_context_execution=expected.execution FROM expected "
+        "WHERE turn_id=%s AND revision=%s AND attempt=%s "
+        "RETURNING pg_catalog.jsonb_send(agent.turn.graph_context_execution), "
+        "pg_catalog.jsonb_send(expected.execution)",
         (Jsonb(execution), row["turn_id"], row["revision"], row["attempt"]),
     ).fetchone()
-    if stored is None or stored[0] != execution:
+    if stored is None or stored[0] != stored[1]:
         raise ApplicationStateIntegrityError("Plan settlement changed its execution")
+    after = _lock_plan_session_image(conn, world_id, row["turn_id"])
+    expected_root = dict(before[0]) | {"graph_context_execution": bytes(stored[1])}
+    if after is None or dict(after[0]) != expected_root or after[1:] != before[1:]:
+        raise ApplicationStateIntegrityError("Plan settlement changed its locked storage image")
     if not _retire_plan_checkpoint(conn, row["turn_id"], prior_revision, prior_attempt):
         raise ApplicationStateIntegrityError("Plan settlement lost its checkpoint")
     row["graph_context_execution"] = execution
@@ -262,6 +296,7 @@ def _settle_plan_checkpoint(conn, row, *, prior_revision, prior_attempt):
 
 def _finish_plan_checkpoint(conn, turn):
     row = {"surface_id": "plan", "turn_id": turn.turn_id,
+           "world_id": turn.world_id,
            "revision": turn.revision, "attempt": turn.attempt}
     _settle_plan_checkpoint(conn, row, prior_revision=turn.revision, prior_attempt=turn.attempt)
     if row.get("graph_context_execution") != turn.graph_context_execution.model_dump(mode="json", by_alias=True):
@@ -1138,7 +1173,7 @@ def list_retry_attempt_page(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT {_TURN_COLS_T}
+            SELECT {_TURN_READ_COLS_T}
             FROM (
                 SELECT successor_id AS turn_id FROM agent.turn_retry
                 WHERE root_id = %s AND world_id = %s AND conversation_id = %s
@@ -1632,6 +1667,8 @@ def complete_claimed_turn(
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
               AND revision = %s AND attempt = %s
               AND claim_expires_at > clock_timestamp()
+            AND NOT EXISTS (SELECT 1 FROM agent.plan_execution_checkpoint
+                  WHERE plan_execution_checkpoint.turn_id = agent.turn.turn_id)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -1682,6 +1719,8 @@ def complete_prepared_build_turn(
                 completed_at = clock_timestamp(), updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status IN ('running', 'interrupted')
               AND revision = %s AND attempt = %s
+            AND NOT EXISTS (SELECT 1 FROM agent.plan_execution_checkpoint
+                  WHERE plan_execution_checkpoint.turn_id = agent.turn.turn_id)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -1734,6 +1773,8 @@ def update_graph_execution(
                 updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
               AND revision = %s AND claim_expires_at > clock_timestamp()
+            AND NOT EXISTS (SELECT 1 FROM agent.plan_execution_checkpoint
+                  WHERE plan_execution_checkpoint.turn_id = agent.turn.turn_id)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -2195,6 +2236,8 @@ def complete_mixed_claimed_turn(
             completion=%s,graph_context_execution=%s,answer_composition_kind='rules_mixed_v1',claim_expires_at=NULL,
             completed_at=clock_timestamp(),updated_at=clock_timestamp()
             WHERE world_id=%s AND turn_id=%s AND status='running' AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp()
+            AND NOT EXISTS (SELECT 1 FROM agent.plan_execution_checkpoint
+                  WHERE plan_execution_checkpoint.turn_id = agent.turn.turn_id)
             RETURNING {_TURN_COLS}""",
             (
                 assistant_text,

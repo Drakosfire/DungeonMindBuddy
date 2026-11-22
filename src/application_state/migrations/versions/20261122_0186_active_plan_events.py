@@ -32,6 +32,23 @@ def upgrade():
     """)
 
     op.execute("""
+        CREATE FUNCTION agent.reject_plan_event_rewrite() RETURNS trigger
+        LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+        BEGIN
+            IF TG_OP = 'UPDATE' OR EXISTS (
+                SELECT 1 FROM agent.plan_execution_checkpoint WHERE turn_id = OLD.turn_id
+            ) THEN
+                RAISE EXCEPTION 'Committed Plan events can only be retired with their checkpoint'
+                    USING ERRCODE = '23514';
+            END IF;
+            RETURN OLD;
+        END;
+        $$;
+        CREATE TRIGGER plan_execution_event_append_only
+            BEFORE UPDATE OR DELETE ON agent.plan_execution_event
+            FOR EACH ROW EXECUTE FUNCTION agent.reject_plan_event_rewrite();
+    """)
+    op.execute("""
         CREATE FUNCTION agent.reconstruct_plan_execution(
             requested_turn uuid,
             requested_revision bigint,

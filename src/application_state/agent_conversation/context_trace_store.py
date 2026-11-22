@@ -259,7 +259,7 @@ def begin_context_trace_locked(
     """Start capture inside the caller's transaction under the existing claim fence."""
     turn = conn.execute(
         "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
-        "clock_timestamp() AS now, graph_context_execution FROM agent.turn "
+        "clock_timestamp() AS now FROM agent.turn "
         "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
         (world_id, turn_id),
     ).fetchone()
@@ -276,11 +276,16 @@ def begin_context_trace_locked(
         if trace.trace_id != trace_id or trace.started_at != started_at:
             raise ApplicationStateConflictError("context trace attempt identity changed")
         return trace
+    execution = conn.execute(
+        "SELECT agent.reconstruct_plan_execution(turn_id, revision, attempt, graph_context_execution) "
+        "FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+        (world_id, turn_id),
+    ).fetchone()[0]
     trace = TurnContextTraceV1(
         trace_id=trace_id, world_id=world_id, conversation_id=conversation_id,
         turn_id=turn_id, attempt=attempt, started_at=started_at,
         execution_start_sequence=(
-            len(turn[6].get("events", [])) if isinstance(turn[6], dict) else 0
+            len(execution.get("events", [])) if isinstance(execution, dict) else 0
         ),
         observations=[],
     )

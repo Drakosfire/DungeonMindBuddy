@@ -190,7 +190,7 @@ class NativePlanSession:
                     or current.claim_expires_at <= repo.database_clock(conn)
                     or repo._lock_plan_session_image(conn, expected.world_id, expected.turn_id) != image):
                 raise ApplicationStateConflictError('Readonly session requires its current classified Plan claim')
-            repo._activate_plan_checkpoint(conn, current)
+            self._checkpoint_base_count = repo._activate_plan_checkpoint(conn, current)
         self._committed, self._image = current, image
         self._admission = _SessionAdmission(self)
 
@@ -210,6 +210,7 @@ class NativePlanSession:
         current = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
         if current != self._image:
             raise ApplicationStateIntegrityError('Plan session differs from current locked storage')
+        repo._verify_plan_checkpoint(conn, turn, self._checkpoint_base_count)
         return current
 
     def _seal(self):

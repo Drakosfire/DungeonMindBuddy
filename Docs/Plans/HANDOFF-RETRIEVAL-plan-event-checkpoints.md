@@ -19,8 +19,9 @@ A reader must see an exact committed revision, ordered contiguous suffix,
 and matching attempt and base size, or refuse. Explicit failure, expired
 authorization, retry, renewal, and writer handoff must each settle or maintain
 these coordinates under the root lock. Rollback must restore both parts.
-Trace authorization must inspect the same committed attempt. Verify mixed
-worker rollout fencing before activation.
+Trace authorization must inspect the same committed attempt. Drain older
+workers before applying the schema and activating the new build. The existing
+startup schema check alone does not settle an old transaction already in flight.
 
 Run local PostgreSQL owner contracts on disposable fixtures. First compare
 D02 and WF01 through the existing retained browser replay with writer off.
