@@ -3306,7 +3306,8 @@ export function WorldPlanAgentConversation({
     let active = true;
     setActionHistory([]);
     setActionHistoryError(null);
-    if (!scopeMatches || !verifiedWorldId || !documentId) return () => { active = false; };
+    // The legacy action projections are only available in local operator mode.
+    if (!localOperator || !scopeMatches || !verifiedWorldId || !documentId) return () => { active = false; };
     void getWorldPlanDocumentEditActions(verifiedWorldId, documentId)
       .then((page) => {
         if (active && page.schema_version === "dmb_world_plan_action_projection_v1"
@@ -3319,14 +3320,14 @@ export function WorldPlanAgentConversation({
         if (active) setActionHistoryError(reason instanceof Error ? reason.message : "Could not load Plan edit action status.");
       });
     return () => { active = false; };
-  }, [scopeMatches, verifiedWorldId, documentId, revision]);
+  }, [localOperator, scopeMatches, verifiedWorldId, documentId, revision]);
 
   useEffect(() => {
     let active = true;
     setConversationActions([]);
     setConversationActionsError(null);
     const viewedId = history?.conversation_id;
-    if (isReadOnly || !scopeMatches || !verifiedWorldId || !viewedId) return () => { active = false; };
+    if (!localOperator || isReadOnly || !scopeMatches || !verifiedWorldId || !viewedId) return () => { active = false; };
     void getWorldPlanConversationActions(verifiedWorldId, viewedId)
       .then((page) => {
         if (active && page.schema_version === "dmb_world_plan_action_conversation_projection_v1"
@@ -3338,7 +3339,7 @@ export function WorldPlanAgentConversation({
         if (active) setConversationActionsError(reason instanceof Error ? reason.message : "Could not load World edit dialogue.");
       });
     return () => { active = false; };
-  }, [isReadOnly, scopeMatches, verifiedWorldId, history?.conversation_id, history?.pointer_revision]);
+  }, [localOperator, isReadOnly, scopeMatches, verifiedWorldId, history?.conversation_id, history?.pointer_revision]);
 
   useLayoutEffect(() => {
     proposalRequestRef.current = null;
@@ -5818,7 +5819,7 @@ export function WorldPlanAgentConversation({
   }
 
   async function refreshActionHistory() {
-    if (!verifiedWorldId || !documentId || !scopeMatches) return;
+    if (!localOperator || !verifiedWorldId || !documentId || !scopeMatches) return;
     setActionHistoryError(null);
     try {
       const page = await getWorldPlanDocumentEditActions(verifiedWorldId, documentId);
@@ -5841,7 +5842,7 @@ export function WorldPlanAgentConversation({
   }
 
   async function refreshConversationActions(conversationId: string, pointerRevision: number) {
-    if (!verifiedWorldId || !scopeMatches) return;
+    if (!localOperator || !verifiedWorldId || !scopeMatches) return;
     try {
       const page = await getWorldPlanConversationActions(verifiedWorldId, conversationId);
       if (page.schema_version === "dmb_world_plan_action_conversation_projection_v1"
@@ -6177,7 +6178,7 @@ export function WorldPlanAgentConversation({
       setComposerIntent("discuss");
       setContinuationOfActionId(null);
       proposalIntentRef.current = null;
-      void getWorldPlanDocumentEditActions(worldId, documentId)
+      if (localOperator) void getWorldPlanDocumentEditActions(worldId, documentId)
         .then((page) => {
           if (page.schema_version === "dmb_world_plan_action_projection_v1"
             && page.basis.world_id === worldId
@@ -7249,7 +7250,7 @@ export function WorldPlanAgentConversation({
           >
             {traceVisible ? "Hide trace details" : "Show trace details"}
           </button>
-          <section aria-label="Plan edit action status">
+          {localOperator ? <section aria-label="Plan edit action status">
             <h3>Plan edit activity</h3>
             <button type="button" onClick={() => { void refreshActionHistory(); }} disabled={!scopeMatches || composing}>
               Refresh action status
@@ -7298,7 +7299,7 @@ export function WorldPlanAgentConversation({
                 ))}
               </ol>
             ) : <p>No recent Plan edit actions.</p>}
-          </section>
+          </section> : null}
           {legacyThreadForDisplay?.turns.length ? (
             <section aria-label="Local-only legacy Plan history">
               <h3>Older local-only Plan history</h3>
@@ -7376,8 +7377,8 @@ export function WorldPlanAgentConversation({
         {displayedConversation.map(item => item.element)}
         {playMode ? playCompose.review : null}
         {buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
-        {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
-        {!isReadOnly && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
+        {localOperator && !isReadOnly ? conversationActions.map(renderConsultedAction) : null}
+        {localOperator && !isReadOnly && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
         {unmatchedSubmittedMessage && submittedMessage && !pendingRetryTurnId ? (
           <article aria-label="Submitted message">
             <p><strong>You:</strong> {submittedMessage.message}</p>

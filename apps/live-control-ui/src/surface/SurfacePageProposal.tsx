@@ -35,7 +35,12 @@ export function SurfacePageProposal({editor,position,editorJson,children,onStale
       // example a heading hidden because it supplies a named table's title).
       // This is only its visual anchor; Save still uses the captured exact caret.
       const anchor=state.doc.resolve(current.current.position);
-      const visualPosition=anchor.depth?anchor.before(1):anchor.pos;
+      let visualPosition=anchor.pos;
+      if(anchor.depth){
+        const endsParagraph=anchor.depth===1&&anchor.parent.type.name==='paragraph'
+          &&anchor.parentOffset>0&&anchor.parentOffset===anchor.parent.content.size;
+        visualPosition=endsParagraph?anchor.after(1):anchor.before(1);
+      }
       return DecorationSet.create(state.doc,[Decoration.widget(visualPosition,()=>target,{key:widgetKey,side:1,ignoreSelection:true,stopEvent:()=>true})]);
     }},view:()=>({update(view){
       if(!warned&&!view.state.doc.eq(snapshotDoc)){warned=true;queueMicrotask(()=>current.current.onStale());}

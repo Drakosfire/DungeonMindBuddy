@@ -54,6 +54,25 @@ beforeEach(async()=>{
 afterEach(()=>{cleanup();editor.destroy();editor.view.dom.remove();Reflect.deleteProperty(Range.prototype,'getClientRects');Reflect.deleteProperty(Range.prototype,'getBoundingClientRect');Reflect.deleteProperty(document,'elementFromPoint');});
 async function writeSuggestion(value:string){const box=await screen.findByRole('textbox',{name:'Suggestion text'});await userEvent.clear(box);await userEvent.type(box,value);}
 function Review({source='doc:1',request=0}:{source?:string;request?:number}){return <BuildPageProposal record={record} bridge={bridge} sourceKey={source} requestKey={request} onStatus={status} onComplete={complete} inspector={<p>Exact captured prompt</p>}/>;}
+it('previews callouts after the paragraph that ends at the captured caret',async()=>{
+ const markdown='> [!READ-ALOUD] Arrival\n> Three lanterns light the boardwalk.\n\n> [!GM-NOTE]\n> Wait for the players to choose.';
+ saved={...saved,markdown,markdown_sha256:await digest(markdown)};
+ const before=editor.getJSON();
+ render(<Review/>);
+
+ const proposal=await screen.findByRole('region',{name:'Proposed page change'});
+ expect(proposal.previousElementSibling).toHaveTextContent('Before');
+ expect(proposal.nextElementSibling).toHaveTextContent('After');
+ expect(editor.getJSON()).toEqual(before);
+
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ const children=editor.getJSON().content!;
+ expect(children[0]).toEqual(before.content![0]);
+ expect(children).toHaveLength(4);
+ expect(tiptapJsonToSemanticMarkdown({type:'doc',content:children.slice(1,3)}).trim()).toBe(markdown);
+ expect(children[3]).toEqual(before.content![1]);
+});
 it('stages outside editor JSON, edits and keeps once at its original position with one Undo',async()=>{
  const before=editor.getJSON();render(<Review/>);
  await screen.findByRole('region',{name:'Proposed page change'});
@@ -304,6 +323,8 @@ it('waits for verified page persistence before confirming and recovers a failed 
  fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
  await waitFor(()=>expect(persist).toHaveBeenCalledTimes(1));
  expect(saved.state).toBe('applying');expect(complete).not.toHaveBeenCalled();
+ expect(screen.getByRole('status')).toHaveTextContent('Saving suggestion…');
+ expect(screen.queryByRole('button',{name:'Check insertion'})).not.toBeInTheDocument();
  expect(vi.mocked(proposalReview).mock.calls.some(([, ,command])=>command?.operation==='confirm')).toBe(false);
  await act(async()=>rejectSave(new Error('The page save was not verified.')));
  await screen.findByRole('button',{name:'Check insertion'});expect(saved.state).toBe('applying');
