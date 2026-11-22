@@ -374,7 +374,7 @@ def test_variant_approval_requires_the_explicit_choice_in_the_new_menu():
     label = "review_variant_approval"
     response = {"answers": {"requested_work": {
         "selected": label,
-        "probabilities": {key: float(key == label) for key in c.WORK},
+        "probabilities": {key: float(key == label) for key in c.AUTHORING_WORK},
     }}}
     assert c.selected(response, menu=c.MENU_DIGEST) == label
     with pytest.raises(ValueError):
@@ -454,7 +454,7 @@ def test_lore_page_request_cannot_fall_through_to_connected_location_review(work
 
 def test_recovery_menu_stops_new_aw10_work_but_keeps_its_frozen_reader_contract():
     label = "review_lore_page_from_conversation"
-    assert label not in c.question()["criteria"]
+    assert label not in c.AUTHORING_WORK
     menu, (_, options, resolver) = next((menu, contract)
         for menu, contract in c._MENU_CONTRACTS.items() if label in contract[1])
     assert c.known_semantics(menu, resolver)
@@ -466,4 +466,19 @@ def test_recovery_menu_stops_new_aw10_work_but_keeps_its_frozen_reader_contract(
     assert c.selected(response, menu=menu) == label
     with pytest.raises(ValueError, match="Invalid actual semantic selection"):
         c.selected(response, menu=c.MENU_DIGEST)
-    assert "review_lore_page" in c.question()["criteria"]
+    assert "review_lore_page" in c.AUTHORING_WORK
+
+
+def test_recovery_preserves_retained_aw10_collaboration_and_writer_schema():
+    from application_state.agent_conversation.lore_page_review import ProposedLorePage, LorePageTitleWitness
+    label = "review_lore_page_from_conversation"
+    caps = c.Capabilities(("answer_from_sources",), ("lore_page",), False)
+    contract = c.resolve(label, caps)
+    assert contract["barrier"] is None
+    proposal = ProposedLorePage(kind="lore_page", destination=LorePageTitleWitness(
+        instruction="Create the page about Copperglass Watch", title="Copperglass Watch"))
+    c.validate_collaboration(proposal, [], contract, primary_rows=[], origin_rows=[])
+    schema, _ = c.native_review_schema({"response_contract": contract})
+    lore = schema["anyOf"][0]
+    assert "open_questions" in lore["required"]
+    assert label in c.WORK and label not in c.AUTHORING_WORK
