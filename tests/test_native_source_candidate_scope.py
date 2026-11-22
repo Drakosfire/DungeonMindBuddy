@@ -126,3 +126,33 @@ def test_named_recap_requires_ordered_close_event_name():
     assert _named_recap_matches(("wandering", "forest"), "Return to the Wandering Forest")
     assert not _named_recap_matches(("warehouse", "collapse"), "Collapse near the warehouse")
     assert not _named_recap_matches(("warehouse", "collapse"), "Warehouse evacuates after distant collapse")
+
+
+def test_episode_focus_defers_only_other_verified_campaign_recaps():
+    from apps.live_control_server.services.native_source_candidate_scope import episode_campaign_source_pairs
+    from application_state.agent_conversation.native_plan_assertions import NativeEpisodeCampaignFocusV1
+
+    focus = NativeEpisodeCampaignFocusV1(
+        predecessor_id="before", successor_id="after", relationship_id="precedes",
+        source_artifact_id="artifact", source_revision_id="revision",
+    )
+    anchor = ("artifact", "revision")
+    rows = {
+        anchor: display("longmont-c2", "session-27"),
+        ("earlier", "rev"): display("longmont-c2", "session-25"),
+        ("other", "rev"): display("longmont-c1", "session-8"),
+        ("unknown", "rev"): display(None, "session-8"),
+    }
+    assert episode_campaign_source_pairs(focus, rows) == {("other", "rev")}
+    assert episode_campaign_source_pairs(focus, {}) == set()
+    rows[anchor]["origin_matches_current_metadata"] = False
+    assert episode_campaign_source_pairs(focus, rows) == set()
+
+
+def test_episode_request_requires_arrival_without_explicit_campaign_scope():
+    from apps.live_control_server.services.native_graph_reads import _episode_request
+
+    shape = "What did they hear before taking shelter, and what did they see when they reached Old Ferry?"
+    assert _episode_request(shape)[1] == ("old", "ferry")
+    assert _episode_request("Compare Campaign 1 and Campaign 2. " + shape) is None
+    assert _episode_request("At the end of Session 10, what did they know?") is None

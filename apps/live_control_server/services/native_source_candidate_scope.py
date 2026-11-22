@@ -114,6 +114,20 @@ def post_named_recap_source_pairs(bound, displays):
     return excluded
 
 
+def episode_campaign_source_pairs(focus, displays):
+    """Defer known other-campaign recaps from the initial episode view."""
+    def trusted(metadata):
+        return (metadata.get("kind") == "recap" and metadata.get("status") == "available"
+                and metadata.get("origin_matches_current_metadata") is True)
+
+    anchor = displays.get((focus.source_artifact_id, focus.source_revision_id), {})
+    campaign = anchor.get("campaign_id")
+    if not campaign or not trusted(anchor):
+        return set()
+    return {pair for pair, metadata in displays.items()
+            if trusted(metadata) and metadata.get("campaign_id") not in (None, "", campaign)}
+
+
 def as_of_passage_handles(question, hits, addresses, displays):
     """Suggest a recent campaign window when the named cutoff is supported."""
     from collections import defaultdict
