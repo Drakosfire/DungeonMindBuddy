@@ -245,6 +245,58 @@ def test_opening_must_match_retained_catalog_and_requested_work(captured_page, v
         )
 
 
+@pytest.mark.parametrize(("requested_work", "location", "relation", "destination", "expected"), [
+    ("write_current_page", "unstated", "unresolved", "current_page", "unique"),
+    ("write_current_page", "current_caret", "unresolved", "current_page", "unique"),
+    ("discuss", "unstated", "unresolved", "current_page", "unresolved"),
+    ("write_current_page", "unstated", "after", "current_page", "unresolved"),
+    ("write_current_page", "unclear", "unresolved", "current_page", "unresolved"),
+    ("write_current_page", "existing_location", "after", "current_page", "missing"),
+    ("write_current_page", "unstated", "unresolved", "different_page", "different_destination"),
+])
+def test_opening_uses_only_the_exact_uncontested_caret(
+    mixed_page, requested_work, location, relation, destination, expected,
+):
+    catalog = freeze_mixed_page(*mixed_page)
+    first, duplicate = catalog.passages
+    assert first.passage == duplicate.passage
+    caret = first.after - 1
+    question = "Add two ordinary paragraphs about how the station maintains this road."
+    state, choices = build_boundary_opening(question, "Arrival", catalog, caret=caret)
+    _, interior_choices = build_boundary_opening(question, "Arrival", catalog, caret=caret - 1)
+    assert all(choice.name != "paragraph_insertion_location" for choice in interior_choices)
+    request = {
+        "state": {"interaction": {"paragraph_placement": state}},
+        "questions": {
+            choice.name: {"type": "choice", "instructions": choice.question,
+                          "criteria": dict.fromkeys(choice.options)}
+            for choice in choices
+        },
+    }
+    labels = dict(paragraph_work="place_paragraph", paragraph_scope="named",
+                  paragraph_insertion_location=location,
+                  paragraph_destination=destination, paragraph_relation=relation,
+                  paragraph_text0="include", paragraph_scope0="exclude", paragraph_scope1="exclude")
+    response = DecisionResult(
+        answers={name: ChoiceDecisionAnswer(selected=label) for name, label in labels.items()},
+        observation=InferenceObservation(
+            provider="typesafe", resolved_model="jev-1.14.0", response_model="jev-1.14.0",
+            latency_ms=100, retry_count=0, state="completed", provider_attempt_count=1,
+        ),
+    )
+    outcome = resolve_build_boundary_opening(
+        catalog, request, response, question=question, title="Arrival",
+        requested_work=requested_work, caret=caret,
+    )
+    assert outcome.disposition == expected
+    assert outcome.target == (catalog.target(first.alias, "insert_after") if expected == "unique" else None)
+    with pytest.raises(ValueError, match="exact opening offer"):
+        resolve_build_boundary_opening(
+            catalog, request, response, question=question, title="Arrival",
+            requested_work=requested_work, caret=caret - 1,
+        )
+
+
 @pytest.mark.parametrize("required,submitted", [("page_end", "captured"), ("page_body", "page_end")])
 def test_explicit_offers_cannot_be_retargeted_by_writer(required, submitted):
     raw = {"destination": "current_page", "target": submitted, "replacement_markdown": "A lamp.",

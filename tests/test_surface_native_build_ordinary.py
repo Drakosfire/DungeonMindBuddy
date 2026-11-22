@@ -50,10 +50,11 @@ def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_pa
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
 
-@pytest.mark.parametrize("boundary_scope", ["unique", "mixed", "ambiguous", "missing", "different", "stale", "foreign", "page_end", "page_body"])
+@pytest.mark.parametrize("boundary_scope", ["unique", "mixed", "caret", "ambiguous", "missing", "different", "stale", "foreign", "page_end", "page_body"])
 def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, monkeypatch, boundary_scope):
     location = {"ambiguous": "", "missing": " in North"}.get(boundary_scope, " in East")
     message = {
+        "caret": "Add two ordinary paragraphs about how the station maintains this road.",
         "page_end": "Append a line about a copper lamp at the end of this page.",
         "page_body": "Replace the whole page with a paragraph about a copper lamp.",
         "different": "On the separate Lanterns page, add a line after the orchid paragraph in East.",
@@ -323,7 +324,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
 
             protected = []
             protected_markdown = ""
-            if contextual == "mixed":
+            if contextual in {"mixed", "caret"}:
                 protected = [{
                     "type": "callout", "attrs": {"kind": "gm-note", "label": "Keep hidden"},
                     "content": [block("paragraph", "Do not reveal the orchid.")],
@@ -552,9 +553,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     else "read" if read_optional_page and name.startswith("related_page_")
                     else {"paragraph_work": f"explicit_{contextual}" if contextual in {"page_end", "page_body"} else "place_paragraph",
                           "paragraph_destination": "different_page" if contextual == "different" else "current_page",
-                          "paragraph_relation": "after",
-                          "paragraph_scope": "unscoped" if contextual == "ambiguous" else "named",
-                          "paragraph_text0": "include", "paragraph_scope0": "exclude",
+                          "paragraph_insertion_location": "unstated",
+                          "paragraph_relation": "unresolved" if contextual == "caret" else "after",
+                          "paragraph_scope": "unscoped" if contextual in {"ambiguous", "caret"} else "named",
+                          "paragraph_text0": "exclude" if contextual == "caret" else "include", "paragraph_scope0": "exclude",
                           "paragraph_scope1": "include" if contextual in {"unique", "mixed", "different"} else "exclude"}[name]
                     if name.startswith("paragraph_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
@@ -963,6 +965,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     if proposal or capture_write:
         from application_state.build_proposal.types import BuildWriteCapability
         offers = {}
+        caret = 1
+        if contextual == "caret":
+            from application_state.agent_conversation.plan_slot_layout import prose_editor_node_size
+
+            before_caret = json.loads(editor_json)["content"][:2]
+            caret = sum(prose_editor_node_size(node) for node in before_caret) - 1
         if contextual in {"page_body", "page_end"}:
             from application_state.agent_conversation.plan_slot_layout import prose_editor_node_size
 
@@ -973,7 +981,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             boundary_editor_json=editor_json,
             basis=dict(**{k:getattr(draft.snapshot,k) for k in ('world_id','document_id','registry_revision',
                 'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},
-                caret=1,selection_generation=0), **offers)
+                caret=caret,selection_generation=0), **offers)
         body['build_write_capability']=cap.model_dump(mode='json')
         if reference_image:
             body['build_write_capability']['reference_image_id'] = str((wrong if reference_image == 'wrong_same_page' else asset)['asset_id'])
@@ -1644,6 +1652,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert record.reservation.prose_target.operation == "insert_after"
                 packet = json.loads(json.loads(writer.calls[-1].content)["input"])
                 assert packet["paragraph_placement"]["section"] == ["East"]
+            if contextual == "caret":
+                assert record.reservation.prose_target.alias == "passage1:insert_after"
+                assert record.reservation.prose_target.from_ == caret + 1
+                assert record.reservation.basis.caret == caret
+                packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+                assert packet["paragraph_placement"]["section"] == ["West"]
             if contextual in {"page_end", "page_body"}:
                 assert record.proposal.target == contextual
                 assert record.reservation.basis.caret == 1

@@ -540,6 +540,7 @@ class BuildJevDriver:
         if self._boundary_catalog is not None:
             _, placement_questions = build_boundary_opening(
                 a.request.message, self._interaction["current_page"]["title"], self._boundary_catalog,
+                caret=a.request.build_write_capability.basis.caret,
             )
             questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
                                for q in placement_questions)
