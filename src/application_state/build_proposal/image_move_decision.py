@@ -35,6 +35,7 @@ class _Occurrence:
 
 
 OPENING_STATE_KEY = "image_move"
+CONTEXTUAL_IDENTITY = "image_move_contextual_identity"
 IMAGE_MOVE_AFFIRMATION = ChoiceDecisionQuestion(
     name="image_move_affirmation",
     options=("author_requests_move", "description_or_discussion", "unresolved"),
@@ -302,7 +303,8 @@ class BuildImageMoveDecision:
             **({"author_selected_occurrence": self.selected} if self.selected else {}),
         }
 
-    def questions(self, *, include_affirmation: bool = True) -> tuple[ChoiceDecisionQuestion, ...]:
+    def questions(self, *, include_affirmation: bool = True,
+                  include_contextual_identity: bool = True) -> tuple[ChoiceDecisionQuestion, ...]:
         questions = (
             ChoiceDecisionQuestion(name="image_move_intent", options=("move_existing", "other", "unresolved"),
                 question="Is the author actually asking to move an existing image occurrence? Discussion, hypotheticals, creation and advice are other."),
@@ -314,13 +316,33 @@ class BuildImageMoveDecision:
                           "A deliberate selection identifies 'this image'. Choose ambiguous if two fit. "
                           "An unrelated caret and destination eligibility do not distinguish an image.")),
         )
-        return questions + (IMAGE_MOVE_AFFIRMATION,) if include_affirmation else questions
+        if include_affirmation:
+            questions += (IMAGE_MOVE_AFFIRMATION,)
+        repeat_assets = len({item.asset for item in self.occurrences}) < len(self.occurrences)
+        repeat_labels = len({_phrase(item.alt) for item in self.occurrences}) < len(self.occurrences)
+        if include_affirmation and include_contextual_identity and self.selected is None and (repeat_assets or repeat_labels):
+            questions += (ChoiceDecisionQuestion(
+                name=CONTEXTUAL_IDENTITY,
+                options=("ambiguous", "missing", "no_contextual_reference", *(item.alias for item in self.occurrences)),
+                question=(
+                    "For repeated images, identify the source occurrence by the author's reference to nearby "
+                    "text. A paraphrase of distinct nearby prose can identify one occurrence. Use row_description "
+                    "and the part of the request that describes nearby content. Ignore position, slot, destination, "
+                    "and the shared image name. Use no_contextual_reference for an image name alone, missing for "
+                    "a reference to absent prose, and ambiguous when two contexts fit or the reference is unclear."
+                ),
+            ),)
+        return questions
 
     def require_opening_offer(self, request: dict, *, allow_retained: bool = False) -> None:
         offered = request.get("questions", {})
-        questions = self.questions(include_affirmation=not allow_retained or IMAGE_MOVE_AFFIRMATION.name in offered)
+        questions = self.questions(
+            include_affirmation=not allow_retained or IMAGE_MOVE_AFFIRMATION.name in offered,
+            include_contextual_identity=not allow_retained or CONTEXTUAL_IDENTITY in offered,
+        )
         if (request.get("state", {}).get("user_question") != self.question
                 or request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY) != self.semantic_state()
+                or {key for key in offered if key.startswith("image_move_")} != {q.name for q in questions}
                 or any(request.get("questions", {}).get(q.name) != {
                     "type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options),
                 } for q in questions)):
@@ -332,6 +354,7 @@ class BuildImageMoveDecision:
             raise ValueError("Image movement requires the complete opening response")
         options = {q.name: q.options for q in self.questions(
             include_affirmation=IMAGE_MOVE_AFFIRMATION.name in request["questions"],
+            include_contextual_identity=CONTEXTUAL_IDENTITY in request["questions"],
         )}
         projected = response.model_copy(update={"answers": {name: response.answers[name] for name in options}})
         answers = validated_choice_answers(projected, set(options))
@@ -341,7 +364,11 @@ class BuildImageMoveDecision:
 
     def resolve(self, answers: dict[str, str]) -> BuildImageMoveNomination:
         affirmation = answers.get(IMAGE_MOVE_AFFIRMATION.name)
-        for question in self.questions(include_affirmation=affirmation is not None):
+        contextual_identity = answers.get(CONTEXTUAL_IDENTITY)
+        for question in self.questions(
+            include_affirmation=affirmation is not None,
+            include_contextual_identity=contextual_identity is not None,
+        ):
             if answers.get(question.name) not in question.options:
                 raise ValueError("Image move decision has an unoffered answer")
         masked_question = _mask_quoted_labels(self.question)
@@ -475,9 +502,18 @@ class BuildImageMoveDecision:
                 if qualifier is None:
                     qualifier = _SOURCE_QUALIFIER.search(_mask_quoted_labels(location))
                 qualified_terms = _context_terms(qualifier.group(1)) if qualifier is not None else set()
-                unique_row = (_context_terms(chosen.row_context) & qualified_terms) - rivals
+                distinguishing_context = _context_terms(chosen.row_context) - rivals
+                unique_row = bool(distinguishing_context & qualified_terms)
+                semantic_context = (
+                    contextual_identity == alias
+                    and bool(qualified_terms - _context_terms(chosen.alt))
+                    and bool(distinguishing_context)
+                    and not any(asset == chosen.asset or _phrase(alt) == chosen_words
+                                for asset, alt, _ in self.other_media)
+                )
                 if not unique_alt and not (
-                    self.row_media_counts[chosen.row_number] == 1 and (explicitly_named_row or unique_row)
+                    self.row_media_counts[chosen.row_number] == 1
+                    and (explicitly_named_row or unique_row or semantic_context)
                 ):
                     return BuildImageMoveNomination("ambiguous")
         if chosen.destination_slot is None or chosen.destination != "empty_right":

@@ -690,6 +690,40 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         decision = BuildImageMoveDecision.from_saved(matching_capture, prompt, matching_markdown, matching_layout)
         assert decision.resolve(choices).disposition == expected, prompt
 
+    from dataclasses import replace
+    from application_state.build_proposal.image_move_decision import CONTEXTUAL_IDENTITY
+
+    decision = BuildImageMoveDecision.from_saved(capture, "Move the map beside the departure advice to the empty slot on its right.",
+                                                markdown, before)
+    first_occurrence = replace(decision.occurrences[0], row_context="Leave at dusk after the harbor bell rings three times.")
+    second_occurrence = replace(
+        first_occurrence, alias="image2", row_number=2,
+        row_context="Ask the innkeeper to lend a dry coat for the crossing.",
+    )
+    decision = replace(decision, occurrences=(first_occurrence, second_occurrence), other_media=(),
+                       row_media_counts={1: 1, 2: 1})
+    proved = choices | {CONTEXTUAL_IDENTITY: "image1"}
+    assert decision.resolve(proved).disposition == "ready"
+    assert decision.resolve(choices).disposition == "ambiguous"
+    assert decision.resolve(proved | {CONTEXTUAL_IDENTITY: "image2"}).disposition == "ambiguous"
+    assert replace(decision, question="Move the map to the empty slot on its right.").resolve(proved).disposition == "ambiguous"
+    indistinguishable = replace(second_occurrence, row_context=first_occurrence.row_context)
+    assert replace(decision, occurrences=(first_occurrence, indistinguishable)).resolve(proved).disposition == "ambiguous"
+
+    def opening(include_contextual_identity):
+        return {
+            "state": {"user_question": decision.question, "interaction": {"image_move": decision.semantic_state()}},
+            "questions": {
+                q.name: {"type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options)}
+                for q in decision.questions(include_contextual_identity=include_contextual_identity)
+            },
+        }
+
+    decision.require_opening_offer(opening(True))
+    decision.require_opening_offer(opening(False), allow_retained=True)
+    with pytest.raises(ValueError, match="exact admitted opening"):
+        decision.require_opening_offer(opening(False))
+
     for alter in (change_sibling_text, change_unrelated_image, change_moved_image_width, change_row):
         forged = json.loads(original)
         alter(forged)
