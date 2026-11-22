@@ -865,6 +865,19 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && typeof body.target_playable_content_sha256 === "string"
       && /^[0-9a-f]{64}$/.test(body.target_playable_content_sha256);
   }
+  if (/^\/api\/live\/combat\/scene-templates\/preview-saved\?world_id=[a-z0-9][a-z0-9_-]{0,62}$/.test(path)) {
+    const body = requestBodyRecord(init?.body);
+    const pin = body?.pin;
+    const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+    return method === "POST" && body !== null && Object.keys(body).length === 2
+      && typeof body.title === "string" && Boolean(body.title.trim()) && Array.from(body.title).length <= 160
+      && isRecord(pin) && Object.keys(pin).length === 5
+      && typeof pin.document_id === "string" && uuid.test(pin.document_id)
+      && typeof pin.work_revision_id === "string" && uuid.test(pin.work_revision_id)
+      && typeof pin.scene_id === "string" && /^scene:[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(pin.scene_id)
+      && typeof pin.revision_n === "number" && Number.isSafeInteger(pin.revision_n) && pin.revision_n > 0
+      && typeof pin.content_sha256 === "string" && /^[0-9a-f]{64}$/.test(pin.content_sha256);
+  }
   const sceneTemplate = /^\/api\/live\/combat\/scene-templates(\/cancel|\/operations\/[0-9a-f-]+|\/[0-9a-f-]+\/scenes\/[^/?#]+(?:\/versions\/[1-9][0-9]*)?)?\?([^#]+)$/.exec(path);
   if (sceneTemplate) {
     const query = new URLSearchParams(sceneTemplate[2]);
