@@ -250,11 +250,15 @@ def test_bound_selected_rewrite_requires_an_actual_selection(selected):
         relation="replace_explicit_selection", selected_alias="none", scope=UnscopedLocation())
     request = SimpleNamespace(original_capture=capture, placement_catalog=catalog,
         author_scope_binding=SimpleNamespace(observation=observation), page_title="A page",
-        question="Could you rewrite this selected paragraph to add a warning?")
-    answers = {question.name: question.options[0] for question in target_questions(request)}
+        question="Rewrite this to emphasize the three lanterns.")
+    questions = {question.name: question for question in target_questions(request)}
+    assert ("include this exact focused text selection" in questions["anchor_0"].question) is selected
+    answers = {name: question.options[0] for name, question in questions.items()}
     answers["placement_relation"] = "captured"
     answers["anchor_0"] = "include"
     assert compatible_selectors(request, answers) == (("captured",) if selected else ())
+    answers["anchor_0"] = "exclude"
+    assert compatible_selectors(request, answers) == ()
 
 
 def family_catalog(nodes, *, with_headings=False):

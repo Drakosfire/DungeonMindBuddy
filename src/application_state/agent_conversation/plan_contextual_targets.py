@@ -285,6 +285,20 @@ def target_questions(request):
             ' Include the caret if the author requests a current Plan insertion with no stated '
             'destination. Exclude it if there is a different destination or unresolved placement.'
         )
+    selected_span = (request.original_capture is not None
+        and request.original_capture.target_kind == 'replace_selection'
+        and 'captured' in options)
+    if selected_span:
+        options['captured'] = (
+            'Revise the exact focused text selection. A request to rewrite this, shorten this, '
+            'or change the wording uses that selection when it names no different destination.'
+        )
+        questions['captured'] = (
+            'If the placement relation is captured, include this exact focused text selection. '
+            'It is the selected editor span even when the author says only “this” or describes '
+            'the desired revision without repeating the selected words. Exclude it for discussion, '
+            'a different destination, or any relation other than captured.'
+        )
     locator = paragraph_locator(request)
     verbatim = literal_paragraph_locator(request) is not None
     return (ChoiceDecisionQuestion(name='placement_relation', options=offered_relations(request),
@@ -303,6 +317,8 @@ def target_questions(request):
             option_descriptions={
                 'include': ('The current Plan insertion leaves placement open and uses this exact caret, '
                     'or the author explicitly requests this caret.' if implicit_caret and anchor['kind'] == 'captured'
+                    else 'The relation is captured and this is the focused selection being revised.'
+                    if selected_span and anchor['kind'] == 'captured'
                     else 'The requested relation uses this kind of direct destination and the author refers to this capture, heading path or page end.'),
                 'exclude': 'Another relation kind or destination is requested. A heading named merely as paragraph context is not a direct destination.'},
             question=questions[anchor['kind']] + ' Judge offered_page_anchors '
