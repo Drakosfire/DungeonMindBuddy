@@ -732,10 +732,11 @@ class NativeBodyNavigation:
                             return _materialize(*args, **kwargs)
                     fields[name] = measured
         with trace.measure_host_work("native_source_append") if trace is not None else nullcontext():
-            if method == 'authorize_native_body_reads':
-                grants = a.fence.authorize_session_body_grants(fields['grants'])
-                if grants is not None:
-                    return grants
+            if method in {'authorize_native_body_reads', 'authorize_native_direct_sources',
+                          'observe_native_body_reads', 'observe_native_direct_source'}:
+                events = a.fence.commit_session_source_events(method, **fields)
+                if events is not None:
+                    return events[0] if method == 'observe_native_direct_source' else events
             result = a.fence.commit(method, **fields)
         a.turn = result[0]
         if method in {'authorize_native_direct_sources', 'authorize_native_body_reads', 'observe_native_body_reads'}:
@@ -752,7 +753,11 @@ class NativeBodyNavigation:
         """
         from application_state.agent_conversation.plan_jev_decision import current_selection
         from application_state.agent_conversation.native_corpus import selected_batch_covering_reads
-        turn = self.adapter.fence.turn
+        owner = self.adapter.fence.renewer
+        with owner._lock:
+            if owner._session is not None:
+                return owner._session.covers_source_selection(handle)
+            turn = self.adapter.fence.turn
         from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
         execution = turn.graph_context_execution
         return bool(selected_batch_covering_reads(
@@ -798,8 +803,11 @@ class NativeBodyNavigation:
             if handle in completed_body_handles or handle not in offered or self._fulfilled_in_current_selection(handle):
                 continue  # Its exact text was already read in this selected batch.
             with a.fence.renewer._lock:
-                turn = a.fence.renewer._turn
-                is_search = handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest())
+                session = a.fence.renewer._session
+                turn = a.fence.renewer._turn if session is None else None
+                world_id, user_text = ((turn.world_id, turn.user_text) if turn is not None
+                                       else session.source_coordinates())
+                is_search = handle == native_corpus_search_handle(sha256(user_text.encode()).hexdigest())
                 is_direct = handle.startswith('native-direct-source:')
                 if is_direct:
                     choices = self._source_choices()
@@ -820,16 +828,21 @@ class NativeBodyNavigation:
                 elif is_search:
                     auth = self._commit("authorize_native_body_search", event_id=uuid4())
                     operation = 'source_search'
-                    label = turn.user_text  # Exact query used by the native lexical-search owner.
+                    label = user_text  # Exact query used by the native lexical-search owner.
                 else:
-                    _, search, _, _ = self._events(turn)
                     if handle.startswith("native-full-document:"):
                         catalog_sha, section, kind = handle.removeprefix("native-full-document:"), None, "full_document"
                     else:
                         catalog_sha, section = handle.removeprefix("native-body:").split(":", 1)
                         kind = "section"
                     from application_state.agent_conversation.plan_jev_decision import current_selection
-                    selection_handles = current_selection(turn).selected_handles
+                    if turn is not None:
+                        _, search, _, _ = self._events(turn)
+                        search_event_id = search.event_id
+                        selection_handles = current_selection(turn).selected_handles
+                        catalog = next(row for row in search.catalogs if row.catalog_sha256 == catalog_sha)
+                    else:
+                        search_event_id, selection_handles, catalog = session.source_batch_catalog(catalog_sha)
                     group_handles = [handle]
                     if kind == 'section' and 'native-full-document:' + catalog_sha not in selection_handles:
                         position = selection_handles.index(handle)
@@ -840,11 +853,10 @@ class NativeBodyNavigation:
                                 break
                             group_handles.append(following)
                     grants = self._commit('authorize_native_body_reads', grants=tuple(dict(
-                        event_id=uuid4(), search_event_id=search.event_id, catalog_sha256=catalog_sha,
+                        event_id=uuid4(), search_event_id=search_event_id, catalog_sha256=catalog_sha,
                         retrieval_kind=kind, section_id=None if kind == 'full_document' else h.removeprefix('native-body:').split(':', 1)[1])
                         for h in group_handles))
                     operation = 'source_document_read' if kind == 'full_document' else 'source_section_read'
-                    catalog = next(row for row in search.catalogs if row.catalog_sha256 == catalog_sha)
                     body_group = tuple((h, g, self._read_label(catalog, g.section_id))
                         for h, g in zip(group_handles, grants, strict=True))
             if not is_direct and not is_search:
@@ -870,7 +882,7 @@ class NativeBodyNavigation:
                             content_sha256=grant.content_sha256))
                 elif is_search:
                     result = self._commit("observe_native_body_search", event_id=uuid4(), authorization_event_id=auth.event_id,
-                        capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
+                        capture=lambda: capture_native_sources(managed_world_id=world_id,
                             principal=context.principal, prepared=context))
             observe_native_retrieval(a, operation, handle, label=label, completed=True,
                 unavailable=not is_search and result.excerpt is None)

@@ -751,7 +751,8 @@ def test_deferred_body_grant_binds_trace_and_next_commit_without_copying():
     grants = (object(),)
 
     class Session:
-        def authorize_body_grants(self, *, expected_revision, expected_attempt, grants):
+        def execute_source_events(self, command, *, expected_revision, expected_attempt, grants):
+            assert command is PlanSessionCommand.BODY_GRANTS
             assert (expected_revision, expected_attempt) == (4, 1)
             return claim, grants
 
@@ -764,7 +765,7 @@ def test_deferred_body_grant_binds_trace_and_next_commit_without_copying():
     store.authorize_native_body_reads = object.__str__
     store.observe_native_body_reads = object.__str__
     try:
-        assert fence.authorize_session_body_grants(grants) == grants
+        assert fence.commit_session_source_events("authorize_native_body_reads", grants=grants) == grants
         assert capture._binding()["expected_revision"] == 5
         assert fence.commit("observe_native_body_reads") == (next_turn, True)
         assert fence.turn is next_turn

@@ -208,11 +208,39 @@ class NativePlanSession:
         return self._execute(command, expected_revision=expected_revision,
             expected_attempt=expected_attempt, fields=fields)
 
-    def authorize_body_grants(self, *, expected_revision, expected_attempt, grants):
-        return self._execute(PlanSessionCommand.BODY_GRANTS, expected_revision=expected_revision,
-            expected_attempt=expected_attempt, fields={'grants': grants}, export_grants=True)
+    def source_coordinates(self):
+        with self._lock:
+            self._require_live()
+            return self._committed.world_id, self._committed.user_text
 
-    def _execute(self, command, *, expected_revision, expected_attempt, fields, export_grants=False):
+    def source_batch_catalog(self, catalog_sha256):
+        from .native_corpus import NativeBodySearchObservedV1
+        from .plan_jev_decision import current_selection
+
+        with self._lock:
+            self._require_live()
+            turn = self._committed
+            search = next(event for event in turn.graph_context_execution.events
+                          if isinstance(event, NativeBodySearchObservedV1))
+            catalog = next(row for row in search.catalogs if row.catalog_sha256 == catalog_sha256)
+            return search.event_id, tuple(current_selection(turn).selected_handles), deepcopy(catalog)
+
+    def covers_source_selection(self, handle):
+        from .native_corpus import selected_batch_covering_reads
+        from .plan_jev_decision import current_selection
+
+        with self._lock:
+            self._require_live()
+            turn = self._committed
+            execution = turn.graph_context_execution
+            return bool(selected_batch_covering_reads(execution, current_selection(turn), handle,
+                require_passage=type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)))
+
+    def execute_source_events(self, command: PlanSessionCommand, *, expected_revision, expected_attempt, **fields):
+        return self._execute(command, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields=fields, export_source=True)
+
+    def _execute(self, command, *, expected_revision, expected_attempt, fields, export_source=False):
         with self._lock:
             try:
                 self._enter()
@@ -225,10 +253,17 @@ class NativePlanSession:
                 for name in ('authorization', 'outcome', 'selection', 'event'):
                     if name in owned:
                         owned[name] = _owned_event(owned[name])
-                grant_ids = ()
-                if export_grants:
-                    grant_ids = tuple(_EVENT_ID.validate_python(grant['event_id'])
-                        for grant in owned['grants'])
+                export_ids = None
+                if export_source:
+                    if command in (PlanSessionCommand.BODY_GRANTS, PlanSessionCommand.DIRECT_GRANTS):
+                        rows = owned['grants']
+                    elif command is PlanSessionCommand.BODY_OBSERVATIONS:
+                        rows = owned['reads']
+                    elif command is PlanSessionCommand.DIRECT_OBSERVATION:
+                        rows = (owned,)
+                    else:
+                        raise ApplicationStateIntegrityError('Session source export requires a supported native read command')
+                    export_ids = tuple(_EVENT_ID.validate_python(row['event_id']) for row in rows)
                 self._pending = None
                 # This dispatch is closed over APP methods, not an arbitrary
                 # caller-supplied method name or a new admission implementation.
@@ -246,17 +281,17 @@ class NativePlanSession:
                 elif updated is not self._committed or self._pending is not None:
                     raise ApplicationStateIntegrityError('Session replay changed its committed generation')
                 self._pending = None
-                if export_grants:
+                if export_ids is not None:
                     committed = self._committed
                     matches = {}
                     for event in reversed(committed.graph_context_execution.events):
-                        if event.event_id in grant_ids:
+                        if event.event_id in export_ids:
                             matches[event.event_id] = event
-                            if len(matches) == len(grant_ids):
+                            if len(matches) == len(export_ids):
                                 break
                     return (PlanSessionClaim(committed.world_id, committed.conversation_id,
                         committed.turn_id, committed.revision, committed.attempt, lambda: deepcopy(committed)),
-                        deepcopy(tuple(matches[event_id] for event_id in grant_ids)))
+                        deepcopy(tuple(matches[event_id] for event_id in export_ids)))
                 return deepcopy(self._committed), fresh
             except BaseException:
                 self._seal()
