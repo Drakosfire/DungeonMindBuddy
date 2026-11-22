@@ -604,11 +604,19 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     "working_draft_context": {"draft_markdown": draft.snapshot.draft_markdown},
                 })
             elif with_draft:
-                assert work['current_draft']['markdown']==draft.snapshot.draft_markdown
+                expected_draft = draft.snapshot.draft_markdown
+                if reference_image:
+                    expected_draft = expected_draft.replace(
+                        f"![Other artwork](dmb-media:{wrong['asset_id']})", "[Image: Other artwork]",
+                    ).replace(
+                        f"![Bath house map](dmb-media:{asset['asset_id']})", "[Image: Bath house map]",
+                    )
+                    assert all(str(row['asset_id']) not in req.content.decode() for row in (asset, wrong))
+                assert work['current_draft']['markdown'] == expected_draft
                 if mode:
-                    assert body['input'].count(json.dumps(draft.snapshot.draft_markdown,ensure_ascii=False)[1:-1])==1
+                    assert body['input'].count(json.dumps(expected_draft, ensure_ascii=False)[1:-1]) == 1
                 else:
-                    assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
+                    assert sum(expected_draft in row['content'] for row in body['input']) == 1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only'
@@ -1982,6 +1990,25 @@ def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(l
 @pytest.mark.parametrize('selection',['section','full_document','source_only'])
 def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(lane,tmp_path,monkeypatch,selection):
     _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source=selection)
+
+
+def test_ordinary_build_projects_managed_images_in_both_sdk_requests(lane, tmp_path, monkeypatch):
+    asset = "5086d264-54f6-4411-846b-a59cbf0abcde"
+    image = f"![Harbor survey](dmb-media:{asset})"
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        native_body="direct_support",
+        native_source_text=f"# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode.\n{image}\n",
+    )
+    decisions = [request.content.decode() for request in case.decisions.calls]
+    writers = [request.content.decode() for request in case.writer.calls]
+    assert any("[Image: Harbor survey]" in request for request in decisions)
+    assert len(writers) == 1 and "[Image: Harbor survey]" in writers[0]
+    assert all(asset not in request for request in decisions + writers)
+    from application_state.agent_conversation.native_corpus import acquired_body_reads
+    reads = acquired_body_reads(case.turn.graph_context_execution)
+    assert any(image in read.excerpt.text for read in reads)
+    assert case.turn.completion.native_body_citations
 
 
 def test_build_dialogue_cache_checks_same_revision_storage_drift(lane, tmp_path, monkeypatch):

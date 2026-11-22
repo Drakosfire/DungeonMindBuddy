@@ -8,6 +8,8 @@ from __future__ import annotations
 import hashlib
 import json
 
+from .model_markdown import project_model_markdown
+
 POLICY = "source_unit_selection_event_closure_v1"
 NATIVE_POLICY = "source_unit_selection_event_closure_v2"
 
@@ -271,7 +273,7 @@ def native_build(turn):
             and type(execution.policy.action) is NativeBuildActionV1)
 
 
-def semantic_state(turn, catalog):
+def semantic_state(turn, catalog, *, retained_raw_markdown=False):
     """Semantic slots into the existing host catalog, never another source owner."""
     from .native_corpus import acquired_body_catalogs
     if not native_build(turn):
@@ -289,9 +291,10 @@ def semantic_state(turn, catalog):
             label, section, extent_kind = 'Current saved authored page', 'Opened passage', 'section'
         else:
             raise ValueError("Native selection has an unsupported source kind")
+        text = row['text'] if retained_raw_markdown else project_model_markdown(row['text'])
         sources[f's{i}'] = dict(kind=unit['kind'], source_name=label, section_title=section,
             source_meaning=row['source_class'], extent_kind=extent_kind,
-            line_start=row['line_start'], line_end=row['line_end'], text=row['text'])
+            line_start=row['line_start'], line_end=row['line_end'], text=text)
     return dict(user_question=turn.user_text, sources=sources, rules=RULES)
 
 
@@ -373,7 +376,8 @@ def native_terminal(turn, *, before_sequence=None):
     return dict(status='ready', reason='native_retrieval_finished')
 
 
-def validate_prepared_selection(turn,auth,request_text,trace,terminal=None, *, policy=None):
+def validate_prepared_selection(turn,auth,request_text,trace,terminal=None, *, policy=None,
+                                retained_proof=False):
     """One exact acquired-catalog input check, before dispatch and on acceptance."""
     from .source_writer_output import strict_json
     execution = turn.graph_context_execution
@@ -392,6 +396,8 @@ def validate_prepared_selection(turn,auth,request_text,trace,terminal=None, *, p
         if terminal is not None and canonical(terminal) != canonical(expected_terminal):
             raise ValueError('Selection terminal differs from acknowledged native finish')
         expected_state = semantic_state(turn,catalog)
+        if retained_proof and canonical(request['state']) != canonical(expected_state):
+            expected_state = semantic_state(turn, catalog, retained_raw_markdown=True)
     else:
         # Retained old prepared bytes, including initial-V2 turns, keep their
         # exact accepted serializer. Current native producers never emit it.
@@ -457,7 +463,10 @@ def validate_selection_proof(turn, selection, trace, proof):
             or hashlib.sha256(request_text.encode()).hexdigest() != auth.envelope_sha256
             or hashlib.sha256(response_text.encode()).hexdigest() != selection.controller_response_sha256):
             raise ValueError("Selection producer bytes differ from the acknowledged attempt")
-        request,verified_catalog=validate_prepared_selection(turn,auth,request_text,trace,selection.terminal_disposition,policy=selection.policy)
+        request,verified_catalog=validate_prepared_selection(
+            turn, auth, request_text, trace, selection.terminal_disposition,
+            policy=selection.policy, retained_proof=True,
+        )
         if verified_catalog!=catalog:
             raise ValueError('Selection acquired catalog changed')
         response=strict_json(response_text)

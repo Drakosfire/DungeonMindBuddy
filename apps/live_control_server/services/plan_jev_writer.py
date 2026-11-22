@@ -323,7 +323,7 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
             from application_state.agent_conversation.plan_writer_output_schema import native_output_format
             turn=adapter.fence.turn
-            from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
+            from application_state.agent_conversation.native_execution import NativeBuildActionV1, NativePlanActionV2, NativePlanActionV3
             plan_prose = (type(turn.graph_context_execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
                           and getattr(rules, 'authoring', None) is None)
             self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution,
@@ -332,7 +332,9 @@ class PlanJevWriter:
                 provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
                 world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
                 play_context_receipt=turn.play_context_receipt if turn.graph_context_receipt.work_context.surface_id=='play' else None)
-            self.provider_frame=semantic_frame(self.frame)
+            self.provider_frame=semantic_frame(
+                self.frame, project_managed_images=isinstance(turn.graph_context_execution.policy.action, NativeBuildActionV1),
+            )
             self.frame=output_frame(self.frame,self.provider_frame)
             from application_state.agent_conversation.plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
             from application_state.agent_conversation.native_play_work import SCHEMA as PLAY_WORK_SCHEMA
