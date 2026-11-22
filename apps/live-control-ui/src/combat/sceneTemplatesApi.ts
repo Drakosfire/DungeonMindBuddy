@@ -10,6 +10,33 @@ export type SceneTemplateIntent={schema_version:'dmb_scene_template_create_v1';o
 export type SceneTemplateView={binding:{schema_version:'dmb_scene_template_binding_v1';world_id:string;encounter_id:string;origin:SceneTemplateIntent['pin'];operation_id:string;request_digest:string;created_at:string};encounter:AnyCombatRecord;versions:{revision:number;digest:string;saved_at:string}[];scene_present:boolean};
 export type NamedEncounterPreviewRequest = {pin: SceneTemplateIntent['pin']; title: string};
 export type EncounterAttachmentReview = {pin: SceneTemplateIntent['pin']; source: AnyCombatRecord};
+function reviewStorageKey(context:Pick<PlanEncounterContext,'worldId'|'documentId'|'sceneId'>){
+ return 'dmb-buddy-encounter-review-v1:'+JSON.stringify([context.worldId,context.documentId,context.sceneId]);
+}
+export function retainEncounterReview(context:PlanEncounterContext, review:EncounterAttachmentReview){
+ const {source,pin}=review;
+ try{
+  sessionStorage.setItem(reviewStorageKey(context),JSON.stringify({
+   pin,title:source.draft.title,id:source.encounter_id,revision:source.revision,
+  }));
+ }catch{/* Storage availability does not prevent immediate review. */}
+}
+export async function recoverEncounterReview(context:PlanEncounterContext):Promise<EncounterAttachmentReview|null>{
+ let stored:string|null;
+ try{stored=sessionStorage.getItem(reviewStorageKey(context));}catch{return null;}
+ if(!stored || !context.canCreate)return null;
+ const retained=JSON.parse(stored);
+ const pin=retained?.pin;
+ if(pin?.document_id!==context.documentId || pin?.scene_id!==context.sceneId
+   || pin?.content_sha256!==context.contentSha256 || typeof retained.title!=='string'){
+  throw new Error('The saved Plan changed. Ask Buddy to review the encounter again.');
+ }
+ const source=await previewNamedEncounter(context.worldId,{pin,title:retained.title});
+ if(source.world_id!==context.worldId || source.encounter_id!==retained.id || source.revision!==retained.revision){
+  throw new Error('The saved encounter changed. Ask Buddy to review its current revision.');
+ }
+ return {pin,source};
+}
 async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent|NamedEncounterPreviewRequest):Promise<T>{
  const response=(await authenticatedApiFetch(`/api/live/combat/scene-templates${path}?${new URLSearchParams({world_id:worldId})}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined)).response;
  const data=await response.json();

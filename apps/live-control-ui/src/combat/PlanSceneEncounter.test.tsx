@@ -21,6 +21,17 @@ function deferred<T>(){let resolve!:(value:T)=>void;const promise=new Promise<T>
 beforeEach(()=>{tourReadings.clear();sessionStorage.clear();Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});vi.spyOn(api,'getSceneTemplate').mockResolvedValue(null);vi.spyOn(liveApi,'getWorldOwnedPlanCommittedRevision').mockResolvedValue(committed as any);});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe('Plan scene encounter preparation',()=>{
+ it('reopens a retained review only if the source still matches the reviewed revision',async()=>{
+  const source={...manualCombatRecord(),world_id:context.worldId,revision:7};
+  api.retainEncounterReview(context,{pin,source});
+  const read=vi.spyOn(liveApi,'authenticatedApiFetch').mockImplementation(async()=>({
+   response:Response.json(source),
+  }) as any);
+  expect(await api.recoverEncounterReview(context)).toEqual({pin,source});
+  expect(read.mock.calls[0][0]).toContain('/preview-saved?world_id=elderwyld');
+  read.mockImplementation(async()=>({response:Response.json({...source,revision:8})}) as any);
+  await expect(api.recoverEncounterReview(context)).rejects.toThrow('The saved encounter changed');
+ });
  it('requires confirmation of the exact reviewed Buddy encounter',async()=>{
   const source={...manualCombatRecord(),world_id:context.worldId,revision:7};
   const write=vi.spyOn(api,'createSceneTemplate').mockImplementation((_world,intent)=>result(intent));

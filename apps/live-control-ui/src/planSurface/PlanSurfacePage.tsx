@@ -1871,12 +1871,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }
     const pin={document_id:target.documentId,scene_id:target.sceneId,revision_n:committed.revision_n,
       work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256};
-    const {previewNamedEncounter}=await import('../combat/sceneTemplatesApi');
+    const {previewNamedEncounter,retainEncounterReview}=await import('../combat/sceneTemplatesApi');
     const source=await previewNamedEncounter(target.worldId,{pin,title});
     if(latestEncounterReviewScope.current!==encounterReviewScope || source.world_id!==target.worldId) {
       throw new Error('The saved scene changed. Ask Buddy to review the encounter again.');
     }
     setBuddyEncounterReview({pin,source});
+    retainEncounterReview(target,{pin,source});
     if(!await openSceneEncounterTool('combat')) throw new Error('The scene encounter review could not be opened.');
   }
   useCombatProjection("plan",activePublication!==null,sceneEncounterContext);
