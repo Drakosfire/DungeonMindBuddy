@@ -68,4 +68,4 @@ USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD ["python", "/app/scripts/probe_buddy_health.py", "live", "3"]
-CMD ["uvicorn", "apps.live_control_server.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "apps.live_control_server.hosted_worker:app", "--host", "0.0.0.0", "--port", "8000"]
