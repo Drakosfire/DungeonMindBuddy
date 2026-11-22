@@ -463,16 +463,16 @@ class NativeBodyNavigation:
                 narrowed = [row for row in narrowed
                             if row.handle in section_handles or row.handle not in addresses]
         focus = getattr(turn.graph_context_receipt.native_query, "episode_campaign_focus", None)
-        if (rank_opening and focus is not None and any(
-                row.kind == "Exact source section" and addresses.get(row.handle)
-                == (focus.source_artifact_id, focus.source_revision_id) for row in narrowed)):
-            from .native_source_candidate_scope import episode_campaign_source_pairs
-            deferred = episode_campaign_source_pairs(focus, self._source_display)
-            narrowed = [
-                row for row in narrowed
-                if row.kind != "Exact source section" or addresses.get(row.handle) not in deferred
-            ]
         if len(narrowed) != len(rows):
+            if search is not None and focus is not None:
+                from .native_source_candidate_scope import episode_campaign_source_pairs
+                anchor = focus.source_artifact_id, focus.source_revision_id
+                if anchor in addresses.values():
+                    deferred = episode_campaign_source_pairs(focus, self._source_display)
+                    narrowed = [
+                        row for row in narrowed
+                        if row.kind != "Exact source section" or addresses.get(row.handle) not in deferred
+                    ]
             narrowed.append(RetrievalCandidate(handle=self.expansion_handle(),
                 label='Expand source search if the currently offered passages cannot establish the requested details',
                 kind='Expand to all other admitted native sources and matching sections; no source text is read by this choice'))

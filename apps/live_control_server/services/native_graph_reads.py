@@ -361,11 +361,14 @@ def _resolve_episode_campaign_focus(shape, objects, assertions, read, *, selecti
     def claims(entity):
         return selective.get_entity_claims((entity,))[0] if selective is not None else entity_service.get_entity_claims(read, (entity,))[0]
 
+    def observed(assertion):
+        return (assertion.metadata.claim_mode == "dungeonbuddy.claim:observed_event"
+                and getattr(assertion.metadata.temporal_scope, "schema_term", None)
+                == "dungeonbuddy.time:fictional_anchor_v1")
+
     def observed_names(assertions, entity):
         return [a for a in assertions if a.subject_entity_id == entity and a.predicate == "dnd5e:name"
-            and a.metadata.claim_mode == "dungeonbuddy.claim:observed_event"
-            and getattr(a.metadata.temporal_scope, "schema_term", None) == "dungeonbuddy.time:fictional_anchor_v1"
-            and isinstance(getattr(a.value, "value", None), str)]
+                and observed(a) and isinstance(getattr(a.value, "value", None), str)]
 
     start, = picks
     parent = claims(start)
@@ -373,7 +376,7 @@ def _resolve_episode_campaign_focus(shape, objects, assertions, read, *, selecti
         return None
     names = observed_names(parent.assertions, start)
     links = [a for a in parent.assertions if a.subject_entity_id == start and a.predicate == _PRECEDES_PREDICATE
-             and getattr(a.value, "entity_id", None)]
+             and observed(a) and getattr(a.value, "entity_id", None) not in (None, start)]
     if len(names) != 1 or len(links) != 1:
         return None
     link, = links

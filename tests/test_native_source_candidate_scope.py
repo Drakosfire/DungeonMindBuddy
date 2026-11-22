@@ -156,3 +156,53 @@ def test_episode_request_requires_arrival_without_explicit_campaign_scope():
     assert _episode_request(shape)[1] == ("old", "ferry")
     assert _episode_request("Compare Campaign 1 and Campaign 2. " + shape) is None
     assert _episode_request("At the end of Session 10, what did they know?") is None
+
+
+@pytest.mark.parametrize("fault", [None, "authored_edge", "self_edge", "ambiguous", "missing_support", "different_recap"])
+def test_episode_resolver_requires_one_observed_edge_with_shared_exact_support(fault):
+    from types import SimpleNamespace as Row
+    from apps.live_control_server.services.native_graph_reads import _resolve_episode_campaign_focus
+
+    edge_kind = "dungeonbuddy.custom:precedes"
+    observed = "dungeonbuddy.claim:observed_event"
+    anchor = Row(schema_term="dungeonbuddy.time:fictional_anchor_v1")
+    actual = Row(claim_mode=observed, temporal_scope=anchor)
+    start = Row(subject_entity_id="start", assertion_id="name-a", metadata=actual,
+                predicate="dnd5e:name", value=Row(value="Group hears fighting west"))
+    finish = Row(subject_entity_id="finish", assertion_id="name-b", metadata=actual,
+                 predicate="dnd5e:name", value=Row(value="Group reaches Old Ferry"))
+    edge = Row(subject_entity_id="start", assertion_id="edge", predicate=edge_kind,
+               value=Row(entity_id="start" if fault == "self_edge" else "finish"),
+               metadata=Row(claim_mode="dungeonbuddy.claim:plan", temporal_scope=anchor)
+               if fault == "authored_edge" else actual)
+    complete = Row(status="complete")
+    support = Row(source_artifact_id="recap", source_revision_id="rev", evidence_role="support")
+
+    class Core:
+        def get_entity_claims(self, entities):
+            rows = {"start": (edge, start), "finish": (finish,)}
+            return tuple(Row(found=True, completeness=complete, assertions=rows[entity]) for entity in entities)
+
+        def get_assertions_evidence(self, ids):
+            assert ids == ("name-a", "edge", "name-b")
+            edge_support = (support,)
+            if fault == "missing_support":
+                edge_support = ()
+            elif fault == "different_recap":
+                edge_support = (Row(source_artifact_id="unrelated", source_revision_id="rev", evidence_role="support"),)
+            return tuple(Row(available=True, completeness=complete, evidence=refs)
+                         for refs in ((support,), edge_support, (support,)))
+
+    objects = [Row(entity_id="start", label=start.value.value)]
+    rows = [Row(subject_entity_id="start", label=f"{start.value.value} · {edge_kind}")]
+    if fault == "ambiguous":
+        objects.append(Row(entity_id="other", label=start.value.value))
+        rows.append(Row(subject_entity_id="other", label=f"{start.value.value} · {edge_kind}"))
+    result = _resolve_episode_campaign_focus(
+        ({"fighting", "west"}, ("old", "ferry")), objects, rows, None, selective=Core(),
+    )
+    if fault is None:
+        assert (result.predecessor_id, result.successor_id, result.relationship_id) == ("start", "finish", "edge")
+        assert (result.source_artifact_id, result.source_revision_id) == ("recap", "rev")
+    else:
+        assert result is None
