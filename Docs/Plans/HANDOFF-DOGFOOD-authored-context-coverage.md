@@ -1,6 +1,46 @@
 # DOGFOOD: retain discussed authored context in the first page draft
 
-ACTIVE under the existing DOGFOOD owner assignment. Re-anchored4101fa serving
+SETTLED under the existing DOGFOOD owner assignment. PR4461 merged into the
+frozen serving review base at7aa469c6ca0fc7a56770a0051a2db974cf85cc79;
+its tree is exact reviewed/built590e45a2bd7a92e90e80aa6d053353e4cfebdc19.
+Observed deployed image5e0eaaeea51cdb51a62a82af3b217b28b41118dda67467993cfea766d8398c3a
+healthy/public200. Only image replaced: APP0189/Core24, environment, mounts,
+networks, ports, grants and data preserved. Exact4101fa/fdeba predecessor container
+retained for compatible recovery. Runtime and source write leases are RELEASED.
+
+Actual signed-in acceptance on590: fresh saved-note discussion, later proposed
+ideas, then one page request without restating the facts. First draft retained
+Ashbell/three bridges/blue lantern/ferry after sunset, memory fare/lie bell, and
+person-or-spirit question. Authored context and proposals remained distinct in
+prose and in two existing proposal segments. Draft9917.226ms, prior-context
+admission, ZERO new acquisition events. Review/Confirm/Open succeeded for page
+2e077793-b3a9-4539-ba49-e3ef3b028388 in the synthetic World. Repeated UI confirmation
+returned the same document; page count stayed3 (seed, earlier Glass Ferryman,
+new Guide), one new page and no duplicate. The new page has no campaign tag;
+Buddy answered the next ordinary question from that exact page correctly.
+Maelthor5c96c8cf also reopened, and both retained Session3/Session6 citation URLs
+opened their original passages on the final release. No real-page duplicate.
+
+Exact checks: hosted1474 selected/buildPASS, repo validate exit0; ingestion and
+review913passed/9skipped; six focused HTTP cases PASS; world and content490passed,
+1 inherited fixed-score image fixture failure,2skipped. Independent source,
+operator, disabled-map and inherited-failure reviews PASS. The sole failure omits
+the existing conversation-lore choice before writer dispatch and was independently
+reproduced on c7; zero new observed failure IDs. Full regression qualification
+remains legacy-red. Frontend bytes unchanged versus410; older full d08 diagnostic
+102 failures is historical evidence, not an exact590 green claim.
+
+Evidence retained externally in buddy-check.onboard-dogfood.7tjj39ha; on-host
+590 release directory retains activation attempts, immutable qualification and
+final-actual-acceptance-after-repeat.json. First three activations refused before
+drain while work was active; fourth passed unchanged guards. A brief later502
+recovered with the same590 source. No forced cancellation, kill or migration.
+Screenshot is in the task's visualization directory. Remaining API-only
+missing-snapshot/summary-loss reuse and broader reliability/latency gaps remain
+tracked in #4459; do not present those failed replays as passing or universally
+solved. This settles the requested authenticated app workflow, not all variants.
+
+Historical assignment and bounded design follow. Re-anchored4101fa serving
 release and open PR4460. Its only writer delta is the completed Plan authoring
 instruction near line43, from already merged4451. AGENT LAYOUT explicitly holds
 no writer lease; independent inspection found no contemporary exclusive writer
