@@ -764,7 +764,8 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     response = DecisionResult.model_validate(raw_response)
     capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
     from application_state.build_proposal.image_move_decision import (
-        IMAGE_MOVE_AFFIRMATION, OPENING_STATE_KEY, admitted_image_move_choice,
+        CONTEXTUAL_IDENTITY, IMAGE_MOVE_AFFIRMATION, OPENING_STATE_KEY,
+        admitted_image_move_choice, contextual_identity_question,
     )
     image_offer = request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY)
     image_answers = {name: value for name, value in response.answers.items() if name.startswith("image_move_")}
@@ -783,10 +784,24 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             }:
                 raise ValueError("Image move affirmation differs from the exact admitted offer")
             names.add(affirmation.name)
+        contextual = None
+        if CONTEXTUAL_IDENTITY in request.get("questions", {}):
+            aliases = image_offer.get("existing_occurrences") if isinstance(image_offer, dict) else None
+            if affirmation.name not in names or not isinstance(aliases, dict) or len(aliases) < 2:
+                raise ValueError("Image move contextual identity requires an affirmative opening with occurrences")
+            contextual = contextual_identity_question(aliases)
+            if request["questions"][CONTEXTUAL_IDENTITY] != {
+                "type": "choice", "instructions": contextual.question,
+                "criteria": dict.fromkeys(contextual.options),
+            }:
+                raise ValueError("Image move contextual identity differs from the exact admitted offer")
+            names.add(CONTEXTUAL_IDENTITY)
         projected = response.model_copy(update={"answers": image_answers})
         choices = validated_choice_answers(projected, names)
         if affirmation.name in names and choices[affirmation.name] not in affirmation.options:
             raise ValueError("The image move affirmation is outside its offered choices")
+        if contextual is not None and choices[CONTEXTUAL_IDENTITY] not in contextual.options:
+            raise ValueError("The image move contextual identity is outside its offered choices")
         choice = choices["image_move_intent"]
         retained = event.typed_image_move
         if (not semantic_input or not isinstance(image_offer, dict) or

@@ -83,6 +83,7 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
     ("What would happen if we moved the Harbour map to the next slot?", "other_discussion"),
     ("How would it look in the empty slot?", "other_discussion"),
     ("Move the Harbour map to the empty slot on its right.", "tied_menu"),
+    ("Move the Harbour map beside the departure advice to the empty slot on its right.", "duplicate_context"),
 ])
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
@@ -234,15 +235,27 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         picture = BytesIO()
         Image.new("RGB", (30, 20), (48, 75, 65)).save(picture, "PNG")
         asset_id = str(media.stage_image(picture.getvalue(), "local_operator", {"fixture": "Harbour map"})["asset_id"])
-        markdown = f"![Harbour map](dmb-media:{asset_id})\n"
-        start, end = source_block_spans(markdown)[0]
-        block = BlockBinding(id="map-block", byte_start=start, byte_end=end,
-                             sha256=sha256(markdown.encode()[start:end]).hexdigest())
-        layout = PagePresentation(markdown_sha256=sha256(markdown.encode()).hexdigest(), items=[
-            Row(id="harbour-row", min_height=16, line_mode="border", slots=[
-                Slot(id="left-slot", width=7, blocks=[block]),
-                Slot(id="right-slot", width=5, blocks=[]),
-            ]),
+        media_markdown = f"![Harbour map](dmb-media:{asset_id})"
+        rows = [("harbour-row", "left-slot", "right-slot", [("map-block", media_markdown)])]
+        if image_move == "duplicate_context":
+            rows[0][3].insert(0, ("when-block", "Leave after sunset and the third bell."))
+            rows.append(("inn-row", "inn-left", "inn-right", [
+                ("coat-block", "Borrow a dry coat from the innkeeper."),
+                ("repeat-map", media_markdown),
+            ]))
+        markdown = "\n\n".join(text for _, _, _, row in rows for _, text in row) + "\n"
+        raw = markdown.encode()
+        bindings = {
+            block_id: BlockBinding(id=block_id, byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
+            for block_id, (start, end) in zip(
+                (block_id for _, _, _, row in rows for block_id, _ in row), source_block_spans(markdown), strict=True,
+            )
+        }
+        layout = PagePresentation(markdown_sha256=sha256(raw).hexdigest(), items=[
+            Row(id=row_id, min_height=16, line_mode="border", slots=[
+                Slot(id=left_id, width=7, blocks=[bindings[key] for key, _ in row]),
+                Slot(id=right_id, width=5, blocks=[]),
+            ]) for row_id, left_id, right_id, row in rows
         ])
         saved_basis = pages.committed_page(page.document_id, world_id=world)
         pages.commit_page(page.document_id, markdown, world_id=world,
@@ -250,16 +263,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                           expected_working_copy_revision=saved_basis.working_copy_revision,
                           page_presentation=layout)
         image_editor = json.dumps({"type": "doc", "content": [{
-            "type": "pageRow", "attrs": {"id": "harbour-row", "min_height": 16, "line_mode": "border"},
+            "type": "pageRow", "attrs": {"id": row_id, "min_height": 16, "line_mode": "border"},
             "content": [
-                {"type": "pageSlot", "attrs": {"id": "left-slot", "width": 7}, "content": [{
-                    "type": "paragraph", "attrs": {"pageBlockId": "map-block"}, "content": [{
-                        "type": "mediaImage", "attrs": {"assetId": asset_id, "alt": "Harbour map"},
-                    }],
-                }]},
-                {"type": "pageSlot", "attrs": {"id": "right-slot", "width": 5}},
+                {"type": "pageSlot", "attrs": {"id": left_id, "width": 7}, "content": [{
+                    "type": "paragraph", "attrs": {"pageBlockId": key}, "content": [
+                        {"type": "mediaImage", "attrs": {"assetId": asset_id, "alt": "Harbour map"}}
+                        if text == media_markdown else {"type": "text", "text": text},
+                    ],
+                } for key, text in row]},
+                {"type": "pageSlot", "attrs": {"id": right_id, "width": 5}},
             ],
-        }]})
+        } for row_id, left_id, right_id, row in rows]})
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
     editor_json = None
@@ -461,7 +475,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     chosen = {"image_move_intent": "other" if image_move == "other_discussion" else "move_existing",
                               "image_move_destination": "same_row_right", "image_move_occurrence": "image1",
                               "image_move_affirmation": "description_or_discussion" if image_move == "other_discussion"
-                                  else "author_requests_move"}[name]
+                                  else "author_requests_move", "image_move_contextual_identity": "image1"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                                          probabilities={key: float(key == chosen) for key in choices})
                     continue
@@ -1145,7 +1159,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return
         assert response.status_code == 200, response.text
         completion = response.json()["knowledge_context"]["completion"]
-        expected = {"other_discussion": "discussion", "tied_menu": "ready"}.get(image_move, image_move)
+        expected = {"other_discussion": "discussion", "tied_menu": "ready", "duplicate_context": "ready"}.get(image_move, image_move)
         assert completion["disposition"] == expected
         turn_id = writer.adapter.turn.turn_id
         if expected == "ready":
@@ -1168,7 +1182,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             }
             modified = json.loads(image_editor)
             left, right = modified["content"][0]["content"]
-            right["content"] = [left.pop("content")[0]]
+            right["content"] = [left["content"].pop()]
+            if not left["content"]:
+                del left["content"]
             claim = {"operation": "claim", "expected_revision": review.revision, "claim_id": str(uuid4()),
                      "editor_json": image_editor, "after_editor_json": json.dumps(modified)}
             invalid = client.post(endpoint, json={**claim, "after_editor_json": image_editor})

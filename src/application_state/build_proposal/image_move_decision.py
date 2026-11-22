@@ -49,6 +49,20 @@ IMAGE_MOVE_AFFIRMATION = ChoiceDecisionQuestion(
 )
 
 
+def contextual_identity_question(aliases) -> ChoiceDecisionQuestion:
+    return ChoiceDecisionQuestion(
+        name=CONTEXTUAL_IDENTITY,
+        options=("ambiguous", "missing", "no_contextual_reference", *aliases),
+        question=(
+            "For repeated images, identify the source occurrence by the author's reference to nearby "
+            "text. A paraphrase of distinct nearby prose can identify one occurrence. Use row_description "
+            "and the part of the request that describes nearby content. Ignore position, slot, destination, "
+            "and the shared image name. Use no_contextual_reference for an image name alone, missing for "
+            "a reference to absent prose, and ambiguous when two contexts fit or the reference is unclear."
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class BuildImageMoveNomination:
     disposition: BuildImageMoveDisposition
@@ -321,17 +335,7 @@ class BuildImageMoveDecision:
         repeat_assets = len({item.asset for item in self.occurrences}) < len(self.occurrences)
         repeat_labels = len({_phrase(item.alt) for item in self.occurrences}) < len(self.occurrences)
         if include_affirmation and include_contextual_identity and self.selected is None and (repeat_assets or repeat_labels):
-            questions += (ChoiceDecisionQuestion(
-                name=CONTEXTUAL_IDENTITY,
-                options=("ambiguous", "missing", "no_contextual_reference", *(item.alias for item in self.occurrences)),
-                question=(
-                    "For repeated images, identify the source occurrence by the author's reference to nearby "
-                    "text. A paraphrase of distinct nearby prose can identify one occurrence. Use row_description "
-                    "and the part of the request that describes nearby content. Ignore position, slot, destination, "
-                    "and the shared image name. Use no_contextual_reference for an image name alone, missing for "
-                    "a reference to absent prose, and ambiguous when two contexts fit or the reference is unclear."
-                ),
-            ),)
+            questions += (contextual_identity_question(item.alias for item in self.occurrences),)
         return questions
 
     def require_opening_offer(self, request: dict, *, allow_retained: bool = False) -> None:
