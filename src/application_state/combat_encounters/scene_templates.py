@@ -153,6 +153,33 @@ def preview_copy(*, world_id: str, pin: PlanScenePin, request: CopySavedEncounte
         return _read_saved_copy_source(conn, world_id=world_id, request=request)
 
 
+def preview_named_copy(*, world_id: str, pin: PlanScenePin, title: str):
+    """Resolve a single saved encounter by name and verify its exact copy basis."""
+    normalized_title = title.strip().casefold()
+    if not normalized_title or len(title) > 160:
+        raise ApplicationStateValidationError("Provide the saved Combat encounter’s full title")
+    world_id = _world_id(world_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        _require_available_target(conn, world_id=world_id, pin=pin)
+        matching = [
+            record for record in repo.list_encounters(conn, world_id=world_id)
+            if record.draft.title.strip().casefold() == normalized_title
+        ]
+        if not matching:
+            raise ApplicationStateNotFoundError("Saved Combat encounter is unavailable")
+        if len(matching) != 1:
+            raise ApplicationStateConflictError("Several saved Combat encounters have that title")
+        source = matching[0]
+        request = CopySavedEncounterRequest(
+            schema_version="dmb_scene_template_copy_saved_v1",
+            source_encounter_id=source.encounter_id,
+            expected_revision=source.revision,
+        )
+        return _read_saved_copy_source(conn, world_id=world_id, request=request)
+
+
 def create(*,world_id,request:CreateSceneTemplateRequest,authorize: Callable[[], None] | None = None):
     world_id=_world_id(world_id)
     copying = isinstance(request.encounter, CopySavedEncounterRequest)

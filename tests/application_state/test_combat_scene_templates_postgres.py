@@ -7,7 +7,7 @@ import pytest
 from tests.test_combat_scene_templates import scene_case,create,read
 from application_state.combat_encounters import scene_templates as service
 from application_state.combat_encounters.scene_template_types import CreateSceneTemplateRequest
-from application_state.errors import ApplicationStateConflictError
+from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 
 
 def test_cancel_before_create_fences_late_request_and_changed_body(scene_case):
@@ -147,6 +147,26 @@ def copy_intent(scene_case, source_id, revision):
             "expected_revision": revision,
         },
     })
+
+
+def test_named_copy_preview_is_read_only_and_refuses_ambiguous_titles(scene_case):
+    from application_state.combat_encounters import service as encounters
+    from application_state.combat_encounters.types import CreateCombatEncounterRequest
+
+    world = "elderwyld"
+    pin = CreateSceneTemplateRequest.model_validate(scene_case.body).pin
+    with pytest.raises(ApplicationStateNotFoundError):
+        service.preview_named_copy(world_id=world, pin=pin, title="Bath House")
+
+    request = CreateCombatEncounterRequest(title="Bath House")
+    source = encounters.create_encounter(world_id=world, request=request)
+    assert service.preview_named_copy(world_id=world, pin=pin, title=" bath house ") == source
+    assert read(scene_case).json() is None
+
+    encounters.create_encounter(world_id=world, request=request)
+    with pytest.raises(ApplicationStateConflictError, match="Several saved Combat encounters"):
+        service.preview_named_copy(world_id=world, pin=pin, title="Bath House")
+    assert read(scene_case).json() is None
 
 
 def test_copy_preserves_grouped_actors_and_exact_mechanics(scene_case, adoption_case):
