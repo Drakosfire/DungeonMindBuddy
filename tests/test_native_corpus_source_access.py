@@ -563,3 +563,32 @@ def test_corpus_rejects_missing_batched_provenance(lane, monkeypatch):
         lambda *args, **kwargs: SimpleNamespace(get_artifact=lambda _: None, get_revision=lambda _: None))
     with pytest.raises(ValueError, match="Authorized native corpus provenance is unavailable"):
         capture(lane, prepared=prepared)
+
+
+def test_partitioned_recap_reconstructs_exact_ranges_and_retains_older_catalog(lane):
+    from application_state.agent_conversation.native_corpus import (
+        NativeCorpusCatalogV1, build_native_body_catalog,
+        select_native_body_excerpt, select_native_full_document,
+    )
+
+    paragraphs = [f"{index} · " + "Éphanna waited. " * 43 for index in range(16)]
+    body = "# Session\r\n\r\n" + "\r\n\r\n".join(paragraphs) + "\r\n"
+    admit(lane, body=body)
+    captured = capture(lane)
+    member = captured.members[0]
+    original = build_native_body_catalog(captured.authority, member, body)
+    bounded = build_native_body_catalog(captured.authority, member, body, partition_recaps=True)
+
+    assert "recap_partition" not in original.model_dump()
+    assert bounded.recap_partition == "prose_blocks_v1"
+    assert len(original.sections) == 1 and len(bounded.sections) == 3
+    restored = NativeCorpusCatalogV1.model_validate_json(bounded.model_dump_json())
+    excerpts = [select_native_body_excerpt(restored, body, row.section_id) for row in restored.sections]
+    assert "".join(excerpt.text for excerpt in excerpts) == body
+    for excerpt in excerpts:
+        section = excerpt.section
+        assert body.encode()[section.byte_start:section.byte_end] == excerpt.text.encode()
+    assert select_native_full_document(original, body).text == body
+    with pytest.raises(ValueError, match="differs from the exact source body"):
+        select_native_body_excerpt(restored.model_copy(update={"recap_partition": None}),
+                                   body, restored.sections[0].section_id)

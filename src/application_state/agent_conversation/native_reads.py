@@ -283,10 +283,14 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
     query = set(terms(turn.user_text))
     frequency = Counter()
     eligible_count = 0
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
+
+    partition_recaps = type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
     for member in captured.members:
         key = (member.artifact.source_artifact_id, member.revision.source_revision_id)
         body = captured.bodies[key]
-        catalog = build_native_body_catalog(receipt.source_authority, member, body)
+        catalog = build_native_body_catalog(receipt.source_authority, member, body,
+                                            partition_recaps=partition_recaps)
         catalogs.append(catalog)
         for section in catalog.sections:
             words = Counter(re.findall(r"\w+", body[section.char_start:section.char_end].casefold()))

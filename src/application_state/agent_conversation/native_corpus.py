@@ -117,6 +117,8 @@ class NativeCorpusCatalogV1(Strict):
     authority: NativeCorpusAuthorityV1
     source: NativeCorpusMemberV1
     selector_policy: Literal["markdown_sections_v1"] = "markdown_sections_v1"
+    recap_partition: Literal["prose_blocks_v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
     sections: tuple[NativeCorpusSectionV1, ...]
     body_chars: int = Field(gt=0, strict=True)
     body_bytes: int = Field(gt=0, strict=True)
@@ -184,7 +186,42 @@ class NativeCorpusExcerptV1(Strict):
         return self
 
 
-def build_native_body_catalog(authority, source, markdown):
+def _partition_recap_sections(sections, markdown, identity):
+    for section in sections:
+        body = markdown[section.char_start:section.char_end]
+        if len(body.encode("utf-8")) <= 6000 or any(
+            line.lstrip().startswith(("```", "~~~")) for line in body.splitlines()
+        ):
+            yield section
+            continue
+
+        cursor = first_char = section.char_start
+        first_line = section.line_start
+        blocks = 0
+        previous_content = False
+        for line_no, line in enumerate(body.splitlines(keepends=True), section.line_start):
+            content = bool(line.strip())
+            if content and not previous_content:
+                if blocks == 8:
+                    end = line_no - 1
+                    key = identity | {"line_start": first_line, "line_end": end}
+                    yield section.model_copy(update={
+                        "section_id": sha256(canonical(key).encode()).hexdigest(),
+                        "line_start": first_line, "line_end": end,
+                        "char_start": first_char, "char_end": cursor,
+                    })
+                    first_line, first_char, blocks = line_no, cursor, 0
+                blocks += 1
+            cursor += len(line)
+            previous_content = content
+        key = identity | {"line_start": first_line, "line_end": section.line_end}
+        yield section.model_copy(update={
+            "section_id": sha256(canonical(key).encode()).hexdigest(),
+            "line_start": first_line, "char_start": first_char,
+        })
+
+
+def build_native_body_catalog(authority, source, markdown, *, partition_recaps=False):
     """Reuse the existing Markdown selector over a verified native source body."""
     from .native_source_catalog import section_catalog
     source.verify_body(markdown)
@@ -192,6 +229,15 @@ def build_native_body_catalog(authority, source, markdown):
     selected = section_catalog(markdown, source_artifact_id=artifact.source_artifact_id,
         native_source_revision_id=revision.source_revision_id,
         content_sha256=revision.content_sha256)
+    partition = None
+    if partition_recaps and artifact.source_classification == "dungeonbuddy.source:session_recap":
+        identity = dict(selector_policy="markdown_sections_v1",
+                        source_artifact_id=artifact.source_artifact_id,
+                        native_source_revision_id=revision.source_revision_id,
+                        content_sha256=revision.content_sha256)
+        partitioned = list(_partition_recap_sections(selected, markdown, identity))
+        if partitioned != selected:
+            selected, partition = partitioned, "prose_blocks_v1"
     sections, cursor = [], 0
     for row in selected:
         end = cursor + len(markdown[row.char_start:row.char_end].encode("utf-8"))
@@ -201,6 +247,8 @@ def build_native_body_catalog(authority, source, markdown):
         authority=authority.model_dump(mode="json"), source=source.model_dump(mode="json"),
         selector_policy="markdown_sections_v1", sections=sections,
         body_chars=len(markdown), body_bytes=len(markdown.encode("utf-8")))
+    if partition is not None:
+        payload["recap_partition"] = partition
     return NativeCorpusCatalogV1.model_validate(payload | {
         "catalog_sha256": sha256(canonical(payload).encode()).hexdigest()})
 
@@ -222,7 +270,8 @@ def _recap_planning_ranges(catalog, markdown, section):
 
 def select_native_body_excerpt(catalog, markdown, section_id):
     """Revalidate the source and catalog before selecting any writer text."""
-    actual = build_native_body_catalog(catalog.authority, catalog.source, markdown)
+    actual = build_native_body_catalog(catalog.authority, catalog.source, markdown,
+                                       partition_recaps=catalog.recap_partition is not None)
     if actual != catalog:
         raise ValueError("Native catalog differs from the exact source body")
     section = next((row for row in catalog.sections if row.section_id == section_id), None)
@@ -275,7 +324,8 @@ def full_document_section(catalog):
 
 def select_native_full_document(catalog, markdown):
     """Only the explicit full-document action may call this producing selector."""
-    if build_native_body_catalog(catalog.authority, catalog.source, markdown) != catalog:
+    if build_native_body_catalog(catalog.authority, catalog.source, markdown,
+                                 partition_recaps=catalog.recap_partition is not None) != catalog:
         raise ValueError("Native catalog differs from the exact source body")
     section = full_document_section(catalog)
     return NativeCorpusExcerptV1(catalog_sha256=catalog.catalog_sha256,
