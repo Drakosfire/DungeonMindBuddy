@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 
 import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorldOwnedPlanSnapshot, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
 import { useHostedAuthStatus } from "../auth/HostedAuthGate";
+import { normalizeAppPathname } from "../chrome/appNavigation";
 import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
 
 type WorkspaceDocumentRecordAny = WorkspaceDocumentRecord | WorldOwnedPlanRecordV2;
@@ -47,15 +48,16 @@ export function requestedWorldSelection(locationSnapshot: string): {
   explicit: boolean;
 } {
   const url = new URL(locationSnapshot, "http://localhost");
+  const pathname = normalizeAppPathname(url.pathname);
   const explicit = url.searchParams.has("world");
   const worldId = url.searchParams.get("world")?.trim() || null;
-  const documentId = ["/plan", "/build", "/ingest"].includes(url.pathname)
+  const documentId = ["/plan", "/build", "/ingest"].includes(pathname)
     ? url.searchParams.get("documentId")?.trim() || null
     : null;
-  const runId = !explicit && url.pathname === "/play"
+  const runId = !explicit && pathname === "/play"
     ? url.searchParams.get("run")?.trim() || null
     : null;
-  const extractionRunId = !explicit && !documentId && url.pathname === "/ingest"
+  const extractionRunId = !explicit && !documentId && pathname === "/ingest"
     ? url.searchParams.get("extractionRunId")?.trim() || null
     : null;
   return { worldId, documentId, runId, extractionRunId, explicit };
@@ -105,7 +107,7 @@ export function SelectedWorldProvider({
   const hosted = auth.status === "authenticated";
   const selection = requestedWorldSelection(locationSnapshot);
   const selectionKey = selectionIdentity(selection);
-  const pathname = new URL(locationSnapshot, "http://localhost").pathname;
+  const pathname = normalizeAppPathname(new URL(locationSnapshot, "http://localhost").pathname);
   const isHome = pathname === "/";
   const hostedPlanDocument = hosted && pathname === "/plan" && selection.documentId !== null;
   const [retryGeneration, setRetryGeneration] = useState(0);

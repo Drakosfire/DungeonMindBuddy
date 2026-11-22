@@ -394,9 +394,10 @@ it("starts the explicit hosted World read before the document resolves and waits
 
 it.each([
   { name: "the requested Plan", overrides: {}, expected: "managed" },
+  { name: "a trailing slash", path: "/plan/", overrides: {}, expected: "managed" },
   { name: "a different document", overrides: { document_id: "not-the-requested-plan" }, expected: "error" },
   { name: "a different World", overrides: { world_id: "foreign-world" }, expected: "error" },
-])("admits a hosted Plan deep link using its owned snapshot: $name", async ({ overrides, expected }) => {
+])("admits a hosted Plan deep link using its owned snapshot: $name", async ({ path = "/plan", overrides, expected }) => {
   const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
     status: "authenticated", subject: "test-subject", displayName: null, refreshWarning: false,
   });
@@ -412,7 +413,7 @@ it.each([
       markdown: "# Arrival", content_sha256: "a".repeat(64), file_fingerprint: "fixture",
       file_exists: true, loaded_revision: record.revision,
     });
-    render(<SelectedWorldProvider locationSnapshot={`/plan?world=${world.world_id}&documentId=${planId}`}>
+    render(<SelectedWorldProvider locationSnapshot={`${path}?world=${world.world_id}&documentId=${planId}`}>
       <AdmissionProbe />
     </SelectedWorldProvider>);
 
