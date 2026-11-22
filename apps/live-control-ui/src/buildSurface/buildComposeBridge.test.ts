@@ -128,7 +128,7 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
   expect(ordinaryCapture.editorJson).toBe(JSON.stringify(editor.getJSON()));
   const local=()=>({editor,scopeKey:'fixture-target',draftGeneration:0,canEdit:true});
   const catalog=captureProseTargetCatalog(local);
-  const offered=catalog.choices.find(choice=>choice.section==='Rumours'&&choice.operation==='insert_after')!;
+  const offered=catalog.choices.find(choice=>choice.section==='Arrival'&&choice.operation==='insert_after')!;
   const location=resolveProseTarget(catalog,offered.selector,local);
   const proof:BuildProseBoundaryTarget={schema:'dmb_build_prose_boundary_target_v1',catalog_sha256:await testDigest(JSON.stringify(catalog.choices)),
    alias:offered.selector,operation:offered.operation,from:location.from,to:location.to,before_text_sha256:await testDigest(offered.passage)};
@@ -138,28 +138,36 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
    editor_sha256:await testDigest(JSON.stringify(originalDoc)),caret,draft_generation:0,selection_generation:0};
   await expect(bridge.restore(basis,undefined,undefined,{...proof,from:proof.from-1,to:proof.to-1})).rejects.toThrow('offered');
   const captured=await bridge.restore(basis,undefined,undefined,proof);
-  const fragment = mode === 'protected'
+  const hasCallouts = mode !== 'plain';
+  const fragment = hasCallouts
    ? '> [!READ-ALOUD] Crossing\n> A second lantern lights up.\n\n> [!GM-NOTE] Wait\n> Keep the gate closed.'
    : 'Bring a second lantern.';
   expect(captured.basis.caret).toBe(caret);
   expect(caret).not.toBe(proof.from);
-  if (mode === 'protected') {
-   await expect(bridge.prepareProposal(captured,fragment)).rejects.toThrow('must add one paragraph');
-   expect(editor.getJSON()).toEqual(originalDoc);
-   editor.commands.setTextSelection(proof.from - 1);
+  if (hasCallouts) {
+   await expect(bridge.prepareProposal(captured, fragment + '\n\n## Unexpected heading'))
+    .rejects.toThrow('must add prose or semantic callouts');
   }
-  const target = mode === 'protected' ? await bridge.capture() : captured;
-  const prepared = await bridge.prepareProposal(target,fragment);
+  const prepared = await bridge.prepareProposal(captured,fragment);
   expect(editor.getJSON()).toEqual(originalDoc);
+  const index = editor.state.doc.resolve(proof.from).index(0);
   bridge.applyPrepared(prepared);
-  expect(editor.getJSON().content?.slice(0,originalDoc.content!.length)).toEqual(originalDoc.content);
-  if (mode === 'protected') {
+  const after = editor.getJSON().content!;
+  expect([...after.slice(0, index), ...after.slice(index + (hasCallouts ? 2 : 1))]).toEqual(originalDoc.content);
+  if (hasCallouts) {
    expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 2);
+   const trailing = after.slice(index, index + 2);
+   expect(trailing.map(node => node.type)).toEqual(['callout', 'callout']);
+   if (presentation) {
+    const blockIds = trailing.map(node => node.attrs?.pageBlockId);
+    expect(blockIds.every(id => typeof id === 'string')).toBe(true);
+    expect(new Set(blockIds).size).toBe(2);
+   }
    const saved = tiptapJsonToSemanticMarkdown(flattenPresentation(editor.getJSON()));
-   expect(saved.trimEnd()).toMatch(/> \[!READ-ALOUD\] Crossing\n> A second lantern lights up\.\n\n> \[!GM-NOTE\] Wait\n> Keep the gate closed\.$/);
+   expect(saved).toContain(fragment);
   } else {
    expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 1);
-   expect(editor.getJSON().content?.at(-1)).toMatchObject({type:'paragraph',content:[{text:'Bring a second lantern.'}]});
+   expect(after[index]).toMatchObject({type:'paragraph',content:[{text:'Bring a second lantern.'}]});
   }
   expect(changed).toHaveBeenCalledOnce();
   editor.commands.undo();
