@@ -99,11 +99,19 @@ class VariantTextReplacement(BaseModel):
     with_text: str = Field(min_length=1)
 
 
+class VariantNameReplacement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field: Literal["name"]
+    replace_exact: str = Field(min_length=1)
+    with_text: str = Field(min_length=1)
+
+
 class CorrectConversationVariant(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expected_revision: int = Field(gt=0)
-    replacements: list[VariantTextReplacement] = Field(min_length=1)
+    replacements: list[VariantTextReplacement | VariantNameReplacement] = Field(min_length=1)
 
 
 def apply_variant_text_corrections(definition, replacements):
@@ -111,6 +119,16 @@ def apply_variant_text_corrections(definition, replacements):
     rules = {rule["key"]: rule for rule in candidate["rule_elements"]}
     visited = set()
     for edit in replacements:
+        if isinstance(edit, VariantNameReplacement):
+            slot = ("identity", "name")
+            name = edit.with_text.strip()
+            if slot in visited or not name or edit.replace_exact == name:
+                raise ApplicationStateValidationError("Choose one different statblock name.")
+            if candidate["identity"]["name"] != edit.replace_exact:
+                raise ApplicationStateConflictError("The statblock name changed. Reopen the review.")
+            candidate["identity"]["name"] = name
+            visited.add(slot)
+            continue
         rule = rules.get(edit.rule_key)
         slot = (edit.rule_key, edit.field)
         if rule is None or slot in visited or edit.replace_exact == edit.with_text:
