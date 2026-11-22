@@ -121,8 +121,15 @@ function VariantPortraitControls({target, base, name}: {
        || result.definition_digest !== base.definition_digest) {
     throw new Error('The saved portrait revision could not be verified. Retry the same Save.');
    }
+   const reopened = await openSavedConversationVariant(target, target.reviewId, command.operation_id);
+   if (reopened.locator.statblock_id !== result.statblock_id
+       || reopened.locator.revision_id !== result.revision_id
+       || reopened.locator.definition_digest !== result.definition_digest) {
+    throw new Error('The portrait revision could not be reopened. Retry the same Save.');
+   }
    const href = savedConversationVariantHref({...target, portraitOperationId: command.operation_id});
-   window.localStorage.removeItem(key);
+   // A different tab may have retained its own operation while this one was saving.
+   if (window.localStorage.getItem(key) === JSON.stringify(command)) window.localStorage.removeItem(key);
    navigatePrimaryAppHref(href);
   } catch (error) {
    setNotice(error instanceof Error ? error.message : 'Could not save the portrait. Retry the same Save.');
