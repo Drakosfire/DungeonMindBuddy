@@ -1,5 +1,6 @@
 import * as hostedAuth from "../auth/HostedAuthGate";
 import nativeBuildWire from '../test/surface-native-build-http.json';
+import {readActiveConversationMessages} from '../api/conversationLibraryApi';
 import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {createWalkthrough,reduceTour,type TargetPin} from '../guidedTour/protocol';
@@ -509,9 +510,11 @@ function openConversationOptions() {
   return menu;
 }
 
+const defaultReadMessages = vi.mocked(readActiveConversationMessages).getMockImplementation()!;
 describe("one App-level World conversation host across Plan and Play", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(readActiveConversationMessages).mockImplementation(defaultReadMessages);
     vi.mocked(getNativeGraphCatalog).mockRejectedValue(new Error("Catalog unavailable in fixture"));
     Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     selectedWorld.id = WORLD;
@@ -865,7 +868,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();view.unmount();vi.mocked(listBuildProposals).mockResolvedValue([]);
   });
 
-  it.each(['history','fresh','replay','producer','revision','provenance','source','world','extra','interrupted','mixed-approved','mixed-unclaimed','mixed-object','fresh-mixed-object','mixed-question','mixed-unclaimed-question','mixed-object-prose','fresh-answer','fresh-question','fresh-source','fresh-graph'] as const)('consumes ordinary shared native Build HTTP and history: %s',async mode=>{
+  it.each(['lore-review','history','fresh','replay','producer','revision','provenance','source','world','extra','interrupted','mixed-approved','mixed-unclaimed','mixed-object','fresh-mixed-object','mixed-question','mixed-unclaimed-question','mixed-object-prose','fresh-answer','fresh-question','fresh-source','fresh-graph'] as const)('consumes ordinary shared native Build HTTP and history: %s',async mode=>{
     const wire=JSON.parse(JSON.stringify(nativeBuildWire).replaceAll(nativeBuildWire.history.world_id,WORLD)) as unknown as {
       request:WorldBuildAgentTurnRequestV1;
       response:import('../api/types').WorldReadOnlyAgentTurnResponseV1;
@@ -878,6 +881,13 @@ describe("one App-level World conversation host across Plan and Play", () => {
     basis.content_sha256=SHA;row.provenance.primary_work.content_sha256=SHA;row.provenance.surface_instance_id='build-instance';
     context.completion!.answer_segments.forEach(s=>{if(s.kind==='saved_source_claim')s.content_sha256=SHA;});
     wire.saved_source.target.source_basis.content_sha256=SHA;
+    if(mode==='lore-review'){
+      row.user_text='Create the page about Rowan.';row.assistant_text='Proposed: Rowan carries a blue lantern.';
+      if(context.receipt.native_query.schema!=='dmb_native_plan_query_unavailable_v1')context.receipt.native_query.question=row.user_text;
+      Object.assign(context.completion!,{answer_segments:[{kind:'proposal',label:'invented_idea',text:row.assistant_text}],
+        answer_context_status:'creative_proposal',collaboration:{kind:'lore_page',destination:{instruction:row.user_text,title:'Rowan'},open_questions:['Who is Rowan?']},
+        native_assertion_citations:[],native_clause_citations:[],native_body_citations:[],saved_source_citations:[]});
+    }
     const answer=row.assistant_text!,question=row.user_text;
     const seal=async()=>{
       context.receipt.provenance_sha256=await sha256Hex(canonicalJson(row.provenance));
@@ -947,8 +957,32 @@ describe("one App-level World conversation host across Plan and Play", () => {
       if(!invalidFresh)current={...wire.history,schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:key}]};
       return response;
     });
-    render(<Harness initial='build' buildSourceId={nativeBuildWire.request.primary_work.object_id}/>);
+    if(mode==='lore-review'){
+      const library=await import('../api/conversationLibraryApi');
+      vi.mocked(library.readActiveConversationMessages).mockImplementation(async()=>({
+        schema:'dmb_active_conversation_messages_v4',world_id:WORLD,conversation_state:'active',conversation_id:wire.history.conversation_id,
+        active_conversation_id:wire.history.active_conversation_id,pointer_revision:wire.history.pointer_revision,next_before_sequence:null,
+        messages:[{turn_id:row.turn_id,sequence:row.sequence,status:'completed',user_text:row.user_text,assistant_text:row.assistant_text,
+          citation_preview:null,authored_references:null,revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:row.turn_id,provenance:row.provenance,
+          reply_object:{kind:'page_object',object_kind:'lore_page',source:{world_id:WORLD,conversation_id:wire.history.conversation_id!,
+            turn_id:row.turn_id,document_id:basis.document_id,surface_id:'build'}}}]}));
+    }
+    const view=render(<Harness initial='build' buildSourceId={nativeBuildWire.request.primary_work.object_id}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    if(mode==='lore-review'){
+      const review=await screen.findByRole('button',{name:'Review new page'});
+      expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+      fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep this unsent thought'}});
+      fireEvent.click(review);
+      expect(await screen.findByRole('button',{name:'Review save of Rowan'})).toBeInTheDocument();
+      expect(getWorldAgentConversationHistory).toHaveBeenCalledTimes(1);
+      expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this unsent thought');
+      expect(screen.getByRole('region',{name:'Open questions'})).toHaveTextContent('Who is Rowan?');
+      expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+      view.rerender(<Harness initial='build' buildSourceId='different-source'/>);
+      await waitFor(()=>expect(screen.queryByRole('button',{name:'Review save of Rowan'})).not.toBeInTheDocument());
+      return;
+    }
     if(fresh){
       fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:question}});
       fireEvent.click(screen.getByRole('button',{name:'Send message'}));

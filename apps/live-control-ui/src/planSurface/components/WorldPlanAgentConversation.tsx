@@ -6626,6 +6626,9 @@ export function WorldPlanAgentConversation({
       ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
     const completion = graphContextForTurn(turn)?.completion;
     const descriptor = savedMessage?.reply_object;
+    const scopedLoreReview = isBuild && playMode===null && visible
+      && verifiedWorldId && buildMode?.savedSource?.worldId===verifiedWorldId
+      && buildMode.savedSource.documentId===turn.provenance.primary_work.object_id;
     const referenceDigest = completion?.schema === 'dmb_build_graph_reference_completion_v1'
       ? completion.action_id === turn.turn_id ? completion.placement_sha256 : null
       : !completion && descriptor?.kind === 'build_graph_reference'
@@ -6705,8 +6708,9 @@ export function WorldPlanAgentConversation({
               : <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedMessage(turn)}/>)}
         </div>}
         <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready',
-            savedMessage?.reply_object?.kind==='page_object'&&savedMessage.reply_object.object_kind==='connected_page'
-              &&!isReadOnly&&scopeMatches&&history?.active_conversation_id===history?.conversation_id
+            savedMessage?.reply_object?.kind==='page_object'
+              &&((!isReadOnly&&scopeMatches&&savedMessage.reply_object.object_kind==='connected_page')
+                ||(scopedLoreReview&&savedMessage.reply_object.object_kind==='lore_page'))&&history?.active_conversation_id===history?.conversation_id
               &&savedMessage.reply_object.source.surface_id===(isBuild?'build':'plan')
               &&savedMessage.reply_object.source.document_id===activeReviewDocumentId)}</div>
       </article></BuddyTurnInspection>;
@@ -6832,12 +6836,12 @@ export function WorldPlanAgentConversation({
               pointerRevision={history.pointer_revision}
               disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
-            {turn.lore_save_review && isBuild && !isReadOnly
+            {turn.lore_save_review && scopedLoreReview
               && turn.lore_save_review.conversation_id === history?.active_conversation_id
               && <button type="button" onClick={() => void openLoreSaveReview(turn)}>Go to review for {turn.lore_save_review.title}</button>}
             {loreTitle !== null && completed?.schema === 'dmb_surface_native_completion_v1'
               && verifiedWorldId && history?.conversation_id && !loreDraftSuperseded && isBuild
-              && visible && !isReadOnly && history.active_conversation_id === history.conversation_id
+              && scopedLoreReview && history.active_conversation_id === history.conversation_id
               && <ConversationLorePageConfirmation
                 key={turn.turn_id}
                 worldId={verifiedWorldId} conversationId={history.conversation_id}

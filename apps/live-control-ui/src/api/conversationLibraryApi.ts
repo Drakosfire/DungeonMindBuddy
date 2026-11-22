@@ -10,7 +10,7 @@ import {authenticatedApiFetch,LiveApiError} from './liveApi';
 export interface ConversationSummary{conversation_id:string;world_id:string;title:string;name_revision:number;status:'active'|'archived'|'trashed';turn_count:number;created_at:string;updated_at:string}
 export interface LibraryPage{schema:'dmb_conversation_library_v1';world_id:string;status:'all'|'archived'|'trashed';items:ConversationSummary[];next_before:string|null}
 export interface LibraryObjectSource{world_id:string;conversation_id:string;turn_id:string;document_id:string;surface_id:'build'|'plan'}
-export type LibraryReplyObject=({kind:'questions';questions:{text:string}[]}|{kind:'page_object';object_kind:'plan'|'connected_page'|'relationship'}
+export type LibraryReplyObject=({kind:'questions';questions:{text:string}[]}|{kind:'page_object';object_kind:'plan'|'connected_page'|'relationship'|'lore_page'}
  |{kind:'build_graph_reference'|'build_image_move';placement_sha256:string})&{source:LibraryObjectSource};
 export interface LibraryTurn{authored_references?:AuthoredReferenceInput;turn_id:string;sequence:number;status:string;user_text:string;assistant_text:string|null;reply_object:LibraryReplyObject|null;retry_context:TurnRetryContext|null}
 export interface LibraryTurns{schema:'dmb_conversation_library_turns_v3';world_id:string;conversation_id:string;turns:LibraryTurn[];next_before_sequence:number|null}
@@ -105,7 +105,7 @@ function validateReplyObject(value:unknown,world:string,conversation:string,turn
   ||!['build','plan'].includes(String(source.surface_id))||source.surface_id==='plan'&&!(obj.kind==='page_object'&&obj.object_kind==='connected_page')||typeof source.document_id!=='string'||!source.document_id.trim())throw new Error('Transcript object differs from its source page.');
  if(obj.kind==='questions'&&exactObject(obj,['kind','questions','source'])&&Array.isArray(obj.questions)&&obj.questions.length
   &&obj.questions.every(q=>exactObject(q,['text'])&&typeof q.text==='string'&&q.text.trim()))return;
- if(obj.kind==='page_object'&&exactObject(obj,['kind','object_kind','source'])&&['plan','connected_page','relationship'].includes(String(obj.object_kind)))return;
+ if(obj.kind==='page_object'&&exactObject(obj,['kind','object_kind','source'])&&['plan','connected_page','relationship','lore_page'].includes(String(obj.object_kind)))return;
  if((obj.kind==='build_graph_reference'||obj.kind==='build_image_move')&&source.surface_id==='build'&&exactObject(obj,['kind','placement_sha256','source'])
   &&typeof obj.placement_sha256==='string'&&/^[a-f0-9]{64}$/.test(obj.placement_sha256))return;
  throw new Error('Transcript object is invalid.');
