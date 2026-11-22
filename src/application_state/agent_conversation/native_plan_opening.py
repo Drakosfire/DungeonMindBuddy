@@ -33,6 +33,13 @@ class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecision
 
 
 PageEditIntent = Literal['page_edit', 'discussion', 'unresolved']
+_SELECTION_REFERENCE_GUIDANCE = (
+    ' A direct request to rewrite or revise this can refer to the current selection '
+    'without saying “selected text.” Choose the selection rewrite when “this” '
+    'is the text to change and the author gives no different target. If “this” names '
+    'an idea from the conversation or the request points to another location, '
+    'use that meaning. A sample rewrite requested in chat is not a selection edit.'
+)
 
 
 class NativePlanAuthorScopeInputV1(Strict):
@@ -45,6 +52,8 @@ class NativePlanAuthorScopeInputV1(Strict):
     max_span_attempts: int = Field(strict=True, gt=0)
     quote_context: bool = Field(strict=True)
     assess_page_edit: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
+    selection_reference_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
     requested_operation: Literal['discuss', 'write_current_page'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
@@ -287,7 +296,8 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
                 'Rewriting the explicitly selected paragraph or text uses the whole capture, even when '
                 'the replacement preserves its existing wording and adds a warning. Ignore ordering in '
                 'proposed new content. If distinct relations cannot be reconciled, choose unresolved.'
-                + (' Selected sentences, lines and excerpts are selected text.' if request.assess_page_edit else '')),
+                + (' Selected sentences, lines and excerpts are selected text.' if request.assess_page_edit else '')
+                + (_SELECTION_REFERENCE_GUIDANCE if request.selection_reference_version == 'v1' else '')),
         ChoiceDecisionQuestion(name='existing_scope', options=tuple(choices), option_descriptions=choices,
             question='Choose the complete existing section or heading constraint from scope_hypotheses. '
                 'Preserve every name, hierarchy and exclusion even when a name might be absent. '
@@ -377,6 +387,7 @@ def _prepare_author_scope_review(request):
             'The author can identify an existing prose block by what it says without using the word paragraph. '
             'An explicit selected-text rewrite uses its capture by itself. Do not treat its words as a heading. '
             'Preserve every author-established name, path and exclusion. Ignore new-fragment content as location evidence.'
+            + (_SELECTION_REFERENCE_GUIDANCE if request.selection_reference_version == 'v1' else '')
             + (' A separate instruction to leave surrounding text untouched does not add a destination constraint.'
                if assessed_edit_intent else '')
             + (' A scope stated in the current request supersedes earlier dialogue.' if explicit_conflict else '')

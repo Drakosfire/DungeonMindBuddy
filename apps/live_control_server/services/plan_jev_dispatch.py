@@ -224,6 +224,7 @@ class PlanJevDispatch:
         dispatch.parent = NativePlanAuthorScopeParentV1(
             question=turn.user_text, dialogue=tuple(dialogue), quote_context=prior_scope is not None,
             assess_page_edit=not review,
+            selection_reference_version='v1',
             requested_operation=adapter.request.plan_requested_operation if not review else None,
             max_span_attempts=2048, request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256,
