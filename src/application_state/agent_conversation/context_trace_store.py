@@ -192,7 +192,8 @@ def close_context_trace_locked(
             return
         raise ApplicationStateConflictError("context trace is already closed")
     execution_row = conn.execute(
-        "SELECT graph_context_execution FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+        "SELECT agent.reconstruct_plan_execution(turn_id, revision, attempt, graph_context_execution) "
+        "FROM agent.turn WHERE world_id=%s AND turn_id=%s",
         (world_id, turn_id),
     ).fetchone()
     execution = execution_row[0] if execution_row is not None else None
@@ -317,20 +318,9 @@ class TurnContextTraceStore:
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
                 "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
-                "clock_timestamp() AS now, "
-                "CASE WHEN %s::text IS NOT NULL "
-                "AND jsonb_typeof(graph_context_execution->'events')='array' THEN "
-                "jsonb_build_object('events', COALESCE((SELECT jsonb_agg(event) "
-                "FROM jsonb_array_elements(graph_context_execution->'events') AS event "
-                "WHERE event->>'provider_attempt_id'=%s), '[]'::jsonb)) "
-                "WHEN %s THEN graph_context_execution ELSE NULL END, sequence "
-                "FROM agent.turn "
+                "clock_timestamp() AS now, sequence FROM agent.turn "
                 "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
-                # Only these exact observation types never inspect execution.
-                # Keep it available for all other and future validators.
-                (prompt_attempt, prompt_attempt,
-                 type(observation) not in {TraceProviderCall, TraceContextDecision},
-                 world_id, turn_id),
+                (world_id, turn_id),
             ).fetchone()
             if turn is None or turn[0] != conversation_id:
                 raise ApplicationStateNotFoundError("trace turn is unavailable in this World conversation")
@@ -339,6 +329,16 @@ class TurnContextTraceStore:
                 or turn[3] != attempt or turn[4] is None or turn[4] <= turn[5]
             ):
                 raise ApplicationStateConflictError("trace append is fenced by a stale or expired claim")
+            execution = None
+            if type(observation) not in {TraceProviderCall, TraceContextDecision}:
+                # After waiting for the claim lock, take a fresh statement snapshot
+                # so the row and any ordered events are from the same revision.
+                execution = conn.execute(
+                    "SELECT agent.reconstruct_plan_execution("
+                    "turn_id, revision, attempt, graph_context_execution, %s) "
+                    "FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+                    (prompt_attempt, world_id, turn_id),
+                ).fetchone()[0]
             row = _trace_row(conn, turn_id, attempt)
             if row is None:
                 raise ApplicationStateNotFoundError("context trace was not started")
@@ -348,7 +348,7 @@ class TurnContextTraceStore:
             if trace.closed_at is not None:
                 raise ApplicationStateConflictError("context trace is already closed")
             if isinstance(observation, TraceAuthoredGraphReferenceV1):
-                validate_authored_reference_observation(observation, turn[6], trace)
+                validate_authored_reference_observation(observation, execution, trace)
             if observation.sequence < len(trace.observations):
                 if trace.observations[observation.sequence] == observation:
                     return trace
@@ -360,14 +360,14 @@ class TurnContextTraceStore:
                     "source passage observations must be committed with their validated source-read event"
                 )
             if isinstance(observation, TracePromptReference):
-                validate_prompt_authorization(observation, turn[6], trace.execution_start_sequence)
+                validate_prompt_authorization(observation, execution, trace.execution_start_sequence)
                 if any(isinstance(item, TracePromptReference) and item.provider_attempt_id == observation.provider_attempt_id
                        for item in trace.observations):
                     raise ApplicationStateValidationError("provider request already has a prompt reference")
             if isinstance(observation, TraceGraphTool):
-                _validate_graph_tool_observation(observation, turn[6])
+                _validate_graph_tool_observation(observation, execution)
             if isinstance(observation, TraceContextSnapshot):
-                if not _historical_sources_available(conn, trace, observation, turn[7], turn[6]):
+                if not _historical_sources_available(conn, trace, observation, turn[6], execution):
                     incomplete = TurnContextTraceV1.model_validate({
                         **trace.model_dump(mode="python"),
                         "capture_status": "incomplete",
@@ -471,7 +471,8 @@ class TurnContextTraceStore:
 
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
-                "SELECT graph_context_execution, conversation_id, graph_context_receipt FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+                "SELECT agent.reconstruct_plan_execution(turn_id, revision, attempt, graph_context_execution), "
+                "conversation_id, graph_context_receipt FROM agent.turn WHERE world_id=%s AND turn_id=%s",
                 (world_id, turn_id),
             ).fetchone()
             if turn is None:

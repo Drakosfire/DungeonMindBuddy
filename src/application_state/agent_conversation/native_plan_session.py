@@ -128,8 +128,9 @@ class _SessionAdmission(AgentConversationService):
         if expected_revision != owner._committed.revision:
             raise ApplicationStateConflictError('Session append has a stale revision')
         with owner._measure("plan_append_storage_write_ack"):
-            image = repo._update_plan_session_execution(conn, world_id=world_id,
-                turn_id=turn_id, before=owner._image, execution=execution)
+            image = repo._append_plan_session_events(conn, world_id=world_id,
+                turn_id=turn_id, before=owner._image, execution=execution,
+                prior_count=len(owner._committed.graph_context_execution.events))
         if image is None:
             return None
         root = dict(image[0])
@@ -189,6 +190,7 @@ class NativePlanSession:
                     or current.claim_expires_at <= repo.database_clock(conn)
                     or repo._lock_plan_session_image(conn, expected.world_id, expected.turn_id) != image):
                 raise ApplicationStateConflictError('Readonly session requires its current classified Plan claim')
+            repo._activate_plan_checkpoint(conn, current)
         self._committed, self._image = current, image
         self._admission = _SessionAdmission(self)
 
@@ -352,6 +354,7 @@ class NativePlanSession:
                 with unit_of_work(_ready_dsn()) as conn:
                     self._guard_locked(conn)
                     turn = self._committed
+                    repo._finish_plan_checkpoint(conn, turn)
                     return repo.lock_turn(conn, turn.world_id, turn.turn_id)
             finally:
                 self._seal()

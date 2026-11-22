@@ -80,13 +80,25 @@ def test_plan_session_storage_image_covers_root_and_locked_provenance(applicatio
                 assert changed != before
                 assert dict(changed[0])['revision'] == turn.revision
             assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        repo._activate_plan_checkpoint(conn, turn)
+        execution = turn.graph_context_execution
+        count = len(execution.events)
+        event = execution.events[-1].model_copy(update={"sequence": count})
+        candidate = execution.model_copy(update={"events": [*execution.events, event]})
+        append_fields = dict(world_id=turn.world_id, turn_id=turn.turn_id,
+            before=before, execution=candidate, prior_count=count)
         with conn.transaction(force_rollback=True):
-            acknowledged = repo._update_plan_session_execution(conn,
-                world_id=turn.world_id, turn_id=turn.turn_id, before=before,
-                execution=turn.graph_context_execution)
+            acknowledged = repo._append_plan_session_events(conn, **append_fields)
             assert dict(acknowledged[0])['revision'] == turn.revision + 1
+            assert dict(acknowledged[0])['graph_context_execution'] == dict(before[0])['graph_context_execution']
             assert acknowledged[1:] == before[1:]
+            assert repo._read_plan_checkpoint(conn, turn.turn_id, turn.revision + 1, turn.attempt) == (
+                candidate.model_dump(mode="json", by_alias=True)
+            )
         assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        assert repo._read_plan_checkpoint(conn, turn.turn_id, turn.revision, turn.attempt) == (
+            execution.model_dump(mode="json", by_alias=True)
+        )
         with conn.transaction(force_rollback=True):
             conn.execute("CREATE FUNCTION pg_temp.change_session_ack() RETURNS trigger "
                          "LANGUAGE plpgsql AS $$ BEGIN NEW.request_fingerprint := repeat('f',64); "
@@ -95,8 +107,7 @@ def test_plan_session_storage_image_covers_root_and_locked_provenance(applicatio
                          "FOR EACH ROW EXECUTE FUNCTION pg_temp.change_session_ack()")
             from application_state.errors import ApplicationStateIntegrityError
             with pytest.raises(ApplicationStateIntegrityError, match='acknowledgement changed'):
-                repo._update_plan_session_execution(conn, world_id=turn.world_id,
-                    turn_id=turn.turn_id, before=before, execution=turn.graph_context_execution)
+                repo._append_plan_session_events(conn, **append_fields)
         assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
         conn.rollback()
 
