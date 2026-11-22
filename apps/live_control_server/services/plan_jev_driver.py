@@ -63,9 +63,6 @@ class PlanJevDriver:
                 f"saved-statblock:{index}": entry for index, entry in enumerate(entries)
             }
         self.finished = False
-        self.continuation_candidates = None
-        self.continuation_reviewed = False
-        self.continuation_origin = None
         self.calls = []
         self.gaps = []
         self.current = None
@@ -351,22 +348,11 @@ class PlanJevDriver:
                     self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
             from application_state.agent_conversation.native_batch_completion import selected_read_closure
             turn = self.adapter.fence.turn
-            exhausted = getattr(admitted, 'exhausted_continuation_offer', None)
-            if exhausted and self.decision_arguments()['candidates']:
-                return  # More candidates became visible after the read.
             if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
-                    admitted.event_id, exhausted_continuation=exhausted) is not None:
-                if not self.continuation_reviewed:
-                    continuation = self.native_sources.continuation_offers()
-                    if continuation:
-                        self.continuation_origin = admitted.event_id
-                        self.continuation_reviewed = True
-                        self.continuation_candidates = {candidate.handle for candidate in continuation}
-                        return
+                    admitted.event_id) is not None:
                 from uuid import uuid4
                 self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
-                    event_id=uuid4(), selection_event_id=admitted.event_id,
-                    exhausted_continuation=exhausted)
+                    event_id=uuid4(), selection_event_id=admitted.event_id)
                 if not fresh:
                     raise ValueError('Read-batch conclusion requires its actual committed successor')
                 self.finished = True
@@ -787,10 +773,6 @@ class PlanJevDriver:
             examined.extend(self._native_statement_examined())
             examined.extend(self._native_assertion_examined())
         candidates = self.offered()
-        if self.continuation_candidates is not None:
-            candidates = tuple(candidate for candidate in candidates
-                               if candidate.handle in self.continuation_candidates)
-            operations = ('select_candidates', 'finish_retrieval')
         return dict(candidates=candidates, dialogue=self.dialogue,
             examined_candidates=examined, allowed_operations=operations)
 
@@ -823,12 +805,7 @@ class PlanJevDriver:
             while not self.finished:
                 with trace.measure_host_work("retrieval_candidate_preparation") if trace is not None else nullcontext():
                     with measure("native_first_jev_candidate_preparation"):
-                        arguments = self.decision_arguments()
-                        offered = {row.handle for row in arguments['candidates']}
-                        origin = self.continuation_origin
-                        self.continuation_origin = None
-                        dispatch = PlanJevDispatch(self.adapter, **arguments,
-                            bounded_continuation=origin if offered == self.continuation_candidates else None)
+                        dispatch = PlanJevDispatch(self.adapter, **self.decision_arguments())
                 self.current = dispatch
                 try:
                     with trace.measure_host_work("retrieval_decision") if trace is not None else nullcontext():

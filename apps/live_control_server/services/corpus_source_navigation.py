@@ -623,57 +623,6 @@ class NativeBodyNavigation:
                     kind="Explicit full-document read"))
         return self._scoped_offers(rows, search)
 
-    def continuation_offers(self):
-        """Existing unread section choices in the best opened recap's next session."""
-        import math
-        import re
-        from application_state.agent_conversation.corpus_source_search import terms
-        from application_state.agent_conversation.native_corpus import native_body_handle
-
-        turn = self.adapter.fence.turn
-        _, search, _, _ = self._events()
-        if search is None:
-            return ()
-        query = set(terms(turn.user_text))
-        acquired = self._acquired_extents()
-        opened = {(c.source.registered_campaign_id, c.source.session_scope) for _, c in acquired}
-        offered = {c.handle: c for c in self.offered() if c.kind == "Exact source section"}
-        by_session = {}
-        for catalog in search.catalogs:
-            member = catalog.source
-            key = (member.registered_campaign_id, member.session_scope)
-            if key in opened:
-                continue
-            for section in catalog.sections:
-                handle = native_body_handle(catalog.catalog_sha256, section.section_id)
-                if handle in offered:
-                    by_session.setdefault(key, []).append(offered[handle])
-
-        scores = {}
-        for read, catalog in acquired:
-            member = catalog.source
-            if not member.registered_campaign_id or not isinstance(member.session_scope, int):
-                continue
-            excerpt = read.excerpt
-            if excerpt.selector_policy != "markdown_sections_v1" or excerpt.planning_ranges is None:
-                continue
-            key = (member.registered_campaign_id, member.session_scope + 1)
-            if key not in by_session:
-                continue
-            planning = excerpt.planning_ranges.lines
-            words = Counter(re.findall(r"\w+", "\n".join(
-                line for i, line in enumerate(excerpt.text.splitlines(), excerpt.section.line_start)
-                if not any(start <= i <= end for start, end in planning)).casefold()))
-            if len(query & words.keys()) < 2:
-                continue
-            score = sum(math.log1p(words[word]) for word in query) / math.sqrt(words.total())
-            scores[key] = max(score, scores.get(key, 0))
-        if not scores:
-            return ()
-        best = max(scores.values())
-        winners = [key for key, score in scores.items() if score == best]
-        return tuple(by_session[winners[0]]) if len(winners) == 1 else ()
-
     def examined(self):
         from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1, native_corpus_search_handle
         if self.adapter.fence is None:
