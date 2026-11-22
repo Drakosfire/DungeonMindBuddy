@@ -222,7 +222,11 @@ def preview_accepted_mechanics(
 
 from uuid import UUID
 from application_state.combat_encounters import adoption
-from application_state.combat_encounters.adoption_types import AdoptMechanicsRequest,AdoptionOutcome,AdoptionPreview,SavedMechanicsPreviewRequest,AdoptionHistoryPage
+from application_state.combat_encounters.adoption_types import (
+    AdoptConversationPortraitRequest, AdoptMechanicsRequest, AdoptionOutcome, AdoptionPreview,
+    ConversationPortraitPreview, ConversationPortraitSelection, SavedMechanicsPreviewRequest, AdoptionHistoryPage,
+)
+from apps.live_control_server.services import combat_variant_portrait
 
 
 def _adoption_call(action):
@@ -232,26 +236,30 @@ def _adoption_call(action):
     except StatblockIntegrationError as exc:raise HTTPException(status_code=503,detail='Exact saved mechanics are unavailable') from exc
 
 
-@router.post('/saved-mechanics/preview', response_model=AdoptionPreview)
+@router.post('/saved-mechanics/preview', response_model=AdoptionPreview | ConversationPortraitPreview)
 def preview_saved_mechanics_route(
     world_id: Annotated[str, Query(min_length=1, max_length=63)],
-    body: SavedMechanicsPreviewRequest,
+    body: SavedMechanicsPreviewRequest | ConversationPortraitSelection,
     request: Request,
 ):
     require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
+    if isinstance(body, ConversationPortraitSelection):
+        return _adoption_call(lambda: combat_variant_portrait.preview(world_id=owner, selection=body))
     return _adoption_call(lambda:combat_mechanics.preview_saved_override(world_id=owner,draft_id=body.draft_id,locator=body.locator))
 
 
 @router.post('/{encounter_id}/mechanics-adoptions',response_model=AdoptionOutcome)
-def adopt_mechanics_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest,request:Request):
+def adopt_mechanics_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest | AdoptConversationPortraitRequest,request:Request):
     require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
+    if isinstance(body, AdoptConversationPortraitRequest):
+        return _adoption_call(lambda: combat_variant_portrait.adopt(world_id=owner, encounter_id=encounter_id, request=body))
     return _adoption_call(lambda:combat_mechanics.adopt_saved_override(world_id=owner,encounter_id=encounter_id,request=body))
 
 
 @router.post('/{encounter_id}/mechanics-adoptions:cancel',response_model=AdoptionOutcome)
-def cancel_mechanics_adoption_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest,request:Request):
+def cancel_mechanics_adoption_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],body:AdoptMechanicsRequest | AdoptConversationPortraitRequest,request:Request):
     require_combat_encounter_access(request, world_id)
     owner=_verified_world(world_id)
     return _adoption_call(lambda:adoption.cancel(world_id=owner,encounter_id=encounter_id,request=body))
