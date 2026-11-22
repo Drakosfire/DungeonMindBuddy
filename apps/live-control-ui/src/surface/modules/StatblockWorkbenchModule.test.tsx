@@ -222,8 +222,12 @@ describe("World-scoped mounted Workbench", () => {
     h.drafts.set(saved.draft_id, saved);
     const validate = vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
     const accept = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockRejectedValue(new Error("Response lost"));
+    vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+      schema: "dmb_read_acceptance_operation_response_v1",
+      draft_id: saved.draft_id, operation: null, result_label: null,
+    });
     const user = userEvent.setup();
-    render(<StatblockWorkbenchModule />);
+    const mounted = render(<StatblockWorkbenchModule />);
     await user.type(screen.getByRole("textbox", { name: "Draft ID" }), saved.draft_id);
     await user.click(screen.getByRole("button", { name: "Load draft for manual authoring" }));
     const input = await screen.findByRole("textbox", { name: "Statblock definition JSON" });
@@ -244,6 +248,12 @@ describe("World-scoped mounted Workbench", () => {
       validation_definition_digest: PREVIEW_DIGEST,
     }));
     expect(h.generate).not.toHaveBeenCalled();
+    const exactRequest = accept.mock.calls[0];
+    await screen.findByRole("button", { name: "Replay accept" });
+    mounted.unmount();
+    render(<StatblockWorkbenchModule />);
+    await user.click(await screen.findByRole("button", { name: "Replay accept" }));
+    expect(accept.mock.calls[1]).toEqual(exactRequest);
   });
 
   it("preserves the newer same-World generation when an old completion arrives before reload", async () => {

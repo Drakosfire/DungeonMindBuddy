@@ -3105,9 +3105,23 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
 
   const [authoredJson, setAuthoredJson] = useState("");
   const [authoredError, setAuthoredError] = useState<string | null>(null);
-  const authoredActive = loadState.kind === "authored" && loadState.draftId === threatDraft?.draft_id
-    && loadState.version === threatDraft.version
+  const authoredSelected = loadState.kind === "authored" && loadState.draftId === threatDraft?.draft_id
     && (!draftIdInput.trim() || draftIdInput.trim() === loadState.draftId);
+  const authoredActive = authoredSelected && loadState.version === threatDraft.version;
+  useEffect(() => {
+    if (loadState.kind !== "idle" || threatDraft?.schema !== "dmb_threat_draft_v2"
+      || threatDraft.workflow_state === "mechanics_saved" || draftSnapshotPending || draftSnapshotUnavailable) return;
+    const attempt = readStoredAcceptAttempt(threatDraft.draft_id);
+    const request = attempt?.request;
+    if (!request || request.source_candidate_id != null || request.operation_id !== attempt.operation_id) return;
+    const next = createEditorStateFromOutput(request.definition);
+    bumpEditorEpoch();
+    invalidateValidationOwnership();
+    editorStateRef.current = next;
+    setEditorState(next);
+    setAuthoredJson(JSON.stringify(request.definition, null, 2));
+    setLoadState({ kind: "authored", draftId: threatDraft.draft_id, version: request.expected_draft_version });
+  }, [bumpEditorEpoch, draftSnapshotPending, draftSnapshotUnavailable, invalidateValidationOwnership, loadState.kind, threatDraft]);
   const onOpenAuthoredDefinition = () => {
     if (!threatDraft || threatDraft.schema !== "dmb_threat_draft_v2" || draftSnapshotPending
       || (draftIdInput.trim() && draftIdInput.trim() !== threatDraft.draft_id)
@@ -3669,7 +3683,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         </section>
       ) : null}
 
-      {editorState && (activeCandidate || authoredActive) ? (
+      {editorState && (activeCandidate || authoredSelected) ? (
         <AcceptMechanicsFlow
           generationTour={{attempt:generationAttempt,draft:threatDraft,candidate:loadState.kind==="success"?loadState.response:null,reopened:!!initialGeneration.attempt&&initialGeneration.attempt.client_request_id===generationAttempt?.client_request_id,acceptedInstanceId:generationInstanceId}}
           preview={previewValidation}
@@ -3685,10 +3699,10 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
             validatePendingForCurrent || getUiStatus(editorState) === "validating"
           }
           validateDisabled={
-            validatePendingForCurrent || getUiStatus(editorState) === "validating"
+            validatePendingForCurrent || getUiStatus(editorState) === "validating" || (authoredSelected && !authoredActive)
           }
           mechanicsSavedDraft={mechanicsSavedDraft}
-          draftAuthorityUnavailable={draftSnapshotUnavailable || draftSnapshotPending}
+          draftAuthorityUnavailable={draftSnapshotUnavailable || draftSnapshotPending || (authoredSelected && !authoredActive)}
           onMechanicsSaved={(id) => {
             void refreshThreatDraftSnapshot(id);
           }}
