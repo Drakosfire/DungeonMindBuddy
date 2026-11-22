@@ -18,7 +18,7 @@ from application_state.combat_encounters.types import CombatEncounterDraft, Comb
 from application_state.combat_encounters.manual_encounters import CreateManualEncounterRequest, ManualEncounterRecord, empty_manual_draft, decode_combat_record
 from application_state.combat_encounters.manual_profiles import manual_profile_digest
 from application_state.combat_encounters.scene_template_types import (
-    CopySavedEncounterRequest, CreateSceneTemplateRequest, SceneTemplateBinding, SceneTemplateView, TemplateVersion,
+    CopySavedEncounterRequest, CreateSceneTemplateRequest, PlanScenePin, SceneTemplateBinding, SceneTemplateView, TemplateVersion,
 )
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError, ApplicationStateNotFoundError, ApplicationStateValidationError
 from apps.live_control_server.services.play_run_edition_structure import structure_signature
@@ -91,7 +91,7 @@ def _view(conn,binding):
     return SceneTemplateView(binding=binding,encounter=encounter,versions=versions,scene_present=_present(conn,binding))
 
 
-def _copy_saved_encounter(conn, *, world_id, request, now):
+def _read_saved_copy_source(conn, *, world_id, request):
     source_id = request.source_encounter_id
     owned = _row(conn, """
         SELECT source.encounter_id
@@ -113,6 +113,11 @@ def _copy_saved_encounter(conn, *, world_id, request, now):
     _require_integrity(source)
     if source.revision != request.expected_revision:
         raise ApplicationStateConflictError("The saved Combat encounter changed; review its current revision")
+    return source
+
+
+def _copy_saved_encounter(conn, *, world_id, request, now):
+    source = _read_saved_copy_source(conn, world_id=world_id, request=request)
     return type(source).model_validate({
         **source.model_dump(mode="json", by_alias=True),
         "encounter_id": uuid4(),
@@ -122,6 +127,30 @@ def _copy_saved_encounter(conn, *, world_id, request, now):
         "created_at": now,
         "updated_at": now,
     })
+
+
+def _require_available_target(conn, *, world_id, pin):
+    admitted = admit_playable_revision(
+        conn, pin.document_id, pin.revision_n, pin.content_sha256,
+        expected_world_id=world_id, require_current=True, require_clean=True,
+    )
+    if admitted.work_object.kind != "plan" or admitted.work_revision.work_revision_id != pin.work_revision_id:
+        raise ApplicationStateConflictError("Scene encounter requires the exact current saved Plan")
+    if pin.scene_id not in _scene_ids(admitted.work_revision.markdown):
+        raise ApplicationStateConflictError("The selected scene is not in the saved Plan")
+    if _row(conn, "SELECT encounter_id FROM combat.scene_template WHERE world_id=%s AND document_id=%s AND scene_id=%s",
+            (world_id, pin.document_id, pin.scene_id)):
+        raise ApplicationStateConflictError("This scene already has an encounter; reopen it instead of creating another")
+
+
+def preview_copy(*, world_id: str, pin: PlanScenePin, request: CopySavedEncounterRequest):
+    """Read the exact source and check the saved target without preparing either."""
+    world_id = _world_id(world_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        _require_available_target(conn, world_id=world_id, pin=pin)
+        return _read_saved_copy_source(conn, world_id=world_id, request=request)
 
 
 def create(*,world_id,request:CreateSceneTemplateRequest,authorize: Callable[[], None] | None = None):
@@ -144,13 +173,7 @@ def create(*,world_id,request:CreateSceneTemplateRequest,authorize: Callable[[],
                 raise ApplicationStateConflictError("Scene encounter creation key already has a different intent")
             return _view(conn,_binding(existing))
         pin=request.pin
-        admitted=admit_playable_revision(conn,pin.document_id,pin.revision_n,pin.content_sha256,expected_world_id=world_id,require_current=True,require_clean=True)
-        if admitted.work_object.kind!='plan' or admitted.work_revision.work_revision_id!=pin.work_revision_id:
-            raise ApplicationStateConflictError("Scene encounter requires the exact current saved Plan")
-        if pin.scene_id not in _scene_ids(admitted.work_revision.markdown):
-            raise ApplicationStateConflictError("The selected scene is not in the saved Plan")
-        if _row(conn,"SELECT encounter_id FROM combat.scene_template WHERE world_id=%s AND document_id=%s AND scene_id=%s",(world_id,pin.document_id,pin.scene_id)):
-            raise ApplicationStateConflictError("This scene already has an encounter; reopen it instead of creating another")
+        _require_available_target(conn, world_id=world_id, pin=pin)
         now=datetime.now(UTC)
         if isinstance(request.encounter, CopySavedEncounterRequest):
             record = _copy_saved_encounter(conn, world_id=world_id, request=request.encounter, now=now)

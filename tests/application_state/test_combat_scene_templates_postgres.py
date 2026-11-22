@@ -111,12 +111,17 @@ def test_prepare_exact_saved_encounter_leaves_original_and_replays(scene_case):
             "expected_revision": source.revision - 1,
         },
     }
+    stale = CreateSceneTemplateRequest.model_validate(body)
     with pytest.raises(ApplicationStateConflictError, match="saved Combat encounter changed"):
-        service.create(world_id=world_id, request=CreateSceneTemplateRequest.model_validate(body))
+        service.preview_copy(world_id=world_id, pin=stale.pin, request=stale.encounter)
+    with pytest.raises(ApplicationStateConflictError, match="saved Combat encounter changed"):
+        service.create(world_id=world_id, request=stale)
     assert read(scene_case).json() is None
 
     body["encounter"]["expected_revision"] = source.revision
     request = CreateSceneTemplateRequest.model_validate(body)
+    assert service.preview_copy(world_id=world_id, pin=request.pin, request=request.encounter) == source
+    assert read(scene_case).json() is None
     prepared = service.create(world_id=world_id, request=request)
     assert prepared.encounter.encounter_id != source.encounter_id
     assert prepared.encounter.revision == 1
@@ -127,6 +132,8 @@ def test_prepare_exact_saved_encounter_leaves_original_and_replays(scene_case):
     assert encounters.get_encounter(world_id=world_id, encounter_id=source.encounter_id) == source
 
     second = request.model_copy(update={"operation_id": uuid4()})
+    with pytest.raises(ApplicationStateConflictError, match="scene already has an encounter"):
+        service.preview_copy(world_id=world_id, pin=request.pin, request=request.encounter)
     with pytest.raises(ApplicationStateConflictError, match="scene already has an encounter"):
         service.create(world_id=world_id, request=second)
 
