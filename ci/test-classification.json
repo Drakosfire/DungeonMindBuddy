@@ -743,6 +743,7 @@
       "tests/test_world_mechanics_associations.py"
     ],
     "qualification": [
+      "tests/scripts/test_check_app_recovery_image.py",
       "tests/test_known_character_context.py",
       "tests/test_recap_name_review.py",
       "tests/test_retire_buddy_release.py",
