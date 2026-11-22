@@ -754,3 +754,23 @@ not independent repetitions on clean fixtures.
 The successful Build, Plan and Play checks establish live persistence for the
 tested insertion paths. The selected-text Plan path and the full matrix of
 clean-fixture repetitions remain open.
+
+### Hosted PL02 from the agent-authored Plan revision
+
+Serving revision `a5c7599c`: opened the saved P01 Plan
+`98fe9569-b94c-46af-b031-8bc9de565e77` at revision 4, then used **Start Play
+from this Plan** to create a new Buddy Cloud Pilot Run,
+`cb10b9c7-a05d-4c22-884e-1537ce102fb0`. Arrival rendered the agent-authored
+Boardwalk Read Aloud and its separate GM Note after adoption.
+
+In a fresh Run conversation, the exact PL02 request returned the saved
+First sight and Boardwalk spoken passages. The reply omitted the tower
+investigation and gate cues. Refreshing scene proposals showed none.
+Reloading the exact Run preserved the rendered Arrival scene and the
+saved chat reply reopened.
+
+The read-only check of turn `dcf55d5b-40d1-4c07-9d5c-4da82b5ab2c4`
+confirmed completion, pinned Plan revision 4, a matching adopted content
+digest, and an unedited Run at revision 1 with edition revision 0. The
+Run had zero scene edit proposals and zero committed edition revisions.
+This is one end-to-end PL02 pass on a fresh Run from the reused P01 Plan.
