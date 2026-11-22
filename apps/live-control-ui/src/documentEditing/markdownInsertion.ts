@@ -1,6 +1,8 @@
 import { closeHistory } from '@tiptap/pm/history';
-import { Editor, type JSONContent } from '@tiptap/core';
-import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore';
+import type { Editor, JSONContent } from '@tiptap/core';
+import type { Transaction } from '@tiptap/pm/state';
+import { prepareReviewedBlockIdentities } from '../tiptap/pageComposer/PageRow';
+import { flattenPresentation } from '../tiptap/pageComposer/presentation';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { semanticMarkdownSerializationDiagnostics } from '../tiptap/markdown/semanticMarkdownSafety';
@@ -63,30 +65,43 @@ export function insertReviewedMarkdownAtAnchor(editor: Editor, caret: number | {
     || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to > editor.state.doc.content.size) {
     throw new Error('The page or original insertion point changed. Ask again before inserting.');
   }
-  const result = prepareReviewedMarkdownAtAnchor(editor, caret, content, expectedJson);
-  editor.view.dispatch(closeHistory(editor.state.tr));
-  if (!editor.commands.insertContentAt(blockInsertionAnchor(editor, caret, content), contentForTarget(editor,caret,content))) throw new Error('The editor could not insert this proposal.');
-  if (JSON.stringify(editor.getJSON()) !== JSON.stringify(result)) throw new Error('The insertion result needs inspection before continuing.');
+  const transaction = prepareReviewedTransaction(editor, caret, content, expectedJson);
+  const expected = transaction.doc;
+  editor.view.dispatch(closeHistory(transaction));
+  if (!editor.state.doc.eq(expected)) throw new Error('The insertion result needs inspection before continuing.');
 }
 
 export function prepareReviewedMarkdownAtAnchor(editor: Editor, caret: number | {from:number;to:number}, content: JSONContent[], expectedJson: string): JSONContent {
+  return prepareReviewedTransaction(editor, caret, content, expectedJson).doc.toJSON();
+}
+
+function prepareReviewedTransaction(editor: Editor, caret: number | {from:number;to:number}, content: JSONContent[], expectedJson: string): Transaction {
   const from = typeof caret === 'number' ? caret : caret.from;
   const to = typeof caret === 'number' ? caret : caret.to;
   if (editor.isDestroyed || JSON.stringify(editor.getJSON()) !== expectedJson
     || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to > editor.state.doc.content.size) {
     throw new Error('The page or original insertion point changed.');
   }
-  const simulated = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: editor.getJSON() });
-  try {
-    if (!simulated.commands.insertContentAt(blockInsertionAnchor(simulated, caret, content), contentForTarget(simulated,caret,content))) throw new Error('Cannot insert at this position.');
-    const result = simulated.getJSON();
-    const markdown = tiptapJsonToSemanticMarkdown(result);
-    const reopened = markdownToTiptapDoc(markdown);
-    if (semanticMarkdownSerializationDiagnostics(result).length
-      || reopened.diagnostics.some(item => item.level === 'warning')
-      || tiptapJsonToSemanticMarkdown(reopened.doc) !== markdown) {
-      throw new Error('Inserting here would prevent the page from saving safely.');
-    }
-    return result;
-  } finally { simulated.destroy(); }
+
+  const preview: { transaction?: Transaction } = {};
+  // Build the transaction with the mounted editor's schema and commands. The
+  // regular Tiptap dispatch is suppressed until the resulting document passes admission.
+  editor.commands.command(({ commands, tr }) => {
+    tr.setMeta('preventDispatch', true);
+    if (!commands.insertContentAt(blockInsertionAnchor(editor, caret, content), contentForTarget(editor, caret, content))) return false;
+    preview.transaction = prepareReviewedBlockIdentities(tr);
+    return true;
+  });
+  const prepared = preview.transaction;
+  if (!prepared) throw new Error('Cannot insert at this position.');
+
+  const body = flattenPresentation(prepared.doc.toJSON());
+  const markdown = tiptapJsonToSemanticMarkdown(body);
+  const reopened = markdownToTiptapDoc(markdown);
+  if (semanticMarkdownSerializationDiagnostics(body).length
+    || reopened.diagnostics.some(item => item.level === 'warning')
+    || tiptapJsonToSemanticMarkdown(reopened.doc) !== markdown) {
+    throw new Error('Inserting here would prevent the page from saving safely.');
+  }
+  return prepared;
 }

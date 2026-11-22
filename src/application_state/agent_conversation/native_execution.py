@@ -404,6 +404,7 @@ class NativePlanOpeningSelectedV3(NativePlanOpeningSelectedV1):
     composed_nomination: ComposedPlanNominationV1
     target_resolution: Literal['not_applicable', 'missing', 'unique', 'ambiguous', 'unresolved']
     column_scope_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
+    implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
     author_column: ComposedColumn | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
@@ -427,7 +428,8 @@ class NativePlanOpeningSelectedV3(NativePlanOpeningSelectedV1):
         if self.author_column is not None and self.column_scope_version != 'v1':
             raise ValueError('Composed column scope requires its retained interpretation version')
         expected = resolve_composed_opening(capture, catalog, self.author_scope_binding,
-            self.composed_nomination, self.author_operation, author_column=self.author_column)
+            self.composed_nomination, self.author_operation, author_column=self.author_column,
+            implicit_caret_version=self.implicit_caret_version)
         if any(getattr(self, key) != value for key, value in expected.items()):
             raise ValueError('Composed opening differs from its complete target resolution')
         return self

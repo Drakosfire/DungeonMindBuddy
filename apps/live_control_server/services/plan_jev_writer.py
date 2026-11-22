@@ -40,9 +40,14 @@ Keep saved Plan excerpts, retrieved World evidence, played outcomes and proposed
 Return the same strict evidence JSON contract: each text-bearing segment is a complete literal
 Markdown block of the proposed fragment, in reading order. Ground factual blocks using their
 actual supplied selectors; mark invented possibilities as proposals. Tables use Markdown rows.
-Preserve the author's unselected text and preparation notes. For replacement, rewrite only the
-captured selection or playable body; for insertion, produce the new fragment without repeating
-the page. Do not add a chat acknowledgment, surrounding explanation, save claim or whole document.
+Preserve the author's unselected text and preparation notes. For selection replacement, return
+only the replacement for the captured selection. For a playable body replacement, return the
+complete captured body and copy all Markdown outside the requested change verbatim, including
+existing callout titles and bodies, prose, tables, and artwork references. When adding a note or
+passage to a playable body, keep every existing block in its original order and insert the
+requested material as a separate block. For an insertion target, return only the new fragment
+without repeating the page. Do not add a chat acknowledgment, surrounding explanation, save claim
+or whole document.
 Do not mint object IDs, dmb-node references, playable markers or unknown component markers.
 Headings, prose, lists and ordinary editable tables are supported; preserve existing protected
 tokens exactly when their captured selected content must be included. No page was saved.

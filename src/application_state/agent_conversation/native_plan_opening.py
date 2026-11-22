@@ -33,6 +33,13 @@ class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecision
 
 
 PageEditIntent = Literal['page_edit', 'discussion', 'unresolved']
+_SELECTION_REFERENCE_GUIDANCE = (
+    ' A direct request to rewrite or revise this can refer to the current selection '
+    'without saying “selected text.” Choose the selection rewrite when “this” '
+    'is the text to change and the author gives no different target. If “this” names '
+    'an idea from the conversation or the request points to another location, '
+    'use that meaning. A sample rewrite requested in chat is not a selection edit.'
+)
 
 
 class NativePlanAuthorScopeInputV1(Strict):
@@ -45,6 +52,9 @@ class NativePlanAuthorScopeInputV1(Strict):
     max_span_attempts: int = Field(strict=True, gt=0)
     quote_context: bool = Field(strict=True)
     assess_page_edit: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
+    implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
+    selection_reference_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
     requested_operation: Literal['discuss', 'write_current_page'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
@@ -86,6 +96,7 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
         default='dmb_native_plan_opening_input_v2', alias='schema')
     author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
     evidence_relevance_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
     opening_graph_relevance_version: Literal['v1'] | None = Field(
@@ -99,6 +110,7 @@ class NativePlanOpeningInputV3(NativePlanOpeningInputV1):
     original_capture: PlanAuthoringComposedSnapshotV1
     author_scope_binding: NativePlanOpeningScopeBindingV1
     column_scope_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
+    implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 NATIVE_PLAN_OPENING_INPUT_TYPES = (
@@ -122,7 +134,8 @@ def _composed_work_request(request):
         dialogue=tuple({"role": row.role, "content": row.content} for row in request.dialogue),
         target_available=False,
     )
-    return prepare_composed_plan_nomination(author, request.original_capture, request.placement_catalog)
+    return prepare_composed_plan_nomination(author, request.original_capture, request.placement_catalog,
+        offer_caret=request.implicit_caret_version == 'v1')
 
 
 def _observed_column(scope) -> str | None:
@@ -160,7 +173,9 @@ def composed_author_column(request) -> ComposedColumn | None:
     return observed
 
 
-def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, *, author_column=None):
+def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, *, author_column=None,
+        implicit_caret_version=None):
+    from .plan_contextual_targets import UNSTATED_INSERTION_LOCATION
     if author_column is not None and _observed_column(binding.observation.scope) != author_column:
         raise ValueError('Composed column differs from the retained author scope')
     if operation == 'discuss' or binding.page_edit_intent == 'discussion':
@@ -171,11 +186,15 @@ def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, 
         intent = 'clarify'
     else:
         intent = 'write_current_page'
-    resolved = resolve_composed_plan_nomination(snapshot, catalog, intent, nomination)
+    unstated_location = binding.observation.relation == UNSTATED_INSERTION_LOCATION
+    resolved = resolve_composed_plan_nomination(snapshot, catalog, intent, nomination,
+        allow_caret=(implicit_caret_version == 'v1' and unstated_location
+            and isinstance(binding.observation.scope, UnscopedLocation) and author_column is None))
     capture = resolved.capture
     if capture is not None:
         observed_relation = binding.observation.relation
-        if observed_relation not in ('unresolved', f'{capture.slot_address.relation}_paragraph'):
+        if nomination.scope != 'caret_boundary' and observed_relation not in (
+                'unresolved', f'{capture.slot_address.relation}_paragraph'):
             return {'requested_work': 'clarify', 'target_resolution': 'unresolved',
                     'placement_selector': None, 'target_capture_sha256': None}
         scope = binding.observation.scope
@@ -239,13 +258,25 @@ def _author_scope_offers(request):
         max_span_attempts=request.max_span_attempts)
 
 
+def _author_relation_options(request):
+    from .plan_contextual_targets import AUTHOR_RELATIONS, UNSTATED_INSERTION_LOCATION
+
+    if request.implicit_caret_version == 'v1':
+        return AUTHOR_RELATIONS | {UNSTATED_INSERTION_LOCATION: (
+            'The author asks to insert new writing into this Plan and leaves the page location open. '
+            'Names that describe only the new writing do not name an existing page location. '
+            'Use unresolved if the author states a location that is unclear, asks for incompatible '
+            'locations, or leaves the kind of edit unclear.'
+        )}
+    return AUTHOR_RELATIONS
+
+
 def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
-    from .plan_contextual_targets import AUTHOR_RELATIONS
-
     if getattr(request, 'scope_review', None) is not None:
         return _prepare_author_scope_review(request)[0]
+    relation_options = _author_relation_options(request)
     hypotheses = _author_scope_offers(request)
     state = author_scope_offer_view(request.question, request.dialogue, hypotheses,
         include_quote_context=request.quote_context)
@@ -280,14 +311,15 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
                 'a bounded edit.' + operation_instruction),)
     return DecisionRequest(provider=PROVIDER, model=MODEL, state=state, questions=(
         *edit_question,
-        ChoiceDecisionQuestion(name='location_relation', options=tuple(AUTHOR_RELATIONS),
-            option_descriptions=AUTHOR_RELATIONS,
+        ChoiceDecisionQuestion(name='location_relation', options=tuple(relation_options),
+            option_descriptions=relation_options,
             question='What relation to an existing location does the current author request? '
                 'Use prior dialogue only to resolve a reference omitted from the current request. '
                 'Rewriting the explicitly selected paragraph or text uses the whole capture, even when '
                 'the replacement preserves its existing wording and adds a warning. Ignore ordering in '
                 'proposed new content. If distinct relations cannot be reconciled, choose unresolved.'
-                + (' Selected sentences, lines and excerpts are selected text.' if request.assess_page_edit else '')),
+                + (' Selected sentences, lines and excerpts are selected text.' if request.assess_page_edit else '')
+                + (_SELECTION_REFERENCE_GUIDANCE if request.selection_reference_version == 'v1' else '')),
         ChoiceDecisionQuestion(name='existing_scope', options=tuple(choices), option_descriptions=choices,
             question='Choose the complete existing section or heading constraint from scope_hypotheses. '
                 'Preserve every name, hierarchy and exclusion even when a name might be absent. '
@@ -301,12 +333,12 @@ def _prepare_author_scope_review(request):
     import json
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
-    from .plan_contextual_targets import AUTHOR_RELATIONS
     from .plan_author_location import (
         LiteralScopeName, NamedScopePath, explicit_direction_options, explicit_scope_conflict, is_complete_scope_recovery,
         nominal_scope_needs_review, nominal_scope_subject,
     )
 
+    relation_options = _author_relation_options(request)
     first, second = (row.observation for row in request.scope_review)
     hypotheses = _author_scope_offers(request)
     view = author_scope_offer_view(request.question, request.dialogue, hypotheses,
@@ -321,7 +353,7 @@ def _prepare_author_scope_review(request):
             allow_plain_prose=first.page_edit_intent == second.page_edit_intent == 'page_edit'))
     for relation in sorted(relations):
         for prior in (first, second):
-            interpretation = {'relation': AUTHOR_RELATIONS[relation],
+            interpretation = {'relation': relation_options[relation],
                 'scope': options.get(prior.selected_alias, {'kind': prior.scope.kind})}
             key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
             pairs.setdefault(key, (relation, prior.scope, prior.paragraph_subject))
@@ -337,7 +369,7 @@ def _prepare_author_scope_review(request):
             for relation in sorted(relations - {'unresolved'}):
                 if subject is not None and relation not in {'before_paragraph', 'after_paragraph'}:
                     continue
-                interpretation = {'relation': AUTHOR_RELATIONS[relation], 'scope': options[alias]}
+                interpretation = {'relation': relation_options[relation], 'scope': options[alias]}
                 if subject is not None:
                     interpretation['existing_paragraph_subject'] = subject
                 key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
@@ -353,7 +385,7 @@ def _prepare_author_scope_review(request):
         # Jev to judge even if both initial passes carried over a prior relation.
         scope = UnscopedLocation()
         relation = 'replace_explicit_selection'
-        key = json.dumps({'relation': AUTHOR_RELATIONS[relation], 'scope': {'kind': scope.kind}},
+        key = json.dumps({'relation': relation_options[relation], 'scope': {'kind': scope.kind}},
             sort_keys=True, ensure_ascii=False)
         pairs.setdefault(key, (relation, scope, None))
         if all(isinstance(prior.scope, (UnscopedLocation, UnresolvedLocation))
@@ -366,10 +398,10 @@ def _prepare_author_scope_review(request):
     if nominal_review:
         for alias, (relation, scope, subject) in bindings.items():
             if subject is not None:
-                criteria[alias] = (f'{AUTHOR_RELATIONS[relation]} The author names “{scope.names[0].text}” as the '
+                criteria[alias] = (f'{relation_options[relation]} The author names “{scope.names[0].text}” as the '
                     f'section and describes the existing paragraph in that section by its subject “{subject}”.')
             elif nominal_scope_needs_review(request.question, scope):
-                criteria[alias] = (f'{AUTHOR_RELATIONS[relation]} The author uses the entire phrase '
+                criteria[alias] = (f'{relation_options[relation]} The author uses the entire phrase '
                     f'“{scope.names[0].text}” as the exact section title, with no separate paragraph description.')
     criteria['unresolved'] = 'None of the complete offered interpretations matches the author location.'
     question = ChoiceDecisionQuestion(name='adjudicated_scope', options=tuple(criteria), option_descriptions=criteria,
@@ -377,6 +409,7 @@ def _prepare_author_scope_review(request):
             'The author can identify an existing prose block by what it says without using the word paragraph. '
             'An explicit selected-text rewrite uses its capture by itself. Do not treat its words as a heading. '
             'Preserve every author-established name, path and exclusion. Ignore new-fragment content as location evidence.'
+            + (_SELECTION_REFERENCE_GUIDANCE if request.selection_reference_version == 'v1' else '')
             + (' A separate instruction to leave surrounding text untouched does not add a destination constraint.'
                if assessed_edit_intent else '')
             + (' A scope stated in the current request supersedes earlier dialogue.' if explicit_conflict else '')
@@ -406,6 +439,8 @@ def validate_author_scope_parent(context, execution, parent, authorization):
     if (type(authorization) is not NativePlanAuthorScopeAuthorizedV1
             or type(parent) is not NativePlanAuthorScopeParentV1
             or type(execution.policy.action) is not NativePlanActionV3
+            or (parent.implicit_caret_version is not None
+                and opening_input_type(execution.policy.action) not in (NativePlanOpeningInputV2, NativePlanOpeningInputV3))
             or type(context.assembled_input) is not NativePlanRequestAdmissionV1
             or parent.request_manifest_sha256 != context.assembled_input.manifest_sha256
             or parent.prior_scope_event_id != authorization.prior_scope_event_id
@@ -428,8 +463,6 @@ def validate_author_scope_parent(context, execution, parent, authorization):
 
 def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
     from .jev_retrieval_contract import validated_choice_answers
-    from .plan_contextual_targets import AUTHOR_RELATIONS
-
     if getattr(request, 'scope_review', None) is not None:
         _, bindings = _prepare_author_scope_review(request)
         alias = validated_choice_answers(result, {'adjudicated_scope'})['adjudicated_scope']
@@ -446,7 +479,7 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
         expected.add('page_edit_intent')
     answers = validated_choice_answers(result, expected)
     relation = answers['location_relation']
-    if relation not in AUTHOR_RELATIONS:
+    if relation not in _author_relation_options(request):
         raise ValueError('Author scope result names an unoffered placement relation')
     alias = answers['existing_scope']
     if alias == 'none':
@@ -593,9 +626,9 @@ def _composed_opening_fields(request, answers):
     return resolve_composed_opening(
         request.original_capture, request.placement_catalog,
         request.author_scope_binding, nomination, request.plan_requested_operation,
-        author_column=author_column,
+        author_column=author_column, implicit_caret_version=request.implicit_caret_version,
     ) | {"composed_nomination": nomination, "column_scope_version": request.column_scope_version,
-           "author_column": author_column}
+           "implicit_caret_version": request.implicit_caret_version, "author_column": author_column}
 
 
 def composed_opening_fields(request, result):
