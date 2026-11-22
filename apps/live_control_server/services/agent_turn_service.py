@@ -1758,10 +1758,12 @@ class _ClaimFence:
                     )
                 if self.renewer._session is not None:
                     if method_name == 'authorize_native_writer':
-                        with measure('plan_session_finish_before_writer'):
-                            current = self.renewer._session.finish()
+                        from application_state.agent_conversation.native_plan_session import PlanSessionCommand
+                        with measure("native_writer_authorization_persistence"):
+                            result = self.renewer._session.execute(
+                                PlanSessionCommand.WRITER, expected_revision=current.revision,
+                                expected_attempt=current.attempt, **fields)
                         self.renewer._session = None
-                        self.renewer._turn = current
                     elif outcome_only:
                         claim, fresh = self.renewer._session.record_provider_outcome(
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
@@ -1783,9 +1785,10 @@ class _ClaimFence:
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
                         self.renewer._turn = updated
                         return updated, fresh
-                with measure("native_writer_authorization_persistence"):
-                    result = method(current.world_id, current.conversation_id, current.turn_id,
-                        expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                else:
+                    with measure("native_writer_authorization_persistence"):
+                        result = method(current.world_id, current.conversation_id, current.turn_id,
+                            expected_revision=current.revision, expected_attempt=current.attempt, **fields)
                 if method_name == "authorize_build_opening_with_prompt":
                     updated, fresh, _ = result
                 else:

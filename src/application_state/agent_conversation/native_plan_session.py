@@ -22,7 +22,7 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from application_state.unit_of_work import unit_of_work
 from . import repository as repo
 from .native_execution import (
-    NativePlanActionV2, NativePlanActionV3, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeEvent,
+    NativePlanActionV2, NativePlanActionV3, NATIVE_PLAN_WORK_SELECTION_TYPES, NativeWriterAuthorizedV1, SurfaceNativeEvent,
     SurfaceNativeExecutionV1, _join_turn_fields, _join_turn_lifecycle,
     _validate_owned_context_binding,
 )
@@ -31,6 +31,7 @@ from .types import ProviderAttemptAuthorizedEventV1
 
 
 class PlanSessionCommand(str, Enum):
+    WRITER = 'authorize_native_writer'
     CONTROLLER = 'authorize_plan_jev_provider'
     OUTCOME = 'record_provider_outcome'
     SELECTION = 'record_plan_jev_retrieval_selection'
@@ -127,6 +128,11 @@ class _SessionAdmission(AgentConversationService):
         owner = self._owner
         if expected_revision != owner._committed.revision:
             raise ApplicationStateConflictError('Session append has a stale revision')
+        if type(execution.events[-1]) is NativeWriterAuthorizedV1:
+            settled = repo._persist_plan_writer_frontier(conn, owner._committed, execution, owner._image)
+            if settled is not None:
+                owner._pending = settled, None
+            return settled
         with owner._measure("plan_append_storage_write_ack"):
             image = repo._append_plan_session_events(conn, world_id=world_id,
                 turn_id=turn_id, before=owner._image, execution=execution,
@@ -316,6 +322,11 @@ class NativePlanSession:
                     expected_attempt=expected_attempt, **owned)
                 if type(fresh) is not bool:
                     raise ApplicationStateIntegrityError('Session admission returned an invalid disposition')
+                if command is PlanSessionCommand.WRITER:
+                    if not fresh or self._pending is None or self._pending[0] is not updated:
+                        raise ApplicationStateIntegrityError('Plan writer requires its fresh settled execution')
+                    self._seal()
+                    return updated, fresh
                 # Service return occurs only after its transaction commits.
                 if fresh:
                     if self._pending is None or updated is not self._pending[0]:

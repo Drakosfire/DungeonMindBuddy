@@ -608,3 +608,95 @@ def test_native_admission_rejects_mutated_locked_components_before_persistence(
                     provider_attempt_id=auth.provider_attempt_id, outcome="sdk_entered"))
     assert not writes
     assert snapshot(case) == before
+
+@pytest.mark.parametrize("failure", [None, "before_commit", "after_commit", "extra_suffix"])
+def test_readonly_plan_writer_settles_checkpoint_with_rules_authorization(
+    application_state_dsn, monkeypatch, failure,
+):
+    from contextlib import contextmanager
+
+    from application_state.agent_conversation import service
+    from application_state.agent_conversation.native_plan_session import (
+        NativePlanSession,
+        PlanSessionCommand,
+    )
+
+    acquired = sdk_case(application_state_dsn, native="current", readonly_session=True)
+    case = prepared_case(application_state_dsn, acquired=acquired)
+    turn = case.turn
+    session = NativePlanSession(turn)
+    from application_state.agent_conversation.native_evidence_view import (
+        output_frame, render_plan_evidence, semantic_frame,
+    )
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame as plan_work_view
+
+    execution = turn.graph_context_execution
+    host = model_frame(turn.graph_context_receipt, execution, passages_only=True)
+    evidence = semantic_frame(host)
+    work = plan_work_view(case.work_frame, execution)
+    case.frame = output_frame(host, evidence)
+    case.messages = [{"role": "user", "content": render_plan_evidence(evidence, work)}]
+    case.fmt = native_output_format(
+        case.frame, case.rule_frame, case.work_frame | work, execution=execution,
+    )
+    raw = raw_request(case)
+    auth = writer_auth(case, raw).model_copy(update={"frame_sha256": t.canonical_sha256(evidence)})
+    fields = dict(
+        expected_revision=turn.revision,
+        expected_attempt=turn.attempt,
+        expected_rules_revision=case.rules.revision,
+        authorization=auth,
+        prepared_request_json=raw,
+        work_proof=case.work_proof,
+    )
+    before = snapshot(case)
+    original = service.unit_of_work
+
+    @contextmanager
+    def write_fault(dsn):
+        with original(dsn) as conn:
+            if failure == "extra_suffix":
+                sequence = len(execution.events) + 1
+                conn.execute(
+                    "INSERT INTO agent.plan_execution_event (turn_id,sequence,payload) VALUES (%s,%s,%s)",
+                    (turn.turn_id, sequence, Jsonb({"sequence": sequence})),
+                )
+            yield conn
+            if failure == "before_commit":
+                raise RuntimeError(failure)
+        if failure == "after_commit":
+            raise RuntimeError(failure)
+
+    with monkeypatch.context() as patch:
+        if failure:
+            patch.setattr(service, "unit_of_work", write_fault)
+            if failure == "extra_suffix":
+                with pytest.raises(psycopg.errors.CheckViolation, match="not contiguous"):
+                    session.execute(PlanSessionCommand.WRITER, **fields)
+            else:
+                with pytest.raises(RuntimeError, match=failure):
+                    session.execute(PlanSessionCommand.WRITER, **fields)
+        else:
+            updated, fresh = session.execute(PlanSessionCommand.WRITER, **fields)
+            assert fresh
+    with pytest.raises(ApplicationStateConflictError, match="sealed"):
+        session.execute(PlanSessionCommand.WRITER, **fields)
+    reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    with psycopg.connect(application_state_dsn) as conn:
+        checkpoint = conn.execute(
+            "SELECT revision, attempt FROM agent.plan_execution_checkpoint WHERE turn_id=%s",
+            (turn.turn_id,),
+        ).fetchone()
+    if failure in {"before_commit", "extra_suffix"}:
+        assert reopened == turn and snapshot(case) == before
+        assert checkpoint == (turn.revision, turn.attempt)
+    else:
+        assert checkpoint is None
+        assert reopened.graph_context_execution.events == [*turn.graph_context_execution.events, auth]
+        if failure is None:
+            assert reopened == updated
+        case.turn = reopened
+        open_rules(case)
+        after = snapshot(case)
+        assert not admit(case, raw, auth)
+        assert snapshot(case) == after
