@@ -289,6 +289,11 @@ describe("native graph recorded presentation", () => {
   it.each(["npc", "custom:npc", "dnd5e:NPC", "dnd5e:npc ", "dungeonbuddy:character_npc", "toString"])("keeps unsupported %s neutral", (term) => {
     expect(present([], [term]).displayKind).toBe("object (unsupported classification)");
   });
+  it("shows a recorded creature classification without inferring unknown types", () => {
+    expect(present(["Izmati"], ["dnd5e:creature"]).displayKind).toBe("creature");
+    expect(present(["Izmati"], ["custom:creature"]).displayKind).toBe("object (unsupported classification)");
+    expect(present(["Izmati"], ["dnd5e:creature", "dnd5e:npc"]).displayKind).toBe("object (mixed classifications)");
+  });
   it("explains mixed and missing classifications without guessing", () => {
     expect(present([], ["dnd5e:npc", "dungeonbuddy:character"]).displayKind).toBe("object (mixed classifications)");
     expect(present([], ["dnd5e:npc", "unknown:term"]).classificationTerms).toEqual(["dnd5e:npc", "unknown:term"]);
