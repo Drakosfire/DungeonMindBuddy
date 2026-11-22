@@ -49,12 +49,12 @@ retain the separate paired backup rehearsal and migration procedure.
    current container's protected environment file selection. Never store
    application secrets in either deployment policy file.
 
-3. Create the GitHub environment buddy-production, restrict deployments to
-   main, and configure operator approval where available. Set
-   BUDDY_DEPLOY_HOST to the SSH hostname or IP and BUDDY_DEPLOY_KNOWN_HOSTS
+3. Create the GitHub environment buddy-production and restrict deployments to
+   main. Manual dispatch starts the job. The server-side release record below
+   provides operator authorization and binds the exact candidate and rollback.
+   Set BUDDY_DEPLOY_HOST to the SSH hostname or IP and BUDDY_DEPLOY_KNOWN_HOSTS
    to the independently verified host-key line for that exact name. Set the
-   environment secret BUDDY_DEPLOY_KEY to the dedicated private key. Use the
-   server allowlist below even when the environment supports required reviewers.
+   environment secret BUDDY_DEPLOY_KEY to the dedicated private key.
 
 ## Approve and activate one release
 
