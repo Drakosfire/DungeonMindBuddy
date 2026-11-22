@@ -583,3 +583,26 @@ def test_expanded_plan_relevance_changes_only_source_votes():
             assert question.options == before.options
         else:
             assert question == before
+
+
+def test_continued_plan_graph_relevance_changes_only_graph_votes():
+    from application_state.agent_conversation import jev_retrieval_contract as c
+
+    fields = request().model_dump(exclude={'schema_', 'revision'})
+    fields.update(source_authority_status='available', source_revision='private', graph_revision='private')
+    fields['candidates'][0]['kind'] = 'Native Graph object; open its complete admitted statement and assertion support'
+    parent = c.NativePlanBatchDecisionInputV3(**fields)
+    candidate = parent.model_copy(update={'graph_relevance_version': 'v1'})
+    assert 'graph_relevance_version' not in parent.model_dump(by_alias=True)
+    assert candidate.digest != parent.digest
+    before = c.prepare_decision(parent)
+    after = c.prepare_decision(candidate)
+    assert after.state == before.state
+    assert 'graph_relevance_version' not in after.model_dump_json()
+    for original, changed in zip(before.questions, after.questions, strict=True):
+        if original.name == 'candidate_0':
+            assert changed.question.startswith(original.question)
+            assert 'when a requested detail is still unresolved' in changed.question
+            assert changed.options == original.options
+        else:
+            assert changed == original
