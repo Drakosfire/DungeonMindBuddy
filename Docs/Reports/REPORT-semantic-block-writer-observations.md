@@ -624,3 +624,38 @@ The retained opening selected `replace_playable_body` for the captured scene
 and authorized the writer. This case reached a preview. It failed the
 preservation check because the proposed scene body dropped unrelated material
 during an additive edit.
+
+### Hosted rerun after the 0189 cutover
+
+On November 22, Buddy served revision `4101fa98` with schema
+`20261122_0189`. Public readiness passed. All cases below used saved
+synthetic Buddy Cloud Pilot fixtures and fresh conversations.
+
+- **P03, add a private note in Cards.** On the same Arrival card as the
+  earlier failed run, the exact prompt proposed a separate GM Note,
+  “The guide waits at the gate.” The preview retained the previous tower
+  reminder, the titled First sight block, and both spoken passages. Save
+  confirmed the suggestion was saved to the Plan. Opening its exact link
+  in a fresh tab rendered both notes, unchanged spoken passages, and the
+  existing choice. This was one save-and-reopen pass on a reused fixture.
+- **P01, ordinary Plan insertion.** Verified a collapsed caret at the
+  final character of the Arrival paragraph. Ordinary Send asked which
+  paragraph or heading to use. No writable proposal appeared.
+- **P02, ordinary selected-text rewrite.** Selected the entire First
+  sight body, “Mist hangs low near the marsh.” Ordinary Send asked whether
+  to replace the current selection. No writable proposal appeared, and
+  the existing title, body, notes, choice, and table still rendered.
+- **B01, illustrated Build fixture.** Verified the caret at the end of the
+  Arrival paragraph. The exact request once reported that it had no
+  captured writing destination and once returned the material in chat.
+  A third request explicitly asked to insert two new blocks at the caret
+  and again reported no captured destination. None produced a writable
+  proposal, so this run could not score the insertion acknowledgment fix.
+  The fixture already contained earlier benchmark material.
+
+The retained P01 and P02 openings both had two author observations of
+`page_edit` with unscoped `unresolved` placement. In both cases the
+independent source decision voted for the offered capture, with one direct
+anchor and no passage votes. The host clarified because the author vote did
+not agree. P01 now reaches the captured source vote, correcting one side of
+the earlier routing failure. P02 still has the same author-side blocker.
