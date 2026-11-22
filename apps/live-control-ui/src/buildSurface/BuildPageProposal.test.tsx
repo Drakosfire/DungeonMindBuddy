@@ -97,6 +97,25 @@ it('sends the offered Build boundary to Prepare and saves only after author revi
  expect(editor.getJSON().content?.slice(0,-1)).toEqual(before.content);
  expect(editor.getText()).toBe('Before\n\nAfter\n\nA lantern guard waits.');
 });
+it('previews callouts after the paragraph that ends at the captured caret',async()=>{
+ const markdown='> [!READ-ALOUD] Arrival\n> Three lanterns light the boardwalk.\n\n> [!GM-NOTE]\n> Wait for the players to choose.';
+ saved={...saved,markdown,markdown_sha256:await digest(markdown)};
+ const before=editor.getJSON();
+ render(<Review/>);
+
+ const proposal=await screen.findByRole('region',{name:'Proposed page change'});
+ expect(proposal.previousElementSibling).toHaveTextContent('Before');
+ expect(proposal.nextElementSibling).toHaveTextContent('After');
+ expect(editor.getJSON()).toEqual(before);
+
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ const children=editor.getJSON().content!;
+ expect(children[0]).toEqual(before.content![0]);
+ expect(children).toHaveLength(4);
+ expect(tiptapJsonToSemanticMarkdown({type:'doc',content:children.slice(1,3)}).trim()).toBe(markdown);
+ expect(children[3]).toEqual(before.content![1]);
+});
 it('stages outside editor JSON, edits and keeps once at its original position with one Undo',async()=>{
  const before=editor.getJSON();render(<Review/>);
  await screen.findByRole('region',{name:'Proposed page change'});
