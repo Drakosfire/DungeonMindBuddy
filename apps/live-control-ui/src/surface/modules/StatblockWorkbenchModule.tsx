@@ -3025,7 +3025,10 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
 
     let response: ValidateDefinitionBuddyResponseV1;
     try {
-      response = await validateStatblockDefinition({ definition: workingCopy });
+      const draftId = threatDraftRef.current?.draft_id;
+      response = draftId
+        ? await validateStatblockDefinition({ definition: workingCopy }, draftId)
+        : await validateStatblockDefinition({ definition: workingCopy });
     } catch (error) {
       if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
         return;

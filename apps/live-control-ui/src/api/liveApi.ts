@@ -3166,9 +3166,11 @@ export async function getStatblockCandidate(
 
 export async function validateStatblockDefinition(
   request: ValidateDefinitionBuddyRequestV1,
+  draftId?: string,
 ): Promise<ValidateDefinitionBuddyResponseV1> {
+  const query = draftId ? `?${new URLSearchParams({ draft_id: draftId })}` : "";
   return apiFetch<ValidateDefinitionBuddyResponseV1>(
-    "/api/live/statblock-definitions:validate",
+    `/api/live/statblock-definitions:validate${query}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
