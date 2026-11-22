@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   activateStatblockRetrieval,
   commitTiptapMarkdownWrite,
+  invalidateHostedGraphAccess,
   commitWorldRunbookMarkdownWrite,
   admitNativeWorldSource,
   createWorldContainer,
@@ -2149,6 +2150,50 @@ describe("liveApi artifact/capability helpers", () => {
       writer_confirm_token: "token",
     });
   });
+
+  it("retries an admitted Page commit with identical bytes after a transport failure", async () => {
+    const request = {
+      document_id: "11111111-1111-4111-8111-111111111111",
+      markdown: "# Title",
+      expected_revision: 2,
+      writer_confirm_token: "token",
+    };
+    const receipt = { schema_version: "dmb_tiptap_markdown_write_commit_v1", committed_revision: 3 };
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(mockJsonResponse(receipt));
+
+    await expect(commitTiptapMarkdownWrite({ ...request, canRetryExactPageCommit: () => true })).resolves.toEqual(receipt);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[0][1]?.body).toBe(JSON.stringify(request));
+    expect(fetchSpy.mock.calls[1]).toEqual(fetchSpy.mock.calls[0]);
+  });
+
+  it.each(["scope changed", "draft changed", "version conflict", "second transport failure"])(
+    "stops Page commit recovery on %s",
+    async (failure) => {
+      const request = {
+        document_id: "11111111-1111-4111-8111-111111111111",
+        markdown: "# Title",
+        expected_revision: 2,
+        writer_confirm_token: "token",
+        canRetryExactPageCommit: () => failure !== "draft changed",
+      };
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        if (failure === "scope changed") invalidateHostedGraphAccess("replacement-account");
+        if (failure === "version conflict") return mockJsonResponse({ detail: "authored Page revision changed" }, { ok: false, status: 409 });
+        throw new TypeError("Failed to fetch");
+      });
+
+      try {
+        await expect(commitTiptapMarkdownWrite(request)).rejects.toThrow(failure === "version conflict" ? "revision changed" : "Failed to fetch");
+        expect(fetchSpy).toHaveBeenCalledTimes(failure === "second transport failure" ? 2 : 1);
+      } finally {
+        if (failure === "scope changed") invalidateHostedGraphAccess(null);
+      }
+    },
+  );
 
   it("activateStatblockRetrieval posts encoded activation request", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(

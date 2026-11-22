@@ -3795,12 +3795,25 @@ export async function prepareTiptapMarkdownWrite(
 }
 
 export async function commitTiptapMarkdownWrite(
-  request: TiptapMarkdownWriteCommitRequest,
+  { canRetryExactPageCommit, ...request }: TiptapMarkdownWriteCommitRequest & {
+    canRetryExactPageCommit?: () => boolean;
+  },
 ): Promise<TiptapMarkdownWriteCommitResponse> {
-  return apiFetch<TiptapMarkdownWriteCommitResponse>(
-    "/api/live/tiptap/markdown-write/commit",
-    { method: "POST", body: JSON.stringify(request) },
+  const body = JSON.stringify(request);
+  const commit = () => apiFetch<TiptapMarkdownWriteCommitResponse>(
+    "/api/live/tiptap/markdown-write/commit", { method: "POST", body },
   );
+  const accessGeneration = nativeGraphSessionEpoch;
+  const origin = baseUrl;
+  try {
+    return await commit();
+  } catch (error) {
+    // The Page owner admits only the same token and predecessor revision on
+    // replay. Reuse the serialized request and never prepare a second save.
+    if (!(error instanceof TypeError) || accessGeneration !== nativeGraphSessionEpoch
+      || origin !== baseUrl || !canRetryExactPageCommit?.()) throw error;
+    return commit();
+  }
 }
 
 export async function commitWorldOwnedPlanMarkdownWrite(
