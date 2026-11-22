@@ -11,7 +11,8 @@ not enable backend APIs or approve/publish a World. Public release and private
 preparation remain gated by the existing guest release contract and owner review.
 
 Write set: `Dockerfile.production`, `scripts/prepare_buddy_release_image.sh`,
-focused release-image helper tests and this handoff. Verify validated inputs,
+focused release-image helper tests, the CI inventory/guest contract entries
+needed to discover them, and this handoff. Verify validated inputs,
 default compatibility, configured tag and label identity, image reuse/mismatch,
 and a real isolated UI build where available. Run repository exact-SHA hosted
 frontend verification and an independent Bugbot review before merge. Backend
