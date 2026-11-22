@@ -628,6 +628,15 @@ def test_plan_acquired_passage_votes_keep_acquisition_independent():
         {'selection_alias': 'passage_0', 'source': 'Reviewed source', 'text': 'Exact evidence.'},
     ]
     assert 'private-read' not in after.model_dump_json()
+    raw = {"model": MODEL, "state": after.state, "questions": {
+        q.name: {"type": "choice", "instructions": q.question,
+                 "criteria": {option: (q.option_descriptions or {}).get(option) for option in q.options}}
+        for q in after.questions
+    }}
+    c.validate_wire_body(candidate, json.dumps(raw).encode())
+    raw["questions"]["retain_acquired_0"]["criteria"]["include"] = None
+    with pytest.raises(ValueError, match="Prepared decision question"):
+        c.validate_wire_body(candidate, json.dumps(raw).encode())
     answers = dict(result().answers, post_read_plan=ChoiceDecisionAnswer(selected='review_after_reads'))
     unchanged = c.decode_selection(parent, result(answers=answers))
     for vote in ('include', 'exclude'):

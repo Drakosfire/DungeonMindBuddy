@@ -586,6 +586,7 @@ def validate_wire_body(request: RetrievalDecisionInput, raw: bytes, *, controlle
         parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Nonfinite decision request")))
     expected = prepare_decision(request, controller_accounting=controller_accounting)
     questions = {q.name: {"type": "choice", "instructions": q.question,
-                         "criteria": {option: None for option in q.options}} for q in expected.questions}
+                         "criteria": {option: (q.option_descriptions or {}).get(option)
+                                      for option in q.options}} for q in expected.questions}
     if body != {"model": MODEL, "state": expected.state, "questions": questions}:
         raise ValueError("Prepared decision question, catalog or choices changed")
