@@ -82,9 +82,11 @@ it('retains the exact portrait command until the new revision reopens',async()=>
   .mockResolvedValue({locator:illustrated,revision:{...resource,revision_id:illustrated.revision_id}});
  vi.mocked(variantApi.saveConversationVariantPortrait).mockResolvedValue(illustrated);
  render(<StatblockPage/>);
- fireEvent.click(await screen.findByRole('button',{name:'Generate or choose portrait'}));
- fireEvent.click(screen.getByRole('button',{name:'Choose saved test portrait'}));
- fireEvent.click(screen.getByRole('button',{name:'Save new portrait version'}));
+ const picker=await screen.findByRole('button',{name:'Generate or choose portrait'});
+ await waitFor(()=>expect(picker).toBeEnabled());
+ fireEvent.click(picker);
+ fireEvent.click(await screen.findByRole('button',{name:'Choose saved test portrait'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Save new portrait version'}));
  expect(await screen.findByRole('alert')).toHaveTextContent('Revision temporarily unavailable');
  const command=vi.mocked(variantApi.saveConversationVariantPortrait).mock.calls[0][2];
  expect(command.base).toEqual(locator);
