@@ -31,3 +31,16 @@ one Undo/Redo, correct persistence/reopen and unchanged neighboring content.
 Run required exact-SHA hosted and discovered diagnostics, inspect cumulative
 diff and request independent Bugbot review. A synthetic fixture does not prove
 the production World or release is ready.
+
+## Working checkpoint
+
+The Build image receiver now constructs and validates an undispatched insertion
+after the clicked root block, rather than splitting the clicked textblock. Plain
+pages retain their sidecar-free identity behavior; existing presentation IDs are
+preserved and the new image block receives an ID. Focused working-tree tests
+cover paragraph start/middle/end, heading/list/table, identity-only and composed
+layouts, serialization, Undo/Redo, stale capture and non-image refusal. The
+initial regression failed before the change; the affected suites passed after
+it. The old drop test now deliberately expects placement after the clicked
+block. Frontend build passed. These are working-tree diagnostics; durable Build
+Save/cold reopen, exact-SHA verification and final independent review remain.

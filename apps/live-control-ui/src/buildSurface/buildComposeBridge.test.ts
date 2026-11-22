@@ -149,6 +149,92 @@ function setup(){
  const changed=vi.fn();return{editor,state,changed,bridge:createBuildComposeBridge(()=>state,changed)};
 }
 describe('Build image insertion boundary',()=>{
+ it.each(['identity-only','composed'] as const)('preserves a %s page through image placement and reopen',async mode=>{
+  const source='A lantern beside the booth.\n\nThe gate is closed.\n';
+  const flat=markdownToTiptapDoc(source).doc;
+  flat.content?.forEach((node,index)=>{node.attrs={...node.attrs,pageBlockId:`existing-${index}`};});
+  const original=mode==='composed' ? {type:'doc',content:[{type:'pageRow',attrs:{id:'row',min_height:0,line_mode:'guide'},content:[
+   {type:'pageSlot',attrs:{id:'slot-left',width:6},content:[flat.content![0]]},
+   {type:'pageSlot',attrs:{id:'slot-right',width:6},content:[]},
+  ]},flat.content![1]]} : flat;
+  const presentation=mode==='composed' ? projectPresentation(original,source,original).presentation : {
+   schema_version:'dmb_page_presentation_v1' as const,markdown_sha256:await testDigest(source),
+   items:admittedPresentationBlocks(source).map(({node:_node,...binding},index)=>
+    ({...binding,kind:'block' as const,id:`existing-${index}`})),
+  };
+  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
+   content:hydratePresentation(source,presentation)});
+  const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,
+   contentSha256:await testDigest(source),visibility:'internal',draftGeneration:0,selectionGeneration:0,
+   canEdit:true,pagePresentation:presentation,savedMarkdown:source};
+  const bridge=createBuildComposeBridge(()=>state,()=>{});
+  try{
+   let position=0;editor.state.doc.descendants((node,pos)=>{if(!position&&node.isText)position=pos+3;});
+   editor.commands.setTextSelection(position);
+   const before=editor.getJSON(),captured=await bridge.capture();
+   bridge.insert(captured,mediaMarkdown(id,'Ticket'));
+   const after=editor.getJSON();
+   expect(after.content?.[0]).toEqual(before.content?.[0]);
+   expect(after.content?.[2]).toEqual(before.content?.[1]);
+   const projected=projectPresentation(after,source,before,presentation,mode==='identity-only');
+   expect(editor.schema.nodeFromJSON(hydratePresentation(projected.markdown,projected.presentation!)).toJSON()).toEqual(after);
+   editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+   editor.commands.redo();expect(editor.getJSON()).toEqual(after);
+  }finally{editor.destroy();}
+ });
+ it.each([1,15,38])('places an image after the clicked paragraph at position %i without splitting its text',async(position)=>{
+  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
+   content:'<p>The imaginary carnival opens at dusk.</p><p>The gate stays closed.</p>'});
+  const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,
+   contentSha256:'a'.repeat(64),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
+  const bridge=createBuildComposeBridge(()=>state,()=>{});
+  try{
+   editor.commands.setTextSelection(position);
+   const before=editor.getJSON(); const capture=await bridge.capture();
+   bridge.insert(capture,mediaMarkdown(id,'Ticket'));
+   const after=editor.getJSON();
+   expect(after.content?.[0]).toEqual(before.content?.[0]);
+   expect(after.content?.[2]).toEqual(before.content?.[1]);
+   const markdown=tiptapJsonToSemanticMarkdown(after);
+   expect(markdown).toContain(`![Ticket](dmb-media:${id})`);
+   expect(editor.schema.nodeFromJSON(markdownToTiptapDoc(markdown).doc).toJSON()).toEqual(after);
+   editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+   editor.commands.redo();expect(editor.getJSON()).toEqual(after);
+  }finally{editor.destroy();}
+ });
+ it('rejects non-image input without changing the document, selection or change notification',async()=>{
+  const {editor,bridge,changed}=setup();
+  try{
+   editor.commands.setTextSelection(2);
+   const before=editor.getJSON(),selection=editor.state.selection.from,capture=await bridge.capture();
+   expect(()=>bridge.insert(capture,'Not an image')).toThrow('Choose a saved image');
+   expect(editor.getJSON()).toEqual(before);
+   expect(editor.state.selection.from).toBe(selection);
+   expect(changed).not.toHaveBeenCalled();
+  }finally{editor.destroy();}
+ });
+ it.each(['heading','list','table'] as const)('places after the whole clicked %s without changing it',async kind=>{
+  const source=kind==='heading'?'## The carnival\n\nFollowing paragraph.\n'
+   :kind==='list'?'- First item\n- Second item\n\nFollowing paragraph.\n'
+   :'| Place | Detail |\n| --- | --- |\n| Booth | Lantern |\n\nFollowing paragraph.\n';
+  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
+   content:markdownToTiptapDoc(source).doc});
+  const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,
+   contentSha256:await testDigest(source),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true,
+   pagePresentation:null,savedMarkdown:source};
+  const bridge=createBuildComposeBridge(()=>state,()=>{});
+  try{
+   let position=0;editor.state.doc.descendants((node,pos)=>{if(!position&&node.isText)position=pos+1;});
+   editor.commands.setTextSelection(position);
+   const before=editor.getJSON(),capture=await bridge.capture();
+   bridge.insert(capture,mediaMarkdown(id,'Ticket'));
+   const after=editor.getJSON();
+   expect(after.content?.[0]).toEqual(before.content?.[0]);
+   expect(after.content?.[2]).toEqual(before.content?.[1]);
+   expect(editor.schema.nodeFromJSON(markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(after)).doc).toJSON()).toEqual(after);
+   editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+  }finally{editor.destroy();}
+ });
  it('inserts stable image once and keeps surrounding text',async()=>{
   const {editor,bridge,changed}=setup();try{
    const captured=await bridge.capture();bridge.insert(captured,mediaMarkdown(id,'Edge at dusk'));
@@ -215,7 +301,7 @@ it('places a closure-bound saved image at an explicit drop and supports one Undo
   const target=await pending;bridge.insert(target,mediaMarkdown(id,'Edge map'));
   expect(event.defaultPrevented).toBe(true);expect(changed).toHaveBeenCalledTimes(1);
   let count=0;editor.state.doc.descendants(node=>{if(node.type.name==='mediaImage')count++;});expect(count).toBe(1);
-  const md=tiptapJsonToSemanticMarkdown(editor.getJSON());expect(md.indexOf('Before')).toBeLessThan(md.indexOf('![Edge map]'));expect(md.indexOf('![Edge map]')).toBeLessThan(md.indexOf('After'));
+  const md=tiptapJsonToSemanticMarkdown(editor.getJSON());expect(md.indexOf('Before')).toBeLessThan(md.indexOf('After'));expect(md.indexOf('After')).toBeLessThan(md.indexOf('![Edge map]'));
   editor.commands.undo();expect(editor.getJSON()).toEqual(before);
   state.documentId='other';
  }finally{controller.abort();editor.view.dom.remove();editor.destroy();}
