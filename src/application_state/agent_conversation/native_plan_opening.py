@@ -52,6 +52,7 @@ class NativePlanAuthorScopeInputV1(Strict):
     max_span_attempts: int = Field(strict=True, gt=0)
     quote_context: bool = Field(strict=True)
     assess_page_edit: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
+    implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
     selection_reference_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
     requested_operation: Literal['discuss', 'write_current_page'] | None = Field(
@@ -95,6 +96,7 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
         default='dmb_native_plan_opening_input_v2', alias='schema')
     author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
     evidence_relevance_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
     opening_graph_relevance_version: Literal['v1'] | None = Field(
@@ -248,13 +250,25 @@ def _author_scope_offers(request):
         max_span_attempts=request.max_span_attempts)
 
 
+def _author_relation_options(request):
+    from .plan_contextual_targets import AUTHOR_RELATIONS, UNSTATED_INSERTION_LOCATION
+
+    if request.implicit_caret_version == 'v1':
+        return AUTHOR_RELATIONS | {UNSTATED_INSERTION_LOCATION: (
+            'The author asks to insert new writing into this Plan and leaves the page location open. '
+            'Names that describe only the new writing do not name an existing page location. '
+            'Use unresolved if the author states a location that is unclear, asks for incompatible '
+            'locations, or leaves the kind of edit unclear.'
+        )}
+    return AUTHOR_RELATIONS
+
+
 def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
-    from .plan_contextual_targets import AUTHOR_RELATIONS
-
     if getattr(request, 'scope_review', None) is not None:
         return _prepare_author_scope_review(request)[0]
+    relation_options = _author_relation_options(request)
     hypotheses = _author_scope_offers(request)
     state = author_scope_offer_view(request.question, request.dialogue, hypotheses,
         include_quote_context=request.quote_context)
@@ -289,8 +303,8 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
                 'a bounded edit.' + operation_instruction),)
     return DecisionRequest(provider=PROVIDER, model=MODEL, state=state, questions=(
         *edit_question,
-        ChoiceDecisionQuestion(name='location_relation', options=tuple(AUTHOR_RELATIONS),
-            option_descriptions=AUTHOR_RELATIONS,
+        ChoiceDecisionQuestion(name='location_relation', options=tuple(relation_options),
+            option_descriptions=relation_options,
             question='What relation to an existing location does the current author request? '
                 'Use prior dialogue only to resolve a reference omitted from the current request. '
                 'Rewriting the explicitly selected paragraph or text uses the whole capture, even when '
@@ -311,12 +325,12 @@ def _prepare_author_scope_review(request):
     import json
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
-    from .plan_contextual_targets import AUTHOR_RELATIONS
     from .plan_author_location import (
         LiteralScopeName, NamedScopePath, explicit_direction_options, explicit_scope_conflict, is_complete_scope_recovery,
         nominal_scope_needs_review, nominal_scope_subject,
     )
 
+    relation_options = _author_relation_options(request)
     first, second = (row.observation for row in request.scope_review)
     hypotheses = _author_scope_offers(request)
     view = author_scope_offer_view(request.question, request.dialogue, hypotheses,
@@ -331,7 +345,7 @@ def _prepare_author_scope_review(request):
             allow_plain_prose=first.page_edit_intent == second.page_edit_intent == 'page_edit'))
     for relation in sorted(relations):
         for prior in (first, second):
-            interpretation = {'relation': AUTHOR_RELATIONS[relation],
+            interpretation = {'relation': relation_options[relation],
                 'scope': options.get(prior.selected_alias, {'kind': prior.scope.kind})}
             key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
             pairs.setdefault(key, (relation, prior.scope, prior.paragraph_subject))
@@ -347,7 +361,7 @@ def _prepare_author_scope_review(request):
             for relation in sorted(relations - {'unresolved'}):
                 if subject is not None and relation not in {'before_paragraph', 'after_paragraph'}:
                     continue
-                interpretation = {'relation': AUTHOR_RELATIONS[relation], 'scope': options[alias]}
+                interpretation = {'relation': relation_options[relation], 'scope': options[alias]}
                 if subject is not None:
                     interpretation['existing_paragraph_subject'] = subject
                 key = json.dumps(interpretation, sort_keys=True, ensure_ascii=False)
@@ -363,7 +377,7 @@ def _prepare_author_scope_review(request):
         # Jev to judge even if both initial passes carried over a prior relation.
         scope = UnscopedLocation()
         relation = 'replace_explicit_selection'
-        key = json.dumps({'relation': AUTHOR_RELATIONS[relation], 'scope': {'kind': scope.kind}},
+        key = json.dumps({'relation': relation_options[relation], 'scope': {'kind': scope.kind}},
             sort_keys=True, ensure_ascii=False)
         pairs.setdefault(key, (relation, scope, None))
         if all(isinstance(prior.scope, (UnscopedLocation, UnresolvedLocation))
@@ -376,10 +390,10 @@ def _prepare_author_scope_review(request):
     if nominal_review:
         for alias, (relation, scope, subject) in bindings.items():
             if subject is not None:
-                criteria[alias] = (f'{AUTHOR_RELATIONS[relation]} The author names “{scope.names[0].text}” as the '
+                criteria[alias] = (f'{relation_options[relation]} The author names “{scope.names[0].text}” as the '
                     f'section and describes the existing paragraph in that section by its subject “{subject}”.')
             elif nominal_scope_needs_review(request.question, scope):
-                criteria[alias] = (f'{AUTHOR_RELATIONS[relation]} The author uses the entire phrase '
+                criteria[alias] = (f'{relation_options[relation]} The author uses the entire phrase '
                     f'“{scope.names[0].text}” as the exact section title, with no separate paragraph description.')
     criteria['unresolved'] = 'None of the complete offered interpretations matches the author location.'
     question = ChoiceDecisionQuestion(name='adjudicated_scope', options=tuple(criteria), option_descriptions=criteria,
@@ -417,6 +431,8 @@ def validate_author_scope_parent(context, execution, parent, authorization):
     if (type(authorization) is not NativePlanAuthorScopeAuthorizedV1
             or type(parent) is not NativePlanAuthorScopeParentV1
             or type(execution.policy.action) is not NativePlanActionV3
+            or (parent.implicit_caret_version is not None
+                and opening_input_type(execution.policy.action) is not NativePlanOpeningInputV2)
             or type(context.assembled_input) is not NativePlanRequestAdmissionV1
             or parent.request_manifest_sha256 != context.assembled_input.manifest_sha256
             or parent.prior_scope_event_id != authorization.prior_scope_event_id
@@ -439,8 +455,6 @@ def validate_author_scope_parent(context, execution, parent, authorization):
 
 def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
     from .jev_retrieval_contract import validated_choice_answers
-    from .plan_contextual_targets import AUTHOR_RELATIONS
-
     if getattr(request, 'scope_review', None) is not None:
         _, bindings = _prepare_author_scope_review(request)
         alias = validated_choice_answers(result, {'adjudicated_scope'})['adjudicated_scope']
@@ -457,7 +471,7 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
         expected.add('page_edit_intent')
     answers = validated_choice_answers(result, expected)
     relation = answers['location_relation']
-    if relation not in AUTHOR_RELATIONS:
+    if relation not in _author_relation_options(request):
         raise ValueError('Author scope result names an unoffered placement relation')
     alias = answers['existing_scope']
     if alias == 'none':
