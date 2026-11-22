@@ -272,12 +272,12 @@ def _ready_dsn() -> str:
 
 
 @contextmanager
-def _measure_provider_append_transaction(measure):
+def _execution_append_transaction(measure):
     with ExitStack() as stack:
-        with measure("first_jev_send_schema_check"):
-            dsn = _ready_dsn()
         with measure("first_jev_send_transaction_open"):
-            conn = stack.enter_context(unit_of_work(dsn))
+            conn = stack.enter_context(unit_of_work(load_runtime_dsn()))
+        with measure("first_jev_send_schema_check"):
+            assert_connection_at_head(conn)
         yield conn
         with measure("first_jev_send_commit_and_close"):
             stack.close()
@@ -1694,10 +1694,8 @@ class AgentConversationService:
         measure = _measure or (lambda _name: nullcontext())
         if _connection is not None:
             transaction = nullcontext(_connection)
-        elif _measure is not None:
-            transaction = _measure_provider_append_transaction(measure)
         else:
-            transaction = unit_of_work(_ready_dsn())
+            transaction = _execution_append_transaction(measure)
         with transaction as conn:
             action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
                 conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
