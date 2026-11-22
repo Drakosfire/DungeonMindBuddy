@@ -24,6 +24,16 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Require release environment enablement
+        env:
+          PUBLICATION_ENABLED: ${{ vars.BUDDY_IMAGE_PUBLICATION_ENABLED }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$PUBLICATION_ENABLED" != true ]]; then
+            echo "Configure and protect the buddy-image-release environment before enabling image publication." >&2
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/heads/main
