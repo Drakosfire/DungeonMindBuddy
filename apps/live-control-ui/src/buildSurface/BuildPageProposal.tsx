@@ -254,6 +254,8 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     </>:null}</details>
   </>;
   if(review?.state==='applied'||review?.state==='discarded')return null;
+  if(review?.state==='applying'&&busy&&!choosing)
+    return <p className="surface-proposal-review" role="status">Saving suggestion…</p>;
   if(review?.state==='applying')return <section className="surface-proposal-review" aria-label="Check suggestion insertion">
     <p>Check that this insertion is saved. Your working copy is retained; the page is checked before anything is inserted again.</p>
     <details><summary>Retained suggestion</summary><blockquote>{review.markdown}</blockquote></details>

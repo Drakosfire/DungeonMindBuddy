@@ -366,6 +366,8 @@ it('waits for verified page persistence before confirming and recovers a failed 
  fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
  await waitFor(()=>expect(persist).toHaveBeenCalledTimes(1));
  expect(saved.state).toBe('applying');expect(complete).not.toHaveBeenCalled();
+ expect(screen.getByRole('status')).toHaveTextContent('Saving suggestion…');
+ expect(screen.queryByRole('button',{name:'Check insertion'})).not.toBeInTheDocument();
  expect(vi.mocked(proposalReview).mock.calls.some(([, ,command])=>command?.operation==='confirm')).toBe(false);
  await act(async()=>rejectSave(new Error('The page save was not verified.')));
  await screen.findByRole('button',{name:'Check insertion'});expect(saved.state).toBe('applying');
