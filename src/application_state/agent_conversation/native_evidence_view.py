@@ -405,7 +405,25 @@ def expected_semantic_frame(host, actual, *, project_managed_images=False):
 PLAN_EVIDENCE_HEADING = "# Plan evidence\n\n"
 
 
-def render_plan_evidence(frame, work, *, compact_graph_qualifications=False):
+def _recap_prose_key(row):
+    if row.get("planning_line_ranges") or "prior_claim" in row:
+        return None
+    text = row["text"]
+    lines = text.splitlines(keepends=True)
+    # Only isolated trailing spaces in plain prose may compare as identical.
+    # Keep indentation, Markdown hard breaks, code, and all source bytes intact.
+    if not any(mark in text for mark in ("`", "<", "\\", "~~~")) and not any(
+        line.startswith(("    ", "\t")) for line in lines
+    ):
+        text = "".join(
+            line[:-2] + "\n"
+            if line.endswith(" \n") and len(line) > 2 and not line[-3].isspace()
+            else line for line in lines
+        )
+    return row["campaign_scope"], text
+
+
+def render_plan_evidence(frame, work, *, compact_graph_qualifications=False, deduplicate_recap_prose=False):
     """Render the admitted evidence with the same aliases as the output schema."""
     def words(value):
         if isinstance(value, dict):
@@ -424,6 +442,7 @@ def render_plan_evidence(frame, work, *, compact_graph_qualifications=False):
     sessions = {}
     for row in bodies["excerpts"]:
         sessions.setdefault((row["campaign_scope"], row["session_scope"]), []).append(row)
+    first_passages = {}
     for (campaign, session), rows in sorted(
         sessions.items(), key=lambda entry: (str(entry[0][0]),
             entry[0][1] if isinstance(entry[0][1], int) else float("inf"))
@@ -437,6 +456,12 @@ def render_plan_evidence(frame, work, *, compact_graph_qualifications=False):
                 ranges = ", ".join(f"{start}–{stop}" for start, stop in planning)
                 label += f" (planning on source lines {ranges}; excerpt starts at line {row['line_start']})"
             prior = f"Earlier cited claim: {row['prior_claim']}\n" if "prior_claim" in row else ""
+            key = _recap_prose_key(row) if deduplicate_recap_prose else None
+            if key is not None:
+                first = first_passages.setdefault(key, row["excerpt_handle"])
+                if first != row["excerpt_handle"]:
+                    parts.append(f"{label} · Same passage as [{first}].")
+                    continue
             parts.append(f"{label}\n{prior}{row['text']}")
     statements = frame["native_statements"]["statements"]
     if statements:

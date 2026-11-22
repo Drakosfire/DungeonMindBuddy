@@ -273,6 +273,9 @@ class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
     compact_plan_graph_qualifications: Literal[True] | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
+    deduplicate_plan_recap_prose: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+
     @model_validator(mode="after")
     def exact_read_ids(self):
         if self.native_read_event_ids != tuple(sorted(set(self.native_read_event_ids), key=str)):
