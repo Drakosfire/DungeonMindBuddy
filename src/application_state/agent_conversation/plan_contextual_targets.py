@@ -13,6 +13,7 @@ RELATIONS = {
     'end_page': 'At the end of the current page.',
     'unresolved': 'No single page-placement relation is identified, or multiple relations are required.',
 }
+UNSTATED_INSERTION_LOCATION = 'unstated_insertion_location'
 AUTHOR_CAPTURE_KINDS = {
     'insert_at_explicit_caret': 'insert_at_caret',
     'replace_explicit_selection': 'replace_selection',
@@ -239,10 +240,24 @@ def scope_modes(request):
     return dict(PARAGRAPH_SCOPES)
 
 
+def _implicit_caret_available(request):
+    return (getattr(request, 'implicit_caret_version', None) == 'v1'
+        and request.original_capture is not None
+        and request.original_capture.target_kind == 'insert_at_caret'
+        and 'captured' in offered_relations(request))
+
+
 def focused_target(request):
     capture = request.original_capture
     if capture is None:
         return None
+    if _implicit_caret_available(request):
+        return dict(kind=capture.target_kind, interpretation=(
+            'Use this caret for an insertion requested on the current Plan when the author '
+            'leaves the page location open. A named, relative, uncertain or conflicting '
+            'destination cannot default to the caret. A reference to the content being '
+            'added does not itself name a location in the existing Plan.'
+        ))
     selected = capture.target_kind == "replace_selection"
     return dict(kind=capture.target_kind,
         **({"selected_text": capture.selected_text} if selected else {}),
@@ -262,12 +277,20 @@ def target_questions(request):
         'captured': 'Only for the captured relation: does the request use this captured selection or caret? For other relations, exclude.',
         'page_end': 'Only for the end_page relation: does the request choose the current page end? For other relations, exclude.',
     }
+    options = {key: RELATIONS[key] for key in offered_relations(request)}
+    implicit_caret = _implicit_caret_available(request)
+    if implicit_caret:
+        options['captured'] += ' Also use the offered caret for a current Plan insertion with no stated destination.'
+        questions['captured'] += (
+            ' Include the caret if the author requests a current Plan insertion with no stated '
+            'destination. Exclude it if there is a different destination or unresolved placement.'
+        )
     locator = paragraph_locator(request)
     verbatim = literal_paragraph_locator(request) is not None
     return (ChoiceDecisionQuestion(name='placement_relation', options=offered_relations(request),
         question='What single relation to an existing page anchor does the requested fragment use? '
             'Ignore ordering inside the new fragment. Multiple page relations must be unresolved.',
-        option_descriptions={key: RELATIONS[key] for key in offered_relations(request)}),
+        option_descriptions=options),
         ChoiceDecisionQuestion(name='paragraph_scope', options=tuple(scope_modes(request)),
             question='For a paragraph placement, does the author impose one section description? '
                 'Judge section scope separately from paragraph content. Use not_applicable for other relations.',
@@ -278,7 +301,9 @@ def target_questions(request):
             option_descriptions=dict(SCOPE_QUALIFIERS)),
         *(ChoiceDecisionQuestion(name=f'anchor_{i}', options=('include', 'exclude'),
             option_descriptions={
-                'include': 'The requested relation uses this kind of direct destination and the author refers to this capture, heading path or page end.',
+                'include': ('The current Plan insertion leaves placement open and uses this exact caret, '
+                    'or the author explicitly requests this caret.' if implicit_caret and anchor['kind'] == 'captured'
+                    else 'The requested relation uses this kind of direct destination and the author refers to this capture, heading path or page end.'),
                 'exclude': 'Another relation kind or destination is requested. A heading named merely as paragraph context is not a direct destination.'},
             question=questions[anchor['kind']] + ' Judge offered_page_anchors '
                 + anchor['selector']
@@ -526,7 +551,7 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
     """Join independent author scope to source nominations at their exact editor geometry."""
     from .native_plan_opening import NativePlanAuthorScopeObservationV1
     from .plan_author_location import (
-        DescribedScopeName, NamedScopePath, ScopeWithExclusion, UnresolvedLocation,
+        DescribedScopeName, NamedScopePath, ScopeWithExclusion, UnresolvedLocation, UnscopedLocation,
         bind_scope, contains_exact_paragraph_excerpt,
     )
 
@@ -560,6 +585,16 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
         return evidence | resolve_anchor_targets(capture, catalog, intent,
             relation if paragraph_relation else 'unresolved', ())
     author_relation = observation.relation
+    if author_relation == UNSTATED_INSERTION_LOCATION:
+        captures = tuple(row['selector'] for row, entries in inventory['all']
+            if any(entry.kind == 'captured_target' for entry in entries))
+        nominated = tuple(anchor for row in direct_rows for anchor in row['anchors'])
+        compatible = (intent == 'write_current_page' and page_edit_intent == 'page_edit'
+            and isinstance(scope, UnscopedLocation) and capture.target_kind == 'insert_at_caret'
+            and relation == 'captured' and len(captures) == 1 and nominated == captures
+            and not passage_ids and locator_passages is None)
+        return evidence | resolve_anchor_targets(capture, catalog, intent,
+            'captured' if compatible else 'unresolved', captures if compatible else ())
     capture_kind = AUTHOR_CAPTURE_KINDS.get(author_relation)
     if capture_kind is not None:
         author_relation = 'captured' if capture.target_kind == capture_kind else 'unresolved'

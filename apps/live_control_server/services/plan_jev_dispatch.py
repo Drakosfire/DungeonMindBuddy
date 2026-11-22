@@ -173,6 +173,7 @@ class PlanJevDispatch:
         if parent_type is NativePlanOpeningInputV2:
             navigation['evidence_relevance_version'] = 'v1'
             navigation['opening_graph_relevance_version'] = 'v1'
+            navigation['implicit_caret_version'] = 'v1'
         elif parent_type is NativePlanOpeningInputV3:
             navigation['column_scope_version'] = 'v1'
         if author_scope is not None:
@@ -203,7 +204,8 @@ class PlanJevDispatch:
         from application_state.agent_conversation.native_execution import NativePlanActionV3
         from application_state.agent_conversation.native_plan_opening import (
             NativePlanAuthorScopeObservedV1, NativePlanAuthorScopeParentV1,
-            NativePlanOpeningScopeBindingV1, require_retained_author_scope,
+            NativePlanOpeningInputV2, NativePlanOpeningScopeBindingV1, opening_input_type,
+            require_retained_author_scope,
         )
 
         turn = adapter.fence.turn
@@ -225,6 +227,8 @@ class PlanJevDispatch:
             question=turn.user_text, dialogue=tuple(dialogue), quote_context=prior_scope is not None,
             assess_page_edit=not review,
             selection_reference_version='v1',
+            implicit_caret_version=('v1' if opening_input_type(turn.graph_context_execution.policy.action)
+                is NativePlanOpeningInputV2 else None),
             requested_operation=adapter.request.plan_requested_operation if not review else None,
             max_span_attempts=2048, request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256,

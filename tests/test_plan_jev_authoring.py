@@ -1462,6 +1462,7 @@ def test_current_authorization_rejects_parent_contract_substitution(plan_adapter
 def _shared_plan_authoring_case(
     plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None,
     placement_factory=None, semantic_intent=None, semantic_compatible=None,
+    ordinary_caret=False,
 ):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import (
@@ -1567,6 +1568,9 @@ def _shared_plan_authoring_case(
                 if entry is not None and (routing not in {'discuss', 'clarify'}
                         or semantic_intent == 'write_current_page'):
                     relation = 'insert_at_explicit_caret' if entry.kind == 'captured_target' else entry.kind
+                    if ordinary_caret:
+                        assert relation == 'insert_at_explicit_caret'
+                        relation = 'unstated_insertion_location'
                 scope = 'none'
                 if relation in {'before_paragraph', 'after_paragraph'} and 'the Preparation paragraph about' in body['state']['current_request']:
                     scope = next(alias for alias, candidate in body['state']['scope_hypotheses'].items()
@@ -1942,6 +1946,24 @@ def _shared_plan_authoring_case(
         and len(decisions.calls) == (2 if mode == "base" else 3) + author_scope_calls
     )
     return response
+
+
+def test_ordinary_plan_caret_reopens_its_exact_captured_proposal(
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn,
+):
+    from tests.application_state.test_plan_placement import native_paragraph_placement_fixture
+
+    plan_adapter.request = plan_adapter.request.model_copy(update={
+        "message": "Add what the players see and hear at the boardwalk. "
+                   "Give me a private reminder to leave the tower sealed unless the players investigate.",
+    })
+    result = _shared_plan_authoring_case(
+        plan_adapter, tmp_path, monkeypatch, "captured", "base",
+        dsn=application_state_dsn, placement_factory=native_paragraph_placement_fixture,
+        ordinary_caret=True,
+    )
+    assert result.plan_proposal.capture.target_kind == "insert_at_caret"
+    assert result.plan_proposal.capture.from_ == result.plan_proposal.capture.to
 
 
 @pytest.mark.parametrize("mode", ["base", "mixed", "rules_only"])

@@ -333,6 +333,71 @@ def test_author_scope_placement_joins_complete_path_and_agreed_relation(path, re
         assert catalog.resolve(capture, resolved['placement_selector']).root_boundary == boundary
 
 
+@pytest.mark.parametrize('author_relation, scope_kind, edit_intent, source_relation, vote, selected, allowed', [
+    ('unstated_insertion_location', 'unscoped', 'page_edit', 'captured', 'include', False, True),
+    ('unresolved', 'unscoped', 'page_edit', 'captured', 'include', False, False),
+    ('unstated_insertion_location', 'unresolved', 'page_edit', 'captured', 'include', False, False),
+    ('unstated_insertion_location', 'named', 'page_edit', 'captured', 'include', False, False),
+    ('unstated_insertion_location', 'unscoped', 'discussion', 'captured', 'include', False, False),
+    ('unstated_insertion_location', 'unscoped', 'page_edit', 'unresolved', 'include', False, False),
+    ('unstated_insertion_location', 'unscoped', 'page_edit', 'captured', 'exclude', False, False),
+    ('unstated_insertion_location', 'unscoped', 'page_edit', 'captured', 'include', True, False),
+])
+def test_ordinary_caret_requires_unstated_location_and_independent_exact_vote(
+        author_relation, scope_kind, edit_intent, source_relation, vote, selected, allowed):
+    from application_state.agent_conversation.native_plan_opening import (
+        NativePlanAuthorScopeInputV1, NativePlanAuthorScopeObservationV1, NativePlanOpeningInputV2,
+        NativePlanOpeningScopeBindingV1, prepare_author_scope_decision,
+    )
+    from application_state.agent_conversation.plan_author_location import (
+        UnresolvedLocation, UnscopedLocation, literal_reference,
+    )
+    from application_state.agent_conversation.plan_contextual_targets import (
+        contextual_work_choice, prepare_contextual_work,
+    )
+
+    question = ('Add what the players see and hear at the boardwalk. '
+        'Give me a private reminder to leave the tower sealed unless the players investigate.')
+    author = NativePlanAuthorScopeInputV1(question=question, dialogue=(), max_span_attempts=100,
+        quote_context=False, assess_page_edit=True)
+    legacy_author = prepare_author_scope_decision(author)
+    current_author = prepare_author_scope_decision(author.model_copy(update={'implicit_caret_version': 'v1'}))
+    assert legacy_author.state == current_author.state
+    assert 'unstated_insertion_location' not in legacy_author.questions[1].options
+    assert 'unstated_insertion_location' in current_author.questions[1].options
+
+    capture, catalog = captured_catalog(selected=selected)
+    fields = request_for(capture, catalog).model_dump(exclude={'schema_'})
+    fields.update(original_capture=capture, placement_catalog=catalog)
+    scope = {'unscoped': UnscopedLocation(), 'unresolved': UnresolvedLocation(reason='Conflict'),
+        'named': literal_reference('Departure', path=False)}[scope_kind]
+    observation = NativePlanAuthorScopeObservationV1(relation=author_relation,
+        selected_alias='none', scope=scope)
+    request = NativePlanOpeningInputV2.model_construct(**(fields | dict(
+        question=question, implicit_caret_version='v1', author_scope_binding=NativePlanOpeningScopeBindingV1(
+            observation_event_id=uuid4(), observation=observation, page_edit_intent=edit_intent))))
+    current = prepare_contextual_work(request)
+    legacy = prepare_contextual_work(request.model_copy(update={'implicit_caret_version': None}))
+    assert 'unstated_insertion_location' not in json.dumps(current.state)
+    assert ('leaves the page location open' in current.state['focused_edit_target']['interpretation']) == (not selected)
+    assert 'leaves the page location open' not in legacy.state['focused_edit_target']['interpretation']
+
+    questions = current.questions[1:]
+    answers = {question.name: question.options[-1] for question in questions}
+    answers.update(placement_relation=source_relation, paragraph_scope='not_applicable',
+        scope_qualifier='none', anchor_0=vote)
+    if edit_intent == 'discussion':
+        answers = {key: ('exclude' if key == 'anchor_0' else value) for key, value in answers.items()}
+    result = contextual_work_choice(request, 'write_current_page', answers)
+    if allowed:
+        assert result['requested_work'] == 'write_current_page'
+        assert result['placement_selector'] == 'captured'
+        assert result['target_capture_sha256'] == capture.sha256
+    else:
+        assert result['requested_work'] in ('clarify', 'discuss')
+        assert result['target_capture_sha256'] is None
+
+
 def test_described_scope_votes_join_only_the_nominated_heading_occurrence():
     from application_state.agent_conversation.native_plan_opening import (
         NativePlanAuthorScopeObservationV1, NativePlanOpeningInputV2, NativePlanOpeningScopeBindingV1,
