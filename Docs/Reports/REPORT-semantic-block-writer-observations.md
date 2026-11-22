@@ -512,3 +512,35 @@ chat. No page suggestion appeared.
 These are observable chat-routing and no-change checks. Server-side write
 reservations were not independently inspected. The reused Plan is not a
 clean matched fixture repetition.
+
+### Hosted checks after the Actions deployment
+
+On November 22, [Actions run 45059452118](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/45059452118)
+activated revision `cda681c1ac4250343217b4ac7133889643a3f6e8`. The serving
+container was healthy, public readiness returned 200, and the live application
+schema remained `20261120_0170`. All fixtures below were in Buddy Cloud Pilot.
+
+- **Plan direct reopen and history.** A fresh tab opened the exact saved
+  Plan deep link while signed in. Arrival and Departure rendered, including
+  the existing Read Aloud and GM Note blocks. Opening the composer loaded
+  the saved discussion without the previous history warning. This checks
+  reopen and history. The 0172 placement benchmark is still separate.
+- **PL02.** Reopened the same synthetic Play run directly and started a
+  fresh conversation. The exact chat-only prompt produced a saved-scene
+  excerpt with a readable Read Aloud label and the At the Boardwalk passage.
+  The reply omitted the private tower, lantern, and gate cues. Refreshing
+  the scene-proposal panel showed no staged edit. This is an observable
+  no-proposal check. Server-side edit reservations were not inspected.
+- **B01.** On the illustrated synthetic fixture, verified a collapsed
+  selection at the final character of the Arrival paragraph. The exact
+  prompt previewed Read Aloud followed by GM Note immediately after that
+  paragraph. The private wait instruction appeared only in the GM Note.
+  After Save and direct reload, both blocks rendered at the same boundary.
+  Removing only the two new blocks from the rendered comparison reproduced
+  the entire baseline, including the table, Departure, and the 1,024-pixel
+  illustration. The reused fixture already contained earlier benchmark
+  blocks, so this does not count as a clean matched repetition.
+- **Save acknowledgement.** Build showed Saved and still displayed Check
+  insertion after reload. Activating Check insertion cleared the warning
+  with identical rendered content and exactly one copy of the new passage.
+  Recovery worked. Automatic acknowledgement remains unresolved.
