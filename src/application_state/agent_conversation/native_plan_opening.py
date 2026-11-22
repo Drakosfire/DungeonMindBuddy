@@ -110,6 +110,7 @@ class NativePlanOpeningInputV3(NativePlanOpeningInputV1):
     original_capture: PlanAuthoringComposedSnapshotV1
     author_scope_binding: NativePlanOpeningScopeBindingV1
     column_scope_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
+    implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 NATIVE_PLAN_OPENING_INPUT_TYPES = (
@@ -133,7 +134,8 @@ def _composed_work_request(request):
         dialogue=tuple({"role": row.role, "content": row.content} for row in request.dialogue),
         target_available=False,
     )
-    return prepare_composed_plan_nomination(author, request.original_capture, request.placement_catalog)
+    return prepare_composed_plan_nomination(author, request.original_capture, request.placement_catalog,
+        offer_caret=request.implicit_caret_version == 'v1')
 
 
 def _observed_column(scope) -> str | None:
@@ -171,7 +173,9 @@ def composed_author_column(request) -> ComposedColumn | None:
     return observed
 
 
-def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, *, author_column=None):
+def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, *, author_column=None,
+        implicit_caret_version=None):
+    from .plan_contextual_targets import UNSTATED_INSERTION_LOCATION
     if author_column is not None and _observed_column(binding.observation.scope) != author_column:
         raise ValueError('Composed column differs from the retained author scope')
     if operation == 'discuss' or binding.page_edit_intent == 'discussion':
@@ -182,11 +186,15 @@ def resolve_composed_opening(snapshot, catalog, binding, nomination, operation, 
         intent = 'clarify'
     else:
         intent = 'write_current_page'
-    resolved = resolve_composed_plan_nomination(snapshot, catalog, intent, nomination)
+    unstated_location = binding.observation.relation == UNSTATED_INSERTION_LOCATION
+    resolved = resolve_composed_plan_nomination(snapshot, catalog, intent, nomination,
+        allow_caret=(implicit_caret_version == 'v1' and unstated_location
+            and isinstance(binding.observation.scope, UnscopedLocation) and author_column is None))
     capture = resolved.capture
     if capture is not None:
         observed_relation = binding.observation.relation
-        if observed_relation not in ('unresolved', f'{capture.slot_address.relation}_paragraph'):
+        if nomination.scope != 'caret_boundary' and observed_relation not in (
+                'unresolved', f'{capture.slot_address.relation}_paragraph'):
             return {'requested_work': 'clarify', 'target_resolution': 'unresolved',
                     'placement_selector': None, 'target_capture_sha256': None}
         scope = binding.observation.scope
@@ -432,7 +440,7 @@ def validate_author_scope_parent(context, execution, parent, authorization):
             or type(parent) is not NativePlanAuthorScopeParentV1
             or type(execution.policy.action) is not NativePlanActionV3
             or (parent.implicit_caret_version is not None
-                and opening_input_type(execution.policy.action) is not NativePlanOpeningInputV2)
+                and opening_input_type(execution.policy.action) not in (NativePlanOpeningInputV2, NativePlanOpeningInputV3))
             or type(context.assembled_input) is not NativePlanRequestAdmissionV1
             or parent.request_manifest_sha256 != context.assembled_input.manifest_sha256
             or parent.prior_scope_event_id != authorization.prior_scope_event_id
@@ -634,9 +642,9 @@ def _composed_opening_fields(request, answers):
     return resolve_composed_opening(
         request.original_capture, request.placement_catalog,
         request.author_scope_binding, nomination, request.plan_requested_operation,
-        author_column=author_column,
+        author_column=author_column, implicit_caret_version=request.implicit_caret_version,
     ) | {"composed_nomination": nomination, "column_scope_version": request.column_scope_version,
-           "author_column": author_column}
+           "implicit_caret_version": request.implicit_caret_version, "author_column": author_column}
 
 
 def composed_opening_fields(request, result):

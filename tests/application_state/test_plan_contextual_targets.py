@@ -80,6 +80,20 @@ def composed_snapshot(*, selected=False, wrong_slot=False, source=None):
     })
 
 
+def test_composed_caret_geometry_uses_utf16_and_exact_paragraph_edges():
+    from application_state.agent_conversation.plan_slot_layout import slot_paragraph_boundary
+
+    editor = {"type": "doc", "content": [{"type": "pageRow", "content": [
+        {"type": "pageSlot", "content": [{"type": "paragraph", "content": [
+            {"type": "text", "text": "🌿A"},
+        ]}]},
+    ]}]}
+    assert slot_paragraph_boundary(editor, 3) == ((0, 0, 0), "before")
+    assert slot_paragraph_boundary(editor, 6) == ((0, 0, 0), "after")
+    for position in (0, 1, 2, 4, 5, 7, 8):
+        assert slot_paragraph_boundary(editor, position) is None
+
+
 def test_composed_catalog_keeps_identical_paragraph_occurrences_separate():
     from application_state.agent_conversation.plan_composed_targeting import (
         ComposedPlanNominationV1, ComposedPlanPlacementCatalogV1, resolve_composed_plan_nomination,

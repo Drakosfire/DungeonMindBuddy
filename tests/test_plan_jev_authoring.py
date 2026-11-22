@@ -2097,7 +2097,8 @@ def test_under_heading_selection_survives_actual_dispatch_reservation_and_retain
     assert not fresh_again and again.action_id == action.action_id
 
 
-@pytest.mark.parametrize("outcome", ["selected", "ambiguous", "relation_conflict", "stale_layout", "foreign"])
+@pytest.mark.parametrize("outcome", ["selected", "ambiguous", "relation_conflict", "stale_layout", "foreign",
+    "ordinary_caret", "mid_paragraph_caret", "conflicting_caret"])
 def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tmp_path, outcome):
     from dataclasses import replace
 
@@ -2143,6 +2144,14 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
         draft_page_presentation=layout.model_dump(mode="json", by_alias=True),
         draft_page_presentation_sha256=layout.fingerprint(),
     )
+    caret_case = outcome in {"ordinary_caret", "mid_paragraph_caret", "conflicting_caret"}
+    if caret_case:
+        raw["message"] = ("Add what the players see and hear at the boardwalk. "
+                          "Give me a private reminder to leave the tower sealed unless the players investigate.")
+        position = len(LEFT[1]) + 7 + len(RIGHT[1]) - int(outcome == "mid_paragraph_caret")
+        selection_json = json.dumps({"type": "text", "anchor": position, "head": position})
+        raw["plan_authoring_capture"].update({"from": position, "to": position,
+            "selection_json": selection_json, "selection_sha256": text_digest(selection_json)})
     if outcome == "foreign":
         raw["plan_authoring_capture"]["world_id"] = "world:foreign"
         with pytest.raises(ValidationError):
@@ -2167,14 +2176,22 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
             questions = body["questions"]
             if "existing_scope" in questions:
                 choices = dict(
-                    location_relation="before_paragraph" if outcome == "relation_conflict" else "after_paragraph",
+                    location_relation=("unstated_insertion_location" if caret_case
+                        else "before_paragraph" if outcome == "relation_conflict" else "after_paragraph"),
                     existing_scope="none", page_edit_intent="page_edit",
                 )
             elif "confirmed_work" in questions:
                 locations = {row["alias"]: row["description"] for row in body["state"]["locations"]}
                 choices = dict(confirmed_work="write_current_page", relation="after", row_choice="any_row",
                                scope="qualified" if qualified else "unscoped")
-                choices.update({name: "include" for name in questions if name.startswith("passage")})
+                if caret_case:
+                    offered = body["state"].get("offered_caret_boundary")
+                    assert offered == (None if outcome == "mid_paragraph_caret" else "after")
+                    choices["scope"] = "caret_boundary" if offered else "unresolved"
+                    if outcome == "conflicting_caret":
+                        choices["relation"] = "before"
+                choices.update({name: "exclude" if caret_case else "include"
+                    for name in questions if name.startswith("passage")})
                 choices.update({
                     alias: "include" if qualified and "right column" in label else "exclude"
                     for alias, label in locations.items()
@@ -2197,7 +2214,7 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
             body = json.loads(request.content)
             self.adapter = wire.adapter
             assert capture.draft_page_presentation_sha256 not in request.content.decode()
-            if outcome in {"ambiguous", "relation_conflict"}:
+            if outcome in {"ambiguous", "relation_conflict", "mid_paragraph_caret", "conflicting_caret"}:
                 response = {"question": body["text"]["format"]["schema"]["properties"]["question"]["enum"][0]}
             else:
                 response = dict(schema=POLICY, answer_segments=[dict(
@@ -2229,7 +2246,16 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
     snapshot = snapshot_plan(capture.document_id)
     assert snapshot.markdown == markdown and snapshot.page_presentation == layout
     action = PlanActionDialogueService().get_by_key(capture.world_id, capture.idempotency_key)
-    if outcome == "selected":
+    if outcome == "ordinary_caret":
+        assert selection.implicit_caret_version == "v1"
+        assert selection.target_resolution == "unique"
+        assert response.plan_proposal.capture.slot_address.slot_id == "right"
+        assert response.plan_proposal.capture.slot_address.relation == "after"
+        assert replay.plan_proposal == response.plan_proposal
+        assert action is not None and action.target_kind == "insert_at_slot_boundary"
+        with pytest.raises(ValueError, match="complete target resolution"):
+            NativePlanOpeningSelectedV3.model_validate(selection.model_dump() | {"implicit_caret_version": None})
+    elif outcome == "selected":
         assert selection.target_resolution == "unique"
         assert response.plan_proposal is not None
         assert response.plan_proposal.capture.slot_address.slot_id == "right"
