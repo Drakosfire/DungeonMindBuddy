@@ -1016,6 +1016,7 @@ interface ConversationTestProps {
   savedDirty?: boolean;
   presentationHosts?: PlanConversationPresentationHosts;
   onSavePlan?: () => void;
+  onReviewEncounterAttachment?: (title: string) => Promise<void>;
   imagePromptHost?: { unavailableReason: string | null; open: (prompt: string) => boolean };
   savePlanEnabled?: boolean;
   editorSelectionActive?: boolean;
@@ -1046,6 +1047,7 @@ function conversationElement(props: ConversationTestProps = {}) {
       saveInFlight={false}
       presentationHosts={props.presentationHosts}
       onSavePlan={props.onSavePlan}
+      onReviewEncounterAttachment={props.onReviewEncounterAttachment}
       imagePromptHost={props.imagePromptHost}
       savePlanEnabled={props.savePlanEnabled}
       editorSelectionActive={props.editorSelectionActive}
@@ -2033,6 +2035,18 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByRole('textbox',{name:'Message DungeonBuddy'}),{target:{value:message}});
     expect(screen.getByRole('button',{name:'Send message'})).toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Propose edit'})).not.toBeInTheDocument();
+  });
+
+  it("opens the exact encounter review from an explicit DungeonBuddy message", async () => {
+    setupApi(history("conversation-a",1,[]));
+    const review = vi.fn(async () => undefined);
+    render(conversationElement({onReviewEncounterAttachment: review}));
+    await waitForConversationReady();
+    const composer = screen.getByRole("textbox", {name: "Message DungeonBuddy"});
+    fireEvent.change(composer, {target: {value: "Attach “Old Bath House Combat” to this scene."}});
+    fireEvent.click(screen.getByRole("button", {name: "Send message"}));
+    await waitFor(() => expect(composer).toHaveValue(""));
+    expect(review).toHaveBeenCalledExactlyOnceWith("Old Bath House Combat");
   });
 
   it.each([
