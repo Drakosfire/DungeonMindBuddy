@@ -360,3 +360,28 @@ two-block save and reopen case unverified.
 Use the [benchmark suite](../../evals/semantic-block-authoring-benchmark.md)
 for the fixture, exact prompts and scoring. Keep deterministic checks,
 live authoring repetitions, and surface eligibility observations separate.
+
+### Hosted ordinary Send follow-up
+
+These runs used synthetic pages in Buddy Cloud Pilot. Each exact prompt ran
+in a fresh conversation. Some fixtures contained earlier benchmark blocks
+and edits, so the runs do not form a clean matched three-repetition set.
+
+| Case | Live result |
+| --- | --- |
+| Build B01 | The reviewed proposal contained a Read Aloud and a separate GM Note. The spoken text omitted the private cue. Save and direct reload kept both blocks immediately after the Arrival paragraph, along with the existing First sight block, table, Departure text, and rendered artwork. |
+| Build B03, serving revision `03055f24` | The suggestion contained exactly two ordinary paragraphs. Save and reload placed them immediately after the Arrival paragraph. Removing only the two additions from the rendered workspace comparison reproduced the pre-send view. |
+| Build X02, serving revision `03055f24` | Separate Rules and Warning requests produced their corresponding blocks. The Rules body contained only “Travel pace is set by the GM.” Both were saved at the boundary after the Arrival paragraph without moving either suggestion. After each reload, removing the new block from the rendered comparison reproduced the prior workspace, including the table, Departure, and artwork. |
+| Build and Plan X01 | Both replies stayed in chat with no visible proposal. Each rendered workspace and Saved timestamp matched its own baseline. This browser observation leaves server-side write reservations unverified for these repetitions. |
+| Plan P01 | Ordinary Send eventually showed an editable Read Aloud and GM Note with no retrieval disclosure in the suggestion. Both survived explicit Save and reopening through the World picker. The blocks landed at the start of Arrival, before the target paragraph. The existing choice and Departure text survived. Direct reload still returned `owned_world_access_required` on the serving release. This is a persistence pass and a placement and direct-reopen failure. |
+
+The Plan X01 reply completed even though the browser showed
+`hosted_world_route_policy_unverified`. The two denied legacy action history
+reads are addressed in [#4392](https://github.com/Drakosfire/DungeonMindBuddy/pull/4392).
+The separate 403 on direct Plan entry came from the Build document record
+route. [#4394](https://github.com/Drakosfire/DungeonMindBuddy/pull/4394) switches
+hosted Plan links to the existing owned Plan snapshot route. Both fixes were
+merged and staged on serving-line candidate `8e057a04`. The table records
+behavior observed before their cutover. It leaves their hosted verification,
+correct ordinary Plan placement, and the remaining independent repetitions
+open.
