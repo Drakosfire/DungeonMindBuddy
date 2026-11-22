@@ -206,3 +206,12 @@ The coordinator retains `native-before.json` and `native-after.json` for the
 whole cohort. Worker output and timing evidence are under `members/`.
 The end inventory must match the beginning one to qualify the run.
 Standalone capture still verifies and retains its own snapshots.
+
+Add `--browser-cohort` to use ordinary Plan browser Send and stop at the local
+writer transport sink. Each member must pin exactly one case, its UI bundle,
+and its successful retained Jev exchange tape. Set the same local browser
+runtime and credential-free environment as standalone browser capture.
+Add `--detailed-trace` for individual host spans and first-Jev transport
+intervals. Browser marks and the writer-ready packet are retained under each
+member. The coordinator still brackets the whole cohort with two inventory
+scans.

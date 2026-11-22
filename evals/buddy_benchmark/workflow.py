@@ -1254,12 +1254,17 @@ def main(argv=None):
     parser.add_argument("--citation-readback", help="Retained excerpt citation readback JSONL")
     parser.add_argument("--writer-transport", action="store_true",
                         help="Capture the serialized writer request at a local transport sink")
+    parser.add_argument("--browser-cohort", action="store_true",
+                        help="Capture ordinary browser Send to the local writer transport sink for each cohort member")
     parser.add_argument("--detailed-trace", action="store_true", help="Retain individual host timing intervals")
     parser.add_argument("--trace-input", type=Path, help="Retained detailed capture directory")
     parser.add_argument("--case", help="Manifest case ID for trace-report or isolated browser capture")
     args = parser.parse_args(argv)
-    if args.detailed_trace and args.mode != "capture-context":
-        parser.error("--detailed-trace requires capture-context")
+    browser_cohort = args.mode == "capture-context-cohort" and args.browser_cohort
+    if args.browser_cohort and not browser_cohort:
+        parser.error("--browser-cohort requires capture-context-cohort")
+    if args.detailed_trace and args.mode != "capture-context" and not browser_cohort:
+        parser.error("--detailed-trace requires capture-context or a browser cohort")
     if args.writer_transport and args.mode != "capture-context":
         parser.error("--writer-transport requires capture-context")
     if args.mode != "report" and (args.oracle or args.citation_readback):
@@ -1290,7 +1295,8 @@ def main(argv=None):
                 detailed_trace=args.detailed_trace, **options)
     elif args.mode == "capture-context-cohort":
         from .cohort_capture import capture_cohort
-        capture_cohort(args.manifest, args.output, workers=args.workers)
+        capture_cohort(args.manifest, args.output, workers=args.workers,
+                       browser=browser_cohort, detailed_trace=args.detailed_trace)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     elif args.mode == "context-tasting":

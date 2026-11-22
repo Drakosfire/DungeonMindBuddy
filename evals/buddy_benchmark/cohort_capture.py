@@ -80,7 +80,7 @@ def _endpoint(dsn, expected):
         raise ValueError("Cohort database identity differs from its pin")
 
 
-def _capture_member(manifest, output, app_dsn, manifest_sha256):
+def _capture_member(manifest, output, app_dsn, manifest_sha256, *, browser_case=None, detailed_trace=False):
     from .workflow import capture
 
     scratch = output.parent / "scratch" / output.name
@@ -90,13 +90,16 @@ def _capture_member(manifest, output, app_dsn, manifest_sha256):
         directory.mkdir()
         os.environ[key] = str(directory)
     os.environ[APP_DSN] = app_dsn
-    capture(manifest, output, context_only=True, cohort_manifest_sha256=manifest_sha256)
+    capture(manifest, output, context_only=True, cohort_manifest_sha256=manifest_sha256,
+            browser_case=browser_case, writer_transport=browser_case is not None, detailed_trace=detailed_trace)
 
 
-def capture_cohort(manifest_path, output, *, workers):
+def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False):
     """Capture independent member manifests, then prove Core parity once."""
     from .workflow import load_manifest, read_pin
 
+    if detailed_trace and not browser:
+        raise ValueError("Detailed cohort tracing requires browser mode")
     if not 1 <= workers <= 8:
         raise ValueError("Cohort workers must be between 1 and 8")
     path = Path(manifest_path).resolve()
@@ -128,6 +131,8 @@ def capture_cohort(manifest_path, output, *, workers):
             raise ValueError("Cohort requires separate App databases for each member")
         app_identities.add(identity)
         ids = {case["id"] for case in member["cases"]}
+        if browser and (len(member["cases"]) != 1 or not isinstance(member.get("browser_capture"), dict)):
+            raise ValueError("Each browser cohort member requires one case and its pinned browser capture")
         if cases & ids:
             raise ValueError("Repeated case identity in cohort")
         cases |= ids
@@ -145,7 +150,12 @@ def capture_cohort(manifest_path, output, *, workers):
     try:
         with ProcessPoolExecutor(max_workers=workers, max_tasks_per_child=1,
                                  mp_context=multiprocessing.get_context("spawn")) as executor:
-            futures = [(job[1], ids, executor.submit(_capture_member, *job)) for job, ids in jobs]
+            futures = [
+                (job[1], ids, executor.submit(_capture_member, *job, **(
+                    {"browser_case": next(iter(ids)), "detailed_trace": detailed_trace} if browser else {}
+                )))
+                for job, ids in jobs
+            ]
             outcomes = {}
             for member, ids, future in futures:
                 error = future.exception()
