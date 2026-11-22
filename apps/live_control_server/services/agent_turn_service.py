@@ -1707,6 +1707,29 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self.commit(method_name, **{event_name: event}, **extras)
 
+    def plan_execution_checkpoint(self):
+        from application_state.agent_conversation.native_plan_session import PlanExecutionCheckpoint
+
+        with self.renewer._lock:
+            if self.renewer._session is not None:
+                return self.renewer._session.execution_checkpoint()
+            execution = self.turn.graph_context_execution
+            return PlanExecutionCheckpoint(len(execution.events), execution.context_receipt_sha256,
+                execution.execution_policy_sha256)
+
+    def plan_provider_checkpoint(self, attempt_id):
+        with self.renewer._lock:
+            if self.renewer._session is not None:
+                return self.renewer._session.provider_checkpoint(attempt_id)
+            return None
+
+    def commit_plan_provider_outcome(self, outcome):
+        with self.renewer._lock:
+            if self.renewer._session is None:
+                return False
+            with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
+                return self._commit("record_provider_outcome", outcome_only=True, outcome=outcome)
+
     def commit_session_source_events(self, method_name, **fields):
         with self.renewer._lock:
             if self.renewer._session is None:
@@ -1718,7 +1741,7 @@ class _ClaimFence:
         """One moving claim owner for controller and source-navigation writes."""
         return self._commit(method_name, **fields)
 
-    def _commit(self, method_name, *, source_events_only=False, **fields):
+    def _commit(self, method_name, *, source_events_only=False, outcome_only=False, **fields):
         with self.renewer._lock:
             if self.renewer._error is not None:
                 raise ApplicationStateError('APP-STATE claim owner has stopped after a failed operation') from self.renewer._error
@@ -1739,6 +1762,14 @@ class _ClaimFence:
                             current = self.renewer._session.finish()
                         self.renewer._session = None
                         self.renewer._turn = current
+                    elif outcome_only:
+                        claim, fresh = self.renewer._session.record_provider_outcome(
+                            expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                        if fresh is not True:
+                            raise AgentTurnServiceError("APP-STATE did not confirm a fresh execution event.",
+                                code="turn_persistence_indeterminate", status_code=409)
+                        self.renewer._claim = claim
+                        return True
                     elif source_events_only:
                         from application_state.agent_conversation.native_plan_session import PlanSessionCommand
                         claim, events = self.renewer._session.execute_source_events(
@@ -3258,9 +3289,11 @@ class _PolicyExecutionAdapter:
             if transition not in {"sdk_entered", "response_received", "outcome_unknown", "known_not_sent"}:
                 return False
             graph_types = _app_state_graph_execution_types()
+            checkpoint = self.fence.plan_provider_checkpoint(self.last_provider_attempt_id)
+            sequence = checkpoint.sequence if checkpoint is not None else len(self._broker_execution().events)
             event = graph_types.ProviderOutcomeEventV1(
                 event_id=uuid4(),
-                sequence=len(self._broker_execution().events),
+                sequence=sequence,
                 kind="provider_outcome",
                 provider_attempt_id=self.last_provider_attempt_id,
                 outcome=transition,
@@ -3274,19 +3307,24 @@ class _PolicyExecutionAdapter:
             if (transition == "sdk_entered" and self._is_build_turn() and self.trace is not None
                     and type(self.fence.service) is AgentConversationService):
                 record_options["measure"] = self.trace.phase_before_first_jev
-            updated = _require_fresh_execution_append(
-                self.fence.append("record_provider_outcome", "outcome", event, **record_options)
-            )
-            self.turn = updated
+            if record_options or checkpoint is None or not self.fence.commit_plan_provider_outcome(event):
+                self.turn = _require_fresh_execution_append(
+                    self.fence.append("record_provider_outcome", "outcome", event, **record_options)
+                )
+                execution = self._broker_execution()
+                auth = next(item for item in execution.events if _is_provider_authorization(item)
+                    and item.provider_attempt_id == self.last_provider_attempt_id)
+                roles = getattr(execution.policy, "provider_roles", None)
+                identity = (auth.provider, auth.model, auth.api_mode)
+                writer = roles.writer.identity() if roles is not None else None
+            else:
+                identity = checkpoint.identity
+                writer = checkpoint.writer_identity
             if self.rules_runtime is not None:
                 self.rules_runtime.outcome(transition)
-            execution = self._broker_execution()
-            auth = next(item for item in execution.events if _is_provider_authorization(item)
-                and item.provider_attempt_id == self.last_provider_attempt_id)
             if transition == "response_received":
-                roles = getattr(execution.policy, "provider_roles", None)
-                if (roles is not None and (auth.provider, auth.model, auth.api_mode) == roles.writer.identity()
-                        or roles is None and self.budget.get("apiMode") != "typesafe_decision"):
+                if (writer is not None and identity == writer
+                        or writer is None and self.budget.get("apiMode") != "typesafe_decision"):
                     self.producing_provider_attempt_id = self.last_provider_attempt_id
             if self.context_capture is not None and transition == "sdk_entered":
                 self.context_capture.bind_provider_request(
@@ -3295,7 +3333,7 @@ class _PolicyExecutionAdapter:
             if self.context_capture is not None and transition != "sdk_entered":
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": self.last_provider_attempt_id,
-                    "provider": auth.provider, "model": auth.model,
+                    "provider": identity[0], "model": identity[1],
                     # Trace is a coarse display enum; exact known_not_sent stays
                     # in the durable execution lifecycle, not an invalid trace label.
                     "outcome": ("response_received" if transition == "response_received" else

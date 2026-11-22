@@ -128,7 +128,10 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
             expected_attempt=final.attempt, selection=step.selection, producer_proof=step.proof)
 
 
-def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(application_state_dsn):
+@pytest.mark.parametrize('project_outcomes', [False, True])
+def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(
+    application_state_dsn, project_outcomes, monkeypatch,
+):
     from contextlib import ExitStack
     from apps.live_control_server.services.agent_turn_service import _ClaimFence
 
@@ -137,8 +140,39 @@ def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(
             fence = _ClaimFence(service, turn)
             cleanup.callback(fence.stop)
             return fence
+        def assert_refused_outcomes(case, outcome):
+            from contextlib import contextmanager
+            from application_state.agent_conversation import service as service_owner
+            from application_state.agent_conversation.native_plan_session import NativePlanSession
+
+            before = case.turn
+            fields = dict(expected_revision=before.revision, expected_attempt=before.attempt, outcome=outcome)
+            stale = NativePlanSession(before)
+            with pytest.raises(ApplicationStateConflictError, match='claim fence'):
+                stale.record_provider_outcome(**(fields | {'expected_revision': before.revision - 1}))
+
+            original = service_owner.unit_of_work
+
+            @contextmanager
+            def rollback(dsn):
+                with original(dsn) as conn:
+                    yield conn
+                    raise RuntimeError('provider outcome rollback')
+
+            session = NativePlanSession(before)
+            with monkeypatch.context() as patch:
+                patch.setattr(service_owner, 'unit_of_work', rollback)
+                with pytest.raises(RuntimeError, match='provider outcome rollback'):
+                    session.record_provider_outcome(**fields)
+            with pytest.raises(ApplicationStateConflictError, match='sealed'):
+                session.record_provider_outcome(**fields)
+            assert AgentConversationService().inspect_turn(
+                world_id=before.world_id, turn_id=before.turn_id,
+            ) == before
+
         case = sdk_case(application_state_dsn, native='current', readonly_session=True,
-            fence_factory=make_fence)
+            fence_factory=make_fence, project_outcomes=project_outcomes,
+            before_projected_outcome=assert_refused_outcomes if project_outcomes else None)
         assert case.fence.renewer._session is not None
         assert append(case)
         assert not append(case)
@@ -326,6 +360,8 @@ def sdk_case(
     examined=None,
     readonly_session=False,
     fence_factory=None,
+    project_outcomes=False,
+    before_projected_outcome=None,
     post_read_plan=None,
     sent=None,
 ):
@@ -541,7 +577,23 @@ def sdk_case(
                 outcome=transition,
             )
             if getattr(case, 'fence', None) is not None:
-                case.turn, fresh = case.fence.append('record_provider_outcome', 'outcome', outcome)
+                checkpoint = case.fence.plan_provider_checkpoint(outcome.provider_attempt_id) if project_outcomes else None
+                if checkpoint is None:
+                    case.turn, fresh = case.fence.append('record_provider_outcome', 'outcome', outcome)
+                else:
+                    assert checkpoint.sequence == outcome.sequence
+                    if before_projected_outcome is not None:
+                        before_projected_outcome(case, outcome)
+                    fresh = case.fence.commit_plan_provider_outcome(outcome)
+                    from application_state.agent_conversation.native_plan_session import PlanSessionClaim
+                    assert isinstance(case.fence.renewer._claim, PlanSessionClaim)
+                    after = case.fence.plan_execution_checkpoint()
+                    assert after.sequence == outcome.sequence + 1
+                    case.turn = case.fence.turn
+                    assert case.turn.graph_context_execution.events[-1] == outcome
+                    assert AgentConversationService().inspect_turn(
+                        world_id=case.turn.world_id, turn_id=case.turn.turn_id,
+                    ) == case.turn
             else:
                 case.turn, fresh = case.service.record_provider_outcome(
                     case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,

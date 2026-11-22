@@ -27,6 +27,7 @@ from .native_execution import (
     _validate_owned_context_binding,
 )
 from .service import AgentConversationService, _ready_dsn, _validate_turn_claim_lease
+from .types import ProviderAttemptAuthorizedEventV1
 
 
 class PlanSessionCommand(str, Enum):
@@ -155,6 +156,20 @@ class PlanSessionClaim:
     snapshot: Callable[[], object] = field(repr=False, compare=False)
 
 
+@dataclass(frozen=True)
+class PlanExecutionCheckpoint:
+    sequence: int
+    context_receipt_sha256: str
+    execution_policy_sha256: str
+
+
+@dataclass(frozen=True)
+class PlanProviderCheckpoint:
+    sequence: int
+    identity: tuple[str, str, str]
+    writer_identity: tuple[str, str, str] | None
+
+
 class NativePlanSession:
     """One nonescaping materialization, serialized with the runtime claim fence."""
 
@@ -208,6 +223,31 @@ class NativePlanSession:
         return self._execute(command, expected_revision=expected_revision,
             expected_attempt=expected_attempt, fields=fields)
 
+    def execution_checkpoint(self) -> PlanExecutionCheckpoint:
+        with self._lock:
+            self._require_live()
+            execution = self._committed.graph_context_execution
+            return PlanExecutionCheckpoint(len(execution.events), execution.context_receipt_sha256,
+                execution.execution_policy_sha256)
+
+    def provider_checkpoint(self, attempt_id: UUID) -> PlanProviderCheckpoint:
+        with self._lock:
+            self._require_live()
+            execution = self._committed.graph_context_execution
+            authorization = next((event for event in reversed(execution.events)
+                if isinstance(event, ProviderAttemptAuthorizedEventV1)
+                and event.provider_attempt_id == attempt_id), None)
+            if authorization is None:
+                raise ApplicationStateConflictError('Plan provider attempt has no committed authorization')
+            roles = getattr(execution.policy, 'provider_roles', None)
+            return PlanProviderCheckpoint(len(execution.events),
+                (authorization.provider, authorization.model, authorization.api_mode),
+                roles.writer.identity() if roles is not None else None)
+
+    def record_provider_outcome(self, *, expected_revision, expected_attempt, outcome):
+        return self._execute(PlanSessionCommand.OUTCOME, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields={'outcome': outcome}, export_claim=True)
+
     def source_coordinates(self):
         with self._lock:
             self._require_live()
@@ -240,7 +280,7 @@ class NativePlanSession:
         return self._execute(command, expected_revision=expected_revision,
             expected_attempt=expected_attempt, fields=fields, export_source=True)
 
-    def _execute(self, command, *, expected_revision, expected_attempt, fields, export_source=False):
+    def _execute(self, command, *, expected_revision, expected_attempt, fields, export_source=False, export_claim=False):
         with self._lock:
             try:
                 self._enter()
@@ -292,6 +332,11 @@ class NativePlanSession:
                     return (PlanSessionClaim(committed.world_id, committed.conversation_id,
                         committed.turn_id, committed.revision, committed.attempt, lambda: deepcopy(committed)),
                         deepcopy(tuple(matches[event_id] for event_id in export_ids)))
+                if export_claim:
+                    committed = self._committed
+                    return PlanSessionClaim(committed.world_id, committed.conversation_id,
+                        committed.turn_id, committed.revision, committed.attempt,
+                        lambda: deepcopy(committed)), fresh
                 return deepcopy(self._committed), fresh
             except BaseException:
                 self._seal()
