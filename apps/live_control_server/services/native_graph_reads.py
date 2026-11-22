@@ -9,6 +9,7 @@ from collections import Counter
 from contextlib import nullcontext
 from dataclasses import dataclass
 import json
+import re
 from dungeonmind.application.vnext import (
     SearchReadService, EntityReadService, EvidenceReadService, open_admitted_native_text,
     open_admitted_native_text_batch,
@@ -20,7 +21,7 @@ from dungeonmind.domain.errors import PersistenceUnavailableError
 from dungeonmind.infrastructure.postgres.selective_query import RetainedSelectiveQuery
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
-    NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
+    NativeNamedRecapBoundV1, NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
     NativePlanAssertionReadV1, NativeAssertionSpanV1, NativeAssertionPdfRegionV1, NativeGraphQueryV3, NativeGraphQueryV4, NativeObjectMatchV1, NativeAuthoredTargetV1,
 )
 from application_state.agent_conversation.native_plan_statements import (
@@ -259,6 +260,55 @@ def pending_build_query(managed_world_id, question, source_context):
     )
 
 
+_NAMED_RECAP_ENDPOINT = re.compile(r"\b(?:by|at) the end of the ([\w-]+) recap\s*[?.!]?\s*$", re.I)
+
+
+def _resolve_named_recap_bound(question, read, *, selective):
+    endpoint = _NAMED_RECAP_ENDPOINT.search(question)
+    if endpoint is None:
+        return None
+    words = tuple(re.findall(r"\w+", endpoint[1].casefold()))
+    if len(words) < 2:
+        return None
+    limit = 512
+    phrase = " ".join(words)
+    search = (selective.search_entities(phrase, limit=limit) if selective is not None
+              else SearchReadService().search_entities(read, phrase, limit=limit))
+    if search.completeness.status != "complete" or len(search.hits) >= limit:
+        return None
+    candidates = {}
+    for hit in search.hits:
+        for assertion in hit.admitted_match_assertions:
+            name = getattr(assertion.value, "value", None)
+            if (assertion.predicate == "dnd5e:name"
+                    and assertion.metadata.claim_mode == "dungeonbuddy.claim:observed_event"
+                    and getattr(assertion.metadata.temporal_scope, "schema_term", None)
+                    == "dungeonbuddy.time:fictional_anchor_v1"
+                    and isinstance(name, str)
+                    and set(words).issubset(re.findall(r"\w+", name.casefold()))):
+                candidates.setdefault(hit.entity.entity_id, set()).add(assertion.assertion_id)
+    if len(candidates) != 1:
+        return None
+    (event_id, assertions), = candidates.items()
+    ids = tuple(sorted(assertions))
+    results = (selective.get_assertions_evidence(ids) if selective is not None
+               else EvidenceReadService().get_assertions_evidence(read, ids))
+    pairs = set()
+    for result in results:
+        if not result.available or result.completeness.status != "complete":
+            return None
+        support = {(ref.source_artifact_id, ref.source_revision_id)
+                   for ref in result.evidence if ref.evidence_role == "support"}
+        if not support:
+            return None
+        pairs.update(support)
+    if len(results) != len(ids) or len(pairs) != 1:
+        return None
+    (artifact_id, revision_id), = pairs
+    return NativeNamedRecapBoundV1(event_id=event_id, source_artifact_id=artifact_id,
+                                  source_revision_id=revision_id)
+
+
 def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   revision_id=None, repository=None, resolve_binding=None,
                   scope_mode='world', campaign_id=None, authored_references=None,
@@ -440,7 +490,9 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
     labels = _navigation_labels(_entities,
         scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None)
     objects = [NativeObjectMatchV1(entity_id=identity,label=labels[identity]) for identity in discovered]
-    query = NativeGraphQueryV4(authority=authority, question=question,
+    with measure("native_turn_graph_named_recap_bound"):
+        recap_bound = _resolve_named_recap_bound(question, pinned[0], selective=selective)
+    query = NativeGraphQueryV4(authority=authority, question=question, named_recap_bound=recap_bound,
         assertion_matches=assertion_matches,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))),

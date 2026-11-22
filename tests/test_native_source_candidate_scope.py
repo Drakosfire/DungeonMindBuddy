@@ -86,3 +86,22 @@ def test_opened_reference_hint_preserves_explicit_scope_and_broad_requests(quest
 def test_missing_or_unavailable_reference_metadata_does_not_narrow(reference):
     rows={'other':display(), 'unknown':dict(display(),status='unavailable')}
     assert preferred_source_pairs('What happened?',rows,opened_reference_pairs=reference) is None
+
+def test_event_backed_cutoff_retains_earlier_and_other_campaign_sources():
+    from application_state.agent_conversation.native_plan_assertions import NativeNamedRecapBoundV1
+    from apps.live_control_server.services.native_source_candidate_scope import post_named_recap_source_pairs
+
+    bound = NativeNamedRecapBoundV1(event_id="event", source_artifact_id="artifact", source_revision_id="revision")
+    stale = display("longmont-c2", "session-31")
+    stale["origin_matches_current_metadata"] = False
+    rows = {
+        ("artifact", "revision"): display("longmont-c2", "session-27"),
+        ("earlier", "rev"): display("longmont-c2", "session-25"),
+        ("later", "rev"): display("longmont-c2", "session-29"),
+        ("other", "rev"): display("longmont-c1", "session-29"),
+        ("stale", "rev"): stale,
+    }
+    assert post_named_recap_source_pairs(bound, rows) == {("later", "rev")}
+    assert post_named_recap_source_pairs(bound, {key: value for key, value in rows.items()
+        if key != ("artifact", "revision")}) == set()
+    assert post_named_recap_source_pairs(None, rows) == set()

@@ -780,12 +780,15 @@ def _plan_context_resolver(
                 code='native_graph_query_rejected',status_code=409,provider_dispatched=False) from exc
         if type(frozen_query) is NativePlanQueryV1 and isinstance(query, NativePlanQueryV1):
             from dataclasses import replace
-            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches','discovery_hops'}) | {'schema': 'dmb_native_plan_query_v1'})
+            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches','discovery_hops','named_recap_bound'}) | {'schema': 'dmb_native_plan_query_v1'})
             context = replace(context, query=query)
         elif hasattr(query, 'discovery_hops') and isinstance(frozen_query, NativePlanQueryV1):
             from dataclasses import replace
             # Retry reopens the original retrieval rather than recording a new discovery.
-            query = query.model_copy(update={'discovery_hops': getattr(frozen_query, 'discovery_hops', ())})
+            query = query.model_copy(update={
+                'discovery_hops': getattr(frozen_query, 'discovery_hops', ()),
+                'named_recap_bound': getattr(frozen_query, 'named_recap_bound', None),
+            })
             context = replace(context, query=query)
         return context, query
 

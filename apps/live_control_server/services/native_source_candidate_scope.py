@@ -91,6 +91,29 @@ def post_cutoff_source_pairs(question, displays):
     return excluded
 
 
+def post_named_recap_source_pairs(bound, displays):
+    """Limit only verified later recaps in the Event support's campaign."""
+    if bound is None:
+        return set()
+    anchor = displays.get((bound.source_artifact_id, bound.source_revision_id), {})
+    campaign = anchor.get("campaign_id")
+    endpoint = re.fullmatch(r"session-(\d+)", anchor.get("session_id") or "")
+    if (not campaign or endpoint is None or anchor.get("kind") != "recap"
+            or anchor.get("status") != "available"
+            or anchor.get("origin_matches_current_metadata") is not True):
+        return set()
+    excluded = set()
+    for pair, metadata in displays.items():
+        if (metadata.get("campaign_id") != campaign or metadata.get("kind") != "recap"
+                or metadata.get("status") != "available"
+                or metadata.get("origin_matches_current_metadata") is not True):
+            continue
+        session = re.fullmatch(r"session-(\d+)", metadata.get("session_id") or "")
+        if session is not None and int(session[1]) > int(endpoint[1]):
+            excluded.add(pair)
+    return excluded
+
+
 def as_of_passage_handles(question, hits, addresses, displays):
     """Suggest a recent campaign window when the named cutoff is supported."""
     from collections import defaultdict

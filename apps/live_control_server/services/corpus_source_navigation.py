@@ -350,7 +350,9 @@ class NativeBodyNavigation:
         turn = self.adapter.fence.turn
         if type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1:
             return tuple(rows)
-        from .native_source_candidate_scope import post_cutoff_source_pairs, preferred_source_pairs
+        from .native_source_candidate_scope import (
+            post_cutoff_source_pairs, post_named_recap_source_pairs, preferred_source_pairs,
+        )
         self._source_choices()
         from application_state.agent_conversation.native_corpus import (
             NativeAuthoredSourceReadV1, request_source_discovery_enabled,
@@ -367,6 +369,10 @@ class NativeBodyNavigation:
                         and request_source_discovery_enabled(
                             turn.graph_context_receipt, turn.graph_context_execution))
         excluded = post_cutoff_source_pairs(turn.user_text, self._source_display)
+        excluded |= post_named_recap_source_pairs(
+            getattr(turn.graph_context_receipt.native_query, "named_recap_bound", None),
+            self._source_display,
+        )
         if pairs is None and not keywords and not rank_opening and not excluded:
             return tuple(rows)
         addresses = {handle: pair for handle, (pair, _, _) in self._direct_sources.items()}
