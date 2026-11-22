@@ -206,3 +206,48 @@ def test_episode_resolver_requires_one_observed_edge_with_shared_exact_support(f
         assert (result.source_artifact_id, result.source_revision_id) == ("recap", "rev")
     else:
         assert result is None
+
+
+def test_episode_navigation_stays_focused_until_existing_expansion(monkeypatch):
+    from types import SimpleNamespace as Row
+    from application_state.agent_conversation import native_corpus
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+    from application_state.agent_conversation.native_plan_assertions import NativeEpisodeCampaignFocusV1
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+
+    anchor = ("artifact-a", "revision-a")
+    other = ("artifact-b", "revision-b")
+    focus = NativeEpisodeCampaignFocusV1(
+        predecessor_id="before", successor_id="after", relationship_id="edge",
+        source_artifact_id=anchor[0], source_revision_id=anchor[1],
+    )
+    receipt = SurfaceNativeContextReceiptV1.model_construct(native_query=Row(episode_campaign_focus=focus))
+    turn = Row(graph_context_receipt=receipt, user_text="What happened?", graph_context_execution=Row(events=()))
+    nav = NativeBodyNavigation.__new__(NativeBodyNavigation)
+    nav.adapter = Row(fence=Row(turn=turn))
+    nav._source_display = {anchor: display("first", "session-2"), other: display("second", "session-3")}
+    nav._direct_sources = {}
+    nav._source_choices = lambda: {}
+    nav.expansion_handle = lambda: "expand"
+    nav._expanded = lambda: False
+    nav._selected_keywords = lambda: set()
+    monkeypatch.setattr(native_corpus, "request_source_discovery_enabled", lambda *_: True)
+
+    catalogs, matches, candidates = [], [], []
+    for index, pair in enumerate((anchor, other)):
+        digest, section = str(index) * 64, "a" * 64
+        catalogs.append(Row(catalog_sha256=digest, sections=(Row(section_id=section),),
+            source=Row(artifact=Row(source_artifact_id=pair[0]), revision=Row(source_revision_id=pair[1]))))
+        matches.append(Row(catalog_sha256=digest, section_id=section, matched_terms=("happened",), distinctiveness_rank=1))
+        candidates.append(RetrievalCandidate(handle=native_corpus.native_body_handle(digest, section),
+            label=pair[0], kind="Exact source section"))
+    search = Row(catalogs=catalogs, matches=matches)
+    expected = {candidates[0].handle, "expand"}
+    assert {row.handle for row in nav._scoped_offers(candidates, search)} == expected
+    monkeypatch.setattr(native_corpus, "request_source_discovery_enabled", lambda *_: False)
+    assert {row.handle for row in nav._scoped_offers(candidates, search)} == expected
+    nav._selected_keywords = lambda: {"unmatched"}
+    assert {row.handle for row in nav._scoped_offers(candidates, search)} == expected
+    nav._expanded = lambda: True
+    assert nav._scoped_offers(candidates, search) == tuple(candidates)
