@@ -14,6 +14,11 @@ from application_state.agent_conversation.plan_slot_layout import (
     require_matching_prose_block,
 )
 from application_state.content.markdown_source_blocks import source_block_spans
+from .protected_boundary_blocks import (
+    require_boundary_callout,
+    require_boundary_image,
+    require_boundary_table,
+)
 from .types import BuildProposalBasis, BuildProseBoundaryTarget, BuildWriteCapability, StrictModel
 
 
@@ -80,29 +85,51 @@ def freeze_build_prose_catalog(
     position = 0
     headings = []
     passages = []
-    for block, (start, end) in zip(editor["content"], spans, strict=True):
-        if not isinstance(block, dict) or block.get("type") not in {"heading", "paragraph", "horizontalRule"}:
-            raise ValueError("Build contextual placement requires an admitted root prose page")
+    blocks = editor["content"]
+    for index, (block, (start, end)) in enumerate(zip(blocks, spans, strict=True)):
+        if not isinstance(block, dict):
+            raise ValueError("Build requires an admitted root editor block")
         attrs = block.get("attrs", {})
-        if not isinstance(attrs, dict) or any(
-            value is not None and key not in {"level", "pageBlockId"} for key, value in attrs.items()
+        kind = block.get("type")
+        markdown = source[start:end].decode("utf-8")
+        inline = block.get("content", [])
+        if kind == "callout":
+            require_boundary_callout(block, markdown)
+        elif kind == "table":
+            require_boundary_table(block, markdown)
+        elif kind == "paragraph" and isinstance(inline, list) and len(inline) == 1 and (
+            isinstance(inline[0], dict) and inline[0].get("type") == "mediaImage"
         ):
-            raise ValueError("Build prose block has metadata absent from the Markdown")
-        if block["type"] == "heading" and type(attrs.get("level")) is not int:
-            raise ValueError("Build prose heading requires its exact editor level")
-        require_matching_prose_block(block, source[start:end].decode("utf-8"))
+            require_boundary_image(block, markdown)
+        elif kind in {"heading", "paragraph", "horizontalRule"}:
+            if not isinstance(attrs, dict) or any(
+                value is not None and key not in {"level", "pageBlockId"} for key, value in attrs.items()
+            ):
+                raise ValueError("Build prose block has metadata absent from the Markdown")
+            if kind == "heading" and type(attrs.get("level")) is not int:
+                raise ValueError("Build prose heading requires its exact editor level")
+            require_matching_prose_block(block, markdown)
+        else:
+            raise ValueError("Build contextual placement requires an admitted root page")
         after = position + prose_editor_node_size(block)
-        text = "".join(child["text"] for child in block.get("content", []) if child.get("type") == "text")
-        if block["type"] == "heading":
-            level = block["attrs"]["level"]
+        text = "".join(child["text"] for child in inline if child.get("type") == "text")
+        next_block = blocks[index + 1] if index + 1 < len(blocks) else None
+        before_table = isinstance(next_block, dict) and next_block.get("type") == "table"
+        heading_caption = (
+            before_table and attrs.get("level") == 2 and text.strip()
+            and all(value is None or key == "level" for key, value in attrs.items())
+            and all(child["type"] == "text" and not child.get("marks") for child in inline)
+        )
+        if kind == "heading" and not heading_caption:
+            level = attrs["level"]
             while headings and headings[-1][0] >= level:
                 headings.pop()
             headings.append((level, text))
-        elif block["type"] == "paragraph" and text.strip() and all(
+        elif kind == "paragraph" and not before_table and text.strip() and all(
             child["type"] == "text"
             and all(mark["type"] in {"bold", "italic", "strike", "code", "underline"}
                     for mark in child.get("marks", []))
-            for child in block.get("content", [])
+            for child in inline
         ):
             passages.append(BuildProseOccurrence(
                 alias=f"passage{len(passages) + 1}", passage=text,

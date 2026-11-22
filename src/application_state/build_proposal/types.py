@@ -10,7 +10,10 @@ import json
 from typing import Literal
 from uuid import UUID
 
+from markdown_it import MarkdownIt
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
+
+from .boundary_markdown import split_boundary_callout
 
 Digest = str
 BuildImageMoveDisposition = Literal[
@@ -276,21 +279,48 @@ def _require_inert_markdown(markdown: str) -> None:
         raise BuildComposeError("build_compose_unsupported_markdown")
 
 
-def admit_build_boundary_paragraph(markdown: str) -> None:
+_BOUNDARY_MARKDOWN = MarkdownIt("commonmark").enable(("table", "strikethrough"))
+
+
+def _is_boundary_callout_fragment(text: str) -> bool:
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    env = {}
+    tokens = _BOUNDARY_MARKDOWN.parse(text, env)
+    if env.get("references"):
+        return False
+    has_callout = False
+    for token in tokens:
+        if token.type == "blockquote_open":
+            if token.level != 0 or token.map is None:
+                return False
+            start, end = token.map
+            callout = split_boundary_callout(lines[start:end])
+            if callout is None or not callout[2].strip():
+                return False
+            has_callout = True
+        elif token.type == "inline":
+            if any(child.type in {"image", "html_inline"} for child in token.children or ()):
+                return False
+        elif token.type not in {"paragraph_open", "paragraph_close", "blockquote_close"}:
+            return False
+    return has_callout
+
+
+def admit_build_boundary_fragment(markdown: str) -> None:
     _require_inert_markdown(markdown)
     text = markdown.strip()
     if (not text or "\n" in text or "\r" in text or "![" in text
             or re.match(r"^(?:#{1,6}\s|[-+*>]\s|[0-9]+[.)]\s|```|~~~|\|)", text)
-            or re.fullmatch(r"(?:[*_-]\s*){3,}", text)):
-        raise BuildComposeError("build_compose_boundary_requires_one_prose_paragraph")
+            or re.fullmatch(r"(?:[*_-]\s*){3,}", text)) and not _is_boundary_callout_fragment(markdown):
+        raise BuildComposeError("build_compose_boundary_requires_prose_or_callouts")
 
 
 class BuildProseBoundaryProposal(BuildGeneratedProposal):
     target: Literal["prose_target"]
 
     @model_validator(mode="after")
-    def exact_paragraph(self):
-        admit_build_boundary_paragraph(self.replacement_markdown)
+    def exact_fragment(self):
+        admit_build_boundary_fragment(self.replacement_markdown)
         return self
 
 

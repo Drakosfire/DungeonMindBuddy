@@ -52,6 +52,88 @@ def captured_page():
     return basis, editor, draft
 
 
+@pytest.fixture
+def mixed_page(captured_page):
+    basis, _, _ = captured_page
+    asset = "ac6c15cc-8c68-4732-8ae2-d9f3f051393a"
+
+    def paragraph(text):
+        return {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+
+    def heading(text):
+        return {**paragraph(text), "type": "heading", "attrs": {"level": 2}}
+
+    def callout(kind, label, text):
+        return {"type": "callout", "attrs": {"kind": kind, "label": label},
+                "content": [paragraph(text)]}
+
+    def table_row(kind, *texts):
+        return {"type": "tableRow", "content": [
+            {"type": kind, "attrs": {"colspan": 1, "rowspan": 1, "colwidth": None},
+             "content": [paragraph(text)]} for text in texts
+        ]}
+
+    blocks = [
+        heading("Arrival"), paragraph("The gate is locked."),
+        callout("read-aloud", "First sight", "Three blue lanterns light the crossing."),
+        callout("gm-note", "Keep it sealed", "Wait for the players to investigate."),
+        heading("Signal table"),
+        {"type": "table", "content": [
+            table_row("tableHeader", "Signal", "State"),
+            table_row("tableCell", "Blue lanterns", "Lit"),
+        ]},
+        {"type": "paragraph", "content": [
+            {"type": "mediaImage", "attrs": {
+                "assetId": asset, "alt": "Saved boardwalk artwork",
+                "width": None, "collapsed": None,
+            }},
+        ]},
+        heading("Rumours"), paragraph("The gate is locked."),
+    ]
+    draft = (
+        "## Arrival\n\nThe gate is locked.\n\n"
+        "> [!READ-ALOUD] First sight\n> Three blue lanterns light the crossing.\n\n"
+        "> [!GM-NOTE] Keep it sealed\n> Wait for the players to investigate.\n\n"
+        "## Signal table\n\n| Signal | State |\n| --- | --- |\n| Blue lanterns | Lit |\n\n"
+        f"![Saved boardwalk artwork](dmb-media:{asset})\n\n"
+        "## Rumours\n\nThe gate is locked.\n"
+    )
+    return basis.model_copy(update={"draft_sha256": digest(draft)}), blocks, draft
+
+
+def freeze_mixed_page(basis, blocks, draft):
+    editor_json = json.dumps({"type": "doc", "content": blocks}, ensure_ascii=False)
+    return freeze_build_prose_catalog(
+        basis.model_copy(update={"editor_sha256": digest(editor_json)}), editor_json, draft,
+    )
+
+
+def test_mixed_build_capture_counts_protected_blocks_without_offering_them(mixed_page):
+    catalog = freeze_mixed_page(*mixed_page)
+    assert catalog.target("passage2", "insert_after").from_ == 209
+    assert [(p.alias, p.headings, p.before, p.after) for p in catalog.passages] == [
+        ("passage1", ("Arrival",), 9, 30),
+        ("passage2", ("Rumours",), 188, 209),
+    ]
+
+
+@pytest.mark.parametrize("change", ["callout_kind", "callout_body", "table", "image", "image_child"])
+def test_changed_protected_blocks_cannot_shift_a_valid_later_target(mixed_page, change):
+    basis, blocks, draft = mixed_page
+    if change == "callout_kind":
+        blocks[2]["attrs"]["kind"] = "gm-note"
+    elif change == "callout_body":
+        blocks[2]["content"][0]["content"][0]["text"] = "A different scene."
+    elif change == "table":
+        blocks[5]["content"][1]["content"][0]["content"][0]["content"][0]["text"] = "Red"
+    elif change == "image":
+        blocks[6]["content"][0]["attrs"]["assetId"] = "ff6c15cc-8c68-4732-8ae2-d9f3f051393a"
+    else:
+        blocks[6]["content"][0]["content"] = []
+    with pytest.raises(ValueError):
+        freeze_mixed_page(basis, blocks, draft)
+
+
 def test_duplicate_passage_needs_explicit_unique_scope(captured_page):
     catalog = freeze_build_prose_catalog(*captured_page)
     assert [(p.before, p.after) for p in catalog.passages] == [(6, 23), (29, 46)]
