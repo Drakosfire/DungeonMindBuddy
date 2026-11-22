@@ -669,6 +669,7 @@
       "tests/test_graph_document_source.py",
       "tests/test_graph_retrieval_interaction.py",
       "tests/test_hermes_graph_agent.py",
+      "tests/test_hosted_artwork_nonblocking.py",
       "tests/test_hosted_auth.py",
       "tests/test_hosted_auth_login.py",
       "tests/test_hosted_native_graph_access.py",
@@ -742,6 +743,7 @@
       "tests/test_world_mechanics_associations.py"
     ],
     "qualification": [
+      "tests/scripts/test_check_app_recovery_image.py",
       "tests/test_known_character_context.py",
       "tests/test_recap_name_review.py",
       "tests/test_retire_buddy_release.py",
