@@ -799,6 +799,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 }
                 if current_work == "review_lore_page_from_conversation":
                     candidate["collaboration"]["open_questions"] = ["Why did the Regent leave?"]
+                    if lore_limitation == "authored_context":
+                        candidate["answer_segments"].extend([
+                            dict(kind="proposal", label="invented_idea",
+                                text="Authored note context, not a played event: The Regent's house stands beside three bridges."),
+                            dict(kind="proposal", label="invented_idea",
+                                text="Proposed direction: The Regent accepts a truthful memory instead of coins."),
+                        ])
             if connected_review:
                 section=next(row for row in sections if 'A proposed conversation.' in source_text(row))
                 candidate['answer_segments']=([dict(kind='proposal',label='invented_idea',
@@ -2986,6 +2993,7 @@ def test_anchored_lore_label_on_eager_graph_route_preserves_related_context(lane
     ("uncertain", "Create a page for Glass Regent."),
     ("anchored", "Create the page about Glass Regent"),
     ("source_head_unavailable", "Create the page about Glass Regent"),
+    ("authored_context", "Create the page about Glass Regent"),
 ])
 def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry, synthesis):
     from application_state.agent_conversation.native_corpus import acquired_body_reads
@@ -3003,8 +3011,9 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Create a blank page for Glass Regent.",
         requested_work=lambda message: "review_lore_page_from_conversation" if message == synthesis else "review_lore_page",
-        native_body="direct_support", dispatch=first, lore_limitation=True,
-        source_need=lambda message: ("anchored" if carry == "source_head_unavailable" else carry) if message == synthesis else "source_lookup",
+        native_body="direct_support", dispatch=first,
+        lore_limitation="authored_context" if carry == "authored_context" else True,
+        source_need=lambda message: ("anchored" if carry in {"source_head_unavailable", "authored_context"} else carry) if message == synthesis else "source_lookup",
     )
     blank = case.turn
     assert not blank.completion.answer_segments
@@ -3156,7 +3165,18 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         assert completion.collaboration.open_questions == ("Why did the Regent leave?",)
         assert "## Open questions\n\n- Why did the Regent leave?" in reopened.revision.markdown
     assert f"/conversation/turns/{populated.turn_id}/native-body-excerpts/0" in reopened.revision.markdown
-    assert {segment.kind for segment in completion.answer_segments} == {"source_passage_claim", "limitation"}
+    expected_kinds = {"source_passage_claim", "limitation"}
+    if carry == "authored_context":
+        expected_kinds.add("proposal")
+        proposals = [segment for segment in completion.answer_segments if segment.kind == "proposal"]
+        assert len(proposals) == 2
+        assert all(segment.label == "invented_idea" for segment in proposals)
+        assert "Authored note context, not a played event" in reopened.revision.markdown
+        assert "three bridges" in reopened.revision.markdown
+        assert "Proposed direction" in reopened.revision.markdown
+        assert "truthful memory" in reopened.revision.markdown
+        assert all(segment.text in reopened.revision.markdown for segment in proposals)
+    assert {segment.kind for segment in completion.answer_segments} == expected_kinds
     assert all(segment.text not in reopened.revision.markdown for segment in completion.answer_segments
                if segment.kind == "limitation")
     reads = {
