@@ -1733,9 +1733,13 @@ def correct_conversation_variant_review(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+from apps.live_control_server.services.conversation_variant_save import SaveConversationVariantPortrait
+
+
 @router.get(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}/saved")
 def get_saved_conversation_variant(
     world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID, request: Request,
+    portrait_operation_id: UUID | None = None,
 ):
     from apps.live_control_server.services.conversation_variant_save import open_saved_variant
 
@@ -1743,6 +1747,30 @@ def get_saved_conversation_variant(
     try:
         return open_saved_variant(
             _conversation_service(request), verified, conversation_id, turn_id, review_id=review_id,
+            portrait_operation_id=portrait_operation_id,
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}/saved/portrait")
+def save_saved_conversation_variant_portrait(
+    world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID,
+    body: SaveConversationVariantPortrait, request: Request,
+):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.conversation_variant_save import save_variant_portrait
+    from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
+
+    verified = _conversation_draft_access(request, world_id)
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        owner = enforce_native_graph_gm(request).subject
+    else:
+        owner = hosted_world_media_owner(verified)
+    try:
+        return save_variant_portrait(
+            _conversation_service(request), verified, conversation_id, turn_id,
+            review_id=review_id, command=body, media_owner=owner,
         )
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
