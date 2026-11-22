@@ -609,7 +609,7 @@ def test_native_admission_rejects_mutated_locked_components_before_persistence(
     assert not writes
     assert snapshot(case) == before
 
-@pytest.mark.parametrize("failure", [None, "before_commit", "after_commit"])
+@pytest.mark.parametrize("failure", [None, "before_commit", "after_commit", "extra_suffix"])
 def test_readonly_plan_writer_settles_checkpoint_with_rules_authorization(
     application_state_dsn, monkeypatch, failure,
 ):
@@ -655,6 +655,12 @@ def test_readonly_plan_writer_settles_checkpoint_with_rules_authorization(
     @contextmanager
     def write_fault(dsn):
         with original(dsn) as conn:
+            if failure == "extra_suffix":
+                sequence = len(execution.events) + 1
+                conn.execute(
+                    "INSERT INTO agent.plan_execution_event (turn_id,sequence,payload) VALUES (%s,%s,%s)",
+                    (turn.turn_id, sequence, Jsonb({"sequence": sequence})),
+                )
             yield conn
             if failure == "before_commit":
                 raise RuntimeError(failure)
@@ -664,8 +670,12 @@ def test_readonly_plan_writer_settles_checkpoint_with_rules_authorization(
     with monkeypatch.context() as patch:
         if failure:
             patch.setattr(service, "unit_of_work", write_fault)
-            with pytest.raises(RuntimeError, match=failure):
-                session.execute(PlanSessionCommand.WRITER, **fields)
+            if failure == "extra_suffix":
+                with pytest.raises(psycopg.errors.CheckViolation, match="not contiguous"):
+                    session.execute(PlanSessionCommand.WRITER, **fields)
+            else:
+                with pytest.raises(RuntimeError, match=failure):
+                    session.execute(PlanSessionCommand.WRITER, **fields)
         else:
             updated, fresh = session.execute(PlanSessionCommand.WRITER, **fields)
             assert fresh
@@ -677,7 +687,7 @@ def test_readonly_plan_writer_settles_checkpoint_with_rules_authorization(
             "SELECT revision, attempt FROM agent.plan_execution_checkpoint WHERE turn_id=%s",
             (turn.turn_id,),
         ).fetchone()
-    if failure == "before_commit":
+    if failure in {"before_commit", "extra_suffix"}:
         assert reopened == turn and snapshot(case) == before
         assert checkpoint == (turn.revision, turn.attempt)
     else:
