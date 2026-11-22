@@ -365,6 +365,49 @@ def _append_plan_session_events(conn, *, world_id, turn_id, before, execution, p
     return after
 
 
+def _persist_plan_writer_frontier(conn, turn, execution, session_image):
+    """Settle the ordered checkpoint with its newly admitted writer event."""
+    prior_count = len(turn.graph_context_execution.events)
+    if len(execution.events) != prior_count + 1:
+        raise ApplicationStateIntegrityError("Plan writer settlement requires one admitted event")
+    before = _lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+    if before is None or before[:2] != session_image[:2]:
+        raise ApplicationStateIntegrityError("Plan writer admission changed its locked root or provenance")
+    prior = dict(before[0])
+    started = database_clock(conn)
+    with conn.cursor(row_factory=dict_row, binary=True) as cursor:
+        cursor.execute(
+            "WITH expected AS (SELECT %s::jsonb AS execution) "
+            "UPDATE agent.turn SET graph_context_execution=expected.execution, "
+            "revision=revision+1, updated_at=clock_timestamp() FROM expected "
+            "WHERE world_id=%s AND turn_id=%s AND status='running' "
+            "AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp() "
+            "RETURNING revision, updated_at, "
+            "pg_catalog.jsonb_send(graph_context_execution) = "
+            "pg_catalog.jsonb_send(expected.execution) AS exact, "
+            "pg_catalog.jsonb_send(expected.execution) AS expected",
+            (Jsonb(execution.model_dump(mode="json", by_alias=True)), turn.world_id,
+             turn.turn_id, turn.revision, turn.attempt),
+        )
+        ack = cursor.fetchone()
+    if ack is None:
+        return None
+    if ack["revision"] != turn.revision + 1 or ack["exact"] is not True:
+        raise ApplicationStateIntegrityError("Plan writer settlement differs from its SQL acknowledgement")
+    if not _retire_plan_checkpoint(conn, turn.turn_id, turn.revision, turn.attempt):
+        raise ApplicationStateIntegrityError("Plan writer settlement lost its checkpoint")
+    after = _lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+    expected = prior | {"revision": ack["revision"], "updated_at": ack["updated_at"],
+                        "graph_context_execution": bytes(ack["expected"])}
+    if (after is None or dict(after[0]) != expected or after[1:] != before[1:]
+            or not started <= ack["updated_at"] <= database_clock(conn)):
+        raise ApplicationStateIntegrityError("Plan writer settlement changed its locked storage image")
+    current = lock_turn(conn, turn.world_id, turn.turn_id)
+    if current is None or current.graph_context_execution != execution:
+        raise ApplicationStateIntegrityError("Plan writer settlement did not reopen exactly")
+    return current
+
+
 def _references_from_rows(rows):
     # One primary + up to32 supporting + one selected. The SQL sentinel row
     # detects excess rather than silently truncating a corrupt provenance set.
