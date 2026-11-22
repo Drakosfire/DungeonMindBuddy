@@ -62,14 +62,19 @@ verify_serving() {
     curl --connect-timeout 5 --max-time 15 -fsS "$upstream/health/ready" >/dev/null
 }
 
+verify_public_ready() {
+  curl --connect-timeout 5 --max-time 15 -fsS https://buddy.dungeonmind.net/health/ready >/dev/null
+}
+
 activate() {
   with_image "$1" up -d --no-deps --no-build --pull never --wait --wait-timeout 330 buddy &&
-    verify_serving "$2"
+    verify_serving "$2" && verify_public_ready
 }
 
 [[ "$upstream" =~ ^http://127\.0\.0\.1:[0-9]{1,5}$ ]] || fail "expected a Buddy loopback upstream"
 [[ "$persistent_root" == /* ]] || fail "expected an absolute Buddy persistent root"
 if verify_serving "$candidate_id"; then
+  verify_public_ready || fail "already serving candidate did not pass public readiness"
   printf 'BUDDY_LIVE %s %s\n' "$revision" "$candidate_id"
   exit 0
 fi
