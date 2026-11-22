@@ -733,3 +733,24 @@ earlier browser runs.
 This audit supplies durable no-write evidence for the recorded discussion
 controls. The clean P01-to-PL02 adoption check and the combined release's
 Build and Plan save-and-reopen cases are still pending.
+
+### Hosted authoring and reopen on a5c7599c
+
+The hosted container served
+`a5c7599c3c32731785de4562ced073cadf392e07` with application schema
+`20261122_0192`. The container was healthy and public readiness returned
+`ready`. All writing checks used existing synthetic Buddy Cloud Pilot
+fixtures. These are checks against the serving release on reused fixtures,
+not independent repetitions on clean fixtures.
+
+| Case | Writer and observed result |
+| --- | --- |
+| B01 | Ordinary Build Send, with the caret after the Arrival paragraph, produced a reviewed Read Aloud followed by a GM Note. Save and full reload preserved their position. With those two additions removed, the ordered rendered editor blocks matched the baseline after saved artwork loaded, including Departure, the table and the image. |
+| P01 | Ordinary Plan Send from Document view surfaced a writable suggestion after the reply settled. Review showed a titled Read Aloud and a separate GM Note. Save acknowledged the suggestion and full reload showed both blocks within Arrival. The 13 pre-existing rendered editor blocks matched in order after excluding the two additions. |
+| P02 | Two attempts used the exact selection-rewrite request after selecting the First sight sentence, once before opening conversation and once with conversation already open. Both asked for clarification and surfaced no writable suggestion. These attempts do not establish whether the server admitted a replacement capture. The title and original body remained visible. |
+| PL01 | Ordinary Run chat returned existing spoken material and a proposed cue in chat. With **Propose scene edit** selected, the exact request produced a titled Read Aloud and a separate GM Note. The scene was unchanged while review was pending. Apply advanced the session copy from revision 0 to 1, still based on Plan version 10. On reload both blocks rendered, and all pre-existing Arrival text from the first original callout through the existing choice matched. |
+| C01 | The saved synthetic encounter opened at revision 1. The surface exposed no conversation or page writer, so the prompt had no eligible entry point. Save remained disabled and the encounter stayed at revision 1. |
+
+The successful Build, Plan and Play checks establish live persistence for the
+tested insertion paths. The selected-text Plan path and the full matrix of
+clean-fixture repetitions remain open.
