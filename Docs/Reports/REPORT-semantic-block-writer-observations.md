@@ -544,3 +544,83 @@ schema remained `20261120_0170`. All fixtures below were in Buddy Cloud Pilot.
   insertion after reload. Activating Check insertion cleared the warning
   with identical rendered content and exactly one copy of the new passage.
   Recovery worked. Automatic acknowledgement remains unresolved.
+
+### Hosted Plan placement on schema 0187
+
+On November 22, production revision `60c19c08` reported application schema
+`20261122_0187` after a separate rollout. A new synthetic Buddy Cloud Pilot
+Plan had Arrival and Departure scenes, the original First sight Read Aloud,
+a choice and its red-gate option, and a two-column table. It did not include
+artwork. The exact saved Markdown was captured before sending.
+
+- **P01, ordinary Send.** With a collapsed caret verified at the end of
+  the Arrival paragraph, the exact benchmark prompt completed in a fresh
+  thread and asked which paragraph or heading to use. There was no writable
+  proposal. A follow-up naming both the paragraph and its successor also
+  returned a before-or-after clarification. Neither reached Save.
+- **Single named-target follow-up.** A follow-up in the same thread named
+  only the first words of the Arrival paragraph and asked to add both
+  blocks after it. The preview showed Read Aloud and GM Note after that
+  paragraph, before the choice. Save confirmed the suggestion was saved
+  to this Plan. After exact-route reload, both rendered and their canonical
+  Markdown was present. Removing only the two added blocks reproduced
+  the baseline Markdown byte for byte, including the original Read Aloud,
+  scene and choice identities, Departure prose, and table.
+
+The named-target success verifies placement and persistence for that follow-up.
+Ordinary caret-based P01 still fails at routing, and matched independent
+repetitions are still open.
+
+#### Retained placement decisions
+
+Read-only inspection scoped to the three synthetic Plan turns found the
+same collapsed caret at position 179 in all three retained opening decisions.
+All three classified the request as a page edit. They differed in location
+resolution:
+
+| Request | Author interpretation | Source selection | Outcome |
+| --- | --- | --- | --- |
+| Exact ordinary P01 | Unscoped, placement unresolved | Unresolved, zero compatible passage or anchor votes | Missing target, clarified |
+| First follow-up with two textual boundaries | Named scope, after paragraph | One passage vote, relation unresolved and no compatible anchor | Missing target, clarified |
+| Follow-up with one paragraph locator | Named scope, after paragraph | After paragraph, one passage and one compatible anchor | Unique target, writable proposal |
+
+The first turn preserved the caret and reached the opening decision. The
+decision contract treats an omitted relation and genuinely ambiguous
+placement as unresolved. An exact caret can currently be selected through
+the explicit caret relation. A fix for ordinary Send needs a distinct
+decision for a page edit with no stated placement constraint. Explicit
+directions, unresolved constraints, and selected-text replacement still
+need to retain their existing checks.
+
+#### Selected Read Aloud rewrite
+
+In a fresh conversation on the same synthetic Plan, the exact P02 request
+followed a verified selection of the full First sight body, including the
+period. Buddy asked whether to replace the current selection. No suggestion
+appeared, and the saved Markdown still matched the pre-turn snapshot exactly.
+
+The retained V2 opening decision recorded a page edit with a 30-character
+replacement capture and a captured-target option in its catalog. The source
+selection voted for the capture. The independent author interpretation
+reported unresolved placement, so the combined decision admitted no anchor
+and clarified. This run did not reach the writer or test preservation of the
+callout title through a rewrite.
+
+#### Add a private note to an existing scene
+
+On hosted revision `60c19c08`, a fresh conversation on the same synthetic
+Plan started from the Arrival card in Cards view. The request was “Add a
+private reminder that the guide waits at the gate. Leave the spoken material
+alone.”
+
+The writable preview preserved both spoken passages and added a GM Note with
+“The guide waits at the gate.” It omitted the existing GM Note, “Keep the
+tower sealed unless the players investigate it.” I dismissed the preview
+before saving. After reopening the exact Plan, its Markdown matched the
+baseline byte for byte. The existing note was present and the new note had
+not been saved.
+
+The retained opening selected `replace_playable_body` for the captured scene
+and authorized the writer. This case reached a preview. It failed the
+preservation check because the proposed scene body dropped unrelated material
+during an additive edit.
