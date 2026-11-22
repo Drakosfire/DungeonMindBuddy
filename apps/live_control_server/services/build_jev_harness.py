@@ -693,7 +693,7 @@ class BuildJevHarness:
 
                     response = result.model_dump(mode="json")
                     request = json.loads(adapter._prepared_build_decision.body)
-                    image_opening = (driver.image_move.opening_answers(request, result)["image_move_intent"]
+                    image_opening = (driver.image_move.opening_answers(request, result)
                                      if getattr(driver, "image_move", None) is not None else None)
                     conversation_only = (
                         admitted_image_move_choice(image_opening, adapter.request.message) not in {"move_existing", "unresolved"}

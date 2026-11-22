@@ -47,7 +47,7 @@ _ACTIVE_MOVE = re.compile(
     r"^\s*(?:(?P<location>(?:in|on|within|under|for)\s+[^,.;!?]{1,180}),\s*)?"
     r"(?:(?:can|could|would|will)\s+(?:you|we|buddy)\s+|"
     r"(?:I\s+(?:want|would like)|I['’]d\s+like)\s+(?:you\s+)?to\s+|let['’]s\s+)?"
-    r"(?:please\s+)?(?:move|shift|slide|relocate|transfer|put|place|reposition|nudge|push|drag)\b",
+    r"(?:please\s+)?(?:move|shift|slide|relocate|transfer|put|place|reposition|nudge|push|drag|scoot|bump|set|bring)\b",
     re.IGNORECASE,
 )
 _PASSIVE_MOVE = re.compile(
@@ -59,7 +59,7 @@ _PASSIVE_MOVE = re.compile(
 )
 _DESTINATION_START = re.compile(
     r"\s+(?:into\s+|onto\s+|(?<!next\s)(?<!close\s)to\s+|"
-    r"(?:(?:one|a)\s+(?:slot|column)\s+)?right(?=\s+(?:by|one|a|in|within|on|from)\b|[,.!?]|\s*$))",
+    r"(?:(?:one|a)\s+(?:slot|column)\s+)?right(?=(?:[-\s]+hand\b)|\s+(?:by|one|a|in|within|on|from|slot|column)\b|[,.!?]|\s*$))",
     re.IGNORECASE,
 )
 _RIGHT_DIRECTION = re.compile(r"\bright(?:wards?)?\b", re.IGNORECASE)
@@ -81,11 +81,13 @@ _CURRENT_POSITION = re.compile(
 )
 _MULTIPLE_SLOTS = re.compile(r"\b(?:two|three|four|five|six|seven|eight|nine|(?:[2-9]|\d{2,}))\s+(?:slots|columns)\b", re.IGNORECASE)
 _ALTERNATIVE_DIRECTION = re.compile(
-    r"\b(?:left|above|below|instead|or|far|rightmost|last|outermost|elsewhere|and then)\b|;",
+    r"\b(?:left|above|below|up(?:wards?)?|down(?:wards?)?|diagonal(?:ly)?|top|bottom|"
+    r"instead|or|far|rightmost|last|outermost|elsewhere|and then)\b|"
+    r"\bright\s+(?:before|after|now|away)\b|;",
     re.IGNORECASE,
 )
 _CONDITIONAL = re.compile(r"\b(?:if|assuming|provided|hypothetical(?:ly)?)\b", re.IGNORECASE)
-_EXCLUDED_TARGET = re.compile(r"\b(?:not|except|excluding|or|both|each|all)\b", re.IGNORECASE)
+_EXCLUDED_TARGET = re.compile(r"\b(?:not|don['’]t|never|except|excluding|or|both|each|all)\b", re.IGNORECASE)
 _QUOTED_LABEL = re.compile(
     r'''"(?:\\.|[^"\\\n])*"|“[^”\n]*”|(?<!\w)'[^'\n]*'(?!\w)|(?<!\w)‘[^’\n]*’(?!\w)|\x60[^\x60\n]+\x60''',
 )
@@ -95,7 +97,21 @@ _LAYOUT_MENTION = re.compile(r"\b(?:slots?|columns?|rows?|adjacent|left|right)\b
 _IMAGE_MENTION = re.compile(r"\b(?:image|illustration|picture|photo|map|diagram|drawing|sketch|artwork)s?\b", re.IGNORECASE)
 _DISCUSSION_MENTION = re.compile(r"\b(?:what|how|would|if|imagine|hypothetic\w*|should|don['’]t|not)\b", re.IGNORECASE)
 _OTHER_AUTHORING = re.compile(
-    r"^\s*(?:please\s+)?(?:write|draft|compose|add|insert|create|generate|replace|revise|summarize)\b",
+    r"^\s*(?:(?:can|could|would|will)\s+you\s+)?(?:please\s+)?"
+    r"(?:write|draft|compose|add|insert|create|generate|replace|revise|summarize)\b",
+    re.IGNORECASE,
+)
+_READ_ONLY = re.compile(
+    r"(?:^|[,:.;!?])\s*(?:what|how|why|when|where|whether|should|imagine|suppose|consider|describe|explain|preview)\b"
+    r"|\b(?:would\s+(?:it|that|this)\s+look|only\s+(?:asking|discussion|a\s+preview)|just\s+(?:asking|a\s+preview)"
+    r"|(?:do\s+not|don['’]t|rather\s+not|never)\s+(?:move|shift|put|place|reposition|want|need|prefer|expect|like)"
+    r"|(?:must|should|can|ought)\s+not)\b",
+    re.IGNORECASE,
+)
+_LAYOUT_NOUN = re.compile(r"\b(?:slots?|columns?|rows?|cells?)\b", re.IGNORECASE)
+_DESIRED_PLACEMENT = re.compile(
+    r"\b(?:please|want|prefer|need|belongs?|should\s+(?:be|go)|must\s+(?:be|go)|can\s+go|goes|"
+    r"over\s+one\s+slot)\b|,\s*(?:one|a)\s+(?:slot|column)\b",
     re.IGNORECASE,
 )
 _UNSPECIFIC_WORDS = frozenset(
@@ -162,11 +178,19 @@ def _move_clause(question: str) -> tuple[str, str] | None:
     return None
 
 
-def admitted_image_move_choice(choice: str | None, question: str) -> str | None:
-    if choice != "other" or not _IMAGE_MENTION.search(question):
+def admitted_image_move_choice(answers: dict[str, str] | None, question: str) -> str | None:
+    choice = answers["image_move_intent"] if answers is not None else None
+    if choice != "other":
         return choice
     masked = _mask_quoted_labels(question)
-    if (not _OTHER_AUTHORING.match(masked) and _LAYOUT_MENTION.search(masked) and _MOTION_MENTION.search(masked)
+    explicit_image = _IMAGE_MENTION.search(question) and (
+        _MOTION_MENTION.search(masked) or _LAYOUT_NOUN.search(masked)
+    )
+    nominated_layout = (answers["image_move_destination"] in {"same_row_right", "different_row"}
+                        and answers["image_move_occurrence"] not in {"ambiguous", "missing"}
+                        and _LAYOUT_MENTION.search(masked))
+    if (not _OTHER_AUTHORING.match(masked) and _LAYOUT_MENTION.search(masked)
+            and (explicit_image or nominated_layout)
             and (_move_clause(question) is not None or _DISCUSSION_MENTION.search(masked))):
         # Retain the existing unresolved action for image-layout discussion.
         # The raw Jev vote remains in the exact proof and never grants a move.
@@ -292,9 +316,19 @@ class BuildImageMoveDecision:
         for question in self.questions():
             if answers.get(question.name) not in question.options:
                 raise ValueError("Image move decision has an unoffered answer")
+        masked_question = _mask_quoted_labels(self.question)
         clause = _move_clause(self.question)
-        if answers["image_move_intent"] != "move_existing" or clause is None:
+        if answers["image_move_intent"] != "move_existing":
             return BuildImageMoveNomination("discussion")
+        if clause is None:
+            # Jev already chose a typed move. A declarative placement is
+            # eligible only when the author names a right-hand layout position.
+            if (_READ_ONLY.search(masked_question) or _OTHER_AUTHORING.match(masked_question)
+                    or (masked_question.rstrip().endswith("?") and not re.search(r"\bplease\b", masked_question, re.IGNORECASE))
+                    or not _DESIRED_PLACEMENT.search(masked_question)
+                    or not _LAYOUT_NOUN.search(masked_question) or not _RIGHT_DIRECTION.search(masked_question)):
+                return BuildImageMoveNomination("discussion")
+            clause = "", self.question
         location, object_and_destination = clause
         masked_clause = _mask_quoted_labels(object_and_destination)
         scope = f"{location}, {object_and_destination}"

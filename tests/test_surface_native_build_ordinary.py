@@ -81,6 +81,7 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
     ("Move the Harbour map to the slot on its right.", "foreign_capture"),
     ("Move the Harbour map to the slot on its right.", "forged_editor"),
     ("What would happen if we moved the Harbour map to the next slot?", "other_discussion"),
+    ("How would it look in the empty slot?", "other_discussion"),
     ("Move the Harbour map to the empty slot on its right.", "tied_menu"),
 ])
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):

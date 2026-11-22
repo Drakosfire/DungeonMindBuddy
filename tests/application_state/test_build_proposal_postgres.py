@@ -586,7 +586,7 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     def change_row(value):
         value["content"][0]["attrs"]["min_height"] = 24
 
-    from application_state.build_proposal.image_move_decision import BuildImageMoveCapture, BuildImageMoveDecision
+    from application_state.build_proposal.image_move_decision import BuildImageMoveCapture, BuildImageMoveDecision, admitted_image_move_choice
 
     capture = BuildImageMoveCapture(
         basis=placement.basis, editor_json=original, conversation_id=uuid4(), expected_pointer_revision=1,
@@ -599,6 +599,11 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("I'd like you to reposition the Map onto the vacant right column in its original row.", "ready"),
         ("Could the Map be moved into the empty slot on its right?", "ready"),
         ("I'd like the Map slid into the next empty slot on its right.", "ready"),
+        ("The Map belongs in the empty slot on its right.", "ready"),
+        ("The Map, one slot right.", "ready"),
+        ("The Map was in the empty slot on its right.", "discussion"),
+        ("I don't want the Map in the right column.", "discussion"),
+        ("How would the Map look in the slot on its right?", "discussion"),
         ("Please slide the Map one slot to the right in the Approach row.", "ready"),
         ("Push the Map to the empty slot immediately right of its current position.", "ready"),
         ("Move the Map next to Approach into the space directly to its right.", "ready"),
@@ -622,6 +627,8 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("Move the Map two columns to the right.", "unsupported"),
         ("Move the Map to the right and then remove it.", "unsupported"),
         ("Move the Map one slot to the right of the lantern.", "unsupported"),
+        ("Move the Map into the top-right slot.", "unsupported"),
+        ("Move the Map into the empty slot right before the lantern.", "unsupported"),
         ("Move the right bank map into the empty slot.", "unsupported"),
     ):
         decision = BuildImageMoveDecision.from_saved(capture, prompt, markdown, before)
@@ -631,6 +638,9 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     selected = capture.model_copy(update={"author_selected_block_id":"first-map"})
     decision = BuildImageMoveDecision.from_saved(selected, "Could you move this image right one slot?", markdown, before)
     assert decision.selected == "image1" and decision.resolve(choices).placement == placement
+    discussion = choices | {"image_move_intent": "other"}
+    assert admitted_image_move_choice(discussion, "How would it look in the empty slot?") == "unresolved"
+    assert admitted_image_move_choice(discussion, "Could you write a note about how to move this map to the empty slot?") == "other"
 
     shared_title = "Gate-in North row"
     matching_markdown = (markdown.replace("## Approach", "## North").replace("![Map]", f"![{shared_title}]")

@@ -774,12 +774,13 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
 
         names = {"image_move_intent", "image_move_destination", "image_move_occurrence"}
         projected = response.model_copy(update={"answers": image_answers})
-        choice = validated_choice_answers(projected, names)["image_move_intent"]
+        choices = validated_choice_answers(projected, names)
+        choice = choices["image_move_intent"]
         retained = event.typed_image_move
         if (not semantic_input or not isinstance(image_offer, dict) or
                 (retained != choice and not (
                     retained == "unresolved" and choice == "other"
-                    and admitted_image_move_choice(choice, user_text) == retained
+                    and admitted_image_move_choice(choices, user_text) == retained
                 ))):
             raise ValueError("Image move choice differs from its actual native selection")
     graph_reference = resolve_graph_reference_opening(request, response)

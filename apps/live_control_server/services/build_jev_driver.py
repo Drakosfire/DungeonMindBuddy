@@ -1288,7 +1288,7 @@ class BuildJevDriver:
                 request = json.loads(prepared.body)
                 graph_reference = resolve_graph_reference_opening(request, actual_response)
                 image_move = (admitted_image_move_choice(
-                    self.image_move.opening_answers(request, actual_response)["image_move_intent"], a.request.message,
+                    self.image_move.opening_answers(request, actual_response), a.request.message,
                 ) if self.image_move is not None else None)
                 image_terminal = image_move in {"move_existing", "unresolved"}
                 label, source_scope = opening_work(execution.policy, request, json.loads(raw), image_move)
