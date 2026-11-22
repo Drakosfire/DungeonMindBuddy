@@ -33,6 +33,10 @@ def sandbox(tmp_path, monkeypatch):
     (ui / "package-lock.json").write_text('{"lockfileVersion":3}')
     (repo / ".gitignore").write_text("node_modules/\n")
     (repo / "ci").mkdir()
+    (repo / "scripts").mkdir()
+    (repo / "scripts/ci_frontend_collect.mjs").write_bytes(
+        (Path(__file__).resolve().parents[1] / "scripts/ci_frontend_collect.mjs").read_bytes()
+    )
     catalog = {
         "version": 1,
         "contracts": {
@@ -103,6 +107,11 @@ def sandbox(tmp_path, monkeypatch):
                     ]
                 )
             )
+        if len(argv) > 1 and argv[1].endswith("ci_frontend_collect.mjs"):
+            Path(argv[2]).write_text(json.dumps([{
+                "file": str(cwd / "src/owner.test.ts"),
+                "name": "owner > refuses stale write", "state": "pending",
+            }]))
         if "--reporter=json" in argv:
             dest = next(
                 x.split("=", 1)[1] for x in argv if x.startswith("--outputFile=")
@@ -142,6 +151,86 @@ def sandbox(tmp_path, monkeypatch):
         workers=8,
     )
     return args, calls, fake
+
+
+def test_complete_inventory_reconciles_skips_filters_and_duplicates(tmp_path):
+    def item(name, state):
+        return {"file": str(tmp_path / "a.test.ts"), "name": name, "state": state}
+    inventory = [item("selected", "pending"), item("filtered", "pending"),
+                 item("skipped", "skipped"), item("duplicate", "pending"),
+                 item("duplicate", "pending")]
+    selected = local.inventory_keys([inventory[0], *inventory[3:]], tmp_path)
+    def case(name, status):
+        return {"ancestorTitles": [], "title": name, "status": status}
+    cases = [case("selected", "passed"), case("filtered", "skipped"),
+             case("skipped", "skipped"), case("duplicate", "passed"),
+             case("duplicate", "passed")]
+    report = {"testResults": [{"name": str(tmp_path / "a.test.ts"), "assertionResults": cases}]}
+    assert local.complete_case_parity(selected, inventory, report, tmp_path)["collection_parity"]
+    cases.pop()
+    assert not local.complete_case_parity(selected, inventory, report, tmp_path)["collection_parity"]
+    cases.append(case("unexpected", "skipped"))
+    assert not local.complete_case_parity(selected, inventory, report, tmp_path)["collection_parity"]
+    cases[-1] = case("duplicate", "skipped")
+    assert not local.complete_case_parity(selected, inventory, report, tmp_path)["collection_parity"]
+    inventory.append(item("selected", "skipped"))
+    with pytest.raises(ValueError, match="ambiguous"):
+        local.complete_case_parity(selected, inventory, report, tmp_path)
+
+
+def test_collection_selectors_reject_unrecognized_controls():
+    assert local.collection_selectors(["src/a", "-t", "name", "src/b"]) == ["src/a", "src/b"]
+    assert local.collection_selectors(["src/a", "--testNamePattern=name"]) == ["src/a"]
+    with pytest.raises(ValueError, match="unsupported"):
+        local.collection_selectors(["--exclude", "src/a"])
+    with pytest.raises(ValueError, match="missing"):
+        local.collection_selectors(["-t"])
+
+
+@pytest.mark.skipif(
+    not os.environ.get("BUDDY_VITEST_NODE_MODULES"),
+    reason="real Vitest integration requires an explicitly provided locked installation",
+)
+def test_real_vitest_collection_and_failure_boundaries(tmp_path):
+    modules = Path(os.environ["BUDDY_VITEST_NODE_MODULES"]).resolve(strict=True)
+    (tmp_path / "node_modules").symlink_to(modules, target_is_directory=True)
+    (tmp_path / "cases.test.js").write_text("""
+import { it, describe } from 'vitest';
+describe('suite', () => {
+  it('selected', () => {}); it('duplicate', () => {}); it('duplicate', () => {});
+  it.skipIf(true)('conditional', () => {});
+  describe.skip('skipped suite', () => { it('child', () => {}); });
+});
+""")
+    (tmp_path / "bad.test.js").write_text("""
+import { describe } from 'vitest';
+describe('bad', () => { throw new Error('collection failure'); });
+""")
+    collector = Path(__file__).resolve().parents[1] / "scripts/ci_frontend_collect.mjs"
+    vitest = modules / "vitest/vitest.mjs"
+    common = ["--maxWorkers=1", "--minWorkers=1"]
+    with local.resource_lock():
+        subprocess.run(["node", str(collector), "all.json", "1", "cases.test.js"],
+                       cwd=tmp_path, check=True)
+        subprocess.run(["node", str(vitest), "list", "cases.test.js", "-t", "selected",
+                        "--json=selected.json", *common], cwd=tmp_path, check=True)
+        subprocess.run(["node", str(vitest), "run", "cases.test.js", "-t", "selected",
+                        "--reporter=json", "--outputFile=result.json", *common],
+                       cwd=tmp_path, check=True)
+        bad = subprocess.run(["node", str(collector), "bad.json", "1", "bad.test.js"],
+                             cwd=tmp_path, capture_output=True, text=True)
+        (tmp_path / "missing.test.js").write_text("import './not-found.js';\n")
+        missing = subprocess.run(["node", str(collector), "missing.json", "1", "missing.test.js"],
+                                 cwd=tmp_path, capture_output=True, text=True)
+    inventory = json.loads((tmp_path / "all.json").read_text())
+    selected = local.inventory_keys(json.loads((tmp_path / "selected.json").read_text()), tmp_path)
+    result = json.loads((tmp_path / "result.json").read_text())
+    assert len(inventory) == 5
+    assert sum(x["name"] == "suite > duplicate" for x in inventory) == 2
+    assert sum(x["state"] == "skipped" for x in inventory) == 2
+    assert local.complete_case_parity(selected, inventory, result, tmp_path)["collection_parity"]
+    assert bad.returncode and "collection error" in bad.stderr and not (tmp_path / "bad.json").exists()
+    assert missing.returncode and not (tmp_path / "missing.json").exists()
 
 
 @pytest.mark.parametrize("sparse", [False, True])

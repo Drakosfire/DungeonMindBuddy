@@ -271,6 +271,58 @@ def inventory_keys(items, frontend):
     )
 
 
+def collection_selectors(args):
+    """Remove only known name filters; reject unknown collection controls."""
+    selectors = []
+    iterator = iter(args)
+    for arg in iterator:
+        if arg in {"-t", "--testNamePattern"}:
+            if not next(iterator, None):
+                raise ValueError("missing test name filter")
+        elif arg.startswith("--testNamePattern="):
+            if not arg.partition("=")[2]:
+                raise ValueError("missing test name filter")
+        elif arg.startswith("-"):
+            raise ValueError(f"unsupported collection selector: {arg}")
+        else:
+            selectors.append(arg)
+    return selectors
+
+
+def complete_case_parity(selected, inventory, result, frontend):
+    all_cases = inventory_keys(inventory, frontend)
+    pending = inventory_keys([x for x in inventory if x.get("state") == "pending"], frontend)
+    declared_skips = inventory_keys([x for x in inventory if x.get("state") == "skipped"], frontend)
+    if (not all_cases or pending + declared_skips != all_cases
+            or pending & declared_skips or selected - pending):
+        raise ValueError("invalid or ambiguous collection inventory")
+    actual, passed, skipped = Counter(), Counter(), Counter()
+    failed = 0
+    for file in result["testResults"]:
+        for case in file["assertionResults"]:
+            key = (str(Path(file["name"]).relative_to(frontend)),
+                   " > ".join([*case["ancestorTitles"], case["title"]]))
+            actual[key] += 1
+            status = case["status"]
+            if status == "passed":
+                passed[key] += 1
+            elif status in {"skipped", "pending", "todo"}:
+                skipped[key] += 1
+            elif status == "failed":
+                failed += 1
+            else:
+                raise ValueError("unknown test status")
+    unselected = all_cases - selected
+    return {
+        "collection_parity": bool(selected) and actual == all_cases
+        and not (unselected - skipped) and not (selected & skipped),
+        "reported_unselected_skips": sum(unselected.values()),
+        "failed_cases": failed,
+        "selected_passed_cases": sum((selected & passed).values()),
+        "selected_skipped_cases": sum((selected & skipped).values()),
+    }
+
+
 def case_parity(expected, result, frontend, argv):
     actual = Counter()
     skipped = Counter()
@@ -367,6 +419,12 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         or hashlib.sha256(raw_lock).hexdigest() != report["package_lock_sha256"]
     ):
         raise ValueError("source contract/lockfile mismatch")
+    collector = ROOT / "scripts/ci_frontend_collect.mjs"
+    pinned_collector = subprocess.check_output(
+        ["git", "-C", str(ROOT), "show", f"{report['runner_sha']}:scripts/ci_frontend_collect.mjs"]
+    )
+    if hashlib.sha256(pinned_collector).hexdigest() != digest(collector):
+        raise ValueError("collector source mismatch")
     install, planned_tests, build = frontend_plan(
         json.loads(raw_catalog), suite, repo=ROOT, sha=expected_sha
     )
@@ -382,6 +440,18 @@ def validate(report_path, expected_sha, suite, max_age=86400):
             f"--outputFile={result_file}",
         ]:
             raise ValueError("test command mismatch")
+        inventory_file = str(Path(provenance["output_dir"]) / step["inventory_file"])
+        if (step["listing"]["argv"] != [
+            "node", "node_modules/vitest/vitest.mjs", "list", f"--json={inventory_file}",
+            *expected[3:], *workers,
+        ] or step["listing"]["exit_code"]):
+            raise ValueError("listing command mismatch")
+        complete_file = str(Path(provenance["output_dir"]) / step["complete_inventory_file"])
+        if (step["collection"]["argv"] != [
+            "node", str(ROOT / "scripts/ci_frontend_collect.mjs"), complete_file,
+            str(report["workers"]), *collection_selectors(expected[3:]),
+        ] or step["collection"]["exit_code"]):
+            raise ValueError("collection command mismatch")
     age = time.time() - report["finished_unix"]
     if age < -60 or age > max_age:
         raise ValueError("stale evidence timestamp")
@@ -425,11 +495,11 @@ def validate(report_path, expected_sha, suite, max_age=86400):
             read_artifact(step["inventory_file"], "missing or mismatched evidence artifact"),
             frontend,
         )
-        parity = case_parity(
+        parity = complete_case_parity(
             expected,
+            read_artifact(step["complete_inventory_file"], "missing or mismatched evidence artifact"),
             read_artifact(step["results_file"], "missing or mismatched evidence artifact"),
             frontend,
-            step["argv"],
         )
         if (
             not expected
@@ -631,6 +701,15 @@ def verify(args):
                             env,
                         )
                         source_boundary(source, args.sha, report, f"inventory-{index}")
+                        complete_inventory = out / f"complete-inventory-{index}.json"
+                        collection = verified_command(
+                            report,
+                            ["node", str(ROOT / "scripts/ci_frontend_collect.mjs"),
+                             str(complete_inventory), str(args.workers),
+                             *collection_selectors(selected)],
+                            frontend, out / f"complete-inventory-{index}.log", env,
+                        )
+                        source_boundary(source, args.sha, report, f"complete-inventory-{index}")
                         try:
                             keys = (
                                 inventory_keys(
@@ -656,15 +735,18 @@ def verify(args):
                         )
                         source_boundary(source, args.sha, report, f"tests-{index}")
                         result["inventory_file"] = inventory.name
+                        result["listing"] = listing
+                        result["complete_inventory_file"] = complete_inventory.name
+                        result["collection"] = collection
                         result["results_file"] = result_path.name
                         result["discovered_cases"] = sum(keys.values())
                         try:
                             result.update(
-                                case_parity(
+                                complete_case_parity(
                                     keys,
+                                    json.loads(complete_inventory.read_text()) if collection["exit_code"] == 0 else [],
                                     json.loads(result_path.read_text()),
                                     frontend,
-                                    result["argv"],
                                 )
                             )
                         except (OSError, ValueError, KeyError, TypeError) as exc:
