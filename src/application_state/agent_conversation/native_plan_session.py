@@ -26,6 +26,7 @@ from .native_execution import (
     SurfaceNativeExecutionV1, _join_turn_fields, _join_turn_lifecycle,
     _validate_owned_context_binding,
 )
+from .native_record_execution import _RecordState, _advance
 from .service import AgentConversationService, _ready_dsn, _validate_turn_claim_lease
 from .types import ProviderAttemptAuthorizedEventV1
 
@@ -122,7 +123,11 @@ class _SessionAdmission(AgentConversationService):
         candidate = execution.model_copy(update={'events': [*prior.events,
             *(_owned_event(event) for event in execution.events[count:])]})
         with self._owner._measure("plan_append_binding"):
-            return _validate_owned_context_binding(context, candidate)
+            if type(candidate.events[-1]) is NativeWriterAuthorizedV1:
+                return _validate_owned_context_binding(context, candidate)
+            return _validate_owned_context_binding(
+                context, candidate, validate_records=self._owner._stage_record_validation,
+            )
 
     def _persist_execution_append(self, conn, *, world_id, turn_id, expected_revision, execution):
         owner = self._owner
@@ -184,6 +189,7 @@ class NativePlanSession:
         self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
         self._committed = self._image = self._pending = None
+        self._record_validation = self._staged_record_validation = None
         self._sealed = False
         self._busy = False
         with unit_of_work(_ready_dsn()) as conn:
@@ -219,8 +225,18 @@ class NativePlanSession:
         repo._verify_plan_checkpoint(conn, turn, self._checkpoint_base_count)
         return current
 
+    def _stage_record_validation(self, query, execution):
+        committed = self._record_validation
+        if committed is not None and query is committed[0]:
+            _, prior_count, state = committed
+        else:
+            prior_count, state = 0, _RecordState()
+        state = _advance(state, query, execution.events[prior_count:])
+        self._staged_record_validation = (query, len(execution.events), state)
+
     def _seal(self):
         self._sealed = True
+        self._record_validation = self._staged_record_validation = None
         self._committed = self._image = self._pending = None
 
     def abort(self):
@@ -332,9 +348,10 @@ class NativePlanSession:
                     if self._pending is None or updated is not self._pending[0]:
                         raise ApplicationStateIntegrityError('Session append has no committed successor')
                     self._committed, self._image = self._pending
+                    self._record_validation = self._staged_record_validation
                 elif updated is not self._committed or self._pending is not None:
                     raise ApplicationStateIntegrityError('Session replay changed its committed generation')
-                self._pending = None
+                self._pending = self._staged_record_validation = None
                 if export_ids is not None:
                     committed = self._committed
                     matches = {}
@@ -400,6 +417,7 @@ class NativePlanSession:
                                 <= renewed.claim_expires_at <= finished + timedelta(seconds=lease_seconds)):
                         raise ApplicationStateIntegrityError('Session renewal changed its locked storage image')
                 self._committed, self._image = renewed, image
+                self._record_validation = None
                 return deepcopy(renewed)
             except BaseException:
                 self._seal()

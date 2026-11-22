@@ -131,6 +131,8 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
         expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
         selection=step.selection, producer_proof=step.proof)
     assert fresh
+    published = session._record_validation
+    assert published[1] == len(updated.graph_context_execution.events)
     revision = updated.revision
     updated.graph_context_execution.events.clear()
     updated.user_text = 'changed public export'
@@ -138,6 +140,7 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
         expected_revision=revision, expected_attempt=case.turn.attempt,
         selection=step.selection, producer_proof=step.proof)
     assert not fresh and replay.graph_context_execution.events
+    assert session._record_validation is published
     assert replay.user_text == case.turn.user_text
     final = session.finish()
     assert final == case.service.inspect_turn(world_id=final.world_id, turn_id=final.turn_id)
@@ -228,6 +231,7 @@ def test_session_commit_failure_seals_without_publishing_or_replaying(applicatio
         patch.setattr(service_owner, 'unit_of_work', broken_commit)
         with pytest.raises(RuntimeError, match='commit boundary failure'):
             session.execute(PlanSessionCommand.SELECTION, **fields)
+    assert session._record_validation is session._staged_record_validation is None
     with pytest.raises(ApplicationStateConflictError, match='sealed'):
         session.execute(PlanSessionCommand.SELECTION, **fields)
     actual = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
