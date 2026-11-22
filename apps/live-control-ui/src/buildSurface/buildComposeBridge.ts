@@ -581,7 +581,13 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       if (semanticMarkdownSerializationDiagnostics(flattenPresentation(after)).length
         || JSON.stringify(editor.schema.nodeFromJSON(reopened).toJSON()) !== JSON.stringify(after))
         throw new Error('Saving this image would change existing structure or block identities.');
-      editor.view.dispatch(closeHistory(transaction));
+      closeHistory(transaction);
+      // Installed editor plugins must be pure and deterministic: this preview and
+      // the subsequent dispatch both run their transaction hooks.
+      const simulated = editor.state.applyTransaction(transaction);
+      if (!simulated.transactions.length || !simulated.state.doc.eq(transaction.doc))
+        throw new Error('The editor cannot apply this image without changing the page.');
+      editor.view.dispatch(transaction);
       applied.add(captured); changed(captured.editor);
     },
   };

@@ -49,3 +49,10 @@ browser persistence evidence. The full integration file has five failures on
 both this working tree and the unchanged base, with the same test identities;
 the combined run is not green. Exact-SHA verification and final independent
 review remain.
+
+The receiver previews the history-delimited transaction through the installed
+editor plugins and refuses a filtered or document-changing appended result
+before dispatch. This relies on plugin transaction hooks being pure and
+deterministic between preview and dispatch; it is not an atomic guarantee for
+arbitrary stateful plugins. Focused tests cover deterministic filter/append
+refusal and verify an earlier Undo still restores its exact predecessor.

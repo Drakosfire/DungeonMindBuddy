@@ -1,4 +1,5 @@
 import { Editor } from '@tiptap/core';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { webcrypto } from 'node:crypto';
 import { describe,it,expect,vi } from 'vitest';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore';
@@ -206,10 +207,11 @@ describe('Build image insertion boundary',()=>{
   const {editor,bridge,changed}=setup();
   try{
    editor.commands.setTextSelection(2);
-   const before=editor.getJSON(),selection=editor.state.selection.from,capture=await bridge.capture();
+   const before=editor.getJSON(),selection=editor.state.selection.from,canUndo=editor.can().undo(),capture=await bridge.capture();
    expect(()=>bridge.insert(capture,'Not an image')).toThrow('Choose a saved image');
    expect(editor.getJSON()).toEqual(before);
    expect(editor.state.selection.from).toBe(selection);
+   expect(editor.can().undo()).toBe(canUndo);
    expect(changed).not.toHaveBeenCalled();
   }finally{editor.destroy();}
  });
@@ -220,11 +222,31 @@ describe('Build image insertion boundary',()=>{
     {type:'text',text:'Keep this'},{type:'hardBreak'},
    ]}]});
    editor.commands.setTextSelection(2);
-   const before=editor.getJSON(),selection=editor.state.selection.from,capture=await bridge.capture();
+   const before=editor.getJSON(),selection=editor.state.selection.from,canUndo=editor.can().undo(),capture=await bridge.capture();
    expect(()=>bridge.insert(capture,mediaMarkdown(id,'Ticket'))).toThrow(/saving|structure/i);
    expect(editor.getJSON()).toEqual(before);
    expect(editor.state.selection.from).toBe(selection);
+   expect(editor.can().undo()).toBe(canUndo);
    expect(changed).not.toHaveBeenCalled();
+  }finally{editor.destroy();}
+ });
+ it.each(['filtered','appended'] as const)('refuses an editor transaction that is %s without consuming the placement',async mode=>{
+  const {editor,bridge,changed}=setup();
+  try{
+   const predecessor=editor.getJSON();
+   editor.commands.insertContent('x');
+   const key=new PluginKey(`reject-image-${mode}`);
+   editor.registerPlugin(mode==='filtered'
+    ? new Plugin({key,filterTransaction:transaction=>!transaction.docChanged})
+    : new Plugin({key,appendTransaction:(transactions,_old,state)=>transactions.some(transaction=>transaction.docChanged)
+      ? state.tr.insertText('!',1) : null}));
+   editor.commands.setTextSelection(2);
+   const before=editor.getJSON(),selection=editor.state.selection.from,canUndo=editor.can().undo(),capture=await bridge.capture();
+   expect(()=>bridge.insert(capture,mediaMarkdown(id,'Ticket'))).toThrow('cannot apply');
+   expect(editor.getJSON()).toEqual(before);expect(editor.state.selection.from).toBe(selection);
+   expect(editor.can().undo()).toBe(canUndo);expect(changed).not.toHaveBeenCalled();
+   expect(()=>bridge.insert(capture,mediaMarkdown(id,'Ticket'))).toThrow('cannot apply');
+   editor.unregisterPlugin(key);editor.commands.undo();expect(editor.getJSON()).toEqual(predecessor);
   }finally{editor.destroy();}
  });
  it.each(['heading','list','table'] as const)('places after the whole clicked %s without changing it',async kind=>{
