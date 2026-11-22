@@ -34,10 +34,11 @@ class PlanJevHarness:
         raise ValueError('Plan Jev requires its trusted parent orchestration')
 
     def _interpret_author_scope(self, adapter, dialogue, calls):
-        from application_state.agent_conversation.native_plan_opening import author_scope_review_required
+        from application_state.agent_conversation.native_plan_opening import (
+            author_scope_review_required, can_skip_author_scope_recheck,
+        )
 
-        def observe(**options):
-            dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue, **options)
+        def observe(dispatch):
             try:
                 asyncio.run(dispatch.run(transport=self.decision_transport, api_key=self.decision_api_key))
             finally:
@@ -45,10 +46,15 @@ class PlanJevHarness:
                     calls.append(dispatch.call)
             return dispatch.selection_event
 
-        first = observe()
-        second = observe(prior_scope=first)
+        first_dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue)
+        first = observe(first_dispatch)
+        if can_skip_author_scope_recheck(
+            first_dispatch.parent, first.scope_observation, adapter.request.plan_authoring_capture
+        ):
+            return first
+        second = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, prior_scope=first))
         if author_scope_review_required(adapter.request.message, first.scope_observation, second.scope_observation):
-            return observe(review_scope=(first, second))
+            return observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, review_scope=(first, second)))
         return second
 
     def execute(self, adapter, *, dialogue=(), retained_navigation=()):
