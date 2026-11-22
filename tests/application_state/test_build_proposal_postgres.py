@@ -614,6 +614,8 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("Move the Map next to Approach into the space directly to its right.", "ready"),
         ("Move the Map right one slot within this row.", "ready"),
         ("Slide the Map right into the vacant slot.", "ready"),
+        ("Transfer the Map right; preserve unrelated figures.", "ready"),
+        ("Transfer the Map right; remove unrelated figures.", "unsupported"),
         ("Move the Map to the empty right column; retain the surrounding notes.", "ready"),
         ("Move the Map to the empty right column; retain the surrounding notes and then remove the heading.", "unsupported"),
         ("Move the Map to the empty left column; retain the surrounding notes.", "unsupported"),
@@ -704,6 +706,12 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
                        row_media_counts={1: 1, 2: 1})
     proved = choices | {CONTEXTUAL_IDENTITY: "image1"}
     assert decision.resolve(proved).disposition == "ready"
+    assert replace(
+        decision, question="Move the map alongside the departure advice to the empty slot on its right.",
+    ).resolve(proved).disposition == "ready"
+    assert replace(
+        decision, question="For the departure advice, the map belongs in the empty slot to its right.",
+    ).resolve(proved).disposition == "ready"
     assert decision.resolve(choices).disposition == "ambiguous"
     assert decision.resolve(proved | {CONTEXTUAL_IDENTITY: "image2"}).disposition == "ambiguous"
     assert replace(decision, question="Move the map to the empty slot on its right.").resolve(proved).disposition == "ambiguous"

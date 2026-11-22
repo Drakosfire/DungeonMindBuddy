@@ -84,11 +84,13 @@ _PASSIVE_MOVE = re.compile(
     re.IGNORECASE,
 )
 _DESTINATION_START = re.compile(
-    r"\s+(?:into\s+|onto\s+|(?<!next\s)(?<!close\s)to\s+|"
+    r"\s+(?:into\s+|onto\s+|(?<!next\s)(?<!close\s)(?<!adjacent\s)to\s+|"
     r"(?:(?:one|a)\s+(?:slot|column)\s+)?right(?=(?:[-\s]+hand\b)|\s+(?:by|one|a|in|into|onto|within|on|from|slot|column)\b|[,.!?]|\s*$))",
     re.IGNORECASE,
 )
 _RIGHT_DIRECTION = re.compile(r"\bright(?:wards?)?\b", re.IGNORECASE)
+_RIGHT_BEFORE_PRESERVATION = re.compile(r"\s+right\s*;", re.IGNORECASE)
+_LEADING_LOCATION = re.compile(r"^\s*(?P<location>(?:in|on|within|under|for)\s+[^,.;!?]{1,180}),\s*", re.IGNORECASE)
 _OTHER_ROW = re.compile(r"\b(?:another|different|other|next|previous)\s+row\b", re.IGNORECASE)
 _ROW_PREPOSITION = re.compile(r"\b(?:in|into|on|onto|to|of|from|within|inside)\b", re.IGNORECASE)
 _ROW_QUALIFIER = re.compile(r"\s*([^,.!?;]{1,110}?)\s+row\b", re.IGNORECASE)
@@ -97,7 +99,8 @@ _ORDINAL_ROWS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "
 _HEADING_REFERENCE = re.compile(r"\b(?:under|beneath|below|beside|next\s+to)\s+([^,.;!?]+)\s*$", re.IGNORECASE)
 _IMAGE_LABEL_REFERENCE = re.compile(r"\b(?:named|titled|labelled|labeled|called)\s*$", re.IGNORECASE)
 _SOURCE_QUALIFIER = re.compile(
-    r"\b(?:by|with|near|beside|under|beneath|below|above|next\s+to|in|within|from|at)\s+([^,.;!?]+)\s*$", re.IGNORECASE,
+    r"\b(?:by|with|near|beside|alongside|under|beneath|below|above|next\s+to|adjacent\s+to|in|within|from|at|for)\s+([^,.;!?]+)\s*$",
+    re.IGNORECASE,
 )
 _PAGE_QUALIFIER = re.compile(r"\s*([^,.!?;]{1,110}?)\s+page\b", re.IGNORECASE)
 _CURRENT_ROW = re.compile(r"(?:(?:the|its|that|this)\s+)?(?:same|current|original)|(?:this|its)\s*", re.IGNORECASE)
@@ -115,7 +118,7 @@ _ALTERNATIVE_DIRECTION = re.compile(
 )
 _PRESERVE_SURROUNDINGS = re.compile(
     r";\s*(?:keep|leave|retain|preserve)\s+(?:the\s+)?"
-    r"(?:surrounding\s+(?:notes|text|prose|content)|everything\s+else)"
+    r"(?:(?:surrounding|unrelated|other)\s+(?:notes|text|prose|content|images?|figures?)|everything\s+else)"
     r"(?:\s+(?:unchanged|untouched|intact))?[.!]?\s*$",
     re.IGNORECASE,
 )
@@ -391,6 +394,8 @@ class BuildImageMoveDecision:
                     or not _LAYOUT_NOUN.search(masked_question) or not _RIGHT_DIRECTION.search(masked_question)):
                 return BuildImageMoveNomination("discussion")
             clause = "", self.question
+            if contextual_identity is not None and (leading := _LEADING_LOCATION.match(masked_question)):
+                clause = self.question[leading.start("location"):leading.end("location")], self.question[leading.end():]
         location, object_and_destination = clause
         masked_clause = _mask_quoted_labels(object_and_destination)
         scope = f"{location}, {object_and_destination}"
@@ -402,6 +407,8 @@ class BuildImageMoveDecision:
         if answers["image_move_destination"] != "same_row_right":
             return BuildImageMoveNomination("unsupported")
         split = _DESTINATION_START.search(masked_clause)
+        if split is None and affirmation is not None:
+            split = _RIGHT_BEFORE_PRESERVATION.search(masked_clause)
         if split is None:
             return BuildImageMoveNomination("unresolved")
         object_text = object_and_destination[:split.start()]
@@ -502,10 +509,10 @@ class BuildImageMoveDecision:
                                         for item in self.occurrences if item.alias != alias),
                                       *(_context_terms(alt + " " + context) for _, alt, context in self.other_media))
                 unique_alt = (_context_terms(chosen.alt) & _context_terms(masked_object)) - rivals
-                qualifier = _SOURCE_QUALIFIER.search(masked_object)
-                if qualifier is None:
-                    qualifier = _SOURCE_QUALIFIER.search(_mask_quoted_labels(location))
-                qualified_terms = _context_terms(qualifier.group(1)) if qualifier is not None else set()
+                qualifiers = (_SOURCE_QUALIFIER.search(masked_object),
+                              _SOURCE_QUALIFIER.search(_mask_quoted_labels(location)))
+                qualified_terms = set().union(*(_context_terms(qualifier.group(1))
+                                                for qualifier in qualifiers if qualifier is not None))
                 distinguishing_context = _context_terms(chosen.row_context) - rivals
                 unique_row = bool(distinguishing_context & qualified_terms)
                 semantic_context = (
