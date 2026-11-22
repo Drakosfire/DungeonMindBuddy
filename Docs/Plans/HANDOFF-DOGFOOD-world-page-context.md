@@ -1,6 +1,17 @@
 # DOGFOOD: continue from a newly created World page
 
-ACTIVE under Alan's instruction to finish the actual-app conversation/page flow.
+SETTLED: PR4458 merged into the dedicated release base at497d7ba9. Alan
+explicitly authorized the combined activation, superseding the pending COMBAT
+3a6 command. Exact d08e4468/image5f2afe is now healthy in production; no schema,
+grants or data changes. Created World page reopened with admitted context and
+answered the next ordinary request correctly. Source/operator independent PASS;
+exact hosted1474/buildPASS validated; discovered8520/102/2 has exact serving
+baseline failed identities, no new failures, remains red.
+
+The full goal continues in HANDOFF-DOGFOOD-authored-context-coverage.md because
+the first conversation-page draft still omits earlier authored setting.
+
+Original assignment under Alan's instruction to finish the actual-app conversation/page flow.
 Owner DOGFOOD. Actual47d41c acceptance created/reviewed/saved/reopened one correct
 page, with zero new source acquisition and idempotent UI confirmation. It exposed
 a follow-on blocker: reviewed World-owned pages have no legacy campaign tag and
