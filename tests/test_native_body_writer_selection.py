@@ -10,6 +10,9 @@ import pytest
 from application_state.agent_conversation import types as t, native_corpus as bodies
 from application_state.agent_conversation import authored_graph_references
 from application_state.agent_conversation import writer_evidence_selection as selection
+from application_state.agent_conversation.native_retrieval import (
+    NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2,
+)
 from application_state.agent_conversation.build_primary_context import NATIVE_WORK_SCHEMA
 from application_state.agent_conversation.model_markdown import project_model_markdown
 from application_state.agent_conversation.native_build_work_view import semantic_frame
@@ -254,3 +257,73 @@ def test_build_writer_keeps_source_aliases_and_projects_author_visible_images(mo
     assert current["editor_markdown"] == "[Image: Survey]\n"
     assert current["related_pages"][0] == {**retained["related_pages"][0], "markdown": "[Image: Survey]\n"}
     assert host["artifact_under_edit"]["sections"][0]["text"] == source
+
+
+def source_only_route_case():
+    """Eligibility inputs only; live admission/codec checks use ordinary HTTP."""
+    from tests.test_surface_native_execution import component
+    context, record = component('build')
+    query = t.NativePlanQueryUnavailableV1(managed_world_id='world-one',
+        reason='native_graph_binding_unavailable')
+    receipt = SimpleNamespace(native_query=query, source_authority=context.source_authority)
+    return receipt, record
+
+
+def test_conversation_route_can_reuse_source_support_without_active_graph():
+    receipt, record = source_only_route_case()
+    assert bodies.conversation_route_can_admit(receipt, record)
+
+
+@pytest.mark.parametrize('boundary', ['head', 'source', 'query_world', 'source_world',
+    'intent_world', 'plan', 'reviewed', 'reference', 'revision_pin', 'settled'])
+def test_source_only_conversation_route_refuses_unproved_context(boundary):
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    from tests.test_surface_native_execution import component
+    receipt, record = source_only_route_case()
+    if boundary == 'head':
+        receipt.native_query = receipt.native_query.model_copy(update={'reason':'native_graph_head_unavailable'})
+    elif boundary == 'source':
+        receipt.source_authority = t.NativeCorpusUnavailableV1(managed_world_id='world-one',
+            failure_code='native_source_head_unavailable')
+    elif boundary == 'query_world':
+        receipt.native_query = receipt.native_query.model_copy(update={'managed_world_id':'foreign'})
+    elif boundary == 'source_world':
+        receipt.source_authority = receipt.source_authority.model_copy(update={'managed_world_id':'foreign'})
+    elif boundary == 'plan':
+        _, record = component('plan')
+    elif boundary == 'settled':
+        # The eligibility guard must reject the marker before inspecting payload.
+        record = record.model_copy(update={'events':[NativeBuildQuerySettledV1.model_construct()]})
+    else:
+        intent = record.policy.action.intent
+        if boundary == 'intent_world':
+            intent = intent.model_copy(update={'world_id':'foreign'})
+        elif boundary == 'reviewed':
+            intent = intent.model_copy(update={'reviewed_step':object()})
+        elif boundary == 'reference':
+            intent = intent.model_copy(update={'authored_references':object()})
+        else:
+            intent = intent.model_copy(update={'graph_request':intent.graph_request.model_copy(
+                update={'revision_pin':'rev:unproved'})})
+        action = record.policy.action.model_copy(update={'intent':intent})
+        record = record.model_copy(update={'policy':record.policy.model_copy(update={'action':action})})
+    assert not bodies.conversation_route_can_admit(receipt, record)
+
+
+@pytest.mark.parametrize('event_type', [*t.NATIVE_BODY_EVENTS, t.RelatedPageRead,
+    NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2])
+def test_source_only_conversation_route_refuses_new_acquisition_after_admission(event_type):
+    receipt, record = source_only_route_case()
+    # Presence is the invariant; malformed payloads cannot make a forbidden
+    # acquisition marker eligible before the full typed owner rejects them.
+    events = [t.BuildPriorBodyEvidenceAdmittedV1.model_construct(), event_type.model_construct()]
+    record = record.model_copy(update={'events':events})
+    assert not bodies.conversation_route_can_admit(receipt, record)
+
+
+def test_source_only_conversation_reader_fence_refuses_downgrade():
+    from importlib import import_module
+    fence = import_module('application_state.migrations.versions.20261122_0187_source_only_conversation_fence')
+    assert fence.down_revision == '20261122_0186'
+    with pytest.raises(RuntimeError, match='Use forward recovery'):
+        fence.downgrade()
