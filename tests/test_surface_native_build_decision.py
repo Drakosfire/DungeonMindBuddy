@@ -711,8 +711,8 @@ def test_first_build_send_measures_existing_transaction_before_transport(applica
     sdk_case(owner=owner)
     assert len(owner.sent) == 1
     assert stages == [
-        "first_jev_send_schema_check",
         "first_jev_send_transaction_open",
+        "first_jev_send_schema_check",
         "first_jev_send_locked_turn_read",
         "first_jev_send_claim_clock",
         "first_jev_send_prospective_validation",
