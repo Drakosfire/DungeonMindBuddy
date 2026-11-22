@@ -377,10 +377,12 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             expected_message = {'role': 'user', 'content': render_plan_evidence(
                 prose_frame, prose_work,
                 compact_graph_qualifications=authorization.compact_plan_graph_qualifications,
+                deduplicate_recap_prose=authorization.deduplicate_plan_recap_prose,
             )}
             if len(prose) != 1 or messages[-1] != expected_message:
                 raise ValueError('Plan writer prose differs from its exact admitted evidence')
-    if (authorization.compact_plan_editor_prose or authorization.compact_plan_graph_qualifications) and prose_work is None:
+    if (authorization.compact_plan_editor_prose or authorization.compact_plan_graph_qualifications
+            or authorization.deduplicate_plan_recap_prose) and prose_work is None:
         raise ValueError('Plan compact prose markers require native Plan prose')
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'],prose_frame=prose_frame, prose_work=prose_work)
     has_image = isinstance(body.get("input"), list) and proposal_packet_text(body) is not None
