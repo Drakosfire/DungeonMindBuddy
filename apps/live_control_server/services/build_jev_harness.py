@@ -247,7 +247,7 @@ class BuildJevHarness:
             )
             if driver._selection_intent is not None:
                 asyncio.run(self._decide(adapter, driver))
-            if getattr(driver.selection, "typed_image_move", None) in {"move_existing", "unresolved"}:
+            if hasattr(driver, "image_move_opening_proof"):
                 from application_state.errors import ApplicationStateConflictError
                 from .agent_turn_service import AgentTurnServiceError
 
@@ -687,6 +687,7 @@ class BuildJevHarness:
                 conversation_only = False
                 if wait_for_work:
                     from application_state.agent_conversation.build_intentional_response import selected, source_need
+                    from application_state.build_proposal.image_move_decision import admitted_image_move_choice
                     from application_state.agent_conversation.native_corpus import is_prior_conversation_work
                     from application_state.build_proposal.graph_reference_decision import resolve_graph_reference_opening
 
@@ -695,7 +696,7 @@ class BuildJevHarness:
                     image_opening = (driver.image_move.opening_answers(request, result)["image_move_intent"]
                                      if getattr(driver, "image_move", None) is not None else None)
                     conversation_only = (
-                        image_opening not in {"move_existing", "unresolved"}
+                        admitted_image_move_choice(image_opening, adapter.request.message) not in {"move_existing", "unresolved"}
                         and resolve_graph_reference_opening(request, result) != "place_existing_reference"
                         and is_prior_conversation_work(selected(response), source_need(request, response))
                     )

@@ -219,7 +219,7 @@ SOURCE_NEED_GUIDANCE = _RETAINED_SOURCE_NEED_GUIDANCE + (
 )
 
 
-def source_need(request, response):
+def source_need(request, response, *, tie_fallback=None):
     question = request["questions"].get("source_need")
     if question is None:
         return None
@@ -227,15 +227,24 @@ def source_need(request, response):
     if question not in (expected | {"instructions": guidance}
                         for guidance in (SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
         raise ValueError("Build source scope differs from its offered decision")
-    return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS)
+    return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS, tie_fallback=tie_fallback)
 
 
-def selected(response, *, menu=None):
+def selected(response, *, menu=None, tie_fallback=None):
     options = WORK if menu is None else _menu_work(menu)
-    return _selected_choice(response["answers"]["requested_work"], options)
+    return _selected_choice(response["answers"]["requested_work"], options, tie_fallback=tie_fallback)
 
 
-def _selected_choice(answer, options):
+def opening_work(policy, request, response, image_choice):
+    _, _, menu, _ = _captured_semantics(policy)
+    # An independently admitted image choice does not use otherwise valid
+    # general work/source ties. Keep the same checks for all malformed votes.
+    terminal = image_choice in {"move_existing", "unresolved"}
+    return (selected(response, menu=menu, tie_fallback="discuss" if terminal else None),
+            source_need(request, response, tie_fallback="anchored" if terminal else None))
+
+
+def _selected_choice(answer, options, *, tie_fallback=None):
     label, probabilities = answer["selected"], answer["probabilities"]
     if (
         label not in options
@@ -249,9 +258,16 @@ def _selected_choice(answer, options):
             for x in probabilities.values()
         )
         or abs(sum(probabilities.values()) - 1) > 0.02
-        or probabilities[label] != max(probabilities.values())
-        or sum(x == probabilities[label] for x in probabilities.values()) != 1
     ):
+        raise ValueError("Invalid actual semantic selection")
+    maximum = max(probabilities.values())
+    tied = sum(value == maximum for value in probabilities.values()) != 1
+    if tied and tie_fallback is not None:
+        # This ranking has no unique winner. For an already admitted typed
+        # image action, discard the unused general label and record the host's
+        # neutral route. The actual label and probabilities remain in proof.
+        return tie_fallback
+    if tied or probabilities[label] != maximum:
         raise ValueError("Invalid actual semantic selection")
     return label
 
@@ -745,10 +761,9 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError("Semantic selection requires its exact producing proof")
     request = strict_json(proof["request_json"])
     raw_response = strict_json(proof["response_json"])
-    label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
     capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
-    from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
+    from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY, admitted_image_move_choice
     image_offer = request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY)
     image_answers = {name: value for name, value in response.answers.items() if name.startswith("image_move_")}
     if capture is None:
@@ -759,8 +774,13 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
 
         names = {"image_move_intent", "image_move_destination", "image_move_occurrence"}
         projected = response.model_copy(update={"answers": image_answers})
+        choice = validated_choice_answers(projected, names)["image_move_intent"]
+        retained = event.typed_image_move
         if (not semantic_input or not isinstance(image_offer, dict) or
-                event.typed_image_move != validated_choice_answers(projected, names)["image_move_intent"]):
+                (retained != choice and not (
+                    retained == "unresolved" and choice == "other"
+                    and admitted_image_move_choice(choice, user_text) == retained
+                ))):
             raise ValueError("Image move choice differs from its actual native selection")
     graph_reference = resolve_graph_reference_opening(request, response)
     if graph_reference != event.typed_graph_reference or (graph_reference is not None and (
@@ -769,7 +789,8 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         or policy.action.write_capability.basis.visibility != "internal"
     )):
         raise ValueError("Build Graph reference opening differs from its actual native selection")
-    resolution = resolution_for(policy, label, source_scope=source_need(request, raw_response))
+    label, source_scope = opening_work(policy, request, raw_response, event.typed_image_move)
+    resolution = resolution_for(policy, label, source_scope=source_scope)
     if event.paragraph_placement != paragraph_placement_for(policy, request, response, user_text, label):
         raise ValueError("Build paragraph placement differs from its actual opening selection")
     prior = [

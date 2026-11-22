@@ -6,38 +6,17 @@ from collections import Counter
 from dataclasses import dataclass
 import re
 from typing import Literal
-from uuid import UUID
 
 from generationengine.types import ChoiceDecisionQuestion, DecisionResult
-from pydantic import ConfigDict, Field, model_validator
 
 from application_state.agent_conversation.plan_authoring import strict_json
 from application_state.agent_conversation.jev_retrieval_contract import validated_choice_answers
 from application_state.build_proposal.image_move import BuildImageMovePlacement
+from application_state.build_proposal.image_move_capture import BuildImageMoveCapture
 from application_state.build_proposal.image_move_layout import require_build_image_layout
-from application_state.build_proposal.types import BuildImageMoveDisposition, BuildProposalBasis, StrictModel
-from application_state.content.page_presentation import BlockBinding, Identifier, PagePresentation, Row
+from application_state.build_proposal.types import BuildImageMoveDisposition
+from application_state.content.page_presentation import BlockBinding, PagePresentation, Row
 from application_state.content.types import sha256_utf8
-
-
-class BuildImageMoveCapture(StrictModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    basis: BuildProposalBasis
-    conversation_id: UUID
-    expected_pointer_revision: int = Field(strict=True, ge=1)
-    editor_json: str = Field(min_length=1, max_length=1_000_000)
-    author_selected_block_id: Identifier | None = None
-
-    @model_validator(mode="after")
-    def exact_editor(self):
-        if (
-            self.basis.visibility != "internal"
-            or self.basis.content_sha256 != self.basis.draft_sha256
-            or sha256_utf8(self.editor_json) != self.basis.editor_sha256
-        ):
-            raise ValueError("Image movement requires the exact saved internal Page capture")
-        return self
 
 
 @dataclass(frozen=True)
@@ -71,6 +50,13 @@ _ACTIVE_MOVE = re.compile(
     r"(?:please\s+)?(?:move|shift|slide|relocate|transfer|put|place|reposition|nudge|push|drag)\b",
     re.IGNORECASE,
 )
+_PASSIVE_MOVE = re.compile(
+    r"^\s*(?:(?:can|could|would|will)\s+(?P<modal>(?:this|that|the|my|our|an?)\s+[^,.;!?]{1,180}?)\s+(?:please\s+)?be\s+|"
+    r"(?:I\s+(?:want|would like)|I['’]d\s+like)\s+(?P<wanted>(?:this|that|the|my|our|an?)\s+[^,.;!?]{1,180}?)"
+    r"\s+(?:to\s+be\s+)?)"
+    r"(?:moved|shifted|slid|relocated|transferred|put|placed|repositioned|nudged|pushed|dragged)\b",
+    re.IGNORECASE,
+)
 _DESTINATION_START = re.compile(
     r"\s+(?:into\s+|onto\s+|(?<!next\s)(?<!close\s)to\s+|"
     r"(?:(?:one|a)\s+(?:slot|column)\s+)?right(?=\s+(?:by|one|a|in|within|on|from)\b|[,.!?]|\s*$))",
@@ -83,6 +69,9 @@ _ROW_QUALIFIER = re.compile(r"\s*([^,.!?;]{1,110}?)\s+row\b", re.IGNORECASE)
 _NUMBERED_ROW = re.compile(r"\s*(?:the\s+)?row\s+(?:number\s+)?([1-9]\d{0,5})\b", re.IGNORECASE)
 _ORDINAL_ROWS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6}
 _HEADING_REFERENCE = re.compile(r"\b(?:under|beneath|below|beside|next\s+to)\s+([^,.;!?]+)\s*$", re.IGNORECASE)
+_SOURCE_QUALIFIER = re.compile(
+    r"\b(?:by|with|near|beside|under|beneath|below|above|next\s+to|in|within|from|at)\s+([^,.;!?]+)\s*$", re.IGNORECASE,
+)
 _PAGE_QUALIFIER = re.compile(r"\s*([^,.!?;]{1,110}?)\s+page\b", re.IGNORECASE)
 _CURRENT_ROW = re.compile(r"(?:(?:the|its|that|this)\s+)?(?:same|current|original)|(?:this|its)\s*", re.IGNORECASE)
 _RIGHT_OF = re.compile(r"\bright\s+of\s+([^,.!?;]+)", re.IGNORECASE)
@@ -96,10 +85,26 @@ _ALTERNATIVE_DIRECTION = re.compile(
     re.IGNORECASE,
 )
 _CONDITIONAL = re.compile(r"\b(?:if|assuming|provided|hypothetical(?:ly)?)\b", re.IGNORECASE)
+_EXCLUDED_TARGET = re.compile(r"\b(?:not|except|excluding|or|both|each|all)\b", re.IGNORECASE)
 _QUOTED_LABEL = re.compile(
     r'''"(?:\\.|[^"\\\n])*"|“[^”\n]*”|(?<!\w)'[^'\n]*'(?!\w)|(?<!\w)‘[^’\n]*’(?!\w)|\x60[^\x60\n]+\x60''',
 )
 _WORDS = re.compile(r"[^\W_]+")
+_MOTION_MENTION = re.compile(r"\b(?:mov(?:e[ds]?|ing)|shift(?:s|ed|ing)?|slid(?:e[ds]?|ing)|reposition(?:ed|ing)?|put(?:ting)?|plac(?:e[ds]?|ing))\b", re.IGNORECASE)
+_LAYOUT_MENTION = re.compile(r"\b(?:slots?|columns?|rows?|adjacent|left|right)\b", re.IGNORECASE)
+_IMAGE_MENTION = re.compile(r"\b(?:image|illustration|picture|photo|map|diagram|drawing|sketch|artwork)s?\b", re.IGNORECASE)
+_DISCUSSION_MENTION = re.compile(r"\b(?:what|how|would|if|imagine|hypothetic\w*|should|don['’]t|not)\b", re.IGNORECASE)
+_OTHER_AUTHORING = re.compile(
+    r"^\s*(?:please\s+)?(?:write|draft|compose|add|insert|create|generate|replace|revise|summarize)\b",
+    re.IGNORECASE,
+)
+_UNSPECIFIC_WORDS = frozenset(
+    "about above across after again all along already also always and another any anything around before"
+    " below beside both can could current did does during each empty every existing first for from"
+    " have here into its just last left like move near next only original other out over place please"
+    " right same second should side slot some than that the their them then there these they this"
+    " those through under vacant want was where which while will with within would".split()
+)
 
 
 def _semantic_text(node: dict) -> str:
@@ -143,13 +148,44 @@ def _mask_literal_phrase(text: str, phrase: str) -> str:
     return "".join(masked)
 
 
+def _move_clause(question: str) -> tuple[str, str] | None:
+    masked = _mask_quoted_labels(question)
+    active = _ACTIVE_MOVE.match(masked)
+    if active is not None:
+        location = question[active.start("location"):active.end("location")] if active.group("location") else ""
+        return location, question[active.end():]
+    passive = _PASSIVE_MOVE.match(masked)
+    if passive is not None:
+        group = "modal" if passive.group("modal") else "wanted"
+        if not re.search(r"\b(?:not|never)\b", passive.group(group), re.IGNORECASE):
+            return "", question[passive.start(group):passive.end(group)] + question[passive.end():]
+    return None
+
+
+def admitted_image_move_choice(choice: str | None, question: str) -> str | None:
+    if choice != "other" or not _IMAGE_MENTION.search(question):
+        return choice
+    masked = _mask_quoted_labels(question)
+    if (not _OTHER_AUTHORING.match(masked) and _LAYOUT_MENTION.search(masked) and _MOTION_MENTION.search(masked)
+            and (_move_clause(question) is not None or _DISCUSSION_MENTION.search(masked))):
+        # Retain the existing unresolved action for image-layout discussion.
+        # The raw Jev vote remains in the exact proof and never grants a move.
+        return "unresolved"
+    return choice
+
+
+def _context_terms(text: str) -> set[str]:
+    return {word for word in _phrase(text).split() if len(word) >= 3 and word not in _UNSPECIFIC_WORDS
+            and not _IMAGE_MENTION.fullmatch(word) and not _LAYOUT_MENTION.fullmatch(word)}
+
+
 @dataclass(frozen=True)
 class BuildImageMoveDecision:
     capture: BuildImageMoveCapture
     question: str
     presentation_sha256: str
     occurrences: tuple[_Occurrence, ...]
-    other_media: tuple[tuple[str, str], ...]
+    other_media: tuple[tuple[str, str, str], ...]
     row_labels: dict[str, set[int]]
     row_media_counts: dict[int, int]
 
@@ -163,15 +199,19 @@ class BuildImageMoveDecision:
         editor = strict_json(capture.editor_json)
         require_build_image_layout(editor, markdown, layout)
         occurrences = []
+        media_contexts: Counter[tuple[str, str, str]] = Counter()
         row_labels: dict[str, set[int]] = {}
         row_media_counts: dict[int, int] = {}
         number = 0
         for node, item in zip(editor["content"], layout.items, strict=True):
             if not isinstance(item, Row):
+                media_contexts.update((asset, alt, "") for asset, alt in _all_media(node))
                 continue
             number += 1
-            row_media_counts[number] = sum(1 for _ in _all_media(node))
             row_context = _semantic_text(node)[:500]
+            row_media = tuple(_all_media(node))
+            row_media_counts[number] = len(row_media)
+            media_contexts.update((asset, alt, row_context) for asset, alt in row_media)
             for slot_node in node["content"]:
                 for block in slot_node.get("content", []):
                     if block["type"] == "heading" and (label := _phrase(_semantic_text(block))):
@@ -197,7 +237,7 @@ class BuildImageMoveDecision:
             item.block.id == capture.author_selected_block_id for item in occurrences
         ):
             raise ValueError("Selected image differs from the saved Page occurrence")
-        other_media = Counter(_all_media(editor)) - Counter((item.asset, item.alt) for item in occurrences)
+        other_media = media_contexts - Counter((item.asset, item.alt, item.row_context) for item in occurrences)
         return cls(capture, question, layout.fingerprint(), tuple(occurrences), tuple(other_media.elements()),
                    row_labels, row_media_counts)
 
@@ -252,13 +292,11 @@ class BuildImageMoveDecision:
         for question in self.questions():
             if answers.get(question.name) not in question.options:
                 raise ValueError("Image move decision has an unoffered answer")
-        masked_question = _mask_quoted_labels(self.question)
-        active = _ACTIVE_MOVE.match(masked_question)
-        if answers["image_move_intent"] != "move_existing" or active is None:
+        clause = _move_clause(self.question)
+        if answers["image_move_intent"] != "move_existing" or clause is None:
             return BuildImageMoveNomination("discussion")
-        object_and_destination = self.question[active.end():]
-        masked_clause = masked_question[active.end():]
-        location = self.question[active.start("location"):active.end("location")] if active.group("location") else ""
+        location, object_and_destination = clause
+        masked_clause = _mask_quoted_labels(object_and_destination)
         scope = f"{location}, {object_and_destination}"
         masked_scope = _mask_quoted_labels(scope)
         if _CONDITIONAL.search(masked_scope):
@@ -272,6 +310,8 @@ class BuildImageMoveDecision:
             return BuildImageMoveNomination("unresolved")
         object_text = object_and_destination[:split.start()]
         object_words = _phrase(object_text)
+        if _EXCLUDED_TARGET.search(_mask_quoted_labels(location + " " + object_text)):
+            return BuildImageMoveNomination("ambiguous")
         destination = masked_clause[split.start():]
         if _OTHER_ROW.search(masked_scope):
             return BuildImageMoveNomination("different_row")
@@ -285,7 +325,7 @@ class BuildImageMoveDecision:
         chosen_words = _phrase(chosen.alt)
         competing_names = {
             _phrase(item.alt) for item in self.occurrences if item.alias != alias
-        } | {_phrase(alt) for _, alt in self.other_media}
+        } | {_phrase(alt) for _, alt, _ in self.other_media}
         masked_object = _mask_quoted_labels(object_text)
         if chosen_words and chosen_words in competing_names:
             masked_object = _mask_literal_phrase(masked_object, chosen_words)
@@ -343,14 +383,28 @@ class BuildImageMoveDecision:
                 item.alt for item in self.occurrences
                 if item.alias != alias and (item.asset == chosen.asset or _phrase(item.alt) == _phrase(chosen.alt))
             ]
-            conflicts.extend(alt for asset, alt in self.other_media
+            conflicts.extend(alt for asset, alt, _ in self.other_media
                              if asset == chosen.asset or _phrase(alt) == _phrase(chosen.alt))
             direct = _mentions(object_words, chosen_words) and not any(
                 _mentions(object_words, _phrase(alt)) or _mentions(_phrase(alt), chosen_words)
                 for alt in conflicts
             )
-            if conflicts and not (direct or (explicitly_named_row and self.row_media_counts[chosen.row_number] == 1)):
-                return BuildImageMoveNomination("ambiguous")
+            if conflicts and not direct:
+                # Corroborate Jev's alias by context unique to this occurrence.
+                # Geometry is excluded: the convenient destination cannot select an image.
+                rivals = set().union(*(_context_terms(item.alt + " " + item.row_context)
+                                        for item in self.occurrences if item.alias != alias),
+                                      *(_context_terms(alt + " " + context) for _, alt, context in self.other_media))
+                unique_alt = (_context_terms(chosen.alt) & _context_terms(masked_object)) - rivals
+                qualifier = _SOURCE_QUALIFIER.search(masked_object)
+                if qualifier is None:
+                    qualifier = _SOURCE_QUALIFIER.search(_mask_quoted_labels(location))
+                qualified_terms = _context_terms(qualifier.group(1)) if qualifier is not None else set()
+                unique_row = (_context_terms(chosen.row_context) & qualified_terms) - rivals
+                if not unique_alt and not (
+                    self.row_media_counts[chosen.row_number] == 1 and (explicitly_named_row or unique_row)
+                ):
+                    return BuildImageMoveNomination("ambiguous")
         if chosen.destination_slot is None or chosen.destination != "empty_right":
             return BuildImageMoveNomination(chosen.destination)
         return BuildImageMoveNomination("ready", BuildImageMovePlacement(

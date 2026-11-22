@@ -80,6 +80,8 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
     ("Move the Harbour map to the right slot in the Watchtower row.", "different_row"),
     ("Move the Harbour map to the slot on its right.", "foreign_capture"),
     ("Move the Harbour map to the slot on its right.", "forged_editor"),
+    ("What would happen if we moved the Harbour map to the next slot?", "other_discussion"),
+    ("Move the Harbour map to the empty slot on its right.", "tied_menu"),
 ])
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
@@ -455,10 +457,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert image_move and "Harbour map" in str(body["state"]["interaction"]["image_move"])
                     assert asset_id not in json.dumps(body)
                     assert all(value not in json.dumps(body) for value in ("map-block", "harbour-row", "left-slot"))
-                    chosen = {"image_move_intent": "move_existing",
+                    chosen = {"image_move_intent": "other" if image_move == "other_discussion" else "move_existing",
                               "image_move_destination": "same_row_right", "image_move_occurrence": "image1"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                                          probabilities={key: float(key == chosen) for key in choices})
+                    continue
+                if name == "requested_work" and image_move == "tied_menu":
+                    voting = {"discuss": .4, "clarify_request": .4, "other_creation": .2}
+                    answers[name] = dict(type="choice", choice="other_creation", confidence=.2,
+                                         probabilities={key: voting.get(key, 0) for key in choices})
                     continue
                 if name == "typed_graph_reference":
                     chosen = "place_existing_reference" if graph_reference else "other_work"
@@ -1127,9 +1134,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return
         assert response.status_code == 200, response.text
         completion = response.json()["knowledge_context"]["completion"]
-        assert completion["disposition"] == image_move
+        expected = {"other_discussion": "discussion", "tied_menu": "ready"}.get(image_move, image_move)
+        assert completion["disposition"] == expected
         turn_id = writer.adapter.turn.turn_id
-        if image_move == "ready":
+        if expected == "ready":
             review = BuildImageMoveReviewService().get(world, turn_id)
             assert completion["action_id"] == str(turn_id) and review.state == "editing"
             assert review.placement.image_block_id == "map-block"

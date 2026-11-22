@@ -12,7 +12,7 @@ from uuid import UUID
 from pydantic import ConfigDict, Discriminator, Tag, Field, ValidationInfo, field_validator, model_validator
 
 from application_state.build_proposal.types import BuildWriteCapability
-from application_state.build_proposal.image_move_decision import BuildImageMoveCapture
+from application_state.build_proposal.image_move_capture import BuildImageMoveCapture
 from . import types as t
 from .build_intentional_response import Capabilities, known_semantics
 from .build_related_pages import PagePointer

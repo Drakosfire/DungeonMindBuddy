@@ -3232,7 +3232,7 @@ class AgentConversationService:
                                        request_json, response_json, admit):
         """Reconstruct the nomination against the locked saved Page and stage an inert Review."""
         from generationengine.types import DecisionResult
-        from application_state.build_proposal.image_move_decision import BuildImageMoveDecision
+        from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, admitted_image_move_choice
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.content import pages
         from . import types as t
@@ -3279,7 +3279,7 @@ class AgentConversationService:
             try:
                 decision = BuildImageMoveDecision.from_saved(capture, turn.user_text, saved.revision.markdown, saved.presentation)
                 answers = decision.opening_answers(strict_json(request_json), DecisionResult.model_validate(strict_json(response_json)))
-                if answers["image_move_intent"] != opening.typed_image_move:
+                if admitted_image_move_choice(answers["image_move_intent"], turn.user_text) != opening.typed_image_move:
                     raise ValueError("The image move choice differs from its admitted response")
                 nomination = decision.resolve(answers)
                 placement = nomination.placement

@@ -597,6 +597,8 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("Move the Map to the next slot on its right.", "ready"),
         ("In the Approach row, could we nudge the image to the empty right slot within the same row?", "ready"),
         ("I'd like you to reposition the Map onto the vacant right column in its original row.", "ready"),
+        ("Could the Map be moved into the empty slot on its right?", "ready"),
+        ("I'd like the Map slid into the next empty slot on its right.", "ready"),
         ("Please slide the Map one slot to the right in the Approach row.", "ready"),
         ("Push the Map to the empty slot immediately right of its current position.", "ready"),
         ("Move the Map next to Approach into the space directly to its right.", "ready"),
@@ -605,6 +607,7 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("Move an image right by one slot.", "ambiguous"),
         ("What would happen if we moved the Map to the right?", "discussion"),
         ("Please do not move the Map to the right.", "discussion"),
+        ("Could the Map not be moved to the right?", "discussion"),
         ("Under Approach, could we hypothetically move the Map to the right?", "discussion"),
         ("Move the Map to the right if I approve the redesign later.", "discussion"),
         ("Move the Map to another row on the right.", "different_row"),
@@ -659,6 +662,8 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("Move the image titled “Gate in North row” to the right slot.", "ambiguous"),
         ('Move the image titled "Gate in North row" to the right slot.', "ambiguous"),
         ("Move the image titled Gate in North row to the right slot.", "ambiguous"),
+        ("Move the Gate image, not the one near North, to the right slot.", "ambiguous"),
+        ("Move the image with the “North” caption to the right slot.", "ambiguous"),
         ("Move the image under the “North” heading to the right slot.", "ready"),
     ):
         decision = BuildImageMoveDecision.from_saved(matching_capture, prompt, matching_markdown, matching_layout)
