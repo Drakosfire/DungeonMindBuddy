@@ -154,6 +154,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
     locator = locator_from_exact_revision(exact)
     exact_reads = []
     exact_response = exact
+    portrait_response = None
 
     review_id = existing_review or uuid4()
     if existing_review is None:
@@ -172,6 +173,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
             )
 
     create_bodies = []
+    append_bodies = []
 
     class StatblockStub:
         def close(self):
@@ -186,6 +188,8 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
 
         def get_exact_revision(self, statblock_id, revision_id):
             exact_reads.append((statblock_id, revision_id))
+            if portrait_response is not None and revision_id == portrait_response.revision_id:
+                return portrait_response
             return exact_response
 
         def create_statblock(self, body):
@@ -194,6 +198,22 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
                 raise downstream_unavailable("Lost response after remote commit")
             assert create_bodies[0] == body
             return SimpleNamespace(locator=locator)
+
+        def append_revision(self, statblock_id, body):
+            nonlocal portrait_response
+            assert statblock_id == locator.statblock_id
+            append_bodies.append(body)
+            if len(append_bodies) == 1:
+                portrait_response = ExactRevisionResourceV1.model_validate({
+                    **raw,
+                    "revision_id": "rev_portrait01",
+                    "parent_revision_id": locator.revision_id,
+                    "asset_bindings": body["asset_bindings"],
+                    "provenance": {"accepted_through": body["accepted_through"]},
+                })
+                raise downstream_unavailable("Lost portrait response after remote commit")
+            assert body == append_bodies[0]
+            return portrait_response
 
     monkeypatch.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", StatblockStub)
     from apps.live_control_server.routes import combat_encounters
@@ -257,4 +277,45 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
         with monkeypatch.context() as replay:
             replay.setattr(conversation_variant_save, "DungeonMindStatblockV1Client", unexpected_client)
             assert client.post(f"{review_path}/confirm").json() == recovered.json()
+
+        from datetime import UTC, datetime
+        from apps.live_control_server.routes import agent
+        from apps.live_control_server.services.statblock_saved_revision import media
+
+        asset_id = uuid4()
+        admissions = []
+
+        def admit(selected, owner):
+            assert (selected, owner) == (asset_id, "portrait-owner")
+            admissions.append(selected)
+            return {
+                "state": "ready", "created_at": datetime.now(UTC), "mime_type": "image/png",
+                "width": 256, "height": 256,
+                "receipt": {
+                    "backend": "cloudflare_images", "visibility": "public", "object_id": str(asset_id),
+                    "delivery_url": "https://images.example/portrait.png",
+                },
+            }
+
+        monkeypatch.setattr(agent, "enforce_native_graph_gm", lambda request: SimpleNamespace(subject="portrait-owner"))
+        monkeypatch.setattr(media, "get_asset", admit)
+        operation_id = str(uuid4())
+        command = {"operation_id": operation_id, "base": recovered.json(), "portrait_asset_id": str(asset_id)}
+        save_path = f"{review_path}/saved/portrait"
+        open_path = f"{review_path}/saved?portrait_operation_id={operation_id}"
+        assert client.post(f"{foreign_path}/saved/portrait", json=command).status_code == 404
+        assert client.post(save_path, json=command).status_code == 503
+        assert client.get(open_path).status_code == 409
+        changed = dict(command, portrait_asset_id=str(uuid4()))
+        assert client.post(save_path, json=changed).status_code == 409
+        saved_portrait = client.post(save_path, json=command)
+        assert saved_portrait.status_code == 200, saved_portrait.text
+        assert saved_portrait.json()["revision_id"] == "rev_portrait01"
+        assert saved_portrait.json()["definition_digest"] == locator.definition_digest
+        reopened_portrait = client.get(open_path)
+        assert reopened_portrait.status_code == 200, reopened_portrait.text
+        assert reopened_portrait.json()["revision"]["asset_bindings"] == append_bodies[0]["asset_bindings"]
+        assert client.get(f"{review_path}/saved").json()["locator"] == recovered.json()
+        assert len(admissions) == 1
+        assert len(append_bodies) == 2
     assert len(create_bodies) == 2
