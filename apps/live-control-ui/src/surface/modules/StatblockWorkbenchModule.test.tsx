@@ -4,7 +4,7 @@ import {GuidedTourProvider} from '../../guidedTour/GuidedTour';
 import {GenerationPlanProvider} from '../../guidedTour/GenerationObservations';
 import {createWalkthrough,reduceTour,type TargetPin} from '../../guidedTour/protocol';
 import {readWalkthrough,writeWalkthrough} from '../../guidedTour/storage';
-import { act, render as renderWithoutHost, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render as renderWithoutHost, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -215,6 +215,36 @@ describe("World-scoped mounted Workbench", () => {
     await user.type(screen.getByTestId("create-threat-description"), "Gate Watcher\nA small marsh lookout.");
     await user.click(screen.getByTestId("create-and-generate-submit"));
   }
+
+  it("validates and explicitly accepts an authored definition on a candidate-free World draft", async () => {
+    const h = harness();
+    const saved = draft(a, "manual-draft");
+    h.drafts.set(saved.draft_id, saved);
+    const validate = vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+    const accept = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockRejectedValue(new Error("Response lost"));
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByRole("textbox", { name: "Draft ID" }), saved.draft_id);
+    await user.click(screen.getByRole("button", { name: "Load draft for manual authoring" }));
+    const input = await screen.findByRole("textbox", { name: "Statblock definition JSON" });
+    fireEvent.change(input, { target: { value: JSON.stringify(candidate.definition) } });
+    await user.click(screen.getByRole("button", { name: "Open authored definition" }));
+    expect(accept).not.toHaveBeenCalled();
+    await validateWorkingCopy(user);
+    expect(validate).toHaveBeenCalledWith({ definition: candidate.definition }, saved.draft_id);
+    const draftId = screen.getByRole("textbox", { name: "Draft ID" });
+    fireEvent.change(draftId, { target: { value: "another-draft" } });
+    expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).not.toBeInTheDocument();
+    fireEvent.change(draftId, { target: { value: saved.draft_id } });
+    await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+    expect(accept).toHaveBeenCalledWith(saved.draft_id, expect.objectContaining({
+      definition: candidate.definition,
+      expected_draft_version: saved.version,
+      source_candidate_id: null,
+      validation_definition_digest: PREVIEW_DIGEST,
+    }));
+    expect(h.generate).not.toHaveBeenCalled();
+  });
 
   it("preserves the newer same-World generation when an old completion arrives before reload", async () => {
     // PRIME Cycle 1 witness: the superseded instance must not replace B's

@@ -93,6 +93,7 @@ import {
 
 type LoadState =
   | { kind: "idle" }
+  | { kind: "authored"; draftId: string; version: number }
   | { kind: "loading"; candidateId: string }
   | { kind: "success"; response: ReadStatblockCandidateResponseV1 }
   | {
@@ -1158,7 +1159,7 @@ function AcceptMechanicsFlow({
   editorEpoch: number;
   draftId: string | null;
   draftVersion: number | null;
-  sourceCandidateId: string;
+  sourceCandidateId: string | null;
   workingCopy: StatblockDefinitionV1_Input;
   validationFailure: ValidationFailure | null;
   onValidate: () => void;
@@ -2981,6 +2982,8 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   };
 
   const onStartAnotherThreat = () => {
+    setAuthoredJson("");
+    setAuthoredError(null);
     persistActiveCandidateWorkingCopy();
     beginCandidateOp();
     createAndGenerateInFlightRef.current = false;
@@ -3100,6 +3103,37 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
     });
   };
 
+  const [authoredJson, setAuthoredJson] = useState("");
+  const [authoredError, setAuthoredError] = useState<string | null>(null);
+  const authoredActive = loadState.kind === "authored" && loadState.draftId === threatDraft?.draft_id
+    && loadState.version === threatDraft.version
+    && (!draftIdInput.trim() || draftIdInput.trim() === loadState.draftId);
+  const onOpenAuthoredDefinition = () => {
+    if (!threatDraft || threatDraft.schema !== "dmb_threat_draft_v2" || draftSnapshotPending
+      || (draftIdInput.trim() && draftIdInput.trim() !== threatDraft.draft_id)
+      || draftSnapshotUnavailable || threatDraft.workflow_state === "mechanics_saved") return;
+    let definition: StatblockDefinitionV1_Input;
+    try {
+      const parsed = JSON.parse(authoredJson);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Paste a JSON statblock definition object.");
+      }
+      definition = parsed;
+    } catch (error) {
+      setAuthoredError(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    beginCandidateOp();
+    activeCandidateIdRef.current = null;
+    setLoadState({ kind: "authored", draftId: threatDraft.draft_id, version: threatDraft.version });
+    bumpEditorEpoch();
+    invalidateValidationOwnership();
+    const next = createEditorStateFromOutput(definition);
+    editorStateRef.current = next;
+    setEditorState(next);
+    setAuthoredError(null);
+  };
+
   const activeCandidate: GeneratedStatblockCandidateV1 | null =
     loadState.kind === "success" ? loadState.response.candidate ?? null : null;
 
@@ -3123,7 +3157,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   return (
     <div
       className={
-        activeCandidate && editorState
+        (activeCandidate || authoredActive) && editorState
           ? "module-panel statblock-workbench statblock-workbench--edit-dock"
           : "module-panel statblock-workbench"
       }
@@ -3507,6 +3541,47 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         </section>
       ) : null}
 
+      {!activeCandidate && scope.mode === "world" && !mechanicsSavedDraft ? (
+        <section className="statblock-section" aria-label="Author statblock mechanics">
+          <h3>Author statblock mechanics</h3>
+          {!threatDraft || threatDraft.draft_id !== draftIdInput.trim() ? (
+            <button type="button" disabled={!draftIdInput.trim() || draftSnapshotPending}
+              onClick={() => void refreshThreatDraftSnapshot(draftIdInput)}>Load draft for manual authoring</button>
+          ) : null}
+          {threatDraft?.schema === "dmb_threat_draft_v2" && (!draftIdInput.trim() || draftIdInput.trim() === threatDraft.draft_id)
+            && !draftSnapshotPending && !draftSnapshotUnavailable ? (
+            <>
+              <p>Use a statblock definition for {threatDraft.name}. Validate it before saving.</p>
+              <label>Statblock definition JSON
+                <textarea value={authoredJson} onChange={event => {
+                  setAuthoredJson(event.target.value);
+                  setAuthoredError(null);
+                  if (loadState.kind === "authored") {
+                    setLoadState({ kind: "idle" });
+                    invalidateValidationOwnership();
+                  }
+                }} />
+              </label>
+              <button type="button" disabled={!authoredJson.trim()} onClick={onOpenAuthoredDefinition}>Open authored definition</button>
+            </>
+          ) : null}
+          {authoredError && <p role="alert">{authoredError}</p>}
+          {loadState.kind === "authored" && !authoredActive && (
+            <p role="status">The draft changed. Open the authored definition again against the current draft.</p>
+          )}
+          {authoredActive && editorState && (
+            <>
+              <PreviewValidationPanel preview={previewValidation} editorState={editorState} editorEpoch={editorEpoch}
+                validationFailure={validationFailure} workingCopy={editorState.workingCopy} />
+              {previewValidation?.receipt && ["valid", "warnings"].includes(previewValidation.receipt.status) && (
+                <StatblockDefinitionEditor output={editorState.workingCopy} editorState={editorState}
+                  onEditorStateChange={onEditorStateChange} />
+              )}
+            </>
+          )}
+        </section>
+      ) : null}
+
       {activeCandidate ? (
         <section className="statblock-section" data-testid="candidate-view-modes">
           <h3>Candidate {activeCandidate.candidate_id}</h3>
@@ -3586,40 +3661,39 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
             </>
           ) : null}
 
-          {/* Dock stays mounted in review and edit — Validate/Accept operate on the working copy. */}
-          {editorState ? (
-            <AcceptMechanicsFlow
-              generationTour={{attempt:generationAttempt,draft:threatDraft,candidate:loadState.kind==="success"?loadState.response:null,reopened:!!initialGeneration.attempt&&initialGeneration.attempt.client_request_id===generationAttempt?.client_request_id,acceptedInstanceId:generationInstanceId}}
-              preview={previewValidation}
-              editorState={editorState}
-              editorEpoch={editorEpoch}
-              draftId={acceptDraftIdentity?.draft_id ?? null}
-              draftVersion={acceptDraftVersion}
-              sourceCandidateId={activeCandidate.candidate_id}
-              workingCopy={editorState.workingCopy}
-              validationFailure={validationFailure}
-              onValidate={() => void onValidateWorkingCopy()}
-              validatePending={
-                validatePendingForCurrent || getUiStatus(editorState) === "validating"
-              }
-              validateDisabled={
-                validatePendingForCurrent || getUiStatus(editorState) === "validating"
-              }
-              mechanicsSavedDraft={mechanicsSavedDraft}
-              draftAuthorityUnavailable={draftSnapshotUnavailable}
-              onMechanicsSaved={(id) => {
-                void refreshThreatDraftSnapshot(id);
-              }}
-              publicationDock={mechanicsSavedDraft ? publicationDock : null}
-            />
-          ) : null}
-
           {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
             <p role="status" data-testid="world-publication-unavailable">
               World-only drafts can save mechanics. Campaign graph publication is unavailable for this scope.
             </p>
           ) : null}
         </section>
+      ) : null}
+
+      {editorState && (activeCandidate || authoredActive) ? (
+        <AcceptMechanicsFlow
+          generationTour={{attempt:generationAttempt,draft:threatDraft,candidate:loadState.kind==="success"?loadState.response:null,reopened:!!initialGeneration.attempt&&initialGeneration.attempt.client_request_id===generationAttempt?.client_request_id,acceptedInstanceId:generationInstanceId}}
+          preview={previewValidation}
+          editorState={editorState}
+          editorEpoch={editorEpoch}
+          draftId={acceptDraftIdentity?.draft_id ?? null}
+          draftVersion={acceptDraftVersion}
+          sourceCandidateId={activeCandidate?.candidate_id ?? null}
+          workingCopy={editorState.workingCopy}
+          validationFailure={validationFailure}
+          onValidate={() => void onValidateWorkingCopy()}
+          validatePending={
+            validatePendingForCurrent || getUiStatus(editorState) === "validating"
+          }
+          validateDisabled={
+            validatePendingForCurrent || getUiStatus(editorState) === "validating"
+          }
+          mechanicsSavedDraft={mechanicsSavedDraft}
+          draftAuthorityUnavailable={draftSnapshotUnavailable || draftSnapshotPending}
+          onMechanicsSaved={(id) => {
+            void refreshThreatDraftSnapshot(id);
+          }}
+          publicationDock={mechanicsSavedDraft ? publicationDock : null}
+        />
       ) : null}
 
       {reviseAttempt?.awaiting_local_refresh && reviseDraftId && threatDraft && !editorState ? (
