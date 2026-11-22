@@ -61,7 +61,7 @@ The current Buddy production host is `srv586875` and the SSH target is
    `/srv/dungeonmindbuddy/secrets/buddy.env`. The operator runs the privileged
    Compose command with those inputs and the new image override last.
    Immediately before cutover, require the mutable tag still resolves to the
-   immutable image ID recorded by `prepare_buddy_release`; stop if it differs:
+   immutable image ID recorded during step 3; stop if it differs:
    `test "$(docker image inspect --format '{{.Id}}' "$buddy_tag")" = "$buddy_image_id"`.
    Confirm `config --images buddy` resolves the exact staged tag, then run
    `up -d --no-deps --pull never --wait --wait-timeout 180 buddy`. Afterward,
