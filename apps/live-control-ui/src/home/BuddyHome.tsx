@@ -39,10 +39,12 @@ export function BuddyHome() {
           <p className="buddy-home__intro">Keep your campaign sources, session prep, and stories connected.</p>
           <div className="buddy-home__entry">
             {signedOut ? <><a className="buddy-home__primary" href={dungeonMindLoginHref(`${window.location.pathname}${window.location.search}${window.location.hash}`)}>Sign in with DungeonMind <span aria-hidden="true">→</span></a><p>Use your existing DungeonMind account.</p></>
-              : world.kind === "managed" ? <><a className="buddy-home__primary" href={worldScopedSurfaceHref("/graph", world.worldId)} onClick={interceptPrimaryNavigationClick}>Open your World <span aria-hidden="true">→</span></a><p>Continue in {world.name}.</p></>
+              : world.kind === "managed" ? world.graphStatus === "provisioning"
+                ? <><a className="buddy-home__primary" href={worldScopedSurfaceHref("/build", world.worldId)} onClick={interceptPrimaryNavigationClick}>Open in Build <span aria-hidden="true">→</span></a><p>Start with a source in {world.name}. Your graph isn’t ready yet.</p></>
+                : <><a className="buddy-home__primary" href={worldScopedSurfaceHref("/graph", world.worldId)} onClick={interceptPrimaryNavigationClick}>Open your World <span aria-hidden="true">→</span></a><p>Continue in {world.name}.</p></>
               : world.kind === "loading" ? <p role="status">Finding your World…</p>
               : world.kind === "error" ? <div role="alert"><p>{world.message}</p><button type="button" onClick={retryWorld}>Retry World selection</button></div>
-              : <><p className="buddy-home__choose">Your next story starts with a World.</p><WorldSelector creationPath="/" /><p>Choose a World, then open its graph.</p></>}
+              : <><p className="buddy-home__choose">Your next story starts with a World.</p><WorldSelector creationPath="/" /><p>Choose or create a World to get started.</p></>}
           </div>
           <a className="buddy-home__explore" href="#buddy-about">Explore the idea <span aria-hidden="true">↓</span></a>
         </div>

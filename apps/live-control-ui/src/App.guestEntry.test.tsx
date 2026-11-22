@@ -627,6 +627,46 @@ describe("canonical local guest entry", () => {
     expect(screen.getByText("Continue in World A.")).toBeInTheDocument();
   });
 
+  it("offers Build while a new World's graph is provisioning", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/?world=world-a");
+    const fallback = managedServerFetch({ authStatus: "authenticated" });
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input) === "/api/live/world-containers/lookup?managed_world_id=world-a"
+        ? Promise.resolve(Response.json({ ...managedWorldRecord("world-a", "World A"),
+          native_graph_binding: { status: "provisioning", binding_version: 1 } }))
+        : fallback(input, init)));
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Open in Build" })).toHaveAttribute("href", "/build?world=world-a");
+    expect(screen.getByText("Start with a source in World A. Your graph isn’t ready yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open your World" })).not.toBeInTheDocument();
+  });
+
+  it("refreshes graph readiness when returning Home after publication", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/?world=world-a");
+    const fallback = managedServerFetch({ authStatus: "authenticated" });
+    let status: "provisioning" | "active" = "provisioning";
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input) === "/api/live/world-containers/lookup?managed_world_id=world-a"
+        ? Promise.resolve(Response.json({ ...managedWorldRecord("world-a", "World A"),
+          native_graph_binding: { status, binding_version: 1 } }))
+        : fallback(input, init)));
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Open in Build" })).toBeInTheDocument();
+    act(() => {
+      window.history.pushState({}, "", "/build?world=world-a");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    status = "active";
+    act(() => {
+      window.history.pushState({}, "", "/?world=world-a");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(await screen.findByRole("link", { name: "Open your World" })).toHaveAttribute("href", "/graph?world=world-a");
+    expect(screen.queryByText(/Your graph isn’t ready yet/)).not.toBeInTheDocument();
+  });
+
   it("offers the existing World chooser on authenticated Home without a selection", async () => {
     vi.stubEnv("PROD", true);
     window.history.replaceState({}, "", "/");

@@ -1165,7 +1165,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     if (entryScene) expected.set("entry_scene_id", entryScene);
     return path === `${preparationPath}?${expected}`;
   }
-  if (path === "/api/live/world-containers") return method === "GET" && init?.body == null;
+  if (path === "/api/live/world-containers") {
+    if (method === "GET") return init?.body == null;
+    const body = requestBodyRecord(init?.body);
+    return method === "POST" && !!body && Object.keys(body).sort().join(",") === "name,request_key"
+      && typeof body.name === "string" && typeof body.request_key === "string";
+  }
   if (path.startsWith(HOSTED_WORLD_LOOKUP_PATH + "?")) {
     const query = new URLSearchParams(path.slice(HOSTED_WORLD_LOOKUP_PATH.length + 1));
     const worldId = query.get("managed_world_id");
@@ -1647,7 +1652,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   const localCatalogRead = isLoopbackApiDestination(target.url) && path === "/api/live/world-containers"
     && (init?.method ?? "GET").toUpperCase() === "GET" && init?.body == null;
   const hostedCatalogRead = target.hostedGraphRequest && hostedGraphSubject !== null
-    && path === "/api/live/world-containers";
+    && path === "/api/live/world-containers" && (init?.method ?? "GET").toUpperCase() === "GET";
   if (!localCatalogRead && !hostedCatalogRead && !isShareableRead(path, init)) {
     if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
     startReadWave();
