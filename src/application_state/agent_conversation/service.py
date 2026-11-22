@@ -3278,7 +3278,10 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("The captured Page changed before image move Review")
             try:
                 decision = BuildImageMoveDecision.from_saved(capture, turn.user_text, saved.revision.markdown, saved.presentation)
-                answers = decision.opening_answers(strict_json(request_json), DecisionResult.model_validate(strict_json(response_json)))
+                answers = decision.opening_answers(
+                    strict_json(request_json), DecisionResult.model_validate(strict_json(response_json)),
+                    allow_retained=True,
+                )
                 if admitted_image_move_choice(answers, turn.user_text) != opening.typed_image_move:
                     raise ValueError("The image move choice differs from its admitted response")
                 nomination = decision.resolve(answers)

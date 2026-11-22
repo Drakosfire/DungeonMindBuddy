@@ -459,7 +459,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert asset_id not in json.dumps(body)
                     assert all(value not in json.dumps(body) for value in ("map-block", "harbour-row", "left-slot"))
                     chosen = {"image_move_intent": "other" if image_move == "other_discussion" else "move_existing",
-                              "image_move_destination": "same_row_right", "image_move_occurrence": "image1"}[name]
+                              "image_move_destination": "same_row_right", "image_move_occurrence": "image1",
+                              "image_move_affirmation": "description_or_discussion" if image_move == "other_discussion"
+                                  else "author_requests_move"}[name]
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                                          probabilities={key: float(key == chosen) for key in choices})
                     continue

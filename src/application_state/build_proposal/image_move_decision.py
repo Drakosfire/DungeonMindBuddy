@@ -35,6 +35,17 @@ class _Occurrence:
 
 
 OPENING_STATE_KEY = "image_move"
+IMAGE_MOVE_AFFIRMATION = ChoiceDecisionQuestion(
+    name="image_move_affirmation",
+    options=("author_requests_move", "description_or_discussion", "unresolved"),
+    question=(
+        "Read only the author's sentence. Does it ask the editor to change where an existing image is placed? "
+        "An imperative, a passive request, a desired placement stated as a direction, or an abbreviated "
+        "image-and-slot instruction can request a move. Choose description_or_discussion for a description of "
+        "where it is or was, advice, a hypothetical or a refusal to move. A requested destination alone "
+        "does not prove that the author requests a change. Use unresolved when the desired action is unclear."
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -69,6 +80,7 @@ _ROW_QUALIFIER = re.compile(r"\s*([^,.!?;]{1,110}?)\s+row\b", re.IGNORECASE)
 _NUMBERED_ROW = re.compile(r"\s*(?:the\s+)?row\s+(?:number\s+)?([1-9]\d{0,5})\b", re.IGNORECASE)
 _ORDINAL_ROWS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6}
 _HEADING_REFERENCE = re.compile(r"\b(?:under|beneath|below|beside|next\s+to)\s+([^,.;!?]+)\s*$", re.IGNORECASE)
+_IMAGE_LABEL_REFERENCE = re.compile(r"\b(?:named|titled|labelled|labeled|called)\s*$", re.IGNORECASE)
 _SOURCE_QUALIFIER = re.compile(
     r"\b(?:by|with|near|beside|under|beneath|below|above|next\s+to|in|within|from|at)\s+([^,.;!?]+)\s*$", re.IGNORECASE,
 )
@@ -102,13 +114,18 @@ _OTHER_AUTHORING = re.compile(
     re.IGNORECASE,
 )
 _READ_ONLY = re.compile(
-    r"(?:^|[,:.;!?])\s*(?:what|how|why|when|where|whether|should|imagine|suppose|consider|describe|explain|preview)\b"
+    r"(?:^|[,:.;!?])\s*(?:what|how|why|when|where|whether|should|imagine|suppose|consider|describe|explain|preview|compare|look\s+at)\b"
+    r"|(?:^|[,:.;!?])\s*no\s+(?:movement|move|change)\b"
     r"|\b(?:would\s+(?:it|that|this)\s+look|only\s+(?:asking|discussion|a\s+preview)|just\s+(?:asking|a\s+preview)"
     r"|(?:do\s+not|don['’]t|rather\s+not|never)\s+(?:move|shift|put|place|reposition|want|need|prefer|expect|like)"
     r"|(?:must|should|can|ought)\s+not)\b",
     re.IGNORECASE,
 )
 _LAYOUT_NOUN = re.compile(r"\b(?:slots?|columns?|rows?|cells?)\b", re.IGNORECASE)
+_OBSERVED_PLACEMENT = re.compile(
+    r"\b(?:was|were|used\s+to|is\s+(?:in|on|already|currently)|sits|yesterday|last\s+time|only\s+describing)\b",
+    re.IGNORECASE,
+)
 _DESIRED_PLACEMENT = re.compile(
     r"\b(?:please|want|prefer|need|belongs?|should\s+(?:be|go)|must\s+(?:be|go)|can\s+go|goes|"
     r"over\s+one\s+slot)\b|,\s*(?:one|a)\s+(?:slot|column)\b",
@@ -279,8 +296,8 @@ class BuildImageMoveDecision:
             **({"author_selected_occurrence": self.selected} if self.selected else {}),
         }
 
-    def questions(self) -> tuple[ChoiceDecisionQuestion, ...]:
-        return (
+    def questions(self, *, include_affirmation: bool = True) -> tuple[ChoiceDecisionQuestion, ...]:
+        questions = (
             ChoiceDecisionQuestion(name="image_move_intent", options=("move_existing", "other", "unresolved"),
                 question="Is the author actually asking to move an existing image occurrence? Discussion, hypotheticals, creation and advice are other."),
             ChoiceDecisionQuestion(name="image_move_destination", options=("same_row_right", "different_row", "unsupported", "unresolved"),
@@ -291,9 +308,11 @@ class BuildImageMoveDecision:
                           "A deliberate selection identifies 'this image'. Choose ambiguous if two fit. "
                           "An unrelated caret and destination eligibility do not distinguish an image.")),
         )
+        return questions + (IMAGE_MOVE_AFFIRMATION,) if include_affirmation else questions
 
-    def require_opening_offer(self, request: dict) -> None:
-        questions = self.questions()
+    def require_opening_offer(self, request: dict, *, allow_retained: bool = False) -> None:
+        offered = request.get("questions", {})
+        questions = self.questions(include_affirmation=not allow_retained or IMAGE_MOVE_AFFIRMATION.name in offered)
         if (request.get("state", {}).get("user_question") != self.question
                 or request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY) != self.semantic_state()
                 or any(request.get("questions", {}).get(q.name) != {
@@ -301,11 +320,13 @@ class BuildImageMoveDecision:
                 } for q in questions)):
             raise ValueError("Image movement differs from the exact admitted opening offer")
 
-    def opening_answers(self, request: dict, response: DecisionResult) -> dict[str, str]:
-        self.require_opening_offer(request)
+    def opening_answers(self, request: dict, response: DecisionResult, *, allow_retained: bool = False) -> dict[str, str]:
+        self.require_opening_offer(request, allow_retained=allow_retained)
         if set(request["questions"]) != set(response.answers):
             raise ValueError("Image movement requires the complete opening response")
-        options = {q.name: q.options for q in self.questions()}
+        options = {q.name: q.options for q in self.questions(
+            include_affirmation=IMAGE_MOVE_AFFIRMATION.name in request["questions"],
+        )}
         projected = response.model_copy(update={"answers": {name: response.answers[name] for name in options}})
         answers = validated_choice_answers(projected, set(options))
         if any(answer not in options[name] for name, answer in answers.items()):
@@ -313,19 +334,23 @@ class BuildImageMoveDecision:
         return answers
 
     def resolve(self, answers: dict[str, str]) -> BuildImageMoveNomination:
-        for question in self.questions():
+        affirmation = answers.get(IMAGE_MOVE_AFFIRMATION.name)
+        for question in self.questions(include_affirmation=affirmation is not None):
             if answers.get(question.name) not in question.options:
                 raise ValueError("Image move decision has an unoffered answer")
         masked_question = _mask_quoted_labels(self.question)
         clause = _move_clause(self.question)
-        if answers["image_move_intent"] != "move_existing":
+        if answers["image_move_intent"] != "move_existing" or affirmation == "description_or_discussion":
             return BuildImageMoveNomination("discussion")
+        if affirmation == "unresolved":
+            return BuildImageMoveNomination("unresolved")
         if clause is None:
-            # Jev already chose a typed move. A declarative placement is
-            # eligible only when the author names a right-hand layout position.
+            # Jev owns the affirmative language decision. The host checks for
+            # conflicting purpose and binds only an explicit right-hand slot.
             if (_READ_ONLY.search(masked_question) or _OTHER_AUTHORING.match(masked_question)
                     or (masked_question.rstrip().endswith("?") and not re.search(r"\bplease\b", masked_question, re.IGNORECASE))
-                    or not _DESIRED_PLACEMENT.search(masked_question)
+                    or (_OBSERVED_PLACEMENT.search(masked_question) and not _DESIRED_PLACEMENT.search(masked_question))
+                    or (affirmation is None and not _DESIRED_PLACEMENT.search(masked_question))
                     or not _LAYOUT_NOUN.search(masked_question) or not _RIGHT_DIRECTION.search(masked_question)):
                 return BuildImageMoveNomination("discussion")
             clause = "", self.question
@@ -423,6 +448,13 @@ class BuildImageMoveDecision:
                 _mentions(object_words, _phrase(alt)) or _mentions(_phrase(alt), chosen_words)
                 for alt in conflicts
             )
+            if not direct:
+                for quote in _QUOTED_LABEL.finditer(object_text):
+                    if _IMAGE_LABEL_REFERENCE.search(object_text[:quote.start()]):
+                        label = _phrase(quote[0])
+                        if _mentions(chosen_words, label) and not any(_mentions(other, label) for other in competing_names):
+                            direct = True
+                            break
             if conflicts and not direct:
                 # Corroborate Jev's alias by context unique to this occurrence.
                 # Geometry is excluded: the convenient destination cannot select an image.

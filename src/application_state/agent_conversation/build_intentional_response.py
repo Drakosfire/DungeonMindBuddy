@@ -763,7 +763,9 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     raw_response = strict_json(proof["response_json"])
     response = DecisionResult.model_validate(raw_response)
     capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
-    from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY, admitted_image_move_choice
+    from application_state.build_proposal.image_move_decision import (
+        IMAGE_MOVE_AFFIRMATION, OPENING_STATE_KEY, admitted_image_move_choice,
+    )
     image_offer = request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY)
     image_answers = {name: value for name, value in response.answers.items() if name.startswith("image_move_")}
     if capture is None:
@@ -773,8 +775,18 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         from .jev_retrieval_contract import validated_choice_answers
 
         names = {"image_move_intent", "image_move_destination", "image_move_occurrence"}
+        affirmation = IMAGE_MOVE_AFFIRMATION
+        if affirmation.name in request.get("questions", {}):
+            if request["questions"][affirmation.name] != {
+                "type": "choice", "instructions": affirmation.question,
+                "criteria": dict.fromkeys(affirmation.options),
+            }:
+                raise ValueError("Image move affirmation differs from the exact admitted offer")
+            names.add(affirmation.name)
         projected = response.model_copy(update={"answers": image_answers})
         choices = validated_choice_answers(projected, names)
+        if affirmation.name in names and choices[affirmation.name] not in affirmation.options:
+            raise ValueError("The image move affirmation is outside its offered choices")
         choice = choices["image_move_intent"]
         retained = event.typed_image_move
         if (not semantic_input or not isinstance(image_offer, dict) or

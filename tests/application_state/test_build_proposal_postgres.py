@@ -591,7 +591,8 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     capture = BuildImageMoveCapture(
         basis=placement.basis, editor_json=original, conversation_id=uuid4(), expected_pointer_revision=1,
     )
-    choices = {"image_move_intent":"move_existing", "image_move_destination":"same_row_right", "image_move_occurrence":"image1"}
+    choices = {"image_move_intent":"move_existing", "image_move_destination":"same_row_right", "image_move_occurrence":"image1",
+               "image_move_affirmation":"author_requests_move"}
     for prompt, expected in (
         ("Move the Map to the next slot on the right.", "ready"),
         ("Move the Map to the next slot on its right.", "ready"),
@@ -601,6 +602,10 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("I'd like the Map slid into the next empty slot on its right.", "ready"),
         ("The Map belongs in the empty slot on its right.", "ready"),
         ("The Map, one slot right.", "ready"),
+        ("The Map in the vacant right-hand slot immediately beside its current position.", "ready"),
+        ("The Map sits in the vacant right-hand slot immediately beside its current position.", "discussion"),
+        ("The Map is in the right column.", "discussion"),
+        ("No movement of the Map to the right column.", "discussion"),
         ("The Map was in the empty slot on its right.", "discussion"),
         ("I don't want the Map in the right column.", "discussion"),
         ("How would the Map look in the slot on its right?", "discussion"),
@@ -638,6 +643,8 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     selected = capture.model_copy(update={"author_selected_block_id":"first-map"})
     decision = BuildImageMoveDecision.from_saved(selected, "Could you move this image right one slot?", markdown, before)
     assert decision.selected == "image1" and decision.resolve(choices).placement == placement
+    assert decision.resolve(choices | {"image_move_affirmation": "description_or_discussion"}).placement is None
+    assert decision.resolve({name: value for name, value in choices.items() if name != "image_move_affirmation"}).placement == placement
     discussion = choices | {"image_move_intent": "other"}
     assert admitted_image_move_choice(discussion, "How would it look in the empty slot?") == "unresolved"
     assert admitted_image_move_choice(discussion, "Could you write a note about how to move this map to the empty slot?") == "other"
