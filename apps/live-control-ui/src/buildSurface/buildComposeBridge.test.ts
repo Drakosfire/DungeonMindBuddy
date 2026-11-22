@@ -95,8 +95,14 @@ it('prepares one typed Graph reference at its exact boundary and refuses changed
  } finally { editor.destroy(); }
 });
 
-it.each(['plain','identity-only','composed'] as const)('places an exact Build prose boundary on a %s page without moving its authority',async mode=>{
- const markdown='## Arrival\n\nThe gate is locked.\n\n## Rumours\n\nThe gate is locked.\n';
+it.each(['plain','identity-only','composed','protected'] as const)('places an exact Build prose boundary on a %s page without moving its authority',async mode=>{
+ const protectedBlocks = mode === 'protected' ? [
+  '> [!READ-ALOUD] First sight\n> Three blue lanterns light the crossing.',
+  '> [!GM-NOTE] Keep it sealed\n> Wait for the players to investigate.',
+  '| Signal | State |\n| --- | --- |\n| Blue lanterns | Lit |',
+  mediaMarkdown(id, 'Saved boardwalk artwork'),
+ ].join('\n\n') + '\n\n' : '';
+ const markdown='## Arrival\n\nThe gate is locked.\n\n'+protectedBlocks+'## Rumours\n\nThe gate is locked.\n';
  const original=markdownToTiptapDoc(markdown).doc;
  original.content?.forEach((node,index)=>{node.attrs={...node.attrs,pageBlockId:`existing-${index}`};});
  if (mode==='composed') {
@@ -106,7 +112,7 @@ it.each(['plain','identity-only','composed'] as const)('places an exact Build pr
   ]});
  }
  const source=mode==='composed'?'Keep the map.\n\n'+markdown:markdown;
- const presentation=mode==='plain'?null:mode==='composed'
+ const presentation=mode==='plain'||mode==='protected'?null:mode==='composed'
   ?projectPresentation(original,source,original).presentation
   :{schema_version:'dmb_page_presentation_v1' as const,markdown_sha256:await testDigest(source),
     items:admittedPresentationBlocks(markdown).map(({node:_node,...binding},index)=>
@@ -118,7 +124,7 @@ it.each(['plain','identity-only','composed'] as const)('places an exact Build pr
    visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true,pagePresentation:presentation,savedMarkdown:source};
   const changed=vi.fn(),bridge=createBuildComposeBridge(()=>state,changed);
   const ordinaryCapture = await bridge.capture();
-  expect(ordinaryCapture.contextualProse).toBe(mode === 'composed' ? undefined : true);
+  if (mode !== 'protected') expect(ordinaryCapture.contextualProse).toBe(mode === 'composed' ? undefined : true);
   expect(ordinaryCapture.editorJson).toBe(JSON.stringify(editor.getJSON()));
   const local=()=>({editor,scopeKey:'fixture-target',draftGeneration:0,canEdit:true});
   const catalog=captureProseTargetCatalog(local);
@@ -132,13 +138,29 @@ it.each(['plain','identity-only','composed'] as const)('places an exact Build pr
    editor_sha256:await testDigest(JSON.stringify(originalDoc)),caret,draft_generation:0,selection_generation:0};
   await expect(bridge.restore(basis,undefined,undefined,{...proof,from:proof.from-1,to:proof.to-1})).rejects.toThrow('offered');
   const captured=await bridge.restore(basis,undefined,undefined,proof);
-  const prepared=await bridge.prepareProposal(captured,'Bring a second lantern.');
-  expect(editor.getJSON()).toEqual(originalDoc);
+  const fragment = mode === 'protected'
+   ? '> [!READ-ALOUD] Crossing\n> A second lantern lights up.\n\n> [!GM-NOTE] Wait\n> Keep the gate closed.'
+   : 'Bring a second lantern.';
   expect(captured.basis.caret).toBe(caret);
   expect(caret).not.toBe(proof.from);
+  if (mode === 'protected') {
+   await expect(bridge.prepareProposal(captured,fragment)).rejects.toThrow('must add one paragraph');
+   expect(editor.getJSON()).toEqual(originalDoc);
+   editor.commands.setTextSelection(proof.from - 1);
+  }
+  const target = mode === 'protected' ? await bridge.capture() : captured;
+  const prepared = await bridge.prepareProposal(target,fragment);
+  expect(editor.getJSON()).toEqual(originalDoc);
   bridge.applyPrepared(prepared);
-  expect(editor.getJSON().content?.slice(0,-1)).toEqual(originalDoc.content);
-  expect(editor.getJSON().content?.at(-1)).toMatchObject({type:'paragraph',content:[{text:'Bring a second lantern.'}]});
+  expect(editor.getJSON().content?.slice(0,originalDoc.content!.length)).toEqual(originalDoc.content);
+  if (mode === 'protected') {
+   expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 2);
+   const saved = tiptapJsonToSemanticMarkdown(flattenPresentation(editor.getJSON()));
+   expect(saved.trimEnd()).toMatch(/> \[!READ-ALOUD\] Crossing\n> A second lantern lights up\.\n\n> \[!GM-NOTE\] Wait\n> Keep the gate closed\.$/);
+  } else {
+   expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 1);
+   expect(editor.getJSON().content?.at(-1)).toMatchObject({type:'paragraph',content:[{text:'Bring a second lantern.'}]});
+  }
   expect(changed).toHaveBeenCalledOnce();
   editor.commands.undo();
   expect(editor.getJSON()).toEqual(originalDoc);

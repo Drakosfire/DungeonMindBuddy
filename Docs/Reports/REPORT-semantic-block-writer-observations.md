@@ -659,3 +659,22 @@ independent source decision voted for the offered capture, with one direct
 anchor and no passage votes. The host clarified because the author vote did
 not agree. P01 now reaches the captured source vote, correcting one side of
 the earlier routing failure. P02 still has the same author-side blocker.
+
+All three Build turns reached the server without a write capability. Two
+were classified as current-page writing and one as a connected-page
+request. All stayed on the source-answer path.
+
+Build currently requires contextual placement support for ordinary Send
+with a collapsed caret. Its client check rejects pages containing root
+callouts, tables, or artwork. The server catalog likewise accepts root
+prose, headings, and horizontal rules. The verified caret alone therefore
+did not produce a capability on this saved fixture.
+
+A mounted-editor control used a page containing two existing callouts,
+a table, and artwork. The contextual paragraph-boundary transaction
+also rejected a canned Read Aloud and GM Note because it only permits
+one prose paragraph. The editor remained unchanged. With the caret
+placed at the same paragraph end, the existing exact-caret apply path
+preserved each original node and serialized both new blocks. This
+control leaves ordinary Send, server placement admission, and hosted
+save and reopen unverified.
