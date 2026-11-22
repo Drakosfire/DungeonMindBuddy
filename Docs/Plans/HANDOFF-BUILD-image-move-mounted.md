@@ -1,6 +1,12 @@
 # BUILD apply a reviewed image move and save it explicitly
 
-ACTIVE serial successor to #4378 at `5a8147ce14e766782b25e8b1b66de1c1e6d897fc`, branch `codex/build-image-move-mounted`. The lane owner authorized implementation, benchmarking, independent review and merge. The predecessor exposes one native typed move and durably stages its inert Review. The scoped real Jev probe matched 8/8 and the ordinary native HTTP witness used one Jev call and no writer. Local hosted verification passed 1,468 and build. The exact World and Content run reproduced the same inherited image-generation failure on both refs. Migration 0184 refused the previous reader and downgrade in disposable PostgreSQL.
+MERGED in #4380 at `44004aed887f0550a99432426105725d4c65134c`. The verified head `faf0a0119253929a91c2ac4f7541d6239634c941` and the merge have identical trees. The mounted write lease is released.
+
+Independent mounted verification at `b0cd8cda19496765f7c026596784b27bbca706a5` qualified eight of eight feasible exact Reviews and eight of eight controls without a wrong Review or mutation. Three ordinary discussion replies used scripted prose. The integrated head retained the same cumulative image patch. Its real Jev browser witness passed normal Send, inert Review, exact Apply, Undo/Redo, explicit Save and readback at 390 px. Exact hosted verification passed 1,468 tests and build. Broader frontend discovery reproduced the same 102 failed IDs and missing collection parity at head and base. World and Content reproduced the same one inherited image-generation failure. No serving pin or production migration changed.
+
+## Implementation history
+
+This was the serial successor to #4378 at `5a8147ce14e766782b25e8b1b66de1c1e6d897fc`. The records below describe the prior assignment, verification and iteration checkpoints. They grant no current write lease. The predecessor exposed one native typed move and staged its inert Review. The scoped real Jev probe matched 8/8 and the ordinary native HTTP witness used one Jev call and no writer. Migration 0184 refused the previous reader and downgrade in disposable PostgreSQL.
 
 The assigned outcome is normal Build chat Send on the authorized saved internal composed Page, inert Review in the active conversation, exact one-use editor Apply, one Undo/Redo step, existing explicit Save, and cold persistence of the same occurrence in the adjacent empty slot. Applying sets the manual Save requirement. Claim retries cannot issue new local authority. Verify source, Page revision, complete editor capture, conversation pointer, selection, occurrence and empty adjacent slot. The Review is bound to its public placement digest and source.
 
