@@ -544,6 +544,14 @@ _MENU_CONTRACTS = MappingProxyType({
 })
 
 
+# Recovery artifact only: new work uses the previous menu, while the frozen
+# registry above keeps AW10 contracts readable for already committed turns.
+WORK = _PRE_CONVERSATION_LORE_WORK
+GUIDANCE = _PRE_CONVERSATION_LORE_GUIDANCE
+MENU_DIGEST = digest(question(guidance=GUIDANCE))
+RESOLVER_DIGEST = _resolver_digest(WORK)
+
+
 def _menu_work(menu):
     return _MENU_CONTRACTS[menu][1]
 

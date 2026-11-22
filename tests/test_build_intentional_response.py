@@ -427,9 +427,10 @@ def test_retained_resolution_uses_the_frozen_work_inventory():
 @pytest.mark.parametrize("work", ["review_lore_page", "review_lore_page_from_conversation"])
 def test_lore_page_request_cannot_fall_through_to_connected_location_review(work):
     caps = c.Capabilities(("answer_from_sources",), ("connected_page",), False)
-    route = c.resolve(work, caps)
+    options = next(options for _, options, _ in c._MENU_CONTRACTS.values() if work in options)
+    route = c.resolve(work, caps, work_options=options)
     assert route["requested_work"] == work
-    assert c.resolve(work, c.Capabilities(("answer_from_sources",), ("lore_page",), False))["barrier"] is None
+    assert c.resolve(work, c.Capabilities(("answer_from_sources",), ("lore_page",), False), work_options=options)["barrier"] is None
     assert route["purpose"] == "explain_capability"
     assert route["barrier"] == "requested_review_not_offered"
     assert all(item["id"] != "review_connected_page" for item in route["available_followups"])
@@ -449,3 +450,20 @@ def test_lore_page_request_cannot_fall_through_to_connected_location_review(work
     assert c.selected(response, menu=prior) == "review_connected_page"
     with pytest.raises(ValueError, match="Invalid actual semantic selection"):
         c.selected(response, menu=c.MENU_DIGEST)
+
+
+def test_recovery_menu_stops_new_aw10_work_but_keeps_its_frozen_reader_contract():
+    label = "review_lore_page_from_conversation"
+    assert label not in c.question()["criteria"]
+    menu, (_, options, resolver) = next((menu, contract)
+        for menu, contract in c._MENU_CONTRACTS.items() if label in contract[1])
+    assert c.known_semantics(menu, resolver)
+    assert menu != c.MENU_DIGEST
+    response = {"answers": {"requested_work": {
+        "selected": label,
+        "probabilities": {key: float(key == label) for key in options},
+    }}}
+    assert c.selected(response, menu=menu) == label
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.selected(response, menu=c.MENU_DIGEST)
+    assert "review_lore_page" in c.question()["criteria"]
