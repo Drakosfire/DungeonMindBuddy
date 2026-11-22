@@ -6626,9 +6626,9 @@ export function WorldPlanAgentConversation({
       ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
     const completion = graphContextForTurn(turn)?.completion;
     const descriptor = savedMessage?.reply_object;
-    const scopedLoreReview = isBuild && playMode===null && visible
+    const scopedLoreReview = Boolean(isBuild && playMode===null && visible
       && verifiedWorldId && buildMode?.savedSource?.worldId===verifiedWorldId
-      && buildMode.savedSource.documentId===turn.provenance.primary_work.object_id;
+      && buildMode.savedSource.documentId===turn.provenance.primary_work.object_id);
     const referenceDigest = completion?.schema === 'dmb_build_graph_reference_completion_v1'
       ? completion.action_id === turn.turn_id ? completion.placement_sha256 : null
       : !completion && descriptor?.kind === 'build_graph_reference'
