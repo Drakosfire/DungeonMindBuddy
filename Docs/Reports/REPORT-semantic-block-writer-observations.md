@@ -570,3 +570,38 @@ artwork. The exact saved Markdown was captured before sending.
 The named-target success verifies placement and persistence for that follow-up.
 Ordinary caret-based P01 still fails at routing, and matched independent
 repetitions are still open.
+
+#### Retained placement decisions
+
+Read-only inspection scoped to the three synthetic Plan turns found the
+same collapsed caret at position 179 in all three retained opening decisions.
+All three classified the request as a page edit. They differed in location
+resolution:
+
+| Request | Author interpretation | Source selection | Outcome |
+| --- | --- | --- | --- |
+| Exact ordinary P01 | Unscoped, placement unresolved | Unresolved, zero compatible passage or anchor votes | Missing target, clarified |
+| First follow-up with two textual boundaries | Named scope, after paragraph | One passage vote, relation unresolved and no compatible anchor | Missing target, clarified |
+| Follow-up with one paragraph locator | Named scope, after paragraph | After paragraph, one passage and one compatible anchor | Unique target, writable proposal |
+
+The first turn preserved the caret and reached the opening decision. The
+decision contract treats an omitted relation and genuinely ambiguous
+placement as unresolved. An exact caret can currently be selected through
+the explicit caret relation. A fix for ordinary Send needs a distinct
+decision for a page edit with no stated placement constraint. Explicit
+directions, unresolved constraints, and selected-text replacement still
+need to retain their existing checks.
+
+#### Selected Read Aloud rewrite
+
+In a fresh conversation on the same synthetic Plan, the exact P02 request
+followed a verified selection of the full First sight body, including the
+period. Buddy asked whether to replace the current selection. No suggestion
+appeared, and the saved Markdown still matched the pre-turn snapshot exactly.
+
+The retained V2 opening decision recorded a page edit with a 30-character
+replacement capture and a captured-target option in its catalog. The source
+selection voted for the capture. The independent author interpretation
+reported unresolved placement, so the combined decision admitted no anchor
+and clarified. This run did not reach the writer or test preservation of the
+callout title through a rewrite.
