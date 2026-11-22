@@ -139,6 +139,33 @@ def prose_editor_node_size(node: dict) -> int:
     return 2 + sum(prose_editor_node_size(child) for child in node.get("content", []))
 
 
+def slot_paragraph_boundary(editor: dict, position: int) -> tuple[tuple[int, ...], Literal["before", "after"]] | None:
+    """Find the block boundary at an exact ProseMirror caret position."""
+    parent = editor
+    start = 0
+    indices = []
+    for kind in ("pageRow", "pageSlot", "paragraph"):
+        for index, child in enumerate(parent.get("content", [])):
+            end = start + prose_editor_node_size(child)
+            if start < position < end:
+                if child["type"] != kind:
+                    return None
+                indices.append(index)
+                parent = child
+                break
+            start = end
+        else:
+            return None
+        start += 1
+    if not parent.get("content"):
+        return None
+    if position == start:
+        return tuple(indices), "before"
+    if position == end - 1:
+        return tuple(indices), "after"
+    return None
+
+
 def require_slot_selection(
     editor: dict,
     address: PlanSlotParagraphV1,
