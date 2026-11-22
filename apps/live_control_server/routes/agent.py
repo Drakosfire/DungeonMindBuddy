@@ -522,10 +522,19 @@ def _historical_work_resolver(
             None if target_session is None else normalize_session_id(target_session)
         ),
         world_id=str(owner["id"]),
-        # The historical reference does not store editor divergence. The
-        # immutable pin is sufficient to reconstruct runtime input, not that
-        # transient response boolean.
-        content_basis=None,
+        content_basis=(
+            AgentTurnContentBasis(
+                world_id=str(owner["id"]),
+                document_id=reference.object_id,
+                object_revision=reference.object_revision,
+                work_revision_id=str(reference.work_revision_id),
+                revision_n=reference.revision_n,
+                content_sha256=reference.content_sha256,
+                committed_status="committed",
+                has_divergent_working_copy=False,
+            )
+            if body.plan_context_policy is not None else None
+        ),
         plan_markdown=committed.markdown,
         session_evidence=_planning_session_evidence(body,owner,provenance),
     )
