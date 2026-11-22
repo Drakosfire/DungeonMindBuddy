@@ -69,12 +69,16 @@ class NativeCorpusMemberV1(Strict):
 
     @model_validator(mode="after")
     def exact_source_pair(self):
-        if canonical(self.artifact) != self.artifact_json or canonical(self.revision) != self.revision_json:
+        artifact = self.artifact
+        if canonical(artifact) != self.artifact_json:
             raise ValueError("Native corpus metadata requires canonical immutable bytes")
-        if (self.artifact.status != "active"
-                or self.artifact.source_artifact_id != self.revision.source_artifact_id
-                or self.artifact.current_revision_id != self.revision.source_revision_id
-                or self.revision.body_storage != "dm_native_utf8_body_v1"
+        revision = self.revision
+        if canonical(revision) != self.revision_json:
+            raise ValueError("Native corpus metadata requires canonical immutable bytes")
+        if (artifact.status != "active"
+                or artifact.source_artifact_id != revision.source_artifact_id
+                or artifact.current_revision_id != revision.source_revision_id
+                or revision.body_storage != "dm_native_utf8_body_v1"
                 or self.access_start_byte >= self.access_end_byte):
             raise ValueError("Native corpus member requires its exact active source pair")
         return self
