@@ -238,7 +238,7 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
 
 
 def selected(response, *, menu=None, tie_fallback=None):
-    options = WORK if menu is None else _menu_work(menu)
+    options = _menu_work(MENU_DIGEST if menu is None else menu)
     return _selected_choice(response["answers"]["requested_work"], options, tie_fallback=tie_fallback)
 
 
@@ -589,6 +589,14 @@ _MENU_CONTRACTS = MappingProxyType({
         for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
     },
 })
+
+
+# Recovery artifact only: retain every frozen reader contract while new
+# decisions use the pre-conversation-reuse authoring menu.
+AUTHORING_WORK = _PRE_CONVERSATION_LORE_WORK
+MENU_DIGEST = digest(question(guidance=_PRE_CONVERSATION_LORE_GUIDANCE,
+                              work_options=AUTHORING_WORK))
+RESOLVER_DIGEST = _resolver_digest(AUTHORING_WORK)
 
 
 def _menu_work(menu):

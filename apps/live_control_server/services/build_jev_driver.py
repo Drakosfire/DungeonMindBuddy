@@ -406,7 +406,7 @@ class BuildJevDriver:
                     question="Which offered operation serves this user turn in its conversation context?",
                     options=options),))
         if (adapter.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
-            from application_state.agent_conversation.build_intentional_response import POLICY, WORK, decision_instructions
+            from application_state.agent_conversation.build_intentional_response import POLICY, AUTHORING_WORK as WORK, decision_instructions
             selection_state = {'user_question': adapter.request.message, 'interaction': self._interaction,
                                'rules': decision_instructions(), 'requested_work_policy': POLICY}
             self._selection_intent = DecisionIntent(request_id='select:' + digest(selection_state), phase='select', state=selection_state,
@@ -495,7 +495,7 @@ class BuildJevDriver:
 
     def _init_native(self):
         """Build selects its own work; shared native retrieval owns acquisition."""
-        from application_state.agent_conversation.build_intentional_response import POLICY, WORK, decision_instructions
+        from application_state.agent_conversation.build_intentional_response import POLICY, AUTHORING_WORK as WORK, decision_instructions
         a = self._adapter
         self._interaction = freeze_interaction(a)
         state = dict(user_question=a.request.message, interaction=self._interaction,
