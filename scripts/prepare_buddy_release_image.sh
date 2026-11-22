@@ -26,9 +26,7 @@ fi
 
 config="review=$review;page=$page;home=$public_id"
 tag="dungeonmindbuddy:$revision"
-configured=0
 if [[ "$review" != 0 || "$page" != 0 || -n "$public_id" ]]; then
-  configured=1
   config_hash=$(printf '%s' "$config" | sha256sum | cut -c1-16)
   tag="$tag-guest-$config_hash"
 fi
@@ -52,8 +50,7 @@ if [[ ! "$image" =~ ^sha256:[0-9a-f]{64}$ || "$label" != "$revision" ]]; then
   exit 1
 fi
 image_config=$(docker image inspect --format '{{index .Config.Labels "org.dungeonmindbuddy.guest-build"}}' "$image")
-if [[ "$image_config" != "$config" ]] && \
-   ! [[ "$configured" == 0 && ( -z "$image_config" || "$image_config" == '<no value>' ) ]]; then
+if [[ "$image_config" != "$config" ]]; then
   printf '%s\n' 'Image guest build configuration does not match the requested settings.' >&2
   exit 1
 fi

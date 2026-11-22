@@ -52,7 +52,7 @@ def run_helper(fake_tools, **values):
 
 
 def test_default_build_preserves_legacy_tag(fake_tools):
-    result, calls = run_helper(fake_tools)
+    result, calls = run_helper(fake_tools, FAKE_CONFIG="review=0;page=0;home=")
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == IMAGE
     build = next(c for c in calls if c[0] == "build")
@@ -91,6 +91,12 @@ def test_matching_existing_configured_image_is_reused(fake_tools):
 
 def test_default_tag_rejects_a_labeled_configured_image(fake_tools):
     result, _ = run_helper(fake_tools, FAKE_CONFIG="review=1;page=0;home=")
+    assert result.returncode == 1
+    assert "configuration does not match" in result.stderr
+
+
+def test_unlabelled_image_is_not_accepted(fake_tools):
+    result, _ = run_helper(fake_tools)
     assert result.returncode == 1
     assert "configuration does not match" in result.stderr
 
