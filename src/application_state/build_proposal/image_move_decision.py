@@ -95,7 +95,10 @@ _ALTERNATIVE_DIRECTION = re.compile(
     r"\b(?:left|above|below|instead|or|far|rightmost|last|outermost|elsewhere|and then)\b|;",
     re.IGNORECASE,
 )
-_CONDITIONAL = re.compile(r"\b(?:if|assuming|provided|hypothetically)\b", re.IGNORECASE)
+_CONDITIONAL = re.compile(r"\b(?:if|assuming|provided|hypothetical(?:ly)?)\b", re.IGNORECASE)
+_QUOTED_LABEL = re.compile(
+    r'''"(?:\\.|[^"\\\n])*"|“[^”\n]*”|(?<!\w)'[^'\n]*'(?!\w)|(?<!\w)‘[^’\n]*’(?!\w)|\x60[^\x60\n]+\x60''',
+)
 
 
 def _semantic_text(node: dict) -> str:
@@ -117,6 +120,12 @@ def _phrase(text: str) -> str:
 
 def _mentions(text: str, phrase: str) -> bool:
     return bool(phrase and f" {phrase} " in f" {text} ")
+
+
+def _mask_quoted_labels(text: str) -> str:
+    # Keep offsets so explicit quoting of a row heading can resolve that label
+    # without interpreting words inside the label as additional constraints.
+    return _QUOTED_LABEL.sub(lambda match: "~" * len(match[0]), text)
 
 
 @dataclass(frozen=True)
@@ -228,37 +237,54 @@ class BuildImageMoveDecision:
         for question in self.questions():
             if answers.get(question.name) not in question.options:
                 raise ValueError("Image move decision has an unoffered answer")
-        active = _ACTIVE_MOVE.match(self.question)
+        masked_question = _mask_quoted_labels(self.question)
+        active = _ACTIVE_MOVE.match(masked_question)
         if answers["image_move_intent"] != "move_existing" or active is None:
             return BuildImageMoveNomination("discussion")
         object_and_destination = self.question[active.end():]
-        location = active.group("location") or ""
+        masked_clause = masked_question[active.end():]
+        location = self.question[active.start("location"):active.end("location")] if active.group("location") else ""
         scope = f"{location}, {object_and_destination}"
-        if _CONDITIONAL.search(scope):
+        masked_scope = _mask_quoted_labels(scope)
+        if _CONDITIONAL.search(masked_scope):
             return BuildImageMoveNomination("discussion")
         if answers["image_move_destination"] == "different_row":
             return BuildImageMoveNomination("different_row")
         if answers["image_move_destination"] != "same_row_right":
             return BuildImageMoveNomination("unsupported")
-        split = _DESTINATION_START.search(object_and_destination)
+        split = _DESTINATION_START.search(masked_clause)
         if split is None:
             return BuildImageMoveNomination("unresolved")
         object_text = object_and_destination[:split.start()]
         object_words = _phrase(object_text)
-        destination = object_and_destination[split.start():]
-        if _OTHER_ROW.search(scope):
+        destination = masked_clause[split.start():]
+        if _OTHER_ROW.search(masked_scope):
             return BuildImageMoveNomination("different_row")
         if (not _RIGHT_DIRECTION.search(destination) or _ALTERNATIVE_DIRECTION.search(destination)
-                or _MULTIPLE_SLOTS.search(object_and_destination)):
+                or _MULTIPLE_SLOTS.search(masked_clause)):
             return BuildImageMoveNomination("unsupported")
         alias = answers["image_move_occurrence"]
         if alias in {"ambiguous", "missing"}:
             return BuildImageMoveNomination(alias)
         chosen = next(item for item in self.occurrences if item.alias == alias)
+        chosen_words = _phrase(chosen.alt)
+        competing_names = {
+            _phrase(item.alt) for item in self.occurrences if item.alias != alias
+        } | {_phrase(alt) for _, alt in self.other_media}
+        masked_object = _mask_quoted_labels(object_text)
+        if chosen_words and chosen_words in competing_names:
+            literal_title = re.compile(r"(?<!\w)" + re.escape(chosen.alt.strip()) + r"(?!\w)", re.IGNORECASE)
+            masked_object = literal_title.sub(lambda match: "~" * len(match[0]), masked_object)
+            object_start = len(location) + 2
+            masked_scope = masked_scope[:object_start] + masked_object + masked_scope[object_start + len(object_text):]
         # A named row can occur before the right-slot wording. Require it to
         # identify the nominated source row anywhere in the action clause.
         explicitly_named_row = False
-        for fragment in _ROW_PREPOSITION.split(scope)[1:]:
+        prepositions = list(_ROW_PREPOSITION.finditer(masked_scope))
+        for i, preposition in enumerate(prepositions):
+            start = preposition.end()
+            end = prepositions[i + 1].start() if i + 1 < len(prepositions) else len(scope)
+            fragment = masked_scope[start:end]
             page_qualifier = _PAGE_QUALIFIER.match(fragment)
             if page_qualifier is not None and not _CURRENT_ROW.fullmatch(page_qualifier.group(1).strip()):
                 return BuildImageMoveNomination("unsupported")
@@ -270,16 +296,16 @@ class BuildImageMoveDecision:
             row_qualifier = _ROW_QUALIFIER.match(fragment)
             if row_qualifier is None:
                 continue
-            raw = row_qualifier.group(1).strip()
+            raw = scope[start + row_qualifier.start(1):start + row_qualifier.end(1)].strip()
             label = re.sub(r"^the\s+", "", _phrase(raw))
             if not _CURRENT_ROW.fullmatch(raw):
                 if _ORDINAL_ROWS.get(label) != chosen.row_number and self.row_labels.get(label) != {chosen.row_number}:
                     return BuildImageMoveNomination("different_row")
                 explicitly_named_row = True
-        for text in (location, object_text):
-            heading = _HEADING_REFERENCE.search(text)
+        for text, masked_text in ((location, _mask_quoted_labels(location)), (object_text, masked_object)):
+            heading = _HEADING_REFERENCE.search(masked_text)
             if heading is not None:
-                reference = _phrase(heading.group(1))
+                reference = _phrase(text[heading.start(1):heading.end(1)])
                 label = re.sub(r"^the\s+|\s+heading$", "", reference)
                 owners = self.row_labels.get(label)
                 if owners is not None and chosen.row_number not in owners:
@@ -294,10 +320,6 @@ class BuildImageMoveDecision:
                 return BuildImageMoveNomination("unsupported")
         if self.selected is not None and self.selected != alias:
             return BuildImageMoveNomination("ambiguous")
-        chosen_words = _phrase(chosen.alt)
-        competing_names = {
-            _phrase(item.alt) for item in self.occurrences if item.alias != alias
-        } | {_phrase(alt) for _, alt in self.other_media}
         if any(name != chosen_words and _mentions(object_words, name)
                and not (_mentions(object_words, chosen_words) and _mentions(chosen_words, name))
                for name in competing_names):

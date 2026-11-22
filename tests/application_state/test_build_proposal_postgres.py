@@ -611,6 +611,7 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         ("In another row, move the Map to the right slot.", "different_row"),
         ("In the Harbor Gate row, move the Map to the right slot.", "different_row"),
         ("Move the Map below the Harbor Gate heading to the right slot.", "missing"),
+        ("In the “Approach” row, move the Map to the right slot.", "ready"),
         ("Move the Map to the right slot of the Harbor Gate row.", "different_row"),
         ("Place the Map in the Harbor Gate row on the right.", "different_row"),
         ("Move the Map to the right slot in row 2.", "different_row"),
@@ -628,7 +629,9 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     decision = BuildImageMoveDecision.from_saved(selected, "Could you move this image right one slot?", markdown, before)
     assert decision.selected == "image1" and decision.resolve(choices).placement == placement
 
-    matching_markdown = markdown.replace("## Approach", "## Map").replace("![Other occurrence]", "![Map]")
+    shared_title = "Gate in North row"
+    matching_markdown = (markdown.replace("## Approach", "## North").replace("![Map]", f"![{shared_title}]")
+                         .replace("![Other occurrence]", f"![{shared_title}]"))
     matching_raw = matching_markdown.encode()
     heading, first_image, second_image = [
         block.model_copy(update={"byte_start": start, "byte_end": end, "sha256": sha256(matching_raw[start:end]).hexdigest()})
@@ -641,8 +644,9 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
                                                    row.slots[1]]}), second_image],
     })
     matching_editor = json.loads(original)
-    matching_editor["content"][0]["content"][0]["content"][0]["content"][0]["text"] = "Map"
-    matching_editor["content"][1]["content"][0]["attrs"]["alt"] = "Map"
+    matching_editor["content"][0]["content"][0]["content"][0]["content"][0]["text"] = "North"
+    matching_editor["content"][0]["content"][0]["content"][1]["content"][0]["attrs"]["alt"] = shared_title
+    matching_editor["content"][1]["content"][0]["attrs"]["alt"] = shared_title
     matching_json = json.dumps(matching_editor)
     matching_capture = BuildImageMoveCapture(
         basis=basis.model_copy(update={"content_sha256": matching_layout.markdown_sha256,
@@ -651,8 +655,11 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
         editor_json=matching_json, conversation_id=uuid4(), expected_pointer_revision=1,
     )
     for prompt, expected in (
-        ("Move the Map to the right slot.", "ambiguous"),
-        ("Move the image under the Map heading to the right slot.", "ready"),
+        ("Move the Gate to the right slot.", "ambiguous"),
+        ("Move the image titled “Gate in North row” to the right slot.", "ambiguous"),
+        ('Move the image titled "Gate in North row" to the right slot.', "ambiguous"),
+        ("Move the image titled Gate in North row to the right slot.", "ambiguous"),
+        ("Move the image under the “North” heading to the right slot.", "ready"),
     ):
         decision = BuildImageMoveDecision.from_saved(matching_capture, prompt, matching_markdown, matching_layout)
         assert decision.resolve(choices).disposition == expected, prompt
