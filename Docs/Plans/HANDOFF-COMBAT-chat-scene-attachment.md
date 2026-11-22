@@ -1,6 +1,8 @@
 # Propose a saved encounter attachment in Buddy
 
-Draft at base `89e24746136b6bf7bf04e9f8fc16e1820f45c24b` for the authorized Old Bath House goal. This brief grants no implementation lease. The slice is serial. The host-projected proposal and the user-facing confirmation belong in one PR because neither delivers a usable, reviewable attachment alone.
+Active for the Combat-owned preview boundary under the authorized Old Bath House goal. Base `89e24746136b6bf7bf04e9f8fc16e1820f45c24b`, branch `codex/combat-chat-attachment-handoff`, existing isolated Combat checkout. The slice is serial. The host-projected proposal and the user-facing confirmation belong in one PR because neither delivers a usable, reviewable attachment alone.
+
+Current write lease is this handoff, `src/application_state/combat_encounters/scene_templates.py`, and `tests/application_state/test_combat_scene_templates_postgres.py`. No competing encounter PR was identified. Native Plan, routing, and UI writes still require an explicit scope amendment after checking their current leases.
 
 ## Outcome
 
@@ -13,7 +15,7 @@ From a saved Plan scene, ask Buddy to attach a named standalone Combat encounter
 - Buddy owns ordinary conversation routing and display. Use an explicit typed proposal carrying host-verified source and target. If model-assisted selection is needed, expose encounter names and request-local aliases only. Use host-side resolution and explicit choices for ambiguous names.
 - Keep portrait binding and broader creature authoring outside this slice. A portrait-bound snapshot that Combat already stores should copy through the existing owner unchanged.
 
-Likely implementation owners are the native Plan ordinary-turn policy and output, the Plan conversation card, and `PlanSceneEncounter` preselection. Before activation, inspect open #3824 and current Build/Plan/Combat leases, pin the exact base and allowed paths, and resolve overlaps. No new schema is assumed. If the existing completion owner cannot durably retain the proposal, checkpoint the design before widening the write lease.
+Likely integration owners are the native Plan ordinary-turn policy and output, the Plan conversation card, and `PlanSceneEncounter` preselection. Before extending the lease, inspect open #3824 and current Build/Plan/Combat leases and resolve overlaps. No new schema is assumed. If the existing completion owner cannot durably retain the proposal, checkpoint the design before widening the write lease.
 
 ## Verification
 
