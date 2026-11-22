@@ -99,6 +99,7 @@ _CONDITIONAL = re.compile(r"\b(?:if|assuming|provided|hypothetical(?:ly)?)\b", r
 _QUOTED_LABEL = re.compile(
     r'''"(?:\\.|[^"\\\n])*"|“[^”\n]*”|(?<!\w)'[^'\n]*'(?!\w)|(?<!\w)‘[^’\n]*’(?!\w)|\x60[^\x60\n]+\x60''',
 )
+_WORDS = re.compile(r"[^\W_]+")
 
 
 def _semantic_text(node: dict) -> str:
@@ -115,7 +116,7 @@ def _all_media(node: dict):
 
 
 def _phrase(text: str) -> str:
-    return " ".join(re.findall(r"[^\W_]+", text.casefold()))
+    return " ".join(_WORDS.findall(text.casefold()))
 
 
 def _mentions(text: str, phrase: str) -> bool:
@@ -126,6 +127,20 @@ def _mask_quoted_labels(text: str) -> str:
     # Keep offsets so explicit quoting of a row heading can resolve that label
     # without interpreting words inside the label as additional constraints.
     return _QUOTED_LABEL.sub(lambda match: "~" * len(match[0]), text)
+
+
+def _mask_literal_phrase(text: str, phrase: str) -> str:
+    """Use the same normalization for source spans and identity collisions."""
+    target = phrase.split()
+    tokens = [(word, match.start(), match.end()) for match in _WORDS.finditer(text)
+              for word in _WORDS.findall(match[0].casefold())]
+    masked = list(text)
+    for index in range(len(tokens) - len(target) + 1):
+        window = tokens[index:index + len(target)]
+        if [word for word, _, _ in window] == target:
+            start, end = window[0][1], window[-1][2]
+            masked[start:end] = "~" * (end - start)
+    return "".join(masked)
 
 
 @dataclass(frozen=True)
@@ -273,8 +288,7 @@ class BuildImageMoveDecision:
         } | {_phrase(alt) for _, alt in self.other_media}
         masked_object = _mask_quoted_labels(object_text)
         if chosen_words and chosen_words in competing_names:
-            literal_title = re.compile(r"(?<!\w)" + re.escape(chosen.alt.strip()) + r"(?!\w)", re.IGNORECASE)
-            masked_object = literal_title.sub(lambda match: "~" * len(match[0]), masked_object)
+            masked_object = _mask_literal_phrase(masked_object, chosen_words)
             object_start = len(location) + 2
             masked_scope = masked_scope[:object_start] + masked_object + masked_scope[object_start + len(object_text):]
         # A named row can occur before the right-slot wording. Require it to

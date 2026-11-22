@@ -629,7 +629,7 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     decision = BuildImageMoveDecision.from_saved(selected, "Could you move this image right one slot?", markdown, before)
     assert decision.selected == "image1" and decision.resolve(choices).placement == placement
 
-    shared_title = "Gate in North row"
+    shared_title = "Gate-in North row"
     matching_markdown = (markdown.replace("## Approach", "## North").replace("![Map]", f"![{shared_title}]")
                          .replace("![Other occurrence]", f"![{shared_title}]"))
     matching_raw = matching_markdown.encode()
