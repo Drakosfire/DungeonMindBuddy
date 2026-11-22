@@ -13,6 +13,7 @@ from pydantic_core import to_json
 import pytest
 
 from application_state import cli
+from application_state.agent_conversation import repository
 from application_state.config import APPLICATION_STATE_DSN_ENV
 from application_state.errors import ApplicationStateMigrationError
 from tests.test_native_plan_assertions import lane as lane
@@ -106,6 +107,8 @@ def test_upgrade_keeps_lifecycle_and_legacy_row_exact(predecessor_database, monk
     # The predecessor fixture owns its exact schema; no serving process is used.
     with monkeypatch.context() as patch:
         patch.setattr(cli, '_alembic_head', lambda: '20261108_0138')
+        # Seed the predecessor using its inline read contract.
+        patch.setattr(repository, '_TURN_READ_COLS', repository._TURN_COLS)
         turn = turn_fixture()
     with psycopg.connect(predecessor_database) as conn:
         before = _definitions(conn)
@@ -426,6 +429,8 @@ def test_upgrade_conserves_populated_rows_and_old_reader_fails(storage_predecess
     from tests.application_state.test_surface_native_turns import accept
     with monkeypatch.context() as patch:
         patch.setattr(cli, '_alembic_head', lambda: '20261108_0141')
+        # Seed the predecessor using its inline read contract.
+        patch.setattr(repository, '_TURN_READ_COLS', repository._TURN_COLS)
         turn_fixture()
         accept('plan')
     def snapshot():
