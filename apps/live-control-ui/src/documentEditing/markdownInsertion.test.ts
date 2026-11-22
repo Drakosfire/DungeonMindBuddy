@@ -1,9 +1,11 @@
 import { Editor } from '@tiptap/core';
 import { afterEach, expect, it } from 'vitest';
+import { PAGE_COMPOSER_EXTENSIONS } from '../tiptap/pageComposer/PageRow';
+import { flattenPresentation } from '../tiptap/pageComposer/presentation';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
-import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor } from './markdownInsertion';
+import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from './markdownInsertion';
 const editors: Editor[] = [];
 afterEach(() => editors.splice(0).forEach(editor => editor.destroy()));
 function page() {
@@ -77,4 +79,37 @@ it('reopens an inline callout rewrite with its kind, title, and neighboring GM n
   const reopened = markdownToTiptapDoc(saved);
   expect(reopened.diagnostics).toEqual([]);
   expect(tiptapJsonToSemanticMarkdown(reopened.doc)).toBe(source.replace(original, replacement));
+});
+
+it('prepares and inserts the same callouts on an illustrated Build page with block identities', () => {
+  const source = 'Arrival paragraph.\n\n| Signal | Status |\n| --- | --- |\n| Lantern | Lit |\n\n![Boardwalk](dmb-media:00000000-0000-4000-8000-000000000001)\n';
+  const parsed = markdownToTiptapDoc(source).doc;
+  const editor = new Editor({
+    extensions: [...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, ...PAGE_COMPOSER_EXTENSIONS],
+    content: {
+      ...parsed,
+      content: parsed.content?.map((node, index) => ({
+        ...node, attrs: { ...node.attrs, pageBlockId: `fixture-${index}` },
+      })),
+    },
+  });
+  editors.push(editor);
+  const before = editor.getJSON();
+  expect(before.content?.[2].content?.[0].type).toBe('mediaImage');
+  const caret = editor.state.doc.firstChild!.nodeSize - 1;
+  const proposal = admitMarkdownInsertion('> [!READ-ALOUD] Boardwalk\n> Reeds stir.\n\n> [!GM-NOTE] Pause\n> Wait for the players.\n');
+  const prepared = prepareReviewedMarkdownAtAnchor(editor, caret, proposal.content, JSON.stringify(before));
+  expect(prepareReviewedMarkdownAtAnchor(editor, caret, proposal.content, JSON.stringify(before))).toEqual(prepared);
+  expect(editor.getJSON()).toEqual(before);
+  insertReviewedMarkdownAtAnchor(editor, caret, proposal.content, JSON.stringify(before));
+  expect(editor.getJSON()).toEqual(prepared);
+  const blocks = editor.getJSON().content!;
+  expect([blocks[0], ...blocks.slice(3)]).toEqual(before.content);
+  const ids = blocks.map(node => node.attrs?.pageBlockId);
+  expect(ids.every(Boolean)).toBe(true);
+  expect(new Set(ids).size).toBe(blocks.length);
+  const saved = tiptapJsonToSemanticMarkdown(flattenPresentation(editor.getJSON()));
+  expect(tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(saved).doc)).toBe(saved);
+  editor.commands.undo();
+  expect(editor.getJSON()).toEqual(before);
 });
