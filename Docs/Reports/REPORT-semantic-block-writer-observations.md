@@ -385,3 +385,28 @@ merged and staged on serving-line candidate `8e057a04`. The table records
 behavior observed before their cutover. It leaves their hosted verification,
 correct ordinary Plan placement, and the remaining independent repetitions
 open.
+
+### Hosted Build clean B01 placement and persistence
+
+On serving revision `03055f24`, a clean synthetic Arrival and Departure
+page in Buddy Cloud Pilot contained one Arrival paragraph, one Departure
+paragraph, and a two-column table. It had no artwork or earlier callouts.
+I verified the caret by copying the final six characters of the Arrival
+paragraph (`reeds.`) and collapsing the selection to its end. I sent the
+exact B01 prompt in a fresh conversation.
+
+The proposal contained a titled Read Aloud followed by a GM Note. The
+private instruction to wait for the players' decision appeared only in
+the GM Note. After Save and a direct reload, the rendered document order
+was Arrival heading, the intact original paragraph, Read Aloud, GM Note,
+Departure heading, the intact Departure paragraph, and the unchanged
+table. The page showed Saved. This is one clean placement and persistence
+pass. The illustrated fixture above covers artwork preservation separately.
+
+Two discrepancies remain. The review displayed the proposal above the
+Arrival paragraph even though Save placed it below. After Save, the page
+briefly asked to check the insertion despite showing Saved. That prompt
+was absent after reload. An earlier attempt in the same narrow viewport
+used the End key without verifying the caret and split a word in the
+Arrival paragraph. The synthetic fixture was restored before the scored
+run. That earlier attempt provides no paragraph-end placement evidence.
