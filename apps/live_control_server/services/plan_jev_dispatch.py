@@ -172,6 +172,7 @@ class PlanJevDispatch:
             allowed_operations=tuple(allowed_operations), **source_pins(adapter.fence.turn.graph_context_receipt)) if opening else {}
         if parent_type is NativePlanOpeningInputV2:
             navigation['evidence_relevance_version'] = 'v1'
+            navigation['opening_graph_relevance_version'] = 'v1'
         elif parent_type is NativePlanOpeningInputV3:
             navigation['column_scope_version'] = 'v1'
         if author_scope is not None:

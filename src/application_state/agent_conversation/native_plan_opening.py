@@ -88,6 +88,8 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
         default=None, exclude_if=lambda value: value is None)
     evidence_relevance_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    opening_graph_relevance_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanOpeningInputV3(NativePlanOpeningInputV1):
@@ -569,6 +571,17 @@ def prepare_opening_decision(request):
             if candidate['kind'].startswith('Saved authored Worldbuilding page;') else candidate
             for candidate in state['candidates']
         ]
+    if type(request) is NativePlanOpeningInputV2 and request.opening_graph_relevance_version == 'v1':
+        graph_votes = {f"candidate_{index}" for index, candidate in enumerate(request.candidates)
+                       if candidate.kind.startswith("Native Graph object")}
+        guidance = (
+            " Read this Graph object when its own relationship, identity, event, or qualification could "
+            "directly support the specific question. When an offered event targets the requested episode, "
+            "do not also open a participant merely because they might be connected to it. "
+            "Read both only when a distinct requested detail needs both objects."
+        )
+        questions = tuple(q.model_copy(update={'question': q.question + guidance})
+            if q.name in graph_votes else q for q in questions)
     return DecisionRequest(provider=work.provider, model=work.model,
         state=state, questions=(*work_questions, *questions), max_transport_retries=0)
 
