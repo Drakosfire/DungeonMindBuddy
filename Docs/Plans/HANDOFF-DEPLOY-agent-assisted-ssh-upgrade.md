@@ -35,9 +35,9 @@ a production deployment, migration, backup, restore, or permission grant.
 ## Release candidate and live verification
 
 - Candidate `774aa06344eb0a9411855eccdc7e33e7fead89c4` is the merge commit for
-  PR #4264 (Plan contextual paragraph placement). It is an ancestor of current
-  Buddy `main` at `ebb8161672ed49d3be7fdaa48ad17fbaf55dd9eb`; it is not the
-  production image observed below.
+  PR #4264 (Plan contextual paragraph placement). It is an ancestor of the Buddy `main` snapshot
+  `ebb8161672ed49d3be7fdaa48ad17fbaf55dd9eb` observed at 2026-11-22 02:17 UTC;
+  it is not the production image observed below.
 - On 2026-11-22 at 02:17 UTC, a strict, read-only SSH check to
   `alan@191.101.14.169` returned host `srv586875` and user `alan`.
 - The Buddy Compose project reported container `buddy-buddy-1`, tag
@@ -46,8 +46,9 @@ a production deployment, migration, backup, restore, or permission grant.
   and health `healthy`. This is a read-only service check; database migration
   heads, backup state, and rollback-image identity were not checked.
 - Revision `84df46088596fd45771b12158fa62c4500be102d` resolves to a cherry-pick
-  of PR #4381's manual-summon fix. GitHub compares it with current `main` as
-  diverged (63 commits ahead, 886 behind). A healthy container does not prove
+  of PR #4381's manual-summon fix. Against the Buddy `main` snapshot
+  `ebb8161672ed49d3be7fdaa48ad17fbaf55dd9eb` observed at 2026-11-22 02:17 UTC,
+  GitHub reports it as diverged (63 commits ahead, 886 behind). A healthy container does not prove
   that the reviewed current-main release is serving. Before calling a release
   current, stage and verify an image built from the exact reviewed SHA and
   confirm that image ID and revision label on the running container.
