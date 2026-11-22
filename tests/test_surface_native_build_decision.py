@@ -47,7 +47,7 @@ def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0
         state['context_note']=context_note
     request_id='select:'+semantic.digest(state)
     questions=[ChoiceDecisionQuestion(kind='choice',name='requested_work',question=semantic.decision_instructions(),
-        options=tuple(semantic.WORK))]
+        options=tuple(semantic._menu_work(action.requested_work_menu_sha256)))]
     if auxiliary:
         questions.extend(ChoiceDecisionQuestion(kind='choice',name=name,question='Acquire this optional reference?',
             options=('read','skip')) for name in ('related_page_0','rules_query'))

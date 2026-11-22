@@ -231,7 +231,7 @@ def source_need(request, response):
 
 
 def selected(response, *, menu=None):
-    options = WORK if menu is None else _menu_work(menu)
+    options = _menu_work(MENU_DIGEST if menu is None else menu)
     return _selected_choice(response["answers"]["requested_work"], options)
 
 
@@ -542,6 +542,14 @@ _MENU_CONTRACTS = MappingProxyType({
         for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
     },
 })
+
+
+# Recovery artifact only: new decisions use the previous authoring menu.
+# WORK and the frozen registry retain all metadata needed to validate AW10 rows.
+AUTHORING_WORK = _PRE_CONVERSATION_LORE_WORK
+MENU_DIGEST = digest(question(guidance=_PRE_CONVERSATION_LORE_GUIDANCE,
+                              work_options=AUTHORING_WORK))
+RESOLVER_DIGEST = _resolver_digest(AUTHORING_WORK)
 
 
 def _menu_work(menu):
