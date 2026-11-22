@@ -524,6 +524,22 @@ def bind_opening_author_scope(execution, observation_event_id, observation):
         observation=observation, page_edit_intent=intent)
 
 
+def can_skip_author_scope_recheck(request, observation, capture):
+    from .plan_author_location import UnscopedLocation
+
+    return (
+        not request.dialogue
+        and request.requested_operation is None
+        and (capture is None or not capture.selected_text)
+        and observation.page_edit_intent in ('discussion', 'unresolved')
+        and observation.relation == 'unresolved'
+        and observation.selected_alias == 'none'
+        and isinstance(observation.scope, UnscopedLocation)
+        and not _author_scope_offers(request)
+        and not author_scope_review_required(request.question, observation, observation)
+    )
+
+
 def author_scope_review_required(question, first, second):
     from .plan_author_location import explicit_direction_options, explicit_scope_conflict, nominal_scope_needs_review
 

@@ -505,6 +505,76 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
             expected_revision=stored.revision, expected_attempt=stored.attempt, outcome=entered)
 
 
+def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write(
+    plan_adapter, application_state_dsn
+):
+    import asyncio
+
+    import psycopg
+
+    from application_state.errors import ApplicationStateValidationError
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
+
+    plan_adapter.request = plan_adapter.request.model_copy(
+        update={"message": "Could we add a warning?"}
+    )
+    capture, turn = _claim_contextual_scope_turn(plan_adapter)
+    requests = []
+
+    async def respond(request):
+        wire = json.loads(request.content)
+        requests.append(wire)
+        assert not wire["state"]["scope_hypotheses"]
+        choices = {
+            "location_relation": "unresolved",
+            "existing_scope": "none",
+            "page_edit_intent": "unresolved",
+        }
+        answers = {
+            name: {
+                "type": "choice",
+                "choice": choice,
+                "confidence": 1.0,
+                "probabilities": {
+                    key: float(key == choice)
+                    for key in wire["questions"][name]["criteria"]
+                },
+            }
+            for name, choice in choices.items()
+        }
+        return httpx2.Response(200, json={
+            "model": wire["model"], "answers": answers,
+            "usage": {"input_tokens": 40, "output_tokens": 9},
+        })
+
+    harness = PlanJevHarness(
+        decision_transport=httpx2.MockTransport(respond),
+        decision_api_key="synthetic-not-secret",
+    )
+    first = harness._interpret_author_scope(plan_adapter, (), [])
+    assert len(requests) == 1
+    opening = PlanJevDispatch.requested_work(
+        plan_adapter, page_title="Preparation", author_scope=first,
+    )
+    work, _ = asyncio.run(opening.run(
+        transport=SemanticWire(plan_adapter, "write:captured", expect_examined=False),
+        api_key="synthetic-not-secret",
+    ))
+    confirmed = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
+    selection = confirmed.graph_context_execution.events[-1]
+    assert work == "clarify"
+    assert selection.author_scope_binding.observation_event_id == first.event_id
+    assert selection.author_scope_binding.page_edit_intent == "unresolved"
+    assert selection.placement_selector is None and selection.target_capture_sha256 is None
+    with pytest.raises(ApplicationStateValidationError, match="frozen destination or target"):
+        plan_adapter.service.reserve_plan_authoring_action(
+            capture=capture, turn_id=turn.turn_id, expected_revision=confirmed.revision,
+        )
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM plan_action.action").fetchone()[0] == 0
+
+
 @pytest.mark.parametrize('provider_case', [
     'success', 'disagreeing_recheck', 'capture_rewrite_recheck', 'substituted_observation', 'unknown_outcome',
     'discussion_veto', 'edit_permission_disagreement', 'explicit_editor_operation',
@@ -1462,7 +1532,7 @@ def test_current_authorization_rejects_parent_contract_substitution(plan_adapter
 def _shared_plan_authoring_case(
     plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None,
     placement_factory=None, semantic_intent=None, semantic_compatible=None,
-    ordinary_caret=False,
+    ordinary_caret=False, author_scope_calls=None,
 ):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import (
@@ -1751,7 +1821,8 @@ def _shared_plan_authoring_case(
     harness.decision_transport = decisions
     harness.writer_transport = writer
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
-    author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
+    if author_scope_calls is None:
+        author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
     if routing is not None:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         from application_state.plan_action_dialogue.repository import get_authoring_for_turn

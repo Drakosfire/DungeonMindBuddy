@@ -923,7 +923,8 @@ def test_contextual_completion_binds_sdk_final_instead_of_aggregate_commentary(
     monkeypatch.setattr(WriterWire, 'handle_async_request', phased)
     result = _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, 'place1', 'base',
         routing=None if routing == 'write' else routing, dsn=application_state_dsn,
-        placement_factory=native_paragraph_placement_fixture)
+        placement_factory=native_paragraph_placement_fixture,
+        author_scope_calls=1 if routing == 'discuss' else 2)
     if result is not None and result.plan_proposal is not None:
         assert '<fim_suffix>' not in result.plan_proposal.replacement_markdown
 
