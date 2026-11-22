@@ -160,6 +160,21 @@ it('places verified citations beside repeated claims without splitting Markdown 
   expect(screen.getByRole('button',{name:'Open source 3'}).closest('li')).not.toBeNull();
 });
 
+it('renders a quoted Read Aloud without exposing its marker or moving its citation', () => {
+  const onOpen = vi.fn();
+  const answer = '> [!READ-ALOUD] At the Boardwalk The damp planks shine.';
+  const {container} = render(<WorldPlanAgentAnswer answer={answer} displaySegments={[answer]}
+    inlineCitations={[{segmentIndex:0,label:'1',title:'Saved Arrival',onOpen}]} />);
+  const quote = container.querySelector('blockquote');
+  expect(quote).toHaveTextContent('Read aloud');
+  expect(quote).toHaveTextContent('At the Boardwalk The damp planks shine.');
+  expect(quote).not.toHaveTextContent('[!READ-ALOUD]');
+  const source = screen.getByRole('button',{name:'Open source 1'});
+  expect(source.closest('blockquote')).toBe(quote);
+  source.click();
+  expect(onOpen).toHaveBeenCalledOnce();
+});
+
 it('does not infer citation placement from mismatched or absent complete segments', () => {
   const props = {answer:'A fact. Another fact.',inlineCitations:[{segmentIndex:0,label:'1',title:'Exact source',onOpen:vi.fn()}]};
   const view = render(<WorldPlanAgentAnswer {...props} displaySegments={['A fact.']} />);
