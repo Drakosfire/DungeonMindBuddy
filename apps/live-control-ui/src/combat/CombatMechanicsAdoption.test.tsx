@@ -14,9 +14,11 @@ vi.mock('../guidedTour/Navigation',async(importOriginal)=>({...await importOrigi
 vi.mock('../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import * as api from './combatApi';
 import * as live from '../api/liveApi';
-import type {CombatEncounterRecord,MechanicsAdoptionOutcome,MechanicsAdoptionPreview,AdoptMechanicsRequest} from './combatTypes';
+import * as variants from '../api/conversationDraftApi';
+import type {CombatEncounterRecord,ConversationVariantCombatSnapshot,MechanicsAdoptionOutcome,MechanicsAdoptionPreview,AdoptMechanicsRequest} from './combatTypes';
 import {adoptionRequestDigest,verifyAdoptionOutcome,type PendingMechanicsAdoption} from './CombatMechanicsAdoptionRecovery';
-vi.mock('./combatApi',()=>({listAcceptedCombatMechanics:vi.fn(),previewSavedCombatMechanics:vi.fn(),adoptCombatMechanics:vi.fn(),listCombatMechanicsAdoptions:vi.fn(),inspectCombatMechanicsAdoption:vi.fn()}));
+vi.mock('./combatApi',()=>({listAcceptedCombatMechanics:vi.fn(),previewSavedCombatMechanics:vi.fn(),previewConversationPortrait:vi.fn(),adoptCombatMechanics:vi.fn(),listCombatMechanicsAdoptions:vi.fn(),inspectCombatMechanicsAdoption:vi.fn()}));
+vi.mock('../api/conversationDraftApi',()=>({openSavedConversationVariant:vi.fn()}));
 vi.mock('../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),validateStatblockDefinition:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn()}));
 vi.mock('./CombatMechanicsInspection',()=>({CombatMechanicsInspection:()=>null}));
 const world='elderwyld',id='11111111-1111-4111-8111-111111111111',draftId='22222222-2222-4222-8222-222222222222';
@@ -66,6 +68,39 @@ async function openHistory(){
  await userEvent.click(screen.getByRole('button',{name:'Load saved adoptions'}));
  await userEvent.click(await screen.findByRole('button',{name:/Inspect applied version/}));
 }
+it('previews and retains an exact portrait adoption without changing tracker values',async()=>{
+ const revision={...revisionFixture,statblock_id:locator.statblock_id,revision_id:locator.revision_id,
+  definition_digest:locator.definition_digest} as StatblockRevisionResourceV1;
+ const illustrated:ConversationVariantCombatSnapshot={
+  origin:'conversation_variant_mechanics_v1',managed_world_id:world,conversation_id:id,turn_id:id,review_id:id,
+  locator,resource:revision,snapshot_digest:'sha256:'+'e'.repeat(64),
+ };
+ const prior={...illustrated,...original};
+ const current={...record,draft:{...record.draft,entities:[
+  {...record.draft.entities[0],mechanics_snapshot:prior},record.draft.entities[1],
+ ]}};
+ vi.mocked(variants.openSavedConversationVariant).mockResolvedValue({locator,revision});
+ vi.mocked(api.previewConversationPortrait).mockResolvedValue({snapshot:illustrated});
+ vi.mocked(api.adoptCombatMechanics).mockRejectedValue(new Error('Response lost'));
+ render(<CombatMechanicsAdoption record={current} disabled={false} onLockChange={()=>{}} onReconciled={()=>{}}/>);
+ await userEvent.click(screen.getByText('Use a saved conversation portrait'));
+ const link=screen.getByLabelText('Saved portrait statblock link');
+ await userEvent.click(link);
+ await userEvent.paste(`${window.location.origin}/statblock?world=${world}&conversation=${id}&turn=${id}&variantReview=${id}&variantPortrait=${draftId}`);
+ await userEvent.click(screen.getByRole('button',{name:'Preview exact portrait'}));
+ await screen.findByText(/keeps the actor’s tracked stats/);
+ expect(screen.getByLabelText('Select Sibling (2)')).toBeDisabled();
+ await userEvent.click(screen.getByLabelText('Select Keeper (1)'));
+ expect(screen.queryByLabelText('HP policy for Keeper (1)')).toBeNull();
+ await userEvent.click(screen.getByRole('button',{name:'Use version for selected actors'}));
+ await screen.findByText(/Outcome unconfirmed/);
+ const command=vi.mocked(api.adoptCombatMechanics).mock.calls[0][2];
+ expect(command).toMatchObject({schema:'dmb_combat_conversation_portrait_adoption_v1',expected_revision:4,
+  source:{locator,portrait_operation_id:draftId},actors:[{actor_id:'one',expected_snapshot_digest:original.snapshot_digest,ac_policy:'keep',hp_policy:'keep'}]});
+ await userEvent.click(screen.getByRole('button',{name:'Retry original adoption'}));
+ await waitFor(()=>expect(api.adoptCombatMechanics).toHaveBeenCalledTimes(2));
+ expect(vi.mocked(api.adoptCombatMechanics).mock.calls[1][2]).toEqual(command);
+});
 it('inspects an advanced historical adoption as an existing example without reconciling removed actors',async()=>{
  const saved=await savedHistory();saved.encounter.draft.entities=[];
  const reconcile=vi.fn();render(<TourEncounterProvider scope={tourScope}><CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={reconcile}/></TourEncounterProvider>);
