@@ -1,0 +1,89 @@
+name: Publish Buddy release image
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full SHA of a reviewed commit on main's first-parent history
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: buddy-release-image-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: buddy-image-release
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Require release environment enablement
+        env:
+          PUBLICATION_ENABLED: ${{ vars.BUDDY_IMAGE_PUBLICATION_ENABLED }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$PUBLICATION_ENABLED" != true ]]; then
+            echo "Configure and protect the buddy-image-release environment before enabling image publication." >&2
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/heads/main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select the exact release source
+        env:
+          REVISION: ${{ inputs.revision }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          git rev-list --first-parent HEAD | grep -Fx "$REVISION" >/dev/null
+          git checkout --detach "$REVISION"
+          test "$(git rev-parse HEAD)" = "$REVISION"
+          test -z "$(git status --porcelain)"
+      - name: Build and check the release image
+        env:
+          REVISION: ${{ inputs.revision }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$REVISION"
+          guest_config='review=0;page=0;home='
+          docker buildx build --platform linux/amd64 --target api --file Dockerfile.production \
+            --build-arg VITE_GUEST_RELEASE_REVIEW=0 \
+            --build-arg VITE_GUEST_RELEASE_PAGE=0 \
+            --build-arg VITE_GUEST_HOME_PUBLIC_ID= \
+            --label "org.opencontainers.image.revision=$REVISION" \
+            --label "org.dungeonmindbuddy.guest-build=$guest_config" --tag "$image" --load .
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}} {{index .Config.Labels "org.dungeonmindbuddy.guest-build"}}' "$image")" = "$REVISION $guest_config"
+      - name: Publish and record the immutable registry reference
+        env:
+          REVISION: ${{ inputs.revision }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DOCKER_CONFIG
+          DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s\n' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          unset REGISTRY_TOKEN
+
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker image push "$repository:$REVISION" | tee "$DOCKER_CONFIG/push.log"
+          digest=$(awk '$2 == "digest:" {print $3}' "$DOCKER_CONFIG/push.log")
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker buildx imagetools inspect "$repository@$digest" >/dev/null
+          {
+            printf 'Buddy release source: `%s`\n\n' "$REVISION"
+            printf 'Stage by immutable image reference: `%s@%s`\n' "$repository" "$digest"
+          } >> "$GITHUB_STEP_SUMMARY"
