@@ -206,7 +206,7 @@ class PlanJevDispatch:
         from application_state.agent_conversation.native_plan_opening import (
             NativePlanAuthorScopeObservedV1, NativePlanAuthorScopeParentV1,
             NativePlanOpeningInputV2, NativePlanOpeningInputV3, NativePlanOpeningScopeBindingV1, opening_input_type,
-            require_retained_author_scope,
+            author_editor_focus, require_retained_author_scope,
         )
 
         turn = adapter.fence.turn
@@ -228,6 +228,7 @@ class PlanJevDispatch:
             question=turn.user_text, dialogue=tuple(dialogue), quote_context=prior_scope is not None,
             assess_page_edit=not review,
             selection_reference_version='v1',
+            editor_focus=author_editor_focus(turn.graph_context_execution.policy.action),
             implicit_caret_version=('v1' if opening_input_type(turn.graph_context_execution.policy.action)
                 in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) else None),
             requested_operation=adapter.request.plan_requested_operation if not review else None,

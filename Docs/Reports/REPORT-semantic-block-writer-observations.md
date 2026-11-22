@@ -678,3 +678,32 @@ placed at the same paragraph end, the existing exact-caret apply path
 preserved each original node and serialized both new blocks. This
 control leaves ordinary Send, server placement admission, and hosted
 save and reopen unverified.
+
+### Plan author interpretation with editor focus
+
+The hosted P01 and P02 failures reached explicit page-edit intent with
+unresolved placement. The source-aware opening voted for the captured target.
+The earlier author-only calls had no indication that the editor held a
+selection or caret. The candidate supplies that fact from the frozen editor
+capture and keeps the exact target and selected text at the owning boundary.
+
+On November 22, the configured Jev provider received synthetic P01 and P02
+requests through the same decision SDK as hosted Buddy. Each arm used three
+runs of the initial author question and three runs of the quote-context
+recheck, with empty dialogue and the same model and choices.
+
+| Author interpretation | Before | With editor focus |
+| --- | --- | --- |
+| P01, open insertion location | 0/6 recognized, all unresolved | 6/6 recognized as an insertion with no stated location |
+| P02, rewrite the current selection | 0/6 recognized, all unresolved | 6/6 recognized as a selection rewrite |
+| Chat-only rewrite with selected text | 6/6 discussion | 6/6 discussion |
+
+An early candidate sometimes dropped Arrival from an explicitly located
+insertion during recheck. The final contract omits the editor focus hint for
+recognized explicit locations. A serialized request comparison for the named
+Arrival control proves its initial and recheck wires match the baseline.
+Synthetic native SDK tests exercise independent target selection, discussion
+veto, and rejection of a focus that disagrees with the frozen editor capture.
+
+This comparison covers author interpretation. Hosted proposal, explicit Save,
+and cold reopen remain to be scored through ordinary Plan Send.
