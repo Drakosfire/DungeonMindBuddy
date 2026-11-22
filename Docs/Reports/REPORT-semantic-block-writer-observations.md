@@ -707,3 +707,29 @@ veto, and rejection of a focus that disagrees with the frozen editor capture.
 
 This comparison covers author interpretation. Hosted proposal, explicit Save,
 and cold reopen remain to be scored through ordinary Plan Send.
+
+### Durable chat-only controls
+
+On November 22, while Buddy served `590e45a2` at schema 0189, a read-only
+audit of Buddy Cloud Pilot matched completed turns to the exact X01 and PL02
+benchmark prompts. The saved turns span multiple releases and some used
+earlier fixtures.
+
+| Case | Completed turns | Matching write reservations |
+| --- | ---: | ---: |
+| X01, Build | 3 | 0 |
+| X01, Plan | 3 | 0 |
+| PL02, Play | 6 across 4 runs | 0 |
+
+Build reservations were checked by World, conversation, and retained turn
+origin or exact instruction. Plan actions were checked by World and retained
+turn origin or exact instruction. Play proposals were checked by World,
+receipt-bound Run, and exact instruction. All six Play turns carried a
+content digest. No run-edition revision was committed between the acceptance
+and completion of any of those turns. The stored Play replies contained none
+of the seeded tower, lantern-signal, or gate cue phrases checked in the
+earlier browser runs.
+
+This audit supplies durable no-write evidence for the recorded discussion
+controls. The clean P01-to-PL02 adoption check and the combined release's
+Build and Plan save-and-reopen cases are still pending.
