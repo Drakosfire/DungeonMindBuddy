@@ -1,9 +1,12 @@
 """Buddy World metadata persistence. This never admits sources or publishes facts."""
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import ExitStack, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import cache
 import re
 import unicodedata
 from uuid import uuid4
@@ -14,6 +17,7 @@ from pydantic import ValidationError
 
 from application_state.cli import assert_at_head, assert_connection_at_head
 from application_state.config import load_runtime_dsn
+from application_state.engine import connect
 from application_state.errors import (
     ApplicationStateConflictError, ApplicationStateIntegrityError,
     ApplicationStateValidationError, ApplicationStateNotFoundError,
@@ -172,13 +176,41 @@ def list_owned_worlds(subject: str, allowed_ids: list[str]) -> list[StoredWorld]
         return _records(conn, owner_scope=(subject, allowed_ids))
 
 
+_world_read_connection: ContextVar[Callable[[], psycopg.Connection] | None] = ContextVar(
+    'world_read_connection', default=None,
+)
+
+
+@contextmanager
+def reuse_world_read_connection() -> Iterator[None]:
+    """Lease a connection for synchronous catalog reads with independent snapshots."""
+    with ExitStack() as scope:
+        @cache
+        def open_connection() -> psycopg.Connection:
+            return scope.enter_context(connect(load_runtime_dsn()))
+
+        token = _world_read_connection.set(open_connection)
+        try:
+            yield
+        finally:
+            _world_read_connection.reset(token)
+
+
 def get_world(world_id: str) -> StoredWorld | None:
-    dsn = load_runtime_dsn()
-    with unit_of_work(dsn) as conn:
-        conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-        assert_connection_at_head(conn)
-        rows = _records(conn, world_id=world_id)
-        return rows[0] if rows else None
+    open_connection = _world_read_connection.get()
+    if open_connection is None:
+        with unit_of_work(load_runtime_dsn()) as conn:
+            return _read_world(conn, world_id)
+    conn = open_connection()
+    with conn.transaction():
+        return _read_world(conn, world_id)
+
+
+def _read_world(conn: psycopg.Connection, world_id: str) -> StoredWorld | None:
+    conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+    assert_connection_at_head(conn)
+    rows = _records(conn, world_id=world_id)
+    return rows[0] if rows else None
 
 
 def _write(conn, record: WorldContainerRecord, *, revision: int) -> None:
