@@ -604,11 +604,19 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     "working_draft_context": {"draft_markdown": draft.snapshot.draft_markdown},
                 })
             elif with_draft:
-                assert work['current_draft']['markdown']==draft.snapshot.draft_markdown
+                expected_draft = draft.snapshot.draft_markdown
+                if reference_image:
+                    expected_draft = expected_draft.replace(
+                        f"![Other artwork](dmb-media:{wrong['asset_id']})", "[Image: Other artwork]",
+                    ).replace(
+                        f"![Bath house map](dmb-media:{asset['asset_id']})", "[Image: Bath house map]",
+                    )
+                    assert all(str(row['asset_id']) not in req.content.decode() for row in (asset, wrong))
+                assert work['current_draft']['markdown'] == expected_draft
                 if mode:
-                    assert body['input'].count(json.dumps(draft.snapshot.draft_markdown,ensure_ascii=False)[1:-1])==1
+                    assert body['input'].count(json.dumps(expected_draft, ensure_ascii=False)[1:-1]) == 1
                 else:
-                    assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
+                    assert sum(expected_draft in row['content'] for row in body['input']) == 1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only'
