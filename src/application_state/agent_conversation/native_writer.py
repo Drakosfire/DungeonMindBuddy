@@ -127,7 +127,9 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
 
 def model_input_frame(receipt,execution):
     from .native_evidence_view import semantic_frame
-    return semantic_frame(model_frame(receipt,execution))
+    from .native_execution import NativeBuildActionV1
+    return semantic_frame(model_frame(receipt,execution),
+        project_managed_images=isinstance(execution.policy.action, NativeBuildActionV1))
 
 
 @dataclass(frozen=True)
@@ -407,7 +409,12 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         host = model_frame(receipt, prefix)
     else:
         host = model_frame(receipt, prefix, schema=frame.get('schema'))
-    expected = expected_semantic_frame(host, frame) if is_semantic_frame(frame) else host
+    expected = host
+    if is_semantic_frame(frame):
+        project_build_images = isinstance(prefix.policy.action, NativeBuildActionV1)
+        expected = expected_semantic_frame(host, frame, project_managed_images=project_build_images)
+        if project_build_images and retained_build_proof and expected != frame:
+            expected = expected_semantic_frame(host, frame)
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
     from .native_play_work import is_semantic_frame as semantic_play, semantic_frame as play_work_view

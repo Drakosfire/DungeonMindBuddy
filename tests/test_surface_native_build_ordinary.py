@@ -1984,6 +1984,25 @@ def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(l
     _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source=selection)
 
 
+def test_ordinary_build_projects_managed_images_in_both_sdk_requests(lane, tmp_path, monkeypatch):
+    asset = "5086d264-54f6-4411-846b-a59cbf0abcde"
+    image = f"![Harbor survey](dmb-media:{asset})"
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        native_body="direct_support",
+        native_source_text=f"# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode.\n{image}\n",
+    )
+    decisions = [request.content.decode() for request in case.decisions.calls]
+    writers = [request.content.decode() for request in case.writer.calls]
+    assert any("[Image: Harbor survey]" in request for request in decisions)
+    assert len(writers) == 1 and "[Image: Harbor survey]" in writers[0]
+    assert all(asset not in request for request in decisions + writers)
+    from application_state.agent_conversation.native_corpus import acquired_body_reads
+    reads = acquired_body_reads(case.turn.graph_context_execution)
+    assert any(image in read.excerpt.text for read in reads)
+    assert case.turn.completion.native_body_citations
+
+
 def test_build_dialogue_cache_checks_same_revision_storage_drift(lane, tmp_path, monkeypatch):
     from application_state.agent_conversation import repository
     from application_state.errors import ApplicationStateIntegrityError, ApplicationStateNotFoundError
