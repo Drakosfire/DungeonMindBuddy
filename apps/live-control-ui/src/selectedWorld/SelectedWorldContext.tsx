@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
-import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
+import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorldOwnedPlanSnapshot, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
 import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
 
@@ -105,10 +105,12 @@ export function SelectedWorldProvider({
   const hosted = auth.status === "authenticated";
   const selection = requestedWorldSelection(locationSnapshot);
   const selectionKey = selectionIdentity(selection);
-  const isHome = new URL(locationSnapshot, "http://localhost").pathname === "/";
+  const pathname = new URL(locationSnapshot, "http://localhost").pathname;
+  const isHome = pathname === "/";
+  const hostedPlanDocument = hosted && pathname === "/plan" && selection.documentId !== null;
   const [retryGeneration, setRetryGeneration] = useState(0);
   // Each selector transition owns fresh page admission, including A→B→A.
-  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration, isHome]);
+  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration, isHome, hostedPlanDocument]);
   const [loaded, setLoaded] = useState<{ scope: typeof selectionScope; value: SelectedWorldState } | null>(null);
   const retry = useCallback(() => {
     setLoaded(null);
@@ -162,15 +164,28 @@ export function SelectedWorldProvider({
           setLoaded({ scope: selectionScope, value: { kind: "error", message: "World selection is empty." } });
           return;
         }
+        const readDocument = async (documentId: string): Promise<WorkspaceDocumentRecordAny> => {
+          if (!hostedPlanDocument) return getWorkspaceDocumentAny(documentId);
+          // The hosted Plan read uses the snapshot route's exact ownership policy.
+          const snapshot = await getWorldOwnedPlanSnapshot(documentId);
+          const record = snapshot.record;
+          if (snapshot.schema_version !== "dmb_workspace_document_snapshot_v2"
+            || record?.schema_version !== "dmb_world_owned_plan_record_v2"
+            || record.scope_mode !== "world"
+            || record.document_id !== documentId) {
+            throw new Error("The saved Plan could not be verified.");
+          }
+          return record;
+        };
         const parallelHostedWorldId = hosted && !selection.runId && !selection.extractionRunId
           ? selection.worldId
           : null;
         const [document, resolvedWorld] = parallelHostedWorldId && selection.documentId
           ? await Promise.all([
-            getWorkspaceDocumentAny(selection.documentId),
+            readDocument(selection.documentId),
             getHostedWorldContainer(parallelHostedWorldId, catalogRequest.signal),
           ])
-          : [selection.documentId ? await getWorkspaceDocumentAny(selection.documentId) : null, null] as const;
+          : [selection.documentId ? await readDocument(selection.documentId) : null, null] as const;
         if (cancelled) return;
         const worldOwnedPlan = document?.schema_version === "dmb_world_owned_plan_record_v2";
         // An exact Play link can arrive without a World query. Resolve the
@@ -238,7 +253,7 @@ export function SelectedWorldProvider({
       }
     })();
     return () => { cancelled = true; catalogRequest.abort(); };
-  }, [selectionScope, continuedWorldOnly, hosted]);
+  }, [selectionScope, continuedWorldOnly, hosted, hostedPlanDocument]);
 
   return (
     <SelectedWorldRetryContext.Provider value={retry}>
