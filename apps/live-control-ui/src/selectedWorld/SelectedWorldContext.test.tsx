@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorkspaceDocument, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
+import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorldOwnedPlanSnapshot, getWorkspaceDocument, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
 import * as hostedAuth from "../auth/HostedAuthGate";
 import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
 import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
@@ -18,6 +18,7 @@ vi.mock("../api/liveApi", () => ({
   getExtractionRun: vi.fn(),
   getHostedWorldContainer: vi.fn(),
   getPlayRun: vi.fn(),
+  getWorldOwnedPlanSnapshot: vi.fn(),
   getWorkspaceDocument: vi.fn(),
   getWorkspaceDocumentAny: vi.fn(),
   listWorldContainers: vi.fn(),
@@ -380,11 +381,48 @@ it("starts the explicit hosted World read before the document resolves and waits
       <AdmissionProbe />
     </SelectedWorldProvider>);
     expect(getWorkspaceDocumentAny).toHaveBeenCalledWith(document.document_id);
+    expect(getWorldOwnedPlanSnapshot).not.toHaveBeenCalled();
     expect(getHostedWorldContainer).toHaveBeenCalledWith(world.world_id, expect.any(AbortSignal));
     await act(async () => pendingWorld.resolve(world));
     expect(screen.getByTestId("admission")).toHaveTextContent("loading");
     await act(async () => pendingDocument.resolve(document));
     expect(screen.getByTestId("admission")).toHaveTextContent("managed");
+  } finally {
+    auth.mockRestore();
+  }
+});
+
+it.each([
+  { name: "the requested Plan", overrides: {}, expected: "managed" },
+  { name: "a trailing slash", path: "/plan/", overrides: {}, expected: "managed" },
+  { name: "a different document", overrides: { document_id: "not-the-requested-plan" }, expected: "error" },
+  { name: "a different World", overrides: { world_id: "foreign-world" }, expected: "error" },
+])("admits a hosted Plan deep link using its owned snapshot: $name", async ({ path = "/plan", overrides, expected }) => {
+  const auth = vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+    status: "authenticated", subject: "test-subject", displayName: null, refreshWarning: false,
+  });
+  const planId = "e514b109-c83a-4630-904f-6fe12fe5a20e";
+  const record: WorldOwnedPlanRecordV2 = {
+    ...document, schema_version: "dmb_world_owned_plan_record_v2", scope_mode: "world",
+    document_id: planId, kind: "plan", campaign_id: null, ...overrides,
+  };
+  try {
+    vi.mocked(getHostedWorldContainer).mockResolvedValueOnce(world);
+    vi.mocked(getWorldOwnedPlanSnapshot).mockResolvedValueOnce({
+      schema_version: "dmb_workspace_document_snapshot_v2", record,
+      markdown: "# Arrival", content_sha256: "a".repeat(64), file_fingerprint: "fixture",
+      file_exists: true, loaded_revision: record.revision,
+    });
+    render(<SelectedWorldProvider locationSnapshot={`${path}?world=${world.world_id}&documentId=${planId}`}>
+      <AdmissionProbe />
+    </SelectedWorldProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("admission")).toHaveTextContent(expected));
+    expect(getHostedWorldContainer).toHaveBeenCalledWith(world.world_id, expect.any(AbortSignal));
+    expect(getWorldOwnedPlanSnapshot).toHaveBeenCalledExactlyOnceWith(planId);
+    expect(getWorkspaceDocumentAny).not.toHaveBeenCalled();
+    if (expected === "managed") expect(screen.getByTestId("identity"))
+      .toHaveTextContent(`managed:${world.world_id}:${planId}`);
   } finally {
     auth.mockRestore();
   }
