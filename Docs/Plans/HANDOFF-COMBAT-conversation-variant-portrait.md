@@ -17,3 +17,7 @@ The consuming serial slice gives Combat an exact conversation-variant revision s
 Exercise signed-in World, conversation, turn, review, revision and media-owner admission through the normal route. Cover foreign and stale sources, image Save proof, and response-loss recovery. Compare exact old and new mechanics digests and all unaffected asset roles. Reopen the original and new links independently. Run the repository exact-source verification and independent review before production delivery.
 
 Both portraits have been published. The Bath House Meatling portrait and Tendril were verified on the exact version in Session 32 preparation, unstarted Play preview, and running Combat. Edge Meat Mind still needs the portrait append and explicit adoption of its resulting exact version.
+
+## Migration sequence
+
+Alan selected Build first. Build #4468 landed as revision 0190. Current main also includes Build 0191 and Plan 0192. The portrait journal follows those changes as 0193 with parent 0192. The source branch integrates main before revalidating and the combined hosted release remains pinned.

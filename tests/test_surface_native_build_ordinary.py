@@ -50,7 +50,7 @@ def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_pa
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
 
-@pytest.mark.parametrize("boundary_scope", ["unique", "ambiguous", "missing", "different", "stale", "foreign", "page_end", "page_body"])
+@pytest.mark.parametrize("boundary_scope", ["unique", "mixed", "ambiguous", "missing", "different", "stale", "foreign", "page_end", "page_body"])
 def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, monkeypatch, boundary_scope):
     location = {"ambiguous": "", "missing": " in North"}.get(boundary_scope, " in East")
     message = {
@@ -58,9 +58,13 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
         "page_body": "Replace the whole page with a paragraph about a copper lamp.",
         "different": "On the separate Lanterns page, add a line after the orchid paragraph in East.",
     }.get(boundary_scope, f"After the orchid paragraph{location}, add a line about a copper lamp.")
+    callouts = (
+        "> [!READ-ALOUD] Watchtower\n> A copper lamp glows in the window.\n\n"
+        "> [!GM-NOTE] Signal\n> Keep its meaning private."
+    ) if boundary_scope == "mixed" else None
     _fresh_case(
         lane, tmp_path, monkeypatch, None, True, False, True, contextual=boundary_scope,
-        message=message,
+        message=message, proposal_markdown=callouts,
     )
 
 
@@ -317,11 +321,19 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 node = {"type": kind, "content": [{"type": "text", "text": content}]}
                 return node | ({"attrs": attrs} if attrs else {})
 
+            protected = []
+            protected_markdown = ""
+            if contextual == "mixed":
+                protected = [{
+                    "type": "callout", "attrs": {"kind": "gm-note", "label": "Keep hidden"},
+                    "content": [block("paragraph", "Do not reveal the orchid.")],
+                }]
+                protected_markdown = "> [!GM-NOTE] Keep hidden\n> Do not reveal the orchid.\n\n"
             editor_json = json.dumps({"type": "doc", "content": [
                 block("heading", "West", level=2), block("paragraph", text),
-                block("heading", "East", level=2), block("paragraph", text),
+                *protected, block("heading", "East", level=2), block("paragraph", text),
             ]}, ensure_ascii=False)
-            text = f"## West\n\n{text}\n\n## East\n\n{text}\n"
+            text = f"## West\n\n{text}\n\n{protected_markdown}## East\n\n{text}\n"
         snapshot = BuildDraftSnapshotV1(world_id=world,document_id=page.document_id,
             registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility='internal',
             draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),
@@ -543,7 +555,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                           "paragraph_relation": "after",
                           "paragraph_scope": "unscoped" if contextual == "ambiguous" else "named",
                           "paragraph_text0": "include", "paragraph_scope0": "exclude",
-                          "paragraph_scope1": "include" if contextual in {"unique", "different"} else "exclude"}[name]
+                          "paragraph_scope1": "include" if contextual in {"unique", "mixed", "different"} else "exclude"}[name]
                     if name.startswith("paragraph_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
@@ -1619,7 +1631,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         else:
             record=BuildProposalService().get(world,cap.idempotency_key)
             assert record.state=='proposed' and record.proposal.replacement_markdown==(proposal_markdown or 'A proposed copper lamp.')
-            if contextual == "unique":
+            if contextual in {"unique", "mixed"}:
                 assert record.reservation.prose_target.alias == "passage2:insert_after"
                 assert record.reservation.basis.caret == 1
                 assert record.reservation.prose_target.operation == "insert_after"
