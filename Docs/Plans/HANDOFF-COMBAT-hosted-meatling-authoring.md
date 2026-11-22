@@ -1,0 +1,3 @@
+# Admit hosted World statblock authoring
+
+ACTIVE under Alan's explicit request to fix the hosted route in #3824. Serial work on `codex/old-bath-3824-threat-route` from exact #3824 head `76c31187f3e9badecbc403f2d9c943994c5f5f9c` in the isolated Combat checkout. Start with the missing World ThreatDraft create admission. This amendment covers the exact route registration, its ownership resolver and create handler, and focused authorization tests. Preserve campaign-mode refusal in hosted use and existing local behavior. Any further candidate endpoints need their own resource checks, and no general fallback is permitted.

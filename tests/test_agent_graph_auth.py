@@ -11,6 +11,41 @@ from starlette.requests import Request
 LOCAL_OPERATOR_TOKEN = "test-local-operator-token-with-adequate-length"
 
 
+def test_hosted_threat_draft_create_requires_exact_world_grant(monkeypatch):
+    import asyncio
+    from apps.live_control_server.services import hosted_auth, hosted_native_graph_access as access
+
+    body = {
+        "scope_mode": "world", "world_id": "elderwyld", "campaign_id": None,
+        "name": "Meatling", "description": "A disposable minion", "threat_kind": "creature",
+        "generation_intent": {"ruleset": {"system": "dnd5e", "edition": "2024"}},
+        "graph_context_snapshot": {"graph_revision_id": None}, "created_by": "gm",
+    }
+    request = _request(path="/api/live/threat-drafts")
+
+    async def json():
+        return body
+
+    def own(subject, world_id):
+        if (subject, world_id) != ("gm", "elderwyld"):
+            raise HTTPException(status_code=403)
+        return SimpleNamespace(world_id=world_id)
+
+    monkeypatch.setattr(request, "json", json)
+    monkeypatch.setattr(access, "_hosted_subject", lambda _: "gm")
+    monkeypatch.setattr(access, "_owned_world", own)
+    monkeypatch.setattr(hosted_auth, "deployment_environment", lambda: hosted_auth.PRODUCTION_ENVIRONMENT)
+    with pytest.raises(HTTPException):
+        access.require_hosted_threat_draft_create(request, "elderwyld")
+    assert asyncio.run(access.resolve_hosted_threat_draft_create(request)) == "elderwyld"
+    access.require_hosted_threat_draft_create(request, "elderwyld")
+    with pytest.raises(HTTPException):
+        access.require_hosted_threat_draft_create(request, None)
+    body["world_id"] = "foreign"
+    with pytest.raises(HTTPException):
+        asyncio.run(access.resolve_hosted_threat_draft_create(request))
+
+
 def _graph_route_requests() -> list[tuple[str, dict[str, Any]]]:
     retrieval_context = {
         "worldId": "eldyrwild",

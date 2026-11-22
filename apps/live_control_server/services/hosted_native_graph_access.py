@@ -447,6 +447,25 @@ def require_build_pdf_access(request: Request, world_id: str) -> NativeGraphPrin
     )
 
 
+async def resolve_hosted_threat_draft_create(request: Request) -> str:
+    from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest
+
+    if request.query_params:
+        raise _denied()
+    body = CreateWorldThreatDraftRequest.model_validate(await request.json())
+    world = await run_in_threadpool(_owned_world, _hosted_subject(request), body.world_id)
+    request.state.hosted_threat_draft_create_world = world.world_id
+    return world.world_id
+
+
+def require_hosted_threat_draft_create(request: Request, world_id: str | None) -> None:
+    if hosted_auth.deployment_environment() != hosted_auth.PRODUCTION_ENVIRONMENT:
+        return
+    if not world_id or getattr(request.state, "hosted_threat_draft_create_world", None) != world_id:
+        raise _denied()
+    _owned_world(_hosted_subject(request), world_id)
+
+
 async def resolve_hosted_build_page_create(request: Request) -> str:
     from apps.live_control_server.services.workspace_document_registry import CreateWorkspaceDocumentRequest
 
