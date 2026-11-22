@@ -312,16 +312,24 @@ class TurnContextTraceStore:
     ) -> TurnContextTraceV1:
         from application_state.agent_conversation.service import _ready_dsn
 
+        prompt_attempt = (str(observation.provider_attempt_id)
+                          if type(observation) is TracePromptReference else None)
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
                 "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
                 "clock_timestamp() AS now, "
-                "CASE WHEN %s THEN graph_context_execution ELSE NULL END, sequence "
+                "CASE WHEN %s::text IS NOT NULL "
+                "AND jsonb_typeof(graph_context_execution->'events')='array' THEN "
+                "jsonb_build_object('events', COALESCE((SELECT jsonb_agg(event) "
+                "FROM jsonb_array_elements(graph_context_execution->'events') AS event "
+                "WHERE event->>'provider_attempt_id'=%s), '[]'::jsonb)) "
+                "WHEN %s THEN graph_context_execution ELSE NULL END, sequence "
                 "FROM agent.turn "
                 "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
                 # Only these exact observation types never inspect execution.
                 # Keep it available for all other and future validators.
-                (type(observation) not in {TraceProviderCall, TraceContextDecision},
+                (prompt_attempt, prompt_attempt,
+                 type(observation) not in {TraceProviderCall, TraceContextDecision},
                  world_id, turn_id),
             ).fetchone()
             if turn is None or turn[0] != conversation_id:

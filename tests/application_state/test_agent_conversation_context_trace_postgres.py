@@ -290,3 +290,18 @@ def test_authored_observation_requires_a_recorded_event_at_the_real_trace_append
     with pytest.raises(ApplicationStateValidationError, match='exact turn ledger'):
         service.append_context_trace(**identity, observation=observation)
     assert not service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)[0].observations
+
+
+def test_prompt_projection_still_requires_durable_authorization(application_state_dsn):
+    from application_state.agent_conversation.context_trace import TracePromptReference
+
+    service, turn, identity, _ = _setup_turn()
+    observation = TracePromptReference(
+        sequence=0, elapsed_ms=0, evidence_id=uuid4(), provider_attempt_id=uuid4(),
+        provider="typesafe", model="controller", api_mode="decision",
+        serializer_version="actual-sdk-v1", payload_sha256="a" * 64, payload_utf8_bytes=123,
+    )
+    with pytest.raises(ApplicationStateValidationError, match="durable provider authorization"):
+        service.append_context_trace(**identity, observation=observation)
+    [trace] = service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert not trace.observations
