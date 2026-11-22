@@ -793,6 +793,12 @@ export function useWorkspaceDocumentAuthoring(
         ...presentationFields,
         writer_confirm_token: prepared.writer_confirm_token,
         expected_revision: expectedRevision,
+        ...(args.surface === "build" && args.kind === "worldbuilding_source" ? {
+          canRetryExactPageCommit: () =>
+            recoveryMounted.current && requestedDocument.current === args.documentId
+            && saveGeneration === saveGenerationRef.current && snapshotRef.current === snapshot
+            && mutationGenerationAtSaveStart === editorMutationGenerationRef.current && !editor.isDestroyed,
+        } : {}),
       });
       if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       setLastCommitReceipt(committed);
