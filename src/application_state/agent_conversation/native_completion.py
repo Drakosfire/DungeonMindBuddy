@@ -350,10 +350,15 @@ def _apply_statblock_rule_edits(base, proposal):
     definition = deepcopy(base)
     rules = definition["rule_elements"]
     inherited = {rule["key"]: index for index, rule in enumerate(rules)}
-    edited = set()
     for field in ("replace_rules", "add_rules"):
         if not isinstance(proposal[field], list):
             raise ValueError("Statblock rule edits must be arrays")
+    available_keys = inherited.keys() | {
+        raw["key"] for raw in proposal["add_rules"]
+        if isinstance(raw, dict) and isinstance(raw.get("key"), str)
+    }
+    edited = set()
+    for field in ("replace_rules", "add_rules"):
         for raw in proposal[field]:
             rule = RuleElementInput.model_validate(raw).model_dump(mode="json")
             # The statblock service uses an empty cost list for a rule with no costs.
@@ -364,6 +369,18 @@ def _apply_statblock_rule_edits(base, proposal):
                 raise ValueError("Statblock rule edit key conflicts with the saved base")
             edited.add(key)
             if field == "replace_rules":
+                original = rules[inherited[key]]
+                mechanic = rule["mechanic"]
+                if (
+                    original["mechanic"]["kind"] == "human_adjudicated"
+                    and rule["automation_support"] == "manual"
+                    and mechanic["kind"] == "multiattack"
+                    and len(mechanic["sequences"]) == 1
+                    and mechanic["sequences"][0]["element_key"] not in available_keys
+                ):
+                    # A summon can name a separate creature in its rules text.
+                    # The sequence field can target only local rule elements.
+                    rule["mechanic"] = original["mechanic"]
                 rules[inherited[key]] = rule
             else:
                 mechanic = rule["mechanic"]
