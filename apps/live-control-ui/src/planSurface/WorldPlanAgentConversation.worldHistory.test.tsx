@@ -1482,11 +1482,11 @@ describe("World Plan conversation consumer", () => {
 
       await mountComponent();
       await waitForConversationReady();
-      await waitFor(() => expect(api.getHistory).toHaveBeenCalledWith(worldId, expect.anything()));
+      expect(api.getMessages).toHaveBeenCalledWith(worldId, undefined, expect.any(AbortSignal));
 
       if (status === "local_operator") {
         expect(documentActions).toHaveBeenCalledWith(worldId, documentId);
-        expect(conversationActions).toHaveBeenCalledWith(worldId, "conversation-a");
+        await waitFor(() => expect(conversationActions).toHaveBeenCalledWith(worldId, "conversation-a"));
       } else {
         expect(documentActions).not.toHaveBeenCalled();
         expect(conversationActions).not.toHaveBeenCalled();
