@@ -63,7 +63,9 @@ verify_serving() {
 }
 
 verify_public_ready() {
-  curl --connect-timeout 5 --max-time 15 -fsS https://buddy.dungeonmind.net/health/ready >/dev/null
+  local status
+  status=$(curl --connect-timeout 5 --max-time 15 -fsS -o /dev/null -w '%{http_code}' \
+    https://buddy.dungeonmind.net/health/ready) && [[ "$status" == 200 ]]
 }
 
 activate() {
