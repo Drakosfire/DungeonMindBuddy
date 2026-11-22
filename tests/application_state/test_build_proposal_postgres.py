@@ -512,7 +512,7 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     from application_state.content.page_presentation import Row, Slot
 
     media = "dmb-media:11111111-1111-4111-8111-111111111111"
-    markdown = f'Approach.\n\n![Map]({media} "dmb-image:v1 width=80 collapsed=false")\n\n![Other occurrence]({media})\n'
+    markdown = f'## Approach\n\n![Map]({media} "dmb-image:v1 width=80 collapsed=false")\n\n![Other occurrence]({media})\n'
     raw = markdown.encode()
     text, first, second = [
         BlockBinding(id=id_, byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
@@ -557,7 +557,7 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     editor_before = {"type":"doc","content":[{
         "type":"pageRow","attrs":{"id":"approach-row","min_height":16,"line_mode":"border"},"content":[
             {"type":"pageSlot","attrs":{"id":"left-slot","width":7},"content":[
-                {"type":"paragraph","attrs":{"pageBlockId":"approach"},"content":[{"type":"text","text":"Approach."}]},
+                {"type":"heading","attrs":{"pageBlockId":"approach","level":2},"content":[{"type":"text","text":"Approach"}]},
                 node,
             ]},
             {"type":"pageSlot","attrs":{"id":"right-slot","width":5}},
@@ -595,13 +595,29 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     for prompt, expected in (
         ("Move the Map to the next slot on the right.", "ready"),
         ("Move the Map to the next slot on its right.", "ready"),
+        ("In the Approach row, could we nudge the image to the empty right slot within the same row?", "ready"),
+        ("I'd like you to reposition the Map onto the vacant right column in its original row.", "ready"),
+        ("Please slide the Map one slot to the right in the Approach row.", "ready"),
+        ("Push the Map to the empty slot immediately right of its current position.", "ready"),
+        ("Move the Map next to Approach into the space directly to its right.", "ready"),
+        ("Move the Map right one slot within this row.", "ready"),
+        ("Move the Map to the vacant slot on the right in the first row.", "ready"),
         ("Move an image right by one slot.", "ambiguous"),
         ("What would happen if we moved the Map to the right?", "discussion"),
         ("Please do not move the Map to the right.", "discussion"),
+        ("Under Approach, could we hypothetically move the Map to the right?", "discussion"),
+        ("Move the Map to the right if I approve the redesign later.", "discussion"),
         ("Move the Map to another row on the right.", "different_row"),
+        ("In another row, move the Map to the right slot.", "different_row"),
+        ("In the Harbor Gate row, move the Map to the right slot.", "different_row"),
+        ("Move the Map below the Harbor Gate heading to the right slot.", "missing"),
         ("Move the Map to the right slot of the Harbor Gate row.", "different_row"),
+        ("Place the Map in the Harbor Gate row on the right.", "different_row"),
+        ("Move the Map to the right slot in row 2.", "different_row"),
+        ("Move the Map to the right slot in the Harbor Gate page.", "unsupported"),
         ("Move the Map two columns to the right.", "unsupported"),
         ("Move the Map to the right and then remove it.", "unsupported"),
+        ("Move the Map one slot to the right of the lantern.", "unsupported"),
         ("Move the right bank map into the empty slot.", "unsupported"),
     ):
         decision = BuildImageMoveDecision.from_saved(capture, prompt, markdown, before)
@@ -611,6 +627,35 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     selected = capture.model_copy(update={"author_selected_block_id":"first-map"})
     decision = BuildImageMoveDecision.from_saved(selected, "Could you move this image right one slot?", markdown, before)
     assert decision.selected == "image1" and decision.resolve(choices).placement == placement
+
+    matching_markdown = markdown.replace("## Approach", "## Map").replace("![Other occurrence]", "![Map]")
+    matching_raw = matching_markdown.encode()
+    heading, first_image, second_image = [
+        block.model_copy(update={"byte_start": start, "byte_end": end, "sha256": sha256(matching_raw[start:end]).hexdigest()})
+        for block, (start, end) in zip((text, first, second), source_block_spans(matching_markdown), strict=True)
+    ]
+    row = before.items[0]
+    matching_layout = before.model_copy(update={
+        "markdown_sha256": sha256(matching_raw).hexdigest(),
+        "items": [row.model_copy(update={"slots": [row.slots[0].model_copy(update={"blocks": [heading, first_image]}),
+                                                   row.slots[1]]}), second_image],
+    })
+    matching_editor = json.loads(original)
+    matching_editor["content"][0]["content"][0]["content"][0]["content"][0]["text"] = "Map"
+    matching_editor["content"][1]["content"][0]["attrs"]["alt"] = "Map"
+    matching_json = json.dumps(matching_editor)
+    matching_capture = BuildImageMoveCapture(
+        basis=basis.model_copy(update={"content_sha256": matching_layout.markdown_sha256,
+                                      "draft_sha256": matching_layout.markdown_sha256,
+                                      "editor_sha256": sha256(matching_json.encode()).hexdigest()}),
+        editor_json=matching_json, conversation_id=uuid4(), expected_pointer_revision=1,
+    )
+    for prompt, expected in (
+        ("Move the Map to the right slot.", "ambiguous"),
+        ("Move the image under the Map heading to the right slot.", "ready"),
+    ):
+        decision = BuildImageMoveDecision.from_saved(matching_capture, prompt, matching_markdown, matching_layout)
+        assert decision.resolve(choices).disposition == expected, prompt
 
     for alter in (change_sibling_text, change_unrelated_image, change_moved_image_width, change_row):
         forged = json.loads(original)

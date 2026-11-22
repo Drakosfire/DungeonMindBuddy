@@ -65,25 +65,37 @@ class BuildImageMoveNomination:
 
 
 _ACTIVE_MOVE = re.compile(
-    r"^\s*(?:(?:can|could|would|will)\s+you\s+|I\s+(?:want|would like)\s+you\s+to\s+)?"
-    r"(?:please\s+)?(?:move|shift|slide|relocate|transfer|put|place)\b",
+    r"^\s*(?:(?P<location>(?:in|on|within|under|for)\s+[^,.;!?]{1,180}),\s*)?"
+    r"(?:(?:can|could|would|will)\s+(?:you|we|buddy)\s+|"
+    r"(?:I\s+(?:want|would like)|I['’]d\s+like)\s+(?:you\s+)?to\s+|let['’]s\s+)?"
+    r"(?:please\s+)?(?:move|shift|slide|relocate|transfer|put|place|reposition|nudge|push|drag)\b",
     re.IGNORECASE,
 )
 _DESTINATION_START = re.compile(
-    r"\s+(?:into\s+|to\s+|(?:one\s+slot\s+)?right(?:\s+(?:by\s+)?one\s+slot)?[.!?]?\s*$)",
+    r"\s+(?:into\s+|onto\s+|(?<!next\s)(?<!close\s)to\s+|"
+    r"(?:(?:one|a)\s+(?:slot|column)\s+)?right(?=\s+(?:by|one|a|in|within|on|from)\b|[,.!?]|\s*$))",
     re.IGNORECASE,
 )
-_RIGHT_DIRECTION = re.compile(r"\bright\b", re.IGNORECASE)
+_RIGHT_DIRECTION = re.compile(r"\bright(?:wards?)?\b", re.IGNORECASE)
 _OTHER_ROW = re.compile(r"\b(?:another|different|other|next|previous)\s+row\b", re.IGNORECASE)
-_ROW_QUALIFIER = re.compile(
-    r"\b(?:in|of|on(?!\s+(?:the|its)\s+right\b))\s+([^.!?]+)", re.IGNORECASE,
+_ROW_PREPOSITION = re.compile(r"\b(?:in|into|on|onto|to|of|from|within|inside)\b", re.IGNORECASE)
+_ROW_QUALIFIER = re.compile(r"\s*([^,.!?;]{1,110}?)\s+row\b", re.IGNORECASE)
+_NUMBERED_ROW = re.compile(r"\s*(?:the\s+)?row\s+(?:number\s+)?([1-9]\d{0,5})\b", re.IGNORECASE)
+_ORDINAL_ROWS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6}
+_HEADING_REFERENCE = re.compile(r"\b(?:under|beneath|below|beside|next\s+to)\s+([^,.;!?]+)\s*$", re.IGNORECASE)
+_PAGE_QUALIFIER = re.compile(r"\s*([^,.!?;]{1,110}?)\s+page\b", re.IGNORECASE)
+_CURRENT_ROW = re.compile(r"(?:(?:the|its|that|this)\s+)?(?:same|current|original)|(?:this|its)\s*", re.IGNORECASE)
+_RIGHT_OF = re.compile(r"\bright\s+of\s+([^,.!?;]+)", re.IGNORECASE)
+_CURRENT_POSITION = re.compile(
+    r"(?:it|that|the\s+image|where\s+it\s+is(?:\s+now)?|its\s+(?:(?:own|current|original)\s+)?(?:place|slot|column|position))",
+    re.IGNORECASE,
 )
-_CURRENT_ROW = re.compile(r"(?:(?:the|this)\s+)?(?:same|current)\s+row", re.IGNORECASE)
 _MULTIPLE_SLOTS = re.compile(r"\b(?:two|three|four|five|six|seven|eight|nine|(?:[2-9]|\d{2,}))\s+(?:slots|columns)\b", re.IGNORECASE)
 _ALTERNATIVE_DIRECTION = re.compile(
-    r"\b(?:left|above|below|instead|or|far|rightmost|last|outermost|and then)\b",
+    r"\b(?:left|above|below|instead|or|far|rightmost|last|outermost|elsewhere|and then)\b|;",
     re.IGNORECASE,
 )
+_CONDITIONAL = re.compile(r"\b(?:if|assuming|provided|hypothetically)\b", re.IGNORECASE)
 
 
 def _semantic_text(node: dict) -> str:
@@ -114,6 +126,8 @@ class BuildImageMoveDecision:
     presentation_sha256: str
     occurrences: tuple[_Occurrence, ...]
     other_media: tuple[tuple[str, str], ...]
+    row_labels: dict[str, set[int]]
+    row_media_counts: dict[int, int]
 
     @classmethod
     def from_saved(
@@ -125,12 +139,19 @@ class BuildImageMoveDecision:
         editor = strict_json(capture.editor_json)
         require_build_image_layout(editor, markdown, layout)
         occurrences = []
+        row_labels: dict[str, set[int]] = {}
+        row_media_counts: dict[int, int] = {}
         number = 0
         for node, item in zip(editor["content"], layout.items, strict=True):
             if not isinstance(item, Row):
                 continue
             number += 1
+            row_media_counts[number] = sum(1 for _ in _all_media(node))
             row_context = _semantic_text(node)[:500]
+            for slot_node in node["content"]:
+                for block in slot_node.get("content", []):
+                    if block["type"] == "heading" and (label := _phrase(_semantic_text(block))):
+                        row_labels.setdefault(label, set()).add(number)
             for column, (slot_node, slot) in enumerate(zip(node["content"], item.slots, strict=True)):
                 right = item.slots[column + 1] if column + 1 < len(item.slots) else None
                 for index, (block_node, block) in enumerate(zip(slot_node.get("content", []), slot.blocks, strict=True)):
@@ -153,7 +174,8 @@ class BuildImageMoveDecision:
         ):
             raise ValueError("Selected image differs from the saved Page occurrence")
         other_media = Counter(_all_media(editor)) - Counter((item.asset, item.alt) for item in occurrences)
-        return cls(capture, question, layout.fingerprint(), tuple(occurrences), tuple(other_media.elements()))
+        return cls(capture, question, layout.fingerprint(), tuple(occurrences), tuple(other_media.elements()),
+                   row_labels, row_media_counts)
 
     @property
     def selected(self) -> str | None:
@@ -209,26 +231,67 @@ class BuildImageMoveDecision:
         active = _ACTIVE_MOVE.match(self.question)
         if answers["image_move_intent"] != "move_existing" or active is None:
             return BuildImageMoveNomination("discussion")
-        if _OTHER_ROW.search(self.question) or answers["image_move_destination"] == "different_row":
+        object_and_destination = self.question[active.end():]
+        location = active.group("location") or ""
+        scope = f"{location}, {object_and_destination}"
+        if _CONDITIONAL.search(scope):
+            return BuildImageMoveNomination("discussion")
+        if answers["image_move_destination"] == "different_row":
             return BuildImageMoveNomination("different_row")
         if answers["image_move_destination"] != "same_row_right":
             return BuildImageMoveNomination("unsupported")
-        object_and_destination = self.question[active.end():]
         split = _DESTINATION_START.search(object_and_destination)
         if split is None:
             return BuildImageMoveNomination("unresolved")
-        object_words = _phrase(object_and_destination[:split.start()])
+        object_text = object_and_destination[:split.start()]
+        object_words = _phrase(object_text)
         destination = object_and_destination[split.start():]
+        if _OTHER_ROW.search(scope):
+            return BuildImageMoveNomination("different_row")
         if (not _RIGHT_DIRECTION.search(destination) or _ALTERNATIVE_DIRECTION.search(destination)
                 or _MULTIPLE_SLOTS.search(object_and_destination)):
             return BuildImageMoveNomination("unsupported")
-        row_qualifier = _ROW_QUALIFIER.search(destination)
-        if row_qualifier is not None and not _CURRENT_ROW.fullmatch(row_qualifier.group(1).strip()):
-            return BuildImageMoveNomination("different_row")
         alias = answers["image_move_occurrence"]
         if alias in {"ambiguous", "missing"}:
             return BuildImageMoveNomination(alias)
         chosen = next(item for item in self.occurrences if item.alias == alias)
+        # A named row can occur before the right-slot wording. Require it to
+        # identify the nominated source row anywhere in the action clause.
+        explicitly_named_row = False
+        for fragment in _ROW_PREPOSITION.split(scope)[1:]:
+            page_qualifier = _PAGE_QUALIFIER.match(fragment)
+            if page_qualifier is not None and not _CURRENT_ROW.fullmatch(page_qualifier.group(1).strip()):
+                return BuildImageMoveNomination("unsupported")
+            number = _NUMBERED_ROW.match(fragment)
+            if number is not None:
+                if int(number.group(1)) != chosen.row_number:
+                    return BuildImageMoveNomination("different_row")
+                explicitly_named_row = True
+            row_qualifier = _ROW_QUALIFIER.match(fragment)
+            if row_qualifier is None:
+                continue
+            raw = row_qualifier.group(1).strip()
+            label = re.sub(r"^the\s+", "", _phrase(raw))
+            if not _CURRENT_ROW.fullmatch(raw):
+                if _ORDINAL_ROWS.get(label) != chosen.row_number and self.row_labels.get(label) != {chosen.row_number}:
+                    return BuildImageMoveNomination("different_row")
+                explicitly_named_row = True
+        for text in (location, object_text):
+            heading = _HEADING_REFERENCE.search(text)
+            if heading is not None:
+                reference = _phrase(heading.group(1))
+                label = re.sub(r"^the\s+|\s+heading$", "", reference)
+                owners = self.row_labels.get(label)
+                if owners is not None and chosen.row_number not in owners:
+                    return BuildImageMoveNomination("ambiguous")
+                if owners is None and reference.endswith(" heading"):
+                    return BuildImageMoveNomination("missing")
+                explicitly_named_row = explicitly_named_row or owners == {chosen.row_number}
+        right_of = _RIGHT_OF.search(destination)
+        if right_of is not None:
+            reference = _ROW_PREPOSITION.split(right_of.group(1), maxsplit=1)[0].strip()
+            if not _CURRENT_POSITION.fullmatch(reference):
+                return BuildImageMoveNomination("unsupported")
         if self.selected is not None and self.selected != alias:
             return BuildImageMoveNomination("ambiguous")
         chosen_words = _phrase(chosen.alt)
@@ -246,10 +309,11 @@ class BuildImageMoveDecision:
             ]
             conflicts.extend(alt for asset, alt in self.other_media
                              if asset == chosen.asset or _phrase(alt) == _phrase(chosen.alt))
-            if conflicts and (
-                not _mentions(object_words, chosen_words)
-                or any(_mentions(object_words, _phrase(alt)) for alt in conflicts)
-            ):
+            direct = _mentions(object_words, chosen_words) and not any(
+                _mentions(object_words, _phrase(alt)) or _mentions(_phrase(alt), chosen_words)
+                for alt in conflicts
+            )
+            if conflicts and not (direct or (explicitly_named_row and self.row_media_counts[chosen.row_number] == 1)):
                 return BuildImageMoveNomination("ambiguous")
         if chosen.destination_slot is None or chosen.destination != "empty_right":
             return BuildImageMoveNomination(chosen.destination)
