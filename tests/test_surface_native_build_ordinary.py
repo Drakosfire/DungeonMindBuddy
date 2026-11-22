@@ -90,6 +90,14 @@ def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypa
                 message=message, image_move=disposition)
 
 
+def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_path, monkeypatch):
+    _fresh_case(
+        lane, tmp_path, monkeypatch, "discussion_source_tie", False, False, False,
+        message="Describe what the image shows and how it relates to the surrounding notes.",
+        requested_work="discuss",
+    )
+
+
 def test_graph_nomination_preparation_uses_the_admitted_build_capture(lane, tmp_path, monkeypatch):
     from application_state.errors import ApplicationStateConflictError
     from apps.live_control_server.services import build_graph_reference
@@ -468,6 +476,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
+                if name == "source_need" and failure == "discussion_source_tie":
+                    answers[name] = dict(type="choice", choice="uncertain", confidence=.07,
+                                         probabilities={"anchored": .24, "source_lookup": .38, "uncertain": .38})
+                    continue
                 if name.startswith("image_move_"):
                     assert image_move and "Harbour map" in str(body["state"]["interaction"]["image_move"])
                     assert asset_id not in json.dumps(body)
@@ -1353,6 +1365,16 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert not decisions.calls and not writer.calls and not classic_calls
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
+    if failure == "discussion_source_tie":
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == {
+            "code": "build_discussion_source_uncertain",
+            "message": "Should I answer from this Page alone, or look for other sources?",
+        }
+        assert len(decisions.calls) == 1 and not writer.calls and not classic_calls
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        assert lane.repo.get_head(world).head_revision_id == current_revision
         return
     if failure in {'section_scope','selection_text'}:
         assert response.status_code==503,response.text

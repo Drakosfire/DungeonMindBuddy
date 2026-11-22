@@ -219,7 +219,11 @@ SOURCE_NEED_GUIDANCE = _RETAINED_SOURCE_NEED_GUIDANCE + (
 )
 
 
-def source_need(request, response, *, tie_fallback=None):
+class UnresolvedDiscussionSource(ValueError):
+    """The read-only work choice is settled, but its evidence scope is tied."""
+
+
+def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=False):
     question = request["questions"].get("source_need")
     if question is None:
         return None
@@ -227,7 +231,10 @@ def source_need(request, response, *, tie_fallback=None):
     if question not in (expected | {"instructions": guidance}
                         for guidance in (SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
         raise ValueError("Build source scope differs from its offered decision")
-    return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS, tie_fallback=tie_fallback)
+    return _selected_choice(
+        response["answers"]["source_need"], SOURCE_NEED_OPTIONS,
+        tie_fallback=tie_fallback, clarify_uncertain_tie=clarify_uncertain_tie,
+    )
 
 
 def selected(response, *, menu=None, tie_fallback=None):
@@ -240,11 +247,14 @@ def opening_work(policy, request, response, image_choice):
     # An independently admitted image choice does not use otherwise valid
     # general work/source ties. Keep the same checks for all malformed votes.
     terminal = image_choice in {"move_existing", "unresolved"}
-    return (selected(response, menu=menu, tie_fallback="discuss" if terminal else None),
-            source_need(request, response, tie_fallback="anchored" if terminal else None))
+    label = selected(response, menu=menu, tie_fallback="discuss" if terminal else None)
+    return label, source_need(
+        request, response, tie_fallback="anchored" if terminal else None,
+        clarify_uncertain_tie=not terminal and label == "discuss",
+    )
 
 
-def _selected_choice(answer, options, *, tie_fallback=None):
+def _selected_choice(answer, options, *, tie_fallback=None, clarify_uncertain_tie=False):
     label, probabilities = answer["selected"], answer["probabilities"]
     if (
         label not in options
@@ -262,6 +272,8 @@ def _selected_choice(answer, options, *, tie_fallback=None):
         raise ValueError("Invalid actual semantic selection")
     maximum = max(probabilities.values())
     tied = sum(value == maximum for value in probabilities.values()) != 1
+    if tied and clarify_uncertain_tie and label == "uncertain" and probabilities[label] == maximum:
+        raise UnresolvedDiscussionSource("Should I answer from this Page alone, or look for other sources?")
     if tied and tie_fallback is not None:
         # This ranking has no unique winner. For an already admitted typed
         # image action, discard the unused general label and record the host's

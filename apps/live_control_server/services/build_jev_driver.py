@@ -1265,7 +1265,10 @@ class BuildJevDriver:
                 self._pending = None
                 return self.step
             if (a.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
-                from application_state.agent_conversation.build_intentional_response import opening_work, resolution_for, operation_id, MENU_DIGEST, RESOLVER_DIGEST
+                from application_state.agent_conversation.build_intentional_response import (
+                    MENU_DIGEST, RESOLVER_DIGEST, UnresolvedDiscussionSource,
+                    opening_work, operation_id, resolution_for,
+                )
                 from application_state.build_proposal.image_move_decision import admitted_image_move_choice
                 from generationengine.types import DecisionResult
                 from uuid import uuid4
@@ -1291,7 +1294,13 @@ class BuildJevDriver:
                     self.image_move.opening_answers(request, actual_response), a.request.message,
                 ) if self.image_move is not None else None)
                 image_terminal = image_move in {"move_existing", "unresolved"}
-                label, source_scope = opening_work(execution.policy, request, json.loads(raw), image_move)
+                try:
+                    label, source_scope = opening_work(execution.policy, request, json.loads(raw), image_move)
+                except UnresolvedDiscussionSource as exc:
+                    from .agent_turn_service import AgentTurnServiceError
+                    raise AgentTurnServiceError(
+                        str(exc), code="build_discussion_source_uncertain", status_code=409,
+                    ) from exc
                 resolution = resolution_for(execution.policy, label, source_scope=source_scope)
                 placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
                 selected = resolution['operation']
