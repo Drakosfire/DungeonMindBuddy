@@ -2,7 +2,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from application_state.combat_encounters import scene_templates as service
-from application_state.combat_encounters.scene_template_types import CreateSceneTemplateRequest, SceneTemplateView
+from application_state.combat_encounters.scene_template_types import CreateSceneTemplateRequest, PreviewNamedEncounterRequest, SceneTemplateView
 from application_state.combat_encounters.manual_encounters import AnyCombatRecord
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.routes.combat_encounters import _verified_world
@@ -41,6 +41,10 @@ def call(http_request: Request, fn, *, world_id: str, write: bool = False, **kwa
 @router.post('',response_model=SceneTemplateView)
 def create(http_request: Request, body:CreateSceneTemplateRequest,world_id:str=Query(min_length=1,max_length=63)):
     return call(http_request, service.create,world_id=world_id,write=True,request=body)
+
+@router.post('/preview-saved', response_model=AnyCombatRecord)
+def preview_saved(http_request: Request, body: PreviewNamedEncounterRequest, world_id: str = Query(min_length=1, max_length=63)):
+    return call(http_request, service.preview_named_copy, world_id=world_id, pin=body.pin, title=body.title)
 
 @router.post('/cancel')
 def cancel(http_request: Request, body:CreateSceneTemplateRequest,world_id:str=Query(min_length=1,max_length=63)):

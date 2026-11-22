@@ -376,6 +376,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/content/commands/{command_id}"): resolve_hosted_play_command,
     ("PUT", "/api/live/world-play-runs/v2/{run_id}/review/commands/{command_id}"): resolve_hosted_play_command,
     ("POST", "/api/live/combat/scene-templates"): resolve_hosted_play_command,
+    ("POST", "/api/live/combat/scene-templates/preview-saved"): resolve_hosted_play_command,
     ("POST", "/api/live/combat/scene-templates/cancel"): resolve_hosted_play_command,
     ("GET", "/api/live/combat/scene-templates/operations/{operation_id}"): resolve_hosted_play_read,
     ("GET", "/api/live/combat/scene-templates/{document_id}/scenes/{scene_id}"): resolve_hosted_play_read,
