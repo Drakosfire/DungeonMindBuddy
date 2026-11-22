@@ -50,7 +50,15 @@ def digest(raw):
     return sha256(raw.encode()).hexdigest()
 
 
-def test_plan_session_storage_image_covers_root_and_locked_provenance(application_state_dsn):
+@pytest.mark.parametrize(('trigger_assignment', 'expected_error'), [
+    ("NEW.request_fingerprint := repeat('f',64)", 'acknowledgement changed'),
+    ("NEW.graph_context_execution := jsonb_set(NEW.graph_context_execution, "
+     "'{events,-1,event_id}', to_jsonb(gen_random_uuid()::text), false)",
+     'differs from its actual SQL acknowledgement'),
+], ids=['untouched-root-column', 'execution-bytes'])
+def test_plan_session_storage_image_covers_root_and_locked_provenance(
+    application_state_dsn, trigger_assignment, expected_error,
+):
     import psycopg
     from application_state.agent_conversation import repository as repo
 
@@ -89,12 +97,11 @@ def test_plan_session_storage_image_covers_root_and_locked_provenance(applicatio
         assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
         with conn.transaction(force_rollback=True):
             conn.execute("CREATE FUNCTION pg_temp.change_session_ack() RETURNS trigger "
-                         "LANGUAGE plpgsql AS $$ BEGIN NEW.request_fingerprint := repeat('f',64); "
-                         "RETURN NEW; END $$")
+                         f"LANGUAGE plpgsql AS $$ BEGIN {trigger_assignment}; RETURN NEW; END $$")
             conn.execute("CREATE TRIGGER change_session_ack BEFORE UPDATE ON agent.turn "
                          "FOR EACH ROW EXECUTE FUNCTION pg_temp.change_session_ack()")
             from application_state.errors import ApplicationStateIntegrityError
-            with pytest.raises(ApplicationStateIntegrityError, match='acknowledgement changed'):
+            with pytest.raises(ApplicationStateIntegrityError, match=expected_error):
                 repo._update_plan_session_execution(conn, world_id=turn.world_id,
                     turn_id=turn.turn_id, before=before, execution=turn.graph_context_execution)
         assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before

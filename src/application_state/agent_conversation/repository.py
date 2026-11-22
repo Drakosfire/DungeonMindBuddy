@@ -214,21 +214,22 @@ def _update_plan_session_execution(conn, *, world_id, turn_id, before, execution
         raise ApplicationStateIntegrityError("Session execution ACK requires its running locked root")
     started = database_clock(conn)
     with conn.cursor(row_factory=dict_row, binary=True) as cur:
-        # One parameter owns both the actual update and expected PostgreSQL
-        # encoding. Do not compare JSONB semantic equality or Python JSON hashes.
+        # Compare exact PostgreSQL bytea values and return one execution payload.
+        # The separate locked reread below also verifies the entire storage image.
         cur.execute("WITH expected AS (SELECT %s::jsonb AS execution) "
                     "UPDATE agent.turn SET graph_context_execution=expected.execution, "
                     "revision=revision+1,updated_at=clock_timestamp() FROM expected "
                     "WHERE world_id=%s AND turn_id=%s AND status='running' "
                     "AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp() "
-                    "RETURNING pg_catalog.jsonb_send(agent.turn.graph_context_execution) AS actual, "
+                    "RETURNING (pg_catalog.jsonb_send(agent.turn.graph_context_execution) = "
+                    "pg_catalog.jsonb_send(expected.execution)) AS exact, "
                     "pg_catalog.jsonb_send(expected.execution) AS expected",
                     (Jsonb(execution.model_dump(mode="json", by_alias=True)),
                      world_id, turn_id, prior["revision"], prior["attempt"]))
         acknowledgement = cur.fetchone()
     if acknowledgement is None:
         return None
-    if bytes(acknowledgement["actual"]) != bytes(acknowledgement["expected"]):
+    if acknowledgement["exact"] is not True:
         raise ApplicationStateIntegrityError("Session execution differs from its actual SQL acknowledgement")
     after = _lock_plan_session_image(conn, world_id, turn_id)
     finished = database_clock(conn)
