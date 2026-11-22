@@ -3,6 +3,27 @@ import pytest
 from application_state.agent_conversation.lore_page_review import LorePageTitleWitness, explicit_lore_page_witness
 
 
+@pytest.mark.parametrize("article", ["a", "the", ""])
+@pytest.mark.parametrize("conversational", [False, True])
+def test_named_page_request_binds_with_either_article(article, conversational):
+    instruction = f"Create {article + ' ' if article else ''}page about maelthor"
+    witness = explicit_lore_page_witness(instruction, conversational=conversational)
+    assert witness.title == "maelthor"
+    assert witness.instruction == instruction
+    assert witness.bind(instruction, has_body=True, conversational=conversational) == "maelthor"
+    with pytest.raises(ValueError, match="author turn"):
+        witness.bind("Create the page about someone else", conversational=conversational)
+
+
+def test_definite_article_preserves_blank_and_compound_destination_guards():
+    instruction = "Create the blank page about Rowan."
+    witness = explicit_lore_page_witness(instruction)
+    with pytest.raises(ValueError, match="Blank lore-page request"):
+        witness.bind(instruction, has_body=True)
+    with pytest.raises(ValueError, match="compound destination"):
+        explicit_lore_page_witness("Create the page about Rowan or Willow.")
+
+
 def test_title_is_bound_to_the_selected_instruction():
     witness = LorePageTitleWitness(instruction="Create a blank page for Rowan.", title="Rowan")
     assert witness.bind(

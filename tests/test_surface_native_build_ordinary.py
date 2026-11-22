@@ -2980,14 +2980,18 @@ def test_anchored_lore_label_on_eager_graph_route_preserves_related_context(lane
     assert not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events)
 
 
-@pytest.mark.parametrize("carry", [None, "anchored", "uncertain"])
-def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry):
+@pytest.mark.parametrize("carry,synthesis", [
+    (None, "Create a page for Glass Regent."),
+    ("anchored", "Create a page for Glass Regent."),
+    ("uncertain", "Create a page for Glass Regent."),
+    ("anchored", "Create the page about Glass Regent"),
+])
+def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry, synthesis):
     from application_state.agent_conversation.native_corpus import acquired_body_reads
 
     from evals.buddy_benchmark import workflow
 
     thread_id, template = str(uuid4()), {}
-    synthesis = "Create a page for Glass Regent."
 
     def first(client, world, body):
         body["client_thread_id"] = thread_id
