@@ -12,7 +12,7 @@ import {isBuildProseBoundaryTarget,type BuildProposalBasis,type BuildPageBodyTar
 import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
 import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/semanticMarkdownSafety';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
-import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
+import { admitMarkdownInsertion, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
 import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
 import {flattenPresentation,hasPresentation,hydratePresentation,presentationFingerprint,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
 import {preserveLeadingYamlFrontmatter,stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
@@ -552,7 +552,42 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       if (applied.has(captured)) throw new Error('This proposal has already been inserted.');
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured);
-      insertReviewedMarkdown(captured.editor, captured.basis.caret, admitted.content, captured.editorJson);
+      const block = admitted.content.length === 1 ? admitted.content[0] : null;
+      if (block?.type !== 'paragraph' || block.content?.length !== 1 || block.content[0]?.type !== 'mediaImage')
+        throw new Error('Choose a saved image to place on this page.');
+      const editor = captured.editor;
+      const original = JSON.parse(captured.editorJson) as JSONContent;
+      const position = editor.state.doc.resolve(captured.basis.caret);
+      const anchor = position.depth > 0 ? position.after(1) : captured.basis.caret;
+      const current = getCurrent(); const presentation = current?.pagePresentation;
+      const retainPlain = presentation?.items.every(item => item.kind === 'block') === true;
+      const retainsIds = hasPresentation(original) || retainPlain;
+      if (retainsIds && !editor.schema.nodes.paragraph?.spec.attrs?.pageBlockId)
+        throw new Error('This page editor cannot retain image block identities.');
+      const imageBlock = retainsIds ? {...block,attrs:{...block.attrs,pageBlockId:`page-image-${crypto.randomUUID()}`}} : block;
+      const transaction = editor.state.tr.insert(anchor,editor.schema.nodeFromJSON(imageBlock));
+      if (!retainsIds) preservePlainReviewBlockIdentities(transaction);
+      const after = transaction.doc.toJSON() as JSONContent;
+      const before = original.content ?? [];
+      const index = editor.state.doc.resolve(anchor).index(0);
+      if (after.content?.length !== before.length + 1 || before.some((node,i) =>
+        JSON.stringify(node) !== JSON.stringify(after.content?.[i < index ? i : i+1])))
+        throw new Error('The image would change an unrelated block.');
+      const body = tiptapJsonToSemanticMarkdown(flattenPresentation(after));
+      const savedMarkdown = current?.savedMarkdown ?? captured.draftMarkdown;
+      const projectedBefore = presentation ? hydratePresentation(savedMarkdown,presentation) : original;
+      const projection = retainsIds ? projectPresentation(after,savedMarkdown,projectedBefore,presentation,retainPlain) : null;
+      const reopened = projection?.presentation ? hydratePresentation(projection.markdown,projection.presentation) : markdownToTiptapDoc(body).doc;
+      if (semanticMarkdownSerializationDiagnostics(flattenPresentation(after)).length
+        || JSON.stringify(editor.schema.nodeFromJSON(reopened).toJSON()) !== JSON.stringify(after))
+        throw new Error('Saving this image would change existing structure or block identities.');
+      closeHistory(transaction);
+      // Installed editor plugins must be pure and deterministic: this preview and
+      // the subsequent dispatch both run their transaction hooks.
+      const simulated = editor.state.applyTransaction(transaction);
+      if (!simulated.transactions.length || !simulated.state.doc.eq(transaction.doc))
+        throw new Error('The editor cannot apply this image without changing the page.');
+      editor.view.dispatch(transaction);
       applied.add(captured); changed(captured.editor);
     },
   };

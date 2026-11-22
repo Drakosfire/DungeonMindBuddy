@@ -14,6 +14,7 @@ import * as api from '../api/liveApi';
 import * as proposals from '../api/buildDocumentProposalApi';
 import type { WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponse } from '../api/types';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
+import { mediaMarkdown } from '../media/mediaReferences';
 vi.mock('../selectedWorld/SelectedWorldContext', async original => ({
   ...await original<typeof import('../selectedWorld/SelectedWorldContext')>(),
   useSelectedWorld: () => ({ kind: 'managed', worldId: 'elderwyld' }),
@@ -223,6 +224,35 @@ it('reloads a proposal and inserts at its original position after the author mov
 
 let exposedBridge: import('./buildComposeBridge').BuildComposeBridge|null=null;
 function ExposeBuildBridge(){const registry=useWorldAgentConversationState();exposedBridge=registry?.build?.value.composeBridge??null;return null;}
+function ImagePlacementHarness(){return <AgentInteractionProvider><WorldAgentConversationProvider worldId="elderwyld">
+ <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell/><Controls/><ExposeBuildBridge/></BuildCanvasTestProvider>
+ </WorldAgentConversationProvider></AgentInteractionProvider>;}
+it('preserves the clicked paragraph when placing, saving and reopening a Build image',async()=>{
+ const asset='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
+ const view=render(<ImagePlacementHarness/>);
+ await waitFor(()=>expect(session.phase).toBe('ready_clean'));
+ await waitFor(()=>expect(exposedBridge).not.toBeNull());
+ const editor=session.editor!;
+ let position=0;editor.state.doc.descendants((node,at)=>{if(node.isText&&node.text==='A fort town.')position=at+4;});
+ expect(position).toBeGreaterThan(0);
+ act(()=>{editor.commands.setTextSelection(position);});
+ const before=editor.getJSON(),capture=await exposedBridge!.capture();
+ act(()=>{exposedBridge!.insert(capture,mediaMarkdown(asset,'Ticket'));});
+ await waitFor(()=>expect(session.dirty).toBe(true));
+ const after=editor.getJSON();
+ expect(after.content?.[0]).toEqual(before.content?.[0]);
+ expect(after.content?.[1]).toEqual(before.content?.[1]);
+ act(()=>{editor.commands.undo();});expect(editor.getJSON()).toEqual(before);
+ act(()=>{editor.commands.redo();});expect(editor.getJSON()).toEqual(after);
+ fireEvent.click(screen.getByRole('button',{name:'Save test page'}));
+ await waitFor(()=>expect(session.dirty).toBe(false));
+ expect(stored.markdown).toContain('A fort town.');
+ expect(stored.markdown.indexOf('A fort town.')).toBeLessThan(stored.markdown.indexOf(`dmb-media:${asset}`));
+ view.unmount();localStorage.clear();exposedBridge=null;render(<ImagePlacementHarness/>);
+ await waitFor(()=>expect(session.phase).toBe('ready_clean'));
+ expect(session.editor!.state.doc.textContent).toContain('A fort town.');
+ expect(tiptapJsonToSemanticMarkdown(session.editor!.getJSON())).toContain(`dmb-media:${asset}`);
+});
 function ClosedPageHarness(){return <AgentInteractionProvider><AskPluginSlotProvider><WorldAgentConversationProvider worldId="elderwyld">
  <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell/><OpenConversation/><ExposeBuildBridge/></BuildCanvasTestProvider>
  <WorldAgentConversation surface="build" worldId="elderwyld" worldName="Elderwyld"/>
