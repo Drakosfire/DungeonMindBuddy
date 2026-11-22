@@ -110,14 +110,37 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
     if citation_index >= len(turn.completion.native_body_citations):
         raise SourcePassageOpenError('native_body_not_found', 404)
     citation = turn.completion.native_body_citations[citation_index]
-    from application_state.agent_conversation.native_corpus import acquired_body_reads, acquired_body_catalogs
-    execution = turn.graph_context_execution
-    read = next(event for event in acquired_body_reads(execution) if event.event_id == citation.read_event_id)
-    catalog = acquired_body_catalogs(execution)[read.excerpt.catalog_sha256]
+    if citation.prior_reference is not None:
+        from application_state.agent_conversation.native_corpus import prior_body_writer_supports, resolve_prior_body_citation
+        reference = citation.prior_reference
+        support = next((item for item in prior_body_writer_supports(turn.graph_context_execution)
+            if item.support.reference == reference), None)
+        app = service or AgentConversationService()
+        try:
+            if support is None:
+                raise ValueError("Carried citation lacks its retained admission")
+            original = app.inspect_turn(world_id=world_id, turn_id=reference.turn_id)
+            claim, passage = resolve_prior_body_citation(turn, original, reference,
+                history_turn_ids={reference.turn_id})
+            if (claim, passage) != (support.support.claim_text, support.support.passage):
+                raise ValueError("Carried citation differs from the original completion")
+            opened = open_native_body_excerpt(world_id=world_id, turn_id=reference.turn_id,
+                citation_index=reference.citation_index, principal=principal, service=app,
+                repository=repository, resolve_identity=resolve_identity)
+            if opened.citation != support.support.original_citation or opened.content != passage:
+                raise ValueError("Carried citation differs from the reopened original extent")
+        except Exception as exc:
+            raise SourcePassageOpenError('native_body_access_unavailable', 409) from exc
+        return opened.model_copy(update=dict(turn_id=turn_id, citation_index=citation_index, citation=citation))
+
+    from application_state.agent_conversation.native_corpus import resolve_retained_body_citation
     from ..integrations.dungeonmind.native_corpus_source import (
         prepare_native_source_context, read_native_corpus_member,
     )
     try:
+        catalog, section, expected_text = resolve_retained_body_citation(
+            turn.graph_context_execution, citation,
+        )
         authority = (turn.graph_context_receipt.authored_source_context.authority
             if play else turn.graph_context_receipt.source_authority)
         prepared = prepare_native_source_context(managed_world_id=authority.managed_world_id,
@@ -127,17 +150,8 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
             member=catalog.source, principal=principal, prepared=prepared)
         if body is None:
             raise ValueError('Historical native body is unavailable')
-        section = read.excerpt.section
-        expected_text = read.excerpt.text
-        if citation.section_id != section.section_id:
-            from application_state.agent_conversation.native_corpus import bounded_body_section
-            section, expected_text = bounded_body_section(
-                catalog, read.excerpt, line_start=citation.line_start, line_end=citation.line_end,
-            )
         text = body[section.char_start:section.char_end]
-        if (citation.section_id != section.section_id
-                or (citation.line_start, citation.line_end) != (section.line_start, section.line_end)
-                or text != expected_text or sha256(text.encode()).hexdigest() != citation.excerpt_sha256
+        if (text != expected_text
                 or body.encode()[section.byte_start:section.byte_end] != text.encode()):
             raise ValueError('Historical native body extent changed')
     except Exception as exc:

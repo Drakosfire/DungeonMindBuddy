@@ -380,7 +380,10 @@ class PlanJevWriter:
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
-        self.reasoning_effort = "medium" if single_variant_base else "low"
+        from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+
+        conversation_draft = self.shared and native_conversation_terminal(turn) is not None
+        self.reasoning_effort = "medium" if single_variant_base or conversation_draft else "low"
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
@@ -444,6 +447,19 @@ class PlanJevWriter:
 
                 if not explicit_blank_lore_page(destination["instruction"]):
                     instructions += "\n" + LORE_PROPOSAL_GUIDANCE
+                work = self.provider_work["build_work"]["requested_work"]
+                if work["requested_work"] == "review_lore_page_from_conversation":
+                    instructions += (
+                        "\nBuild the review from the preceding discussion in three parts. "
+                        "For cited facts, retain the handle paired with the specific prior claim and verify "
+                        "the exact passage supports your wording. For relevant creative directions already "
+                        "discussed by the author or described as existing draft material, use separate "
+                        "invented_idea proposals. Preserve their tentative status and introduce no new ideas. "
+                        "In open_questions, retain material unresolved identities, motives, and relationships, "
+                        "including open relationships named in a proposal. Retain the alternatives already discussed. "
+                        "If there is too little material to draft accurately, leave the proposal empty and "
+                        "surface the specific gap for the author."
+                    )
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
             if single_variant_base:

@@ -153,14 +153,16 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
             reviews = [
                 event for event in execution.events
                 if isinstance(event, t.BuildRequestedWorkResolutionV1)
-                and event.requested_work == "review_lore_page"
+                and event.requested_work in ("review_lore_page", "review_lore_page_from_conversation")
                 and event.resolution["barrier"] is None
             ]
             if len(reviews) != 1:
                 raise ValueError("Lore draft lacks its admitted Build review")
             completion.collaboration.destination.bind(
                 execution.policy.action.intent.message,
-                has_body=any(segment.kind != "limitation" for segment in completion.answer_segments),
+                conversational=reviews[0].requested_work == "review_lore_page_from_conversation",
+                has_body=bool(completion.collaboration.open_questions) or any(
+                    segment.kind != "limitation" for segment in completion.answer_segments),
             )
         if completion.collaboration is not None and completion.collaboration.kind=='connected_page':
             from .connected_page_origins import execution_rows

@@ -9,7 +9,7 @@ import logging
 import time
 from contextlib import nullcontext
 from dataclasses import dataclass
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from generationengine import GenerationClient, GenerationEngineError, TextCompleted, TextDelta, TextFailed
 from generationengine.types import TextResult
@@ -251,6 +251,14 @@ class BuildJevHarness:
                 driver.operation != "propose_build_insertion" or adapter.native_source_authority is None
             ):
                 raise ValueError("The image reference requires an edit to the selected passage.")
+            from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
+            if (adapter.native_source_authority is not None
+                    and conversation_route_can_admit(adapter._broker_receipt(), adapter._broker_execution())
+                    and prior_conversation_work(adapter._broker_execution().events) is not None):
+                adapter.turn, _ = adapter.fence.append(
+                    "admit_build_prior_body_evidence", "event_id", uuid4(),
+                )
+                return self._native_completion(adapter, driver)
             self.failure_stage="context_acquisition"
             if type(adapter.fence.turn.graph_context_receipt) is ledger.SurfaceNativeContextReceiptV1:
                 from .native_authored_references import acquire as acquire_authored_references
@@ -482,9 +490,9 @@ class BuildJevHarness:
         # dialogue resolves follow-up references; it is never source evidence.
         dialogue = tuple({'role': role, 'content': pair[role]}
             for pair in adapter.build_frozen_history for role in ('user', 'assistant'))
-        from application_state.agent_conversation.writer_evidence_selection import native_approval_terminal
+        from application_state.agent_conversation.writer_evidence_selection import native_approval_terminal, native_conversation_terminal
 
-        terminal = native_approval_terminal(adapter.turn)
+        terminal = native_approval_terminal(adapter.turn) or native_conversation_terminal(adapter.turn)
         retrieval = None
         writer = None
         try:
@@ -559,12 +567,24 @@ class BuildJevHarness:
 
         prepare_deferred_query = getattr(adapter, "prepare_deferred_build_query", None)
         pending_query = None
+        opening_dispatched = False
+        wait_for_work = False
+        if prepare_deferred_query is not None:
+            from application_state.agent_conversation.lore_page_review import explicit_lore_page_witness
+
+            try:
+                explicit_lore_page_witness(adapter.request.message)
+            except ValueError:
+                pass
+            else:
+                wait_for_work = any(q.name == "requested_work" for q in intent.questions)
 
         def dispatch_started():
-            nonlocal pending_query
+            nonlocal pending_query, opening_dispatched
+            opening_dispatched = True
             if trace is not None:
                 trace.mark_first_jev_dispatch()
-            if prepare_deferred_query is not None and pending_query is None:
+            if prepare_deferred_query is not None and not wait_for_work and pending_query is None:
                 pending_query = asyncio.get_running_loop().run_in_executor(
                     _BUILD_GRAPH_PREPARATION, prepare_deferred_query,
                 )
@@ -602,10 +622,25 @@ class BuildJevHarness:
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,
                 )
             if prepare_deferred_query is not None:
-                if pending_query is None:
+                if not opening_dispatched:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
-                with measure("build_deferred_graph_settlement"):
-                    adapter.settle_deferred_build_query(*await pending_query)
+                conversation_only = False
+                if wait_for_work:
+                    from application_state.agent_conversation.build_intentional_response import selected, source_need
+                    from application_state.agent_conversation.native_corpus import is_prior_conversation_work
+
+                    response = result.model_dump(mode="json")
+                    request = json.loads(adapter._prepared_build_decision.body)
+                    conversation_only = is_prior_conversation_work(selected(response), source_need(request, response))
+                if not conversation_only:
+                    if pending_query is None:
+                        pending_query = asyncio.get_running_loop().run_in_executor(
+                            _BUILD_GRAPH_PREPARATION, prepare_deferred_query,
+                        )
+                    with measure("build_deferred_graph_settlement"):
+                        adapter.settle_deferred_build_query(*await pending_query)
+                else:
+                    adapter.prepare_deferred_build_query = None
             from .build_jev_writer_selection import WriterSelectionDriver
             self.failure_stage = "controller_validation"
             try:

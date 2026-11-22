@@ -383,6 +383,46 @@ def test_native_body_history_replay_and_current_access_open_original_revision(so
     from application_state.agent_conversation.repository import _plan_ask_history_attribution
     a = source_adapter
     _, _, completed = finish_body_answer(a)
+    from application_state.agent_conversation.native_corpus import resolve_retained_body_citation
+
+    citation = completed.completion.native_body_citations[0]
+    _, section, retained = resolve_retained_body_citation(completed.graph_context_execution, citation)
+    assert section.section_id == citation.section_id and retained == BODY
+    with pytest.raises(ValueError, match="retained extent"):
+        resolve_retained_body_citation(
+            completed.graph_context_execution, citation.model_copy(update={"excerpt_sha256": "0" * 64}),
+        )
+    for field, substitution in (
+        ("catalog_sha256", "0" * 64),
+        ("content_sha256", "0" * 64),
+        ("source_artifact_id", "foreign-artifact"),
+        ("native_source_revision_id", "foreign-revision"),
+    ):
+        with pytest.raises(ValueError, match="retained source identity"):
+            resolve_retained_body_citation(
+                completed.graph_context_execution, citation.model_copy(update={field: substitution}),
+            )
+
+    from application_state.agent_conversation.native_corpus import (
+        PriorBodyCitationReferenceV1, resolve_prior_body_citation,
+    )
+    current = completed.model_copy(update={"sequence": completed.sequence + 1})
+    reference = PriorBodyCitationReferenceV1(turn_id=completed.turn_id,
+        completion_sha256=t.canonical_sha256(completed.completion), citation_index=0)
+    history_ids = {completed.turn_id}
+    assert resolve_prior_body_citation(current, completed, reference, history_turn_ids=history_ids) == (
+        completed.completion.answer_segments[citation.segment_index].text, BODY,
+    )
+    for foreign in (completed, current.model_copy(update={"world_id": "world:foreign"}),
+                    current.model_copy(update={"conversation_id": uuid4()})):
+        with pytest.raises(ValueError, match="outside the completed conversation history"):
+            resolve_prior_body_citation(foreign, completed, reference, history_turn_ids=history_ids)
+    with pytest.raises(ValueError, match="outside the completed conversation history"):
+        resolve_prior_body_citation(current, completed, reference, history_turn_ids=set())
+    with pytest.raises(ValueError, match="retained completion"):
+        resolve_prior_body_citation(current, completed,
+            reference.model_copy(update={"completion_sha256": "0" * 64}), history_turn_ids=history_ids)
+
     history = _plan_ask_history_attribution(completed)
     assert isinstance(history, t.PlanEvidenceHistoryAttributionV5)
     assert type(history).model_validate_json(history.model_dump_json()) == history

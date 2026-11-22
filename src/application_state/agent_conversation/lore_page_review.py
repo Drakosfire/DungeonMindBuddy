@@ -3,21 +3,21 @@
 import re
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from .collaboration import Closed
 
 
 _PAGE_REQUEST = re.compile(
-    r'(?:^|(?<=[.!?])\s+)(?P<request>(?:please\s+)?(?:create|open|make)\s+'
-    r'(?:a\s+)?(?P<modifiers>(?:(?:new|blank|standalone|lore)\s+)*)page\s+'
-    r'(?:for|about|called|named|titled)\s+'
+    r'(?:^|(?<=[.!?])\s+|(?<=[,;])\s+then\s+)(?P<request>(?:please\s+)?(?:create|open|make)\s+'
+    r'(?:(?:a|the)\s+)?(?P<modifiers>(?:(?:new|blank|standalone|lore)\s+)*)page\s+'
+    r'(?P<relation>for|about|called|named|titled)\s+'
     r"""(?P<subject>"[^"\r\n]+"|“[^”\r\n]+”|'[^'\r\n]+'|[^,.!?;\r\n]+))""",
     re.IGNORECASE,
 )
 
 
-def _requested_title(subject: str) -> str:
+def _requested_title(subject: str, *, conversational: bool = False) -> str:
     subject = subject.strip()
     if (subject[0], subject[-1]) in {('"', '"'), ('“', '”'), ("'", "'")}:
         return subject[1:-1].strip()
@@ -25,6 +25,8 @@ def _requested_title(subject: str) -> str:
         raise ValueError("Lore page request has a compound destination. Quote one intended title.")
     # A request may describe the subject before giving its explicit name.
     title = re.split(r'\bthat is\b', subject, flags=re.IGNORECASE)[-1].strip()
+    if conversational:
+        title = re.sub(r'\s+now$', '', title, flags=re.IGNORECASE)
     return re.sub(r'^the\s+', '', title, flags=re.IGNORECASE)
 
 
@@ -41,13 +43,13 @@ class LorePageTitleWitness(Closed):
         description="Quote the requested page title from that instruction.",
     )
 
-    def bind(self, author_text: str, *, has_body: bool = False) -> str:
+    def bind(self, author_text: str, *, has_body: bool = False, conversational: bool = False) -> str:
         """Check the literal witness against the producing author turn."""
         if self.instruction != self.instruction.strip() or self.title != self.title.strip():
             raise ValueError("Lore page witness has surrounding whitespace")
         if not self.title or not self.instruction or author_text.count(self.instruction) != 1:
             raise ValueError("Lore page instruction must occur once in the author turn")
-        request, title = _explicit_request(author_text)
+        request, title = _explicit_request(author_text, conversational=conversational)
         if not self.instruction.startswith(request["request"].rstrip()):
             raise ValueError("Lore page witness must quote the explicit page request")
         if self.title != title:
@@ -57,7 +59,7 @@ class LorePageTitleWitness(Closed):
         return self.title
 
 
-def _explicit_request(author_text: str) -> tuple[re.Match[str], str]:
+def _explicit_request(author_text: str, *, conversational: bool = False) -> tuple[re.Match[str], str]:
     requests = list(_PAGE_REQUEST.finditer(author_text))
     if len(requests) != 1:
         raise ValueError("Lore page requires one explicit page request")
@@ -72,7 +74,8 @@ def _explicit_request(author_text: str) -> tuple[re.Match[str], str]:
             r"\s+and\s+(?:populate|fill|leave|keep)\b", subject,
             maxsplit=1, flags=re.IGNORECASE,
         )[0]
-    return request, _requested_title(subject)
+    has_timing = conversational and request["relation"].lower() in {"for", "about"}
+    return request, _requested_title(subject, conversational=has_timing)
 
 
 def _requests_blank_page(request: re.Match[str]) -> bool:
@@ -84,11 +87,11 @@ def explicit_blank_lore_page(author_text: str) -> bool:
     return _requests_blank_page(request)
 
 
-def explicit_lore_page_witness(author_text: str) -> LorePageTitleWitness:
+def explicit_lore_page_witness(author_text: str, *, conversational: bool = False) -> LorePageTitleWitness:
     """Derive the review destination from the author's literal instruction."""
-    request, title = _explicit_request(author_text)
+    request, title = _explicit_request(author_text, conversational=conversational)
     witness = LorePageTitleWitness(instruction=request["request"].rstrip(), title=title)
-    witness.bind(author_text)
+    witness.bind(author_text, conversational=conversational)
     return witness
 
 
@@ -98,3 +101,14 @@ class ProposedLorePage(Closed):
     use invented-idea segments only for material explicitly presented as proposed."""
     kind: Literal["lore_page"]
     destination: LorePageTitleWitness
+
+    open_questions: tuple[str, ...] = Field(default=(), max_length=24,
+        exclude_if=lambda value: not value)
+
+    @field_validator("open_questions")
+    @classmethod
+    def meaningful_questions(cls, value):
+        if any(not question.strip() or len(question) > 1000 or "\n" in question or "\r" in question
+               for question in value):
+            raise ValueError("Open questions require concise nonblank text")
+        return value
