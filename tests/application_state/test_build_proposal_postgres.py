@@ -720,17 +720,25 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     indistinguishable = replace(second_occurrence, row_context=first_occurrence.row_context)
     assert replace(decision, occurrences=(first_occurrence, indistinguishable)).resolve(proved).disposition == "ambiguous"
 
-    def opening(include_contextual_identity):
+    def opening(include_contextual_identity, *, modern_language=True):
         return {
             "state": {"user_question": decision.question, "interaction": {"image_move": decision.semantic_state()}},
             "questions": {
                 q.name: {"type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options)}
-                for q in decision.questions(include_contextual_identity=include_contextual_identity)
+                for q in decision.questions(include_contextual_identity=include_contextual_identity,
+                                            modern_language=modern_language)
             },
         }
 
     decision.require_opening_offer(opening(True))
     decision.require_opening_offer(opening(False), allow_retained=True)
+    predecessor = opening(True, modern_language=False)
+    decision.require_opening_offer(predecessor, allow_retained=True)
+    with pytest.raises(ValueError, match="exact admitted opening"):
+        decision.require_opening_offer(predecessor)
+    predecessor["questions"]["image_move_destination"] = opening(True)["questions"]["image_move_destination"]
+    with pytest.raises(ValueError, match="exact admitted opening"):
+        decision.require_opening_offer(predecessor, allow_retained=True)
     with pytest.raises(ValueError, match="exact admitted opening"):
         decision.require_opening_offer(opening(False))
 

@@ -322,17 +322,27 @@ class BuildImageMoveDecision:
         }
 
     def questions(self, *, include_affirmation: bool = True,
-                  include_contextual_identity: bool = True) -> tuple[ChoiceDecisionQuestion, ...]:
+                  include_contextual_identity: bool = True,
+                  modern_language: bool = True) -> tuple[ChoiceDecisionQuestion, ...]:
+        intent = "Is the author actually asking to move an existing image occurrence? Discussion, hypotheticals, creation and advice are other."
+        destination = ("Which destination does the author request, independent of availability? same_row_right is the "
+                       "immediately adjacent slot to the image's right in its current row. A named different row is different_row.")
+        occurrence = ("Which existing image occurrence does the author identify? Use its alt text and row description. "
+                      "A deliberate selection identifies 'this image'. Choose ambiguous if two fit. "
+                      "An unrelated caret and destination eligibility do not distinguish an image.")
+        if modern_language:
+            intent += " A short image name followed by a placement direction can itself request a move."
+            destination += (" Treat 'right into the vacant slot' or 'one column right' as same_row_right "
+                            "when the phrase describes a single step in the image's row. A vacant slot alone is unresolved.")
+            occurrence += (" When identical copies repeat, match the author's nearby prose cue against the row descriptions. "
+                           "A unique contextual paraphrase identifies that occurrence even when the image names match.")
         questions = (
             ChoiceDecisionQuestion(name="image_move_intent", options=("move_existing", "other", "unresolved"),
-                question="Is the author actually asking to move an existing image occurrence? Discussion, hypotheticals, creation and advice are other."),
+                question=intent),
             ChoiceDecisionQuestion(name="image_move_destination", options=("same_row_right", "different_row", "unsupported", "unresolved"),
-                question=("Which destination does the author request, independent of availability? same_row_right is the "
-                          "immediately adjacent slot to the image's right in its current row. A named different row is different_row.")),
+                question=destination),
             ChoiceDecisionQuestion(name="image_move_occurrence", options=("ambiguous", "missing", *(item.alias for item in self.occurrences)),
-                question=("Which existing image occurrence does the author identify? Use its alt text and row description. "
-                          "A deliberate selection identifies 'this image'. Choose ambiguous if two fit. "
-                          "An unrelated caret and destination eligibility do not distinguish an image.")),
+                question=occurrence),
         )
         if include_affirmation:
             questions += (IMAGE_MOVE_AFFIRMATION,)
@@ -344,16 +354,19 @@ class BuildImageMoveDecision:
 
     def require_opening_offer(self, request: dict, *, allow_retained: bool = False) -> None:
         offered = request.get("questions", {})
-        questions = self.questions(
-            include_affirmation=not allow_retained or IMAGE_MOVE_AFFIRMATION.name in offered,
-            include_contextual_identity=not allow_retained or CONTEXTUAL_IDENTITY in offered,
-        )
+        image_questions = {name: value for name, value in offered.items() if name.startswith("image_move_")}
+        def exact_offer(modern_language):
+            return {q.name: {
+                "type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options),
+            } for q in self.questions(
+                include_affirmation=not allow_retained or IMAGE_MOVE_AFFIRMATION.name in offered,
+                include_contextual_identity=not allow_retained or CONTEXTUAL_IDENTITY in offered,
+                modern_language=modern_language,
+            )}
         if (request.get("state", {}).get("user_question") != self.question
                 or request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY) != self.semantic_state()
-                or {key for key in offered if key.startswith("image_move_")} != {q.name for q in questions}
-                or any(request.get("questions", {}).get(q.name) != {
-                    "type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options),
-                } for q in questions)):
+                or (image_questions != exact_offer(True)
+                    and (not allow_retained or image_questions != exact_offer(False)))):
             raise ValueError("Image movement differs from the exact admitted opening offer")
 
     def opening_answers(self, request: dict, response: DecisionResult, *, allow_retained: bool = False) -> dict[str, str]:
