@@ -140,6 +140,31 @@ def test_variant_review_reports_transport_failure_without_private_details(caplog
     assert "private detail" not in caplog.text
 
 
+@pytest.mark.parametrize("add_local_target", [False, True])
+def test_manual_rule_replacement_resolves_only_local_multiattack_targets(add_local_target) -> None:
+    from application_state.agent_conversation.native_completion import _apply_statblock_rule_edits
+
+    definition = _definition().model_dump(mode="json")
+    original = definition["rule_elements"][0]
+    original["automation_support"] = "manual"
+    original["mechanic"] = {"kind": "human_adjudicated", "adjudication_tags": ["summon"]}
+    replacement = {
+        **original,
+        "rules_text": "Three summoned creatures emerge from the floor.",
+        "mechanic": {
+            "kind": "multiattack",
+            "sequences": [{"element_key": "minion", "count": 3, "choice_group": None}],
+        },
+    }
+    additions = [{**original, "key": "minion"}] if add_local_target else []
+    edited = _apply_statblock_rule_edits(
+        definition, {"replace_rules": [replacement], "add_rules": additions}
+    )["rule_elements"][0]
+    assert edited["mechanic"] == (replacement if add_local_target else original)["mechanic"]
+    assert edited["rules_text"] == replacement["rules_text"]
+    assert definition["rule_elements"][0]["mechanic"]["kind"] == "human_adjudicated"
+
+
 def test_validate_definition_service_maps_constructor_misconfigured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
