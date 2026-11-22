@@ -50,28 +50,32 @@ def _block(node, binding, source):
         and len(tokens[1].children or []) == 1
         and tokens[1].children[0].type == "image"
     ):
-        saved_image = tokens[1].children[0]
-        (editor_image,) = _children(node, 1)
-        url = saved_image.attrGet("src") or ""
-        if (
-            not url.startswith("dmb-media:") or node.get("type") != "paragraph"
-            or editor_image.get("type") != "mediaImage"
-            or set(editor_image) != {"type", "attrs"}
-            or any(child.type != "text" for child in saved_image.children or [])
-        ):
-            raise ValueError("Editor image differs from the exact saved image")
-        alt = "".join(child.content for child in saved_image.children or [])
-        title = saved_image.attrGet("title")
-        style = _IMAGE_STYLE.fullmatch(title or "")
-        if title and not style:
-            raise ValueError("Saved media presentation is unsupported")
-        _attrs(editor_image, {
-            "assetId": url[10:], "alt": alt,
-            "width": int(style[1]) if style else None,
-            "collapsed": style[2] == "true" if style else None,
-        })
+        require_matching_build_image(node, tokens[1].children[0])
     else:
         require_matching_prose_block(node, text)
+
+
+def require_matching_build_image(node: dict, saved_image) -> None:
+    """Check a standalone managed image against its exact Markdown token."""
+    (editor_image,) = _children(node, 1)
+    url = saved_image.attrGet("src") or ""
+    if (
+        not url.startswith("dmb-media:") or node.get("type") != "paragraph"
+        or editor_image.get("type") != "mediaImage"
+        or set(editor_image) != {"type", "attrs"}
+        or any(child.type not in {"text", "text_special"} for child in saved_image.children or [])
+    ):
+        raise ValueError("Editor image differs from the exact saved image")
+    alt = "".join(child.content for child in saved_image.children or [])
+    title = saved_image.attrGet("title")
+    style = _IMAGE_STYLE.fullmatch(title or "")
+    if title and not style:
+        raise ValueError("Saved media presentation is unsupported")
+    _attrs(editor_image, {
+        "assetId": url[10:], "alt": alt,
+        "width": int(style[1]) if style else None,
+        "collapsed": style[2] == "true" if style else None,
+    })
 
 
 def require_build_image_layout(editor: dict, markdown: str, layout: PagePresentation) -> None:

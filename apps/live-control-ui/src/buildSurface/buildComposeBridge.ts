@@ -607,15 +607,29 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
 
 /** A representable current projection cannot hide dropped nodes or attributes. */
 function supportsRootProse(doc: JSONContent): boolean {
+  const prose = (node: JSONContent) => !!node.content?.some(child => child.type === 'text' && child.text?.trim())
+    && node.content.every(child => child.type === 'hardBreak' ||
+      child.type === 'text' && (child.marks ?? []).every(mark =>
+        ['bold', 'italic', 'strike', 'code', 'underline', 'link'].includes(mark.type ?? '')));
+  const protectedParagraph = (node: JSONContent) => node.type === 'paragraph'
+    && (!node.content?.length || prose(node));
   return doc.type === 'doc' && !!doc.content?.length && doc.content.every(node => {
+    if (node.type === 'callout') {
+      return !!node.content?.length && node.content.every(protectedParagraph);
+    }
+    if (node.type === 'table') {
+      return !!node.content?.length && node.content.every(row => row.type === 'tableRow'
+        && !!row.content?.length && row.content.every(cell => cell.content?.length === 1
+          && protectedParagraph(cell.content[0])));
+    }
+    // Canonical projection binds the artwork and its attributes. The server
+    // independently checks the exact image reference before computing offsets.
+    if (node.type === 'paragraph' && node.content?.length === 1
+      && node.content[0].type === 'mediaImage') return true;
     if (Object.entries(node.attrs ?? {}).some(([key, value]) =>
       value != null && key !== 'pageBlockId' && key !== 'level')) return false;
     if (node.type === 'horizontalRule') return !node.content?.length;
-    if (node.type !== 'paragraph' && node.type !== 'heading') return false;
-    return !!node.content?.some(child => child.type === 'text' && child.text?.trim())
-      && node.content.every(child => child.type === 'hardBreak' ||
-        child.type === 'text' && (child.marks ?? []).every(mark =>
-          ['bold', 'italic', 'strike', 'code', 'underline', 'link'].includes(mark.type ?? '')));
+    return (node.type === 'paragraph' || node.type === 'heading') && prose(node);
   });
 }
 
