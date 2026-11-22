@@ -335,7 +335,10 @@ class TurnContextTraceStore:
             ):
                 raise ApplicationStateConflictError("trace append is fenced by a stale or expired claim")
             execution = None
-            if type(observation) not in {TraceProviderCall, TraceContextDecision}:
+            needs_execution = type(observation) not in {TraceProviderCall, TraceContextDecision}
+            if type(observation) is TraceContextSnapshot:
+                needs_execution = any(material.historical_source_reads for material in observation.materials)
+            if needs_execution:
                 # After waiting for the claim lock, take a fresh statement snapshot
                 # so the row and any ordered events are from the same revision.
                 execution = conn.execute(

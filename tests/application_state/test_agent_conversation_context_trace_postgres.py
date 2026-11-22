@@ -305,3 +305,37 @@ def test_prompt_projection_still_requires_durable_authorization(application_stat
         service.append_context_trace(**identity, observation=observation)
     [trace] = service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)
     assert not trace.observations
+
+
+def test_context_snapshot_only_loads_execution_for_historical_witnesses(application_state_dsn, monkeypatch):
+    from application_state.agent_conversation.context_trace import TraceHistoricalSourceReferenceV1
+
+    service, turn, identity, _ = _setup_turn()
+    execute = psycopg.Connection.execute
+    reads = []
+
+    def track(conn, query, *args, **kwargs):
+        if isinstance(query, str) and "agent.reconstruct_plan_execution" in query:
+            reads.append(query)
+        return execute(conn, query, *args, **kwargs)
+
+    monkeypatch.setattr(psycopg.Connection, "execute", track)
+    visible = TraceContextSnapshot(sequence=0, elapsed_ms=0, stage="after", materials=[
+        TraceContextMaterial(item_id="decision", state="model_context", role="assistant", text="result"),
+    ])
+    saved = service.append_context_trace(**identity, observation=visible)
+    assert saved.observations == [visible]
+    assert reads == []
+
+    ref = TraceHistoricalSourceReferenceV1(
+        world_id=turn.world_id, conversation_id=turn.conversation_id, turn_id=uuid4(),
+        attempt=1, trace_id=uuid4(), source_read_event_id=uuid4(), source_read_id="unavailable",
+        content_sha256="a" * 64,
+    )
+    historical = TraceContextSnapshot(sequence=1, elapsed_ms=1, stage="before", snapshot_kind="provider_input",
+        materials=[TraceContextMaterial(item_id="source", state="model_context", role="source",
+                                        historical_source_reads=[ref])])
+    incomplete = service.append_context_trace(**identity, observation=historical)
+    assert len(reads) == 1
+    assert incomplete.capture_failure_code == "historical_source_unavailable"
+    assert incomplete.observations == [visible]
