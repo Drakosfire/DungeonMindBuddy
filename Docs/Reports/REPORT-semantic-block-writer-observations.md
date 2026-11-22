@@ -251,8 +251,7 @@ chat-only boundary after the manually reviewed save.
 The separate deterministic Play control in
 [#4309](https://github.com/Drakosfire/DungeonMindBuddy/pull/4309) verifies that
 both titled additions, a sibling table and image reference, and the exact
-parent Plan record survive session-copy Save and readback. Hosted image
-rendering remains unverified.
+parent Plan record survive session-copy Save and readback. The separate hosted artwork run above verified rendering after reopen.
 
 ### Hosted Build Warning and Rules controls
 
@@ -328,3 +327,36 @@ two quieter sentences in a replacement preview. After Save and reload, the
 new body was present in a Read Aloud still titled **First sight** and the old
 body was absent. The original table headers and cells, Departure sentence,
 and rendered 1,024-pixel illustration were present after reopening.
+
+### Plan placement controls on the staged source
+
+On November 22, 2026 UTC, two focused pytest runs used Buddy
+`774aa06344eb0a9411855eccdc7e33e7fead89c4`, the DungeonMind Core pin
+`34032dc83a873b77e07eac0a397b9fe7ae682086`, and synthetic fixtures on
+the disposable local PostgreSQL service. Both runs completed without
+calling a model. The initial sandboxed run could not connect to that
+service, so its 14 setup errors provide no behavioral evidence.
+
+| Selected checks | Result | What they prove |
+| --- | --- | --- |
+| `rules_fragment_excludes_host_status or bound_selected_rewrite or under_heading or unresolved_relation_retains_anchor` in `test_plan_placement.py` and `test_plan_contextual_targets.py` | 14 passed | Scripted proposal text excludes the host retrieval status. Placement stays inside the intended section, and incomplete location or missing selection cannot silently authorize the edit. |
+| `survives_dispatch_decision_sql or reader_fence_refuses_older_application or current_native_caller_v2_paragraph_proposal` in `test_plan_placement.py` | 8 passed | The placement catalog survives database readback. A scripted proposal follows the explicit Save boundary, and the reader fence rejects older code and downgrade. |
+
+The serving image was observed at `84df46088596fd45771b12158fa62c4500be102d`
+and lacked the new placement code. The staged source results can guide the
+next run. They leave live model choice, hosted rollout, and the combined
+two-block save and reopen case unverified.
+
+### Remaining live benchmark evidence
+
+| Cases | Next evidence to collect |
+| --- | --- |
+| Build B01, B02, B03 and X02 | Complete three independent repetitions for each supported path with the protected fixture. Score exact placement separately from block choice. Check that Rules saves at the requested boundary without manual movement. |
+| Plan P01, P02, P03 and X02 | Run P01 by ordinary Send through each supported Plan writer, with a caret under Arrival. Verify role separation, accepted placement and no retrieval footer. For P02 and P03, capture title, scene and choice markers before the request, and compare them after clean Save and reopen. Rerun both X02 cases. |
+| Play PL01 and PL02 | Keep the three PL01 scene-copy passes and the separate artwork evidence. Repeat PL02 from the clean P01 result and verify no private cue or staged edit in chat. |
+| Build and Plan X01 | Repeat the discussion controls from fresh conversations and compare proposals, reservations and saved revisions. |
+| Home H01, Ingest I01, Graph G01 and Combat C01 | Record the observed surface capability when it offers no eligible writer. If a newer release exposes an eligible path, run the exact prompt and check its destination and unchanged unrelated state. |
+
+Use the [benchmark suite](../../evals/semantic-block-authoring-benchmark.md)
+for the fixture, exact prompts and scoring. Keep deterministic checks,
+live authoring repetitions, and surface eligibility observations separate.
