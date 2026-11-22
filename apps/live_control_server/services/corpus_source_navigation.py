@@ -350,7 +350,9 @@ class NativeBodyNavigation:
         turn = self.adapter.fence.turn
         if type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1:
             return tuple(rows)
-        from .native_source_candidate_scope import post_cutoff_source_pairs, preferred_source_pairs
+        from .native_source_candidate_scope import (
+            post_cutoff_source_pairs, post_named_recap_source_pairs, preferred_source_pairs,
+        )
         self._source_choices()
         from application_state.agent_conversation.native_corpus import (
             NativeAuthoredSourceReadV1, request_source_discovery_enabled,
@@ -367,7 +369,13 @@ class NativeBodyNavigation:
                         and request_source_discovery_enabled(
                             turn.graph_context_receipt, turn.graph_context_execution))
         excluded = post_cutoff_source_pairs(turn.user_text, self._source_display)
-        if pairs is None and not keywords and not rank_opening and not excluded:
+        excluded |= post_named_recap_source_pairs(
+            getattr(turn.graph_context_receipt.native_query, "named_recap_bound", None),
+            self._source_display,
+        )
+        focus = (getattr(turn.graph_context_receipt.native_query, "episode_campaign_focus", None)
+                 if search is not None else None)
+        if pairs is None and not keywords and not rank_opening and not excluded and focus is None:
             return tuple(rows)
         addresses = {handle: pair for handle, (pair, _, _) in self._direct_sources.items()}
         if search is not None:
@@ -456,6 +464,13 @@ class NativeBodyNavigation:
                 # The existing expansion action still exposes full-document navigation.
                 narrowed = [row for row in narrowed
                             if row.handle in section_handles or row.handle not in addresses]
+        if focus is not None and (focus.source_artifact_id, focus.source_revision_id) in addresses.values():
+            from .native_source_candidate_scope import episode_campaign_source_pairs
+            deferred = episode_campaign_source_pairs(focus, self._source_display)
+            narrowed = [
+                row for row in narrowed
+                if row.kind != "Exact source section" or addresses.get(row.handle) not in deferred
+            ]
         if len(narrowed) != len(rows):
             narrowed.append(RetrievalCandidate(handle=self.expansion_handle(),
                 label='Expand source search if the currently offered passages cannot establish the requested details',
