@@ -17,6 +17,14 @@ _PAGE_REQUEST = re.compile(
 )
 
 
+_NAMED_PAGE_REQUEST = re.compile(
+    r'(?:^|(?<=[.!?])\s+|(?<=[,;])\s+then\s+)(?P<request>(?:please\s+)?(?:create|open|make)\s+'
+    r'(?:(?:a|the)\s+)?(?P<modifiers>(?:(?:new|blank|standalone|lore)\s+)*)'
+    r"""(?P<relation>)(?P<subject>"[^"\r\n]+"|“[^”\r\n]+”|'[^'\r\n]+'|[^,.!?;\r\n]+?)\s+page\b)""",
+    re.IGNORECASE,
+)
+
+
 def _requested_title(subject: str, *, conversational: bool = False) -> str:
     subject = subject.strip()
     if (subject[0], subject[-1]) in {('"', '"'), ('“', '”'), ("'", "'")}:
@@ -61,11 +69,22 @@ class LorePageTitleWitness(Closed):
 
 def _explicit_request(author_text: str, *, conversational: bool = False) -> tuple[re.Match[str], str]:
     requests = list(_PAGE_REQUEST.finditer(author_text))
+    starts = {request.start() for request in requests}
+    # Preserve the original grammar's title and witness bytes when it already
+    # recognizes the same imperative. Count distinct new imperatives as well.
+    for candidate in _NAMED_PAGE_REQUEST.finditer(author_text):
+        if candidate.start() in starts:
+            continue
+        subject = candidate['subject'].strip()
+        if subject.casefold() in {'new', 'blank', 'standalone', 'lore', 'this', 'that', 'current', 'existing'}:
+            continue
+        requests.append(candidate)
     if len(requests) != 1:
         raise ValueError("Lore page requires one explicit page request")
     request = requests[0]
     subject = request["subject"].strip()
-    if subject.startswith(('"', "“", "'")):
+    named_before_page = request.re is _NAMED_PAGE_REQUEST
+    if named_before_page or subject.startswith(('"', "“", "'")):
         if re.match(r"\s+(?:and|or)\s+(?!(?:populate|fill|leave|keep)\b)",
                     author_text[request.end():], re.IGNORECASE):
             raise ValueError("Lore page request has a compound destination. Quote one intended title.")

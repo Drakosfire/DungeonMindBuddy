@@ -123,7 +123,8 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
 
     synthesis = ('Recap everything we discussed, including the earlier saved notes. Do not search again.' if discussion
-                 else 'Create a new page titled "Glass Regent" from the context we discussed. Do not search again.')
+                 else ('Create the Glass Regent page from the context we discussed. Do not search again.'
+                       if turn_count == 8 else 'Create a new page titled "Glass Regent" from the context we discussed. Do not search again.'))
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, True, False,
         native_body='irrelevant',
         requested_work=lambda message: ('discuss' if discussion else 'review_lore_page_from_conversation') if message == synthesis else 'discuss',
@@ -279,6 +280,22 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         from application_state.agent_conversation.native_corpus import resolve_retained_body_citation
         _, _, text = resolve_retained_body_citation(loaded.graph_context_execution, citation)
         assert text
+    if not discussion and turn_count == 8:
+        from application_state.agent_conversation.rules_authority_types import canonical_sha256
+        before_save = len(pages.list_pages(world_id=case.world))
+        base = f'/api/live/agent/worlds/{case.world}/conversation/lore-pages'
+        body = {'conversation_id': str(loaded.conversation_id), 'turn_id': str(loaded.turn_id),
+                'review_sha256': canonical_sha256(loaded.completion)}
+        reviewed = case.client.post(base + '/review', json=body)
+        assert reviewed.status_code == 200, reviewed.text
+        saved = case.client.post(base + '/confirm', json=body)
+        assert saved.status_code == 200, saved.text
+        receipt = saved.json()
+        opened = pages.committed_page(receipt['document_id'], world_id=case.world)
+        assert opened.page.title == 'Glass Regent'
+        repeated = case.client.post(base + '/confirm', json=body)
+        assert repeated.status_code == 200 and repeated.json() == receipt
+        assert len(pages.list_pages(world_id=case.world)) == before_save + 1
     for index in range(3):
         response = case.client.post('/api/live/agent/turn', json=case.request | {
             'turn_id': str(uuid4()), 'message': synthesis})
@@ -290,12 +307,13 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         'decoded_rows': decoded_rows}, indent=2) + '\n')
 
 
-@pytest.mark.parametrize('revision,parent', [('0193', '0192'), ('0194', '0193')])
+@pytest.mark.parametrize('revision,parent', [('0193', '0192'), ('0194', '0193'), ('0195', '0194')])
 def test_old_reader_refuses_retained_context_database_before_decoding(application_state_dsn, monkeypatch, revision, parent):
     from importlib import import_module
     from application_state import cli
     from application_state.errors import ApplicationStateMigrationError
-    name = 'build_retained_conversation' if revision == '0193' else 'build_discussion_context'
+    name = {'0193': 'build_retained_conversation', '0194': 'build_discussion_context',
+            '0195': 'natural_page_title'}[revision]
     fence = import_module(f'application_state.migrations.versions.20261122_{revision}_{name}_fence')
     assert fence.down_revision == '20261122_' + parent
     cli.assert_at_head(dsn=application_state_dsn)
