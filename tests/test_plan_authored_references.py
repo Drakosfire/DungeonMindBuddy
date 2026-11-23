@@ -107,3 +107,52 @@ def test_plan_new_page_rejects_unincluded_origin_or_other_collaboration(
         lane,tmp_path,monkeypatch,native_read_admission_probes,mutation):
     _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
         native_read_admission_probes,connected_review=True,connected_mutation=mutation)
+
+
+@pytest.mark.parametrize('mutation', ['formatted_prose', 'metadata_rich', 'foreign', 'world_alias', 'quote_field'])
+def test_plan_supplied_page_references_keep_formatting_free_and_reject_unbound_output(
+        lane, tmp_path, monkeypatch, native_read_admission_probes, mutation):
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, None, False,
+        native_read_admission_probes, related_page=True, related_output_mutation=mutation)
+
+
+def test_fresh_plan_refuses_retired_page_quote_contract_before_writer_io(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    from application_state.agent_conversation import native_plan_work_view
+    historical_view = native_plan_work_view.semantic_frame
+
+    def retired_view(host, execution, **kwargs):
+        return historical_view(host, execution, supplied_source_references=False)
+
+    monkeypatch.setattr(native_plan_work_view, 'semantic_frame', retired_view)
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, 'retired_page_quotes', False,
+        native_read_admission_probes, related_page=True)
+
+
+@pytest.mark.parametrize('mutation', ['old_format', 'missing_prose_policy', 'forged_json_policy'])
+def test_plan_recomputed_sdk_packet_cannot_forge_source_reference_contract(
+        lane, tmp_path, monkeypatch, native_read_admission_probes, mutation):
+    import json
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    original_init = PlanJevWriter.__init__
+
+    def forged_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        if mutation == 'old_format':
+            self.output_format = self.output_format | {'name': 'surface_native_evidence_selectors_v2'}
+        elif mutation == 'missing_prose_policy':
+            self.messages[-1]['content'] = self.messages[-1]['content'].replace(
+                '## Saved-page citations\nSelect the supplied local page reference. Do not regenerate supporting quotes.\n\n', '')
+        else:
+            for message in self.messages:
+                frame = json.loads(message['content'])
+                if 'citation_policy' in frame:
+                    frame['citation_policy'] = 'forged_source_policy'
+                    message['content'] = json.dumps(frame)
+                    break
+            else:
+                raise AssertionError('Test requires an actual Plan policy frame')
+
+    monkeypatch.setattr(PlanJevWriter, '__init__', forged_init)
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, 'forged_page_packet', False,
+        native_read_admission_probes, related_page=True, authoring=mutation == 'forged_json_policy')

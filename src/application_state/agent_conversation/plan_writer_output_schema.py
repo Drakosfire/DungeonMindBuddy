@@ -283,6 +283,12 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             variants.append(_object({'kind': _literal('related_page_claim'), 'text': prose,
                 'read_id': _enum(_values(related, 'read_id')),
                 'supporting_quotes': _array(prose, nonempty=True)}))
+            if work_frame.get('citation_policy') == 'supplied_source_references_v1':
+                claim = variants[-1]
+                del claim['properties']['supporting_quotes']
+                claim['required'].remove('supporting_quotes')
+                claim['properties']['read_id']['description'] = ('Select the ONE supplied page supporting every factual clause. '
+                    'Split claims from different pages into separate segments.')
     elif work_frame.get('schema') == 'dmb_native_play_work_v1':
         variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
     elif work_frame.get('schema') == BUILD_WORK_SCHEMA:
@@ -455,7 +461,9 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             base = schema['$defs']['Base'] if rules.lookups else schema
             base['properties']['answer_segments']['minItems'] = 1
     from generationengine.utils.schema_utils import make_schema_strict
-    return {'type': 'json_schema', 'name': f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
+    from .native_plan_work_view import SOURCE_REFERENCE_FORMAT, SOURCE_REFERENCE_POLICY
+    plan_references = work_frame.get('schema') == PLAN_WORK_SCHEMA and work_frame.get('citation_policy') == SOURCE_REFERENCE_POLICY
+    return {'type': 'json_schema', 'name': SOURCE_REFERENCE_FORMAT if plan_references else f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
         'schema':make_schema_strict(schema)}
 
 

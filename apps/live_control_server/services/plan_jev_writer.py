@@ -308,6 +308,13 @@ LORE_PROPOSAL_GUIDANCE = (
 )
 
 
+PLAN_SOURCE_REFERENCE_RESPONSE = (
+    'Saved authored pages describe authored material, not played truth. Use related_page_claim '
+    'with the supplied local read_id. Buddy binds that exact supplied page to the citation. '
+    'Do not return supporting_quotes or regenerate quote witnesses. Every factual clause must '
+    'be supported by the ONE selected page; split claims from different pages into separate '
+    'segments. Preserve uncertainty, and do not ask for a supplied page again.')
+
 RELATED_PAGE_RESPONSE = (
     'Saved authored pages describe authored material, not played truth. '
     'Use related_page_claim with the supplied local read_id and supporting_quotes containing '
@@ -365,7 +372,8 @@ class PlanJevWriter:
                 self.provider_work=play_work_view(self.work_frame)
             elif self.work_frame.get('schema') == PLAN_WORK_SCHEMA:
                 from application_state.agent_conversation.native_plan_work_view import semantic_frame as plan_work_view
-                self.provider_work=plan_work_view(self.work_frame,turn.graph_context_execution)
+                self.provider_work=plan_work_view(self.work_frame,turn.graph_context_execution,
+                    supplied_source_references=True)
             else:
                 from application_state.agent_conversation.native_build_work_view import (
                     semantic_frame as build_work_view, variant_output_version, variant_sources,
@@ -440,6 +448,7 @@ class PlanJevWriter:
         self.prompt_components = None
         related_page_response = (SUPPLIED_SOURCE_RESPONSE
             if self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1'
+            else PLAN_SOURCE_REFERENCE_RESPONSE if self.shared and self.provider_work.get('citation_policy') == 'supplied_source_references_v1'
             else RELATED_PAGE_RESPONSE)
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
