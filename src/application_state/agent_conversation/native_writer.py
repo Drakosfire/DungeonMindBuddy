@@ -364,6 +364,10 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     from .native_evidence_view import PLAN_EVIDENCE_HEADING, render_plan_evidence, semantic_frame
     from .native_execution import NativePlanActionV2, NativePlanActionV3
     body = strict_json(raw)
+    from .native_plan_work_view import SOURCE_REFERENCE_FORMAT
+    plan_source_references = body.get('text', {}).get('format', {}).get('name') == SOURCE_REFERENCE_FORMAT
+    if plan_source_references and type(prefix.policy.action) not in (NativePlanActionV2, NativePlanActionV3):
+        raise ValueError('Plan source references require native Plan work')
     from .retained_conversation import validate_dialogue_request
     validate_dialogue_request(prefix, body)
     messages = body.get('input')
@@ -376,7 +380,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             prose_host = model_frame(receipt, prefix, passages_only=True)
             prose_frame = semantic_frame(prose_host)
             from .native_plan_work_view import compact_editor_prose, semantic_frame as plan_work_view
-            prose_work = plan_work_view(expected_work, prefix)
+            prose_work = plan_work_view(expected_work, prefix, supplied_source_references=plan_source_references)
             if authorization.compact_plan_editor_prose:
                 compact = compact_editor_prose(prose_work)
                 if compact is prose_work:
@@ -436,7 +440,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     from .native_build_work_view import is_semantic_frame as semantic_build, semantic_frame as build_work_view
     from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_FORMATS, VARIANT_TRIGGER_RETENTION_FORMAT, VARIANT_PASSAGE_WITNESS_FORMAT
     build_local = semantic_build(work_frame)
-    citation_policy = work_frame.get('build_work', {}).get('citation_policy')
+    citation_policy = (work_frame.get('citation_policy') if type(prefix.policy.action) in (NativePlanActionV2, NativePlanActionV3)
+                       else work_frame.get('build_work', {}).get('citation_policy'))
     if citation_policy not in (None, 'supplied_source_references_v1'):
         raise ValueError('Unknown Build citation policy')
     supplied_source_references = citation_policy == 'supplied_source_references_v1'
@@ -450,7 +455,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         supplied_source_references=supplied_source_references) if build_local
         else play_work_view(expected_work) if play_local
         else prose_work if prose_work is not None
-        else plan_work_view(expected_work,prefix) if authored_local else expected_work)
+        else plan_work_view(expected_work,prefix,supplied_source_references=plan_source_references) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
         if not build_local or not retained_build_proof:
             raise ValueError('Native writer changed or omitted its exact surface work')

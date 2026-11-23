@@ -382,6 +382,10 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
                 version = 7
         if isinstance(action, NativeBuildActionV1) and not allow_retained_format and not evidence.supplied_source_references:
             raise ValueError('Current Build dispatch requires supplied source references')
+        from .native_execution import NativePlanActionV2, NativePlanActionV3
+        if (type(action) in (NativePlanActionV2, NativePlanActionV3) and evidence.related_pages
+                and not allow_retained_format and not evidence.supplied_source_references):
+            raise ValueError('Current Plan saved-page dispatch requires supplied source references')
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
             build_local=evidence.build_local,format_version=version,execution=graph_execution)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
