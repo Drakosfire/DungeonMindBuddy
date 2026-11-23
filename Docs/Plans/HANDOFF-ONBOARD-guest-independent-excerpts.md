@@ -54,3 +54,12 @@ The route captures and rechecks the owner generation and uses the same Core
 view and source-binding checks as the existing owner inventory. Source pages
 are limited to 100 candidate lines per request; the client must reject a changed
 Graph revision and preparation still revalidates exact selected bytes.
+
+Bugbot reviewed `9dc069781418983ab992bb996ad339085045915e` and found no
+actionable code defect, but requested stronger independent-source withdrawal,
+pagination and UI state coverage. A working-tree synthetic Core/APP test now
+creates a separate 205-line source, selects a line from its third page, then
+withdraws only that source and verifies candidate validation fails. Its focused
+run passed four cases. The new UI cases still need execution. These changes
+need fresh exact-head qualification and independent review; earlier hosted and
+backend results for `9dc069...` cannot qualify the next commit.

@@ -60,6 +60,25 @@ def test_first_world_compiler_release_selection_preserves_inference(application_
     _, bound = _compile_and_bind(case)
     result = _publish_compilation(case, bound)
     graph_revision = result.publication_receipt.published_revision_id
+    independent_admission = None
+    if role == "context":
+        from hashlib import sha256
+        from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+        separate_page = create_page(world_id=world, title="Separate recap", metadata=PageMetadata(visibility_state="internal"))
+        separate_body = "\n".join(f"Recap line {index}." for index in range(205))
+        separate_saved, separate_revision = commit_page(str(separate_page.page.work_object_id), separate_body, world_id=world,
+            expected_revision=separate_page.page.object_revision, expected_working_copy_revision=None)
+        raw = separate_revision.markdown.encode("utf-8")
+        independent_admission = publish_source(repository=case.repo, domain_contract=case.domain, semantic_profile=case.profile,
+            request=NativeTextSourceAdmissionV1(space_id=case.space, admission_id="separate-recap",
+                expected_parent_revision_id=graph_revision, created_at=case.now, body_text=separate_revision.markdown,
+                expected_body_sha256=sha256(raw).hexdigest(), source_classification="dungeonbuddy.source:worldbuilding",
+                authority="primary", visibility={"kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
+                origin={"namespace": "dungeonbuddy.workspace-document-registry", "object_id": str(separate_page.page.work_object_id),
+                        "revision_id": f"registry-revision:{separate_saved.page.object_revision}"},
+                spans=[{"client_ref": "recap", "evidence_role": "context", "start_byte": 0, "end_byte": len(raw),
+                        "expected_slice_sha256": sha256(raw).hexdigest()}]))
+        graph_revision = independent_admission.publication_receipt.published_revision_id
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE workspace.world_native_binding SET native_world_id=%s,status='active', "
             "binding_version=1,validated_at='now',validated_head_revision_id=%s, provisioning_id=NULL,"
@@ -79,8 +98,8 @@ def test_first_world_compiler_release_selection_preserves_inference(application_
     assert source["evidence_role"] == role
     selected_sources = [preparation.SourceSelection(**{key: source[key] for key in preparation.SourceSelection.model_fields})]
     if role == "context":
-        independent = discovery.selection_options(world_id=world, context_document_id=str(page.page.work_object_id))
-        safe = next(item for item in independent["sources"] if item["excerpt"] == "A safe clue.")
+        independent = discovery.selection_options(world_id=world, context_document_id=str(separate_page.page.work_object_id), offset=200)
+        safe = next(item for item in independent["sources"] if item["excerpt"] == "Recap line 200.")
         selected_sources.append(preparation.SourceSelection(**{key: safe[key] for key in preparation.SourceSelection.model_fields}))
     selection = preparation.ReleaseSelection(graph_revision=graph_revision,
         sources=selected_sources,
@@ -101,15 +120,15 @@ def test_first_world_compiler_release_selection_preserves_inference(application_
         assert manifest["graph"]["edges"][0]["label"] == "dnd5e · located in"
     assert manifest["sources"][0]["evidence_role"] == role
     if role == "context":
-        assert manifest["sources"][1]["text"] == "A safe clue."
+        assert manifest["sources"][1]["text"] == "Recap line 200."
         assert manifest["sources"][1]["evidence_role"] == "context"
     assert "Reviewed description" not in str(manifest) and "Unrelated paragraph" not in str(manifest)
     assert "GM secret" not in str(manifest) and "private heading" not in str(manifest)
     assert case.repo.get_head(case.space).head_revision_id == graph_revision
     assert validation.validate_candidate(world_id=world, subject="owner", release_id=release_id, digest=digest) >= 0
     if role == "context":
-        case.repo.withdraw_native_source(space_id=case.space, source_artifact_id=case.admission.source_artifact_id,
-                                         source_revision_id=case.admission.source_revision_id)
+        case.repo.withdraw_native_source(space_id=case.space, source_artifact_id=independent_admission.source_artifact_id,
+                                         source_revision_id=independent_admission.source_revision_id)
         with pytest.raises(GuestReleaseEvidenceError):
             validation.validate_candidate(world_id=world, subject="owner", release_id=release_id, digest=digest)
 
