@@ -9,16 +9,18 @@ import pytest
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.plan_jev_graph_packet import project_native_plan_work
 from application_state.agent_conversation.authored_excerpt_blocks import restore_selection_blocks
+from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1, PlanPlacementOptionV1
 from tests.test_surface_native_execution import component, execution, decision_prefix
 from tests.test_surface_native_context import provenance_for, seal
 from tests.application_state.test_plan_placement import original_capture, catalog_for
+from tests.application_state.test_plan_authoring import playable_body_capture
 
 BODY='## Objective\r\n\r\nKeep the alternatives open.\r\n\r\n## Beat\r\nA possible arrival.\r\n'
 
 
-def case(*, requested='discuss', placement='captured', captured=True, dirty=True, sessions=True):
+def case(*, requested='discuss', placement='captured', captured=True, dirty=True, sessions=True, playable=False):
     context,record=component('plan',unavailable=True)
-    original=original_capture() if captured else None
+    original=(playable_body_capture() if playable else original_capture()) if captured else None
     conversation_id=uuid4()
     basis=context.work_context.plan_basis.model_copy(update={'content_sha256':sha256(BODY.encode()).hexdigest()})
     if original is not None:
@@ -27,7 +29,17 @@ def case(*, requested='discuss', placement='captured', captured=True, dirty=True
         if not dirty:
             changes.update(draft_markdown=BODY,draft_sha256=sha256(BODY.encode()).hexdigest())
         original=original.model_copy(update=changes)
-        catalog=catalog_for(original)
+        if playable:
+            entry = PlanPlacementOptionV1(
+                selector="captured", kind="captured_target", label="Captured card",
+                root_boundary=None, position=None, target_capture_sha256=original.sha256,
+            )
+            catalog = PlanPlacementCatalogV1(
+                original_capture_sha256=original.sha256, editor_sha256=original.editor_sha256,
+                entries=(entry,),
+            )
+        else:
+            catalog = catalog_for(original)
     else:
         catalog=None
     work=context.work_context.model_copy(update={'plan_basis':basis})
@@ -90,6 +102,15 @@ def test_shared_plan_work_keeps_exact_saved_draft_session_and_resolved_location(
             else 'Captured caret' if requested=='write_current_page' else None)
     else:
         assert 'focused_edit_target' not in frame
+
+
+def test_native_plan_card_writer_requests_one_complete_replacement():
+    frame = project(case(requested="write_current_page", playable=True))
+    target = frame["focused_edit_target"]
+    assert target["kind"] == "replace_playable_body"
+    assert target["playable_body"] == "A live draft."
+    assert target["fragment_scope"]["operation"] == "replace_playable_body"
+    assert "exactly once across all answer segments" in target["fragment_scope"]["instruction"]
 
 
 def test_identical_draft_reuses_saved_blocks_without_donating_source_authority():
