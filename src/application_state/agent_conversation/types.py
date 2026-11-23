@@ -2613,6 +2613,11 @@ class BuildPriorBodyEvidenceAdmittedV2(BuildPriorBodyEvidenceAdmittedV1):
             raise ValueError("Retained native context crossed World ownership")
         return self
 
+class BuildPriorBodyEvidenceAdmittedV3(BuildPriorBodyEvidenceAdmittedV2):
+    """Full retained closure for anchored discussion or conversation-page work."""
+    kind: Literal["build_prior_body_evidence_admitted_v3"] = "build_prior_body_evidence_admitted_v3"
+
+
 class SurfaceEvidenceCompletionV5(SurfaceEvidenceCompletionV4):
     surface_id: Literal["plan", "play"] = "plan"
     schema_: Literal["dmb_surface_evidence_completion_v5"] = Field(default="dmb_surface_evidence_completion_v5", alias="schema")

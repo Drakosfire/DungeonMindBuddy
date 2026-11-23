@@ -711,15 +711,16 @@ class PriorBodyCitationReferenceV1(Strict):
     citation_index: int = Field(ge=0, le=16383, strict=True)
 
 
-def is_prior_conversation_work(label, source_scope):
-    return label == "review_lore_page_from_conversation" and source_scope in {"anchored", "uncertain"}
+def is_prior_conversation_work(label, source_scope, *, allow_discussion=False):
+    return ((label == "review_lore_page_from_conversation" and source_scope in {"anchored", "uncertain"})
+            or (allow_discussion and label == "discuss" and source_scope == "anchored"))
 
 
-def prior_conversation_work(events):
+def prior_conversation_work(events, *, allow_discussion=False):
     from .types import BuildRequestedWorkResolutionV1
 
     work = [event for event in events if isinstance(event, BuildRequestedWorkResolutionV1)]
-    if (len(work) == 1 and is_prior_conversation_work(work[0].requested_work, work[0].resolution.get("source_scope"))
+    if (len(work) == 1 and is_prior_conversation_work(work[0].requested_work, work[0].resolution.get("source_scope"), allow_discussion=allow_discussion)
             and work[0].resolution.get("barrier") is None):
         return work[0]
     return None

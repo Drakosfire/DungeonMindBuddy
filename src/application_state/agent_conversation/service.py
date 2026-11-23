@@ -2513,7 +2513,7 @@ class AgentConversationService:
 
         def produce(conn, current):
             receipt, execution = _owner(current)
-            work = prior_conversation_work(execution.events)
+            work = prior_conversation_work(execution.events, allow_discussion=True)
             pointer = repo.get_world_state(conn, current.world_id)
             if (work is None or not conversation_route_can_admit(receipt, execution)
                     or pointer is None or pointer.active_conversation_id != current.conversation_id):
@@ -2525,7 +2525,7 @@ class AgentConversationService:
             turns, seed = repo.list_retained_build_turns(conn, current)
             return capture(current, turns, seed=seed,
                 event_id=event_id, work_event_id=work.event_id,
-                pointer_revision=pointer.revision)
+                pointer_revision=pointer.revision, discussion=work.requested_work == "discuss")
 
         # Match reset's World -> conversation -> turn lock order. Holding only
         # the turn would let a reset race the pointer check or deadlock later.

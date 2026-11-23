@@ -1334,7 +1334,7 @@ class BuildJevDriver:
                 from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
                 if ('related_page_catalog' in self._interaction
                         and not ((conversation_route_can_admit(a._broker_receipt(), a._broker_execution())
-                                  and prior_conversation_work((event,)) is not None)
+                                  and prior_conversation_work((event,), allow_discussion=True) is not None)
                                  or is_anchored_discussion(event) or is_variant_approval(event)
                                  or is_anchored_conversation_draft(a._broker_execution(), event))):
                     select_pages(self, prepared, actual_response)
