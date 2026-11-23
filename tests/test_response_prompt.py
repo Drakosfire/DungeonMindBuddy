@@ -72,3 +72,18 @@ def test_build_source_status_is_explicit_and_does_not_change_other_profiles():
     assert 'Report supported completed events as completed' in build.instructions.replace('\n', ' ')
     with pytest.raises(ValueError):
         compose_response_prompt(task='clarify', build_source_status=True)
+
+
+def test_generic_limitations_have_versioned_guidance_without_question_echo():
+    from application_state.agent_conversation.response_prompt import OUTPUT, OUTPUT_GENERIC_LIMITATIONS
+    from application_state.agent_conversation.surface_evidence_answer import BODY_INSTRUCTIONS, GENERIC_BODY_INSTRUCTIONS
+    old = compose_response_prompt()
+    new = compose_response_prompt(generic_reply_limits=True)
+    assert OUTPUT in old.components and OUTPUT not in new.components
+    assert OUTPUT_GENERIC_LIMITATIONS in new.components
+    assert 'exact, unique, nonoverlapping phrases copied' in old.instructions
+    assert 'exact, unique, nonoverlapping phrases copied' not in new.instructions
+    assert 'question_phrase' in BODY_INSTRUCTIONS and 'question_phrase' not in GENERIC_BODY_INSTRUCTIONS
+    assert 'requested_detail_gaps' in BODY_INSTRUCTIONS and 'requested_detail_gaps' not in GENERIC_BODY_INSTRUCTIONS
+    assert 'requested_detail_gaps' not in compose_response_prompt(task='variant_approval', generic_reply_limits=True).instructions
+    assert 'requested_detail_gaps' in compose_response_prompt(task='variant_approval').instructions

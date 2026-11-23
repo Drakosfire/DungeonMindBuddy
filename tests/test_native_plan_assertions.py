@@ -426,7 +426,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None, related_output_mutation=None):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None, related_output_mutation=None, generic_reply_output=None):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -652,9 +652,8 @@ def _ordinary_native_case(
             prose = messages[-1] if messages[-1].startswith('# Plan evidence\n\n') else None
             if prose is None:
                 frames = [json.loads(message) for message in messages]
-                frame = next(item for item in frames if set(item) == {
-                    'input_status', 'user_question', 'native_body_evidence', 'native_statements', 'native_assertions',
-                })
+                from application_state.agent_conversation.native_evidence_view import is_semantic_frame as is_evidence_frame
+                frame = next(item for item in frames if is_evidence_frame(item))
                 assert len(frames) == 3
                 assert frames[0 if authoring else -1] == frame
             else:
@@ -776,10 +775,29 @@ def _ordinary_native_case(
                             segment['read_id'] = 'page999' if related_output_mutation == 'foreign' else 'body0'
                         elif related_output_mutation == 'quote_field':
                             segment['supporting_quotes'] = ['“The old bath house stands by the east gate. 🌿”']
+            if generic_reply_output:
+                candidate['limitations'] = ['missing_requested_details']
+                if generic_reply_output == 'page_gap':
+                    candidate['answer_segments'] = [row for row in candidate['answer_segments'] if row['kind'] == 'related_page_claim']
+                elif generic_reply_output == 'proposal_gap':
+                    candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea', text='A hypothetical direction for discussion.')]
+                elif generic_reply_output == 'gap_only':
+                    candidate['answer_segments'] = []
+                elif generic_reply_output == 'foreign_page':
+                    candidate['answer_segments'] = [dict(kind='related_page_claim', text='A foreign source claim.', read_id='not_supplied')]
+                elif generic_reply_output == 'unknown_code':
+                    candidate['limitations'] = ['unrecognized_code']
             if mixed:
                 candidate={'kind':'rules_answer' ,'base_output':candidate,
                     'rules_segments':[{'kind':'rules_context','text':'No additional applicable rule is established.','category':'gap'}],
                     'ordered_refs':[{'domain':'base','segment_index':None},{'domain':'rules','segment_index':0}]}
+            base = candidate['base_output'] if mixed else candidate
+            base_schema = output_schema['$defs']['Base'] if mixed else output_schema
+            if base is not None and 'requested_detail_gaps' not in base_schema['properties']:
+                assert base.get('requested_detail_gaps', []) == []
+                base.pop('requested_detail_gaps', None)
+            if generic_reply_output == 'retired_field':
+                (candidate['base_output'] if mixed else candidate)['requested_detail_gaps'] = [{'question_phrase': 'not in the question'}]
             self.text='not-json' if failure=='malformed' else json.dumps(candidate)
             if failure=='incomplete':
                 self.status='incomplete'
@@ -860,6 +878,10 @@ def _ordinary_native_case(
         wire_request=json.loads((directory/'request.json').read_text())
     else:
         response=client.post('/api/live/agent/turn',json=wire_request)
+    if generic_reply_output:
+        stored = AgentConversationService().inspect_turn(world_id=world, turn_id=wire.adapter.turn.turn_id)
+        assert lane.repo.get_head(world) == original_head
+        return SimpleNamespace(response=response, turn=stored, wire=wire, client=client, world=world)
     if connected_mutation or related_output_mutation in {'foreign', 'world_alias', 'quote_field'}:
         assert response.status_code==503,response.text
         failed=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
@@ -889,8 +911,10 @@ def _ordinary_native_case(
         return
     if failure is not None:
         assert response.status_code==503,response.text
-        if failure in {'retired_page_quotes', 'forged_page_packet'}:
+        if failure in {'retired_page_quotes', 'forged_page_packet', 'retired_reply_limits'}:
             assert not wire.calls
+            if failure == 'retired_reply_limits':
+                assert 'Current native replies require generic limitation codes' in getattr(wire, 'failure', '')
             if failure == 'retired_page_quotes':
                 assert 'Current Plan saved-page dispatch requires supplied source references' in getattr(wire, 'failure', '')
             assert lane.repo.get_head(world) == original_head
