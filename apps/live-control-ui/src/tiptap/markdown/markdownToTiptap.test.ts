@@ -984,6 +984,36 @@ describe("Session-26 Markdown → Editor → Save → reload integration", () =>
     };
   }
 
+  it("preserves table-cell line breaks and adjacent text through a mounted editor edit and reopen", () => {
+    const source = '| Item | Description |\n| --- | --- |\n| Mine | First<br>Second<br>Third |\n';
+    const imported = markdownToTiptapDoc(source);
+    expect(imported.diagnostics).toEqual([]);
+    const { editor, cleanup } = createIntegrationEditor(imported.doc);
+    try {
+      expect(() => editor.state.doc.check()).not.toThrow();
+      let position: number | null = null;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Second') position = pos + node.text.length;
+      });
+      expect(position).not.toBeNull();
+      editor.commands.insertContentAt(position!, ' edited');
+      const edited = editor.getJSON();
+      expect(semanticMarkdownSerializationDiagnostics(edited)).toEqual([]);
+      const saved = tiptapJsonToSemanticMarkdown(edited);
+      expect(saved).toContain('First<br>Second edited<br>Third');
+      const reopened = markdownToTiptapDoc(saved);
+      expect(reopened.diagnostics).toEqual([]);
+      const mountedAgain = createIntegrationEditor(reopened.doc);
+      try {
+        expect(mountedAgain.editor.getJSON()).toEqual(edited);
+      } finally {
+        mountedAgain.cleanup();
+      }
+    } finally {
+      cleanup();
+    }
+  });
+
   it("keeps nested Decision/Consequence schema-valid through a real TipTap Editor edit/save cycle", () => {
     const imported = markdownToTiptapDoc(SESSION_26_NESTED_PREP_MARKDOWN);
     expect(imported.diagnostics).toEqual([]);

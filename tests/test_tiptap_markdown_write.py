@@ -171,6 +171,11 @@ def test_editor_table_admission_still_rejects_non_roundtrippable_tables(markdown
     assert markdown_lossy_diagnostics(markdown, allow_editor_tables=True)
 
 
+def test_editor_table_admission_allows_only_bare_line_breaks():
+    assert not markdown_lossy_diagnostics("| A |\n| --- |\n| One<br>Two |", allow_editor_tables=True)
+    assert markdown_lossy_diagnostics("| A |\n| --- |\n| One<br onclick='x'>Two |", allow_editor_tables=True)
+
+
 def test_worldbuilding_prepare_commit_round_trip(tmp_path: Path) -> None:
     record = create_page_fixture(
         tmp_path,

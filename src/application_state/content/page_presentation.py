@@ -141,14 +141,20 @@ class PagePresentation(_Closed):
             raise ApplicationStateValidationError(
                 "presentation contains unsupported source blocks"
             )
-        if any(
-            token.type in {"html_block", "fence", "code_block"}
-            or any(child.type == "html_inline" for child in (token.children or []))
-            for token in tokens
-        ):
-            raise ApplicationStateValidationError(
-                "presentation contains unsupported source blocks"
-            )
+        in_table_cell = False
+        for token in tokens:
+            if token.type in {"th_open", "td_open"}:
+                in_table_cell = True
+            elif token.type in {"th_close", "td_close"}:
+                in_table_cell = False
+            if token.type in {"html_block", "fence", "code_block"} or any(
+                child.type == "html_inline"
+                and not (in_table_cell and re.fullmatch(r"<br\s*/?>", child.content, re.IGNORECASE))
+                for child in (token.children or [])
+            ):
+                raise ApplicationStateValidationError(
+                    "presentation contains unsupported source blocks"
+                )
         expected = [
             (a + offset, b + offset)
             for a, b in source_block_spans(markdown[len(prefix) :])

@@ -1037,6 +1037,50 @@ def test_page_v2_empty_paragraph_cold_reopen_and_old_writer_fence(world, monkeyp
     assert pages.snapshot_page(document, world_id=world) == reopened
 
 
+def test_page_table_break_prepare_commit_reopen_preserves_neighbors(world, monkeypatch):
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.main import create_app
+
+    page = pages.create_page(world_id=world, title="Table breaks")
+    source = "| Item | Details |\n| --- | --- |\n| Mine | First<br>Second |\n\nNeighbor remains.\n"
+    plain, _ = pages.commit_page(
+        ident(page), source, world_id=world, expected_revision=page.page.object_revision,
+        expected_working_copy_revision=None,
+    )
+    initial, _ = pages.commit_page(
+        ident(plain), source, world_id=world, expected_revision=plain.page.object_revision,
+        expected_working_copy_revision=pages.snapshot_page(ident(plain), world_id=world).working_copy_revision,
+        page_presentation=_presentation(source),
+    )
+    edited = source.replace("Second", "Second edited")
+    layout = _presentation(edited)
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    body = {"document_id": ident(initial), "markdown": edited,
+            "expected_revision": initial.page.object_revision,
+            "layout_writer_profile": pages.PAGE_LAYOUT_WRITER_PROFILE,
+            "page_presentation": layout.model_dump(mode="json")}
+    with TestClient(create_app(), base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
+        offered = client.post(f"{PLAN_MARKDOWN_WRITE}/prepare", json=body)
+        assert offered.status_code == 200, offered.text
+        assert offered.json()["writer_confirm_token"], offered.text
+        saved = client.post(f"{PLAN_MARKDOWN_WRITE}/commit", json={
+            **body, "writer_confirm_token": offered.json()["writer_confirm_token"],
+        })
+        assert saved.status_code == 200, saved.text
+        reopened = client.get(f"/api/live/workspace-documents/{ident(initial)}/snapshot")
+        assert reopened.status_code == 200, reopened.text
+        assert reopened.json()["markdown"] == edited
+        assert reopened.json()["page_presentation"] == layout.model_dump(mode="json")
+    assert pages.snapshot_page(ident(initial), world_id=world).markdown == edited
+
+
+@pytest.mark.parametrize("unsafe", ["Before<br>After\n\nNeighbor.\n", "| A |\n| --- |\n| <br onclick='x'> |\n\nNeighbor.\n"])
+def test_presentation_still_refuses_unrelated_html(unsafe):
+    with pytest.raises(ApplicationStateValidationError, match="unsupported source blocks"):
+        _presentation(unsafe, identity_only=True).checked(unsafe)
+
+
 def test_plan_rejects_page_v2_presentation(plain_plan):
     layout = _presentation(PLAN_PRESENTATION_MARKDOWN, identity_only=True)
     v2 = page_presentation.PagePresentation(
