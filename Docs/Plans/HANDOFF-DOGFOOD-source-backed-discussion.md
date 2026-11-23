@@ -43,6 +43,10 @@ plan_writer_output_schema.py, rules_authority_plan_packet.py,
 apps/live_control_server/services/plan_jev_writer.py only for this producing
 contract; directly owning existing Build/Rules/retained-context regression
 modules; a forward reader fence after0201 (reserve/check before writing).
+The existing restricted-migration-role test in
+tests/application_state/test_authored_pages_postgres.py is also in scope only
+to replace its stale0200 expected target with the actual repository head;
+its initial0198 marker, restricted grants and no-CREATE assertion stay intact.
 No frontend, source retrieval/selection, Rules evidence, model/provider,
 Plan/Play/variant/PDF contract or data rewrite. Main/release adoption is later.
 COMBAT and ADVERSARY confirmed no0202 reservation; fence0202 follows0201.
