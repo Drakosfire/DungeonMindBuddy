@@ -800,3 +800,20 @@ were unresolved, and no writable proposal appeared or changed the page.
 [Buddy #4485](https://github.com/Drakosfire/DungeonMindBuddy/pull/4485)
 adds the captured caret option for an unqualified insertion. Its hosted
 B03 proposal, Save, and cold-reopen proof remains pending.
+
+### Hosted Graph fixture and eligibility
+
+On serving release `a5c7599c`, Buddy Cloud Pilot opened the native Graph
+with zero selectable objects. Build saved and admitted a dedicated fictional
+Sealed Tower source. Extraction run `85c89399-1026-4404-a970-949116b24c7a`
+classified Sealed Tower as a Location. The native profile review prepared
+successfully, but confirming it and retrying the original packet both
+returned HTTP 409. PostgreSQL logged duplicate IDs in
+`dungeonmind.knowledge_head_events` at the two confirmation timestamps.
+The Pilot remained on semantic profile revision 1, and the object was
+still absent when the Graph reopened.
+
+On this release, Graph object selection opens the details pane. The World
+conversation mounts a visible composer on Build, Plan, and Play. Graph
+does not offer the G01 chat submission path. The live selected-object
+control remains pending because the Pilot fixture is not published.
