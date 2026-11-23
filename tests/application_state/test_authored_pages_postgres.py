@@ -1158,6 +1158,7 @@ def test_existing_schema_upgrade_with_restricted_migration_role(application_stat
     from application_state.config import APPLICATION_STATE_DSN_ENV
 
     role = 'buddy_migration_test_' + uuid4().hex[:12]
+    expected_head = cli._alembic_head()
     with psycopg.connect(application_state_dsn, autocommit=True) as admin:
         admin.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD 'synthetic-only'").format(sql.Identifier(role)))
         try:
@@ -1168,7 +1169,7 @@ def test_existing_schema_upgrade_with_restricted_migration_role(application_stat
             parsed = urlsplit(application_state_dsn)
             endpoint = f'{role}:synthetic-only@{parsed.hostname}:{parsed.port}'
             monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, urlunsplit(parsed._replace(netloc=endpoint)))
-            assert cli.upgrade_to_head() == ('20261123_0200', '20261123_0200')
+            assert cli.upgrade_to_head() == (expected_head, expected_head)
         finally:
             admin.execute(sql.SQL('DROP OWNED BY {}').format(sql.Identifier(role)))
             admin.execute(sql.SQL('DROP ROLE {}').format(sql.Identifier(role)))

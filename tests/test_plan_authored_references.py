@@ -107,3 +107,120 @@ def test_plan_new_page_rejects_unincluded_origin_or_other_collaboration(
         lane,tmp_path,monkeypatch,native_read_admission_probes,mutation):
     _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
         native_read_admission_probes,connected_review=True,connected_mutation=mutation)
+
+
+@pytest.mark.parametrize('mutation', ['formatted_prose', 'metadata_rich', 'foreign', 'world_alias', 'quote_field'])
+def test_plan_supplied_page_references_keep_formatting_free_and_reject_unbound_output(
+        lane, tmp_path, monkeypatch, native_read_admission_probes, mutation):
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, None, False,
+        native_read_admission_probes, related_page=True, related_output_mutation=mutation)
+
+
+def test_fresh_plan_refuses_retired_page_quote_contract_before_writer_io(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    from application_state.agent_conversation import native_plan_work_view
+    historical_view = native_plan_work_view.semantic_frame
+
+    def retired_view(host, execution, **kwargs):
+        return historical_view(host, execution, supplied_source_references=False)
+
+    monkeypatch.setattr(native_plan_work_view, 'semantic_frame', retired_view)
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, 'retired_page_quotes', False,
+        native_read_admission_probes, related_page=True)
+
+
+@pytest.mark.parametrize('mutation', ['old_format', 'missing_prose_policy', 'forged_json_policy'])
+def test_plan_recomputed_sdk_packet_cannot_forge_source_reference_contract(
+        lane, tmp_path, monkeypatch, native_read_admission_probes, mutation):
+    import json
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    original_init = PlanJevWriter.__init__
+
+    def forged_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        if mutation == 'old_format':
+            self.output_format = self.output_format | {'name': 'surface_native_evidence_selectors_v2'}
+        elif mutation == 'missing_prose_policy':
+            self.messages[-1]['content'] = self.messages[-1]['content'].replace(
+                '## Saved-page citations\nSelect the supplied local page reference. Do not regenerate supporting quotes.\n\n', '')
+        else:
+            for message in self.messages:
+                frame = json.loads(message['content'])
+                if 'citation_policy' in frame:
+                    frame['citation_policy'] = 'forged_source_policy'
+                    message['content'] = json.dumps(frame)
+                    break
+            else:
+                raise AssertionError('Test requires an actual Plan policy frame')
+
+    monkeypatch.setattr(PlanJevWriter, '__init__', forged_init)
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, 'forged_page_packet', False,
+        native_read_admission_probes, related_page=True, authoring=mutation == 'forged_json_policy')
+
+
+@pytest.mark.parametrize('output', ['page_gap', 'proposal_gap', 'gap_only', 'retired_field', 'foreign_page', 'unknown_code'])
+@pytest.mark.parametrize('mixed', [False, True])
+def test_current_plan_reply_uses_codes_without_question_phrase_witnesses(
+        lane, tmp_path, monkeypatch, native_read_admission_probes, output, mixed):
+    case = _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, None, mixed,
+        native_read_admission_probes, related_page=True, generic_reply_output=output)
+    if output in {'retired_field', 'foreign_page', 'unknown_code'}:
+        assert case.response.status_code == 503
+        assert case.turn.completion is None
+        return
+    assert case.response.status_code == 200, case.response.text
+    import json
+    body = json.loads(case.wire.calls[0].content)
+    schema = body['text']['format']['schema']
+    base = schema['$defs']['Base'] if mixed else schema
+    assert 'requested_detail_gaps' not in base['properties']
+    base_turn = case.turn.base_projection.turn if mixed else case.turn
+    completion = base_turn.completion
+    limits = [row for row in completion.answer_segments if row.kind == 'limitation']
+    assert limits and all(row.question_phrase is None for row in limits)
+    if output == 'page_gap':
+        claim, = [row for row in completion.answer_segments if row.kind == 'related_page_claim']
+        opened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{base_turn.turn_id}/related-pages/{claim.read_id}')
+        assert opened.status_code == 200
+        assert 'old bath house' in opened.json()['markdown']
+    if output == 'gap_only':
+        assert all(row.kind == 'limitation' for row in completion.answer_segments)
+
+
+def test_fresh_plan_refuses_whole_pre_generic_reply_contract_before_io(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    from application_state.agent_conversation import plan_writer_output_schema
+    original = plan_writer_output_schema.native_output_format
+    def historical(*args, **kwargs):
+        return original(*args, **(kwargs | {'generic_reply_limits': False}))
+    monkeypatch.setattr(plan_writer_output_schema, 'native_output_format', historical)
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, 'retired_reply_limits', False,
+        native_read_admission_probes, related_page=True)
+
+
+@pytest.mark.parametrize('mutation', ['changed_prose', 'historical_schema', 'malformed_schema', 'ambiguous_wrapper'])
+def test_current_plan_generic_schema_is_bound_to_compact_input_and_exact_format(
+        lane, tmp_path, monkeypatch, native_read_admission_probes, mutation):
+    from copy import deepcopy
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    original = PlanJevWriter.__init__
+    def forge(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        if mutation == 'changed_prose':
+            self.messages[-1]['content'] = self.messages[-1]['content'].replace(
+                '# Plan evidence\n\n', '# Plan evidence\n\nUnsupported contract annotation.\n\n', 1)
+            return
+        self.output_format = deepcopy(self.output_format)
+        schema = self.output_format['schema']
+        base = schema.get('$defs', {}).get('Base', schema)
+        if mutation == 'historical_schema':
+            base['properties']['requested_detail_gaps'] = {'type': 'array', 'items': {'type': 'object',
+                'properties': {'question_phrase': {'type': 'string'}}, 'required': ['question_phrase'], 'additionalProperties': False}}
+            base['required'].append('requested_detail_gaps')
+        elif mutation == 'malformed_schema':
+            base['required'].append('requested_detail_gaps')
+        else:
+            schema.setdefault('$defs', {})['Base'] = deepcopy(base)
+    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, 'forged_page_packet', False,
+        native_read_admission_probes, related_page=True)

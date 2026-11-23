@@ -219,11 +219,23 @@ _PAGE_SOURCE_NEED_GUIDANCE = _RETAINED_SOURCE_NEED_GUIDANCE + (
 )
 
 
-SOURCE_NEED_GUIDANCE = _PAGE_SOURCE_NEED_GUIDANCE + (
+_REUSE_SOURCE_NEED_GUIDANCE = _PAGE_SOURCE_NEED_GUIDANCE + (
     " A recap, comparison or discussion of material already discussed is anchored when the author "
     "requests reuse or no new search. Use the retained conversation and reads, preserving attribution, "
     "corrections and uncertainty. Unresolved questions do not require another search unless the author "
     "asks to resolve them using fresh evidence. An explicit fresh lookup remains source_lookup."
+)
+
+
+SOURCE_NEED_GUIDANCE = _REUSE_SOURCE_NEED_GUIDANCE + (
+    ' A request to get familiar with an existing named subject, its World or cosmology asks to '
+    'read the available saved material, even when no artifact is requested yet. A current-page '
+    'draft is not evidence for the whole World. Choose source_lookup when that requested '
+    'background is absent from the supplied page and dialogue. Choosing discuss does not make an '
+    'evidence-acquisition request anchored. A pure greeting, readiness acknowledgment or '
+    'creative response to a supplied premise remains anchored. A request to reuse material '
+    'already discussed without another search remains anchored; do not reacquire carried '
+    'evidence.'
 )
 
 
@@ -237,7 +249,7 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
         return None
     expected = {"type": "choice", "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
     if question not in (expected | {"instructions": guidance}
-                        for guidance in (SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
+                        for guidance in (SOURCE_NEED_GUIDANCE, _REUSE_SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
         raise ValueError("Build source scope differs from its offered decision")
     return _selected_choice(
         response["answers"]["source_need"], SOURCE_NEED_OPTIONS,

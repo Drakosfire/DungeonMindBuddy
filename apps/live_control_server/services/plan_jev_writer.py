@@ -308,6 +308,26 @@ LORE_PROPOSAL_GUIDANCE = (
 )
 
 
+PLAN_SOURCE_REFERENCE_RESPONSE = (
+    'Saved authored pages describe authored material, not played truth. Use related_page_claim '
+    'with the supplied local read_id. Buddy binds that exact supplied page to the citation. '
+    'Do not return supporting_quotes or regenerate quote witnesses. Every factual clause must '
+    'be supported by the ONE selected page; split claims from different pages into separate '
+    'segments. Preserve uncertainty, and do not ask for a supplied page again.')
+
+SOURCE_BACKED_DISCUSSION_RESPONSE = (
+    '\nThis is a source-backed factual discussion. Give a useful factual brief through the '
+    'supplied source-claim kinds and their local references, not uncited discussion or a '
+    'generic readiness acknowledgment. A saved source\'s own proposed lore is an attributed '
+    'source claim, not a new invented idea. Preserve concrete proposed motives and choices '
+    'that the sources state; do not call them unknown just because other connections or '
+    'details remain open. When supplied documents differ, attribute their positions instead '
+    'of flattening them into one unresolved summary. A draft\'s general open question does '
+    'not itself retract a specific proposal in another supplied source. Explicit later '
+    'author corrections still take precedence. Do not invent a fact to fill a gap: if the '
+    'available sources are insufficient, use the limitations offered by the response schema. '
+    'No minimum factual claim is required.')
+
 RELATED_PAGE_RESPONSE = (
     'Saved authored pages describe authored material, not played truth. '
     'Use related_page_claim with the supplied local read_id and supporting_quotes containing '
@@ -338,6 +358,7 @@ class PlanJevWriter:
         from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
         rule_frame = model_rules_frame(rules.frame())
         self.projection = None
+        self.generic_reply_limits = False
         if self.shared:
             from application_state.agent_conversation.native_writer import model_frame, model_work_frame
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
@@ -365,7 +386,8 @@ class PlanJevWriter:
                 self.provider_work=play_work_view(self.work_frame)
             elif self.work_frame.get('schema') == PLAN_WORK_SCHEMA:
                 from application_state.agent_conversation.native_plan_work_view import semantic_frame as plan_work_view
-                self.provider_work=plan_work_view(self.work_frame,turn.graph_context_execution)
+                self.provider_work=plan_work_view(self.work_frame,turn.graph_context_execution,
+                    supplied_source_references=True)
             else:
                 from application_state.agent_conversation.native_build_work_view import (
                     semantic_frame as build_work_view, variant_output_version, variant_sources,
@@ -384,11 +406,14 @@ class PlanJevWriter:
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                     supplied_source_references=True,
+                    typed_source_answer=True, lore_page_limitations=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
-                format_version=format_version, execution=turn.graph_context_execution)
+                format_version=format_version, execution=turn.graph_context_execution, generic_reply_limits=True)
+            from application_state.agent_conversation.plan_writer_output_schema import offered_generic_limits
+            self.generic_reply_limits = offered_generic_limits(self.output_format)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)
@@ -440,6 +465,7 @@ class PlanJevWriter:
         self.prompt_components = None
         related_page_response = (SUPPLIED_SOURCE_RESPONSE
             if self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1'
+            else PLAN_SOURCE_REFERENCE_RESPONSE if self.shared and self.provider_work.get('citation_policy') == 'supplied_source_references_v1'
             else RELATED_PAGE_RESPONSE)
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
@@ -457,6 +483,7 @@ class PlanJevWriter:
                 related_page_instructions=related_page_response
                     if self.provider_work.get('related_authored_pages', {}).get('pages') else None,
                 single_variant_base=single_variant_base,
+                generic_reply_limits=self.generic_reply_limits,
                 build_source_status=(type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
                                      and task in ('answer', 'build_discussion', 'scoped_discussion')))
             self.instructions = prompt.instructions
@@ -488,8 +515,9 @@ class PlanJevWriter:
                 from application_state.agent_conversation.native_writer import AUTHORING_GUIDANCE
                 from application_state.agent_conversation.native_plan_statements import INSTRUCTIONS as STATEMENT_INSTRUCTIONS
                 from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
-                from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
-                instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + BODY_INSTRUCTIONS.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
+                from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY, GENERIC_BODY_INSTRUCTIONS
+                native_body_instructions = GENERIC_BODY_INSTRUCTIONS if self.generic_reply_limits else BODY_INSTRUCTIONS
+                instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + native_body_instructions.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
                 from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
                 if SCOPE_KEY in self.work_frame:
                     instructions += '\n' + SCOPE_GUIDANCE
@@ -552,6 +580,16 @@ class PlanJevWriter:
                 and (self.work_frame['artifact_under_edit']['sections']
                      or self.work_frame.get('related_authored_pages', {}).get('pages'))):
             self.instructions += SUPPLIED_SOURCE_RESPONSE
+        if self.shared and self.provider_work.get('build_work', {}).get('source_answer_policy') == 'typed_supplied_source_answer_v1':
+            self.instructions += SOURCE_BACKED_DISCUSSION_RESPONSE
+        if self.shared and self.provider_work.get('build_work', {}).get('lore_limitation_policy') == 'validated_lore_review_generic_gaps_v1' and not self.generic_reply_limits:
+            self.instructions += ('\nOptional requested_detail_gaps select phrases from the CURRENT user request only, '
+                'not an earlier dialogue turn. If no precise current phrase fits, return no specific gaps '
+                'and use a generic limitation code. Keep the useful requested page content and open questions.')
+        if self.generic_reply_limits:
+            self.instructions += ('\nRepresent reply-level evidence limitations with the supplied codes. '
+                'Do not return requested_detail_gaps or reproduce phrases from any user question. '
+                'A limitation may stand alone when the supplied evidence cannot support a useful fact.')
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '

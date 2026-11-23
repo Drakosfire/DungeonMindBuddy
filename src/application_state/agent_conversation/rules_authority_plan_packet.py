@@ -343,6 +343,12 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         output_format=dict(type='json_schema',name='build_image_direction' if operation=='prepare_build_image' else 'build_document_proposal',
             schema=schema.model_json_schema(),strict=True)
     else:
+        from .plan_contextual_targets import is_question
+        if not allow_retained_format:
+            if not evidence.semantic_evidence or not (evidence.build_local or evidence.authored_local):
+                raise ValueError('Current native replies require semantic evidence and work')
+            if not is_question(graph_execution) and not evidence.generic_limitations:
+                raise ValueError('Current native replies require generic limitation codes')
         # Historical grammar is read-only: fresh admission never opts into it.
         retained = (allow_retained_format and body.get('text', {}).get('format', {}).get('name')
             == 'surface_native_evidence_selectors_v1')
@@ -382,8 +388,22 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
                 version = 7
         if isinstance(action, NativeBuildActionV1) and not allow_retained_format and not evidence.supplied_source_references:
             raise ValueError('Current Build dispatch requires supplied source references')
+        from .native_build_work_view import source_backed_discussion, lore_page_reply
+        if (isinstance(action, NativeBuildActionV1) and not allow_retained_format
+                and source_backed_discussion(evidence.work_frame, graph_execution)
+                and not evidence.typed_source_answer):
+            raise ValueError('Current factual Build discussion requires typed source claims')
+        if (isinstance(action, NativeBuildActionV1) and not allow_retained_format
+                and lore_page_reply(evidence.work_frame, graph_execution)
+                and not evidence.lore_page_limitations):
+            raise ValueError('Current lore review requires its limitation policy')
+        from .native_execution import NativePlanActionV2, NativePlanActionV3
+        if (type(action) in (NativePlanActionV2, NativePlanActionV3) and evidence.related_pages
+                and not allow_retained_format and not evidence.supplied_source_references):
+            raise ValueError('Current Plan saved-page dispatch requires supplied source references')
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
-            build_local=evidence.build_local,format_version=version,execution=graph_execution)
+            build_local=evidence.build_local,format_version=version,execution=graph_execution,
+            generic_reply_limits=evidence.generic_limitations)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

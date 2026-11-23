@@ -165,7 +165,7 @@ def surface_limitation(code, phrase=None):
 
 def project_surface_limitations(codes, raw_gaps, *, user_question,
                                derive_missing, host_partial, empty_answer, strict_gap_array,
-                               allow_generic_gap=False):
+                               allow_generic_gap=False, generic_codes_only=False):
     """One parity-preserving projector; callers own acquisition/domain policy.
 
     This validates declared shape and exact question selections, not entailment.
@@ -177,15 +177,20 @@ def project_surface_limitations(codes, raw_gaps, *, user_question,
             or any(not isinstance(code, str) or code not in LIMITATIONS for code in codes)
             or len(codes) != len(set(codes)) or strict_gap_array and not isinstance(raw_gaps, list)):
         raise ValueError('Unknown or duplicate limitation, or invalid gap array')
-    gaps = [RequestedDetailGap.model_validate(gap) for gap in raw_gaps]
-    try:
-        gap_messages(SimpleNamespace(requested_detail_gaps=gaps), {'user_question': user_question})
-    except UnboundRequestedDetailGap:
-        if not allow_generic_gap:
-            raise
-        specific_gaps = []
+    if generic_codes_only:
+        if raw_gaps != []:
+            raise ValueError('Generic limitations do not accept requested-detail selectors')
+        gaps = specific_gaps = []
     else:
-        specific_gaps = gaps
+        gaps = [RequestedDetailGap.model_validate(gap) for gap in raw_gaps]
+        try:
+            gap_messages(SimpleNamespace(requested_detail_gaps=gaps), {'user_question': user_question})
+        except UnboundRequestedDetailGap:
+            if not allow_generic_gap:
+                raise
+            specific_gaps = []
+        else:
+            specific_gaps = gaps
     codes = list(codes)
     if gaps and 'missing_requested_details' not in codes:
         if not derive_missing:

@@ -419,10 +419,13 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         validate_authored_owners(completion, receipt)
         return completion
     from .build_intentional_response import native_review_enabled, normalize_native_review
+    from .lore_page_review import ProposedLorePage
     from .plan_jev_decision import connected_page_review_enabled
     plan_review=connected_page_review_enabled(execution)
     review_enabled=plan_review or execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
-    keys={'schema','answer_segments','limitations','requested_detail_gaps'} | ({'collaboration'} if review_enabled else set())
+    keys={'schema','answer_segments','limitations'} | ({'collaboration'} if review_enabled else set())
+    if not evidence.generic_limitations:
+        keys.add('requested_detail_gaps')
     if evidence.variant_format:
         keys.add("statblock_variant")
     if (not isinstance(candidate,dict) or set(candidate) != keys
@@ -441,6 +444,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
     for row in candidate['answer_segments']:
+        if isinstance(row, dict) and row.get('kind') == 'discussion' and evidence.typed_source_answer:
+            raise ValueError('Source-backed factual discussion requires typed source claims')
         if (not isinstance(row,dict) or row.get('kind') not in {'authored_excerpt', 'statblock_pdf_claim'}
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
             raise ValueError('Native completion contains an invalid segment')
@@ -503,7 +508,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
                 author_text=execution.policy.action.intent.message,
             ) if review_enabled and not plan_review else None
         )
-    if review_enabled and not segments and collaboration is None:
+    explicit_source_gap = (evidence.typed_source_answer or evidence.generic_limitations) and bool(
+        candidate.get('limitations') or candidate.get('requested_detail_gaps'))
+    if review_enabled and not segments and collaboration is None and not explicit_source_gap:
         raise ValueError('Empty intentional response')
     # A host retrieval footer cannot stand in for an actual clarification.
     from .native_execution import NATIVE_PLAN_ACTION_TYPES
@@ -524,12 +531,17 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         and any(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1)) for s in segments)
         and all(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1,t.PlanWorldGraphProposalSegmentV1)) for s in segments))
     has_cited_answer = bool(body_cites or statement_cites or assertion_cites or saved_cites
-                            or any(isinstance(s, StatblockPdfClaim) for s in segments))
-    limitations = project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
+                            or any(isinstance(s, StatblockPdfClaim) for s in segments)
+                            or (evidence.typed_source_answer
+                                and any(isinstance(s, t.RelatedPageClaim) for s in segments)))
+    limitations = project_surface_limitations(candidate['limitations'],
+        [] if evidence.generic_limitations else candidate['requested_detail_gaps'],
         user_question=execution.policy.action.intent.message, derive_missing=True,
         host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,
         empty_answer=not segments and collaboration is None, strict_gap_array=True,
-        allow_generic_gap=has_cited_answer)
+        generic_codes_only=evidence.generic_limitations,
+        allow_generic_gap=(has_cited_answer or (evidence.lore_page_limitations
+            and isinstance(collaboration, ProposedLorePage))))
     # A selected question phrase does not establish an absence of evidence.
     segments.extend(limit for limit in limitations
         if not has_cited_answer or limit.question_phrase is None)

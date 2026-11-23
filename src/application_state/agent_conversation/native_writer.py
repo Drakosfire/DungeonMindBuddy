@@ -151,6 +151,10 @@ class NativeWriterEvidence:
     authored_local: bool = False
     build_local: bool = False
     supplied_source_references: bool = False
+    typed_source_answer: bool = False
+    lore_page_limitations: bool = False
+    generic_limitations: bool = False
+    semantic_evidence: bool = False
     variant_format: bool = False
     variant_edits: bool = False
     variant_visible_reply: bool = False
@@ -364,6 +368,10 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     from .native_evidence_view import PLAN_EVIDENCE_HEADING, render_plan_evidence, semantic_frame
     from .native_execution import NativePlanActionV2, NativePlanActionV3
     body = strict_json(raw)
+    from .native_plan_work_view import SOURCE_REFERENCE_FORMAT
+    plan_source_references = body.get('text', {}).get('format', {}).get('name') == SOURCE_REFERENCE_FORMAT
+    if plan_source_references and type(prefix.policy.action) not in (NativePlanActionV2, NativePlanActionV3):
+        raise ValueError('Plan source references require native Plan work')
     from .retained_conversation import validate_dialogue_request
     validate_dialogue_request(prefix, body)
     messages = body.get('input')
@@ -376,7 +384,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             prose_host = model_frame(receipt, prefix, passages_only=True)
             prose_frame = semantic_frame(prose_host)
             from .native_plan_work_view import compact_editor_prose, semantic_frame as plan_work_view
-            prose_work = plan_work_view(expected_work, prefix)
+            prose_work = plan_work_view(expected_work, prefix, supplied_source_references=plan_source_references)
             if authorization.compact_plan_editor_prose:
                 compact = compact_editor_prose(prose_work)
                 if compact is prose_work:
@@ -396,6 +404,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             or authorization.deduplicate_plan_recap_prose) and prose_work is None:
         raise ValueError('Plan compact prose markers require native Plan prose')
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'],prose_frame=prose_frame, prose_work=prose_work)
+    from .plan_writer_output_schema import offered_generic_limits
+    generic_reply_limits = offered_generic_limits(body.get('text', {}).get('format'))
     has_image = isinstance(body.get("input"), list) and proposal_packet_text(body) is not None
     from .native_execution import NativeBuildActionV1
     if isinstance(prefix.policy.action, NativeBuildActionV1):
@@ -422,6 +432,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         host = model_frame(receipt, prefix)
     else:
         host = model_frame(receipt, prefix, schema=frame.get('schema'))
+    semantic_evidence = is_semantic_frame(frame)
+    if generic_reply_limits and not semantic_evidence:
+        raise ValueError('Generic reply limitations require semantic native evidence')
     expected = host
     if is_semantic_frame(frame):
         project_build_images = isinstance(prefix.policy.action, NativeBuildActionV1)
@@ -436,10 +449,20 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     from .native_build_work_view import is_semantic_frame as semantic_build, semantic_frame as build_work_view
     from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_FORMATS, VARIANT_TRIGGER_RETENTION_FORMAT, VARIANT_PASSAGE_WITNESS_FORMAT
     build_local = semantic_build(work_frame)
-    citation_policy = work_frame.get('build_work', {}).get('citation_policy')
+    citation_policy = (work_frame.get('citation_policy') if type(prefix.policy.action) in (NativePlanActionV2, NativePlanActionV3)
+                       else work_frame.get('build_work', {}).get('citation_policy'))
     if citation_policy not in (None, 'supplied_source_references_v1'):
         raise ValueError('Unknown Build citation policy')
     supplied_source_references = citation_policy == 'supplied_source_references_v1'
+    from .native_build_work_view import SOURCE_ANSWER_POLICY, LORE_LIMITATION_POLICY
+    source_answer_policy = work_frame.get('build_work', {}).get('source_answer_policy')
+    if source_answer_policy not in (None, SOURCE_ANSWER_POLICY):
+        raise ValueError('Unknown Build source answer policy')
+    typed_source_answer = source_answer_policy == SOURCE_ANSWER_POLICY
+    lore_limitation_policy = work_frame.get('build_work', {}).get('lore_limitation_policy')
+    if lore_limitation_policy not in (None, LORE_LIMITATION_POLICY):
+        raise ValueError('Unknown lore review limitation policy')
+    lore_page_limitations = lore_limitation_policy == LORE_LIMITATION_POLICY
     format_name = body.get("text", {}).get("format", {}).get("name")
     variant_passage_review = format_name in VARIANT_PASSAGE_FORMATS
     variant_edits = format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS}
@@ -447,10 +470,11 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     expected_wire_work = (build_work_view(expected_work,prefix,include_variant=variant_format,
         variant_edits=variant_edits, variant_passage_review=variant_passage_review,
         bind_lore_page="lore_page_destination" in work_frame["build_work"],
-        supplied_source_references=supplied_source_references) if build_local
+        supplied_source_references=supplied_source_references,
+        typed_source_answer=typed_source_answer, lore_page_limitations=lore_page_limitations) if build_local
         else play_work_view(expected_work) if play_local
         else prose_work if prose_work is not None
-        else plan_work_view(expected_work,prefix) if authored_local else expected_work)
+        else plan_work_view(expected_work,prefix,supplied_source_references=plan_source_references) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
         if not build_local or not retained_build_proof:
             raise ValueError('Native writer changed or omitted its exact surface work')
@@ -459,9 +483,12 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             variant_passage_review=variant_passage_review,
             bind_lore_page="lore_page_destination" in work_frame["build_work"], retained_raw_markdown=True,
             supplied_source_references=supplied_source_references,
+            typed_source_answer=typed_source_answer, lore_page_limitations=lore_page_limitations,
         )
         if t.canonical_sha256(work_frame) != t.canonical_sha256(retained_work):
             raise ValueError('Native writer changed or omitted its exact surface work')
+    if generic_reply_limits and not (build_local or authored_local):
+        raise ValueError('Generic reply limitations require semantic surface work')
     from .native_execution import NativeWriterEstimatedBudgetV1
     if isinstance(execution.policy.writer_context_budget, NativeWriterEstimatedBudgetV1):
         # Trusted host estimation has the same boundary as controller accounting.
@@ -503,7 +530,10 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work | expected_wire_work,
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,
-        supplied_source_references=supplied_source_references,variant_format=variant_format,variant_edits=variant_edits,
+        supplied_source_references=supplied_source_references,typed_source_answer=typed_source_answer,
+        lore_page_limitations=lore_page_limitations,generic_limitations=generic_reply_limits,
+        semantic_evidence=semantic_evidence,
+        variant_format=variant_format,variant_edits=variant_edits,
         variant_visible_reply=format_name in {VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_witnesses=format_name in {VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_carried_condition=format_name in {VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},

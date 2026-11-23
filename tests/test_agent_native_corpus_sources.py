@@ -609,7 +609,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             assert authority.revision_id not in prose and sha256(HTTP_BODY.encode()).hexdigest() not in prose
             self.excerpt_handle = handle
             from application_state.agent_conversation.native_plan_assertions import POLICY
-            self.text = json.dumps({'schema': POLICY, 'limitations': [], 'requested_detail_gaps': [],
+            self.text = json.dumps({'schema': POLICY, 'limitations': [],
                 'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': [handle]}]})
             return await super().handle_async_request(request)
     wire = SourceWriter(None, '')

@@ -254,7 +254,7 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
     return mixed
 
 
-def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2, execution=None):
+def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2, execution=None, generic_reply_limits=False):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
     if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}:
         raise ValueError('Unknown native writer output format version')
@@ -283,6 +283,12 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             variants.append(_object({'kind': _literal('related_page_claim'), 'text': prose,
                 'read_id': _enum(_values(related, 'read_id')),
                 'supporting_quotes': _array(prose, nonempty=True)}))
+            if work_frame.get('citation_policy') == 'supplied_source_references_v1':
+                claim = variants[-1]
+                del claim['properties']['supporting_quotes']
+                claim['required'].remove('supporting_quotes')
+                claim['properties']['read_id']['description'] = ('Select the ONE supplied page supporting every factual clause. '
+                    'Split claims from different pages into separate segments.')
     elif work_frame.get('schema') == 'dmb_native_play_work_v1':
         variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
     elif work_frame.get('schema') == BUILD_WORK_SCHEMA:
@@ -290,8 +296,28 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         variants.extend(native_variants(work_frame,prose,local=build_local))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
+    from .native_build_work_view import (SOURCE_ANSWER_POLICY, SOURCE_ANSWER_FORMAT,
+        LORE_LIMITATION_POLICY, LORE_LIMITATION_FORMAT)
+    source_answer_policy = work_frame.get('build_work', {}).get('source_answer_policy')
+    if source_answer_policy not in (None, SOURCE_ANSWER_POLICY):
+        raise ValueError('Unknown Build source answer policy')
+    lore_limitation_policy = work_frame.get('build_work', {}).get('lore_limitation_policy')
+    if lore_limitation_policy not in (None, LORE_LIMITATION_POLICY):
+        raise ValueError('Unknown lore review limitation policy')
+    if lore_limitation_policy and (work_frame.get('schema') != BUILD_WORK_SCHEMA
+            or not build_local or format_version != 2 or source_answer_policy):
+        raise ValueError('Lore review limitations require normal semantic Build review')
+    if source_answer_policy:
+        if work_frame.get('schema') != BUILD_WORK_SCHEMA or not build_local or format_version != 2:
+            raise ValueError('Typed source answers require normal semantic Build work')
+        variants = [variant for variant in variants
+                    if variant['properties']['kind'].get('const') != 'discussion']
     schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose,
         proposal_labels=("invented_idea", "image_prompt") if format_version == 1 else ("invented_idea",))
+    if generic_reply_limits:
+        base = schema['$defs']['Base'] if rules.lookups else schema
+        del base['properties']['requested_detail_gaps']
+        base['required'].remove('requested_detail_gaps')
     if format_version == 7:
         if work_frame.get("schema") != BUILD_WORK_SCHEMA or not build_local or rules.lookups:
             raise ValueError("Discussion-only format requires Build discussion without Rules lookups")
@@ -455,8 +481,70 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
             base = schema['$defs']['Base'] if rules.lookups else schema
             base['properties']['answer_segments']['minItems'] = 1
     from generationengine.utils.schema_utils import make_schema_strict
-    return {'type': 'json_schema', 'name': f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
+    from .native_plan_work_view import SOURCE_REFERENCE_FORMAT, SOURCE_REFERENCE_POLICY
+    plan_references = work_frame.get('schema') == PLAN_WORK_SCHEMA and work_frame.get('citation_policy') == SOURCE_REFERENCE_POLICY
+    if lore_limitation_policy:
+        format_name = LORE_LIMITATION_FORMAT
+    elif source_answer_policy:
+        format_name = SOURCE_ANSWER_FORMAT
+    elif plan_references:
+        format_name = SOURCE_REFERENCE_FORMAT
+    else:
+        format_name = f'surface_native_evidence_selectors_v{format_version}'
+    return {'type': 'json_schema', 'name': format_name, 'strict': True,
         'schema':make_schema_strict(schema)}
+
+
+def offered_generic_limits(format):
+    """Classify an untrusted presentation dimension; callers still prove the full schema.
+
+    Recognize only supported native reply Base shapes. Missing/unknown formats,
+    independent questions/actions and ambiguous Rules wrappers are not current
+    generic replies. No evidence or action authority comes from this selection.
+    """
+    from .native_build_work_view import SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT
+    from .native_plan_work_view import SOURCE_REFERENCE_FORMAT
+    names = {f'surface_native_evidence_selectors_v{v}' for v in range(1, 12)} | {
+        SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT, SOURCE_REFERENCE_FORMAT}
+    if (not isinstance(format, dict) or set(format) != {'type', 'name', 'strict', 'schema'}
+            or format['type'] != 'json_schema' or format['strict'] is not True or format['name'] not in names):
+        return False
+    schema = format['schema']
+    if not isinstance(schema, dict):
+        return False
+    def literal(value, expected):
+        return isinstance(value, dict) and (value.get('const') == expected or value.get('enum') == [expected])
+    definitions = schema.get('$defs', {})
+    if not isinstance(definitions, dict):
+        return False
+    props = schema.get('properties')
+    root_required = schema.get('required')
+    if (not isinstance(props, dict) or schema.get('type') != 'object'
+            or schema.get('additionalProperties') is not False
+            or not isinstance(root_required, list) or len(root_required) != len(props)
+            or set(root_required) != set(props)):
+        return False
+    if literal(props.get('kind'), 'rules_answer'):
+        if (set(props) != {'kind', 'base_output', 'rules_segments', 'ordered_refs'}
+                or props['base_output'] != {'anyOf': [{'$ref': '#/$defs/Base'}, {'type': 'null'}]}):
+            return False
+        schema = definitions.get('Base')
+        if not isinstance(schema, dict):
+            return False
+        props = schema.get('properties')
+    elif 'base_output' in props or 'Base' in definitions:
+        return False
+    required = schema.get('required')
+    return (isinstance(props, dict)
+        and {'schema', 'answer_segments', 'limitations'} <= set(props)
+        and set(props) <= {'schema', 'answer_segments', 'limitations', 'collaboration', 'statblock_variant'}
+        and schema.get('type') == 'object' and schema.get('additionalProperties') is False
+        and isinstance(required, list) and len(required) == len(props) and set(required) == set(props)
+        and literal(props['schema'], ASSERTION_POLICY)
+        and isinstance(props['answer_segments'], dict) and props['answer_segments'].get('type') == 'array'
+        and isinstance(props['limitations'], dict) and props['limitations'].get('type') == 'array'
+        and isinstance(props['limitations'].get('items'), dict)
+        and props['limitations']['items'].get('enum') == list(LIMITATIONS))
 
 
 def output_format(frame, rules):
