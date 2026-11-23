@@ -3340,7 +3340,7 @@ def test_deferred_build_opening_prompt_failure_rolls_back_authorization(lane, tm
                    for trace in traces for item in trace.observations)
 
 
-def test_deferred_build_provider_failure_does_not_wait_for_graph(lane, tmp_path, monkeypatch):
+def test_deferred_build_provider_failure_never_starts_unselected_graph(lane, tmp_path, monkeypatch):
     from threading import Event
     from apps.live_control_server.services import native_graph_reads
 
@@ -3355,14 +3355,14 @@ def test_deferred_build_provider_failure_does_not_wait_for_graph(lane, tmp_path,
             finished.set()
 
     def fail_at_transport(_adapter, provider):
-        assert provider == "typesafe" and started.wait(timeout=5)
+        assert provider == "typesafe" and not started.is_set()
         raise RuntimeError("opening transport failed")
 
     monkeypatch.setattr(native_graph_reads, "prepare_query", blocked)
     try:
         _fresh_case(lane, tmp_path, monkeypatch, "deferred_provider_failure",
                     False, False, False, saved_statblock="by-name", before_provider=fail_at_transport)
-        assert started.is_set() and not finished.is_set()
+        assert not started.is_set() and not finished.is_set()
     finally:
         release.set()
         if started.is_set():
