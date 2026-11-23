@@ -880,6 +880,20 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     candidate['answer_segments'] = []
                     candidate['limitations'] = []
                     candidate['requested_detail_gaps'] = []
+                elif source_answer_output in {'lore_stale_gap', 'lore_valid_gap', 'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap'}:
+                    candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea',
+                        text='Proposed direction: The local node seeks freedom and values its simulated town life. Its deeper plans remain open.')]
+                    candidate['limitations'] = ['missing_requested_details']
+                    candidate['requested_detail_gaps'] = [dict(question_phrase=(
+                        'unresolved motive' if source_answer_output == 'lore_valid_gap'
+                        else ['invalid'] if source_answer_output == 'lore_malformed_gap' else 'cosmology I have been operating with'))]
+                    if source_answer_output == 'lore_empty_gap':
+                        candidate['answer_segments'] = []
+                        candidate['collaboration'] = None
+                    if source_answer_output == 'lore_null_gap':
+                        candidate['collaboration'] = None
+                    if source_answer_output == 'lore_invalid_destination':
+                        candidate['collaboration']['destination']['title'] = 'Foreign page'
                 elif source_answer_output in {'gap', 'gap_format'}:
                     candidate['answer_segments'] = []
                     candidate['limitations'] = ['missing_requested_details']
@@ -3526,6 +3540,113 @@ def test_factual_build_recomputed_sdk_packet_cannot_forge_source_answer_policy(l
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work='discuss', source_need='anchored' if mutation == 'ineligible_context' else 'source_lookup',
         read_optional_page=True, source_answer_output='creative' if mutation == 'ineligible_context' else 'typed')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('work', ['review_lore_page', 'review_lore_page_from_conversation'])
+@pytest.mark.parametrize('output', ['lore_stale_gap', 'lore_valid_gap', 'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap'])
+def test_lore_page_review_keeps_useful_reply_when_optional_detail_phrase_is_unbound(lane, tmp_path, monkeypatch, output, work):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work=work, source_need='anchored',
+        source_answer_output=output,
+        message='Create a page for Glass Regent. Use the context we discussed; keep the unresolved motive open; do not search again.')
+    request = json.loads(case.writer.calls[0].content)
+    assert request['text']['format']['name'] == 'surface_native_lore_review_limitations_v1'
+    if output in {'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap'}:
+        assert case.response.status_code == 503
+        assert case.turn.completion is None
+        return
+    assert case.response.status_code == 200, case.response.text
+    completion = case.turn.completion
+    assert completion.collaboration.kind == 'lore_page'
+    assert completion.collaboration.destination.title == 'Glass Regent'
+    assert any(x.kind == 'proposal' and 'seeks freedom' in x.text for x in completion.answer_segments)
+    limits = [x for x in completion.answer_segments if x.kind == 'limitation']
+    assert limits
+    if output == 'lore_stale_gap':
+        assert all(x.question_phrase is None for x in limits)
+    else:
+        assert any(x.question_phrase == 'unresolved motive' for x in limits)
+    assert not any(e.kind == 'build_related_page_read_v1' for e in case.turn.graph_context_execution.events)
+
+
+def test_fresh_lore_review_refuses_retired_limitation_policy_before_writer_io(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation import native_build_work_view
+    original = native_build_work_view.semantic_frame
+    def old_contract(host, execution, **kwargs):
+        return original(host, execution, **(kwargs | {'lore_page_limitations': False}))
+    monkeypatch.setattr(native_build_work_view, 'semantic_frame', old_contract)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='review_lore_page', source_need='anchored', source_answer_output='lore_stale_gap',
+        message='Create a page for Glass Regent.')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('mutation', ['unknown_policy', 'omitted_policy', 'old_format', 'ineligible_context'])
+def test_lore_review_recomputed_packet_cannot_forge_limitation_policy(lane, tmp_path, monkeypatch, mutation):
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    original = PlanJevWriter.__init__
+    def forge(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        if mutation == 'old_format':
+            self.output_format = self.output_format | {'name': 'surface_native_evidence_selectors_v2'}
+            return
+        for message in self.messages:
+            frame = json.loads(message['content'])
+            if 'build_work' not in frame:
+                continue
+            if mutation == 'unknown_policy':
+                frame['build_work']['lore_limitation_policy'] = 'foreign_limitation_policy'
+            elif mutation == 'omitted_policy':
+                frame['build_work'].pop('lore_limitation_policy')
+            else:
+                frame['build_work']['lore_limitation_policy'] = 'validated_lore_review_generic_gaps_v1'
+            message['content'] = json.dumps(frame)
+            break
+        else:
+            raise AssertionError('Test requires the actual Build work carrier')
+    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss' if mutation == 'ineligible_context' else 'review_lore_page',
+        source_need='anchored', source_answer_output='creative' if mutation == 'ineligible_context' else 'lore_stale_gap',
+        message='Create a page for Glass Regent.')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('mutation', ['unknown_policy', 'omitted_policy', 'old_format', 'ineligible_work'])
+def test_lore_review_recomputed_packet_cannot_forge_limitation_policy(lane, tmp_path, monkeypatch, mutation):
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    original = PlanJevWriter.__init__
+    def forge(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        if mutation == 'old_format':
+            self.output_format = self.output_format | {'name': 'surface_native_evidence_selectors_v2'}
+            return
+        for message in self.messages:
+            frame = json.loads(message['content'])
+            if 'build_work' not in frame:
+                continue
+            if mutation == 'unknown_policy':
+                frame['build_work']['lore_limitation_policy'] = 'foreign_policy'
+            elif mutation == 'omitted_policy':
+                frame['build_work'].pop('lore_limitation_policy')
+            else:
+                frame['build_work']['lore_limitation_policy'] = 'validated_lore_review_generic_gaps_v1'
+            message['content'] = json.dumps(frame)
+            break
+        else:
+            raise AssertionError('Test requires actual semantic Build work')
+    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss' if mutation == 'ineligible_work' else 'review_lore_page',
+        source_need='anchored', source_answer_output='creative' if mutation == 'ineligible_work' else 'lore_stale_gap',
+        message='Let us explore this premise without searching.' if mutation == 'ineligible_work' else 'Create a page for Glass Regent.')
     assert case.response.status_code == 503
     assert not case.writer.calls
     assert case.turn.completion is None

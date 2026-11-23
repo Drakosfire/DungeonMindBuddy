@@ -62,3 +62,26 @@ semantic PASS. Long draft6.698s/save-reopen44.19ms,0postinitial acquisition,
 primary unchanged, one page, identical repeated receipt. Broad diagnostics RED.
 Actual observed serving source2ac2d8be/image963a69c3 remains0200;0201/0202 not
 claimed deployed. Compatible forward recovery must precede later activation.
+
+Implementation checkpoint: producing marker validated_lore_review_generic_gaps_v1
+and distinct output format apply only to those actual admitted lore work kinds,
+excluding offered statblock variants. Only a normalized ProposedLorePage enables
+generic fallback. Source citation and destination validators run unchanged first.
+24 actual HTTP cases pass across both work kinds, stale/valid/malformed gaps,
+null/empty/invalid-destination replies, old-policy fresh refusal and four forged
+packets, plus neighboring source/creative cases. The stale-gap regression first
+failed with the actual UnboundRequestedDetailGap. Two initial test attempts had a
+title-fixture/schema mismatch; retained as fixture failures, not product evidence.
+
+Qualification plan: final exact SHA query/world contracts, frontend verifier and
+validate, inventory; migrate/reopen an actual0202 lore-page completion with all
+83 table contents unchanged and old0202 reader refused; full9-turn no-acquisition
+page creation/save/reopen with both the exact rejected final writer output and a
+real writer. Fixed-output timing is fixture-only, never real writer latency.
+Independent cumulative source and semantic review are required before merge.
+
+Remaining goal boundaries: hosted source-need misclassification and adjacent
+Plan/surface optional-gap audit remain open. Literal PDF/display excerpts, action
+destination witnesses and original-span selectors retain their distinct ownership;
+do not remove exactness merely because it resembles a redundant citation witness.
+No0203 deployment or broader completion is claimed by this source slice.

@@ -419,6 +419,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         validate_authored_owners(completion, receipt)
         return completion
     from .build_intentional_response import native_review_enabled, normalize_native_review
+    from .lore_page_review import ProposedLorePage
     from .plan_jev_decision import connected_page_review_enabled
     plan_review=connected_page_review_enabled(execution)
     review_enabled=plan_review or execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
@@ -535,7 +536,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         user_question=execution.policy.action.intent.message, derive_missing=True,
         host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,
         empty_answer=not segments and collaboration is None, strict_gap_array=True,
-        allow_generic_gap=has_cited_answer)
+        allow_generic_gap=(has_cited_answer or (evidence.lore_page_limitations
+            and isinstance(collaboration, ProposedLorePage))))
     # A selected question phrase does not establish an absence of evidence.
     segments.extend(limit for limit in limitations
         if not has_cited_answer or limit.question_phrase is None)

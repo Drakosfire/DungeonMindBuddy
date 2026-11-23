@@ -382,11 +382,15 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
                 version = 7
         if isinstance(action, NativeBuildActionV1) and not allow_retained_format and not evidence.supplied_source_references:
             raise ValueError('Current Build dispatch requires supplied source references')
-        from .native_build_work_view import source_backed_discussion
+        from .native_build_work_view import source_backed_discussion, lore_page_reply
         if (isinstance(action, NativeBuildActionV1) and not allow_retained_format
                 and source_backed_discussion(evidence.work_frame, graph_execution)
                 and not evidence.typed_source_answer):
             raise ValueError('Current factual Build discussion requires typed source claims')
+        if (isinstance(action, NativeBuildActionV1) and not allow_retained_format
+                and lore_page_reply(evidence.work_frame, graph_execution)
+                and not evidence.lore_page_limitations):
+            raise ValueError('Current lore review requires its limitation policy')
         from .native_execution import NativePlanActionV2, NativePlanActionV3
         if (type(action) in (NativePlanActionV2, NativePlanActionV3) and evidence.related_pages
                 and not allow_retained_format and not evidence.supplied_source_references):
