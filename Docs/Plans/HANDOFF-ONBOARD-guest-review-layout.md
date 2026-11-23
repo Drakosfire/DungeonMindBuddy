@@ -42,3 +42,10 @@ The preview uses synthetic responses and is not deployed-owner acceptance.
 The first jsdom keyboard attempt failed because that environment did not toggle
 native `summary` on Enter; native keyboard behavior was checked in Chromium.
 Exact-source qualification and independent review remain outstanding.
+
+Follow-up diagnostics: the Chromium witness now actually scrolls the panel and
+checks Enter open/close, with results in `drawer-visual-result.log`. The focused
+test now checks that an in-progress review input survives close/reopen. The CI
+contract guard passed 17 tests with Node 22.23.0 on PATH; an initial run without
+Node on PATH had 14 passes and three environment failures. The synthetic graph
+and review remain fixtures, not deployed acceptance.
