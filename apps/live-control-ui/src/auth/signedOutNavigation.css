@@ -1,0 +1,11 @@
+.signed-out-nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; padding: 1rem clamp(1rem, 4vw, 2.5rem); background: #202321; color: #f0d49c; }
+.signed-out-nav a { color: inherit; }
+.signed-out-nav a:focus-visible { outline: 3px solid #e5b85e; outline-offset: 4px; }
+.signed-out-nav__brand { font: 1.2rem Georgia, serif; text-decoration: none; }
+.signed-out-nav__routes { display: flex; flex-wrap: wrap; gap: .75rem 1rem; font-size: .9rem; }
+.signed-out-nav + .hosted-auth-state { box-sizing: border-box; max-width: 42rem; margin: clamp(2rem, 8vw, 6rem) auto; padding: clamp(1.5rem, 5vw, 3rem); border: 1px solid #b9965755; border-radius: .5rem; background: #252721; color: #f4ead7; font-family: var(--ui-font-body, sans-serif); }
+.signed-out-nav + .hosted-auth-state h1 { margin: 0 0 1rem; font: 400 clamp(2rem, 5vw, 3rem)/1.1 Georgia, serif; }
+.signed-out-nav + .hosted-auth-state p { color: #d4cebf; line-height: 1.6; }
+.signed-out-nav + .hosted-auth-state > a, .signed-out-nav + .hosted-auth-state > button { display: inline-block; margin: .5rem .75rem 0 0; padding: .65rem 1rem; border: 1px solid #c5a363; border-radius: .3rem; background: #5d4c31; color: #fff3d5; font: inherit; text-decoration: none; cursor: pointer; }
+.signed-out-nav + .hosted-auth-state :is(a, button):focus-visible { outline: 3px solid #e5b85e; outline-offset: 4px; }
+@media (max-width: 44rem) { .signed-out-nav + .hosted-auth-state { margin: 2rem 1rem; } }

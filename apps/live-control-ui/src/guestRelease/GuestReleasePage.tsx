@@ -66,6 +66,12 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const sequence = useRef(0);
   const additionCount = useRef(0);
   const detailRef = useRef<HTMLElement>(null);
+  const graphRef = useRef<HTMLElement>(null);
+  const exampleRef = useRef<HTMLElement>(null);
+  const showSection = (section: HTMLElement | null) => {
+    section?.focus({ preventScroll: true });
+    section?.scrollIntoView?.({ behavior: "auto", block: "start" });
+  };
   useEffect(() => {
     if (!snapshot) return;
     const sync = () => {
@@ -129,11 +135,11 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   };
   const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => { navigate(selectedNode, id); detailRef.current?.focus({ preventScroll: true }); detailRef.current?.scrollIntoView?.({ behavior: "auto", block: "nearest" }); }}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
   return <main className="guest-world">
-    <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation"><a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href={dungeonMindLoginHref("/")}>Sign in to create your World →</a></nav></header>
+    <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation">{snapshot && <button type="button" onClick={() => showSection(graphRef.current)}>Explore graph</button>}{example && <button type="button" onClick={() => showSection(exampleRef.current)}>Saved scene</button>}<a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href={dungeonMindLoginHref("/")}>Sign in to create your World →</a></nav></header>
     {unavailable ? <section role="alert"><h1>This guest World is unavailable</h1><p>The owner may have withdrawn it, or the link may have changed.</p><a href={home ? dungeonMindLoginHref("/") : "/"}>{home ? "Sign in to Buddy" : "Return to Buddy"}</a></section>
       : !snapshot ? <p role="status">Opening this guest World…</p>
       : <><section className="guest-world__intro"><p className="guest-world__eyebrow">A SHARED WORLD · GUEST VIEW</p><h1>Follow the threads.</h1><p>Explore an owner-selected copy of a World. Choose a point to see its connections and the source behind each one.</p></section>
-        <div className="guest-world__layout"><section className="guest-world__graph" aria-labelledby="guest-graph-heading"><div className="guest-world__section-head"><div><p className="guest-world__eyebrow">THE STORY MAP</p><h2 id="guest-graph-heading">A web of connections</h2></div><span>{sharedNodes.length} shared {sharedNodes.length === 1 ? "point" : "points"} · {additions.nodes.length} yours</span></div>
+        <div className="guest-world__layout"><section ref={graphRef} tabIndex={-1} className="guest-world__graph" aria-labelledby="guest-graph-heading"><div className="guest-world__section-head"><div><p className="guest-world__eyebrow">THE STORY MAP</p><h2 id="guest-graph-heading">A web of connections</h2></div><span>{sharedNodes.length} shared {sharedNodes.length === 1 ? "point" : "points"} · {additions.nodes.length} yours</span></div>
           {nodes.length ? <div className="guest-world__points" style={{ height: `${Math.max(260, rows * 135)}px`, "--graph-columns": columns } as CSSProperties}>
             <svg className="guest-world__lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{edges.map(edge => { const start = positions.get(edge.source), end = positions.get(edge.target); return start && end ? <line key={edge.id} x1={start.x} y1={start.y} x2={end.x} y2={end.y} vectorEffect="non-scaling-stroke" /> : null; })}</svg>
             {nodes.map(node => { const position = positions.get(node.id)!; return <button key={node.id} type="button" style={{ left: `${position.x}%`, top: `${position.y}%` }} className={`guest-world__point${selectedNode === node.id ? " is-selected" : ""}${node.temporary ? " is-temporary" : ""}`} aria-pressed={selectedNode === node.id} onClick={() => navigate(node.id, null)}><span aria-hidden="true">✦</span><strong>{node.label}</strong><small>{node.kind}</small></button>; })}
@@ -157,7 +163,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
               : <><h2>Every story has a trail.</h2><p>Select a point to follow it through the owner’s shared notes.</p></>}
         </aside></div>
         {exampleValue !== undefined && !example && <p role="alert">This saved example is unavailable.</p>}
-        {example && <section className="guest-world__example" aria-labelledby="guest-example-title">
+        {example && <section ref={exampleRef} tabIndex={-1} className="guest-world__example" aria-labelledby="guest-example-title">
           <p className="guest-world__eyebrow">OWNER-AUTHORED SAVED EXAMPLE</p><h2 id="guest-example-title">{example.title}</h2>
           <p>This is a saved scene, not a live generation. Your temporary additions were not used.</p>
           <div className="guest-world__example-body">{example.body}</div>

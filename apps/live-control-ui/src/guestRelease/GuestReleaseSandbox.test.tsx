@@ -23,6 +23,9 @@ it("adds a clearly temporary connected point, keeps it out of URLs and storage, 
   expect(screen.getByRole("heading", { name: "<img src=x>" })).toBeInTheDocument();
   expect(screen.getByText(/your temporary addition, not part of the shared World/i)).toBeInTheDocument();
   expect(screen.getByText(/Your temporary connection · not sourced/i)).toBeInTheDocument();
+  await user.click(within(screen.getByRole("navigation", { name: "Guest navigation" })).getByRole("button", { name: "Explore graph" }));
+  expect(screen.getByRole("heading", { name: "<img src=x>" })).toBeInTheDocument();
+  expect(screen.getByText(/Your temporary connection · not sourced/i)).toBeInTheDocument();
   expect(document.querySelector("img[src=x]")).toBeNull();
   expect(window.location.hash).toBe("#copy/copy");
   expect(window.location.href).not.toContain("guest-local");
