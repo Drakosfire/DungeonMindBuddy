@@ -34,3 +34,8 @@ reads after current-page changes, creates one page, reopens its title and return
 the same repeated confirmation receipt. Old-reader0192/0193/0194 fences pass.
 The60-turn synthesis cases are excluded from this diagnostic; broader exact-source
 contracts remain required. No deployment or release-qualified claim.
+
+Review cycle1 HOLD041: “Create the Maelthor page titled Ashbell” silently ignored
+the second naming clause. Reject an added called/named/titled/name/title clause
+on the new form, even when both names happen to match; require one unambiguous
+name. Original grammar remains untouched. Add10 clause/equal/conflicting cases.

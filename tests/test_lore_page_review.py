@@ -320,3 +320,10 @@ def test_title_before_page_is_an_explicit_author_witness(instruction, title):
 def test_new_title_form_does_not_grant_ambiguous_or_multiple_destinations(instruction):
     with pytest.raises(ValueError):
         explicit_lore_page_witness(instruction, conversational=True)
+
+
+@pytest.mark.parametrize('clause', ['titled', 'named', 'called', ', titled', 'with the title'])
+@pytest.mark.parametrize('title', ['Ashbell', 'Maelthor'])
+def test_title_before_page_rejects_an_additional_naming_clause(clause, title):
+    with pytest.raises(ValueError, match='multiple naming clauses'):
+        explicit_lore_page_witness(f'Create the Maelthor page {clause} "{title}".')

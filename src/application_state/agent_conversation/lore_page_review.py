@@ -84,6 +84,10 @@ def _explicit_request(author_text: str, *, conversational: bool = False) -> tupl
     request = requests[0]
     subject = request["subject"].strip()
     named_before_page = request.re is _NAMED_PAGE_REQUEST
+    if named_before_page and re.match(
+            r'\s*(?:[,—:-]\s*)?(?:(?:called|named|titled)\b|with\s+(?:(?:a|the)\s+)?(?:name|title)\b)',
+            author_text[request.end():], re.IGNORECASE):
+        raise ValueError("Lore page request has multiple naming clauses. Quote one intended title.")
     if named_before_page or subject.startswith(('"', "“", "'")):
         if re.match(r"\s+(?:and|or)\s+(?!(?:populate|fill|leave|keep)\b)",
                     author_text[request.end():], re.IGNORECASE):
