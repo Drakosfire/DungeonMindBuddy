@@ -1,6 +1,9 @@
 # DOGFOOD: acquire requested background while preserving conversation reuse
 
-ACTIVE. Alan's full writer/context cleanup goal authorizes DOGFOOD to own this
+MERGED: PR4553 at195a6e0d31e2fa04f30bd4d0c958436f9b32e0ce after independent
+exactbca source/semantic/history and bounded merge PASS. This implementation
+lease is released to writer-serving-adoption; no deployment claimed.
+Alan's full writer/context cleanup goal authorizes DOGFOOD to own this
 serial source-choice correction. Base5428c5bd90545e8fc622eaaf903ea80515162859,
 merged PR4549; branch codex/dogfood-background-source-choice in the existing
 isolated dogfood-lore-review checkout. No unmerged parent. Current remote
