@@ -68,6 +68,14 @@ class BuildProseBoundaryCatalog(StrictModel):
             before_text_sha256=_digest(passage.passage),
         )
 
+    def target_at_caret(self, caret: int) -> BuildProseBoundaryTarget | None:
+        for passage in self.passages:
+            if caret == passage.before + 1:
+                return self.target(passage.alias, "insert_before")
+            if caret == passage.after - 1:
+                return self.target(passage.alias, "insert_after")
+        return None
+
 
 def freeze_build_prose_catalog(
     basis: BuildProposalBasis, editor_json: str, draft: str,
