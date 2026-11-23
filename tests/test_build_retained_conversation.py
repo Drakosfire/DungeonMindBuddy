@@ -365,14 +365,15 @@ def test_late_prior_completion_is_not_hidden_by_a_newer_retained_prefix(lane, tm
     assert selections == [((1,), False), ((1, 2, 3), False)]
 
 
-@pytest.mark.parametrize('boundary', ['admission', 'writer'])
-def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_path, monkeypatch, boundary):
+@pytest.mark.parametrize('boundary,discussion', [('admission', False), ('writer', False), ('admission', True), ('writer', True), ('writer_roundtrip', True)])
+def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_path, monkeypatch, boundary, discussion):
     from tests.test_surface_native_build_ordinary import _fresh_case
     from application_state.agent_conversation import AgentConversationService
-    synthesis = 'Create a page titled "Glass Regent" from our conversation.'
+    synthesis = ('Recap our conversation without another search.' if discussion
+                 else 'Create a page titled "Glass Regent" from our conversation.')
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
         native_body='irrelevant',
-        requested_work=lambda message: 'review_lore_page_from_conversation' if message == synthesis else 'discuss',
+        requested_work=lambda message: ('discuss' if discussion else 'review_lore_page_from_conversation') if message == synthesis else 'discuss',
         source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup')
     case.request['build_authored_references'] = None
     method = 'admit_build_prior_body_evidence' if boundary == 'admission' else 'authorize_native_writer'
@@ -386,6 +387,15 @@ def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_pa
                 command_id=uuid4(), expected_pointer_revision=pointer.revision,
                 expected_active_conversation_id=conversation))
             resets.append(receipt)
+            if boundary == 'writer_roundtrip':
+                moved = owner.get_world_pointer(world)
+                owner.reopen_conversation(t.ReopenCommand(world_id=world, command_id=uuid4(),
+                    expected_pointer_revision=moved.revision,
+                    expected_active_conversation_id=moved.active_conversation_id,
+                    conversation_id=conversation))
+                returned = owner.get_world_pointer(world)
+                assert returned.active_conversation_id == conversation
+                assert returned.revision > retained.admission(current.graph_context_execution).pointer_revision
         return original(owner, world, conversation, turn_id, **values)
     monkeypatch.setattr(AgentConversationService, method, reset_first)
     before = len(case.writer.calls)
@@ -394,7 +404,8 @@ def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_pa
     assert response.status_code in (409, 503), response.text
     assert len(resets) == 1
     assert len(case.writer.calls) == before
-    assert AgentConversationService().get_world_pointer(case.world).active_conversation_id != case.turn.conversation_id
+    pointer = AgentConversationService().get_world_pointer(case.world)
+    assert (pointer.active_conversation_id == case.turn.conversation_id) == (boundary == 'writer_roundtrip')
 
 
 def test_actual_mixed_unclaimed_completion_retains_approved_rules_dialogue_without_base_evidence(application_state_dsn):

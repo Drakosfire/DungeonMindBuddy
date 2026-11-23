@@ -2346,7 +2346,7 @@ class AgentConversationService:
             retained = conn.execute(
                 "SELECT 1 FROM agent.turn WHERE world_id=%s AND turn_id=%s "
                 "AND graph_context_execution @? "
-                "'$.events[*] ? (@.kind == \"build_prior_body_evidence_admitted_v2\")'",
+                "'$.events[*] ? (@.kind == \"build_prior_body_evidence_admitted_v2\" || @.kind == \"build_prior_body_evidence_admitted_v3\")'",
                 (world_id, turn_id),
             ).fetchone()
             if retained:
