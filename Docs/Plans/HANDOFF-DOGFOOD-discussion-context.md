@@ -99,3 +99,12 @@ to the historical format7 (with recomputed envelope/accounting) is rejected by
 APP admission before writer I/O; the ordinary valid request then completes with
 typed native citations.1 actual HTTP check passed37.82s. This is stronger than
 checking format-selection source alone.
+
+Integrated605 world contract:527 passed,2 failures,2 skipped. Besides the inherited
+low-score image failure, the old deferred-provider-failure test expected a
+speculative Graph read to start before opening transport failed. The new source
+choice boundary intentionally prevents that acquisition. Amend the ordinary HTTP
+test lease to retain this owning failure test under the correct stronger invariant:
+failed opening =>503/interrupted, zero writer calls, zero Graph starts. Do not
+delete the test or hide its old failing result. Ingestion913/9skip and saved
+562/31baselinefail remain605 results only. Exact corrected-head suites required.
