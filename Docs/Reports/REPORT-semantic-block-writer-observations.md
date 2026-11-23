@@ -774,3 +774,29 @@ confirmed completion, pinned Plan revision 4, a matching adopted content
 digest, and an unedited Run at revision 1 with edition revision 0. The
 Run had zero scene edit proposals and zero committed edition revisions.
 This is one end-to-end PL02 pass on a fresh Run from the reused P01 Plan.
+
+### Hosted Build selected rewrite on a5c7599c
+
+On the existing illustrated Buddy Cloud Pilot Build fixture
+`526ee2a9-8339-4ae1-b23e-df894cafc537`, a fresh conversation used the exact
+B02 request after selecting the complete First sight Read Aloud body.
+The clipboard matched all 132 characters, including the final period, and
+retained turn `fefdc366-b2d1-4887-bd71-d8e72e536025` confirmed the same
+selection length, final character, and native writer authorization.
+
+The preview offered two quieter sentences and left the page unchanged
+before Save. After Save and cold reopen, the document reported Saved.
+The ordered comparison contained 18 rendered blocks before and after.
+Only the First sight block body differed, preserving its Read Aloud kind
+and title, the other callouts, Departure text, table and loaded artwork.
+This is one pass in a fresh conversation on the reused protected fixture.
+
+The B03 insertion control on the same release stopped before the writer
+in two turns, `233518c4-3578-4605-9e2e-cfd0872ba383` and
+`e7075447-02db-4d0f-b59f-3e76a400f01d`. Both retained the same collapsed
+caret and selected current-page insertion. The offered placement required
+an existing paragraph and a before/after relation. Both dispositions
+were unresolved, and no writable proposal appeared or changed the page.
+[Buddy #4485](https://github.com/Drakosfire/DungeonMindBuddy/pull/4485)
+adds the captured caret option for an unqualified insertion. Its hosted
+B03 proposal, Save, and cold-reopen proof remains pending.
