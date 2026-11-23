@@ -59,13 +59,19 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
         "page_body": "Replace the whole page with a paragraph about a copper lamp.",
         "different": "On the separate Lanterns page, add a line after the orchid paragraph in East.",
     }.get(boundary_scope, f"After the orchid paragraph{location}, add a line about a copper lamp.")
-    callouts = (
-        "> [!READ-ALOUD] Watchtower\n> A copper lamp glows in the window.\n\n"
-        "> [!GM-NOTE] Signal\n> Keep its meaning private."
-    ) if boundary_scope == "mixed" else None
+    proposal_markdown = {
+        "mixed": (
+            "> [!READ-ALOUD] Watchtower\n> A copper lamp glows in the window.\n\n"
+            "> [!GM-NOTE] Signal\n> Keep its meaning private."
+        ),
+        "caret": (
+            "The station replaces loose planks at dawn.\n\n"
+            "Its crew checks the supports where the marsh runs deepest."
+        ),
+    }.get(boundary_scope)
     _fresh_case(
         lane, tmp_path, monkeypatch, None, True, False, True, contextual=boundary_scope,
-        message=message, proposal_markdown=callouts,
+        message=message, proposal_markdown=proposal_markdown,
     )
 
 

@@ -30,11 +30,12 @@ BOUNDARY_CALLOUT = "> [!READ-ALOUD] Crossing\n> A second lantern lights up."
 
 
 @pytest.mark.parametrize("markdown", [
+    "The station replaces loose planks.\n\nIts crew checks the supports.",
     BOUNDARY_CALLOUT,
     "One moment later.\n\n" + BOUNDARY_CALLOUT
     + "\n>\n> The reeds part.\n\n> [!GM-NOTE] Wait\n> Keep the gate closed.",
 ])
-def test_build_boundary_output_accepts_callout_fragments(markdown):
+def test_build_boundary_output_accepts_prose_and_callout_fragments(markdown):
     assert normalize_boundary_proposal_output(_boundary_output(markdown)).replacement_markdown == markdown
 
 
@@ -48,7 +49,9 @@ def test_build_boundary_output_accepts_callout_fragments(markdown):
     BOUNDARY_CALLOUT + "\n\n" + TABLE,
     BOUNDARY_CALLOUT + "\n\n![Image](https://example.com/art.png)",
     BOUNDARY_CALLOUT + "\n\n[Graph object](dmb-node:fake)",
-    "Two paragraphs.\n\nStill two.",
+    "Ordinary prose.\n\n- A list item.",
+    "Ordinary prose.\n\n" + TABLE,
+    "Ordinary prose.\n\n![Image](https://example.com/art.png)",
 ])
 def test_build_boundary_output_rejects_unsupported_fragments(markdown):
     with pytest.raises(ValidationError, match="build_compose_(?:boundary|unsupported)"):
