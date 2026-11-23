@@ -1190,14 +1190,23 @@ describe("semantic callouts in ordinary Plan Save", () => {
       expected: markdown.replace(originalBody, rewrittenBody) },
     { label: "Warning after the paragraph", text: arrival, caret: true, proposal: warning,
       expected: markdown.replace(arrival, `${arrival}\n\n${warning}`) },
-    { label: "nested Read Aloud rewrite", text: originalBody, caret: false,
+    { label: "matching Read Aloud wrapper", text: originalBody, caret: false,
+      proposal: `${readAloud}\n> ${rewrittenBody}`, expected: markdown.replace(originalBody, rewrittenBody) },
+    { label: "different Read Aloud title", text: originalBody, caret: false,
+      proposal: `> [!READ-ALOUD] Changed title\n> ${rewrittenBody}`, expected: null },
+    { label: "different callout kind", text: originalBody, caret: false,
+      proposal: `> [!GM-NOTE] First sight\n> ${rewrittenBody}`, expected: null },
+    { label: "wrapped partial selection", text: "Mist hangs low", caret: false,
       proposal: `${readAloud}\n> ${rewrittenBody}`, expected: null },
+    { label: "wrapped multi-paragraph replacement", text: originalBody, caret: false,
+      proposal: `${readAloud}\n> ${rewrittenBody}\n>\n> Another paragraph.`, expected: null },
   ])("$label preserves the mounted Plan until a valid Save", async ({ text, caret, proposal, expected }) => {
     const { editor, state } = mountedState(markdown);
     const current = worldState(state);
     let from = -1;
     editor.state.doc.descendants((node, position) => {
-      if (node.isText && node.text === text) from = position;
+      const offset = node.isText ? node.text?.indexOf(text) : undefined;
+      if (offset !== undefined && offset >= 0) from = position + offset;
     });
     expect(from).toBeGreaterThan(0);
     const to = from + text.length;
