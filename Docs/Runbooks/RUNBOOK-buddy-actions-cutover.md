@@ -1,4 +1,4 @@
-# Manually deploy a staged Buddy image from GitHub Actions
+# Publish and deploy a Buddy image from GitHub Actions
 
 Use this for a reviewed image-only release on the existing production Compose
 configuration. Use the [production runbook](RUNBOOK-buddy-production-deployment.md)
@@ -24,6 +24,19 @@ retain the separate paired backup rehearsal and migration procedure.
    ```sudoers
    buddy-deploy ALL=(root) NOPASSWD: /usr/local/sbin/activate-buddy-release
    ```
+
+   Install the reviewed staging command separately for the root operator.
+   From a trusted copy of the pinned deployment source, use:
+
+   ```bash
+   sudo install -o root -g root -m 0755 deploy/production/activate-buddy-release /usr/local/sbin/activate-buddy-release
+   sudo install -o root -g root -m 0755 deploy/production/stage-buddy-release /usr/local/sbin/stage-buddy-release
+   sha256sum deploy/production/{activate,stage}-buddy-release /usr/local/sbin/{activate,stage}-buddy-release
+   ```
+
+   Verify the paired checksums and preserve the previous activator for host
+   recovery. Install during a coordinated maintenance window with no other
+   Buddy deployment running.
 
 2. Create /etc/buddy-deploy and its releases subdirectory as root:root with
    mode 0700. Install compose.conf as root:root, mode 0600. This Bash file
@@ -56,13 +69,39 @@ retain the separate paired backup rehearsal and migration procedure.
    to the independently verified host-key line for that exact name. Set the
    environment secret BUDDY_DEPLOY_KEY to the dedicated private key.
 
-## Approve and activate one release
+4. Restrict the separate `buddy-image-release` environment to the `main`
+   branch and set its `BUDDY_IMAGE_PUBLICATION_ENABLED` variable to `true`.
+   This environment needs no production SSH key.
 
-Stage the exact reviewed candidate image. Verify its readiness on the current
-schema separately, then record the currently serving healthy image as the
-compatible rollback. Both images must already exist on the host. Create
-/etc/buddy-deploy/releases/<full-candidate-sha>.conf as root:root, mode 0600
-with the verified values for this cutover:
+## Publish and approve one release
+
+Run **Publish Buddy release image** on GitHub Actions from `main`, with the
+full reviewed first-parent commit as `revision`. Copy the immutable registry
+reference from the successful run summary. The image uses the default guest
+build configuration. Derive the expected local image ID from the manifest:
+
+```bash
+candidate_image_id=$(docker buildx imagetools inspect --raw "$registry_ref" |
+  python3 -c 'import json,sys; print(json.load(sys.stdin)["config"]["digest"])')
+registry_digest=${registry_ref##*@}
+```
+
+Set `registry_digest` to the `sha256:…` portion of that registry reference.
+Verify the candidate's compatibility with the current schema and data.
+Record the currently serving healthy image as the compatible rollback.
+The rollback image must already be tagged and present on the host. Using
+the approved values, the root operator stages the image and both pins:
+
+```bash
+sudo /usr/local/sbin/stage-buddy-release \
+  "$revision" "$registry_digest" "$candidate_image_id" \
+  "$rollback_revision" "$rollback_image_id"
+```
+
+The command pulls by registry digest, verifies the candidate and rollback
+identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`
+under the deployment lock. Confirm the resulting `BUDDY_STAGED` receipt.
+Release records contain these literal fields:
 
 ```bash
 candidate_tag=dungeonmindbuddy:<full-candidate-sha>
@@ -70,7 +109,10 @@ candidate_id=sha256:<candidate-image-id>
 rollback_revision=<full-current-serving-sha>
 rollback_tag=dungeonmindbuddy:<full-current-serving-sha>
 rollback_id=sha256:<current-serving-image-id>
+registry_digest=sha256:<immutable-registry-manifest-digest>
 ```
+
+## Activate and verify
 
 Dispatch **Deploy Buddy (image only)** from main with the candidate SHA.
 It waits for the fixed Buddy service to become ready, with pulling and building
