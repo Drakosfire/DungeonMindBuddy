@@ -59,13 +59,19 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
         "page_body": "Replace the whole page with a paragraph about a copper lamp.",
         "different": "On the separate Lanterns page, add a line after the orchid paragraph in East.",
     }.get(boundary_scope, f"After the orchid paragraph{location}, add a line about a copper lamp.")
-    callouts = (
-        "> [!READ-ALOUD] Watchtower\n> A copper lamp glows in the window.\n\n"
-        "> [!GM-NOTE] Signal\n> Keep its meaning private."
-    ) if boundary_scope == "mixed" else None
+    proposal_markdown = {
+        "mixed": (
+            "> [!READ-ALOUD] Watchtower\n> A copper lamp glows in the window.\n\n"
+            "> [!GM-NOTE] Signal\n> Keep its meaning private."
+        ),
+        "caret": (
+            "The station replaces loose planks at dawn.\n\n"
+            "Its crew checks the supports where the marsh runs deepest."
+        ),
+    }.get(boundary_scope)
     _fresh_case(
         lane, tmp_path, monkeypatch, None, True, False, True, contextual=boundary_scope,
-        message=message, proposal_markdown=callouts,
+        message=message, proposal_markdown=proposal_markdown,
     )
 
 
@@ -1716,8 +1722,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
         if proposal_markdown is not None:
-            assert record.reservation.basis.caret == 1
-            edited = proposal_markdown + "\n\n" + draft.snapshot.draft_markdown
+            assert record.reservation.basis.caret == caret
+            if contextual == "caret":
+                before, protected_note, after = draft.snapshot.draft_markdown.partition("> [!GM-NOTE] Keep hidden")
+                assert protected_note
+                edited = before + proposal_markdown + "\n\n" + protected_note + after
+            else:
+                edited = proposal_markdown + "\n\n" + draft.snapshot.draft_markdown
             save_page(tmp_path, page.document_id, edited)
             reopened = get_workspace_document_snapshot(tmp_path, page.document_id)
             assert reopened.markdown == edited

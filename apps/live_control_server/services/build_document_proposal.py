@@ -476,8 +476,8 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         expected['instructions']+=AUTHORING_GUIDANCE
     if contextual:
         expected["instructions"] += (
-            "\nThe paragraph boundary is fixed by the host. Write one ordinary paragraph, or a fragment "
-            "of semantic callouts with any accompanying prose. Use only prose paragraphs inside each callout. "
+            "\nThe paragraph boundary is fixed by the host. Write ordinary paragraphs, semantic callouts, "
+            "or both, as requested. Use only prose paragraphs inside each callout. "
             "Leave the existing passage intact. Use target prose_target and destination current_page."
         )
     elif (target := _native_page_target(_native_context)) is not None:
