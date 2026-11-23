@@ -362,9 +362,10 @@ class PlanJevWriter:
                 variant_format = bool(not rule_frame.lookups and variant_sources(self.work_frame))
                 if variant_format:
                     format_version = variant_output_version(self.work_frame)
-                elif not rule_frame.lookups and any(
-                    is_anchored_discussion(event) for event in turn.graph_context_execution.events
-                ):
+                elif (not rule_frame.lookups
+                        and not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV3)
+                                    for event in turn.graph_context_execution.events)
+                        and any(is_anchored_discussion(event) for event in turn.graph_context_execution.events)):
                     format_version = 7
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
@@ -409,18 +410,24 @@ class PlanJevWriter:
                 )}]
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
-        self.messages = [
+        from application_state.agent_conversation.retained_conversation import dialogue_messages
+        retained_dialogue = dialogue_messages(turn.graph_context_execution) if self.shared else None
+        if retained_dialogue is not None:
+            from application_state.agent_conversation.retained_conversation import require_current_presentation
+            require_current_presentation(turn.graph_context_execution)
+        self.messages = (retained_dialogue if retained_dialogue is not None else [
             {"role": item["role"], "content": canonical_bytes({"conversation": item["content"]}).decode()}
             for item in dialogue
-        ] + self.messages
+        ]) + self.messages
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
         from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
-        conversation_draft = self.shared and native_conversation_terminal(turn) is not None
-        self.reasoning_effort = "medium" if single_variant_base or conversation_draft else "low"
+        conversation_draft = (self.shared and native_conversation_terminal(turn) is not None
+            and self.provider_work.get("build_work", {}).get("requested_work", {}).get("requested_work") == "review_lore_page_from_conversation")
+        self.reasoning_effort = "medium" if single_variant_base else "none" if conversation_draft else "low"
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
@@ -518,6 +525,17 @@ class PlanJevWriter:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
 
                 self.instructions += "\n" + VARIANT_BASE.text
+        if retained_dialogue is not None:
+            self.instructions += (
+                    '\nThe supplied dialogue is chronological. Preserve later corrections and '
+                    'retractions over earlier proposals. Retained authored context is an exact '
+                    'historical read or working draft, not the current saved page or played truth. '
+                    'Use its relevant setting details with clear attribution, separately from '
+                    'later invented directions and unresolved questions. Do not omit supplied '
+                    'context because it was absent from an earlier assistant summary. Native '
+                    'passages are already supplied; select their offered handles without '
+                    'claiming a new search or inventing citations.'
+                )
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False

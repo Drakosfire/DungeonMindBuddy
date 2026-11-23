@@ -212,10 +212,18 @@ _RETAINED_SOURCE_NEED_GUIDANCE = (
     "Choose uncertain if the request cannot safely be answered from the anchored material alone."
 )
 
-SOURCE_NEED_GUIDANCE = _RETAINED_SOURCE_NEED_GUIDANCE + (
+_PAGE_SOURCE_NEED_GUIDANCE = _RETAINED_SOURCE_NEED_GUIDANCE + (
     " When the user asks to turn existing material into a draft, choose anchored if the draft can faithfully "
     "record the known material and leave disagreements or questions open. A gap in the story is not by "
     "itself a request to investigate; choose source_lookup when the task calls for fresh evidence."
+)
+
+
+SOURCE_NEED_GUIDANCE = _PAGE_SOURCE_NEED_GUIDANCE + (
+    " A recap, comparison or discussion of material already discussed is anchored when the author "
+    "requests reuse or no new search. Use the retained conversation and reads, preserving attribution, "
+    "corrections and uncertainty. Unresolved questions do not require another search unless the author "
+    "asks to resolve them using fresh evidence. An explicit fresh lookup remains source_lookup."
 )
 
 
@@ -229,7 +237,7 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
         return None
     expected = {"type": "choice", "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
     if question not in (expected | {"instructions": guidance}
-                        for guidance in (SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
+                        for guidance in (SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
         raise ValueError("Build source scope differs from its offered decision")
     return _selected_choice(
         response["answers"]["source_need"], SOURCE_NEED_OPTIONS,

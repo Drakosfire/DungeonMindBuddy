@@ -5,7 +5,7 @@ from uuid import UUID
 
 _OPTIONAL = frozenset({'working_draft_context', 'response_contract', 'captured_editor',
     'reviewed_discussion_scope', 'plan_output_contract', 'related_authored_pages',
-    'authored_references', 'saved_statblocks'})
+    'authored_references', 'saved_statblocks', 'retained_authored_context'})
 
 
 def selection_aliases(host):
@@ -108,6 +108,8 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
     work = {'source_class': 'authored_context_not_played_events',
         'visibility': host['source_basis']['visibility'],
         'saved_sections': [section(row) for row in host['artifact_under_edit']['sections']]}
+    if 'retained_authored_context' in host:
+        work['retained_authored_context'] = deepcopy(host['retained_authored_context'])
     if 'working_draft_context' in host:
         draft = host['working_draft_context']
         work['current_draft'] = {'selection': aliases[draft['record_id']],

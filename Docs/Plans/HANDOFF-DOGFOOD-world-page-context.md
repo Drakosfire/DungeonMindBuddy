@@ -2,14 +2,15 @@
 
 SETTLED: PR4458 merged into the dedicated release base at497d7ba9. Alan
 explicitly authorized the combined activation, superseding the pending COMBAT
-3a6 command. Exact d08e4468/image5f2afe is now healthy in production; no schema,
+3a6 command. Exact d08e4468/image5f2afe was observed healthy in production; no schema,
 grants or data changes. Created World page reopened with admitted context and
 answered the next ordinary request correctly. Source/operator independent PASS;
 exact hosted1474/buildPASS validated; discovered8520/102/2 has exact serving
 baseline failed identities, no new failures, remains red.
 
-The full goal continues in HANDOFF-DOGFOOD-authored-context-coverage.md because
-the first conversation-page draft still omits earlier authored setting.
+The subsequent authored-setting omission was delivered and verified by PR4461
+at590e45a2. HANDOFF-DOGFOOD-authored-context-coverage.md records final actual-app
+acceptance and remaining out-of-path gaps; no runtime lease remains here.
 
 Original assignment under Alan's instruction to finish the actual-app conversation/page flow.
 Owner DOGFOOD. Actual47d41c acceptance created/reviewed/saved/reopened one correct

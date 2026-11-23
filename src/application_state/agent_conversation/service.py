@@ -2333,11 +2333,34 @@ class AgentConversationService:
         from .native_execution import NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
         if type(authorization) not in NATIVE_WRITER_TYPES:
             raise ApplicationStateValidationError("The concrete shared writer authorization is required")
-        return self._append_graph_execution_event(world_id,conversation_id,turn_id,
-            expected_revision=expected_revision,expected_attempt=expected_attempt,event=authorization,
-            duplicate_key='provider_attempt_id',plan_authoring_reservation=authoring_reservation,
+        arguments = dict(expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key='provider_attempt_id',
+            plan_authoring_reservation=authoring_reservation,
             native_writer_proof=dict(prepared_request_json=prepared_request_json,work_proof=work_proof,
                 expected_rules_revision=expected_rules_revision))
+        from .native_execution import NativeBuildWriterAuthorizedV2
+        if type(authorization) is not NativeBuildWriterAuthorizedV2:
+            return self._append_graph_execution_event(world_id, conversation_id, turn_id, **arguments)
+        from .retained_conversation import admission
+        with unit_of_work(_ready_dsn()) as conn:
+            retained = conn.execute(
+                "SELECT 1 FROM agent.turn WHERE world_id=%s AND turn_id=%s "
+                "AND graph_context_execution @? "
+                "'$.events[*] ? (@.kind == \"build_prior_body_evidence_admitted_v2\" || @.kind == \"build_prior_body_evidence_admitted_v3\")'",
+                (world_id, turn_id),
+            ).fetchone()
+            if retained:
+                pointer = repo.lock_world_state(conn, world_id)
+                conversation = repo.lock_conversation(conn, world_id, conversation_id)
+                current = repo.lock_turn(conn, world_id, turn_id)
+                value = admission(current.graph_context_execution) if current is not None else None
+                if (pointer is None or pointer.active_conversation_id != conversation_id
+                        or conversation is None or conversation.status != "active"
+                        or value is None or pointer.revision != value.pointer_revision):
+                    raise ApplicationStateConflictError("Retained writer lost its active conversation fence")
+                return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+                    _connection=conn, **arguments)
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id, **arguments)
 
     def authorize_plan_jev_writer(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, producer_proof, authoring_reservation=None):
@@ -2484,93 +2507,39 @@ class AgentConversationService:
 
     def admit_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
-        from collections import Counter
-        from hashlib import sha256
-        from .native_corpus import (
-            PriorBodyCitationReferenceV1, conversation_route_can_admit, prior_body_writer_supports,
-            prior_conversation_work, resolve_prior_body_citation,
-        )
+        from .native_corpus import conversation_route_can_admit, prior_conversation_work
         from .native_reads import _owner
-        from .types import BuildPriorBodyEvidenceAdmittedV1, PriorBodyCitationSupportV1
-        from .rules_authority_types import canonical_sha256
+        from .retained_conversation import capture
 
         def produce(conn, current):
             receipt, execution = _owner(current)
-            history = getattr(receipt.assembled_input, "included_history", ())
-            history_turn_ids = {pin.turn_id for pin in history}
-            work = prior_conversation_work(execution.events)
+            work = prior_conversation_work(execution.events, allow_discussion=True)
             pointer = repo.get_world_state(conn, current.world_id)
             if (work is None or not conversation_route_can_admit(receipt, execution)
-                    or pointer is None or pointer.active_conversation_id != current.conversation_id
-                    or len(history) > 6 or len(history_turn_ids) != len(history)):
-                raise ValueError("Prior body evidence requires the current Build conversation")
-            supports = {}
-            for pin in history:
-                prior_id = pin.turn_id
-                prior = repo.get_turn(conn, current.world_id, prior_id)
-                if (prior is None or prior.assistant_text is None
-                        or sha256(prior.assistant_text.encode()).hexdigest() != pin.answer_sha256):
-                    raise ValueError("Frozen Build history turn is unavailable or changed")
-                if isinstance(prior, MixedCompletedTurnV1):
-                    if prior.base_projection.kind != "approved":
-                        continue
-                    prior = prior.base_projection.turn
-                completion = getattr(prior, "completion", None)
-                citations = getattr(completion, "native_body_citations", ())
-                if not citations:
-                    continue
-                completion_digest = canonical_sha256(completion)
-                citation_counts = Counter(citation.segment_index for citation in citations)
-                for ordinal, citation in enumerate(citations):
-                    reference = citation.prior_reference
-                    if reference is None:
-                        reference = PriorBodyCitationReferenceV1(turn_id=prior_id,
-                            completion_sha256=completion_digest, citation_index=ordinal)
-                        claim, passage = resolve_prior_body_citation(current, prior, reference,
-                            history_turn_ids=history_turn_ids)
-                        support = PriorBodyCitationSupportV1(reference=reference,
-                            original_citation=citation, claim_text=claim, passage=passage)
-                    else:
-                        support = next((item.support for item in prior_body_writer_supports(
-                            prior.graph_context_execution) if item.support.reference == reference), None)
-                        if support is None:
-                            raise ValueError("Carried citation lacks its producing admission")
-                        origin = repo.get_turn(conn, current.world_id, reference.turn_id)
-                        if origin is None:
-                            raise ValueError("Carried citation origin is unavailable")
-                        claim, passage = resolve_prior_body_citation(prior, origin, reference,
-                            history_turn_ids={reference.turn_id})
-                        if (claim, passage) != (support.claim_text, support.passage):
-                            raise ValueError("Carried citation changed its exact original support")
-                    extent = (citation.source_artifact_id, citation.native_source_revision_id,
-                        citation.content_sha256, citation.section_id, citation.excerpt_sha256)
-                    # Prefer a claim with one cited passage over broader
-                    # compound claims that selected the same extent.
-                    rank = (citation_counts[citation.segment_index], -prior.sequence, ordinal)
-                    if extent not in supports or rank < supports[extent][0]:
-                        supports[extent] = (rank, support)
-            def redundant(rank, support):
-                citation = support.original_citation
-                for other_rank, other in supports.values():
-                    alternative = other.original_citation
-                    if (other_rank[0] < rank[0]
-                            and (alternative.source_artifact_id, alternative.native_source_revision_id,
-                                 alternative.content_sha256) == (
-                                 citation.source_artifact_id, citation.native_source_revision_id,
-                                 citation.content_sha256)
-                            and alternative.line_start <= citation.line_start
-                            and alternative.line_end >= citation.line_end
-                            and support.passage in other.passage):
-                        return True
-                return False
+                    or pointer is None or pointer.active_conversation_id != current.conversation_id):
+                raise ValueError("Retained context requires the current Build conversation")
 
-            return BuildPriorBodyEvidenceAdmittedV1(event_id=event_id,
-                sequence=len(execution.events), work_event_id=work.event_id,
-                supports=tuple(support for rank, support in supports.values() if not redundant(rank, support)))
+            # Existing saved-section readers own immutable historical snapshots
+            # under World/turn authorization; they do not reread today's page.
+            # Current page availability/ownership is not a second read grant.
+            turns, seed = repo.list_retained_build_turns(conn, current)
+            return capture(current, turns, seed=seed,
+                event_id=event_id, work_event_id=work.event_id,
+                pointer_revision=pointer.revision, discussion=work.requested_work == "discuss")
 
-        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
-            expected_revision=expected_revision, expected_attempt=expected_attempt,
-            event=None, duplicate_key="event_id", native_source_materializer=produce)
+        # Match reset's World -> conversation -> turn lock order. Holding only
+        # the turn would let a reset race the pointer check or deadlock later.
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = repo.lock_world_state(conn, world_id)
+            conversation = repo.lock_conversation(conn, world_id, conversation_id)
+            if (pointer is None or pointer.active_conversation_id != conversation_id
+                    or conversation is None or conversation.status != "active"):
+                raise ApplicationStateConflictError("Retained context lost its active conversation")
+            return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt,
+                event=None, duplicate_key="event_id", native_source_materializer=produce,
+                _connection=conn)
 
     def capture_native_authored_references(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):

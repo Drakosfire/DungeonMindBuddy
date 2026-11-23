@@ -563,3 +563,55 @@ def test_corpus_rejects_missing_batched_provenance(lane, monkeypatch):
         lambda *args, **kwargs: SimpleNamespace(get_artifact=lambda _: None, get_revision=lambda _: None))
     with pytest.raises(ValueError, match="Authorized native corpus provenance is unavailable"):
         capture(lane, prepared=prepared)
+
+
+def test_default_source_context_caches_only_immutable_revision_and_refreshes_access(lane, monkeypatch):
+    from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
+    receipt = admit(lane)
+    factories, resolutions = [], []
+    def repository(*, read_only=False):
+        factories.append(read_only)
+        assert not read_only
+        return lane.repo
+    monkeypatch.setattr(owner, 'turn_source_repository', repository)
+    monkeypatch.setattr(owner, 'turn_parsed_revision_cache', NativeParsedRevisionCache())
+    def resolve(world):
+        resolutions.append(world)
+        return lane.bound
+    first_principal = SimpleNamespace(role='gm', managed_world_id='managed')
+    next_principal = SimpleNamespace(role='gm', managed_world_id='managed')
+    first = owner.prepare_native_source_context(managed_world_id='managed',
+        principal=first_principal, resolve_identity=resolve)
+    second = owner.prepare_native_source_context(managed_world_id='managed',
+        principal=next_principal, resolve_identity=resolve)
+    assert first.access.parsed is second.access.parsed
+    assert first.access.source_view is not second.access.source_view
+    assert first.access is not second.access
+    assert first.principal is first_principal and second.principal is next_principal
+    assert factories == [False, False] and resolutions == ['managed'] * 4
+    evidence = receipt.bindings[0].evidence_ref_id
+    assert owner.open_native_corpus_member(second, evidence) is not None
+    lane.repo.withdraw_native_source(space_id=lane.bound.native_world_id,
+        source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id)
+    withdrawn = owner.prepare_native_source_context(managed_world_id='managed',
+        principal=next_principal, resolve_identity=resolve)
+    assert withdrawn.access.parsed is second.access.parsed
+    assert withdrawn.authority.acquisition_epoch > second.authority.acquisition_epoch
+    assert owner.open_native_corpus_member(withdrawn, evidence) is None
+    admit(lane, 'later')
+    latest = owner.prepare_native_source_context(managed_world_id='managed',
+        principal=next_principal, resolve_identity=resolve)
+    assert latest.authority.revision_id != first.authority.revision_id
+    assert latest.access.parsed is not first.access.parsed
+    before = (len(factories), len(resolutions))
+    for principal in (SimpleNamespace(role='player', managed_world_id='managed'),
+                      SimpleNamespace(role='gm', managed_world_id='foreign')):
+        with pytest.raises(ValueError):
+            owner.prepare_native_source_context(managed_world_id='managed',
+                principal=principal, resolve_identity=resolve)
+    assert before == (len(factories), len(resolutions))
+    with pytest.raises(ValueError, match='ownership differs'):
+        owner.prepare_native_source_context(managed_world_id='managed', principal=next_principal,
+            resolve_identity=lambda _: SimpleNamespace(managed_world_id='foreign'))
+    assert len(factories) == before[0]
