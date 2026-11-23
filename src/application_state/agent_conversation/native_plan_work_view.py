@@ -15,6 +15,7 @@ def is_semantic_frame(frame):
 def semantic_frame(host, execution, *, supplied_source_references=False):
     """Project explicit field roles, without changing bodies or host selectors."""
     from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA
+    from .model_markdown import project_retained_source_markdown
     if host.get('schema') != NATIVE_WORK_SCHEMA:
         raise ValueError('Semantic Plan work requires its existing host frame')
     if set(host) - (REQUIRED | {'schema', 'current_page_draft', 'focused_edit_target', 'authored_references', 'related_authored_pages'}):
@@ -66,7 +67,8 @@ def semantic_frame(host, execution, *, supplied_source_references=False):
         view['selected_references'] = references
     if 'related_authored_pages' in host:
         view['related_authored_pages'] = {'role': host['related_authored_pages']['role'],
-            'pages': [{'read_id': f'page{i}', 'title': row['page']['title'], 'markdown': row['markdown']}
+            'pages': [{'read_id': f'page{i}', 'title': row['page']['title'],
+                       'markdown': project_retained_source_markdown(row['markdown']) if supplied_source_references else row['markdown']}
                 for i,row in enumerate(host['related_authored_pages']['pages'])]}
         if supplied_source_references and view['related_authored_pages']['pages']:
             view['citation_policy'] = SOURCE_REFERENCE_POLICY

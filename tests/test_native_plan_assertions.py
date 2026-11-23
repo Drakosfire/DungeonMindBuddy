@@ -506,6 +506,10 @@ def _ordinary_native_case(
         lambda **_: ('openai-api','gpt-6-luna','https://api.openai.com/v1'))
     related_page = related_page or connected_review
     related_body = ('# Edge\n\nA fort town stands at the edge of the swamp. 🌿\n' if connected_review else '# Edge\n\nThe old bath house stands by the east gate. 🌿\n')
+    metadata_identity = str(uuid4())
+    if related_output_mutation == 'metadata_rich':
+        related_body += (f'\n[From Earlier notes](/build?world=retained-world&documentId={metadata_identity}) · saved revision 7, lines 5–5\n\n'
+                         f'Original PDF SHA-256: `{"a" * 64}`.\n')
     if related_page:
         from application_state.content import pages
         saved = pages.create_page(world_id=world,title='Saved Edge page',
@@ -641,6 +645,9 @@ def _ordinary_native_case(
     class Writer(WriterWire):
         async def handle_async_request(self, req):
             body = json.loads(req.content)
+            if related_output_mutation == 'metadata_rich':
+                assert metadata_identity not in req.content.decode()
+                assert 'a' * 64 not in req.content.decode()
             messages = [item['content'] for item in body['input'] if item['content'] != 'Return JSON.']
             prose = messages[-1] if messages[-1].startswith('# Plan evidence\n\n') else None
             if prose is None:
@@ -697,7 +704,9 @@ def _ordinary_native_case(
                     segments.append(dict(kind='native_body_claim', text='The source describes a source-local episode.',
                         excerpt_handles=[excerpt[1]]))
                 if related_page:
-                    assert f'## Saved reference · [page0] Saved Edge page\n{related_body}' in prose
+                    from application_state.agent_conversation.model_markdown import project_retained_source_markdown
+                    visible_body = project_retained_source_markdown(related_body) if body['text']['format']['name'] == 'surface_native_plan_source_references_v1' else related_body
+                    assert f'## Saved reference · [page0] Saved Edge page\n{visible_body}' in prose
                     assert str(saved.page.work_object_id) not in prose
                     if not connected_review:
                         segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
@@ -880,9 +889,10 @@ def _ordinary_native_case(
         return
     if failure is not None:
         assert response.status_code==503,response.text
-        if failure == 'retired_page_quotes':
+        if failure in {'retired_page_quotes', 'forged_page_packet'}:
             assert not wire.calls
-            assert 'Current Plan saved-page dispatch requires supplied source references' in getattr(wire, 'failure', '')
+            if failure == 'retired_page_quotes':
+                assert 'Current Plan saved-page dispatch requires supplied source references' in getattr(wire, 'failure', '')
             assert lane.repo.get_head(world) == original_head
             return
         if failure=='query_missing':
