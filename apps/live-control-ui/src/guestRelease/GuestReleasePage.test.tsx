@@ -380,6 +380,15 @@ it("fails closed when the released copy is unavailable", async () => {
   await waitFor(() => expect(screen.queryByTestId("graph-scene")).not.toBeInTheDocument());
 });
 
+it("shows a released point even when it has no relationships", async () => {
+  const isolated = { ...copy, manifest: { ...copy.manifest, graph: { nodes: [copy.manifest.graph.nodes[0]], edges: [] } } };
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session"
+    ? new Response(null, { status: 401 }) : new Response(JSON.stringify(isolated), { status: 200 })));
+  const { App } = await import("../App");
+  render(<App />);
+  expect(await screen.findByRole("button", { name: "Sizzek, npc" })).toBeInTheDocument();
+});
+
 it("unmounts the guest Graph when the visitor signs in", async () => {
   let signedIn = false;
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session"

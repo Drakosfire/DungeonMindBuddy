@@ -1965,7 +1965,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                     <SurfaceContextAction disabled={!graph.capabilities.create || !graph.capabilities.object_kinds.length || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
                     <SurfaceContextAction disabled={!canConnectGraph(graph) || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
                   </> : undefined,
-                  projectionOptions: { fullCorpus: true, compactOverview: !chronologyLayout && compactOverview, maxNodes: 512, maxEdges: 1024, focusObjectId: chronologyLayout ? null : viewFocusId, revealObjectIds: chronologyLayout?.eventIds as LocalObjectId[] | undefined, neighborhoodDepth },
+                  projectionOptions: { fullCorpus: true, compactOverview: !chronologyLayout && compactOverview, maxNodes: 512, maxEdges: 1024, focusObjectId: chronologyLayout ? null : viewFocusId, revealObjectIds: chronologyLayout?.eventIds as LocalObjectId[] | undefined, neighborhoodDepth, ...(mode === "guest" ? { showUnconnected: true } : {}) },
                   creationKinds,
                   onCanvasCreateRequest: !readOnly && graph.capabilities.create ? handleCanvasCreateRequest : undefined,
                   onConnectRequest: !readOnly && canConnectGraph(graph) ? handleConnectRequest : undefined,
