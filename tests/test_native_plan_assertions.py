@@ -426,7 +426,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None, related_output_mutation=None):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -757,6 +757,16 @@ def _ordinary_native_case(
             if connected_mutation=='alias':candidate['collaboration']['read_id']='page1'
             elif connected_mutation=='quote':candidate['collaboration']['quote']='A fabricated source passage.'
             elif connected_mutation=='kind':candidate['collaboration']['kind']='relationship'
+            if body['text']['format']['name'] == 'surface_native_plan_source_references_v1':
+                for segment in candidate['answer_segments']:
+                    if segment['kind'] == 'related_page_claim':
+                        segment.pop('supporting_quotes')
+                        if related_output_mutation == 'formatted_prose':
+                            segment['text'] = '“' + segment['text'] + '”'
+                        elif related_output_mutation in {'foreign', 'world_alias'}:
+                            segment['read_id'] = 'page999' if related_output_mutation == 'foreign' else 'body0'
+                        elif related_output_mutation == 'quote_field':
+                            segment['supporting_quotes'] = ['“The old bath house stands by the east gate. 🌿”']
             if mixed:
                 candidate={'kind':'rules_answer' ,'base_output':candidate,
                     'rules_segments':[{'kind':'rules_context','text':'No additional applicable rule is established.','category':'gap'}],
@@ -841,13 +851,16 @@ def _ordinary_native_case(
         wire_request=json.loads((directory/'request.json').read_text())
     else:
         response=client.post('/api/live/agent/turn',json=wire_request)
-    if connected_mutation:
+    if connected_mutation or related_output_mutation in {'foreign', 'world_alias', 'quote_field'}:
         assert response.status_code==503,response.text
         failed=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
         assert failed.status!='complete' and failed.completion is None
         assert lane.repo.get_head(world)==original_head
         from application_state.content.service import snapshot_content
-        assert snapshot_content(work.object_id).markdown==markdown
+        if related_output_mutation in {'foreign', 'world_alias', 'quote_field'}:
+            assert pages.committed_page(str(saved.page.work_object_id), world_id=world).revision.markdown == related_body
+        else:
+            assert snapshot_content(work.object_id).markdown==markdown
         return
     if failure and failure.startswith('selected_source_'):
         assert response.status_code==409,response.text+getattr(wire,'failure','')
@@ -867,6 +880,11 @@ def _ordinary_native_case(
         return
     if failure is not None:
         assert response.status_code==503,response.text
+        if failure == 'retired_page_quotes':
+            assert not wire.calls
+            assert 'Current Plan saved-page dispatch requires supplied source references' in getattr(wire, 'failure', '')
+            assert lane.repo.get_head(world) == original_head
+            return
         if failure=='query_missing':
             assert wire.adapter.fence is None and not wire.calls
             assert AgentConversationService().get_active_conversation(world) is None

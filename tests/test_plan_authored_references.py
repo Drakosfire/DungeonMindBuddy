@@ -107,3 +107,23 @@ def test_plan_new_page_rejects_unincluded_origin_or_other_collaboration(
         lane,tmp_path,monkeypatch,native_read_admission_probes,mutation):
     _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
         native_read_admission_probes,connected_review=True,connected_mutation=mutation)
+
+
+@pytest.mark.parametrize('mutation', ['formatted_prose', 'foreign', 'world_alias', 'quote_field'])
+def test_plan_supplied_page_references_keep_formatting_free_and_reject_unbound_output(
+        lane, tmp_path, monkeypatch, native_read_admission_probes, mutation):
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, None, False,
+        native_read_admission_probes, related_page=True, related_output_mutation=mutation)
+
+
+def test_fresh_plan_refuses_retired_page_quote_contract_before_writer_io(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    from application_state.agent_conversation import native_plan_work_view
+    historical_view = native_plan_work_view.semantic_frame
+
+    def retired_view(host, execution, **kwargs):
+        return historical_view(host, execution, supplied_source_references=False)
+
+    monkeypatch.setattr(native_plan_work_view, 'semantic_frame', retired_view)
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, 'retired_page_quotes', False,
+        native_read_admission_probes, related_page=True)
