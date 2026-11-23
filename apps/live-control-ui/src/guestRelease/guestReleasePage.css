@@ -38,6 +38,7 @@
   .guest-world__lines--mobile { display: block; }
   .guest-world__point { left: var(--point-mobile-x); top: var(--point-mobile-y); width: min(8.5rem, calc(100% / var(--graph-mobile-columns) - .6rem)); height: 7rem; grid-template-columns: minmax(0, 1fr); font-size: .8rem; }
   .guest-world__point strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+  .guest-world__point small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 .guest-world__example { margin: 2rem auto; padding: 1.5rem; border: 1px solid rgba(218, 181, 117, .35); border-radius: 1rem; background: rgba(19, 22, 25, .7); }
 .guest-world__example-body { white-space: pre-wrap; line-height: 1.7; overflow-wrap: anywhere; }
