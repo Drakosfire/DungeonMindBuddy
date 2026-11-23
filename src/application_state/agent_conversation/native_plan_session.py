@@ -24,7 +24,7 @@ from . import repository as repo
 from .native_execution import (
     NativePlanActionV2, NativePlanActionV3, NATIVE_PLAN_WORK_SELECTION_TYPES, NativeWriterAuthorizedV1, SurfaceNativeEvent,
     SurfaceNativeExecutionV1, _join_turn_fields, _join_turn_lifecycle,
-    _validate_owned_context_binding,
+    _locked_plan_read_turn, _validate_owned_context_binding,
 )
 from .native_record_execution import _OwnedRecordPrefix
 from .service import AgentConversationService, _ready_dsn, _validate_turn_claim_lease
@@ -102,7 +102,13 @@ class _SessionAdmission(AgentConversationService):
         # Only existing, closed read producers inspect the private materialized
         # prefix. Those owners detach each value passed to an external callback;
         # no generic callback receives the Turn, and no whole-history copy is needed.
-        produced = materialize(conn, turn)
+        if turn is not self._owner._committed:
+            raise ApplicationStateIntegrityError('Native read requires the guarded Plan Turn')
+        token = _locked_plan_read_turn.set(turn)
+        try:
+            produced = materialize(conn, turn)
+        finally:
+            _locked_plan_read_turn.reset(token)
         return tuple(_owned_event(e) for e in produced) if type(produced) is tuple else _owned_event(produced)
 
     def _bind_execution_append(self, context, execution):
