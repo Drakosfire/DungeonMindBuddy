@@ -333,4 +333,7 @@ def native_variants(frame, prose, *, local=False):
             if properties['kind'].get('const') in {'saved_source_claim', 'related_page_claim'}:
                 del properties['supporting_quotes']
                 variant['required'].remove('supporting_quotes')
+                if properties['kind'].get('const') == 'related_page_claim':
+                    properties['read_id']['description'] = ('Select the ONE supplied page supporting every factual '
+                        'clause in this segment. Split claims from different pages into separate segments.')
     return variants

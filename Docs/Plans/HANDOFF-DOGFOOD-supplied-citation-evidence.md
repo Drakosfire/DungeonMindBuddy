@@ -50,3 +50,10 @@ Replay audit checkpoint: actual fresh-page request contains owned navigation UUI
 New contract uses the existing structural retained-source Markdown projection for
 model-visible authored text too. Original reads/bytes and citation pins are intact;
 old requests retain their prior presentation. No regex scrub or new source owner.
+
+First live replay: binding/schema pass7.173s but semantic HOLD. One paragraph
+selected Edge while also describing another page; the Maelthor summary
+overgeneralized unresolved motives. Retain this failed sample. Current guidance
+requires each related claim be fully supported by its one selected page, splits
+cross-page claims, and distinguishes explicit motives from genuinely open details.
+No semantic acceptance or production activation is claimed from that sample.

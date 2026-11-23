@@ -535,7 +535,12 @@ class PlanJevWriter:
                 'for related_page_claim select the supplied local read_id. Buddy binds the exact '
                 'supplied read to the citation. Do not return supporting_quotes or recopy evidence '
                 'as a validation witness. Ground each claim in its selected source, preserve uncertainty, '
-                'and distinguish authored material from played events. Prose formatting is free.\n')
+                'and distinguish authored material from played events. Every factual clause in a '
+                'related_page_claim must be supported by its ONE selected page. Split claims that '
+                'draw on different pages into separate segments with their own references. Do not '
+                'declare a motive or choice unknown when the selected source states it explicitly; '
+                'qualify only the identity, mechanism or future actions that actually remain open. '
+                'Prose formatting is free.\n')
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '
