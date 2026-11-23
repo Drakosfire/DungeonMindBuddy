@@ -248,3 +248,30 @@ def test_build_writer_keeps_prior_gm_decisions_in_provider_messages():
              schema_name=writer.output_format["name"])
     provider = object.__new__(PlanWriterProvider)
     assert provider._request_kwargs(call)["input"] == writer.messages
+
+
+def test_build_status_guidance_reaches_the_actual_sdk_without_changing_plan_or_play():
+    build, record = staged('build')
+    assert _conversation_response_task(record) == 'build_discussion'
+    expected = compose_response_prompt(task='build_discussion', build_source_status=True)
+    assert build.instructions == expected.instructions
+    assert build.prompt_components == expected.manifest()
+    for surface in ('plan', 'play'):
+        other, _ = staged(surface)
+        assert 'next-session pickup or resume instruction' not in other.instructions
+    sent = []
+
+    async def run():
+        def wire(request):
+            sent.append(json.loads(request.content))
+            return httpx.Response(200, request=request, json={'id': 'synthetic', 'object': 'response',
+                'created_at': 1, 'model': build.model, 'status': 'completed', 'output': []})
+        async with AsyncOpenAI(api_key='synthetic-not-secret', http_client=httpx.AsyncClient(
+                transport=httpx.MockTransport(wire))) as client:
+            await client.responses.create(model=build.model, input=build.messages,
+                instructions=build.instructions, text={'format': build.output_format}, tools=[], stream=False)
+    asyncio.run(run())
+    assert len(sent) == 1
+    assert sent[0]['instructions'] == expected.instructions
+    assert 'next-session pickup or resume instruction' in sent[0]['instructions']
+    assert sent[0]['input'] == build.messages
