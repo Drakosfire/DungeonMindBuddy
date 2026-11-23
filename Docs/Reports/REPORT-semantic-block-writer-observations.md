@@ -838,3 +838,27 @@ Save was refused.
 Build B03 asked for an insertion location on two hosted attempts, including
 one with a verified caret at the end of Arrival. Neither staged a page
 proposal. Reopened text and artwork matched the baseline.
+
+### Verified on hosted release `ac553f77`
+
+The November 23, 2026 repeat used the deployed image from
+[#4534](https://github.com/Drakosfire/DungeonMindBuddy/pull/4534) and synthetic
+Buddy Cloud Pilot fixtures. Public readiness and the serving image identity
+matched the release. The table reports individual hosted runs on that image.
+
+| Case | Earlier observed failure or limit | Result on `ac553f77` |
+| --- | --- | --- |
+| B01 | On `2ac2d8be`, the exact request at the end of Arrival asked which paragraph to use. The retained turn stopped before writer dispatch. | The same request on the same saved Build fixture produced separate Read Aloud and GM Note blocks immediately after Arrival. Both survived Save and reload. The remaining blocks and table matched, and the original 1,024-pixel illustration loaded after reload. |
+| P01 | An earlier ordinary Send either discussed the wording in chat or staged a suggestion after Departure. | Ordinary Send produced and saved separate Read Aloud and GM Note blocks directly after Arrival. The retained selection recorded an insertion at offsets 210–210. After reload, removing the two additions from the editor text yielded the original text, and the existing callouts matched in order. |
+| P02 | On `a3a7cfc4`, the model returned the matching Read Aloud wrapper and Save refused it. | The exact whole-body selection again produced the matching wrapper. Save accepted it without manual cleanup. Reload showed the rewritten body inside the single original **Read Aloud: First Sight** block. The rest of the rendered Plan matched, including Departure, the red-gate choice, and the table. |
+| PL02 | Earlier adoption runs used an agent-authored pair whose Plan placement missed Arrival. | A fresh Play session adopted the saved P01 revision 8. The exact chat prompt quoted the new player-facing passage and omitted the GM cue. No scene edit appeared, and the scene matched after reload. |
+| PL01 | An older release rewrote existing callouts and dropped the opening paragraph. Later isolated Play runs passed. | On that adopted session, explicit scene-edit mode staged two new blocks. Applying and reloading retained both blocks and the original scene text in order. Database readback confirmed the parent Plan digest matched, the new private cue existed only in session-copy revision 1, and Departure was retained. |
+
+The baseline and after results use the same request and saved Build fixture for
+B01. The Plan before and after observations use the developed Pilot fixture,
+which accumulated earlier benchmark edits. These are individual observed
+outcomes. The per-route repetition target in the
+[benchmark](../../evals/semantic-block-authoring-benchmark.md) remains open for
+Build and Plan, including a clean P03 run and the remaining prose, Warning and
+Rules repetitions. The Play scene edit used the existing explicit proposal
+mode. The evidence does not score implicit scene edits from default Play chat.
