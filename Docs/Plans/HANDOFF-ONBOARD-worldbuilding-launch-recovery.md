@@ -18,7 +18,8 @@ Write lease: this handoff; Build Worldbuilding launch/recovery model, service,
 routes and focused tests; the worldbuilding-only functions in
 `apps/live_control_server/services/graph_preview_runner.py` and
 `apps/live_control_server/services/worldbuilding_ge_execution.py`; and the
-Build extraction UI, same-origin API client and focused tests. The open #2087
+Build extraction UI, same-origin API client and focused tests, including the
+shared test inventory entry required for the new backend regression file. The open #2087
 lane changes the recap-only function in the former file and shared extraction
 runner internals; this lease excludes those functions and shared internals,
 consistent with the owner's instruction to split the lease. No World, runtime,
