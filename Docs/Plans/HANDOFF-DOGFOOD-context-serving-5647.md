@@ -1,6 +1,6 @@
 # DOGFOOD: deliver full-context reuse on the current serving release
 
-ACTIVE, Alan explicitly authorized remaining4459 fixes, reviewed merges and
+IMPLEMENTATION MERGED, Alan explicitly authorized remaining4459 fixes, reviewed merges and
 production deployment. DOGFOOD owns this bounded release integration. Serial
 merge/delivery after4484(merged),4496(f413),4499(717),4500(173),4501(a015).
 Those source heads are frozen in isolated exact-SHA qualification clones. This
@@ -60,3 +60,9 @@ Predecessors4496 and4499 merged77151f4 andef0c1bf respectively after their exact
 hosted/frontend and three owning backend runs. Both sets of32 failures matcha5c.
 The renamed failure test changes only its stable SHA256 CI bucket (world→ingestion),
 not coverage: its actual passing case appears in ingestion's durations.
+
+Settlement: PR4502 mergede3901d5f77750de4a6e06764efe627811e918c64 after exact-head technical qualification
+and independent review. No production deployment. Required4504 author-priority
+follow-up remains in flight; its final candidate/recovery use0197, not the carrier
+0196 image. Earlier low-latency coverage failures remain failures. This recovery
+artifact owns only truthful backward settlement, not permission to activate.

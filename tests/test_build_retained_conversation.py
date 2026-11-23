@@ -312,7 +312,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     assert not any(isinstance(event, NativeBuildQuerySettledV1) for event in turn.graph_context_execution.events)
     assert len(case.writer.calls) == before + 1
     request = json.loads(case.writer.calls[-1].content)
-    assert request['reasoning']['effort'] == ('low' if discussion else 'none')
+    assert request['reasoning']['effort'] == ('low' if discussion else 'medium')
     assert request['input'][-1] == retained.current_request_message(turn.graph_context_execution)
     if discussion:
         assert request['text']['format']['name'] != 'surface_native_evidence_selectors_v7'

@@ -1,6 +1,6 @@
 # DOGFOOD: reuse immutable source parsing during citation reopen
 
-ACTIVE, Alan authorized4459 latency fixes and deployment. DOGFOOD owns this bounded
+IMPLEMENTATION MERGED, Alan authorized4459 latency fixes and deployment. DOGFOOD owns this bounded
 Buddy composition change; Core's existing cache/access contract is unchanged.
 Stacked implementation/serial delivery, parent4500 exact
 173c8c6a7675084a4692739ab0d6c81d50f64e60; branch
@@ -46,3 +46,9 @@ failure,14 warnings in60.44s. The sole failure ID is in the exacta5c baseline's
 reuse, distinct fresh principals/access views, withdrawal refusal, latest head
 change and pre-repository foreign/player/binding denials all pass. No new source
 or provider IO is supplied by the cache. Exact-head qualification remains pending.
+
+Settlement: PR4501 merged9148f815a93e1a9c25a2e9633e3523737534b79a after exact-head technical qualification
+and independent review. No production deployment. Required4504 author-priority
+follow-up remains in flight; its final candidate/recovery use0197, not the carrier
+0196 image. Earlier low-latency coverage failures remain failures. This recovery
+artifact owns only truthful backward settlement, not permission to activate.

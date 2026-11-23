@@ -94,12 +94,7 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
     bound = resolve_identity(managed_world_id)
     if bound.managed_world_id != managed_world_id:
         raise ValueError("Native source ownership differs from requested World")
-    if repository is None:
-        repo = turn_source_repository()
-        if parsed_cache is None:
-            parsed_cache = turn_parsed_revision_cache
-    else:
-        repo = repository
+    repo = repository if repository is not None else native.repository()
     space = bound.native_world_id
     if revision_id is None:
         head = repo.get_head(space)
