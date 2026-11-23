@@ -1,6 +1,11 @@
 # DOGFOOD: bind Build citations to supplied source references
 
-ACTIVE. Alan explicitly authorized confirming the Maelthor rejection, replacing
+IMPLEMENTATION MERGED in PR4509 at4acc97af48d7986b00b7eb46ae2278564cc21c1c,
+tree631835648195a357a6a913c597b9113e19b85ce2. Deployed and signed-in accepted
+at APP0198 during that release; this is historical evidence, not a current
+serving-identity claim. The source write lease transfers to
+HANDOFF-DOGFOOD-source-backed-discussion.md. Alan explicitly authorized
+confirming the Maelthor rejection, replacing
 the writer contract, replaying the trace and deploying. DOGFOOD owns this serial
 successor to merged4504 (release base2a6843d9cc3b7dad9400e00db428a4ec07dfdd72).
 Branch codex/dogfood-supplied-citation-evidence in the existing isolated checkout.
