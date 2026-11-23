@@ -338,3 +338,31 @@ def test_unequal_term_frequencies_commit_canonical_matches_and_keep_rank(corpus,
         execution_policy_sha256=execution.execution_policy_sha256)
     with pytest.raises(ValueError, match='not navigation'):
         validate_events(fake)
+
+
+def test_jev_expansion_projects_exact_question_relevant_excerpt():
+    from apps.live_control_server.services.plan_jev_driver import _expansion_review_candidates
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+
+    text = "Ordinary background. " * 110 + "Evidence of captive owlbears in the cellar."
+    original = RetrievalCandidate(handle="body", label="Recap", kind="Acquired", reviewed_passage=text)
+    other = RetrievalCandidate(handle="metadata", label="Search", kind="Navigation")
+    excerpt, unchanged = _expansion_review_candidates([original, other], "Where were the captive owlbears?")
+    assert excerpt.handle == original.handle
+    assert excerpt.label.startswith(original.label)
+    assert "captive owlbears" in excerpt.reviewed_passage
+    assert excerpt.reviewed_passage in original.reviewed_passage
+    assert len(excerpt.reviewed_passage) <= 768
+    assert original.reviewed_passage == text
+    assert unchanged is other
+
+
+def test_jev_expansion_bounds_reviewed_text_across_passages():
+    from apps.live_control_server.services.plan_jev_driver import _expansion_review_candidates
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+
+    rows = [RetrievalCandidate(handle=f"body{index}", label="Recap", kind="Acquired",
+                               reviewed_passage="word " * 200) for index in range(40)]
+    reviewed = _expansion_review_candidates(rows, "word")
+    assert [row.handle for row in reviewed] == [row.handle for row in rows]
+    assert sum(len(row.reviewed_passage) for row in reviewed) <= 24000
