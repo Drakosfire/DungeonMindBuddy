@@ -64,7 +64,7 @@ Run exact-SHA owning query/world contracts, frontend verifier/validate, inventor
 historical readback and independent cumulative review. Commit/push/open PR is part
 of delivery. Preserve inherited red diagnostics and real latency. No deployment
 until actual serving CAS, compatible recovery, backup/rehearsal and signed-in app
-acceptance. SSH access is currently unavailable; no new approval requested.
+acceptance. SSH access restored on2026-11-23 with a per-command config bypass; no system configuration change.
 
 Predecessor4531 source qualification: frontend/validate PASS,170 protocol PASS,
 inventory1611 PASS; actual historical quoted Plan completion/citation and83 table
@@ -83,3 +83,30 @@ Three live Maelthor candidate replies use typed source claims and preserve the
 explicit proposed freedom/town-life/Dust Walker motives, with no uncited discussion;
 diagnostic latency7.33–7.82s. These are dirty-source diagnostics, not qualification.
 Independent semantic review and clean exact-source replays remain required.
+
+2026-11-23 evidence checkpoint: browser connection restored. Actual hosted turn
+97996a8d selected anchored rather than source_lookup despite related-page read
+choices; its writer received only the draft and accepted missing cosmology prose.
+This separate selection gap remains a serial successor; this PR does not fix it.
+Current c025 clean long-chat replay failed final synthesis with
+UnboundRequestedDetailGap: a useful lore-page proposal carried a phrase from an
+earlier question rather than the current synthesis request. Retain that failure;
+long-chat acceptance is not established by earlier passing samples. A successor
+needs a current producing policy for safe generic limitation fallback when useful
+collaboration content exists, preserving historical decoding.
+Within this slice, test punctuation-mismatched gaps alongside valid related-page
+claims: recognize their already-bound inline citation for the existing generic
+limitation fallback, only in the new typed-source policy. Never repair or invent
+a specific gap phrase; gap-only invalid selectors must still reject.
+
+The related-page punctuation regression reproduced UnboundRequestedDetailGap
+before the fix (HTTP503). The new mode now counts its already-validated inline
+RelatedPageClaim citation for the existing generic fallback; HTTP200 retains the
+original source reopen binding. An invalid gap-only answer remains HTTP503.
+Current working checkpoint seven positive/adversarial cases pass; full owning
+exact-source qualification must use the final head, superseding c025. c025
+query1591PASS/7 inherited exact IDs, frontend verifier+validate PASS; its historical
+Build readback and three-live driver passed. Its failed long replay remains red.
+Actual serving read-only pin: source2ac2d8be7c6b6d5de2f9774c5f932c6c9e29d3d4,
+image963a69c3f7e55c818cbf2fce865cd58dc2a1ba375bf512cc6193b50937d35add, healthy.
+This is an observation, not a deployment claim for0201/0202.

@@ -528,7 +528,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         and any(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1)) for s in segments)
         and all(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1,t.PlanWorldGraphProposalSegmentV1)) for s in segments))
     has_cited_answer = bool(body_cites or statement_cites or assertion_cites or saved_cites
-                            or any(isinstance(s, StatblockPdfClaim) for s in segments))
+                            or any(isinstance(s, StatblockPdfClaim) for s in segments)
+                            or (evidence.typed_source_answer
+                                and any(isinstance(s, t.RelatedPageClaim) for s in segments)))
     limitations = project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
         user_question=execution.policy.action.intent.message, derive_missing=True,
         host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,
