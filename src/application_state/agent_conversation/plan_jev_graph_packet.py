@@ -178,7 +178,19 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
         capture=capture,placement_label=label), 'requested_work':choices[0].requested_work}
     from .native_execution import NativePlanActionV3
     from .plan_composed_targeting import ComposedPlanPlacementCatalogV1
-    if type(action) is NativePlanActionV3 and choices[0].requested_work == 'write_current_page':
+    if (
+        capture is not None
+        and capture.playable_target is not None
+        and choices[0].requested_work == 'write_current_page'
+    ):
+        frame['focused_edit_target']['fragment_scope'] = {
+            'operation': 'replace_playable_body',
+            'instruction': (
+                "Return the complete edited playable body exactly once across all answer segments. "
+                "Keep unchanged blocks in their original order. Do not repeat the body as a second draft."
+            ),
+        }
+    elif type(action) is NativePlanActionV3 and choices[0].requested_work == 'write_current_page':
         replace = capture.target_kind == 'replace_selection'
         fragment_scope = dict(
             operation='replace_selected_text' if replace else 'insert_new_content',

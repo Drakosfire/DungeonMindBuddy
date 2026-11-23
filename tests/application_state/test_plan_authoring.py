@@ -1,5 +1,6 @@
 """Current Plan authoring bytes and target authority cannot drift independently."""
 
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -8,6 +9,7 @@ from pydantic import ValidationError
 from application_state.agent_conversation.plan_authoring import (
     PlanAuthoringCaptureV1,
     PlanAuthoredProposalV1,
+    require_playable_body_not_repeated_as_excerpts,
     text_digest,
 )
 
@@ -149,7 +151,7 @@ def test_snapshot_does_not_accept_ambiguous_or_nonfinite_json(snapshot):
         PlanAuthoringCaptureV1.model_validate(payload)
 
 
-def test_playable_body_range_is_distinct_from_the_editors_caret():
+def playable_body_capture(body="A live draft."):
     payload = capture_payload()
     payload.update(
         target_kind="replace_playable_body",
@@ -161,13 +163,45 @@ def test_playable_body_range_is_distinct_from_the_editors_caret():
             body_scope="heading_body",
             range_semantics_version="plan-playable-ranges-v1",
             body_serialization_version="plan-playable-body-markdown-v1",
-            body_markdown="A live draft.",
-            body_sha256=text_digest("A live draft."),
+            body_markdown=body,
+            body_sha256=text_digest(body),
         ),
     )
-    admitted = PlanAuthoringCaptureV1.model_validate(payload)
+    return PlanAuthoringCaptureV1.model_validate(payload)
+
+
+def test_playable_body_range_is_distinct_from_the_editors_caret():
+    admitted = playable_body_capture()
     assert admitted.from_ == 2 and admitted.to == 12
     assert '"anchor":14' in admitted.selection_json
+
+
+@pytest.mark.parametrize("extra_excerpt", [False, True])
+def test_playable_body_rejects_saved_excerpts_repeated_in_replacement(extra_excerpt):
+    from application_state.errors import ApplicationStateValidationError
+
+    spoken = "> [!READ-ALOUD] First sight\n> Lanterns glow over the marsh."
+    prose = "The boardwalk begins beyond the marsh."
+    body = f"{spoken}\n\n{prose}"
+    note = "> [!GM-NOTE]\n> The guide waits at the gate."
+    capture = playable_body_capture(body)
+    excerpts = (
+        SimpleNamespace(kind="authored_excerpt", text=spoken + "\n"),
+        SimpleNamespace(kind="authored_excerpt", text=prose + "\n"),
+    )
+    if extra_excerpt:
+        excerpts = (excerpts[0], SimpleNamespace(kind="authored_excerpt", text="The ferry leaves at dawn."), excerpts[1])
+
+    require_playable_body_not_repeated_as_excerpts(
+        capture, (*excerpts, SimpleNamespace(kind="proposal", text=note))
+    )
+    require_playable_body_not_repeated_as_excerpts(
+        capture, (SimpleNamespace(kind="proposal", text=f"{body}\n\n{note}"),)
+    )
+    with pytest.raises(ApplicationStateValidationError, match="repeated the original card body"):
+        require_playable_body_not_repeated_as_excerpts(
+            capture, (*excerpts, SimpleNamespace(kind="proposal", text=f"{spoken}\n\n{note}\n\n{prose}"))
+        )
 
 
 def test_requested_work_is_semantic_and_never_changes_intent_when_target_unavailable():

@@ -42,10 +42,12 @@ Markdown block of the proposed fragment, in reading order. Ground factual blocks
 actual supplied selectors; mark invented possibilities as proposals. Tables use Markdown rows.
 Preserve the author's unselected text and preparation notes. For selection replacement, return
 only the replacement for the captured selection. For a playable body replacement, return the
-complete captured body and copy all Markdown outside the requested change verbatim, including
-existing callout titles and bodies, prose, tables, and artwork references. When adding a note or
-passage to a playable body, keep every existing block in its original order and insert the
-requested material as a separate block. For an insertion target, return only the new fragment
+complete captured body once and copy all Markdown outside the requested change verbatim,
+including existing callout titles and bodies, prose, tables, and artwork references. All answer
+segments become part of the replacement. Do not emit the original body as source excerpts and
+then include its text again in a full replacement. When adding a note or passage to a playable
+body, keep every existing block in its original order and insert the requested material as a
+separate block. For an insertion target, return only the new fragment
 without repeating the page. Do not add a chat acknowledgment, surrounding explanation, save claim
 or whole document.
 Do not mint object IDs, dmb-node references, playable markers or unknown component markers.
