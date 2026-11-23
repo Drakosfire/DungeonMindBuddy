@@ -344,7 +344,7 @@ type EmbeddedPanel = "create" | "connect" | "info" | "details" | null;
 interface NativeGraphDemoContextProps {
   readonly graph: NativeGraph | null;
   readonly activePanel: EmbeddedPanel;
-  readonly mode: "playground" | "managed";
+  readonly mode: "playground" | "managed" | "guest";
   readonly worldTitle?: string;
   readonly loading: boolean;
   readonly refreshing: boolean;
@@ -398,8 +398,8 @@ function NativeGraphDemoContext({
   const status = loading && !graph ? "Opening graph…"
     : !graph ? "Graph unavailable"
       : hasPendingOperation ? pendingStatus === "prepared" ? "Review ready" : pendingStatus === "preparing" ? "Preparing review" : pendingStatus === "checking" ? "Checking review" : "Review needs attention"
-        : completeness?.status === "partial" ? "Partial native read" : "Saved to DungeonMind";
-  const identity = mode === "managed"
+        : mode === "guest" ? "Shared copy · read-only" : completeness?.status === "partial" ? "Partial native read" : "Saved to DungeonMind";
+  const identity = mode === "guest" ? `Demo · ${worldTitle?.trim() || "Shared World"}` : mode === "managed"
     ? `World · ${worldTitle?.trim() || "Selected World"}`
     : "Buddy playground · private graph";
   const content = useMemo(() => (
@@ -456,17 +456,20 @@ export interface NativeGraphDemoProps {
   /** Render inside Buddy's existing AppChrome frame instead of a standalone page. */
   readonly embedded?: boolean;
   /** The playground is a private synthetic graph; managed mode is supplied only by a verified route composition. */
-  readonly mode?: "playground" | "managed";
+  readonly mode?: "playground" | "managed" | "guest";
   readonly worldTitle?: string;
   /** Stable managed-world identity used only to isolate browser draft and layout storage. */
   readonly stateScopeId?: string;
   /** Presentation limit only; does not authorize entity or source access. */
   readonly entityOnlyDetails?: boolean;
   readonly readOnly?: boolean;
+  /** Extra release-local evidence for a selected guest point. */
+  readonly renderGuestNodeDetails?: (nodeId: string) => ReactNode;
 }
 
-export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly = false }: NativeGraphDemoProps) {
-  const api = useMemo(() => providedApi ?? (mode === "managed" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
+export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly: requestedReadOnly = false, renderGuestNodeDetails }: NativeGraphDemoProps) {
+  const readOnly = requestedReadOnly || mode === "guest";
+  const api = useMemo(() => providedApi ?? (mode !== "playground" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
   const [canvasLayout, setCanvasLayout] = useState<"graph" | ChronologyLayout>("graph");
   const readChronology = api.readChronology;
@@ -984,11 +987,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setPendingOperation(saved?.pending ?? null, saved?.pending_phase ?? "prepare");
     setLayout({
       worldId: restoredGraph.world_id,
-      positions: readLayout(restoredGraph.world_id, stateScopeId),
+      positions: mode === "guest" ? {} : readLayout(restoredGraph.world_id, stateScopeId),
       revision: 0,
     });
     return saved?.pending ?? null;
-  }, [readOnly, setPendingOperation, stateScopeId]);
+  }, [mode, readOnly, setPendingOperation, stateScopeId]);
 
   useEffect(() => {
     const owner = ++generationRef.current;
@@ -1437,7 +1440,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (!changed && !current.writeFailed) {
       return { status: "written", record: toCanvasRecord(graph, displayedSnapshot, current) };
     }
-    const saved = writeLayout(graph.world_id, mergedPositions, stateScopeId);
+    const saved = mode === "guest" || writeLayout(graph.world_id, mergedPositions, stateScopeId);
     const nextLayout: LayoutState = { worldId: graph.world_id, positions: mergedPositions, revision: current.revision + 1, writeFailed: !saved };
     setLayout(nextLayout);
     const nextRecord = toCanvasRecord(graph, displayedSnapshot, nextLayout);
@@ -1445,7 +1448,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       return { status: "error", message: "This arrangement is visible for now, but the browser could not save its presentation-only layout." };
     }
     return { status: "written", record: nextRecord };
-  }, [graph, displayedSnapshot, nodesById, layout, stateScopeId]);
+  }, [graph, displayedSnapshot, nodesById, layout, stateScopeId, mode]);
 
   const creationKinds = graph?.capabilities.create
     ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
@@ -1563,7 +1566,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       onPanelChange={handleEmbeddedPanelChange}
       onRefresh={refreshFromContext}
       onExport={exportSnapshot}
-      canRefresh={mode !== "managed" || Boolean(stateScopeId)}
+      canRefresh={mode !== "guest" && (mode !== "managed" || Boolean(stateScopeId))}
       searchContent={searchContent}
       neighborhoodContent={neighborhoodContent}
       onControlsHost={setCanvasControlsHost}
@@ -1606,7 +1609,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   if (loading && !graph) {
     return <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
       {embeddedContext}
-      <h1 className={embedded ? "native-demo-sr-only" : undefined}>{embedded ? mode === "managed" ? `${worldTitle?.trim() || "Selected World"} graph` : "Buddy graph playground" : ""}</h1>
+      <h1 className={embedded ? "native-demo-sr-only" : undefined}>{embedded ? mode !== "playground" ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground" : ""}</h1>
       <div className="native-demo-loading" role="status">Opening the DungeonMind graph…</div>
     </main>;
   }
@@ -1616,7 +1619,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
         {embeddedContext}
         <section className="native-demo-error-card" aria-labelledby="native-demo-title">
-          <p className="native-demo-kicker">{embedded ? mode === "managed" ? `BUDDY · ${worldTitle?.trim() || "SELECTED WORLD"}` : "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
+          <p className="native-demo-kicker">{embedded ? mode !== "playground" ? `BUDDY · ${worldTitle?.trim() || "SHARED WORLD"}` : "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
           <h1 id="native-demo-title">The graph is not available yet</h1>
           <p role="alert">{notice?.text ?? (embedded ? mode === "managed" ? `Buddy could not open ${worldTitle?.trim() || "the selected World"} right now.` : "Buddy could not open the private playground right now." : "The isolated DungeonMind service has not returned a graph.")}</p>
           {mode !== "managed" || stateScopeId ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
@@ -1774,7 +1777,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   ) : null;
 
-  const infoPanel = (
+  const infoPanel = mode === "guest" ? <section className="native-demo-limits-card"><h2>Shared demo graph</h2><p>This is a read-only released copy. Moving points changes only this view and resets when you leave.</p><p><a className="native-demo-button native-demo-button--light" href="/">Return to the demo for temporary additions and the saved scene</a></p></section> : (
     <section className="native-demo-limits-card" aria-labelledby="native-demo-limits-title">
       <p className="native-demo-eyebrow">ABOUT THIS GRAPH</p>
       <h2 id="native-demo-limits-title">{mode === "managed" ? worldTitle?.trim() || "Selected World" : "A small, scoped playground"}</h2>
@@ -1827,7 +1830,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     <NativeGraphNodeExplorer
     key={`${graph.world_id}:${graph.revision_id}:${selectedNode.id}`}
     node={selectedNode} revision={graph.revision_id} detail={selectedNodeDetail} labels={selectedLabels}
-    mode={mode} status={selectedNodeDetailStatus} error={selectedNodeDetailError} connections={selectedConnections}
+    mode={mode === "guest" ? "playground" : mode} status={selectedNodeDetailStatus} error={selectedNodeDetailError} connections={selectedConnections}
     entityOnly={entityOnlyDetails} sourceReads={Boolean(api.readChronology)} partial={completeness?.status === "partial"} navigationDisabled={Boolean(pendingOperation)}
     headingRef={inspectorHeadingRef} onFocus={() => requestCameraFocus(selectedNode.id)}
     onExitFocus={focusedNodeId ? () => requestCameraFocus(null) : undefined} onClose={closeSelectedDetails}
@@ -1847,7 +1850,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       handleCanvasSelectionChange(nodeId as LocalObjectId);
       requestCameraFocus(nodeId);
     }}
-  /></> : null;
+  />{mode === "guest" ? renderGuestNodeDetails?.(selectedNode.id) : null}</> : null;
 
 
   return (
@@ -1868,7 +1871,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         }
       }}>
       {embeddedContext}
-      {embedded ? <h1 className="native-demo-sr-only">{mode === "managed" ? `${worldTitle?.trim() || "Selected World"} graph` : "Buddy graph playground"}</h1> : null}
+      {embedded ? <h1 className="native-demo-sr-only">{mode !== "playground" ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground"}</h1> : null}
       <div className={`native-demo-layout${embedded ? " native-demo-layout--embedded" : ""}`}>
         {!embedded ? <header className="native-demo-header">
           <div className="native-demo-brand-mark" aria-hidden="true"><span>{embedded ? "B" : "DM"}</span></div>
@@ -1974,7 +1977,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                   onCameraFocusChange: handleCanvasFocusChange,
                   interactionDisabled: Boolean(pendingOperation),
                   showSummaryCounts: false,
-                  preserveCameraOnResize: true,
+                  preserveCameraOnResize: mode !== "guest",
                 } : {})}
               />
             ) : null}
