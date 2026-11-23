@@ -845,9 +845,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           setLastSavedAt(snapshot.record.content_status === "committed"
             ? durableTimestamp(snapshot.record.updated_at)
             : null);
-          const revisionChangedUnderDraft = recoverLocal
-            && localDraft.revision !== snapshot.loaded_revision
-            && !localDraft.pending_write;
           const nextTitle = recoverLocal ? localDraft.title : snapshot.record.title;
           const nextMarkdown = recoverLocal ? localDraft.markdown : snapshot.markdown;
           const savedPresentation = checkedPlanPresentation(snapshot.markdown, snapshot);
@@ -855,6 +852,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             ? checkedPlanPresentation(nextMarkdown, localDraft)
               ?? (nextMarkdown === snapshot.markdown ? savedPresentation : null)
             : savedPresentation;
+          const draftMatchesCommit = snapshot.record.content_status === "committed"
+            && nextTitle === snapshot.record.title
+            && nextMarkdown === snapshot.markdown
+            && (localDraft?.page_presentation_sha256 ?? null) === presentationFingerprint(savedPresentation);
+          const revisionChangedUnderDraft = recoverLocal
+            && localDraft.revision !== snapshot.loaded_revision
+            && !localDraft.pending_write
+            && !draftMatchesCommit;
           serverPresentationRef.current = savedPresentation;
           updatePresentation(localPresentation);
           setComposing(Boolean(localPresentation || savedPresentation));
@@ -896,8 +901,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             markdown: nextMarkdown,
             page_presentation: localPresentation,
             page_presentation_sha256: presentationFingerprint(localPresentation),
-            revision: revisionChangedUnderDraft && (localPresentation || savedPresentation)
-              ? localDraft.revision : snapshot.loaded_revision,
+            revision: revisionChangedUnderDraft ? localDraft.revision : snapshot.loaded_revision,
             edit_generation: initialLocalDraft?.edit_generation ?? 0,
             pending_write: pendingWriteRef.current,
             create_uncertain: false,
