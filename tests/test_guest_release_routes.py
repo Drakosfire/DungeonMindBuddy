@@ -134,7 +134,7 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     assert request("GET", "/api/live/guest-releases/anything").status_code == 401
 
 
-@pytest.mark.parametrize("route", ["options", "media_list", "preview"])
+@pytest.mark.parametrize("route", ["options", "context", "media_list", "preview"])
 @pytest.mark.parametrize("transfer_back", [False, True])
 def test_inventory_denies_inflight_ownership_change(application_state_dsn, monkeypatch, route, transfer_back):
     from application_state.world_catalog.service import create_world
@@ -159,7 +159,7 @@ def test_inventory_denies_inflight_ownership_change(application_state_dsn, monke
             return "image/png", b"new owner's private image"
         return {"private": "new owner's private data"}
 
-    monkeypatch.setattr(guest_releases, {"options": "selection_options", "media_list": "list_media", "preview": "preview_media"}[route], read_after_transfer)
+    monkeypatch.setattr(guest_releases, {"options": "selection_options", "context": "selection_options", "media_list": "list_media", "preview": "preview_media"}[route], read_after_transfer)
     app = FastAPI()
     app.include_router(guest_releases.router)
     routes = {key: value for key, value in HOSTED_WORLD_SCOPE_RESOLVERS.items()
@@ -174,6 +174,8 @@ def test_inventory_denies_inflight_ownership_change(application_state_dsn, monke
             base = f"/api/live/worlds/{world}/guest-releases"
             if route == "options":
                 return await client.get(base + "/selection-options")
+            if route == "context":
+                return await client.post(base + "/selection-context", json={"document_id": str(uuid4())}, headers={"origin": "https://buddy.example"})
             if route == "preview":
                 return await client.get(base + f"/selection-media/{uuid4()}")
             return await client.post(base + "/selection-media/list", json={}, headers={"origin": "https://buddy.example"})

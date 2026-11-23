@@ -38,15 +38,13 @@ exact-SHA local hosted and full discovered frontend checks, backend guest-releas
 contract, cumulative diff review and independent Bugbot. Known legacy failures
 remain reported; production real-owner and publication tests are separate.
 
-Implementation checkpoint: the initial inventory prototype is incomplete. A
-whole-document context span can contain hundreds of lines; the existing global
-500-option bound may be exhausted before the owner's desired source appears,
-and eager per-line verification can be slow. Do not merge or deploy this
-prototype. Add bounded, source-targeted discovery so the owner can reliably
-reach the requested document without starving Graph options, then verify its
-runtime and the owner/withdrawal boundary. Python syntax and diff whitespace
-are the only checks performed so far; frontend and backend behavior have not
-been qualified.
+Implementation checkpoint: source-targeted discovery now pages context spans
+independently of the existing Graph inventory. Working-tree diagnostics passed
+the focused UI test and 14 backend checks in a disposable PostgreSQL instance,
+including real Core/APP candidate revalidation and ownership-transfer denial.
+These are not exact-head qualification. Full backend and frontend contracts,
+withdrawal coverage for an independently selected excerpt, cumulative review
+and independent Bugbot remain required before merge or deployment.
 
 Lease revision: bounded source-targeted discovery requires one owner-only POST
 route and its exact hosted World resolver. This adds `guest_releases.py`, the

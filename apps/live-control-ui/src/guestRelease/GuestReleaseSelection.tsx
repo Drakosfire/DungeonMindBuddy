@@ -148,7 +148,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       </li>)}</ul>
       <fieldset><legend>Additional source excerpts</legend>
         <p>Choose individual context excerpts to include. These do not establish a Graph fact or automatically support a saved scene.</p>
-        <label>Source document <select value={contextDocument} onChange={event => { setContextDocument(event.target.value); setContextOffset(0); }}>
+        <label>Source document <select value={contextDocument} disabled={busy} onChange={event => { setContextDocument(event.target.value); setContextOffset(0); }}>
           <option value="">Choose a document</option>{(options.context_documents ?? []).map(item => <option key={item.document_id} value={item.document_id}>{item.title}</option>)}
         </select></label>
         <button type="button" disabled={busy || !contextDocument || contextOffset === null} onClick={loadContext}>Load source excerpts</button>
