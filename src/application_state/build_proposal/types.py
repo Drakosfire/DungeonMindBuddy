@@ -282,13 +282,12 @@ def _require_inert_markdown(markdown: str) -> None:
 _BOUNDARY_MARKDOWN = MarkdownIt("commonmark").enable(("table", "strikethrough"))
 
 
-def _is_boundary_callout_fragment(text: str) -> bool:
+def _is_boundary_prose_or_callouts(text: str) -> bool:
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     env = {}
     tokens = _BOUNDARY_MARKDOWN.parse(text, env)
     if env.get("references"):
         return False
-    has_callout = False
     for token in tokens:
         if token.type == "blockquote_open":
             if token.level != 0 or token.map is None:
@@ -297,13 +296,12 @@ def _is_boundary_callout_fragment(text: str) -> bool:
             callout = split_boundary_callout(lines[start:end])
             if callout is None or not callout[2].strip():
                 return False
-            has_callout = True
         elif token.type == "inline":
             if any(child.type in {"image", "html_inline"} for child in token.children or ()):
                 return False
         elif token.type not in {"paragraph_open", "paragraph_close", "blockquote_close"}:
             return False
-    return has_callout
+    return bool(tokens)
 
 
 def admit_build_boundary_fragment(markdown: str) -> None:
@@ -311,7 +309,7 @@ def admit_build_boundary_fragment(markdown: str) -> None:
     text = markdown.strip()
     if (not text or "\n" in text or "\r" in text or "![" in text
             or re.match(r"^(?:#{1,6}\s|[-+*>]\s|[0-9]+[.)]\s|```|~~~|\|)", text)
-            or re.fullmatch(r"(?:[*_-]\s*){3,}", text)) and not _is_boundary_callout_fragment(markdown):
+            or re.fullmatch(r"(?:[*_-]\s*){3,}", text)) and not _is_boundary_prose_or_callouts(markdown):
         raise BuildComposeError("build_compose_boundary_requires_prose_or_callouts")
 
 
