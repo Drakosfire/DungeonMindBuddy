@@ -1260,6 +1260,32 @@ def validate_authoring_transaction(conn, action, proposal, turn, result, proof):
         require_leaf(conn, turn)
 
 
+def require_playable_body_not_repeated_as_excerpts(capture, segments) -> None:
+    if not isinstance(capture, PlanAuthoringCaptureV1) or capture.playable_target is None:
+        return
+    from application_state.content.markdown_source_blocks import source_block_spans
+
+    def blocks(markdown: str):
+        encoded = markdown.encode("utf-8")
+        for start, end in source_block_spans(markdown):
+            block = encoded[start:end].decode("utf-8").strip()
+            if block:
+                yield block.replace("\r\n", "\n").replace("\r", "\n")
+
+    body = tuple(blocks(capture.playable_target.body_markdown))
+
+    def contains_body(kind: str) -> bool:
+        candidates = (
+            block for segment in segments if segment.kind == kind for block in blocks(segment.text)
+        )
+        return all(any(candidate == original for candidate in candidates) for original in body)
+
+    if body and contains_body("authored_excerpt") and contains_body("proposal"):
+        raise ApplicationStateValidationError(
+            "The Plan writer repeated the original card body in its replacement. No suggestion was prepared."
+        )
+
+
 def prepare_authoring_proposal(action, capture, turn, result, proof):
     """The Plan parent wraps one already-normalized writer result, never rewrites it."""
     from .rules_authority_completion import NativeRulesMixedTurnResultV1
@@ -1275,6 +1301,9 @@ def prepare_authoring_proposal(action, capture, turn, result, proof):
     if len(writers) != 1:
         raise ValueError("Plan writing has no unique actual writer")
     writer = writers[0]
+    base_result = result.base_result if isinstance(result, NativeRulesMixedTurnResultV1) else result
+    if base_result is not None and base_result.completion is not None:
+        require_playable_body_not_repeated_as_excerpts(capture, base_result.completion.answer_segments)
     fragment = authored_markdown(result, execution=turn.graph_context_execution)
     origin = action.authoring_origin.model_dump(mode="json", by_alias=True) | {
         "schema": "dmb_plan_jev_proposal_origin_v1",
