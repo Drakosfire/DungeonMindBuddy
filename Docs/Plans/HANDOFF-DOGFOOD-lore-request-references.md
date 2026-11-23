@@ -1,0 +1,97 @@
+# DOGFOOD: bind lore reviews to the captured author request
+
+ACTIVE. Alan authorized the writer/context cleanup, live replays, independent
+review, concrete-progress merges and deployment. DOGFOOD owns this serial
+successor to merged #4557. The goal remains incomplete: the actual app rejected
+a valid twelve-turn synthesis after the APP0207 rollout.
+
+Base: verified serving source79d4d606538ed11c3efd99ab910f2d52f3897a49,
+image41968c4b859d8323a3762bcab341ca2fa6c5a7b000864438132920fcacc11451,
+APP207/Core0024. Branch codex/dogfood-lore-request-references in the existing
+isolated checkout. Remote mainf517fc1a5 and open4570/4568/4567/4561/4554/4550
+were inspected. Preserve their owners' independent Plan-performance and guest
+display work; do not absorb it. Re-anchor the actual serving parent before
+delivery. No runtime/deployment reservation is held during implementation.
+
+Failure: turn df281a6b-d3ec-46a0-b477-26a5760d0848, diagnostic
+5bbbc248-5afa-4179-8ac6-2f38b1208118, writer_validation ValueError:
+`Lore page instruction must occur once in the author turn`. Eleven new authored
+notes succeeded. The final request said “Create a separate new lore page titled
+The Memory Ferry from the full context we just discussed.” No page was created.
+The neutral workpad remained unchanged. The literal destination witness and its
+title/request grammar are the owning boundary, not missing conversation context.
+
+Outcome: current lore-review writers select a finite local reference to the
+captured current author request instead of reproducing instruction text. The
+title is a proposal displayed for exact review/confirmation, not a host claim of
+verbatim title extraction. Preserve articles, case, punctuation and Unicode.
+Request identity does not prove semantic interpretation; do not claim otherwise.
+Keep the existing admitted Build work, reconstructed schema/input, producing
+attempt/evidence, World/chat, completed-turn, exact-digest, source and idempotent
+creation gates. A model proposal never creates or changes a page by itself.
+
+Blank/populated intent must come from the actual admitted opening decision,
+not from a writer-supplied alias or flag. Add a bounded explicit blank-page work
+choice if needed to keep that constraint independently enforceable while
+replacing the current witness. Preserve the prior work menus, literal V1
+destination decoder and their exact historical output. Select V2 from the
+stored producing contract/schema. Unknown aliases, hybrids and mismatched
+producing versions must fail closed. Do not patch natural-language synonyms or
+strip/guess title suffixes as a substitute for the contract.
+
+This is one indivisible request-binding slice: opening content-mode admission,
+writer reference, historical reconstruction, client decoder and confirmation
+must agree. APP0208 is reserved for its reader fence, parent0207, with no data
+rewrite. The existing #4559 operational recovery artifact remains frozen and
+eligible only for207 until a dependent208-compatible update is independently
+verified. It must never merge into the candidate or main. Delivery is serial:
+request-binding PR, then its pinned compatible-recovery artifact and reviewed
+cutover. No old207 reader may serve208 data.
+
+Expected write lease: lore_page_review, build_intentional_response,
+native_build_work_view, native_writer, native_completion,
+plan_writer_output_schema, rules_authority_plan_packet fresh admission and directly required native-work helpers under
+src/application_state/agent_conversation; plan_jev_writer and directly required
+Build producer wiring under apps/live_control_server/services; new0208 fence;
+the owning backend tests and one test-classification entry; client api/types,
+shared/surfaceNativeProtocol and their direct protocol/conversation tests;
+this handoff and truthful predecessor serving-adoption settlement. Do not edit
+connection reuse, Plan storage/settlement, guest labels, providers/models,
+root/lockfile/CI workflow settings, deployment policy or World-creation policy.
+Checkpoint a lease expansion before editing another owner.
+
+Validation: freeze the actual rejected reply/request and twelve-turn context;
+prove its body is usable without instruction echoing or new search. Test title
+articles/punctuation/Unicode, repeated text, negation/quoted examples/multiple
+targets at their actual admission/review boundary, forged/prior request aliases,
+wrong producing version, explicit blank/body mismatch, foreign World/chat,
+stale attempt/reset/digest and exactly-one-page confirmation/replay. Retain all
+V1 historical witnesses, completions and page bytes. Exercise ordinary HTTP and
+actual supplied SDK formats, not only helper normalization. Collect exact-SHA
+owning backend contracts, required hosted/full-discovered frontend diagnostics,
+all changed-test coverage and independently compared inherited failures.
+
+Before cutover, build and verify both208 images/readers, rehearse the actual207
+backup with every table preserved and historical turns reopened, prove207-reader
+refusal, and independently review the sealed operator. Preserve all current
+guest/runtime settings, claims/CAS/locks, graceful drain, final backup/restore
+and forward-only recovery. Then retry the saved request in the signed-in app,
+open/save/reopen one correct page, verify zero fresh acquisition, early facts,
+the amber correction, proposals/open questions and an unchanged workpad. Record
+actual latency and screenshots. A green replay does not complete the goal if
+this deployed app path still fails.
+
+Adjacent finding: hosted World creation returned world_creation_unavailable.
+Record its actual policy/quota/permission cause separately; do not enable or
+relax that policy to make this writer test pass. The signed-in reproduction
+used the existing dedicated Dogfood Context Reuse World and a fresh saved
+workpad/chat. A prior Maelthor sourced reply and exact citation opening passed.
+
+
+Investigation limit: the rejected provider reply is transient by existing policy
+and was not retained. The read-only failed rules execution and diagnostic are
+frozen privately; they prove the rejection, not body correctness. Use a fresh
+exact-input replay to establish content correctness. Current reference dispatch
+is allowed for an old conversation-lore admission because its content mode is
+already fixed; historical reads select their captured format and remain V1.
+Old ambiguous ordinary lore menus retain V1 until a current opening admission.

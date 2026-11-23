@@ -179,7 +179,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent"):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -702,7 +702,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only'
                     or image_move == "other_discussion"
-                    or current_work in {"review_lore_page", "review_lore_page_from_conversation"})
+                    or current_work in {"review_lore_page", "review_lore_page_from_conversation", "review_blank_lore_page"})
             assert 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
@@ -817,7 +817,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 candidate["answer_segments"] = [dict(kind="native_body_claim",
                     text="The source describes a source-local episode.",
                     excerpt_handles=[row["excerpt_handle"] for row in exposed])]
-            if current_work in {"review_lore_page", "review_lore_page_from_conversation"}:
+            if current_work in {"review_lore_page", "review_lore_page_from_conversation", "review_blank_lore_page"}:
                 from apps.live_control_server.services.plan_jev_writer import LORE_PROPOSAL_GUIDANCE
 
                 author_text = self.adapter.turn.user_text
@@ -832,7 +832,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     candidate["limitations"] = ["missing_requested_details"]
                 candidate["collaboration"] = {
                     "kind": "lore_page",
-                    "destination": {"instruction": author_text, "title": "Glass Regent"},
+                    "destination": {"request": "current_author_request", "title": lore_title},
                 }
                 if current_work == "review_lore_page_from_conversation":
                     candidate["collaboration"]["open_questions"] = ["Why did the Regent leave?"]
@@ -894,7 +894,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     if source_answer_output == 'lore_null_gap':
                         candidate['collaboration'] = None
                     if source_answer_output == 'lore_invalid_destination':
-                        candidate['collaboration']['destination']['title'] = 'Foreign page'
+                        candidate['collaboration']['destination']['request'] = 'prior_author_request'
+                elif source_answer_output in {'blank_body', 'blank_questions'}:
+                    if source_answer_output == 'blank_body':
+                        candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea', text='Invented body on an empty page.')]
+                    else:
+                        candidate['collaboration']['open_questions'] = ['Who wrote the ledger?']
                 elif source_answer_output in {'unknown_limit_code', 'retired_gap_field'}:
                     candidate['answer_segments'] = []
                     candidate['limitations'] = ['not_a_limit_code'] if source_answer_output == 'unknown_limit_code' else ['missing_requested_details']
@@ -1783,7 +1788,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['completion']['native_assertion_citations'] == []
         return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
     if (requested_work(message) if callable(requested_work) else requested_work) in {
-            "review_lore_page", "review_lore_page_from_conversation"}:
+            "review_lore_page", "review_lore_page_from_conversation", "review_blank_lore_page"}:
         assert context["completion"]["collaboration"]["kind"] == "lore_page"
         assert not context["completion"]["native_assertion_citations"]
         history = client.get(
@@ -2483,7 +2488,7 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
     scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
         discuss=0.0,draft_in_conversation=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
         publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
-        review_variant_approval=0.0,review_lore_page=0.0,save_page=0.0,write_current_page=.19)
+        review_variant_approval=0.0,review_lore_page=0.0,review_blank_lore_page=0.0,save_page=0.0,write_current_page=.19)
     _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
         message='Create an interior design detailed enough to generate a map from.')
 
@@ -3116,7 +3121,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Create a blank page for Glass Regent.",
-        requested_work=lambda message: "review_lore_page_from_conversation" if message == synthesis else "review_lore_page",
+        requested_work=lambda message: "review_lore_page_from_conversation" if message == synthesis else "review_blank_lore_page" if "blank page" in message else "review_lore_page",
         native_body="direct_support", dispatch=first,
         lore_limitation="authored_context" if carry == "authored_context" else True,
         source_need=lambda message: ("anchored" if carry in {"source_head_unavailable", "authored_context"} else carry) if message == synthesis else "source_lookup",
@@ -3563,7 +3568,7 @@ def test_lore_page_review_uses_generic_limits_without_optional_phrase(lane, tmp_
         source_answer_output=output,
         message='Create a page for Glass Regent. Use the context we discussed; keep the unresolved motive open; do not search again.')
     request = json.loads(case.writer.calls[0].content)
-    assert request['text']['format']['name'] == 'surface_native_lore_review_limitations_v1'
+    assert request['text']['format']['name'] == 'surface_native_lore_request_reference_v2'
     if output in {'lore_malformed_gap', 'lore_invalid_destination'}:
         assert case.response.status_code == 503
         assert case.turn.completion is None
@@ -3727,3 +3732,72 @@ def test_background_scope_guidance_reaches_actual_sdk_and_respects_the_offered_c
     else:
         assert not reads and not claims
         assert all(row.kind == 'discussion' for row in case.turn.completion.answer_segments)
+
+
+@pytest.mark.parametrize('mutation', ['prior_request', 'hybrid', 'legacy_destination', 'legacy_format'])
+def test_lore_request_reference_rejects_downgrades_before_writer_io(lane, tmp_path, monkeypatch, mutation):
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.native_build_work_view import semantic_frame
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    original = PlanJevWriter.__init__
+    prepared = []
+    def forge(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        if mutation == 'legacy_format':
+            old = semantic_frame(self.work_frame, self.adapter.turn.graph_context_execution,
+                bind_lore_page=True, supplied_source_references=True, typed_source_answer=True,
+                lore_page_limitations=True)
+            self.provider_work = old
+            from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+            self.output_format = native_output_format(self.frame, model_rules_frame(self.rules.frame()),
+                self.work_frame | old, build_local=True, generic_reply_limits=True)
+        for message in self.messages:
+            frame = json.loads(message['content'])
+            if 'build_work' not in frame:
+                continue
+            destination = frame['build_work']['lore_page_destination']
+            if mutation == 'prior_request':
+                destination['request'] = 'prior_author_request'
+            elif mutation == 'hybrid':
+                destination['instruction'] = 'Create a page for Glass Regent.'
+            elif mutation == 'legacy_destination':
+                frame['build_work']['lore_page_destination'] = {'instruction': 'Create a page for Glass Regent.', 'title': 'Glass Regent'}
+            else:
+                frame['build_work'] = old['build_work']
+            message['content'] = json.dumps(frame)
+            prepared.append(True)
+            break
+    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='review_lore_page_from_conversation', source_need='anchored',
+        source_answer_output='lore_stale_gap', message='Create a page for Glass Regent.')
+    assert prepared == [True]
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('title', ['The Memory Ferry', 'Échos — The Ferry?'])
+@pytest.mark.parametrize('repeat', [False, True])
+def test_actual_separate_page_request_survives_sdk_and_retained_readback(lane, tmp_path, monkeypatch, title, repeat):
+    message = f"Create a separate new lore page titled {title} from the full context we just discussed. Reuse our conversation only; do not search or re-fetch sources. Preserve the early details, later correction, authored-proposal status, open questions, and all constraints. Leave this workpad unchanged."
+    if repeat:
+        message = message + "\n" + message
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='review_lore_page_from_conversation', source_need='anchored',
+        source_answer_output='lore_valid_gap', message=message, lore_title=title)
+    assert case.response.status_code == 200, case.response.text
+    assert case.turn.completion.collaboration.destination.model_dump() == {'request': 'current_author_request', 'title': title}
+    history = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation')
+    assert history.status_code == 200
+    assert history.json()['turns'][-1]['knowledge_context']['completion']['collaboration']['destination']['title'] == title
+    assert not any(e.kind in {'build_related_page_read_v1', 'native_body_search_v1', 'native_body_read_v1'} for e in case.turn.graph_context_execution.events)
+
+
+@pytest.mark.parametrize('output', ['blank_body', 'blank_questions'])
+def test_admitted_blank_page_refuses_populated_writer_reply(lane, tmp_path, monkeypatch, output):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='review_blank_lore_page', source_need='anchored', source_answer_output=output,
+        message='Create a blank page for Glass Regent.')
+    assert case.response.status_code == 503
+    assert case.turn.completion is None

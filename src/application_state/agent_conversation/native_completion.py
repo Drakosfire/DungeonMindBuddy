@@ -14,7 +14,7 @@ from pydantic import Field, model_validator
 from . import types as t
 from .build_draft_answer import DraftDiscussionV1, normalize_native_segment
 from .relationship_review import RelationshipCollaborationV3
-from .lore_page_review import ProposedLorePage
+from .lore_page_review import ProposedLorePage, ProposedLorePageReference
 from . import native_corpus as bodies
 from . import native_plan_statements as statements
 from . import native_plan_assertions as assertions
@@ -52,7 +52,7 @@ class SurfaceNativeCompletionV1(Strict):
     answer_basis: Literal['mixed_evidence'] = 'mixed_evidence'
     answer_context_status: t.SurfaceEvidenceStatusV1 | Literal['discussion']
     answer_segments: list[NativeSegment] = Field(max_length=128)
-    collaboration: RelationshipCollaborationV3 | ProposedLorePage | None
+    collaboration: RelationshipCollaborationV3 | ProposedLorePageReference | ProposedLorePage | None
     saved_source_citations: list[t.BuildSectionSegmentBindingV1] = Field(max_length=128)
     native_body_citations: list[t.NativeBodyExcerptCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
     native_clause_citations: list[t.NativeStatementClauseCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
@@ -153,11 +153,13 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
             reviews = [
                 event for event in execution.events
                 if isinstance(event, t.BuildRequestedWorkResolutionV1)
-                and event.requested_work in ("review_lore_page", "review_lore_page_from_conversation")
+                and event.requested_work in ("review_lore_page", "review_lore_page_from_conversation", "review_blank_lore_page")
                 and event.resolution["barrier"] is None
             ]
             if len(reviews) != 1:
                 raise ValueError("Lore draft lacks its admitted Build review")
+            if reviews[0].requested_work == 'review_blank_lore_page' and (completion.answer_segments or completion.collaboration.open_questions):
+                raise ValueError('Blank lore-page request cannot carry a populated body')
             completion.collaboration.destination.bind(
                 execution.policy.action.intent.message,
                 conversational=reviews[0].requested_work == "review_lore_page_from_conversation",
@@ -506,6 +508,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             normalize_native_review(
                 review, segments, evidence.work_frame,
                 author_text=execution.policy.action.intent.message,
+                request_reference=evidence.lore_request_reference,
             ) if review_enabled and not plan_review else None
         )
     explicit_source_gap = (evidence.typed_source_answer or evidence.generic_limitations) and bool(
