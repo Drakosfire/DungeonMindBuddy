@@ -82,3 +82,10 @@ policy, all refused before writer I/O. A real quoted Plan completion produced at
 base b709 is retained in a disposable fixture for exact-new-head readback and
 migration/data-preservation proof. Working diagnostics pass; qualification still
 requires the clean final commit and independent review of this added projection.
+
+Qualification uncovered an inherited unclassified guest saved-answer test in the
+integration base. ONBOARD explicitly transferred adoption of the single
+`ci/test-classification.json` entry already reviewed/merged in main PR4530
+(`458a147b84c19ff397c2734e2e0732d3d85df1c7`). That one entry is included in
+this write lease; no workflow/selection/security configuration change. Retain the
+failed parent/head inventory evidence and rerun inventory at the final source.
