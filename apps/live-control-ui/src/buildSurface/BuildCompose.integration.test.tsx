@@ -253,6 +253,34 @@ it('preserves the clicked paragraph when placing, saving and reopening a Build i
  expect(session.editor!.state.doc.textContent).toContain('A fort town.');
  expect(tiptapJsonToSemanticMarkdown(session.editor!.getJSON())).toContain(`dmb-media:${asset}`);
 });
+it('places an image on a page with an empty paragraph and saves and reopens it',async()=>{
+ const {presentationFingerprint}=await import('../tiptap/pageComposer/presentation');
+ const asset='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
+ let request: Parameters<typeof api.prepareTiptapMarkdownWrite>[0];
+ vi.mocked(api.prepareTiptapMarkdownWrite).mockImplementation(async value=>{request=value;return {writer_ok:true,writer_confirm_token:'synthetic'} as never;});
+ vi.mocked(api.commitTiptapMarkdownWrite).mockImplementation(async()=>{
+  const presentation=request.page_presentation!;
+  stored={...stored,record:{...stored.record,revision:2},loaded_revision:2,markdown:request.markdown,committed_markdown:request.markdown,content_sha256:'c'.repeat(64),committed_content_sha256:'c'.repeat(64),page_presentation:presentation,page_presentation_sha256:presentationFingerprint(presentation),layout_writer_profile:request.layout_writer_profile};
+  return {document_id:DOC,committed_revision:2,committed_record:stored.record,normalized_content_sha256:stored.content_sha256,file_fingerprint:'fp2',writer_ok:true,page_presentation_sha256:stored.page_presentation_sha256,layout_writer_profile:request.layout_writer_profile} as never;
+ });
+ const view=render(<ImagePlacementHarness/>);await waitFor(()=>expect(session.phase).toBe('ready_clean'));
+ await waitFor(()=>expect(exposedBridge).not.toBeNull());const editor=session.editor!;
+ act(()=>{editor.commands.insertContentAt(editor.state.doc.content.size,{type:'paragraph'});});
+ await waitFor(()=>expect(session.dirty).toBe(true));
+ let position=0;editor.state.doc.descendants((node,at)=>{if(node.isText&&node.text==='A fort town.')position=at+4;});
+ act(()=>{editor.commands.setTextSelection(position);});
+ const before=editor.getJSON(),capture=await exposedBridge!.capture();
+ act(()=>{exposedBridge!.insert(capture,mediaMarkdown(asset,'Ticket'));});
+ const after=editor.getJSON();expect(after.content?.at(-1)?.content).toBeUndefined();
+ act(()=>{editor.commands.undo();});expect(editor.getJSON()).toEqual(before);
+ act(()=>{editor.commands.redo();});expect(editor.getJSON()).toEqual(after);
+ fireEvent.click(screen.getByRole('button',{name:'Save test page'}));
+ await waitFor(()=>expect(session.dirty).toBe(false));
+ expect(stored.page_presentation?.schema_version).toBe('dmb_page_presentation_v2');
+ view.unmount();localStorage.clear();exposedBridge=null;render(<ImagePlacementHarness/>);
+ await waitFor(()=>expect(session.phase).toBe('ready_clean'));
+ expect(session.editor!.getJSON()).toEqual(after);
+});
 function ClosedPageHarness(){return <AgentInteractionProvider><AskPluginSlotProvider><WorldAgentConversationProvider worldId="elderwyld">
  <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell/><OpenConversation/><ExposeBuildBridge/></BuildCanvasTestProvider>
  <WorldAgentConversation surface="build" worldId="elderwyld" worldName="Elderwyld"/>

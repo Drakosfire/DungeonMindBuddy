@@ -209,3 +209,61 @@ describe('Page image/text presentation',()=>{
     const p=payload();expect(projectPresentation(hydratePresentation(text,p),text,hydratePresentation(text,p)).presentation).toEqual(p);
   });
 });
+
+it('hydrates v2 empty paragraphs without changing source blocks and rejects malformed metadata',()=>{
+ const source='First.\n\nSecond.\n';
+ const blocks=admittedPresentationBlocks(source).map((b,i)=>({kind:'block' as const,id:`b${i}`,byte_start:b.byte_start,byte_end:b.byte_end,sha256:b.sha256}));
+ const p:PagePresentation={schema_version:'dmb_page_presentation_v2',markdown_sha256:presentationSha256(source),items:[{kind:'empty_paragraph',id:'a'},blocks[0],{kind:'empty_paragraph',id:'middle'},blocks[1],{kind:'empty_paragraph',id:'z'}]};
+ const doc=hydratePresentation(source,p);
+ expect(doc.content?.map(n=>n.attrs?.pageBlockId)).toEqual(['a','b0','middle','b1','z']);
+ expect(doc.content?.filter(n=>!n.content?.length)).toHaveLength(3);
+ expect(()=>hydratePresentation(source,{...p,schema_version:'dmb_page_presentation_v1'})).toThrow(/presentation v2/);
+ expect(()=>hydratePresentation(source,{...p,items:[...p.items,{kind:'empty_paragraph',id:'a'}]})).toThrow(/duplicate/);
+ expect(()=>hydratePresentation(source+'changed',p)).toThrow(/different source bytes/);
+});
+
+it('projects and reopens plain pages with leading, middle and trailing empty paragraphs',()=>{
+ const source='First.\n\nSecond.\n';
+ const plain=markdownToTiptapDoc(source).doc;
+ const draft:JSONContent={type:'doc',content:[{type:'paragraph'},plain.content![0],{type:'paragraph'},plain.content![1],{type:'paragraph'}]};
+ const saved=projectPresentation(draft,source,plain);
+ expect(saved.markdown).toBe(source);
+ expect(saved.presentation?.schema_version).toBe('dmb_page_presentation_v2');
+ expect(saved.presentation?.items.map(item=>item.kind)).toEqual(['empty_paragraph','block','empty_paragraph','block','empty_paragraph']);
+ const reopened=hydratePresentation(saved.markdown,saved.presentation);
+ expect(reopened.content?.filter(n=>!n.content?.length)).toHaveLength(3);
+ expect(projectPresentation(reopened,saved.markdown,reopened,saved.presentation)).toEqual(saved);
+ const bad=structuredClone(draft);bad.content![0].attrs={pageBlockId:'same'};bad.content![2].attrs={pageBlockId:'same'};
+ expect(()=>projectPresentation(bad,source,plain)).toThrow(/duplicate/);
+});
+
+it('does not give a new block the identity of a deleted v2 block',()=>{
+ const source='First.\n\nSecond.\n';const plain=markdownToTiptapDoc(source).doc;
+ const initial=projectPresentation({type:'doc',content:[plain.content![0],{type:'paragraph'},plain.content![1]]},source,plain);
+ const doc=hydratePresentation(initial.markdown,initial.presentation);
+ const removedId=doc.content![0].attrs!.pageBlockId;
+ doc.content!.shift();doc.content!.push({type:'paragraph',content:[{type:'text',text:'New paragraph.'}]});
+ expect(()=>projectPresentation(doc,source,hydratePresentation(source,initial.presentation),initial.presentation)).toThrow(/identities are missing/);
+ doc.content!.at(-1)!.attrs={pageBlockId:'fresh-id'};
+ const updated=projectPresentation(doc,source,hydratePresentation(source,initial.presentation),initial.presentation);
+ expect(updated.presentation!.items.at(-1)!.id).not.toBe(removedId);
+});
+
+it('refuses a v2 editor draft that has lost its mounted identities',()=>{
+ const source='First.\n\nSecond.\n';const plain=markdownToTiptapDoc(source).doc;
+ const initial=projectPresentation({type:'doc',content:[plain.content![0],{type:'paragraph'},plain.content![1]]},source,plain);
+ const original=hydratePresentation(source,initial.presentation), damaged=structuredClone(original);
+ delete damaged.content![1].attrs!.pageBlockId;
+ expect(()=>projectPresentation(damaged,source,original,initial.presentation)).toThrow(/identities are missing/);
+});
+
+it('preserves an enrolled empty-only draft instead of losing its paragraph identities',()=>{
+ const source='First.\n\nSecond.\n';const plain=markdownToTiptapDoc(source).doc;
+ const first=projectPresentation({type:'doc',content:[plain.content![0],{type:'paragraph'},plain.content![1]]},source,plain);
+ const original=hydratePresentation(source,first.presentation);
+ const emptyDoc:JSONContent={type:'doc',content:original.content!.map(node=>({type:'paragraph',attrs:node.attrs}))};
+ const saved=projectPresentation(emptyDoc,source,original,first.presentation);
+ expect(saved.markdown).toBe('');
+ expect(saved.presentation?.items.every(item=>item.kind==='empty_paragraph')).toBe(true);
+ expect(hydratePresentation(saved.markdown,saved.presentation)).toEqual(emptyDoc);
+});

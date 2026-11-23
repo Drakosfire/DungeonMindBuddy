@@ -990,3 +990,57 @@ def test_page_layout_writer_enrollment_rolls_back_and_legacy_database_write_fail
         with pytest.raises(psycopg.errors.CheckViolation, match="layout-aware writer"), conn.transaction():
             conn.execute("UPDATE content.working_copy SET markdown = 'legacy' WHERE work_object_id = %s", (document,))
     assert pages.snapshot_page(document, world_id=world_id) == current
+
+
+def test_page_v2_empty_paragraph_cold_reopen_and_old_writer_fence(world, monkeypatch):
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.main import create_app
+
+    page = pages.create_page(world_id=world, title='Empty paragraph test')
+    markdown = PLAN_PRESENTATION_MARKDOWN + '\n'
+    old = _presentation(markdown, identity_only=True)
+    items = [old.items[0], page_presentation.EmptyParagraph(id='blank'), *old.items[1:]]
+    layout = page_presentation.PagePresentation(
+        schema_version='dmb_page_presentation_v2', markdown_sha256=sha256_utf8(markdown), items=items,
+    ).checked(markdown)
+    with pytest.raises(ApplicationStateValidationError, match='layout-aware writer'):
+        pages.commit_page(ident(page), markdown, world_id=world, expected_revision=page.page.object_revision,
+                          expected_working_copy_revision=None, page_presentation=layout)
+    monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'local')
+    with TestClient(create_app(), base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        rejected = client.post(f'{PLAN_MARKDOWN_WRITE}/prepare', json={
+            'document_id': ident(page), 'markdown': markdown, 'expected_revision': page.page.object_revision,
+            'page_presentation': layout.model_dump(mode='json'),
+        })
+        assert rejected.status_code == 422, rejected.text
+    saved, _ = pages.commit_page(
+        ident(page), markdown, world_id=world, expected_revision=page.page.object_revision,
+        expected_working_copy_revision=None, page_presentation=layout,
+        layout_writer_profile=pages.PAGE_LAYOUT_WRITER_PROFILE,
+    )
+    document = ident(saved)
+    reopened = pages.snapshot_page(document, world_id=world)
+    assert reopened.markdown == markdown
+    assert reopened.presentation == layout
+    monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'local')
+    body = {'document_id': document, 'markdown': markdown, 'expected_revision': reopened.page.object_revision}
+    with TestClient(create_app(), base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        snapshot = client.get(f'/api/live/workspace-documents/{document}/snapshot')
+        assert snapshot.status_code == 200, snapshot.text
+        assert snapshot.json()['page_presentation'] == layout.model_dump(mode='json')
+        for legacy in (body, {**body, 'page_presentation': None}):
+            rejected = client.post(f'{PLAN_MARKDOWN_WRITE}/prepare', json=legacy)
+            assert rejected.status_code == 409, rejected.text
+    assert pages.snapshot_page(document, world_id=world) == reopened
+
+
+def test_plan_rejects_page_v2_presentation(plain_plan):
+    layout = _presentation(PLAN_PRESENTATION_MARKDOWN, identity_only=True)
+    v2 = page_presentation.PagePresentation(
+        schema_version='dmb_page_presentation_v2', markdown_sha256=layout.markdown_sha256,
+        items=[layout.items[0], page_presentation.EmptyParagraph(id='empty'), *layout.items[1:]],
+    )
+    with pytest.raises(ApplicationStateValidationError, match='Plan does not support'):
+        _commit_layout(plain_plan[0], PLAN_PRESENTATION_MARKDOWN, v2)

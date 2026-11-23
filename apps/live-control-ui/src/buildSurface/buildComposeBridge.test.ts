@@ -188,6 +188,26 @@ function setup(){
  const changed=vi.fn();return{editor,state,changed,bridge:createBuildComposeBridge(()=>state,changed)};
 }
 describe('Build image insertion boundary',()=>{
+ it('places an image on a newly saved plain two-paragraph page without altering either paragraph',async()=>{
+  const source='Demo illustration for the fictional saved scene The empty cages.\n\nTwo empty cages stand beside a carnival wagon, waiting for the party to investigate.\n';
+  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],content:markdownToTiptapDoc(source).doc});
+  const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,
+   contentSha256:await testDigest(source),visibility:'internal',draftGeneration:0,selectionGeneration:0,
+   canEdit:true,pagePresentation:null,savedMarkdown:source};
+  const bridge=createBuildComposeBridge(()=>state,()=>{});
+  try{
+   editor.commands.setTextSelection(editor.state.doc.content.size-2);
+   const before=editor.getJSON();const captured=await bridge.capture();
+   bridge.insert(captured,mediaMarkdown(id,'Saved artwork'));
+   const after=editor.getJSON();
+   expect(after.content?.slice(0,2)).toEqual(before.content);
+   expect(after.content?.[2]?.content?.[0]?.type).toBe('mediaImage');
+   const markdown=tiptapJsonToSemanticMarkdown(after);
+   expect(editor.schema.nodeFromJSON(markdownToTiptapDoc(markdown).doc).toJSON()).toEqual(after);
+   editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+   editor.commands.redo();expect(editor.getJSON()).toEqual(after);
+  }finally{editor.destroy();}
+ });
  it.each(['identity-only','composed'] as const)('preserves a %s page through image placement and reopen',async mode=>{
   const source='A lantern beside the booth.\n\nThe gate is closed.\n';
   const flat=markdownToTiptapDoc(source).doc;
@@ -848,4 +868,25 @@ it('applies canonical Read Aloud and GM Note blocks and reopens their saved Mark
   } finally {
     editor.destroy();
   }
+});
+
+it('places an image while retaining an unsaved empty paragraph and supports undo',async()=>{
+ const source='First paragraph.\n\nSecond paragraph.\n';
+ const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],content:markdownToTiptapDoc(source).doc});
+ const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,contentSha256:await testDigest(source),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true,pagePresentation:null,savedMarkdown:source};
+ const bridge=createBuildComposeBridge(()=>state,()=>{});
+ try{
+  editor.commands.insertContentAt(editor.state.doc.content.size,{type:'paragraph'});
+  editor.commands.setTextSelection(4);
+  const before=editor.getJSON(), captured=await bridge.capture();
+  bridge.insert(captured,mediaMarkdown(id,'Saved artwork'));
+  const after=editor.getJSON();
+  expect(after.content?.[0]).toEqual(before.content?.[0]);
+  expect(after.content?.slice(2)).toEqual(before.content?.slice(1));
+  const saved=projectPresentation(after,source,before);
+  expect(saved.presentation?.schema_version).toBe('dmb_page_presentation_v2');
+  expect(hydratePresentation(saved.markdown,saved.presentation).content?.at(-1)?.content).toBeUndefined();
+  editor.commands.undo(); expect(editor.getJSON()).toEqual(before);
+  editor.commands.redo(); expect(editor.getJSON()).toEqual(after);
+ }finally{editor.destroy();}
 });
