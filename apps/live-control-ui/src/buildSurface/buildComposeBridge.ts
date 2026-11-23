@@ -162,10 +162,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       && (node.content ?? []).every(child => child.type === 'text' || child.type === 'hardBreak');
     const isCallout = (node: JSONContent) => node.type === 'callout'
       && Boolean(node.content?.length) && (node.content ?? []).every(isProse);
-    const singleParagraph = content.length === 1 && content[0].type === 'paragraph'
-      && (content[0].content ?? []).every(node => node.type === 'text');
-    const calloutFragment = content.some(isCallout) && content.every(node => isProse(node) || isCallout(node));
-    if (!singleParagraph && !calloutFragment)
+    if (content.length === 0 || !content.every(node => isProse(node) || isCallout(node)))
       throw new Error('This Build suggestion must add prose or semantic callouts at the offered root boundary.');
     return rootBoundaryTransaction(captured, content, 'page-prose');
   }
