@@ -7,6 +7,7 @@ import { splitLeadingYamlFrontmatter, preserveLeadingYamlFrontmatter } from "../
 import { MEDIA_ASSET_ID, mediaMarkdown } from "../../media/mediaReferences";
 import { presentationSha256 } from "./presentationHash";
 
+export interface EmptyParagraph { kind: "empty_paragraph"; id: string }
 export interface PageBlockBinding { kind: "block"; id: string; byte_start: number; byte_end: number; sha256: string }
 export const IMAGE_TEXT_ANCHORS = ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"] as const;
 export type ImageTextAnchor = typeof IMAGE_TEXT_ANCHORS[number];
@@ -14,7 +15,7 @@ export interface PageImageText { kind: "image_text"; id: string; image: PageBloc
 export type PageSlotBlock = PageBlockBinding | PageImageText;
 export interface PageSlot { id: string; width: number; blocks: PageSlotBlock[] }
 export interface PageRow { kind: "row"; id: string; slots: PageSlot[]; min_height: number; line_mode: "guide" | "border" | "clean" }
-export interface PagePresentation { schema_version: "dmb_page_presentation_v1"; markdown_sha256: string; items: (PageBlockBinding | PageRow | PageImageText)[] }
+export interface PagePresentation { schema_version: "dmb_page_presentation_v1" | "dmb_page_presentation_v2"; markdown_sha256: string; items: (PageBlockBinding | PageRow | PageImageText | EmptyParagraph)[] }
 export { presentationSha256 };
 const fail = (reason: string): never => { throw new Error(`Page composition unavailable: ${reason}. The source and draft are unchanged.`); };
 const identifier = /^[A-Za-z0-9_-]{1,80}$/;
@@ -63,6 +64,12 @@ export function flattenPresentation(doc: JSONContent): JSONContent {
   });
   return { ...doc, content };
 }
+export function hasEmptyParagraphs(doc: JSONContent): boolean {
+  const blocks = doc.content ?? [];
+  return blocks.some(node => node.type === "paragraph" && !node.content?.length)
+    && (blocks.length > 1 || blocks.some(node => node.type !== "paragraph" || !!node.content?.length));
+}
+
 export function hasPresentation(doc: JSONContent): boolean { return (doc.content ?? []).some(node => node.type === "pageRow" || node.type === "pageImageText"); }
 
 // Sort keys for comparisons/fingerprints; never normalize source text.
@@ -118,9 +125,10 @@ function object(value: unknown, keys: string[]): Record<string, unknown> {
 function array(value: unknown, max: number): unknown[] { if (!Array.isArray(value) || value.length > max) return fail("invalid presentation list"); return value; }
 function integer(value: unknown, min: number, max: number): number { if (typeof value !== "number" || !Number.isSafeInteger(value) || value < min || value > max) return fail("invalid presentation number"); return value; }
 export function hydratePresentation(markdown: string, presentation: PagePresentation | unknown): JSONContent {
-  const blocks = admittedPresentationBlocks(markdown);
   const p = object(presentation,["schema_version","markdown_sha256","items"]);
-  if (p.schema_version !== "dmb_page_presentation_v1" || p.markdown_sha256 !== presentationSha256(markdown)) return fail("presentation belongs to different source bytes");
+  const body = splitLeadingYamlFrontmatter(markdown).markdown;
+  const blocks = body === "" && p.schema_version === "dmb_page_presentation_v2" ? [] : admittedPresentationBlocks(markdown);
+  if (!["dmb_page_presentation_v1", "dmb_page_presentation_v2"].includes(String(p.schema_version)) || p.markdown_sha256 !== presentationSha256(markdown)) return fail("presentation belongs to different source bytes");
   const seen = new Set<string>(); let cursor = 0;
   const identity = (id: unknown) => { if (typeof id !== "string" || !identifier.test(id) || seen.has(id)) return fail("duplicate or invalid block identity"); seen.add(id); return id; };
   const bind = (value: unknown): JSONContent => {
@@ -142,6 +150,11 @@ export function hydratePresentation(markdown: string, presentation: PagePresenta
   };
   const content=array(p.items,2048).map(value => {
     const item=object(value,["kind","id","slots","min_height","line_mode","byte_start","byte_end","sha256","image","text","anchor","inset","backing"]);
+    if (item.kind === "empty_paragraph") {
+      object(value,["kind","id"]);
+      if (p.schema_version !== "dmb_page_presentation_v2") return fail("empty paragraph needs presentation v2");
+      return {type:"paragraph",attrs:{pageBlockId:identity(item.id)}};
+    }
     if(item.kind !== "row") return block(value);
     object(value,["kind","id","slots","min_height","line_mode"]);
     const id=identity(item.id); const min_height=integer(item.min_height,0,640);
@@ -162,7 +175,47 @@ export function projectPresentation(doc: JSONContent, originalMarkdown: string, 
   const unchanged=presentationCanonicalJson(flat)===presentationCanonicalJson(originalFlat)
     || (semanticMarkdownSerializationDiagnostics(originalFlat).length === 0
       && tiptapJsonToSemanticMarkdown(flat) === tiptapJsonToSemanticMarkdown(originalFlat));
-  const markdown=unchanged ? originalMarkdown : preserveLeadingYamlFrontmatter(originalMarkdown,tiptapJsonToSemanticMarkdown(flat));
+  let markdown=unchanged ? originalMarkdown : preserveLeadingYamlFrontmatter(originalMarkdown,tiptapJsonToSemanticMarkdown(flat));
+  const empty = (node: JSONContent) => node.type === "paragraph" && !node.content?.length;
+  const needsV2 = (doc.content ?? []).some(empty) || existingPresentation?.schema_version === "dmb_page_presentation_v2";
+  if (needsV2) {
+    if (hasPresentation(doc)) return fail("empty paragraphs in composed layouts are not supported");
+    if (existingPresentation) hydratePresentation(originalMarkdown, existingPresentation);
+    if (existingPresentation?.schema_version === "dmb_page_presentation_v2" &&
+        (doc.content ?? []).some(node => typeof node.attrs?.pageBlockId !== "string"))
+      return fail("saved block identities are missing from the editor");
+    const sourceNodes = (doc.content ?? []).filter(node => !empty(node));
+    const split = splitLeadingYamlFrontmatter(markdown);
+    if (!sourceNodes.length && !split.markdown.trim()) markdown = split.frontmatter;
+    const admitted = splitLeadingYamlFrontmatter(markdown).markdown === "" ? [] : admittedPresentationBlocks(markdown);
+    if (admitted.length !== sourceNodes.length) return fail("edited block boundaries cannot be preserved");
+    const used = new Set<string>();
+    // Deleted saved IDs remain reserved so a newly inserted block cannot
+    // accidentally inherit references to a different historical block.
+    const reserved = new Set<string>(existingPresentation?.items.map(item => item.id) ?? []);
+    const liveIds = new Set<string>();
+    for (const node of doc.content ?? []) {
+      const id = node.attrs?.pageBlockId;
+      if (id != null && (typeof id !== "string" || !identifier.test(id) || liveIds.has(id))) return fail("duplicate or invalid retained block identity");
+      if (typeof id === "string") { reserved.add(id); liveIds.add(id); }
+      if (empty(node) && Object.entries(node.attrs ?? {}).some(([key,value]) => key !== "pageBlockId" && value != null)) return fail("unsupported empty paragraph attributes");
+    }
+    let serial = 0, cursor = 0;
+    const nextId = (node: JSONContent) => {
+      let id = node.attrs?.pageBlockId;
+      if (typeof id !== "string") { do { id = `block-${serial++}`; } while (reserved.has(id) || used.has(id)); }
+      used.add(id); return id;
+    };
+    const items: (PageBlockBinding | EmptyParagraph)[] = (doc.content ?? []).map(node => {
+      const id = nextId(node);
+      if (empty(node)) return {kind:"empty_paragraph",id};
+      const binding = admitted[cursor++];
+      return {kind:"block",id,byte_start:binding.byte_start,byte_end:binding.byte_end,sha256:binding.sha256};
+    });
+    const presentation: PagePresentation = {schema_version:"dmb_page_presentation_v2",markdown_sha256:presentationSha256(markdown),items};
+    hydratePresentation(markdown,presentation);
+    return {markdown,presentation};
+  }
   if (retainPlainIdentities && existingPresentation == null)
     return fail('The enrolled page identity sidecar is missing. Recover the saved source before saving this draft.');
   const retainIdentities = retainPlainIdentities || (existingPresentation != null && existingPresentation.items.every(item => item.kind === 'block'));

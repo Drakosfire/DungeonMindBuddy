@@ -316,9 +316,12 @@ def commit_page(
         proposed = presentation.candidate(
             page_presentation, normalize_markdown(markdown), current_presentation
         )
+        if proposed is not None and proposed.schema_version == "dmb_page_presentation_v2" and layout_writer_profile != PAGE_LAYOUT_WRITER_PROFILE:
+            raise ApplicationStateValidationError("presentation v2 requires its layout-aware writer")
         changed = current_presentation != proposed
         enrolling = layout_writer_profile is not None and state.layout_writer_profile is None
-        if enrolling and (not changed or current_presentation is None):
+        if enrolling and (not changed or (current_presentation is None and
+                (proposed is None or proposed.schema_version != "dmb_page_presentation_v2"))):
             raise ApplicationStateValidationError("protect an existing Page layout through an explicit layout change")
         copy = repo.get_working_copy(conn, state.page.work_object_id)
         # An identical immediate retry may recover the shared committed result;

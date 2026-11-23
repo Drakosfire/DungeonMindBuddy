@@ -15,7 +15,7 @@ import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/seman
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { admitMarkdownInsertion, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
 import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
-import {flattenPresentation,hasPresentation,hydratePresentation,presentationFingerprint,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
+import {flattenPresentation,hasPresentation,hasEmptyParagraphs,hydratePresentation,presentationFingerprint,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
 import {preserveLeadingYamlFrontmatter,stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
 import {
   applyAgentImageMove, captureAgentImageMoves, matchAgentImageMove, preservePlainReviewBlockIdentities,
@@ -572,7 +572,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       const anchor = position.depth > 0 ? position.after(1) : captured.basis.caret;
       const current = getCurrent(); const presentation = current?.pagePresentation;
       const retainPlain = presentation?.items.every(item => item.kind === 'block') === true;
-      const retainsIds = hasPresentation(original) || retainPlain;
+      const retainsIds = hasPresentation(original) || retainPlain || presentation?.schema_version === 'dmb_page_presentation_v2' || hasEmptyParagraphs(original);
       if (retainsIds && !editor.schema.nodes.paragraph?.spec.attrs?.pageBlockId)
         throw new Error('This page editor cannot retain image block identities.');
       const imageBlock = retainsIds ? {...block,attrs:{...block.attrs,pageBlockId:`page-image-${crypto.randomUUID()}`}} : block;
@@ -589,8 +589,18 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       const projectedBefore = presentation ? hydratePresentation(savedMarkdown,presentation) : original;
       const projection = retainsIds ? projectPresentation(after,savedMarkdown,projectedBefore,presentation,retainPlain) : null;
       const reopened = projection?.presentation ? hydratePresentation(projection.markdown,projection.presentation) : markdownToTiptapDoc(body).doc;
+      const reopenedJson = editor.schema.nodeFromJSON(reopened).toJSON() as JSONContent;
+      // Enrollment gives previously anonymous plain blocks stable IDs. Compare
+      // them as anonymous only when the live block truly had no ID; every
+      // existing ID and all other structure must still match exactly.
+      if (projection?.presentation?.schema_version === 'dmb_page_presentation_v2' && !hasPresentation(after)) {
+        (reopenedJson.content ?? []).forEach((node, i) => {
+          const live = after.content?.[i];
+          if (live?.attrs?.pageBlockId == null && node.attrs) node.attrs.pageBlockId = null;
+        });
+      }
       if (semanticMarkdownSerializationDiagnostics(flattenPresentation(after)).length
-        || JSON.stringify(editor.schema.nodeFromJSON(reopened).toJSON()) !== JSON.stringify(after))
+        || JSON.stringify(reopenedJson) !== JSON.stringify(after))
         throw new Error('Saving this image would change existing structure or block identities.');
       closeHistory(transaction);
       // Installed editor plugins must be pure and deterministic: this preview and

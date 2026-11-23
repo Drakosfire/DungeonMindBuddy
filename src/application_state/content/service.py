@@ -575,6 +575,8 @@ def _commit_in_connection(
                 "composed Plan requires an explicit retained presentation"
             )
         layout = presentation.candidate(plan_presentation, content, current_layout)
+        if layout is not None and layout.schema_version != "dmb_page_presentation_v1":
+            raise ApplicationStateValidationError("Plan does not support this presentation version")
         page_presentation_changed = layout != current_layout
     if expected_revision is not None and obj.object_revision != expected_revision:
         if (
