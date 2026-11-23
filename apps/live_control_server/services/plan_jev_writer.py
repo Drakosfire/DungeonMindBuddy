@@ -405,7 +405,7 @@ class PlanJevWriter:
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                     supplied_source_references=True,
-                    typed_source_answer=True,
+                    typed_source_answer=True, lore_page_limitations=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
@@ -577,6 +577,10 @@ class PlanJevWriter:
             self.instructions += SUPPLIED_SOURCE_RESPONSE
         if self.shared and self.provider_work.get('build_work', {}).get('source_answer_policy') == 'typed_supplied_source_answer_v1':
             self.instructions += SOURCE_BACKED_DISCUSSION_RESPONSE
+        if self.shared and self.provider_work.get('build_work', {}).get('lore_limitation_policy') == 'validated_lore_review_generic_gaps_v1':
+            self.instructions += ('\nOptional requested_detail_gaps select phrases from the CURRENT user request only, '
+                'not an earlier dialogue turn. If no precise current phrase fits, return no specific gaps '
+                'and use a generic limitation code. Keep the useful requested page content and open questions.')
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '
