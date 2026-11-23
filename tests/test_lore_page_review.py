@@ -290,3 +290,50 @@ def test_page_timing_modifier_is_separate_from_the_name():
 def test_explicit_name_can_end_in_now(preposition):
     author = f"Create a page {preposition} Blue Lantern Now."
     assert explicit_lore_page_witness(author, conversational=True).title == "Blue Lantern Now"
+
+
+@pytest.mark.parametrize('instruction,title', [
+    ('Create the Maelthor page', 'Maelthor'),
+    ('Please make a new Glass Regent page from our conversation.', 'Glass Regent'),
+    ('Open the "Blue Lantern Now" page.', 'Blue Lantern Now'),
+    ('Create the blank Ashbell page.', 'Ashbell'),
+])
+def test_title_before_page_is_an_explicit_author_witness(instruction, title):
+    witness = explicit_lore_page_witness(instruction, conversational=True)
+    assert witness.title == title
+    assert witness.bind(instruction, conversational=True) == title
+    if 'blank' in instruction:
+        with pytest.raises(ValueError, match='Blank lore-page'):
+            witness.bind(instruction, has_body=True)
+
+
+@pytest.mark.parametrize('instruction', [
+    'Do not create the Maelthor page.',
+    'Could we create the Maelthor page?',
+    'Create a new page.',
+    'Create the current page.',
+    'Create the Maelthor or Dust Walker page.',
+    'Create the Maelthor page and another page.',
+    'Create the Maelthor page. Create the Ashbell page.',
+])
+def test_new_title_form_does_not_grant_ambiguous_or_multiple_destinations(instruction):
+    with pytest.raises(ValueError):
+        explicit_lore_page_witness(instruction, conversational=True)
+
+
+@pytest.mark.parametrize('clause', ['titled', 'named', 'called', ', titled', 'with the title'])
+@pytest.mark.parametrize('title', ['Ashbell', 'Maelthor'])
+def test_title_before_page_rejects_an_additional_naming_clause(clause, title):
+    with pytest.raises(ValueError, match='multiple naming clauses'):
+        explicit_lore_page_witness(f'Create the Maelthor page {clause} "{title}".')
+
+
+@pytest.mark.parametrize('instruction', [
+    'Create the Maelthor page. Create a page titled "Ashbell".',
+    'Create a page titled "Ashbell". Create the Maelthor page.',
+])
+def test_legacy_witness_reopens_under_original_grammar_in_mixed_prose(instruction):
+    # These exact old-form witnesses were accepted before the new grammar.
+    witness = LorePageTitleWitness(instruction='Create a page titled "Ashbell"', title='Ashbell')
+    assert witness.bind(instruction) == 'Ashbell'
+    assert explicit_lore_page_witness(instruction).title == 'Ashbell'
