@@ -6,6 +6,10 @@ Core login, and a disposable local statblock service. It launches a
 fresh Chromium context. Stage owned copies of managed World, artifacts
 and sessions before the run. Each replay needs its own clean Plan scene
 and a fresh App database if it will repeat encounter attachment.
+The launcher copies the three fixture directories into the new run
+directory before mounting them. It rejects symlinks and special files.
+The Linux runner uses `setfacl` to grant the unprivileged image user
+access to the run copy.
 
 The launcher serves the image's shipped static UI while Buddy runs in
 local operator mode. The image's usual frontend route serves those

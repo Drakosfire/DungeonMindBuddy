@@ -31,3 +31,23 @@ def test_logical_fixture_identity_ignores_buddy_release():
     candidate = {**original, "runtime": {"source": "after"}}
     assert source_fixture_digest(original, ["capture"]) == source_fixture_digest(candidate, ["capture"])
     assert source_fixture_digest(original, ["capture"]) != source_fixture_digest(candidate, ["changed"])
+
+
+def test_runtime_state_is_copied_and_symlinks_are_refused(tmp_path):
+    import pytest
+
+    from evals.old_bath_house.run import STATE_DIRECTORIES, copy_runtime_state
+
+    fixture = tmp_path / "fixture"
+    for directory in STATE_DIRECTORIES:
+        (fixture / directory).mkdir(parents=True)
+    artifact = fixture / "artifacts" / "saved.json"
+    artifact.write_text("source bytes")
+    copied = tmp_path / "copy"
+    copy_runtime_state(fixture, copied)
+    (copied / "artifacts" / artifact.name).write_text("running bytes")
+    assert artifact.read_text() == "source bytes"
+    (fixture / "sessions" / "link").symlink_to(artifact)
+    with pytest.raises(ValueError, match="symlink"):
+        copy_runtime_state(fixture, tmp_path / "second-copy")
+    assert not (tmp_path / "second-copy").exists()

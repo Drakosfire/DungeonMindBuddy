@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import secrets
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -15,6 +16,26 @@ from .isolation import APP_DSN, CORE_DSN, read_fixture, verify_target
 
 STATBLOCK_URL = "DUNGEONMIND_STATBLOCKS_BASE_URL"
 STATBLOCK_KEY = "DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY"
+STATE_DIRECTORIES = ("managed", "artifacts", "sessions")
+
+
+def copy_runtime_state(source, destination):
+    """Give Buddy a private writable copy, without following fixture links."""
+    if source.is_symlink():
+        raise ValueError("Benchmark fixture root must not be a symlink")
+    source = source.resolve(strict=True)
+    if source == Path("/") or destination.resolve().is_relative_to(source):
+        raise ValueError("Choose a benchmark output outside the fixture source")
+    for name in STATE_DIRECTORIES:
+        directory = source / name
+        if directory.is_symlink() or not directory.is_dir():
+            raise ValueError(f"Expected a plain fixture directory: {name}")
+        for path in directory.rglob("*"):
+            if path.is_symlink() or not (path.is_file() or path.is_dir()):
+                raise ValueError("Benchmark fixture contains a symlink or special file")
+    destination.mkdir(mode=0o700)
+    for name in STATE_DIRECTORIES:
+        shutil.copytree(source / name, destination / name)
 
 
 def inspect_image(image):
@@ -54,9 +75,7 @@ def run(fixture_path, fixture_digest, output):
 
     origin = fixture["origin"]
     port = str(urlsplit(origin).port)
-    root = Path(fixture["runtime_state"]).resolve(strict=True)
-    if root == Path("/") or not all((root / item).is_dir() for item in ("managed", "artifacts", "sessions")):
-        raise ValueError("Expected staged disposable Buddy state directories")
+    root = output.resolve() / "runtime-state"
     env = {key: os.environ[key] for key in (APP_DSN, CORE_DSN, STATBLOCK_URL, STATBLOCK_KEY)}
     token = secrets.token_urlsafe(32)
     env.update({
@@ -74,6 +93,11 @@ def run(fixture_path, fixture_digest, output):
         "DMB_AGENT_GRAPH_SESSION_STORE": "/tmp/old-bath-house-auth/local-session.json",
     })
     output.mkdir(mode=0o700)
+    copy_runtime_state(Path(fixture["runtime_state"]), root)
+    uid = info["Config"]["User"].split(":", 1)[0]
+    if not uid.isdecimal() or uid == "0":
+        raise ValueError("Benchmark image must declare a numeric unprivileged runtime user")
+    subprocess.run(["setfacl", "-R", "-m", f"u:{uid}:rwX", str(root)], check=True)
     container_args = [
         "docker", "run", "--network", "host",
         "--mount", f"type=bind,source={root},target=/benchmark",
