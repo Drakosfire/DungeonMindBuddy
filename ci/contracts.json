@@ -261,6 +261,7 @@
         "tests/test_guest_release_assertions.py",
         "tests/test_guest_release_evidence.py",
         "tests/test_guest_release_integration.py",
+        "tests/test_guest_release_image_config.py",
         "tests/test_guest_release_media.py",
         "tests/test_guest_release_media_selection.py",
         "tests/test_guest_release_native_graph.py",

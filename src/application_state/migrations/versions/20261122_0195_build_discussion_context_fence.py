@@ -1,7 +1,7 @@
-"""Fence readers before persisting full retained Build conversation admissions."""
+"""Fence readers before persisting retained Build discussion admissions."""
 
-revision = "20261122_0193"
-down_revision = "20261122_0192"
+revision = "20261122_0195"
+down_revision = "20261122_0194"
 branch_labels = None
 depends_on = None
 

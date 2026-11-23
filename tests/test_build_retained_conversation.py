@@ -308,13 +308,13 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         'decoded_rows': decoded_rows}, indent=2) + '\n')
 
 
-@pytest.mark.parametrize('revision,parent', [('0193', '0192'), ('0194', '0193'), ('0195', '0194')])
+@pytest.mark.parametrize('revision,parent', [('0194', '0192'), ('0195', '0194'), ('0196', '0195')])
 def test_old_reader_refuses_retained_context_database_before_decoding(application_state_dsn, monkeypatch, revision, parent):
     from importlib import import_module
     from application_state import cli
     from application_state.errors import ApplicationStateMigrationError
-    name = {'0193': 'build_retained_conversation', '0194': 'build_discussion_context',
-            '0195': 'natural_page_title'}[revision]
+    name = {'0194': 'build_retained_conversation', '0195': 'build_discussion_context',
+            '0196': 'natural_page_title'}[revision]
     fence = import_module(f'application_state.migrations.versions.20261122_{revision}_{name}_fence')
     assert fence.down_revision == '20261122_' + parent
     cli.assert_at_head(dsn=application_state_dsn)

@@ -1,6 +1,6 @@
 # DOGFOOD: accept an explicitly named page before the word page
 
-ACTIVE, Alan authorized remaining4459 fixes through deployment. DOGFOOD owns this
+IMPLEMENTATION MERGED, Alan authorized remaining4459 fixes through deployment. DOGFOOD owns this
 bounded Buddy slice. Stacked implementation/serial delivery, parent4496 exact
 f413f6b81d7b5034a63a7572701160dbaa887fc4; branch
 codex/dogfood-natural-page-title, same isolated checkout. Order: merged4484,
@@ -48,3 +48,9 @@ not a versionless rewrite of old witness authority. Multiple all-new requests
 still reject; mixed old/new multi-command semantics remain the original behavior
 and are not expanded in this slice. Two exact legacy mixed-prose witnesses now
 explicitly reopen. No new public witness version or extra capability is introduced.
+
+Settlement: PR4499 mergedef0c1bf82bc2b4e30e5940f7e8b1f17726e067af into the owned retained-context
+serving base after exact-head qualification and independent review. Not deployed.
+The consuming context-serving-5647 carrier owns the truthful reader-fence mapping:
+context0194(parent0192), discussion0195, title0196, reserving portrait0193.
+This supersedes only this pre-production fence numbering, not its behavior.

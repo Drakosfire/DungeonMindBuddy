@@ -1,6 +1,6 @@
 # DOGFOOD: reuse retained context for discussion without another search
 
-ACTIVE, directly authorized by Alan's #4459 continuation. DOGFOOD owns this Buddy
+IMPLEMENTATION MERGED, directly authorized by Alan's #4459 continuation. DOGFOOD owns this Buddy
 runtime design and implementation. This bounded successor explicitly revises the
 predecessor's serial-undispatched start restriction: stacked implementation,
 serial merge/delivery. Parent PR4484 exact0d0b2019929f653914484badab26dcbda60d6bb2;
@@ -108,3 +108,9 @@ test lease to retain this owning failure test under the correct stronger invaria
 failed opening =>503/interrupted, zero writer calls, zero Graph starts. Do not
 delete the test or hide its old failing result. Ingestion913/9skip and saved
 562/31baselinefail remain605 results only. Exact corrected-head suites required.
+
+Settlement: PR4496 merged77151f4704c69d55ca72ddedbd5ca4dedf03ddc9 into the owned retained-context
+serving base after exact-head qualification and independent review. Not deployed.
+The consuming context-serving-5647 carrier owns the truthful reader-fence mapping:
+context0194(parent0192), discussion0195, title0196, reserving portrait0193.
+This supersedes only this pre-production fence numbering, not its behavior.

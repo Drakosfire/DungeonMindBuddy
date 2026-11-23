@@ -1,6 +1,6 @@
 """Fence readers before retaining natural title-before-page witnesses."""
-revision = "20261122_0195"
-down_revision = "20261122_0194"
+revision = "20261122_0196"
+down_revision = "20261122_0195"
 branch_labels = None
 depends_on = None
 

@@ -182,3 +182,9 @@ successor4496 explicitly adopts stacked implementation/serial delivery and owns
 backward-looking settlement here. Title/latency and actual-app acceptance remain
 required for4459. The earlier serial-undispatched start restriction is superseded
 only by that explicit successor assignment; no broad runtime lease is granted.
+
+Current delivery carrier: context-serving-5647 preserves observed serving5647/0192
+and reserves the separately owned portrait0193 migration. Its never-deployed
+retained-context fence is0194(parent0192), discussion0195 and title0196. Original
+implementation/evidence numbers above remain historical facts. Final integrated
+qualification and production/app acceptance are still outstanding.
