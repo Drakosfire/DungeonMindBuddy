@@ -1167,6 +1167,75 @@ it('captures the typed current scene body with its complete editor and direction
 const authoringIdentity={idempotencyKey:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   conversationId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',pointerRevision:1};
 
+describe("semantic callouts in ordinary Plan Save", () => {
+  const originalBody = "Mist hangs low near the marsh.";
+  const rewrittenBody = "Three blue lanterns glow through the marsh mist.";
+  const arrival = "The boardwalk begins beyond the marsh.";
+  const readAloud = "> [!READ-ALOUD] First sight";
+  const warning = "> [!WARNING]\n> The boardwalk is slippery.";
+  const markdown = [
+    "# Plan",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:boardwalk beat_kind=spine -->\n## Boardwalk",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:arrival -->\n### Arrival",
+    `${readAloud}\n> ${originalBody}`,
+    arrival,
+    "> [!RULES]\n> Travel pace is set by the GM.",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:departure -->\n### Departure",
+    "The ferryman waits beside the red gate.",
+    "| Signal | State |\n| --- | --- |\n| Red gate | Closed |",
+  ].join("\n\n");
+
+  it.each([
+    { label: "body-only rewrite", text: originalBody, caret: false, proposal: rewrittenBody,
+      expected: markdown.replace(originalBody, rewrittenBody) },
+    { label: "Warning after the paragraph", text: arrival, caret: true, proposal: warning,
+      expected: markdown.replace(arrival, `${arrival}\n\n${warning}`) },
+    { label: "matching Read Aloud wrapper", text: originalBody, caret: false,
+      proposal: `${readAloud}\n> ${rewrittenBody}`, expected: markdown.replace(originalBody, rewrittenBody) },
+    { label: "different Read Aloud title", text: originalBody, caret: false,
+      proposal: `> [!READ-ALOUD] Changed title\n> ${rewrittenBody}`, expected: null },
+    { label: "different callout kind", text: originalBody, caret: false,
+      proposal: `> [!GM-NOTE] First sight\n> ${rewrittenBody}`, expected: null },
+    { label: "wrapped partial selection", text: "Mist hangs low", caret: false,
+      proposal: `${readAloud}\n> ${rewrittenBody}`, expected: null },
+    { label: "wrapped multi-paragraph replacement", text: originalBody, caret: false,
+      proposal: `${readAloud}\n> ${rewrittenBody}\n>\n> Another paragraph.`, expected: null },
+  ])("$label preserves the mounted Plan until a valid Save", async ({ text, caret, proposal, expected }) => {
+    const { editor, state } = mountedState(markdown);
+    const current = worldState(state);
+    let from = -1;
+    editor.state.doc.descendants((node, position) => {
+      const offset = node.isText ? node.text?.indexOf(text) : undefined;
+      if (offset !== undefined && offset >= 0) from = position + offset;
+    });
+    expect(from).toBeGreaterThan(0);
+    const to = from + text.length;
+    editor.commands.setTextSelection({ from: caret ? to : from, to });
+    const { target } = await captureWorldPlanAuthoringTarget(current, () => current, authoringIdentity);
+    expect(target.request.target_kind).toBe(caret ? "insert_at_caret" : "replace_selection");
+    const before = editor.getJSON();
+    const preparation = preparePlanAuthoringApplication(
+      target, proposal, "callout-action", () => current, expectedAgentBinding(), matchingAgentBinding,
+    );
+    if (expected === null) {
+      await expect(preparation).rejects.toThrow("unsafe to save as Markdown");
+      expect(editor.getJSON()).toEqual(before);
+      return;
+    }
+    const prepared = await preparation;
+    expect(editor.getJSON()).toEqual(before);
+    await applyWorldPlanEditProposal({
+      captured: target, admitted: prepared.admitted, getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(), getAgentBinding: matchingAgentBinding,
+    });
+    const saved = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    expect(saved).toBe(prepared.afterMarkdown);
+    const reopened = markdownToTiptapDoc(saved);
+    expect(reopened.diagnostics).toEqual([]);
+    expect(reopened.doc).toEqual(markdownToTiptapDoc(expected).doc);
+  });
+});
+
 it('restores a directional selection after reload without replacing document bytes',async()=>{
   const {editor,state}=mountedState('# Plan\n\nOpening frame');
   editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc,15,10)));

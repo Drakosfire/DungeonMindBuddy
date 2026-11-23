@@ -1455,7 +1455,8 @@ def semantic_routing_state(question, interaction, references, *, write_capabilit
 
     catalog = catalog_for_build_capability(write_capability)
     if catalog is not None:
-        context[OPENING_STATE_KEY], _ = build_boundary_opening(question, context["current_page_title"], catalog)
+        context[OPENING_STATE_KEY], _ = build_boundary_opening(
+            question, context["current_page_title"], catalog, caret=write_capability.basis.caret)
         context["page_target"] = {"kind": "contextual_paragraph"}
     return {"user_question": question, "interaction": context}
 
@@ -1466,7 +1467,8 @@ def paragraph_placement_for(policy, request, response, question, requested_work)
         OPENING_QUESTION_PREFIX, OPENING_STATE_KEY, resolve_build_boundary_opening,
     )
 
-    catalog = catalog_for_build_capability(getattr(getattr(policy, "action", None), "write_capability", None))
+    capability = getattr(getattr(policy, "action", None), "write_capability", None)
+    catalog = catalog_for_build_capability(capability)
     interaction = request.get("state", {}).get("interaction", {})
     if catalog is None:
         if OPENING_STATE_KEY in interaction or any(
@@ -1477,7 +1479,8 @@ def paragraph_placement_for(policy, request, response, question, requested_work)
     if interaction.get("page_target") != {"kind": "contextual_paragraph"}:
         raise ValueError("Build opening must describe the captured paragraph target")
     return resolve_build_boundary_opening(catalog, request, response, question=question,
-                                          title=interaction["current_page_title"], requested_work=requested_work)
+                                          title=interaction["current_page_title"], requested_work=requested_work,
+                                          caret=capability.basis.caret)
 
 
 def semantic_request_id(state, *, world_id, client_thread_id, idempotency_key):
