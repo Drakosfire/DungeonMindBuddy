@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from application_state.content import page_presentation as presentation
-from application_state.content.pages import PageLayoutWriterProfile
+from application_state.content.pages import PageLayoutWriterProfile, PAGE_LAYOUT_WRITER_PROFILE
 
 import blake3
 from markdown_it import MarkdownIt
@@ -921,8 +921,11 @@ def _page_layout(request, saved, content, mode):
         content,
         saved.presentation,
     )
+    if layout is not None and layout.schema_version == "dmb_page_presentation_v2" and profile != PAGE_LAYOUT_WRITER_PROFILE:
+        raise TiptapMarkdownWriteError("presentation v2 requires its layout-aware writer")
     if profile is not None and saved.layout_writer_profile is None and (
-        saved.presentation is None or layout == saved.presentation
+        layout == saved.presentation or (saved.presentation is None and
+            (layout is None or layout.schema_version != "dmb_page_presentation_v2"))
     ):
         raise TiptapMarkdownWriteError("protect an existing Page layout through an explicit layout change")
     return layout

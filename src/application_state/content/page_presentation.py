@@ -52,6 +52,11 @@ class BlockBinding(_Closed):
     sha256: Digest
 
 
+class EmptyParagraph(_Closed):
+    kind: Literal["empty_paragraph"] = "empty_paragraph"
+    id: Identifier
+
+
 class ImageText(_Closed):
     kind: Literal["image_text"] = "image_text"
     id: Identifier
@@ -90,10 +95,10 @@ class Row(_Closed):
 
 
 class PagePresentation(_Closed):
-    schema_version: Literal["dmb_page_presentation_v1"] = "dmb_page_presentation_v1"
+    schema_version: Literal["dmb_page_presentation_v1", "dmb_page_presentation_v2"] = "dmb_page_presentation_v1"
     markdown_sha256: Digest
     items: list[
-        Annotated[BlockBinding | Row | ImageText, Field(discriminator="kind")]
+        Annotated[BlockBinding | Row | ImageText | EmptyParagraph, Field(discriminator="kind")]
     ] = Field(max_length=2048)
 
     def checked(self, markdown: str) -> "PagePresentation":
@@ -162,6 +167,10 @@ class PagePresentation(_Closed):
             identity(item.id)
             if isinstance(item, BlockBinding):
                 bindings.append(item)
+                return
+            if isinstance(item, EmptyParagraph):
+                if self.schema_version != "dmb_page_presentation_v2":
+                    raise ApplicationStateValidationError("empty paragraphs require presentation v2")
                 return
             identity(item.image.id)
             identity(item.text.id)
@@ -301,8 +310,10 @@ UNSET = object()
 def candidate(value, markdown: str, current: PagePresentation | None):
     # A wrapper-free projection from an older client sends null. Unlike an
     # explicit visual unwrap, this must not erase nonvisual block identities.
-    if value is None and current is not None and all(
-        isinstance(item, BlockBinding) for item in current.items
+    if value is None and current is not None and (
+        current.schema_version == "dmb_page_presentation_v2" or all(
+            isinstance(item, BlockBinding) for item in current.items
+        )
     ):
         raise ApplicationStateValidationError(
             "identity-only Page requires explicit presentation; this client cannot save it"
@@ -314,5 +325,8 @@ def candidate(value, markdown: str, current: PagePresentation | None):
             )
         return None
     if value is not None:
-        return PagePresentation.model_validate(value).checked(markdown)
+        result = PagePresentation.model_validate(value).checked(markdown)
+        if current is not None and current.schema_version == "dmb_page_presentation_v2" and result.schema_version != "dmb_page_presentation_v2":
+            raise ApplicationStateValidationError("presentation v2 cannot be replaced by an older format")
+        return result
     return None
