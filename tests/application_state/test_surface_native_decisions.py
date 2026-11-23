@@ -126,13 +126,20 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
     case = sdk_case(application_state_dsn, native='current', readonly_session=True)
     assert eligible(case.turn)
     session = NativePlanSession(case.turn)
+    old_receipt, old_execution = case.turn.graph_context_receipt, case.turn.graph_context_execution
+    assert session.matches_verified_execution(old_receipt, old_execution)
     step = case.steps[-1]
     updated, fresh = session.execute(PlanSessionCommand.SELECTION,
         expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
         selection=step.selection, producer_proof=step.proof)
     assert fresh
     revision = updated.revision
+    receipt, execution = updated.graph_context_receipt, updated.graph_context_execution
+    assert session.matches_verified_execution(receipt, execution)
+    assert not session.matches_verified_execution(old_receipt, old_execution)
+    assert not session.matches_verified_execution(receipt.model_copy(update={'context_receipt_sha256': '0' * 64}), execution)
     updated.graph_context_execution.events.clear()
+    assert not session.matches_verified_execution(receipt, execution)
     updated.user_text = 'changed public export'
     replay, fresh = session.execute(PlanSessionCommand.SELECTION,
         expected_revision=revision, expected_attempt=case.turn.attempt,
@@ -142,6 +149,7 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
     final = session.finish()
     assert final == case.service.inspect_turn(world_id=final.world_id, turn_id=final.turn_id)
     assert final == replay
+    assert not session.matches_verified_execution(final.graph_context_receipt, final.graph_context_execution)
     with pytest.raises(ApplicationStateConflictError, match='sealed'):
         session.execute(PlanSessionCommand.SELECTION, expected_revision=revision,
             expected_attempt=final.attempt, selection=step.selection, producer_proof=step.proof)
