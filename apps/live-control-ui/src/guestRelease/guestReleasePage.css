@@ -4,7 +4,9 @@
 .guest-world a { color: #f0d49c; }
 .guest-world__header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; padding: 1.5rem 0; border-bottom: 1px solid #d9a44155; }
 .guest-world__header > a { font: 1.35rem Georgia, serif; text-decoration: none; }
-.guest-world__header nav { display: flex; flex-wrap: wrap; gap: 1.5rem; font-size: .9rem; }
+.guest-world__header nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; font-size: .9rem; }
+.guest-world__header nav button { border: 0; padding: 0; background: transparent; color: #f0d49c; font: inherit; cursor: pointer; text-decoration: underline; }
+.guest-world__graph:focus-visible, .guest-world__example:focus-visible { outline: 3px solid #e5b85e; outline-offset: 4px; }
 .guest-world__intro { max-width: 46rem; padding: clamp(3rem, 7vw, 6rem) 0 2rem; }
 .guest-world__eyebrow { color: #d9b674; font-size: .72rem; letter-spacing: .16em; font-weight: 700; }
 .guest-world h1, .guest-world h2, .guest-world h3 { font-family: Georgia, serif; font-weight: 400; }

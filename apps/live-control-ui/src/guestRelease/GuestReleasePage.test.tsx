@@ -60,11 +60,34 @@ it("opens only release-local deep links and ignores stale or invalid fragments",
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
+
+it("navigates the guest copy without changing its selected source or fragment", async () => {
+  const copy = { release_id: "copy", manifest: { graph: { nodes: [
+    { id: "a", label: "Sizzek", kind: "character", name_citations: ["s1"], kind_citations: ["s1"], name_basis: "asserted", kind_basis: "asserted" },
+  ], edges: [] }, sources: [{ id: "s1", text: "Safe excerpt", evidence_role: "support" }, { id: "s2", text: "Another excerpt", evidence_role: "context" }], assets: [],
+    saved_example: { version: "owner_saved_scene_v1", title: "A saved scene", body: "A scene", references: ["s1", "s2"], image: null } } };
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(copy), { status: 200 })));
+  window.history.replaceState({}, "", "/#copy/copy/point/a/source/s1");
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" home />);
+  expect(await screen.findByText("Safe excerpt")).toBeInTheDocument();
+  const navigation = screen.getByRole("navigation", { name: "Guest navigation" });
+  await user.click(within(navigation).getByRole("button", { name: "Saved scene" }));
+  expect(screen.getByRole("region", { name: "A saved scene" })).toHaveFocus();
+  expect(window.location.hash).toBe("#copy/copy/point/a/source/s1");
+  expect(screen.getByText("Safe excerpt")).toBeInTheDocument();
+  await user.click(within(navigation).getByRole("button", { name: "Explore graph" }));
+  expect(screen.getByRole("region", { name: "A web of connections" })).toHaveFocus();
+  expect(window.location.hash).toBe("#copy/copy/point/a/source/s1");
+});
+
 it("shows an unavailable state when a release is withdrawn", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 404 })));
   render(<GuestReleasePage publicId="public" />);
   expect(await screen.findByRole("alert")).toHaveTextContent("This guest World is unavailable");
   expect(screen.getByRole("link", { name: "Return to Buddy" })).toHaveAttribute("href", "/");
+  expect(screen.queryByRole("button", { name: "Explore graph" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Saved scene" })).not.toBeInTheDocument();
 });
 
 it("shows an unchanged saved example with release-only references and inline image", async () => {
@@ -83,6 +106,10 @@ it("shows an unchanged saved example with release-only references and inline ima
   expect(screen.getByRole("group", { name: "What next" })).toBeInTheDocument();
   expect(screen.queryByText("A bell rings")).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Enter" }));
+  expect(screen.getByText("A bell rings")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Enter" })).toHaveAttribute("aria-pressed", "true");
+  await user.click(screen.getByRole("button", { name: "Explore graph" }));
+  await user.click(screen.getByRole("button", { name: "Saved scene" }));
   expect(screen.getByText("A bell rings")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Enter" })).toHaveAttribute("aria-pressed", "true");
   expect(window.location.href).not.toContain("Enter");
