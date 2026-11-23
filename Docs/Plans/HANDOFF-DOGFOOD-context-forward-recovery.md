@@ -1,43 +1,39 @@
 # DOGFOOD: compatible forward recovery for the context release
 
-ACTIVE operational artifact, authorized by Alan's deployment assignment. DOGFOOD
-owns this bounded recovery variant. Parent candidatea40525d52eb8eced68ca1cf7b44a2bb5530b280a;
-branch codex/dogfood-context-forward-recovery, isolated existing checkout. This is
-an alternate image, not a successor feature or a branch to merge into the candidate.
-Review candidate→recovery as part of release4502/4504's activation/recovery contract.
+ACTIVE operational alternate, Alan authorized deployment and recovery preparation.
+DOGFOOD owns codex/dogfood-context-forward-recovery, existing isolated checkout.
+Parent candidate1c85a36549cc851d9deaec073b895c254ffeb19c (4509, after merged4504).
+This alternate is not a successor feature and must NOT merge into the candidate.
 
-Outcome: preserve all0197 readers, retained-context admission, no-search routing,
-source/citation identity, author-decision priority and natural-title behavior. Only
-restore prior page effortmedium and uncached default source-context composition.
-Variant/discussion settings unchanged. No schema downgrade or database restore
-while candidate-written data exists. The earlier serving0192 binary cannot recover
-0197 data and must never be auto-reactivated after forward migration.
+Preserve all0198 readers, supplied-reference writer contract and source projection,
+retained-context admission, exact current request, author priority, no-search
+routing, source/citation identities and access. Only restore page effortmedium
+and prior uncached default source preparation. Variant/discussion unchanged.
+No schema downgrade or restore over new writes. Old0192/0197 images cannot
+recover0198 records. Preserve serving guest flags and UID10001.
 
-Exclusive writes: this brief; the two reviewed latency runtime choices and their
-corresponding fixture assertions/tests; predecessor briefs only truthful settlement
-if facts become known. Keep candidate reader/writer protocol and all other source
-identical. The conflicting test hunk retains exact new current-request validation
-and restores only its effort expectation. Original implementation/evidence briefs
-remain as historical facts. No model/provider, cache contract, new source or author
-context reduction. Image preservesreview=1/page=0 andUID10001.
+Exclusive writes: this brief; the two already reviewed latency runtime choices
+and corresponding effort/cache assertions. Keep all other candidate runtime,
+protocol, migrations and tests identical. Rebase the owned operational PR4507
+onto4509; its prior2f2550b54b421a0fd82602bad9c1ce08b43d1b7f artifact is superseded
+for activation but remains historical evidence. No new model/provider authority.
 
-Validation: inspect exact candidate→recovery runtime delta; independent review;
-exact-SHA owning context/source checks. Build exact source and verify current head
-0197. Open ACTUAL candidate-written V3 presentation/typed citations/page/save
-receipts under this recovery image with read-only isolated database connections,
-no providers or mutation. Rehearse current0192 restore→0197 and prove unchanged
-application data; recovery reads the same0197 data. Before activation seal both
-source/image IDs, schema/grants/config and CAS against current serving state.
+Validate exact candidate→recovery diff independently. Build immutable image and
+reopen ACTUAL candidate-written0198 supplied-reference claims, long-chat records,
+saved page and original citations, without new provider calls. Rehearse current
+0192 production-backup restore→0198 with identical existing data fingerprints,
+reader inventory comparison and old-reader refusal. Retain all failures. Bind
+source/image/schema/grants/config and CAS to fresh serving state before cutover.
+If migration never commits, old0192 may restart. After any forward advance, finish
+this same reviewed no-op chain and serve a compatible0198 image. Preserve writes.
 
-If migration never commits, old0192 serving may restart. Once current schema has
-advanced, use compatible forward recovery, finishing the same reviewed no-op
-fence chain if needed. Preserve candidate writes and original source data. Do not
-claim this artifact is deployed, a fully green release or operator-role proof.
-SSH authentication repair and final candidate qualification remain pending.
+Prior0197 evidence: exact2f25 source independently reviewed PASS; candidatea405
+and recoverye98e9089 exact images reopened12-turn history, page and3 citations.
+Owned0192 restore→0197 preserved83 tables and refused old5647 readers. Those
+results are historical and do not qualify current0198 source or production data.
 
-Working-tree context/source checks:70 passed,1 long-history case deselected,
-9 warnings in127.49s. New current-request bindings, historical policy replay,
-reader fences and source withdrawal/access remain intact; page effort assertion
-correctly restoresmedium while discussion stayslow. Exact-source image/readback
-and independent recovery review still pending.4500/4501/4502 merged as recorded
-in their predecessor briefs;4504/current0197 candidate remains in qualification.
+Merged context predecessors4484/4496/4499/4500/4501 and carrier4502 are recorded
+in their briefs.4504 merged2a6843d9cc3b7dad9400e00db428a4ec07dfdd72 into the
+owned serving5647 branch, not main or production.4509 remains in qualification.
+SSH access is repaired. Production last directly verified5647/0192 healthy.
+No activation, full-release qualification or final signed-in acceptance claimed.
