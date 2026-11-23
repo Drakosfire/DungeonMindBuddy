@@ -70,13 +70,20 @@ def selection_options(*, world_id: str) -> dict:
             continue
         assertions.append((assertion, kind, value))
         evidence_ids.update(assertion.metadata.evidence_ref_ids)
-    if len(evidence_ids) > 1000:
+    # Keep assertion evidence first: a long context document must not consume
+    # the bounded inventory before its Graph fields can be selected.
+    catalog = list_admitted_native_text_sources(access)
+    independent_ids = {identity for source in catalog.sources for identity in source.evidence_ref_ids
+                       if identity not in evidence_ids
+                       and (evidence := access.parsed.get_evidence(identity)) is not None
+                       and evidence.evidence_role == "context"}
+    if len(evidence_ids | independent_ids) > 1000:
         raise GuestNativeGraphError("Graph has too much evidence for release selection")
     sources = []
     by_evidence = {}
     truncated = False
     scanned = 0
-    for evidence_id in sorted(evidence_ids):
+    for evidence_id in [*sorted(evidence_ids), *sorted(independent_ids)]:
         evidence = access.parsed.get_evidence(evidence_id)
         if evidence is None or evidence.evidence_role not in {"support", "context"}:
             continue
@@ -145,4 +152,4 @@ def selection_options(*, world_id: str) -> dict:
             "target_id": assertion.value.entity_id if kind == "relationship" else None,
             "temporal": assertion.metadata.temporal_scope.kind, "basis": assertion.metadata.epistemic_basis,
             "source_option_ids": eligible})
-    return {"graph_revision": revision_id, "fields": fields, "sources": sources, "source_options_truncated": truncated}
+    return {"graph_revision": revision_id, "fields": fields, "sources": sources, "source_options_truncated": truncated or not catalog.complete}

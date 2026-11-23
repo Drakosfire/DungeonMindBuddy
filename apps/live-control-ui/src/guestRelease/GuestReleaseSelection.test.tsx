@@ -15,7 +15,9 @@ it("requires explicit fields and evidence before staging the exact selection", a
       ], sources: [{ option_id: "option", document_id: "doc", document_title: "Apprentice", visibility: "internal", revision_n: 1,
         sha256: "a".repeat(64), start: 0, end: 4, excerpt: "clue", evidence_id: "evidence", evidence_role: "context" },
         { option_id: "option2", document_id: "doc2", document_title: "Carnival", visibility: "internal", revision_n: 1,
-          sha256: "b".repeat(64), start: 0, end: 5, excerpt: "other", evidence_id: "evidence2", evidence_role: "support" }],
+          sha256: "b".repeat(64), start: 0, end: 5, excerpt: "other", evidence_id: "evidence2", evidence_role: "support" },
+        { option_id: "recap", document_id: "recap-doc", document_title: "Recap", visibility: "internal", revision_n: 1,
+          sha256: "c".repeat(64), start: 0, end: 8, excerpt: "outcomes", evidence_id: "recap-evidence", evidence_role: "context" }],
     };
     return new Response(JSON.stringify(body), { status: 200 });
   });
@@ -32,7 +34,7 @@ it("requires explicit fields and evidence before staging the exact selection", a
   expect(button).toBeDisabled();
   const sourceSelects = screen.getAllByRole("combobox", { name: "Source excerpt" });
   await user.selectOptions(sourceSelects[0], "option"); await user.selectOptions(sourceSelects[1], "option2");
-  expect(screen.getByText("clue")).toBeInTheDocument();
+  expect(screen.getAllByText("clue").length).toBeGreaterThan(0);
   expect(screen.getByRole("heading", { name: /context, not direct support/ })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Load World images" }));
   const image = await screen.findByRole("img", { name: "World image 1" });
@@ -41,6 +43,7 @@ it("requires explicit fields and evidence before staging the exact selection", a
   fireEvent.load(image);
   await user.click(imageChoice);
   await user.click(screen.getByRole("checkbox", { name: "Include an owner-authored saved example" }));
+  await user.click(screen.getByRole("checkbox", { name: /Recap · private source · context/ }));
   expect(button).toBeDisabled();
   await user.type(screen.getByLabelText("Example title"), "Saved scene");
   await user.type(screen.getByLabelText("Scene text"), "A scene");
@@ -68,7 +71,8 @@ it("requires explicit fields and evidence before staging the exact selection", a
   const posted = fetchMock.mock.calls.find(([input, init]) => init?.method === "POST" && !String(input).endsWith("/selection-media/list"));
   expect(JSON.parse(String(posted?.[1]?.body))).toMatchObject({ graph_revision: "rev", nodes: [{ entity_id: "entity",
     name_assertion_id: "name", kind_assertion_id: "kind", name_source_index: 0, kind_source_index: 1 }],
-    sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }, { document_id: "doc2" }], relationships: [], asset_ids: ["image"],
+    sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }, { document_id: "doc2" },
+      { document_id: "recap-doc", excerpt: "outcomes", evidence_id: "recap-evidence" }], relationships: [], asset_ids: ["image"],
     saved_example: { title: "Saved scene", body: "A scene", source_indexes: [0, 1], asset_id: "image", image_description: "A red tent" },
     saved_choice: { prompt: "What next", options: [{ label: "Enter", outcome: "A bell rings" }, { label: "Wait", outcome: "A lantern flickers" }] } });
 });

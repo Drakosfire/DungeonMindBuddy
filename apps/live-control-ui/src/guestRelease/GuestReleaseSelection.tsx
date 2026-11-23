@@ -11,6 +11,7 @@ type Cursor = { before_time: string; before_id: string };
 export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string; onPrepared: () => void }) {
   const [options, setOptions] = useState<Options | null>(null);
   const [chosen, setChosen] = useState<Record<string, string>>({});
+  const [independentSources, setIndependentSources] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState(false);
@@ -30,7 +31,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const [choiceOutcomes, setChoiceOutcomes] = useState<[string, string]>(["", ""]);
   const base = `/api/live/worlds/${encodeURIComponent(worldId)}/guest-releases`;
   async function load() {
-    setBusy(true); setError(null); setOptions(null); setChosen({}); setPrepared(false);
+    setBusy(true); setError(null); setOptions(null); setChosen({}); setIndependentSources(new Set()); setPrepared(false);
     setExampleEnabled(false); setExampleTitle(""); setExampleBody(""); setExampleReferences(new Set()); setExampleImage(""); setExampleImageDescription("");
     setChoiceEnabled(false); setChoicePrompt(""); setChoiceLabels(["", ""]); setChoiceOutcomes(["", ""]);
     try {
@@ -63,7 +64,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
     nodes.set(field.entity_id, item);
   }
   const sources = new Map(options?.sources.map(source => [source.option_id, source]) ?? []);
-  const evidenceIds = [...new Set(selected.map(field => chosen[field.assertion_id]).filter(Boolean))];
+  const evidenceIds = [...new Set([...selected.map(field => chosen[field.assertion_id]).filter(Boolean), ...independentSources])];
   const referenceSpans = [...exampleReferences].map(id => {
     const source = sources.get(id);
     return source && JSON.stringify([source.document_id, source.revision_n, source.start, source.end]);
@@ -76,6 +77,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const choiceReady = !choiceEnabled || (exampleEnabled && isSavedChoice({ version: "owner_saved_choice_v1", prompt: choicePrompt,
     options: choiceLabels.map((label, index) => ({ label, outcome: choiceOutcomes[index] })) }));
   const ready = nodes.size > 0 && [...nodes.values()].every(node => node.name && node.classification && !node.duplicate)
+    && evidenceIds.length <= 500 && [...independentSources].every(id => sources.get(id)?.evidence_role === "context")
     && selected.every(field => field.source_option_ids.includes(chosen[field.assertion_id]) && sources.has(chosen[field.assertion_id]))
     && selected.filter(field => field.kind === "relationship").every(field => nodes.has(field.entity_id) && field.target_id !== null && nodes.has(field.target_id));
   async function prepare() {
@@ -126,6 +128,15 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
           <option value="">Choose an excerpt</option>{field.source_option_ids.map(id => <option key={id} value={id}>{sources.get(id)?.document_title ?? "Source"} · {sources.get(id)?.visibility === "internal" ? "private" : "player-safe"} · {sources.get(id)?.evidence_role === "context" ? "context, not direct support" : "support"} · {sources.get(id)?.excerpt.slice(0, 60)}</option>)}
         </select></label>}
       </li>)}</ul>
+      <fieldset><legend>Additional source excerpts</legend>
+        <p>Choose individual context excerpts to include. These do not establish a Graph fact or automatically support a saved scene.</p>
+        {options.sources.filter(source => source.evidence_role === "context").map(source => <label key={source.option_id}>
+          <input type="checkbox" disabled={busy} checked={independentSources.has(source.option_id)} onChange={event => {
+            const checked = event.target.checked; setIndependentSources(previous => { const next = new Set(previous); if (checked) next.add(source.option_id); else next.delete(source.option_id); return next; });
+          }} /> {source.document_title} · {source.visibility === "internal" ? "private source" : "player-safe source"} · context, not direct support
+          <span style={{ whiteSpace: "pre-wrap", display: "block" }}>{source.excerpt}</span>
+        </label>)}
+      </fieldset>
       {[...new Set(Object.values(chosen).filter(Boolean))].map(id => { const source = sources.get(id); return source && <section key={id}>
         <h4>{source.document_title} · {source.visibility === "internal" ? "private source" : "player-safe source"} · {source.evidence_role === "context" ? "context, not direct support" : "support"}</h4><p style={{ whiteSpace: "pre-wrap" }}>{source.excerpt}</p>
       </section>; })}
