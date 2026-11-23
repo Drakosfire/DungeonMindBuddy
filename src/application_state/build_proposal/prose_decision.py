@@ -11,7 +11,7 @@ from application_state.agent_conversation.jev_retrieval_contract import (
     MODEL, PROVIDER, RetrievalDialogue, validated_choice_answers,
 )
 from .prose_catalog import BuildProseBoundaryCatalog
-from .types import BuildBoundaryResolution, StrictModel
+from .types import BuildBoundaryResolution, BuildProseBoundaryTarget, StrictModel
 
 
 OPENING_STATE_KEY = "paragraph_placement"
@@ -29,6 +29,7 @@ class BuildBoundaryJudgment(StrictModel):
     relation: Literal["before", "after", "unresolved"]
     scope: Literal["named", "unscoped", "unresolved"]
     destination: Literal["current_page", "different_page", "unclear"] | None = None
+    insertion_location: Literal["unstated", "current_caret", "existing_location", "unclear"] | None = None
     passage_aliases: tuple[str, ...] = ()
     scope_aliases: tuple[str, ...] = ()
 
@@ -46,16 +47,18 @@ def _groups(catalog: BuildProseBoundaryCatalog):
 
 def prepare_build_boundary_decision(
     question: str, title: str, dialogue: tuple[RetrievalDialogue, ...],
-    catalog: BuildProseBoundaryCatalog, *, version: Literal[1, 2] = 2,
+    catalog: BuildProseBoundaryCatalog, *, version: Literal[1, 2] = 2, offer_caret: bool = False,
 ) -> DecisionRequest:
     texts, scopes = _groups(catalog)
     work_options = get_args(BuildBoundaryWork)
+    offer_caret = offer_caret and version == 2
     work_question = (
         "Does the author request actual new prose directly before/after a paragraph on this "
         "open page, ask for discussion, name a different destination, explicitly request "
         "append at page end or whole-page revision, or request an unsupported or unclear action?"
     )
     scope_question = "Did the author qualify the anchor by an existing heading or section?"
+    caret_guidance = "No selection or caret is offered here."
     destination_questions = ()
     if version == 2:
         work_options = tuple(option for option in work_options if option != "different_destination")
@@ -77,6 +80,33 @@ def prepare_build_boundary_decision(
                 "of sources or comparisons do not identify the destination."
             ),
         ),)
+    location_questions = ()
+    if offer_caret:
+        work_question += (
+            " Requests to add new prose, including read-aloud passages or GM notes, are "
+            "place_paragraph even when the author did not name their location."
+        )
+        caret_guidance = (
+            "A verified current caret is available. The insertion_location choice judges "
+            "whether the request specifies a location. The other location choices identify "
+            "and match an existing anchor only when one is named."
+        )
+        scope_question += (
+            " Choose unscoped if the author leaves the insertion location open or only names "
+            "the current caret. The subject of new writing is not a heading qualification."
+        )
+        location_questions = (ChoiceDecisionQuestion(
+            name="insertion_location", options=("unstated", "current_caret", "existing_location", "unclear"),
+            question=(
+                "Where does the user ask new material to go? Judge only placement instructions "
+                "in the current request. The topic, length, and purpose of the new writing do "
+                "not specify where to insert it. 'Add a paragraph about night patrols' is unstated. "
+                "'Add a paragraph after the existing patrol description' is existing_location. "
+                "An absent named location is still existing_location. Choose current_caret only "
+                "when the author explicitly chooses the caret, and unclear for conflicting "
+                "directions or when the author does not request new material."
+            ),
+        ),)
     return DecisionRequest(
         provider=PROVIDER, model=MODEL, max_transport_retries=0,
         state={
@@ -90,8 +120,8 @@ def prepare_build_boundary_decision(
                 "not the requested new prose. Include every independently matching passage, even if "
                 "the same text exists in multiple sections. Apply every requested heading or parent "
                 "qualification only in the separate heading choices. A named but absent section stays "
-                "named with no matches. Do not use document order to break a tie. No selection or caret "
-                "is offered here. A discussion, hypothetical or request for advice never edits the page."
+                "named with no matches. Do not use document order to break a tie. "
+                + caret_guidance + " A discussion, hypothetical or request for advice never edits the page."
             ),
         },
         questions=(
@@ -99,6 +129,7 @@ def prepare_build_boundary_decision(
                 name="work", options=work_options, question=work_question,
             ),
             *destination_questions,
+            *location_questions,
             ChoiceDecisionQuestion(name="relation", options=("before", "after", "unresolved"),
                                    question="Which side of the existing paragraph did the author explicitly indicate?"),
             ChoiceDecisionQuestion(name="scope", options=("named", "unscoped", "unresolved"),
@@ -107,7 +138,9 @@ def prepare_build_boundary_decision(
                                      question=f"Does existing_passages {alias} match the requested existing anchor independently of its heading?")
               for alias in texts),
             *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
-                                     question=f"Does existing_heading_paths {alias} satisfy every named heading qualification?")
+                                     question=f"Does existing_heading_paths {alias} satisfy every named heading qualification?"
+                                     + (" Exclude it when no heading qualification is stated, including when the caret is used."
+                                        if offer_caret else ""))
               for alias in scopes),
         ),
     )
@@ -121,6 +154,7 @@ def decode_build_boundary_decision(request: DecisionRequest, result) -> BuildBou
     return BuildBoundaryJudgment(
         work=answers["work"], relation=answers["relation"], scope=answers["scope"],
         destination=answers.get("destination"),
+        insertion_location=answers.get("insertion_location"),
         passage_aliases=tuple(name for name in offered if name.startswith("text") and answers[name] == "include"),
         scope_aliases=tuple(name for name in offered
                             if name != "scope" and name.startswith("scope") and answers[name] == "include"),
@@ -128,10 +162,12 @@ def decode_build_boundary_decision(request: DecisionRequest, result) -> BuildBou
 
 
 def build_boundary_opening(
-    question: str, title: str, catalog: BuildProseBoundaryCatalog, *, version: Literal[1, 2] = 2,
+    question: str, title: str, catalog: BuildProseBoundaryCatalog, *,
+    version: Literal[1, 2] = 2, caret: int | None = None,
 ):
     """Project the catalog into the ordinary Build opening decision."""
-    request = prepare_build_boundary_decision(question, title, (), catalog, version=version)
+    offer_caret = caret is not None and catalog.target_at_caret(caret) is not None
+    request = prepare_build_boundary_decision(question, title, (), catalog, version=version, offer_caret=offer_caret)
     placement_state = {
         key: request.state[key]
         for key in ("existing_passages", "existing_heading_paths", "placement_policy")
@@ -142,10 +178,13 @@ def build_boundary_opening(
     )
 
 
-def resolve_build_boundary_opening(catalog, request, response, *, question, title, requested_work):
+def resolve_build_boundary_opening(catalog, request, response, *, question, title, requested_work, caret=None):
     """Validate exact semantic offers and the real combined opening response."""
     version = 2 if OPENING_QUESTION_PREFIX + "destination" in request["questions"] else 1
-    state, questions = build_boundary_opening(question, title, catalog, version=version)
+    if OPENING_QUESTION_PREFIX + "insertion_location" not in request["questions"]:
+        # Retained openings without the caret question keep their original interpretation.
+        caret = None
+    state, questions = build_boundary_opening(question, title, catalog, version=version, caret=caret)
     offered = {
         choice.name: {
             "type": "choice", "instructions": choice.question, "criteria": dict.fromkeys(choice.options),
@@ -164,15 +203,22 @@ def resolve_build_boundary_opening(catalog, request, response, *, question, titl
             name.removeprefix(OPENING_QUESTION_PREFIX): response.answers[name] for name in offered
         }
     })
-    boundary_request = prepare_build_boundary_decision(question, title, (), catalog, version=version)
-    resolution = resolve_build_boundary(catalog, decode_build_boundary_decision(boundary_request, boundary_response))
+    caret_target = catalog.target_at_caret(caret) if caret is not None else None
+    boundary_request = prepare_build_boundary_decision(
+        question, title, (), catalog, version=version, offer_caret=caret_target is not None)
+    resolution = resolve_build_boundary(
+        catalog, decode_build_boundary_decision(boundary_request, boundary_response), caret_target=caret_target)
+
     write_dispositions = {"unique", "explicit_page_end", "explicit_page_body"} if version == 2 else {"unique"}
     if resolution.disposition in write_dispositions and requested_work != "write_current_page":
         return BuildBoundaryResolution(disposition="unresolved")
     return resolution
 
 
-def resolve_build_boundary(catalog: BuildProseBoundaryCatalog, judgment: BuildBoundaryJudgment) -> BuildBoundaryResolution:
+def resolve_build_boundary(
+    catalog: BuildProseBoundaryCatalog, judgment: BuildBoundaryJudgment, *,
+    caret_target: BuildProseBoundaryTarget | None = None,
+) -> BuildBoundaryResolution:
     if judgment.work == "discuss":
         return BuildBoundaryResolution(disposition="discuss")
     if judgment.destination == "different_page":
@@ -183,6 +229,16 @@ def resolve_build_boundary(catalog: BuildProseBoundaryCatalog, judgment: BuildBo
         return BuildBoundaryResolution(disposition="unresolved")
     if judgment.work != "place_paragraph":
         return BuildBoundaryResolution(disposition=judgment.work)
+    if judgment.insertion_location == "unclear":
+        return BuildBoundaryResolution(disposition="unresolved")
+    if judgment.insertion_location in {"unstated", "current_caret"}:
+        # A passage without a side cannot place new prose. A named or uncertain
+        # section still conflicts with using the caret as an unqualified default.
+        if (caret_target is None or judgment.destination != "current_page"
+                or judgment.relation != "unresolved" or judgment.scope != "unscoped"
+                or judgment.scope_aliases):
+            return BuildBoundaryResolution(disposition="unresolved")
+        return BuildBoundaryResolution(disposition="unique", target=caret_target)
     if judgment.relation == "unresolved" or judgment.scope == "unresolved":
         return BuildBoundaryResolution(disposition="unresolved")
     texts, scopes = _groups(catalog)
