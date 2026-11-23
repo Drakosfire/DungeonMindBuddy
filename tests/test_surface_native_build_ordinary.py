@@ -2150,6 +2150,16 @@ def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(l
     _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source=selection)
 
 
+def test_ordinary_build_source_status_guidance_reaches_the_provider(lane, tmp_path, monkeypatch):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+                       authored_source="full_document")
+    assert len(case.writer.calls) == 1
+    request = json.loads(case.writer.calls[0].content)
+    assert "next-session pickup or resume instruction" in request["instructions"]
+    assert "Report supported completed events as completed" in request["instructions"].replace("\n", " ")
+    assert case.turn.completion is not None
+
+
 def test_ordinary_build_projects_managed_images_in_both_sdk_requests(lane, tmp_path, monkeypatch):
     asset = "5086d264-54f6-4411-846b-a59cbf0abcde"
     image = f"![Harbor survey](dmb-media:{asset})"
