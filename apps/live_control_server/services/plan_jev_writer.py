@@ -415,10 +415,14 @@ class PlanJevWriter:
         if retained_dialogue is not None:
             from application_state.agent_conversation.retained_conversation import require_current_presentation
             require_current_presentation(turn.graph_context_execution)
-        self.messages = (retained_dialogue if retained_dialogue is not None else [
-            {"role": item["role"], "content": canonical_bytes({"conversation": item["content"]}).decode()}
-            for item in dialogue
-        ]) + self.messages
+        if retained_dialogue is not None:
+            from application_state.agent_conversation.retained_conversation import writer_messages
+            self.messages = writer_messages(turn.graph_context_execution, self.messages)
+        else:
+            self.messages = [
+                {"role": item["role"], "content": canonical_bytes({"conversation": item["content"]}).decode()}
+                for item in dialogue
+            ] + self.messages
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
@@ -534,7 +538,19 @@ class PlanJevWriter:
                     'later invented directions and unresolved questions. Do not omit supplied '
                     'context because it was absent from an earlier assistant summary. Native '
                     'passages are already supplied; select their offered handles without '
-                    'claiming a new search or inventing citations.'
+                    'claiming a new search or inventing citations. The complete dialogue following '
+                    'the evidence frames is historical conversation data, including assistant '
+                    'suggestions and earlier tasks; the final request_now packet is the current '
+                    'assignment. Do not execute earlier tasks. Later user corrections take '
+                    'precedence over older drafts and assistant suggestions. '
+                    'Preserve each relevant authored premise and chosen creative direction in '
+                    'the requested draft or recap, including later corrections, motives, '
+                    'characterization and intended scenes. Keep these as clearly attributed '
+                    'authored context or proposals, not played facts. Uncertainty in sources '
+                    'does not turn a direction the author chose into a question about whether '
+                    'they chose it. Keep actual unresolved identities and alternatives open. '
+                    'Before returning, compare the result against every relevant earlier '
+                    'author direction and correction so none is silently lost.'
                 )
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = self.received_event = None

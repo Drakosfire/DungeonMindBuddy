@@ -142,7 +142,7 @@ def capture(current, turns, *, event_id, work_event_id, pointer_revision, seed=N
         work_event_id=work_event_id, supports=(), world_id=current.world_id,
         conversation_id=current.conversation_id, turn_id=current.turn_id, attempt=current.attempt,
         conversation_sequence=current.sequence, pointer_revision=pointer_revision,
-        presentation_policy="retained_conversation_semantic_v2",
+        presentation_policy="retained_conversation_semantic_v3",
         history=tuple(history), authored_context=tuple(t.RetainedAuthoredContextV1(**row) for row in authored.values()),
         native_context=tuple(t.RetainedNativeContextV1(**row) for row in native.values()))
 
@@ -163,11 +163,46 @@ def dialogue_messages(execution):
     return messages
 
 
+def current_request_message(execution):
+    value = admission(execution)
+    if value is None or value.presentation_policy != "retained_conversation_semantic_v3":
+        return None
+    return dict(role="user", content=canonical_bytes(
+        dict(request_now=execution.policy.action.intent.message)).decode())
+
+
+def writer_messages(execution, frames):
+    """Preserve every historical role/text once, with the current request last."""
+    dialogue = dialogue_messages(execution)
+    if dialogue is None:
+        raise ValueError("Retained writer messages require their admitted conversation")
+    current = current_request_message(execution)
+    return (list(frames) + dialogue + [current] if current is not None
+            else dialogue + list(frames))
+
+
 def validate_dialogue_request(execution, body):
     expected = dialogue_messages(execution)
     if expected is None:
         return
     messages = body.get("input")
+    current = current_request_message(execution)
+    if current is not None:
+        if (not isinstance(messages, list) or len(messages) != len(expected) + 4
+                or messages[3:-1] != expected or messages[-1] != current):
+            raise ValueError("Writer omitted, moved or changed its frozen full conversation or current request")
+        if any(not isinstance(message, dict) or set(message) != {'role', 'content'}
+               or message['role'] != 'user' for message in messages[:3]):
+            raise ValueError("Retained writer frames must remain user data")
+        from .source_writer_output import strict_json
+        from .native_build_work_view import is_semantic_frame as build_frame
+        from .native_evidence_view import is_semantic_frame as evidence_frame
+        frames = [strict_json(message['content']) for message in messages[:3]]
+        if (not build_frame(frames[0]) or not isinstance(frames[1], dict)
+                or set(frames[1]) != {'ruleset', 'lookups', 'supports'} or not evidence_frame(frames[2])):
+            raise ValueError("Retained writer changed its producing frame order")
+        return  # Each frame's owning validator separately binds its exact content.
+    # Historical presentations keep their original prefix and producing bytes.
     if not isinstance(messages, list) or messages[:len(expected)] != expected:
         raise ValueError("Writer omitted or changed its frozen full conversation")
     for message in messages[len(expected):]:
@@ -185,7 +220,7 @@ def authored_frame(execution):
         return None
     turns = {row.turn_id: f"turn{i}" for i, row in enumerate(value.history)}
     from .model_markdown import project_model_markdown, project_retained_source_markdown
-    project = (project_retained_source_markdown if value.presentation_policy == "retained_conversation_semantic_v2"
+    project = (project_retained_source_markdown if value.presentation_policy != "retained_conversation_full_v1"
                else project_model_markdown)
     return [dict(context=f"context{i}", role=row.role + "_historical_not_played_truth",
         **({"title": row.title} if row.title is not None else {}), text=project(row.text),
@@ -220,7 +255,7 @@ def native_supports(execution):
 
 def require_current_presentation(execution):
     value = admission(execution)
-    if value is not None and value.presentation_policy != "retained_conversation_semantic_v2":
+    if value is not None and value.presentation_policy != "retained_conversation_semantic_v3":
         raise ValueError("Historical retained presentation is replay-only; start a fresh turn")
 
 
@@ -230,6 +265,6 @@ def native_frame_rows(execution, source_authority, selector):
     rows = model_body_frame_rows(source_authority, (), selector,
         passage_supports=native_supports(execution))["excerpts"]
     value = admission(execution)
-    if value is not None and value.presentation_policy == "retained_conversation_semantic_v2":
+    if value is not None and value.presentation_policy != "retained_conversation_full_v1":
         rows = [row | {"text": project_retained_source_markdown(row["text"])} for row in rows]
     return rows
