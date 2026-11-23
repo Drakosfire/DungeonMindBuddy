@@ -252,7 +252,7 @@ def test_native_clarification_admission_rejects_empty_v2_even_without_sdk_confor
     async def empty_reply(writer, request):
         adapters.append(writer.adapter)
         writer.text = json.dumps(dict(question="") if json.loads(request.content)['text']['format']['name'] == 'plan_contextual_question_v1'
-            else dict(schema=POLICY, answer_segments=[], limitations=[], requested_detail_gaps=[]))
+            else dict(schema=POLICY, answer_segments=[], limitations=[]))
         return await transport(writer, request)
 
     def source_guard(request, **kwargs):
