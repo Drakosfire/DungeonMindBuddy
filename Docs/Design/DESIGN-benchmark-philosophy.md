@@ -291,6 +291,8 @@ These are the principles we've validated empirically. They apply to any new benc
 | Mirathorn gate 3 (QA/synthesis) | `evals/mirathorn_vertical_slice/eval_synthesis.py`                             | Yes          | ~45s+   | End-user ingest -> ask usability contract                                     |
 | Council Room questions          | `evals/mirathorn_vertical_slice/run_council_room_question_set.py`              | Yes          | ~40s    | Dual-signal answer quality for targeted GM questions                          |
 | Corpus remote                   | `evals/corpus_remote/`                                                         | Varies       | ~10s    | Remote artifact validation, inventory building                                |
+| Old Bath House (pinned assets) | [Runner and baseline](../Benchmarks/BASELINE-old-bath-house.md) | Saved image delivery | Seconds | Reviewed statblocks and portraits through Plan, Play, and explicit Combat start |
+| Old Bath House (live providers) | [Runner and baseline](../Benchmarks/BASELINE-old-bath-house.md) | Yes | Minutes | Buddy reply, statblock and portrait preview generation, and exact saved-portrait handoff |
 
 
 Commands:

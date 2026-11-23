@@ -9,6 +9,7 @@ Start with the suite that owns the question you are testing.
 | Did an extraction or graph change preserve the expected evidence? | [Graph memory fixtures and baselines](graph_memory_layer/README.md) |
 | Did session-event extraction preserve chronology? | [Session-event extraction suite](session_events_extraction_vertical_slice/README.md) |
 | Inspect the historical isolated Graph demo | [Historical Graph transport and launcher](native_graph_demo/README.md) |
+| How fast is Old Bath House from Buddy through Plan, Play, and explicit Combat start? | [Old Bath House baseline](../Docs/Benchmarks/BASELINE-old-bath-house.md) and [runner](old_bath_house/README.md) |
 | How does the canon layering baseline score? | [Canon layering runner](canon_layering/run_benchmarks.py) |
 | What ingestion baseline was accepted, and what retrieval experiments came before? | [Accepted ingestion baseline and retrieval history](../Docs/Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md) |
 

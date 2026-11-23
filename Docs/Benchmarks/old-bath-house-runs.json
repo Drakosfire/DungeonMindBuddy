@@ -1,0 +1,229 @@
+[
+  {
+    "run_id": "75391f28-7d54-474b-96ef-a633ab652c84",
+    "track": "pinned-assets",
+    "fixture_digest": "c2f6e3879a463002401c85f452a8de456beab46f558a357d3c4447c5020424d7",
+    "conditions": "fresh-browser-context",
+    "runtime": {
+      "source": "2d4361fb05e0b6bbb4e652535b77acd7b30ad1fb",
+      "image": "sha256:a469deffc039f40de0459cd57f35c2412a50d2e3e6ba57bdb7de15202b57f418",
+      "app_schema": "20261123_0204",
+      "guest_build": "review=1;page=1;home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543"
+    },
+    "timings_ms": {
+      "portrait_binding": 332.6663739999999,
+      "encounter_assembly": 4006.494317,
+      "plan_attachment": 98.85130200000094,
+      "play_session_create": 864.2688739999994,
+      "play_preview": 370.00806600000215,
+      "combat_start": 102.6108970000023,
+      "statblock_render": 819.6270089999998
+    },
+    "checks": {
+      "confirmed_plan_attachment": true,
+      "exact_statblock_and_portrait": true,
+      "parley_unstarted": true,
+      "explicit_combat_start": true,
+      "distinct_running_encounter": true,
+      "plan_unchanged": true,
+      "running_edit_persisted": true
+    },
+    "failures": []
+  },
+  {
+    "run_id": "4caf5d72-67f4-4283-80bc-c4378eb4c454",
+    "track": "pinned-assets",
+    "fixture_digest": "c2f6e3879a463002401c85f452a8de456beab46f558a357d3c4447c5020424d7",
+    "conditions": "fresh-browser-context",
+    "runtime": {
+      "source": "2d4361fb05e0b6bbb4e652535b77acd7b30ad1fb",
+      "image": "sha256:a469deffc039f40de0459cd57f35c2412a50d2e3e6ba57bdb7de15202b57f418",
+      "app_schema": "20261123_0204",
+      "guest_build": "review=1;page=1;home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543"
+    },
+    "timings_ms": {
+      "portrait_binding": 367.7027200000002,
+      "encounter_assembly": 4140.097373,
+      "plan_attachment": 96.21810100000039,
+      "play_session_create": 854.5994979999996,
+      "play_preview": 359.30189299999984,
+      "combat_start": 93.70943400000033,
+      "statblock_render": 815.2839730000014
+    },
+    "checks": {
+      "confirmed_plan_attachment": true,
+      "exact_statblock_and_portrait": true,
+      "parley_unstarted": true,
+      "explicit_combat_start": true,
+      "distinct_running_encounter": true,
+      "plan_unchanged": true,
+      "running_edit_persisted": true
+    },
+    "failures": []
+  },
+  {
+    "run_id": "08a762d5-4f7f-493e-b77f-e2206574e2b0",
+    "track": "pinned-assets",
+    "fixture_digest": "c2f6e3879a463002401c85f452a8de456beab46f558a357d3c4447c5020424d7",
+    "conditions": "fresh-browser-context",
+    "runtime": {
+      "source": "2d4361fb05e0b6bbb4e652535b77acd7b30ad1fb",
+      "image": "sha256:a469deffc039f40de0459cd57f35c2412a50d2e3e6ba57bdb7de15202b57f418",
+      "app_schema": "20261123_0204",
+      "guest_build": "review=1;page=1;home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543"
+    },
+    "timings_ms": {
+      "portrait_binding": 336.65908400000035,
+      "encounter_assembly": 4094.4064540000004,
+      "plan_attachment": 84.51041599999917,
+      "play_session_create": 862.7310359999974,
+      "play_preview": 369.2323749999996,
+      "combat_start": 91.2692259999967,
+      "statblock_render": 816.6268810000001
+    },
+    "checks": {
+      "confirmed_plan_attachment": true,
+      "exact_statblock_and_portrait": true,
+      "parley_unstarted": true,
+      "explicit_combat_start": true,
+      "distinct_running_encounter": true,
+      "plan_unchanged": true,
+      "running_edit_persisted": true
+    },
+    "failures": []
+  },
+  {
+    "run_id": "9160ae50-6aed-4913-a1d9-bc2591728250",
+    "track": "live-provider",
+    "fixture_digest": "6e9dda08a93faa1f8423d5e1d684da3ca3483bba8bdee2dabe0f545398efb31b",
+    "conditions": "fresh-browser-context",
+    "runtime": {
+      "source": "2d4361fb05e0b6bbb4e652535b77acd7b30ad1fb",
+      "image": "sha256:a469deffc039f40de0459cd57f35c2412a50d2e3e6ba57bdb7de15202b57f418",
+      "app_schema": "20261123_0204",
+      "guest_build": "review=1;page=1;home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543"
+    },
+    "timings_ms": {
+      "first_visible_reply": 11356.688786,
+      "reply_finished": 11299.831704,
+      "statblock_generation": 78277.936082,
+      "portrait_generation": 30806.539436000006,
+      "portrait_binding": 319.1036599999934,
+      "encounter_assembly": 4006.699190000014,
+      "plan_attachment": 84.85509899997851,
+      "play_session_create": 856.7102710000181,
+      "play_preview": 361.5727809999953,
+      "combat_start": 79.632420000009,
+      "statblock_render": 817.5464840000204
+    },
+    "checks": {
+      "live_preview_and_saved_portrait": true,
+      "confirmed_plan_attachment": true,
+      "exact_statblock_and_portrait": true,
+      "parley_unstarted": true,
+      "explicit_combat_start": true,
+      "distinct_running_encounter": true,
+      "plan_unchanged": true,
+      "running_edit_persisted": true,
+      "live_turn_provider_trace": true
+    },
+    "failures": []
+  },
+  {
+    "run_id": "d047c8b9-25d4-482c-998c-377bca9a78ab",
+    "track": "live-provider",
+    "fixture_digest": "6e9dda08a93faa1f8423d5e1d684da3ca3483bba8bdee2dabe0f545398efb31b",
+    "conditions": "fresh-browser-context",
+    "runtime": {
+      "source": "2d4361fb05e0b6bbb4e652535b77acd7b30ad1fb",
+      "image": "sha256:a469deffc039f40de0459cd57f35c2412a50d2e3e6ba57bdb7de15202b57f418",
+      "app_schema": "20261123_0204",
+      "guest_build": "review=1;page=1;home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543"
+    },
+    "timings_ms": {
+      "first_visible_reply": 10559.385148000001,
+      "reply_finished": 10498.260201000001,
+      "statblock_generation": 84197.91086,
+      "portrait_generation": 28562.660421000008,
+      "portrait_binding": 325.27667900000233,
+      "encounter_assembly": 3985.7152399999904,
+      "plan_attachment": 98.23157899998478,
+      "play_session_create": 852.2165690000111,
+      "play_preview": 354.64593899998,
+      "combat_start": 87.74048100001528,
+      "statblock_render": 816.4156389999844
+    },
+    "checks": {
+      "live_preview_and_saved_portrait": true,
+      "confirmed_plan_attachment": true,
+      "exact_statblock_and_portrait": true,
+      "parley_unstarted": true,
+      "explicit_combat_start": true,
+      "distinct_running_encounter": true,
+      "plan_unchanged": true,
+      "running_edit_persisted": true,
+      "live_turn_provider_trace": true
+    },
+    "failures": []
+  },
+  {
+    "run_id": "05d39eda-93e6-4b35-911b-080dce4505f1",
+    "track": "live-provider",
+    "fixture_digest": "6e9dda08a93faa1f8423d5e1d684da3ca3483bba8bdee2dabe0f545398efb31b",
+    "conditions": "fresh-browser-context",
+    "runtime": {
+      "source": "2d4361fb05e0b6bbb4e652535b77acd7b30ad1fb",
+      "image": "sha256:a469deffc039f40de0459cd57f35c2412a50d2e3e6ba57bdb7de15202b57f418",
+      "app_schema": "20261123_0204",
+      "guest_build": "review=1;page=1;home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543"
+    },
+    "timings_ms": {
+      "first_visible_reply": 10809.179152,
+      "reply_finished": 10757.688208,
+      "statblock_generation": 149766.537172
+    },
+    "checks": {
+      "live_turn_provider_trace": true
+    },
+    "failures": [
+      "Buddy did not open a statblock variant review: No current review is available. Reopen the intended draft before saving."
+    ]
+  },
+  {
+    "run_id": "d953ec10-2a1c-4a37-8c8b-449e35b565cd",
+    "track": "live-provider",
+    "fixture_digest": "6e9dda08a93faa1f8423d5e1d684da3ca3483bba8bdee2dabe0f545398efb31b",
+    "conditions": "fresh-browser-context",
+    "runtime": {
+      "source": "2d4361fb05e0b6bbb4e652535b77acd7b30ad1fb",
+      "image": "sha256:a469deffc039f40de0459cd57f35c2412a50d2e3e6ba57bdb7de15202b57f418",
+      "app_schema": "20261123_0204",
+      "guest_build": "review=1;page=1;home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543"
+    },
+    "timings_ms": {
+      "first_visible_reply": 10325.561841,
+      "reply_finished": 10266.197184,
+      "statblock_generation": 111985.49744199999,
+      "portrait_generation": 27607.45189299999,
+      "portrait_binding": 309.8584039999987,
+      "encounter_assembly": 4000.0471770000004,
+      "plan_attachment": 96.06896000000415,
+      "play_session_create": 861.992831999989,
+      "play_preview": 364.6506079999963,
+      "combat_start": 107.91199600000982,
+      "statblock_render": 818.222569000005
+    },
+    "checks": {
+      "live_preview_and_saved_portrait": true,
+      "confirmed_plan_attachment": true,
+      "exact_statblock_and_portrait": true,
+      "parley_unstarted": true,
+      "explicit_combat_start": true,
+      "distinct_running_encounter": true,
+      "plan_unchanged": true,
+      "running_edit_persisted": true,
+      "live_turn_provider_trace": true
+    },
+    "failures": []
+  }
+]
