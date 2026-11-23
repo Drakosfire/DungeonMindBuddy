@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { isSavedChoice } from "./savedChoice";
+import { isSavedAnswerText } from "./savedAnswer";
 
 type Field = { assertion_id: string; entity_id: string; kind: "name" | "classification" | "relationship"; value: string; predicate: string; target_id: string | null; temporal: string; basis: string; source_option_ids: string[] };
 type Source = { option_id: string; document_id: string; document_title: string; visibility: string; revision_n: number; sha256: string; start: number; end: number; excerpt: string; evidence_id: string; evidence_role: "support" | "context" };
@@ -31,11 +32,15 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const [choicePrompt, setChoicePrompt] = useState("");
   const [choiceLabels, setChoiceLabels] = useState<[string, string]>(["", ""]);
   const [choiceOutcomes, setChoiceOutcomes] = useState<[string, string]>(["", ""]);
+  const [answerEnabled, setAnswerEnabled] = useState(false);
+  const [answerQuestion, setAnswerQuestion] = useState("");
+  const [answerPassages, setAnswerPassages] = useState<{ text: string; references: string[] }[]>([{ text: "", references: [] }]);
   const base = `/api/live/worlds/${encodeURIComponent(worldId)}/guest-releases`;
   async function load() {
     setBusy(true); setError(null); setOptions(null); setChosen({}); setIndependentSources(new Set()); setContextDocument(""); setContextOffset(0); setPrepared(false);
     setExampleEnabled(false); setExampleTitle(""); setExampleBody(""); setExampleReferences(new Set()); setExampleImage(""); setExampleImageDescription("");
     setChoiceEnabled(false); setChoicePrompt(""); setChoiceLabels(["", ""]); setChoiceOutcomes(["", ""]);
+    setAnswerEnabled(false); setAnswerQuestion(""); setAnswerPassages([{ text: "", references: [] }]);
     try {
       const response = await fetch(`${base}/selection-options`, { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) throw new Error("unavailable");
@@ -94,12 +99,18 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
     && (!exampleImage || (selectedAssets.has(exampleImage) && loadedAssets.has(exampleImage) && exampleImageDescription.trim().length > 0)));
   const choiceReady = !choiceEnabled || (exampleEnabled && isSavedChoice({ version: "owner_saved_choice_v1", prompt: choicePrompt,
     options: choiceLabels.map((label, index) => ({ label, outcome: choiceOutcomes[index] })) }));
+  const answerReady = !answerEnabled || (isSavedAnswerText(answerQuestion, 240) && answerPassages.length > 0
+    && answerPassages.every(passage => {
+      const spans = passage.references.map(id => { const source = sources.get(id); return source && JSON.stringify([source.document_id, source.revision_n, source.start, source.end]); });
+      return isSavedAnswerText(passage.text, 2000, true) && passage.references.length >= 1 && passage.references.length <= 5
+        && passage.references.every(id => evidenceIds.includes(id)) && spans.every(Boolean) && new Set(spans).size === spans.length;
+    }));
   const ready = nodes.size > 0 && [...nodes.values()].every(node => node.name && node.classification && !node.duplicate)
     && evidenceIds.length <= 500 && [...independentSources].every(id => sources.get(id)?.evidence_role === "context")
     && selected.every(field => field.source_option_ids.includes(chosen[field.assertion_id]) && sources.has(chosen[field.assertion_id]))
     && selected.filter(field => field.kind === "relationship").every(field => nodes.has(field.entity_id) && field.target_id !== null && nodes.has(field.target_id));
   async function prepare() {
-    if (!options || !ready || !exampleReady || !choiceReady) return;
+    if (!options || !ready || !exampleReady || !choiceReady || !answerReady) return;
     const body = {
       graph_revision: options.graph_revision,
       nodes: [...nodes].map(([entity_id, item]) => ({ entity_id, name_assertion_id: item.name!.assertion_id,
@@ -115,6 +126,8 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
         source_indexes: [...exampleReferences].map(id => evidenceIds.indexOf(id)),
         asset_id: exampleImage || null, image_description: exampleImage ? exampleImageDescription : null } } : {}),
       ...(choiceEnabled ? { saved_choice: { prompt: choicePrompt, options: choiceLabels.map((label, index) => ({ label, outcome: choiceOutcomes[index] })) } } : {}),
+      ...(answerEnabled ? { saved_answer: { question: answerQuestion, passages: answerPassages.map(passage => ({ text: passage.text,
+        source_indexes: passage.references.map(id => evidenceIds.indexOf(id)) })) } } : {}),
     };
     setBusy(true); setError(null);
     try {
@@ -195,8 +208,20 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
           {!choiceReady && <p>Complete the prompt and both distinct options and outcomes.</p>}
         </fieldset>}
       </div>}
+      <h4>Optional saved answer</h4>
+      <label><input type="checkbox" checked={answerEnabled} onChange={event => setAnswerEnabled(event.target.checked)} /> Include an editor-authored saved answer</label>
+      {answerEnabled && <div><p>This is a saved example, not a live Buddy answer. Link each passage to included excerpts; references are not automatically verified support.</p>
+        <label>Question <input value={answerQuestion} onChange={event => setAnswerQuestion(event.target.value)} /></label>
+        {answerPassages.map((passage, index) => <fieldset key={index}><legend>Answer passage {index + 1}</legend>
+          <label>Passage <textarea value={passage.text} onChange={event => { const text = event.target.value; setAnswerPassages(previous => previous.map((item, i) => i === index ? { ...item, text } : item)); }} /></label>
+          {[...new Set([...evidenceIds, ...passage.references])].map(id => { const source = sources.get(id); return source && <label key={id}><input type="checkbox" checked={passage.references.includes(id)} onChange={event => { const checked = event.target.checked; setAnswerPassages(previous => previous.map((item, i) => i === index ? { ...item, references: checked ? [...item.references, id] : item.references.filter(ref => ref !== id) } : item)); }} /> {source.document_title} · {source.evidence_role === "context" ? "context, not direct support" : "support"} · {source.excerpt.slice(0, 80)}{!evidenceIds.includes(id) && " · no longer included"}</label>; })}
+          {answerPassages.length > 1 && <button type="button" onClick={() => setAnswerPassages(previous => previous.filter((_, i) => i !== index))}>Remove passage {index + 1}</button>}
+        </fieldset>)}
+        {answerPassages.length < 10 && <button type="button" onClick={() => setAnswerPassages(previous => [...previous, { text: "", references: [] }])}>Add answer passage</button>}
+        {!answerReady && <p>Complete the question and each passage, with one to five distinct included excerpts per passage.</p>}
+      </div>}
       <p>For each object, select exactly one name and classification. Relationships require both objects and an excerpt.</p>
-      <button type="button" disabled={!ready || !exampleReady || !choiceReady || busy} onClick={prepare}>Prepare copy for review</button>
+      <button type="button" disabled={!ready || !exampleReady || !choiceReady || !answerReady || busy} onClick={prepare}>Prepare copy for review</button>
     </div>}
   </section>;
 }

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 
 import { dungeonMindLoginHref } from "../auth/HostedAuthGate";
 import { isSavedExample } from "./savedExample";
 import { isSavedChoice } from "./savedChoice";
+import { isSavedAnswer } from "./savedAnswer";
 import "./guestReleasePage.css";
 
 type Node = { id: string; label: string; kind: string; name_citations: string[]; kind_citations: string[]; name_basis: string; kind_basis: string; temporary?: boolean };
 type Edge = { id: string; source: string; target: string; label: string; citations: string[]; temporal: string; basis: string; temporary?: boolean };
 type Source = { id: string; text: string; evidence_role: "support" | "context" };
-type Snapshot = { release_id: string; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[]; saved_example?: unknown; saved_choice?: unknown } };
+type Snapshot = { release_id: string; manifest: { graph: { nodes: Node[]; edges: Edge[] }; sources: Source[]; assets: { id: string }[]; saved_example?: unknown; saved_choice?: unknown; saved_answer?: unknown } };
 
 function fragment(release: string, node?: string | null, source?: string | null): string {
   const parts = ["copy", release];
@@ -98,6 +99,8 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const example = snapshot && isSavedExample(exampleValue, sources, snapshot.manifest.assets) ? exampleValue : null;
   const choiceValue = snapshot?.manifest.saved_choice;
   const choice = example && isSavedChoice(choiceValue) ? choiceValue : null;
+  const answerValue = snapshot?.manifest.saved_answer;
+  const answer = isSavedAnswer(answerValue, sources) ? answerValue : null;
   const labels = new Map(nodes.map(node => [node.id, node.label]));
   const source = sources.find(item => item.id === selectedSource);
   const active = nodes.find(item => item.id === selectedNode);
@@ -162,6 +165,12 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
             : active ? <><h2>{active.label}</h2><p>{active.kind}</p>{active.temporary ? <p>This point is your temporary addition, not part of the shared World.</p> : <><small>Name: {active.name_basis} · Classification: {active.kind_basis}</small><p><a href={fragment(snapshot.release_id, active.id)}>Link to this point</a></p><div className="guest-world__citations">{[...new Set([...active.name_citations, ...active.kind_citations])].map(citationButton)}</div></>}<h3>Connections</h3>{connected.length ? <ul>{connected.map(edge => { const other = edge.source === active.id ? edge.target : edge.source; return <li key={edge.id}><p>{labels.get(edge.source)} <em>{edge.label}</em> {labels.get(edge.target)}</p><small>{edge.temporary ? "Your temporary connection · not sourced from the shared World" : <>{edge.basis} · {edge.temporal === "unknown" ? "When this happened is not specified" : edge.temporal === "timeless" ? "Timeless" : edge.temporal}</>}</small><div className="guest-world__citations"><button type="button" onClick={() => navigate(other, null)}>Explore {labels.get(other)}</button>{edge.citations.map(citationButton)}</div></li>; })}</ul> : <p>No connections were included for this point.</p>}</>
               : <><h2>Every story has a trail.</h2><p>Select a point to follow it through the owner’s shared notes.</p></>}
         </aside></div>
+        {answerValue !== undefined && !answer && <p role="alert">This saved answer is unavailable.</p>}
+        {answer && <section className="guest-world__example" aria-labelledby="guest-answer-title">
+          <p className="guest-world__eyebrow">EDITOR-AUTHORED SAVED ANSWER</p><h2 id="guest-answer-title">{answer.question}</h2>
+          <p>This is a saved example, not a live Buddy response. The selected references do not automatically prove each passage.</p>
+          {answer.passages.map((passage, index) => <div key={index}><p style={{ whiteSpace: "pre-wrap" }}>{passage.text}</p><div className="guest-world__citations">{passage.references.map(citationButton)}</div></div>)}
+        </section>}
         {exampleValue !== undefined && !example && <p role="alert">This saved example is unavailable.</p>}
         {example && <section ref={exampleRef} tabIndex={-1} className="guest-world__example" aria-labelledby="guest-example-title">
           <p className="guest-world__eyebrow">OWNER-AUTHORED SAVED EXAMPLE</p><h2 id="guest-example-title">{example.title}</h2>

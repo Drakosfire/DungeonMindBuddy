@@ -170,3 +170,18 @@ it("does not render an unrecognized saved choice", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("saved choice is unavailable");
   expect(screen.queryByRole("group", { name: "What next" })).not.toBeInTheDocument();
 });
+
+it("renders a saved answer with passage-specific released citations", async () => {
+  const copy = { release_id: "copy", manifest: { graph: { nodes: [], edges: [] }, assets: [],
+    sources: [{ id: "s1", text: "Plan excerpt", evidence_role: "support" }, { id: "s2", text: "Recap excerpt", evidence_role: "context" }],
+    saved_answer: { version: "owner_saved_answer_v1", question: "What do the notes say", passages: [
+      { text: "A plan", references: ["s1"] }, { text: "A recap", references: ["s2"] }] } } };
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(copy), { status: 200 })));
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" />);
+  const answer = await screen.findByRole("region", { name: "What do the notes say" });
+  expect(within(answer).getByText(/not a live Buddy response/)).toBeInTheDocument();
+  await user.click(within(answer).getByRole("button", { name: "Read context 2" }));
+  expect(screen.getByText("Recap excerpt")).toBeInTheDocument();
+  expect(screen.getByText("Evidence role: context, not direct support.")).toBeInTheDocument();
+});
