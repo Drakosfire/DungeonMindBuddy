@@ -72,3 +72,20 @@ missing/changed/moved/duplicate current-request packet and extra arbitrary conte
 with recomputed envelope/accounting, before physical writer I/O. Shared Rules
 reconstruction validates the same producing-input path. Earlier prototype/fake
 failures remain diagnostic only. No semantic-success or latency claim yet.
+
+Exact3c50 replay checkpoint: all3 technical page/save/reopen/citation checks PASS,
+but all3 semantic coverage checks HOLD. Each incorrectly recasts the explicit
+chosen character-channeling role as uncertain. The prior blanket demand to put all
+NPC scene staging/simulation/negotiation in the pivoted entity page was too broad;
+those details are required only when relevant/reused. The chosen relationship and
+node freedom/opposition must not be overwritten by an unchanged older draft's
+"unresolved motives" placeholder. Never restore the corrected DustMind mistake.
+
+Root distinction: read/capture chronology is not author-revision chronology. Add
+explicit role-priority guidance: rereading unchanged authored text does not rescind
+a user decision, while later actual user corrections or changed authored content
+can. Distinguish explicit wants/needs/decisions from hypotheticals; author-chosen
+roles remain proposals, with how they work left open rather than whether chosen.
+No extra data packet/schema/policy/layout change beyond3c50; its stored requests
+still replay under the same layout. Repeat3 real semantic checks before claiming
+quality. Earlier9.8s and3c50 failures remain recorded, never selected away.
