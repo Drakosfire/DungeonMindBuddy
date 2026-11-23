@@ -2,7 +2,7 @@
 
 ACTIVE, Alan authorized remaining4459 fixes through deployment. DOGFOOD owns this
 bounded Buddy slice. Stacked implementation/serial delivery, parent4496 exact
-3ea7394e2dec9a8a723622585038d86e8e492308; branch
+f413f6b81d7b5034a63a7572701160dbaa887fc4; branch
 codex/dogfood-natural-page-title, same isolated checkout. Order: merged4484,
 then4496, then this PR. No runtime write lease. Review cumulative parent→head.
 
@@ -39,3 +39,12 @@ Review cycle1 HOLD041: “Create the Maelthor page titled Ashbell” silently ig
 the second naming clause. Reject an added called/named/titled/name/title clause
 on the new form, even when both names happen to match; require one unambiguous
 name. Original grammar remains untouched. Add10 clause/equal/conflicting cases.
+
+Compatibility checkpoint: counting a newly recognized imperative alongside an old
+one would reject a historical old-form witness previously accepted in mixed prose.
+Keep the old grammar authoritative whenever it recognizes a request; use the new
+grammar only when the old parser found none. This is an extensional capability,
+not a versionless rewrite of old witness authority. Multiple all-new requests
+still reject; mixed old/new multi-command semantics remain the original behavior
+and are not expanded in this slice. Two exact legacy mixed-prose witnesses now
+explicitly reopen. No new public witness version or extra capability is introduced.

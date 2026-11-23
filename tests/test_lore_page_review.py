@@ -314,8 +314,7 @@ def test_title_before_page_is_an_explicit_author_witness(instruction, title):
     'Create the current page.',
     'Create the Maelthor or Dust Walker page.',
     'Create the Maelthor page and another page.',
-    'Create the Maelthor page. Create a page titled "Ashbell".',
-    'Create a page titled "Ashbell". Create the Maelthor page.',
+    'Create the Maelthor page. Create the Ashbell page.',
 ])
 def test_new_title_form_does_not_grant_ambiguous_or_multiple_destinations(instruction):
     with pytest.raises(ValueError):
@@ -327,3 +326,14 @@ def test_new_title_form_does_not_grant_ambiguous_or_multiple_destinations(instru
 def test_title_before_page_rejects_an_additional_naming_clause(clause, title):
     with pytest.raises(ValueError, match='multiple naming clauses'):
         explicit_lore_page_witness(f'Create the Maelthor page {clause} "{title}".')
+
+
+@pytest.mark.parametrize('instruction', [
+    'Create the Maelthor page. Create a page titled "Ashbell".',
+    'Create a page titled "Ashbell". Create the Maelthor page.',
+])
+def test_legacy_witness_reopens_under_original_grammar_in_mixed_prose(instruction):
+    # These exact old-form witnesses were accepted before the new grammar.
+    witness = LorePageTitleWitness(instruction='Create a page titled "Ashbell"', title='Ashbell')
+    assert witness.bind(instruction) == 'Ashbell'
+    assert explicit_lore_page_witness(instruction).title == 'Ashbell'

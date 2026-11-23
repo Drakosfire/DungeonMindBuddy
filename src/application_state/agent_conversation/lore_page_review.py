@@ -69,16 +69,14 @@ class LorePageTitleWitness(Closed):
 
 def _explicit_request(author_text: str, *, conversational: bool = False) -> tuple[re.Match[str], str]:
     requests = list(_PAGE_REQUEST.finditer(author_text))
-    starts = {request.start() for request in requests}
-    # Preserve the original grammar's title and witness bytes when it already
-    # recognizes the same imperative. Count distinct new imperatives as well.
-    for candidate in _NAMED_PAGE_REQUEST.finditer(author_text):
-        if candidate.start() in starts:
-            continue
-        subject = candidate['subject'].strip()
-        if subject.casefold() in {'new', 'blank', 'standalone', 'lore', 'this', 'that', 'current', 'existing'}:
-            continue
-        requests.append(candidate)
+    # Extend only previously unrecognized requests. Historical witnesses must
+    # still bind under their original grammar, even in mixed imperative prose.
+    if not requests:
+        for candidate in _NAMED_PAGE_REQUEST.finditer(author_text):
+            subject = candidate['subject'].strip()
+            if subject.casefold() in {'new', 'blank', 'standalone', 'lore', 'this', 'that', 'current', 'existing'}:
+                continue
+            requests.append(candidate)
     if len(requests) != 1:
         raise ValueError("Lore page requires one explicit page request")
     request = requests[0]
