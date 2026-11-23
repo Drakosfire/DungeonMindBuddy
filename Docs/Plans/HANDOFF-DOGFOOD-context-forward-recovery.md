@@ -2,7 +2,7 @@
 
 ACTIVE operational alternate, Alan authorized deployment and recovery preparation.
 DOGFOOD owns codex/dogfood-context-forward-recovery, existing isolated checkout.
-Parent candidateb47e493eef4dc100126543a74f8705b07ce11d33 (4509, after merged4504).
+Parent candidate631835648195a357a6a913c597b9113e19b85ce2 (4509, after merged4504).
 This alternate is not a successor feature and must NOT merge into the candidate.
 
 Preserve all0198 readers, supplied-reference writer contract and source projection,
