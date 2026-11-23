@@ -3,7 +3,7 @@
 ACTIVE. User's active writer/context cleanup goal authorizes this serial slice.
 DOGFOOD owns design and implementation. Branch
 `codex/dogfood-plan-supplied-citations`, isolated existing checkout, base
-`b709977eb73ca55bada4a9a541e08a7014da23a0` from fetched
+`94db33bc029c2e7adee39e4a30a28e1d75b0a15d` from fetched
 `codex/semantic-plan-recovery-serving-6318`. Main re-anchored at
 `2c90edd0620538d90afca193a972fd23c917818d`; default/release reconciliation is
 a required later slice, not silently included here. No predecessor PR in flight
@@ -89,3 +89,11 @@ integration base. ONBOARD explicitly transferred adoption of the single
 (`458a147b84c19ff397c2734e2e0732d3d85df1c7`). That one entry is included in
 this write lease; no workflow/selection/security configuration change. Retain the
 failed parent/head inventory evidence and rerun inventory at the final source.
+
+Re-anchored the integration parent from original b709 to 94db before final
+qualification. The intervening parent adds the independently owned Plan editor
+fix and the same classification repair, with no backend writer/context change.
+Original b709 historical fixtures and inherited-failure comparisons remain
+identified by their actual source. Interrupted verification runs remain
+incomplete evidence; restart final qualification only after confirming their
+processes stopped, using new evidence destinations.
