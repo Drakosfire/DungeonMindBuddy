@@ -13,6 +13,33 @@ it.each(choiceParity)("uses the shared Unicode choice contract: $name", ({ label
   expect(isSavedChoice(choice)).toBe(valid);
 });
 
+it("presents known graph terms without changing evidence or visitor-authored text", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ release_id: "copy", manifest: {
+    graph: { nodes: [
+      { id: "a", label: "Sizzek", kind: "dnd5e · npc", name_citations: ["s"], kind_citations: ["s"], name_basis: "asserted", kind_basis: "inferred" },
+      { id: "b", label: "Izmati", kind: "other · creature", name_citations: ["s"], kind_citations: ["s"], name_basis: "asserted", kind_basis: "asserted" },
+    ], edges: [{ id: "e", source: "a", target: "b", label: "dnd5e · associated with", citations: ["s"], temporal: "unknown", basis: "inferred" }] },
+    sources: [{ id: "s", text: "A source excerpt.", evidence_role: "support" }], assets: [],
+  } }), { status: 200 })));
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" />);
+  await user.click(await screen.findByRole("button", { name: "Sizzek npc" }));
+  expect(screen.getByRole("button", { name: "Izmati other · creature" })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "Sizzek · npc" })).toHaveValue("a");
+  expect(screen.getByText("associated with").parentElement).toHaveTextContent("Sizzek associated with Izmati");
+  expect(screen.getByText("Name: asserted · Classification: inferred")).toBeInTheDocument();
+  expect(screen.getByText(/inferred · When this happened is not specified/)).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Read source: A source excerpt." }).length).toBeGreaterThan(0);
+
+  await user.type(screen.getByRole("textbox", { name: "Point name" }), "Visitor point");
+  await user.clear(screen.getByRole("textbox", { name: "Connection" }));
+  await user.type(screen.getByRole("textbox", { name: "Connection" }), "dnd5e · custom wording");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Connect to a shared point" }), "a");
+  await user.click(screen.getByRole("button", { name: "Add temporary point" }));
+  expect(screen.getByText("dnd5e · custom wording")).toBeInTheDocument();
+  expect(screen.getByText("Your temporary connection · not sourced from the shared World")).toBeInTheDocument();
+});
+
 it("follows a released relationship to its excerpt without loading private World APIs", async () => {
   const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ release_id: "copy", manifest: {
     graph: { nodes: [
