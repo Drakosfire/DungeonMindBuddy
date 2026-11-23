@@ -267,3 +267,13 @@ it('preserves an enrolled empty-only draft instead of losing its paragraph ident
  expect(saved.presentation?.items.every(item=>item.kind==='empty_paragraph')).toBe(true);
  expect(hydratePresentation(saved.markdown,saved.presentation)).toEqual(emptyDoc);
 });
+
+it('preserves YAML frontmatter and identities when a v2 body becomes empty',()=>{
+ const source='---\ntitle: Test\n---\n\nFirst.\n\nSecond.\n';const plain=markdownToTiptapDoc(source).doc;
+ const first=projectPresentation({type:'doc',content:[plain.content![0],{type:'paragraph'},plain.content![1]]},source,plain);
+ const original=hydratePresentation(source,first.presentation);
+ const emptyDoc:JSONContent={type:'doc',content:original.content!.map(node=>({type:'paragraph',attrs:node.attrs}))};
+ const saved=projectPresentation(emptyDoc,source,original,first.presentation);
+ expect(saved.markdown).toBe('---\ntitle: Test\n---\n');
+ expect(hydratePresentation(saved.markdown,saved.presentation)).toEqual(emptyDoc);
+});

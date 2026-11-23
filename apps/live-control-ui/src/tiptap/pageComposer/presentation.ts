@@ -126,7 +126,8 @@ function array(value: unknown, max: number): unknown[] { if (!Array.isArray(valu
 function integer(value: unknown, min: number, max: number): number { if (typeof value !== "number" || !Number.isSafeInteger(value) || value < min || value > max) return fail("invalid presentation number"); return value; }
 export function hydratePresentation(markdown: string, presentation: PagePresentation | unknown): JSONContent {
   const p = object(presentation,["schema_version","markdown_sha256","items"]);
-  const blocks = markdown === "" && p.schema_version === "dmb_page_presentation_v2" ? [] : admittedPresentationBlocks(markdown);
+  const body = splitLeadingYamlFrontmatter(markdown).markdown;
+  const blocks = body === "" && p.schema_version === "dmb_page_presentation_v2" ? [] : admittedPresentationBlocks(markdown);
   if (!["dmb_page_presentation_v1", "dmb_page_presentation_v2"].includes(String(p.schema_version)) || p.markdown_sha256 !== presentationSha256(markdown)) return fail("presentation belongs to different source bytes");
   const seen = new Set<string>(); let cursor = 0;
   const identity = (id: unknown) => { if (typeof id !== "string" || !identifier.test(id) || seen.has(id)) return fail("duplicate or invalid block identity"); seen.add(id); return id; };
@@ -184,8 +185,9 @@ export function projectPresentation(doc: JSONContent, originalMarkdown: string, 
         (doc.content ?? []).some(node => typeof node.attrs?.pageBlockId !== "string"))
       return fail("saved block identities are missing from the editor");
     const sourceNodes = (doc.content ?? []).filter(node => !empty(node));
-    if (!sourceNodes.length && !markdown.trim()) markdown = "";
-    const admitted = markdown === "" ? [] : admittedPresentationBlocks(markdown);
+    const split = splitLeadingYamlFrontmatter(markdown);
+    if (!sourceNodes.length && !split.markdown.trim()) markdown = split.frontmatter;
+    const admitted = splitLeadingYamlFrontmatter(markdown).markdown === "" ? [] : admittedPresentationBlocks(markdown);
     if (admitted.length !== sourceNodes.length) return fail("edited block boundaries cannot be preserved");
     const used = new Set<string>();
     // Deleted saved IDs remain reserved so a newly inserted block cannot

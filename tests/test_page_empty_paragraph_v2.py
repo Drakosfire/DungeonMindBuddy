@@ -56,3 +56,13 @@ def test_v2_refuses_unknown_and_nested_empty_items():
     row = {'kind': 'row', 'id': 'r', 'slots': [{'id': 's', 'width': 12, 'blocks': [{'kind': 'empty_paragraph', 'id': 'x'}]}]}
     with pytest.raises(ValidationError):
         PagePresentation.model_validate({**data, 'items': [row]})
+
+
+def test_v2_allows_empty_body_after_exact_yaml_frontmatter():
+    source = '---\ntitle: Test\n---\n'
+    payload = {
+        'schema_version': 'dmb_page_presentation_v2',
+        'markdown_sha256': sha256(source.encode()).hexdigest(),
+        'items': [{'kind': 'empty_paragraph', 'id': 'blank'}],
+    }
+    assert PagePresentation.model_validate(payload).checked(source).items[0].id == 'blank'
