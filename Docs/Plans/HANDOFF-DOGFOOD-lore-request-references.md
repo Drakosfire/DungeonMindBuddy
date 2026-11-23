@@ -5,13 +5,14 @@ review, concrete-progress merges and deployment. DOGFOOD owns this serial
 successor to merged #4557. The goal remains incomplete: the actual app rejected
 a valid twelve-turn synthesis after the APP0207 rollout.
 
-Re-anchored base: verified running sourcecc4bf0500de93ebb80ad691c7234de76ed93d27f,
-imagebd17c6d220a7498d7b56abcbffea4422d8295be22e9e5da137f76eb73e4c5282,
+Re-anchored base: verified running sourcea23847ff03d5b49525119d47ab927882c445e136,
+image78188c101c77e54e81755d6d1bda1c8913583ef40b756826cc0a604a4a525d77,
 APP207/Core0024. This preserves the deployed Winter and guest-label successors
 #4564/#4567 as well as #4557. Branch codex/dogfood-lore-request-references in the
-existing isolated checkout; PR4573 is serial. Retarget it to the pinned cc4 base
-before cumulative review. Remote main75f124648 and open4575/4568/4561/4554/4550
-were inspected. Preserve other owners' Plan-performance and mobile guest work;
+existing isolated checkout; PR4573 is serial. Retarget it to the pinned a238 base
+before cumulative review. Remote main7047ea5ad and the mobile serving successor were inspected.
+The a238 serving parent includes mobile graph/navigation changes; all seven
+upstream changed paths are disjoint from this writer slice. Preserve other owners' Plan-performance and mobile guest work;
 do not absorb it. Re-anchor the actual serving parent again before delivery.
 No runtime/deployment reservation is held during implementation. The original
 79d4/image419 adoption is historical evidence, not the current cutover parent.
@@ -148,3 +149,15 @@ claim full semantic coverage from that sample. The V2 questions description must
 state its existing obligation to preserve all author-declared unknowns, including
 chronology/origins, and avoid duplicating questions in body prose. New live evidence
 must check the full authored material, corrections and every declared unknown.
+
+Database qualification checkpoint: obey the shared five-database budget (one
+App template, one read-only Core, three disposable App slots). Current-main
+disposable_benchmark_database must own each custom replay clone around its
+entire run, with workers/connections closed before exit; ordinary capture uses
+capture-context --clone-app. No DOGFOOD database is retained. The repository
+tests/application_state/conftest.py still creates session templates and test
+clones with raw CREATE DATABASE, so those fixtures are paused, not run as a
+hidden exception. Adaptation must preserve exact-source qualification and
+owned isolation without changing shared fixture policy inside this slice.
+Previous a961 hosted/unit/codec evidence and independent source review are
+retained as predecessor evidence; the a238 rebase needs new exact-head proof.
