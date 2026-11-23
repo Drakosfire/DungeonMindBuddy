@@ -2,7 +2,7 @@
 
 Status: ACTIVE. Authorized by the owner's Sizzek onboarding goal and request to
 make the release usable. Serial after the merged guest release foundation and
-serving integration; base `4cb93e73f2d88d8b2d5962f166cdb4a4eaebab28`, branch
+serving integration; base `5c68aad55dce4c627472a8acba38293922f6a55d`, branch
 `codex/onboard-guest-source-selection`, checkout this isolated Buddy worktree.
 No live runtime, database or public release is leased by this implementation.
 
@@ -54,6 +54,10 @@ The route captures and rechecks the owner generation and uses the same Core
 view and source-binding checks as the existing owner inventory. Source pages
 are limited to 100 candidate lines per request; the client must reject a changed
 Graph revision and preparation still revalidates exact selected bytes.
+
+Rebased onto main's updated Core pin `0a6cf9a9acb6ee5e47ee0bf5db06bd091afebb9f`;
+the earlier results used a different Core source and do not qualify the rebased
+commit. Re-run the guest contract against the pinned Core and exact head.
 
 Bugbot reviewed `9dc069781418983ab992bb996ad339085045915e` and found no
 actionable code defect, but requested stronger independent-source withdrawal,
