@@ -27,11 +27,16 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.errors import 
     StatblockIntegrationError,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+    AppendRevisionRequestV1,
     CreateStatblockRequestV1,
     StatblockDefinitionV1Input,
     ValidateDefinitionRequestV1,
     ValidationSeverity,
     ValidationStatus,
+)
+from apps.live_control_server.services.statblock_saved_revision import (
+    admitted_portrait_bindings,
+    verify_append_result,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
     MechanicsLocatorV1,
@@ -237,15 +242,111 @@ def save_variant(
             owned_client.close()
 
 
+class SaveConversationVariantPortrait(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operation_id: UUID
+    base: MechanicsLocatorV1
+    portrait_asset_id: UUID
+
+
+def prepare_variant_portrait_append(
+    command: SaveConversationVariantPortrait,
+    *, review_id: UUID, exact, media_owner: str,
+) -> AppendRevisionRequestV1:
+    """Build an art-only append from an already authorized exact source."""
+    verify_exact_revision_mechanics_integrity(exact)
+    if not same_mechanics_locator(locator_from_exact_revision(exact), command.base):
+        raise ApplicationStateConflictError("The selected variant revision changed. Reopen it before saving.")
+
+    return AppendRevisionRequestV1(
+        idempotency_key=str(command.operation_id),
+        parent_revision_id=command.base.revision_id,
+        definition=StatblockDefinitionV1Input.model_validate_json(exact.canonical_definition),
+        change_summary="Attach a portrait to the saved conversation variant",
+        asset_bindings=admitted_portrait_bindings(exact, command.portrait_asset_id, media_owner),
+        accepted_through={
+            "conversation_variant_review": str(review_id),
+            "buddy_variant_portrait_operation": str(command.operation_id),
+            "buddy_portrait_asset_id": str(command.portrait_asset_id),
+        },
+    )
+
+
+def save_variant_portrait(
+    service, world_id, conversation_id, turn_id, *, review_id, command, media_owner,
+    client: StatblockV1Client | None = None,
+):
+    scope = (world_id, conversation_id, turn_id)
+    selection = dict(review_id=review_id, operation_id=command.operation_id)
+    original, saved = service.read_variant_portrait(*scope, **selection)
+    base = MechanicsLocatorV1.model_validate(original)
+    if not same_mechanics_locator(base, command.base):
+        raise ApplicationStateConflictError("Select the exact saved conversation variant.")
+    intent = command.model_dump(mode="json")
+    if saved is not None:
+        if saved["intent"] != intent:
+            raise ApplicationStateConflictError("This Save key belongs to a different portrait selection.")
+        if saved["refusal"] is not None:
+            raise ApplicationStateConflictError("The statblock has a newer revision.")
+        if saved["receipt"] is not None:
+            return saved["receipt"]
+    owned_client = None
+    try:
+        if client is None:
+            owned_client = client = DungeonMindStatblockV1Client()
+        if saved is None:
+            exact = client.get_exact_revision(base.statblock_id, base.revision_id)
+            append = prepare_variant_portrait_append(
+                command, review_id=review_id, exact=exact, media_owner=media_owner,
+            )
+            saved = service.claim_variant_portrait(
+                *scope, **selection, intent=intent, append_request=append.model_dump(mode="json"),
+            )
+        # Claim can replay an operation that completed while media was being admitted.
+        if saved["refusal"] is not None:
+            raise ApplicationStateConflictError("The statblock has a newer revision.")
+        if saved["receipt"] is not None:
+            return saved["receipt"]
+
+        body = saved["append_request"]
+        try:
+            result = client.append_revision(base.statblock_id, body)
+        except StatblockIntegrationError as exc:
+            if exc.status_code == 409 and exc.error_code in {"stale_parent_revision", "parent_revision_mismatch"}:
+                service.settle_variant_portrait(*scope, **selection, refusal=exc.error_code)
+                raise ApplicationStateConflictError("The statblock has a newer revision.") from exc
+            raise
+        verify_append_result(
+            result, base=base, expected_digest=base.definition_digest, request_body=body,
+        )
+        receipt = locator_from_exact_revision(result).model_dump(mode="json")
+        service.settle_variant_portrait(*scope, **selection, receipt=receipt)
+        return receipt
+    except StatblockIntegrationError as exc:
+        raise ApplicationStateUnavailableError("Retry the same portrait Save to recover its outcome.") from exc
+    finally:
+        if owned_client is not None:
+            owned_client.close()
+
+
 def open_saved_variant(
     service, world_id: str, conversation_id: UUID, turn_id: UUID,
-    *, review_id: UUID, client: StatblockV1Client | None = None,
+    *, review_id: UUID, portrait_operation_id: UUID | None = None, client: StatblockV1Client | None = None,
 ):
-    locator = MechanicsLocatorV1.model_validate(
-        service.open_saved_conversation_variant_receipt(
+    saved = None
+    if portrait_operation_id is None:
+        original = service.open_saved_conversation_variant_receipt(
             world_id, conversation_id, turn_id, review_id=review_id,
-        ),
-    )
+        )
+    else:
+        original, saved = service.read_variant_portrait(
+            world_id, conversation_id, turn_id, review_id=review_id, operation_id=portrait_operation_id,
+        )
+        if saved is None or saved["receipt"] is None:
+            raise ApplicationStateConflictError("The requested portrait revision is not saved.")
+    base = MechanicsLocatorV1.model_validate(original)
+    locator = MechanicsLocatorV1.model_validate(saved["receipt"]) if saved else base
     owned_client = None
     try:
         if client is None:
@@ -254,6 +355,10 @@ def open_saved_variant(
         verify_exact_revision_mechanics_integrity(revision)
         if not same_mechanics_locator(locator_from_exact_revision(revision), locator):
             raise ApplicationStateIntegrityError("Opened statblock differs from the saved variant.")
+        if saved is not None:
+            verify_append_result(
+                revision, base=base, expected_digest=base.definition_digest, request_body=saved["append_request"],
+            )
         resource = revision.model_dump(mode="json")
         resource["definition"] = json.loads(revision.canonical_definition)
         return {"locator": locator.model_dump(mode="json"), "revision": resource}

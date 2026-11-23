@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from .types import CombatEncounterRecord, SavedCombatMechanicsSnapshot
+from .types import CombatEncounterRecord, ConversationVariantCombatSnapshot, SavedCombatMechanicsSnapshot
 from application_state.world_mechanics.types import MechanicsLocator
 
 
@@ -30,6 +30,36 @@ class AdoptMechanicsRequest(Closed):
     def unique_actors(self):
         if len({actor.actor_id for actor in self.actors})!=len(self.actors):
             raise ValueError('Choose each actor once')
+        return self
+
+
+class ConversationPortraitSelection(Closed):
+    conversation_id: UUID
+    turn_id: UUID
+    review_id: UUID
+    portrait_operation_id: UUID
+    locator: MechanicsLocator
+
+
+class AdoptConversationPortraitRequest(Closed):
+    schema_name: Literal["dmb_combat_conversation_portrait_adoption_v1"] = Field(
+        default="dmb_combat_conversation_portrait_adoption_v1", alias="schema",
+    )
+    operation_id: UUID
+    expected_revision: int = Field(gt=0)
+    source: ConversationPortraitSelection
+    actors: list[ActorAdoption] = Field(min_length=1)
+
+    @property
+    def locator(self) -> MechanicsLocator:
+        return self.source.locator
+
+    @model_validator(mode="after")
+    def portrait_only(self):
+        if len({actor.actor_id for actor in self.actors}) != len(self.actors):
+            raise ValueError("Choose each actor once")
+        if any(actor.ac_policy != "keep" or actor.hp_policy != "keep" for actor in self.actors):
+            raise ValueError("Portrait adoption preserves existing combat stats")
         return self
 
 
@@ -89,6 +119,10 @@ class AdoptionPreview(Closed):
     snapshot: SavedCombatMechanicsSnapshot
     armor_class: int | None
     hit_points: int | None
+
+
+class ConversationPortraitPreview(Closed):
+    snapshot: ConversationVariantCombatSnapshot
 
 
 class SavedMechanicsPreviewRequest(Closed):

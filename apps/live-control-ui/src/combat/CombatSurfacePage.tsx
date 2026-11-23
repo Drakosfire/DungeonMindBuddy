@@ -22,7 +22,7 @@ export function CombatSurfacePage(){
     canvas:null,agentContext:null,tools:[],editCommands:[],projections:[],projectionBindings:[]}),[worldId,encounterId]);
   usePublishSurfaceInteraction(publication);
   const encounterListHref=worldId ? '/combat?'+new URLSearchParams({world:worldId}) : '/combat';
-  const admittedVariant=variant?.worldId===worldId?variant:undefined;
+  const admittedVariant=variant?.worldId===worldId&&!variant.portraitOperationId?variant:undefined;
   return <AppChrome activeRoute="combat"><main className="native-combat-surface" aria-label="Combat encounters">
     {target && !encounterId && <a href={encounterListHref}>All encounters</a>}
     {target === 'invalid' ? <p role="alert">This encounter link is invalid.</p>
