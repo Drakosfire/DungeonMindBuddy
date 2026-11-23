@@ -105,10 +105,14 @@ it("accumulates pages by document without exposing another document's unselected
   await user.selectOptions(await screen.findByLabelText("Source document"), "doc-a");
   await user.click(screen.getByRole("button", { name: "Load source excerpts" }));
   await screen.findByText("doc-a0");
+  await user.click(screen.getByRole("checkbox", { name: /doc-a · private source · context.*doc-a0/ }));
   await user.click(screen.getByRole("button", { name: "Load source excerpts" }));
   await screen.findByText("doc-a100");
   await user.selectOptions(screen.getByLabelText("Source document"), "doc-b");
-  expect(screen.queryByText("doc-a0")).not.toBeInTheDocument();
+  expect(screen.getByText("doc-a0")).toBeInTheDocument();
+  expect(screen.queryByText("doc-a100")).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Load source excerpts" }));
   expect(await screen.findByText("doc-b0")).toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: /doc-a · private source · context.*doc-a0/ }));
+  expect(screen.queryByText("doc-a0")).not.toBeInTheDocument();
 });
