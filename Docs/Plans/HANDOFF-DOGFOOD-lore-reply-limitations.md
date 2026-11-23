@@ -85,3 +85,16 @@ Plan/surface optional-gap audit remain open. Literal PDF/display excerpts, actio
 destination witnesses and original-span selectors retain their distinct ownership;
 do not remove exactness merely because it resembles a redundant citation witness.
 No0203 deployment or broader completion is claimed by this source slice.
+
+Independent reviewbb17 HOLD found a duplicated test function name: Python had
+replaced the earlier definition, omitting its distinct ineligible-context case.
+Consolidated both scenarios into one five-case parameterization; explicit pytest
+collection shows all5 and AST finds no duplicate module test names.25 focused
+cases now PASS. Runtime code did not change in this correction. bb17 query/world
+jobs were deliberately interrupted with SIGINT and terminal exit2; retain them
+as incomplete, never passing qualification. Its frontend/validate, actual0202
+history and both fixed-output/live9-turn drivers passed, revision-specific.
+The exact captured previously rejected reply created one page, saved/reopened,
+kept the original unchanged and repeated receipt identical, with0 new acquisition.
+Its final writer was a deterministic fixture, not a real latency measurement.
+All final-head qualifications and independent review must use the corrected SHA.
