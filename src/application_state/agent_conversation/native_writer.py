@@ -152,6 +152,7 @@ class NativeWriterEvidence:
     build_local: bool = False
     supplied_source_references: bool = False
     typed_source_answer: bool = False
+    lore_page_limitations: bool = False
     variant_format: bool = False
     variant_edits: bool = False
     variant_visible_reply: bool = False
@@ -446,11 +447,15 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     if citation_policy not in (None, 'supplied_source_references_v1'):
         raise ValueError('Unknown Build citation policy')
     supplied_source_references = citation_policy == 'supplied_source_references_v1'
-    from .native_build_work_view import SOURCE_ANSWER_POLICY
+    from .native_build_work_view import SOURCE_ANSWER_POLICY, LORE_LIMITATION_POLICY
     source_answer_policy = work_frame.get('build_work', {}).get('source_answer_policy')
     if source_answer_policy not in (None, SOURCE_ANSWER_POLICY):
         raise ValueError('Unknown Build source answer policy')
     typed_source_answer = source_answer_policy == SOURCE_ANSWER_POLICY
+    lore_limitation_policy = work_frame.get('build_work', {}).get('lore_limitation_policy')
+    if lore_limitation_policy not in (None, LORE_LIMITATION_POLICY):
+        raise ValueError('Unknown lore review limitation policy')
+    lore_page_limitations = lore_limitation_policy == LORE_LIMITATION_POLICY
     format_name = body.get("text", {}).get("format", {}).get("name")
     variant_passage_review = format_name in VARIANT_PASSAGE_FORMATS
     variant_edits = format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS}
@@ -459,7 +464,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         variant_edits=variant_edits, variant_passage_review=variant_passage_review,
         bind_lore_page="lore_page_destination" in work_frame["build_work"],
         supplied_source_references=supplied_source_references,
-        typed_source_answer=typed_source_answer) if build_local
+        typed_source_answer=typed_source_answer, lore_page_limitations=lore_page_limitations) if build_local
         else play_work_view(expected_work) if play_local
         else prose_work if prose_work is not None
         else plan_work_view(expected_work,prefix,supplied_source_references=plan_source_references) if authored_local else expected_work)
@@ -471,7 +476,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             variant_passage_review=variant_passage_review,
             bind_lore_page="lore_page_destination" in work_frame["build_work"], retained_raw_markdown=True,
             supplied_source_references=supplied_source_references,
-            typed_source_answer=typed_source_answer,
+            typed_source_answer=typed_source_answer, lore_page_limitations=lore_page_limitations,
         )
         if t.canonical_sha256(work_frame) != t.canonical_sha256(retained_work):
             raise ValueError('Native writer changed or omitted its exact surface work')
@@ -517,6 +522,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,
         supplied_source_references=supplied_source_references,typed_source_answer=typed_source_answer,
+        lore_page_limitations=lore_page_limitations,
         variant_format=variant_format,variant_edits=variant_edits,
         variant_visible_reply=format_name in {VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_witnesses=format_name in {VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},

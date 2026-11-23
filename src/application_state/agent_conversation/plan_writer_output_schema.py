@@ -296,10 +296,17 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         variants.extend(native_variants(work_frame,prose,local=build_local))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
-    from .native_build_work_view import SOURCE_ANSWER_POLICY, SOURCE_ANSWER_FORMAT
+    from .native_build_work_view import (SOURCE_ANSWER_POLICY, SOURCE_ANSWER_FORMAT,
+        LORE_LIMITATION_POLICY, LORE_LIMITATION_FORMAT)
     source_answer_policy = work_frame.get('build_work', {}).get('source_answer_policy')
     if source_answer_policy not in (None, SOURCE_ANSWER_POLICY):
         raise ValueError('Unknown Build source answer policy')
+    lore_limitation_policy = work_frame.get('build_work', {}).get('lore_limitation_policy')
+    if lore_limitation_policy not in (None, LORE_LIMITATION_POLICY):
+        raise ValueError('Unknown lore review limitation policy')
+    if lore_limitation_policy and (work_frame.get('schema') != BUILD_WORK_SCHEMA
+            or not build_local or format_version != 2 or source_answer_policy):
+        raise ValueError('Lore review limitations require normal semantic Build review')
     if source_answer_policy:
         if work_frame.get('schema') != BUILD_WORK_SCHEMA or not build_local or format_version != 2:
             raise ValueError('Typed source answers require normal semantic Build work')
@@ -472,7 +479,15 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     from generationengine.utils.schema_utils import make_schema_strict
     from .native_plan_work_view import SOURCE_REFERENCE_FORMAT, SOURCE_REFERENCE_POLICY
     plan_references = work_frame.get('schema') == PLAN_WORK_SCHEMA and work_frame.get('citation_policy') == SOURCE_REFERENCE_POLICY
-    return {'type': 'json_schema', 'name': SOURCE_ANSWER_FORMAT if source_answer_policy else SOURCE_REFERENCE_FORMAT if plan_references else f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
+    if lore_limitation_policy:
+        format_name = LORE_LIMITATION_FORMAT
+    elif source_answer_policy:
+        format_name = SOURCE_ANSWER_FORMAT
+    elif plan_references:
+        format_name = SOURCE_REFERENCE_FORMAT
+    else:
+        format_name = f'surface_native_evidence_selectors_v{format_version}'
+    return {'type': 'json_schema', 'name': format_name, 'strict': True,
         'schema':make_schema_strict(schema)}
 
 
