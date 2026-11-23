@@ -441,6 +441,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
     for row in candidate['answer_segments']:
+        if isinstance(row, dict) and row.get('kind') == 'discussion' and evidence.typed_source_answer:
+            raise ValueError('Source-backed factual discussion requires typed source claims')
         if (not isinstance(row,dict) or row.get('kind') not in {'authored_excerpt', 'statblock_pdf_claim'}
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
             raise ValueError('Native completion contains an invalid segment')
@@ -503,7 +505,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
                 author_text=execution.policy.action.intent.message,
             ) if review_enabled and not plan_review else None
         )
-    if review_enabled and not segments and collaboration is None:
+    explicit_source_gap = evidence.typed_source_answer and bool(
+        candidate.get('limitations') or candidate.get('requested_detail_gaps'))
+    if review_enabled and not segments and collaboration is None and not explicit_source_gap:
         raise ValueError('Empty intentional response')
     # A host retrieval footer cannot stand in for an actual clarification.
     from .native_execution import NATIVE_PLAN_ACTION_TYPES

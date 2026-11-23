@@ -1,6 +1,9 @@
 # DOGFOOD: Plan supplied-page citation references
 
-ACTIVE. User's active writer/context cleanup goal authorizes this serial slice.
+IMPLEMENTATION MERGED in PR4531 at4c8323ebe721313c74c181fa213cb449c51fae64;
+runtime deployment/acceptance pending. The writer/context source write lease
+transfers to HANDOFF-DOGFOOD-source-backed-discussion.md. The user's active
+writer/context cleanup goal authorized this serial slice.
 DOGFOOD owns design and implementation. Branch
 `codex/dogfood-plan-supplied-citations`, isolated existing checkout, base
 `94db33bc029c2e7adee39e4a30a28e1d75b0a15d` from fetched

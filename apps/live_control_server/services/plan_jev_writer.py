@@ -315,6 +315,19 @@ PLAN_SOURCE_REFERENCE_RESPONSE = (
     'be supported by the ONE selected page; split claims from different pages into separate '
     'segments. Preserve uncertainty, and do not ask for a supplied page again.')
 
+SOURCE_BACKED_DISCUSSION_RESPONSE = (
+    '\nThis is a source-backed factual discussion. Give a useful factual brief through the '
+    'supplied source-claim kinds and their local references, not uncited discussion or a '
+    'generic readiness acknowledgment. A saved source\'s own proposed lore is an attributed '
+    'source claim, not a new invented idea. Preserve concrete proposed motives and choices '
+    'that the sources state; do not call them unknown just because other connections or '
+    'details remain open. When supplied documents differ, attribute their positions instead '
+    'of flattening them into one unresolved summary. A draft\'s general open question does '
+    'not itself retract a specific proposal in another supplied source. Explicit later '
+    'author corrections still take precedence. Do not invent a fact to fill a gap: if the '
+    'available sources are insufficient, use the existing limitations and detail gaps. '
+    'No minimum factual claim is required.')
+
 RELATED_PAGE_RESPONSE = (
     'Saved authored pages describe authored material, not played truth. '
     'Use related_page_claim with the supplied local read_id and supporting_quotes containing '
@@ -392,6 +405,7 @@ class PlanJevWriter:
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                     supplied_source_references=True,
+                    typed_source_answer=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
@@ -561,6 +575,8 @@ class PlanJevWriter:
                 and (self.work_frame['artifact_under_edit']['sections']
                      or self.work_frame.get('related_authored_pages', {}).get('pages'))):
             self.instructions += SUPPLIED_SOURCE_RESPONSE
+        if self.shared and self.provider_work.get('build_work', {}).get('source_answer_policy') == 'typed_supplied_source_answer_v1':
+            self.instructions += SOURCE_BACKED_DISCUSSION_RESPONSE
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '
