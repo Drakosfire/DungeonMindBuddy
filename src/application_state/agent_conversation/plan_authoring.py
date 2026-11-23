@@ -1260,6 +1260,24 @@ def validate_authoring_transaction(conn, action, proposal, turn, result, proof):
         require_leaf(conn, turn)
 
 
+def require_playable_body_not_repeated_as_excerpts(capture, segments) -> None:
+    if not isinstance(capture, PlanAuthoringCaptureV1) or capture.playable_target is None:
+        return
+    body = " ".join(capture.playable_target.body_markdown.split())
+    excerpts = " ".join(
+        word for segment in segments if segment.kind == "authored_excerpt"
+        for word in segment.text.split()
+    )
+    if body and excerpts == body and any(
+        segment.kind == "proposal"
+        and f" {body} " in f" {' '.join(segment.text.split())} "
+        for segment in segments
+    ):
+        raise ApplicationStateValidationError(
+            "The Plan writer repeated the original card body in its replacement. No suggestion was prepared."
+        )
+
+
 def prepare_authoring_proposal(action, capture, turn, result, proof):
     """The Plan parent wraps one already-normalized writer result, never rewrites it."""
     from .rules_authority_completion import NativeRulesMixedTurnResultV1
@@ -1275,6 +1293,9 @@ def prepare_authoring_proposal(action, capture, turn, result, proof):
     if len(writers) != 1:
         raise ValueError("Plan writing has no unique actual writer")
     writer = writers[0]
+    base_result = result.base_result if isinstance(result, NativeRulesMixedTurnResultV1) else result
+    if base_result.completion is not None:
+        require_playable_body_not_repeated_as_excerpts(capture, base_result.completion.answer_segments)
     fragment = authored_markdown(result, execution=turn.graph_context_execution)
     origin = action.authoring_origin.model_dump(mode="json", by_alias=True) | {
         "schema": "dmb_plan_jev_proposal_origin_v1",
