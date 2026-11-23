@@ -7,6 +7,34 @@ import choiceParity from "./savedChoiceParity.json";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); window.history.replaceState({}, "", "/"); });
 
+it("keeps mobile connection endpoints aligned when points are added and reset", async () => {
+  const nodes = ["Sizzek", "Festival of Light and Gifts", "Izmati", "The Funhouse", "The Guild"].map((label, index) => ({
+    id: String(index), label, kind: "place", name_citations: [], kind_citations: [], name_basis: "asserted", kind_basis: "asserted",
+  }));
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ release_id: "copy", manifest: {
+    graph: { nodes, edges: [{ id: "e", source: "0", target: "4", label: "knows", citations: [], temporal: "unknown", basis: "asserted" }] }, sources: [], assets: [],
+  } }), { status: 200 })));
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" />);
+  const first = await screen.findByRole("button", { name: "Sizzek place" });
+  const last = screen.getByRole("button", { name: "The Guild place" });
+  const mobileLine = document.querySelector(".guest-world__lines--mobile line")!;
+  expect(first.style.getPropertyValue("--point-mobile-x")).toBe("25%");
+  expect(last.style.getPropertyValue("--point-mobile-x")).toBe("25%");
+  expect(mobileLine).toHaveAttribute("x1", "25");
+  expect(mobileLine).toHaveAttribute("x2", "25");
+  expect(mobileLine).toHaveAttribute("y2", String(250 / 3));
+
+  await user.type(screen.getByRole("textbox", { name: "Point name" }), "A very long visitor-created point");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Connect to a shared point" }), "0");
+  await user.click(screen.getByRole("button", { name: "Add temporary point" }));
+  expect(screen.getByRole("button", { name: "A very long visitor-created point Your addition" })).toHaveStyle({ "--point-mobile-x": "75%" });
+  expect(document.querySelectorAll(".guest-world__lines--mobile line")).toHaveLength(2);
+  await user.click(screen.getByRole("button", { name: "Reset my additions" }));
+  expect(document.querySelectorAll(".guest-world__lines--mobile line")).toHaveLength(1);
+  expect(screen.queryByRole("button", { name: "A very long visitor-created point Your addition" })).not.toBeInTheDocument();
+});
+
 it.each(choiceParity)("uses the shared Unicode choice contract: $name", ({ labels, repeat, valid }) => {
   const choice = { version: "owner_saved_choice_v1", prompt: "What next", options: [
     { label: labels[0].repeat(repeat ?? 1), outcome: "One" }, { label: labels[1], outcome: "Two" }] };

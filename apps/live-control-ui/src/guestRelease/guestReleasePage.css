@@ -16,9 +16,10 @@
 .guest-world__graph, .guest-world__detail { min-height: 23rem; padding: clamp(1.2rem, 3vw, 2rem); border: 1px solid #b9965755; border-radius: 8px; background: #252721d9; }
 .guest-world__section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; }
 .guest-world__section-head h2 { margin: .25rem 0; }.guest-world__section-head span { font-size: .8rem; color: #c5c0b3; }
-.guest-world__points { position: relative; min-height: 16rem; background: radial-gradient(ellipse, #8a704c26, transparent 70%); }
+.guest-world__points { position: relative; min-height: 16rem; height: var(--graph-height); background: radial-gradient(ellipse, #8a704c26, transparent 70%); }
 .guest-world__lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }.guest-world__lines line { stroke: #b99960; stroke-width: 1.5px; opacity: .7; }
-.guest-world__point { position: absolute; transform: translate(-50%, -50%); width: min(8.5rem, calc(100% / var(--graph-columns) - .6rem)); min-height: 7rem; display: grid; place-content: center; gap: .3rem; padding: .5rem; overflow-wrap: anywhere; color: #eee8d9; background: #36382d; border: 1px solid #c09c60; border-radius: 50%; cursor: pointer; text-align: center; }
+.guest-world__lines--mobile { display: none; }
+.guest-world__point { position: absolute; left: var(--point-x); top: var(--point-y); transform: translate(-50%, -50%); width: min(8.5rem, calc(100% / var(--graph-columns) - .6rem)); min-height: 7rem; display: grid; place-content: center; gap: .3rem; padding: .5rem; overflow-wrap: anywhere; color: #eee8d9; background: #36382d; border: 1px solid #c09c60; border-radius: 50%; cursor: pointer; text-align: center; }
 .guest-world__point span { color: #e7bd6b; }.guest-world__point small { color: #c9c0aa; }.guest-world__point.is-selected { background: #685131; border-color: #f2d28d; }
 .guest-world__point.is-temporary { border-style: dashed; background: #34423a; }.guest-world__point.is-temporary.is-selected { background: #4d6756; }
 .guest-world__sandbox { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #d9a44155; }
@@ -29,7 +30,16 @@
 .guest-world__detail h2 { font-size: 2rem; margin: .5rem 0; }.guest-world__detail ul { list-style: none; padding: 0; }.guest-world__detail li { border-top: 1px solid #d9a44133; padding: .7rem 0; }.guest-world__detail small { color: #c8c1b3; }
 .guest-world__citations { display: flex; flex-wrap: wrap; gap: .4rem; margin: .6rem 0; }.guest-world__detail button, .guest-world__citations button { color: #eed29d; background: transparent; border: 1px solid #aa8b55; border-radius: 4px; padding: .4rem .6rem; cursor: pointer; }
 .guest-world__excerpt { white-space: pre-wrap; line-height: 1.7; overflow-wrap: anywhere; }.guest-world__gallery, .guest-world__next { padding: 3rem 0; }.guest-world__gallery img { max-width: min(100%, 32rem); max-height: 24rem; object-fit: contain; margin: 0 1rem 1rem 0; }.guest-world__footer { padding: 1.5rem 0; border-top: 1px solid #d9a44155; color: #bfb8aa; font-size: .8rem; }
-@media (max-width: 760px) { .guest-world__layout { grid-template-columns: 1fr; }.guest-world__detail { min-height: 12rem; }.guest-world__point { min-height: 5rem; font-size: .8rem; } }
+@media (max-width: 760px) {
+  .guest-world__layout { grid-template-columns: 1fr; }
+  .guest-world__detail { min-height: 12rem; }
+  .guest-world__points { height: var(--graph-mobile-height); }
+  .guest-world__lines--desktop { display: none; }
+  .guest-world__lines--mobile { display: block; }
+  .guest-world__point { left: var(--point-mobile-x); top: var(--point-mobile-y); width: min(8.5rem, calc(100% / var(--graph-mobile-columns) - .6rem)); height: 7rem; grid-template-columns: minmax(0, 1fr); font-size: .8rem; }
+  .guest-world__point strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+  .guest-world__point small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 .guest-world__example { margin: 2rem auto; padding: 1.5rem; border: 1px solid rgba(218, 181, 117, .35); border-radius: 1rem; background: rgba(19, 22, 25, .7); }
 .guest-world__example-body { white-space: pre-wrap; line-height: 1.7; overflow-wrap: anywhere; }
 .guest-world__example img { display: block; max-width: 100%; max-height: 28rem; object-fit: contain; margin: 1rem 0; }

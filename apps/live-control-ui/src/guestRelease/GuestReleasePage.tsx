@@ -114,9 +114,13 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
   const connected = edges.filter(edge => edge.source === selectedNode || edge.target === selectedNode);
   const columns = Math.min(4, Math.max(1, Math.ceil(Math.sqrt(nodes.length))));
   const rows = Math.max(1, Math.ceil(nodes.length / columns));
-  const positions = new Map(nodes.map((node, index) => [node.id, {
-    x: (index % columns + .5) * 100 / columns, y: (Math.floor(index / columns) + .5) * 100 / rows,
+  const mobileColumns = Math.min(2, columns);
+  const mobileRows = Math.max(1, Math.ceil(nodes.length / mobileColumns));
+  const positionsFor = (columnCount: number, rowCount: number) => new Map(nodes.map((node, index) => [node.id, {
+    x: (index % columnCount + .5) * 100 / columnCount, y: (Math.floor(index / columnCount) + .5) * 100 / rowCount,
   }]));
+  const positions = positionsFor(columns, rows);
+  const mobilePositions = positionsFor(mobileColumns, mobileRows);
   const addPoint = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const label = name.trim(), link = relation.trim();
@@ -156,9 +160,9 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
       : !snapshot ? <p role="status">Opening this guest World…</p>
       : <><section className="guest-world__intro"><p className="guest-world__eyebrow">A SHARED WORLD · GUEST VIEW</p><h1>Follow the threads.</h1><p>Explore an owner-selected copy of a World. Choose a point to see its connections and the source behind each one.</p></section>
         <div className="guest-world__layout"><section ref={graphRef} tabIndex={-1} className="guest-world__graph" aria-labelledby="guest-graph-heading"><div className="guest-world__section-head"><div><p className="guest-world__eyebrow">THE STORY MAP</p><h2 id="guest-graph-heading">A web of connections</h2></div><span>{sharedNodes.length} shared {sharedNodes.length === 1 ? "point" : "points"} · {additions.nodes.length} yours</span></div>
-          {nodes.length ? <div className="guest-world__points" style={{ height: `${Math.max(260, rows * 135)}px`, "--graph-columns": columns } as CSSProperties}>
-            <svg className="guest-world__lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{edges.map(edge => { const start = positions.get(edge.source), end = positions.get(edge.target); return start && end ? <line key={edge.id} x1={start.x} y1={start.y} x2={end.x} y2={end.y} vectorEffect="non-scaling-stroke" /> : null; })}</svg>
-            {nodes.map(node => { const position = positions.get(node.id)!; return <button key={node.id} type="button" style={{ left: `${position.x}%`, top: `${position.y}%` }} className={`guest-world__point${selectedNode === node.id ? " is-selected" : ""}${node.temporary ? " is-temporary" : ""}`} aria-pressed={selectedNode === node.id} onClick={() => navigate(node.id, null)}><span aria-hidden="true">✦</span><strong>{node.label}</strong><small>{node.temporary ? node.kind : guestGraphTerm(node.kind)}</small></button>; })}
+          {nodes.length ? <div className="guest-world__points" style={{ "--graph-height": `${Math.max(260, rows * 135)}px`, "--graph-mobile-height": `${Math.max(260, mobileRows * 135)}px`, "--graph-columns": columns, "--graph-mobile-columns": mobileColumns } as CSSProperties}>
+            {[positions, mobilePositions].map((layout, index) => <svg key={index} className={`guest-world__lines${index ? " guest-world__lines--mobile" : " guest-world__lines--desktop"}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{edges.map(edge => { const start = layout.get(edge.source), end = layout.get(edge.target); return start && end ? <line key={edge.id} x1={start.x} y1={start.y} x2={end.x} y2={end.y} vectorEffect="non-scaling-stroke" /> : null; })}</svg>)}
+            {nodes.map(node => { const position = positions.get(node.id)!, mobilePosition = mobilePositions.get(node.id)!; return <button key={node.id} type="button" style={{ "--point-x": `${position.x}%`, "--point-y": `${position.y}%`, "--point-mobile-x": `${mobilePosition.x}%`, "--point-mobile-y": `${mobilePosition.y}%` } as CSSProperties} className={`guest-world__point${selectedNode === node.id ? " is-selected" : ""}${node.temporary ? " is-temporary" : ""}`} aria-pressed={selectedNode === node.id} onClick={() => navigate(node.id, null)}><span aria-hidden="true">✦</span><strong>{node.label}</strong><small>{node.temporary ? node.kind : guestGraphTerm(node.kind)}</small></button>; })}
           </div> : <p>This copy has no Graph points yet.</p>}
           <section className="guest-world__sandbox" aria-labelledby="guest-sandbox-heading">
             <h3 id="guest-sandbox-heading">Add your own thread</h3>
