@@ -89,7 +89,8 @@ def _editor_table_lines(markdown: str) -> set[int]:
         ):
             continue
         if any(
-            child.type in {"html_inline", "image"}
+            child.type == "image"
+            or (child.type == "html_inline" and not re.fullmatch(r"<br\s*/?>", child.content, re.IGNORECASE))
             for item in table
             for child in (item.children or [])
         ):

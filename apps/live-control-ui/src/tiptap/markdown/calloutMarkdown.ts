@@ -237,7 +237,9 @@ function serializeListItem(node: JsonNode, marker: string): string {
 
 function serializeTableCell(node: JsonNode): string {
   const text = childNodes(node)
-    .map((child) => serializeNode(child))
+    .map((child) => child.type === "paragraph"
+      ? childNodes(child).map((inline) => inline.type === "hardBreak" ? "<br>" : inlineMarkdown(inline)).join("")
+      : serializeNode(child))
     .filter(Boolean)
     .join(" ")
     .replace(/\s*\n\s*/g, " ")
