@@ -39,6 +39,12 @@ cat > "$scratch/bin/stat" <<'STUB'
 printf '%s\n' "$4" >> "$TEST_ROOT/policy-checks"
 printf '%s 600\n' "${TEST_OWNER:-0}"
 STUB
+cat > "$scratch/bin/mv" <<'STUB'
+#!/usr/bin/env bash
+set -eu
+/usr/bin/mv "$@"
+if [[ ${INTERRUPT_RECEIPT:-0} == 1 ]]; then kill -TERM "$PPID"; fi
+STUB
 cat > "$scratch/bin/curl" <<'STUB'
 #!/usr/bin/env bash
 set -eu
@@ -153,6 +159,10 @@ grep -F 'deployment policy is not controlled by root' "$scratch/stderr"
   [[ ! -s "$scratch/policy-checks" ]]
 ) 9> "$scratch/lock"
 [[ ! -s "$scratch/activations" ]]
+reset "$rollback_id"
+if INTERRUPT_RECEIPT=1 run; then exit 1; fi
+[[ $(cat "$scratch/activations") == "$candidate_id" ]]
+grep -Fx "BUDDY_LIVE $candidate $candidate_id" "$scratch/receipt"
 printf 'candidate_tag=dungeonmindbuddy:%s\ncandidate_id=%s\nrollback_tag=dungeonmindbuddy:%s\nrollback_id=%s\nrollback_revision=%s\n' \
   "$staged" "$staged_id" "$rollback" "$rollback_id" "$rollback" > "$scratch/releases/$staged.conf"
 printf 'dungeonmindbuddy:%s %s\n' \

@@ -182,6 +182,6 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 activate "$candidate_tag" "$candidate_id" || fail "candidate did not become healthy"
-record_serving || fail "could not record the serving release"
 trap - EXIT HUP INT TERM
+record_serving || fail "candidate is healthy and serving; could not record the serving release"
 report_live
