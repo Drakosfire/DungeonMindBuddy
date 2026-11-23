@@ -190,7 +190,7 @@ def test_playable_body_rejects_saved_excerpts_repeated_in_replacement(extra_exce
         SimpleNamespace(kind="authored_excerpt", text=prose + "\n"),
     )
     if extra_excerpt:
-        excerpts += (SimpleNamespace(kind="authored_excerpt", text="The ferry leaves at dawn."),)
+        excerpts = (excerpts[0], SimpleNamespace(kind="authored_excerpt", text="The ferry leaves at dawn."), excerpts[1])
 
     require_playable_body_not_repeated_as_excerpts(
         capture, (*excerpts, SimpleNamespace(kind="proposal", text=note))
@@ -200,7 +200,7 @@ def test_playable_body_rejects_saved_excerpts_repeated_in_replacement(extra_exce
     )
     with pytest.raises(ApplicationStateValidationError, match="repeated the original card body"):
         require_playable_body_not_repeated_as_excerpts(
-            capture, (*excerpts, SimpleNamespace(kind="proposal", text=f"{body}\n\n{note}"))
+            capture, (*excerpts, SimpleNamespace(kind="proposal", text=f"{spoken}\n\n{note}\n\n{prose}"))
         )
 
 

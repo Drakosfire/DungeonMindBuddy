@@ -1263,14 +1263,22 @@ def validate_authoring_transaction(conn, action, proposal, turn, result, proof):
 def require_playable_body_not_repeated_as_excerpts(capture, segments) -> None:
     if not isinstance(capture, PlanAuthoringCaptureV1) or capture.playable_target is None:
         return
-    body = " ".join(capture.playable_target.body_markdown.split())
+    from application_state.content.markdown_source_blocks import source_block_spans
+
+    def blocks(markdown: str):
+        encoded = markdown.encode("utf-8")
+        for start, end in source_block_spans(markdown):
+            block = encoded[start:end].decode("utf-8").strip()
+            if block:
+                yield block.replace("\r\n", "\n").replace("\r", "\n")
+
+    body = tuple(blocks(capture.playable_target.body_markdown))
+
     def contains_body(kind: str) -> bool:
-        words = (
-            word
-            for segment in segments if segment.kind == kind
-            for word in segment.text.split()
+        candidates = (
+            block for segment in segments if segment.kind == kind for block in blocks(segment.text)
         )
-        return f" {body} " in f" {' '.join(words)} "
+        return all(any(candidate == original for candidate in candidates) for original in body)
 
     if body and contains_body("authored_excerpt") and contains_body("proposal"):
         raise ApplicationStateValidationError(
