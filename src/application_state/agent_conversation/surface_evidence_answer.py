@@ -492,7 +492,7 @@ def native_fact_segment(row, *, policy, receipt, auth, support, index):
         labels = sorted({m.claim_mode.rsplit(':', 1)[-1] + ' / ' + m.epistemic_basis + ' / ' + m.standing for m in metadata.values()})
         text = 'Graph records (' + '; '.join(labels) + '): ' + row['text']
         segment = t.NativeAssertionClaimV1(text=text,
-            assertion_ids=sorted(r.assertion.assertion_id for _, r in selected),
+            assertion_ids=sorted({r.assertion.assertion_id for _, r in selected}),
             qualifications=[metadata[k] for k in sorted(metadata)])
         assertion_citations.extend(assertion_citation(receipt, auth, event, read, span, index=index)
             for event, read in selected for span in read.spans)

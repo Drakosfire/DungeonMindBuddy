@@ -17,7 +17,9 @@ from .plan_author_location import (
     author_scope_offer_view, matches_literal_scope_path, name_key,
 )
 from .plan_placement import PlanRequestedWorkInputV8, PlanRequestedWorkInputV9
-from .plan_authoring import PlanAuthoringComposedSnapshotV1, PlanRequestedWorkInputV1
+from .plan_authoring import (
+    PlanAuthoringCaptureV1, PlanAuthoringComposedSnapshotV1, PlanRequestedWorkInputV1,
+)
 from .plan_composed_targeting import (
     ComposedColumn, ComposedPlanPlacementCatalogV1,
     composed_nomination_from_answers,
@@ -33,6 +35,23 @@ class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecision
 
 
 PageEditIntent = Literal['page_edit', 'discussion', 'unresolved']
+AuthorEditorFocus = Literal['text_selection', 'caret']
+_EDITOR_FOCUS_GUIDANCE = {
+    'text_selection': (
+        'The author has selected existing text in the open Plan. For a direct request to '
+        'rewrite or revise this with no other referent, choose the selected-text rewrite '
+        'and no section constraint. Details requested for the new wording do not locate '
+        'another passage. Respect requests for a different target or for a draft in chat.'
+    ),
+    'caret': (
+        'The open Plan has a text caret. When the author asks to add writing and gives '
+        'no existing page location, choose the unstated insertion location and no section '
+        'constraint. Keep every explicit location, including a section qualifying an '
+        'existing paragraph. A name used only as the subject of the new writing does '
+        'not locate the edit. A stated but unclear page location remains unresolved. '
+        'A request to discuss or draft in chat does not grant an edit.'
+    ),
+}
 _SELECTION_REFERENCE_GUIDANCE = (
     ' A direct request to rewrite or revise this can refer to the current selection '
     'without saying “selected text.” Choose the selection rewrite when “this” '
@@ -55,6 +74,7 @@ class NativePlanAuthorScopeInputV1(Strict):
     implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
     selection_reference_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    editor_focus: AuthorEditorFocus | None = Field(default=None, exclude_if=lambda value: value is None)
     requested_operation: Literal['discuss', 'write_current_page'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
@@ -253,6 +273,32 @@ class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
         return t.canonical_sha256(self.model_dump(mode='json', by_alias=True))
 
 
+def author_editor_focus(action) -> AuthorEditorFocus | None:
+    """Project editor intent without sending selected bytes or editor geometry."""
+    capture = action.authoring_capture
+    if type(capture) is PlanAuthoringCaptureV1:
+        if capture.target_kind == 'replace_selection':
+            return 'text_selection'
+        if capture.target_kind == 'insert_at_caret' and any(
+                entry.kind == 'captured_target' for entry in action.placement_catalog.entries):
+            return 'caret'
+    if (type(capture) is PlanAuthoringComposedSnapshotV1
+            and capture.from_ == capture.to):
+        # The opening catalog still has to prove an exact available slot boundary.
+        return 'caret'
+    return None
+
+
+def _include_editor_focus(state, request):
+    from .plan_author_location import explicit_direction_options, explicit_scope_conflict
+
+    if (request.editor_focus is None
+            or explicit_direction_options(request.question, allow_plain_prose=True)
+            or explicit_scope_conflict(request.question, UnscopedLocation())):
+        return
+    state['current_editor_focus'] = _EDITOR_FOCUS_GUIDANCE[request.editor_focus]
+
+
 def _author_scope_offers(request):
     return author_scope_hypotheses(request.question, request.dialogue,
         max_span_attempts=request.max_span_attempts)
@@ -280,6 +326,7 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
     hypotheses = _author_scope_offers(request)
     state = author_scope_offer_view(request.question, request.dialogue, hypotheses,
         include_quote_context=request.quote_context)
+    _include_editor_focus(state, request)
     choices = {
         'none': 'The author places no existing section or heading restriction on the destination.',
         'unresolved': 'No offered complete scope preserves the author location constraints.',
@@ -343,6 +390,7 @@ def _prepare_author_scope_review(request):
     hypotheses = _author_scope_offers(request)
     view = author_scope_offer_view(request.question, request.dialogue, hypotheses,
         include_quote_context=True)
+    _include_editor_focus(view, request)
     options = view.pop('scope_hypotheses')
     pairs = {}
     relations = {first.relation, second.relation}
@@ -442,6 +490,8 @@ def validate_author_scope_parent(context, execution, parent, authorization):
             or (parent.implicit_caret_version is not None
                 and opening_input_type(execution.policy.action) not in (NativePlanOpeningInputV2, NativePlanOpeningInputV3))
             or type(context.assembled_input) is not NativePlanRequestAdmissionV1
+            or (parent.editor_focus is not None
+                and parent.editor_focus != author_editor_focus(execution.policy.action))
             or parent.request_manifest_sha256 != context.assembled_input.manifest_sha256
             or parent.prior_scope_event_id != authorization.prior_scope_event_id
             or parent.quote_context != (parent.prior_scope_event_id is not None)

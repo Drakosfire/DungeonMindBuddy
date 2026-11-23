@@ -53,6 +53,12 @@ class MediaListRequest(BaseModel):
     before_id: UUID | None = None
 
 
+class ContextSelectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    document_id: UUID
+    offset: int = Field(default=0, ge=0, le=100000, strict=True)
+
+
 def _owner(request: Request, world_id: str) -> str:
     if os.environ.get("DMB_GUEST_RELEASE_ENABLED") != "1":
         raise HTTPException(status_code=503, detail={"code": "guest_release_unavailable"})
@@ -108,6 +114,21 @@ def release_selection_options(world_id: str, request: Request, response: Respons
     try:
         generation = guest_release.owner_generation(world_id=world_id, subject=subject)
         options = selection_options(world_id=world_id)
+        _check_owner_generation(world_id=world_id, subject=subject, generation=generation)
+        return options
+    except ApplicationStateError as exc:
+        raise _error(exc) from exc
+    except (GuestReleaseEvidenceError, GuestNativeGraphError, GuestReleaseAssertionError) as exc:
+        raise _invalid_selection() from exc
+
+
+@router.post("/selection-context")
+def release_selection_context(world_id: str, body: ContextSelectionRequest, request: Request, response: Response):
+    subject = _owner(request, world_id)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        generation = guest_release.owner_generation(world_id=world_id, subject=subject)
+        options = selection_options(world_id=world_id, context_document_id=str(body.document_id), offset=body.offset)
         _check_owner_generation(world_id=world_id, subject=subject, generation=generation)
         return options
     except ApplicationStateError as exc:
