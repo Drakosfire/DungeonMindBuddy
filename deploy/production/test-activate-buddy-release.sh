@@ -26,6 +26,7 @@ printf 'candidate_tag=dungeonmindbuddy:%s\nrollback_tag=dungeonmindbuddy:%s\nrol
 cat > "$scratch/bin/stat" <<'STUB'
 #!/usr/bin/env bash
 [[ $1 == -c && $2 == '%u %a' && $3 == -- ]] || exit 91
+printf '%s\n' "$4" >> "$TEST_ROOT/policy-checks"
 printf '%s 600\n' "${TEST_OWNER:-0}"
 STUB
 cat > "$scratch/bin/curl" <<'STUB'
@@ -121,8 +122,10 @@ if TEST_OWNER=1000 run; then exit 1; fi
 grep -F 'deployment policy is not controlled by root' "$scratch/stderr"
 (
   flock -n 9
+  : > "$scratch/policy-checks"
   if run; then exit 1; fi
   grep -F 'another Buddy deploy is active' "$scratch/stderr"
+  [[ ! -s "$scratch/policy-checks" ]]
 ) 9> "$scratch/lock"
 [[ ! -s "$scratch/activations" ]]
 printf 'Activation, no-op, rollback and preflight refusals passed.\n'
