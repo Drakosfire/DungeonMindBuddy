@@ -73,11 +73,94 @@ activate() {
     verify_serving "$2" && verify_public_ready
 }
 
+record_serving() {
+  local receipt
+  receipt=$(mktemp "$config_dir/.serving.XXXXXX") || return 1
+  if ! printf 'BUDDY_LIVE %s %s\n' "$revision" "$candidate_id" > "$receipt" ||
+    ! mv -fT -- "$receipt" "$config_dir/serving"; then
+    rm -f -- "$receipt"
+    return 1
+  fi
+}
+
+retain_images() {
+  local approvals="$config_dir/retire-images" file line key value tag id identity containers references i
+  local -a tags=() ids=() container_ids=()
+  local -A protected=(["$candidate_id"]=1 ["$rollback_id"]=1)
+  local -A protected_tags=() pins=() selected=()
+
+  [[ -e "$approvals" || -L "$approvals" ]] || return 0
+  [[ -f "$approvals" ]] || return 1
+  trusted "$approvals"
+  for file in "$config_dir"/releases/*.conf; do
+    [[ -f "$file" ]] || return 1
+    trusted "$file"
+    # Inventory records contain literal pins. Never source other approvals.
+    pins=()
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ -n "$line" ]] || continue
+      key=${line%%=*}
+      value=${line#*=}
+      case "$key" in
+        candidate_id|rollback_id|registry_digest)
+          [[ "$value" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1 ;;
+        candidate_tag|rollback_tag)
+          [[ "$value" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ ]] || return 1 ;;
+        rollback_revision)
+          [[ "$value" =~ ^[0-9a-f]{40}$ ]] || return 1 ;;
+        *) return 1 ;;
+      esac
+      [[ ! "${pins[$key]+yes}" ]] || return 1
+      pins["$key"]=$value
+    done < "$file" || return 1
+    [[ "${pins[candidate_id]:-}" && "${pins[rollback_id]:-}" &&
+      "${pins[candidate_tag]:-}" && "${pins[rollback_tag]:-}" && "${pins[rollback_revision]:-}" ]] || return 1
+    protected["${pins[candidate_id]}"]=1
+    protected["${pins[rollback_id]}"]=1
+    protected_tags["${pins[candidate_tag]}"]=1
+    protected_tags["${pins[rollback_tag]}"]=1
+  done
+  containers=$(docker ps -aq) || return 1
+  if [[ -n "$containers" ]]; then
+    mapfile -t container_ids <<< "$containers"
+    references=$(docker inspect --format '{{.Image}}' "${container_ids[@]}") || return 1
+    while IFS= read -r id; do
+      [[ "$id" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+      protected["$id"]=1
+    done <<< "$references"
+  fi
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -n "$line" ]] || continue
+    [[ "$line" =~ ^(dungeonmindbuddy:[0-9a-f]{40})[[:blank:]](sha256:[0-9a-f]{64})$ ]] || return 1
+    tag=${BASH_REMATCH[1]}
+    id=${BASH_REMATCH[2]}
+    [[ ! "${selected[$tag]+yes}" ]] || return 1
+    selected["$tag"]=1
+    [[ ! "${protected[$id]+yes}" && ! "${protected_tags[$tag]+yes}" ]] || continue
+    identity=$(docker image ls --filter "reference=$tag" --format '{{.Repository}}:{{.Tag}}') || return 1
+    [[ -n "$identity" ]] || continue
+    [[ "$identity" == "$tag" ]] || return 1
+    [[ "$(docker image inspect --format '{{.Id}}' "$tag")" == "$id" ]] || return 1
+    tags+=("$tag")
+    ids+=("$id")
+  done < "$approvals" || return 1
+  for i in "${!tags[@]}"; do
+    [[ "$(docker image inspect --format '{{.Id}}' "${tags[i]}")" == "${ids[i]}" ]] || return 1
+    docker image rm --no-prune "${tags[i]}" || return 1
+  done
+}
+
+report_live() {
+  printf 'BUDDY_LIVE %s %s\n' "$revision" "$candidate_id"
+  retain_images || fail "release is healthy and recorded; image retention did not finish"
+}
+
 [[ "$upstream" =~ ^http://127\.0\.0\.1:[0-9]{1,5}$ ]] || fail "expected a Buddy loopback upstream"
 [[ "$persistent_root" == /* ]] || fail "expected an absolute Buddy persistent root"
 if verify_serving "$candidate_id"; then
   verify_public_ready || fail "already serving candidate did not pass public readiness"
-  printf 'BUDDY_LIVE %s %s\n' "$revision" "$candidate_id"
+  record_serving || fail "could not record the serving release"
+  report_live
   exit 0
 fi
 verify_serving "$rollback_id" || fail "serving Buddy does not match the healthy approved rollback"
@@ -99,5 +182,6 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 activate "$candidate_tag" "$candidate_id" || fail "candidate did not become healthy"
+record_serving || fail "could not record the serving release"
 trap - EXIT HUP INT TERM
-printf 'BUDDY_LIVE %s %s\n' "$revision" "$candidate_id"
+report_live
