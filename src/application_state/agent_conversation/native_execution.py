@@ -6,6 +6,7 @@ and binding checks do not grant reads, reserve writes or accept grounded answers
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -865,12 +866,21 @@ def _join_turn_lifecycle(turn):
         raise ValueError('Stored shared native lifecycle differs from admission')
 
 
+# Set only during a closed read producer under the Plan session's storage guard.
+# The value is the exact private Turn admitted by the complete storage codec.
+_locked_plan_read_turn: ContextVar[t.Turn | None] = ContextVar("_locked_plan_read_turn", default=None)
+
+
 def validate_request_identity(receipt, execution, envelope):
     """One request/work join for ordinary and unclaimed completed read owners."""
     if type(receipt) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
         raise ValueError('Stored shared native Turn requires its concrete context and execution')
     from .native_context import validate_work_context
-    validate_work_context(receipt,envelope.provenance,play_context_receipt=envelope.play_context_receipt)
+    if (_locked_plan_read_turn.get() is not envelope
+            or receipt is not envelope.graph_context_receipt
+            or execution is not envelope.graph_context_execution):
+        validate_work_context(receipt, envelope.provenance,
+                              play_context_receipt=envelope.play_context_receipt)
     _join_request_identity(receipt, execution, envelope)
 
 

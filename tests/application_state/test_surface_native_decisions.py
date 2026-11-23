@@ -234,6 +234,42 @@ def test_session_commit_failure_seals_without_publishing_or_replaying(applicatio
     assert actual.revision == case.turn.revision + (phase == 'after_commit')
 
 
+def test_session_reuses_work_context_only_inside_guarded_read(application_state_dsn, monkeypatch):
+    from application_state.agent_conversation import native_context, native_execution
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+    from application_state.agent_conversation.native_retrieval import owner
+    from application_state.errors import ApplicationStateValidationError
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    session = NativePlanSession(case.turn)
+    validate_work = native_context.validate_work_context
+    join_request = native_execution._join_request_identity
+    verified_outside = []
+
+    def check_work(*args, **kwargs):
+        assert native_execution._locked_plan_read_turn.get() is None
+        verified_outside.append(True)
+        return validate_work(*args, **kwargs)
+
+    def check_request(receipt, execution, turn):
+        if native_execution._locked_plan_read_turn.get() is turn:
+            raise ValueError('synthetic request binding rejection')
+        return join_request(receipt, execution, turn)
+
+    monkeypatch.setattr(native_context, 'validate_work_context', check_work)
+    monkeypatch.setattr(native_execution, '_join_request_identity', check_request)
+    with pytest.raises(ApplicationStateValidationError, match='request binding rejection'):
+        session.execute(PlanSessionCommand.RECORD_GRANT, event_id=uuid4(),
+            record_kind='statement', record_ids=('invalid',), expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt)
+    assert native_execution._locked_plan_read_turn.get() is None
+    owner(case.turn)
+    assert verified_outside
+    actual = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+    assert actual.revision == case.turn.revision
+    assert actual.graph_context_execution == case.turn.graph_context_execution
+
+
 def test_session_refuses_unchanged_revision_storage_corruption(application_state_dsn):
     import psycopg
     from application_state.errors import ApplicationStateIntegrityError
