@@ -22,7 +22,8 @@ its ordinary low effort; extending reuse must not promote it to page-draft mediu
 Exclusive writes: this handoff; predecessor long-chat-context handoff for truthful
 post-merge settlement only; retained_conversation.py, native_corpus.py,
 native_execution.py, writer_evidence_selection.py, types.py, repository.py,
-service.py and build_intentional_response.py in the conversation package;
+service.py, build_intentional_response.py and rules_authority_plan_packet.py only
+for current retained-discussion selector format and historical replay;
 build_jev_harness.py, build_jev_driver.py and plan_jev_writer.py only for this route;
 new migration0194 and tests/test_build_retained_conversation.py plus owning
 ordinary HTTP test fixture protocol support only when necessary. No provider/model,
@@ -78,3 +79,17 @@ pass (53.78s): discussion capture/reset, dispatch/reset, same-chat pointer revis
 change, page-path compatibility, full discussion reuse and both old-reader fences.
 The source_lookup setup turns still acquire normally. Preserve the failing
 before log and passing after log; exact new-head evidence remains pending.
+
+Exact605 live recap: HTTP200, full retained context,0 physical acquisition,9.14s.
+Acceptance FAILED: the writer's preexisting anchored-discussion format7 allows
+only discussion prose, so it printed body handles and produced no typed citations.
+This same capability must offer the existing finite evidence selector format2
+whenV3 retains sources, with Rules independently validating that exact format.
+Historical experimentalV3 format7 replay stays reconstructible; current dispatch
+uses the evidence grammar. This is a named lease extension for the same admission
+protocol, not a new retrieval or citation authority. Live failure remains retained.
+
+Selector correction HTTP diagnostic PASS: retained recap now emits actual typed
+native-body citations through existing format2; same-chat pointer fence remains
+closed. Historical format7 reconstruction remains explicitly replay-only in the
+independent Rules format validator. Broader605 runs remain evidence for605 only.

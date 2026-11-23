@@ -252,6 +252,9 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     assert not any(isinstance(event, NativeBuildQuerySettledV1) for event in turn.graph_context_execution.events)
     assert len(case.writer.calls) == before + 1
     request = json.loads(case.writer.calls[-1].content)
+    if discussion:
+        assert request['text']['format']['name'] != 'surface_native_evidence_selectors_v7'
+        assert turn.completion.native_body_citations
     assert request['input'][:turn_count * 2] == retained.dialogue_messages(turn.graph_context_execution)
     assert 'build_draft_context' not in case.request
     loaded = AgentConversationService().inspect_turn(world_id=case.world, turn_id=turn.turn_id)

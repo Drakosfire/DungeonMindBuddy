@@ -362,9 +362,10 @@ class PlanJevWriter:
                 variant_format = bool(not rule_frame.lookups and variant_sources(self.work_frame))
                 if variant_format:
                     format_version = variant_output_version(self.work_frame)
-                elif not rule_frame.lookups and any(
-                    is_anchored_discussion(event) for event in turn.graph_context_execution.events
-                ):
+                elif (not rule_frame.lookups
+                        and not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV3)
+                                    for event in turn.graph_context_execution.events)
+                        and any(is_anchored_discussion(event) for event in turn.graph_context_execution.events)):
                     format_version = 7
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
