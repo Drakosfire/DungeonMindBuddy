@@ -817,3 +817,24 @@ On this release, Graph object selection opens the details pane. The World
 conversation mounts a visible composer on Build, Plan, and Play. Graph
 does not offer the G01 chat submission path. The live selected-object
 control remains pending because the Pilot fixture is not published.
+
+### Hosted Plan Save and matched editor controls
+
+On hosted release `a3a7cfc4`, the synthetic Plan reopened as Saved and
+accepted new requests. P02 selected the complete body of First sight. The
+proposal repeated the Read Aloud wrapper and title around the new body.
+The Save guard refused it. The Warning proposal also reached review and
+was refused at Save. Both proposals were dismissed, and the reopened
+Plan matched its original text.
+
+Mounted Save preparation with the saved fixture Markdown reproduced P02.
+Replacing the selected body with a whole callout produced a nested
+callout that semantic Markdown cannot reopen. The same body as prose
+prepared successfully under the existing Read Aloud wrapper. The Warning
+prepared successfully when inserted at the exact end of the Arrival
+paragraph. The Warning control does not explain why the hosted turn's
+Save was refused.
+
+Build B03 asked for an insertion location on two hosted attempts, including
+one with a verified caret at the end of Arrival. Neither staged a page
+proposal. Reopened text and artwork matched the baseline.
