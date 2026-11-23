@@ -39,3 +39,5 @@
 .guest-world__choice button[aria-pressed="true"] { background: #705831; border-color: #f2d28d; }
 .guest-world__choice button:disabled { opacity: .55; cursor: not-allowed; }
 .guest-world__choice-outcome { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+
+.guest-world__citation { max-width: 100%; text-align: left; overflow-wrap: anywhere; }

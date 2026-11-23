@@ -28,7 +28,7 @@ it("follows a released relationship to its excerpt without loading private World
   expect(screen.getByText("visits").parentElement).toHaveTextContent("Sizzek visits Funhouse");
   expect(screen.getByText(/inferred · When this happened is not specified/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Explore Funhouse" })).toBeInTheDocument();
-  const citations = screen.getAllByRole("button", { name: "Read context 1" });
+  const citations = screen.getAllByRole("button", { name: "Read context: A saved excerpt." });
   await user.click(citations[citations.length - 1]);
   expect(screen.getByText("A saved excerpt.")).toBeInTheDocument();
   expect(screen.getByText("Evidence role: context, not direct support.")).toBeInTheDocument();
@@ -127,7 +127,7 @@ it("shows an unchanged saved example with release-only references and inline ima
   await user.click(screen.getByRole("button", { name: "Reset my additions" }));
   expect(screen.queryByText("A bell rings")).not.toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "A saved scene" })).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Read context 2" }));
+  await user.click(screen.getByRole("button", { name: "Read context: Second clue" }));
   expect(screen.getByText("Second clue")).toBeInTheDocument();
   expect(screen.getByText("Second clue").closest("aside")).toHaveFocus();
   expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -181,7 +181,23 @@ it("renders a saved answer with passage-specific released citations", async () =
   render(<GuestReleasePage publicId="public" />);
   const answer = await screen.findByRole("region", { name: "What do the notes say" });
   expect(within(answer).getByText(/not a live Buddy response/)).toBeInTheDocument();
-  await user.click(within(answer).getByRole("button", { name: "Read context 2" }));
+  await user.click(within(answer).getByRole("button", { name: "Read context: Recap excerpt" }));
   expect(screen.getByText("Recap excerpt")).toBeInTheDocument();
+  expect(screen.getByText("Evidence role: context, not direct support.")).toBeInTheDocument();
+});
+
+
+it("previews released excerpts without breaking Unicode and opens their full text", async () => {
+  const excerpt = `  ${"🐉".repeat(70)}\n  The full source continues.  `;
+  const copy = { release_id: "copy", manifest: { graph: { nodes: [], edges: [] }, assets: [],
+    sources: [{ id: "s", text: excerpt, evidence_role: "context" }],
+    saved_answer: { version: "owner_saved_answer_v1", question: "A question", passages: [{ text: "An answer", references: ["s"] }] } } };
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(copy), { status: 200 })));
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" />);
+  const answer = await screen.findByRole("region", { name: "A question" });
+  const citation = within(answer).getByRole("button", { name: `Read context: ${"🐉".repeat(64)}…` });
+  await user.click(citation);
+  expect(screen.getByText(excerpt, { normalizer: text => text })).toBeInTheDocument();
   expect(screen.getByText("Evidence role: context, not direct support.")).toBeInTheDocument();
 });

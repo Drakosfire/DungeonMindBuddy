@@ -136,7 +136,13 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
     setSelectedNode(null); setSelectedSource(null);
     if (snapshot) window.history.replaceState(null, "", fragment(snapshot.release_id));
   };
-  const citationButton = (id: string, index: number) => <button type="button" key={`${id}-${index}`} onClick={() => { navigate(selectedNode, id); detailRef.current?.focus({ preventScroll: true }); detailRef.current?.scrollIntoView?.({ behavior: "auto", block: "nearest" }); }}>Read {sources.find(item => item.id === id)?.evidence_role === "context" ? "context" : "source"} {sources.findIndex(item => item.id === id) + 1}</button>;
+  const citationButton = (id: string, index: number) => {
+    const excerpt = sources.find(item => item.id === id);
+    const role = excerpt?.evidence_role === "context" ? "context" : "source";
+    const characters = Array.from((excerpt?.text ?? "").replace(/\s+/gu, " ").trim());
+    const preview = characters.length > 64 ? `${characters.slice(0, 64).join("").trimEnd()}…` : characters.join("");
+    return <button className="guest-world__citation" type="button" key={`${id}-${index}`} onClick={() => { navigate(selectedNode, id); detailRef.current?.focus({ preventScroll: true }); detailRef.current?.scrollIntoView?.({ behavior: "auto", block: "nearest" }); }}>Read {role}{preview ? `: ${preview}` : ""}</button>;
+  };
   return <main className="guest-world">
     <header className="guest-world__header"><a href="/">DungeonMind · Buddy</a><nav aria-label="Guest navigation">{snapshot && <button type="button" onClick={() => showSection(graphRef.current)}>Explore graph</button>}{example && <button type="button" onClick={() => showSection(exampleRef.current)}>Saved scene</button>}<a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a><a href={dungeonMindLoginHref("/")}>Sign in to create your World →</a></nav></header>
     {unavailable ? <section role="alert"><h1>This guest World is unavailable</h1><p>The owner may have withdrawn it, or the link may have changed.</p><a href={home ? dungeonMindLoginHref("/") : "/"}>{home ? "Sign in to Buddy" : "Return to Buddy"}</a></section>
