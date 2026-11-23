@@ -296,6 +296,15 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         variants.extend(native_variants(work_frame,prose,local=build_local))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
+    from .native_build_work_view import SOURCE_ANSWER_POLICY, SOURCE_ANSWER_FORMAT
+    source_answer_policy = work_frame.get('build_work', {}).get('source_answer_policy')
+    if source_answer_policy not in (None, SOURCE_ANSWER_POLICY):
+        raise ValueError('Unknown Build source answer policy')
+    if source_answer_policy:
+        if work_frame.get('schema') != BUILD_WORK_SCHEMA or not build_local or format_version != 2:
+            raise ValueError('Typed source answers require normal semantic Build work')
+        variants = [variant for variant in variants
+                    if variant['properties']['kind'].get('const') != 'discussion']
     schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose,
         proposal_labels=("invented_idea", "image_prompt") if format_version == 1 else ("invented_idea",))
     if format_version == 7:
@@ -463,7 +472,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     from generationengine.utils.schema_utils import make_schema_strict
     from .native_plan_work_view import SOURCE_REFERENCE_FORMAT, SOURCE_REFERENCE_POLICY
     plan_references = work_frame.get('schema') == PLAN_WORK_SCHEMA and work_frame.get('citation_policy') == SOURCE_REFERENCE_POLICY
-    return {'type': 'json_schema', 'name': SOURCE_REFERENCE_FORMAT if plan_references else f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
+    return {'type': 'json_schema', 'name': SOURCE_ANSWER_FORMAT if source_answer_policy else SOURCE_REFERENCE_FORMAT if plan_references else f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
         'schema':make_schema_strict(schema)}
 
 
