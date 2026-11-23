@@ -1106,3 +1106,25 @@ def test_v2_allows_empty_body_after_exact_yaml_frontmatter():
         'items': [{'kind': 'empty_paragraph', 'id': 'blank'}],
     }
     assert page_presentation.PagePresentation.model_validate(payload).checked(source).items[0].id == 'blank'
+
+
+def test_existing_schema_upgrade_with_restricted_migration_role(application_state_dsn, monkeypatch):
+    from psycopg import sql
+    from urllib.parse import urlsplit, urlunsplit
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+
+    role = 'buddy_migration_test_' + uuid4().hex[:12]
+    with psycopg.connect(application_state_dsn, autocommit=True) as admin:
+        admin.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD 'synthetic-only'").format(sql.Identifier(role)))
+        try:
+            assert not admin.execute("SELECT has_database_privilege(%s, current_database(), 'CREATE')", (role,)).fetchone()[0]
+            admin.execute(sql.SQL('GRANT USAGE ON SCHEMA application_state TO {}').format(sql.Identifier(role)))
+            admin.execute(sql.SQL('GRANT SELECT, INSERT, UPDATE, DELETE ON application_state.schema_migrations TO {}').format(sql.Identifier(role)))
+            admin.execute("UPDATE application_state.schema_migrations SET version_num = '20261122_0198'")
+            parsed = urlsplit(application_state_dsn)
+            endpoint = f'{role}:synthetic-only@{parsed.hostname}:{parsed.port}'
+            monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, urlunsplit(parsed._replace(netloc=endpoint)))
+            assert cli.upgrade_to_head() == ('20261123_0200', '20261123_0200')
+        finally:
+            admin.execute(sql.SQL('DROP OWNED BY {}').format(sql.Identifier(role)))
+            admin.execute(sql.SQL('DROP ROLE {}').format(sql.Identifier(role)))
