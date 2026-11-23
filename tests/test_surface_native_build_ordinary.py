@@ -715,6 +715,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert "statblock_variant" in body["text"]["format"]["schema"]["properties"], (work["requested_work"], [list(row) for row in work["saved_statblocks"]])
                 assert work["saved_statblocks"] == [expected]
                 assert locator.revision_id not in req.content.decode()
+            if work.get('citation_policy') == 'supplied_source_references_v1':
+                assert 'supporting_quotes containing' not in body['instructions']
+                assert 'Do not return supporting_quotes' in body['instructions']
             sections = work['saved_sections']
             def source_text(row):
                 if 'text' in row:

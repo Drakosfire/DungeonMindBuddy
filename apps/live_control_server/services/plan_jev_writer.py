@@ -436,6 +436,9 @@ class PlanJevWriter:
                 for item in dialogue
             ] + self.messages
         self.prompt_components = None
+        related_page_response = (SUPPLIED_SOURCE_RESPONSE
+            if self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1'
+            else RELATED_PAGE_RESPONSE)
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
@@ -449,7 +452,7 @@ class PlanJevWriter:
             prompt = compose_response_prompt(
                 task=task,
                 rules_instructions=RULES_INSTRUCTIONS if rule_frame.lookups else None,
-                related_page_instructions=RELATED_PAGE_RESPONSE
+                related_page_instructions=related_page_response
                     if self.provider_work.get('related_authored_pages', {}).get('pages') else None,
                 single_variant_base=single_variant_base)
             self.instructions = prompt.instructions
@@ -491,7 +494,7 @@ class PlanJevWriter:
                 if getattr(rules,'authoring',None) is not None:
                     instructions += '\n' + AUTHORING_INSTRUCTIONS
             if self.shared and self.provider_work.get('related_authored_pages', {}).get('pages'):
-                instructions += '\n' + RELATED_PAGE_RESPONSE + '\n'
+                instructions += '\n' + related_page_response + '\n'
             from application_state.agent_conversation.plan_jev_decision import connected_page_review_enabled
             if self.shared and connected_page_review_enabled(adapter._broker_execution()):
                 instructions += ('\nPrepare the requested new location page as a connected_page collaboration, '
