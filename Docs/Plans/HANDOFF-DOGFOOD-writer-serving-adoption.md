@@ -4,8 +4,8 @@ ACTIVE. Alan explicitly authorized deployment/cutover, all replays/submissions,
 independent review and concrete-progress merges. DOGFOOD owns this serving
 integration, recovery preparation and activation lane. Do not ask again.
 
-Base: actual healthy serving01632e3a48f52a6e070f042be85e77560f8a4cfc,
-image127525fcdbdf38560df2b1efed5c7ed1419dc25e7463f138fc877dd19118da1c,
+Base: actual healthy servingf3e28427479f105d4104609127d9207166e3fed4,
+image35f93ff692dab5005ed07b8e3c7ad9538813f369a7212cc6617ce8cfe0b05dc8,
 installed/database0204. Guest build remains review=1;page=1;
 home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543. Branch
 codex/dogfood-writer-serving-adoption in this existing isolated checkout.
@@ -65,3 +65,14 @@ context, no redundant search, later corrections, save/reopen, one page and usabl
 Buddy. Retain latency and screenshot/receipt evidence. Re-anchor and settle
 release/main authority and superseded process scaffolding. Goal is not done until
 this deployed app behavior is proven. Record any remaining presentation gaps.
+
+Serving re-anchor checkpoint: f3e284 superseded01632 during qualification, adding
+only the reviewed4556 Gazetteer evidence-card frontend/tests and two owner docs.
+Merge that existing serving ancestry without editing those owner files. All
+adopted backend algorithms and migrations remain byte-identical to prior950c;
+retain its evidence as historical and requalify the new exact source. Retarget
+this PR's base to the pinned f3e284 ref; its cumulative product change remains
+only writer adoption plus207join. Recovery follows the new exact candidate head.
+A bounded shared deployment lock reservation was acquired19:12UTC, max30min,
+with Buddy running; release it before sealed activation reacquires the lock.
+Do not weaken source/image CAS, capacity, recovery or backup gates if it expires.

@@ -2,7 +2,7 @@
 
 ACTIVE operational artifact, authorized by Alan's deployment/recovery goal and
 consuming HANDOFF-DOGFOOD-writer-serving-adoption.md. Exact parent is
-PR4557 head950c7522cefe2491b5ad459ebe1992d49cbd96e1; branch
+PR4557 head79d4d606538ed11c3efd99ab910f2d52f3897a49; branch
 codex/dogfood-writer-forward-recovery-0207 in the existing isolated checkout.
 Topology: dependent artifact stacked on that exact unmerged parent, not a second
 product capability. Candidate4557 may merge after applicable review; this recovery
@@ -45,3 +45,8 @@ checks, protected restore evidence and sealed activation-tool review remain gate
 Publish one draft operational PR targeting the exact candidate branch, clearly
 marked non-merge. Recovery and candidate activation are separately reviewed;
 this preparation changes no live production state.
+
+Re-anchor: merge the candidate's frontend-only f3e284 serving update, retaining
+the slower profile and all current readers. The earlier b2b9 artifact remains
+historical evidence. Requalify this new exact source; parent950c is superseded
+by79d4 for delivery. No extra recovery behavior or frontend edits are introduced.
