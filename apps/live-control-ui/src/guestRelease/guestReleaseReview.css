@@ -1,6 +1,35 @@
+.guest-release-drawer {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 50;
+}
+.guest-release-drawer > summary {
+  display: block;
+  padding: .65rem 1rem;
+  border: 1px solid #d9a44199;
+  border-radius: .5rem;
+  background: var(--ui-background-chrome, #25241f);
+  color: var(--ui-text-primary, #eee9de);
+  cursor: pointer;
+  list-style: none;
+}
+.guest-release-drawer > summary:focus-visible { outline: 3px solid var(--ui-accent-action, #d9a441); outline-offset: 3px; }
+.guest-release-drawer-close, .guest-release-drawer[open] .guest-release-drawer-open { display: none; }
+.guest-release-drawer[open] .guest-release-drawer-close { display: inline; }
+.guest-release-drawer > .guest-release-review {
+  position: fixed;
+  inset: 5rem 1rem 5rem auto;
+  max-width: calc(100vw - 2rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 640px) {
+  .guest-release-drawer > .guest-release-review { left: 1rem; right: 1rem; width: auto; max-width: none; }
+}
 .guest-release-review {
   box-sizing: border-box;
-  margin: 1.5rem auto;
+  margin: 0;
   padding: clamp(1rem, 3vw, 2rem);
   width: min(100%, 60rem);
   color: var(--ui-text-primary, #eee9de);
