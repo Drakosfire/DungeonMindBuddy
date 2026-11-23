@@ -97,6 +97,10 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
     window.history.pushState(null, "", fragment(snapshot.release_id, releasedNode, source));
     setSelectedNode(node); setSelectedSource(source);
   };
+  const openPoint = (node: string) => {
+    navigate(node, null);
+    if (window.matchMedia?.("(max-width: 760px)").matches) showSection(detailRef.current);
+  };
   const sharedNodes = snapshot?.manifest.graph.nodes ?? [];
   const sharedEdges = snapshot?.manifest.graph.edges ?? [];
   const nodes = [...sharedNodes, ...additions.nodes];
@@ -138,7 +142,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
     additionCount.current++;
     setAdditions(previous => ({ nodes: [...previous.nodes, node], edges: [...previous.edges, edge] }));
     setName(""); setRelation("connected to"); setTarget(""); setFormError("");
-    navigate(id, null);
+    openPoint(id);
   };
   const reset = () => {
     additionCount.current = 0;
@@ -162,7 +166,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
         <div className="guest-world__layout"><section ref={graphRef} tabIndex={-1} className="guest-world__graph" aria-labelledby="guest-graph-heading"><div className="guest-world__section-head"><div><p className="guest-world__eyebrow">THE STORY MAP</p><h2 id="guest-graph-heading">A web of connections</h2></div><span>{sharedNodes.length} shared {sharedNodes.length === 1 ? "point" : "points"} · {additions.nodes.length} yours</span></div>
           {nodes.length ? <div className="guest-world__points" style={{ "--graph-height": `${Math.max(260, rows * 135)}px`, "--graph-mobile-height": `${Math.max(260, mobileRows * 135)}px`, "--graph-columns": columns, "--graph-mobile-columns": mobileColumns } as CSSProperties}>
             {[positions, mobilePositions].map((layout, index) => <svg key={index} className={`guest-world__lines${index ? " guest-world__lines--mobile" : " guest-world__lines--desktop"}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{edges.map(edge => { const start = layout.get(edge.source), end = layout.get(edge.target); return start && end ? <line key={edge.id} x1={start.x} y1={start.y} x2={end.x} y2={end.y} vectorEffect="non-scaling-stroke" /> : null; })}</svg>)}
-            {nodes.map(node => { const position = positions.get(node.id)!, mobilePosition = mobilePositions.get(node.id)!; return <button key={node.id} type="button" style={{ "--point-x": `${position.x}%`, "--point-y": `${position.y}%`, "--point-mobile-x": `${mobilePosition.x}%`, "--point-mobile-y": `${mobilePosition.y}%` } as CSSProperties} className={`guest-world__point${selectedNode === node.id ? " is-selected" : ""}${node.temporary ? " is-temporary" : ""}`} aria-pressed={selectedNode === node.id} onClick={() => navigate(node.id, null)}><span aria-hidden="true">✦</span><strong>{node.label}</strong><small>{node.temporary ? node.kind : guestGraphTerm(node.kind)}</small></button>; })}
+            {nodes.map(node => { const position = positions.get(node.id)!, mobilePosition = mobilePositions.get(node.id)!; return <button key={node.id} type="button" style={{ "--point-x": `${position.x}%`, "--point-y": `${position.y}%`, "--point-mobile-x": `${mobilePosition.x}%`, "--point-mobile-y": `${mobilePosition.y}%` } as CSSProperties} className={`guest-world__point${selectedNode === node.id ? " is-selected" : ""}${node.temporary ? " is-temporary" : ""}`} aria-pressed={selectedNode === node.id} onClick={() => openPoint(node.id)}><span aria-hidden="true">✦</span><strong>{node.label}</strong><small>{node.temporary ? node.kind : guestGraphTerm(node.kind)}</small></button>; })}
           </div> : <p>This copy has no Graph points yet.</p>}
           <section className="guest-world__sandbox" aria-labelledby="guest-sandbox-heading">
             <h3 id="guest-sandbox-heading">Add your own thread</h3>
@@ -177,7 +181,7 @@ function GuestReleaseView({ publicId, home, snapshot, unavailable }: { publicId:
             </form> : <p>This copy has no shared points to connect to yet.</p>}
             <button type="button" onClick={reset}>Reset my additions</button>
           </section>
-        </section><aside ref={detailRef} tabIndex={-1} className="guest-world__detail" aria-live="polite"><p className="guest-world__eyebrow">{source ? "SOURCE EXCERPT" : "FOLLOW A THREAD"}</p>
+        </section><aside ref={detailRef} tabIndex={-1} className="guest-world__detail" aria-live="polite">{(active || source) && <button className="guest-world__back-to-graph" type="button" onClick={() => showSection(graphRef.current)}>← Back to graph</button>}<p className="guest-world__eyebrow">{source ? "SOURCE EXCERPT" : "FOLLOW A THREAD"}</p>
           {source ? <><h2>From the owner’s notes</h2><p>{source.evidence_role === "context" ? "Evidence role: context, not direct support." : source.evidence_role === "support" ? "Evidence role: support." : "Evidence role unavailable."}</p><p className="guest-world__excerpt">{source.text}</p><p><a href={fragment(snapshot.release_id, sharedNodes.some(node => node.id === selectedNode) ? selectedNode : null, source.id)}>Link to this excerpt</a></p><button type="button" onClick={() => navigate(selectedNode, null)}>← Back to connections</button></>
             : active ? <><h2>{active.label}</h2><p>{active.temporary ? active.kind : guestGraphTerm(active.kind)}</p>{active.temporary ? <p>This point is your temporary addition, not part of the shared World.</p> : <><small>Name: {active.name_basis} · Classification: {active.kind_basis}</small><p><a href={fragment(snapshot.release_id, active.id)}>Link to this point</a></p><div className="guest-world__citations">{[...new Set([...active.name_citations, ...active.kind_citations])].map(citationButton)}</div></>}<h3>Connections</h3>{connected.length ? <ul>{connected.map(edge => { const other = edge.source === active.id ? edge.target : edge.source; return <li key={edge.id}><p>{labels.get(edge.source)} <em>{edge.temporary ? edge.label : guestGraphTerm(edge.label)}</em> {labels.get(edge.target)}</p><small>{edge.temporary ? "Your temporary connection · not sourced from the shared World" : <>{edge.basis} · {edge.temporal === "unknown" ? "When this happened is not specified" : edge.temporal === "timeless" ? "Timeless" : edge.temporal}</>}</small><div className="guest-world__citations"><button type="button" onClick={() => navigate(other, null)}>Explore {labels.get(other)}</button>{edge.citations.map(citationButton)}</div></li>; })}</ul> : <p>No connections were included for this point.</p>}</>
               : <><h2>Every story has a trail.</h2><p>Select a point to follow it through the owner’s shared notes.</p></>}
