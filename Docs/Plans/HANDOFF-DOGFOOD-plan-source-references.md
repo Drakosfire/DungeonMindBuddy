@@ -70,3 +70,15 @@ variant/PDF and connected-page passage-selection witnesses; fresh broad Maelthor
 retrieval; cross-page attribution and explicit motives versus open questions;
 full long-chat draft/save/reopen; and main/release migration reconciliation.
 Each needs boundary evidence before the overall goal can be marked complete.
+
+Serialized-input audit found owned saved-page navigation/PDF provenance in Plan
+related-page model text. The new reference contract uses the existing structural
+retained-source Markdown projection for those bodies; old quoted requests retain
+their original presentation, and original saved read bytes/page pins do not
+change. This is within the same producing-contract slice, not regex scrubbing.
+Actual HTTP probes cover metadata-rich source input and original citation reopen,
+plus recomputed SDK packets with old format, omitted prose policy and forged JSON
+policy, all refused before writer I/O. A real quoted Plan completion produced at
+base b709 is retained in a disposable fixture for exact-new-head readback and
+migration/data-preservation proof. Working diagnostics pass; qualification still
+requires the clean final commit and independent review of this added projection.
