@@ -257,6 +257,7 @@ def run_worldbuilding_production_extraction(
     model_id: str | None = None,
     allow_llm: bool = False,
     category_client: Any | None = None,
+    reserved_run: Any | None = None,
 ) -> ProductionExtractionResult:
     """Extract from an already-registered worldbuilding SourceArtifact only."""
     repo_root = artifact_data_root(repo_root)
@@ -275,5 +276,7 @@ def run_worldbuilding_production_extraction(
             model_id=model_id,
             allow_llm=allow_llm,
             category_client=category_client,
+            initial_lineage=reserved_run.lineage if reserved_run is not None else None,
+            reserved_run=reserved_run,
         )
     )
