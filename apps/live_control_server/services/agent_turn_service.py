@@ -1707,6 +1707,29 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self.commit(method_name, **{event_name: event}, **extras)
 
+    def current_plan_selection(self):
+        from application_state.agent_conversation.plan_jev_decision import current_selection
+
+        with self.renewer._lock:
+            session = self.renewer._session
+            return session.current_selection() if session is not None else current_selection(self.turn)
+
+    def has_plan_read_closure(self, event_id):
+        from application_state.agent_conversation.native_batch_completion import selected_read_closure
+
+        with self.renewer._lock:
+            session = self.renewer._session
+            if session is not None:
+                return session.has_selected_read_closure(event_id)
+            turn = self.turn
+            return selected_read_closure(
+                turn.graph_context_receipt, turn.graph_context_execution, event_id
+            ) is not None
+
+    def has_native_plan_session(self) -> bool:
+        with self.renewer._lock:
+            return self.renewer._session is not None
+
     def plan_execution_checkpoint(self):
         from application_state.agent_conversation.native_plan_session import PlanExecutionCheckpoint
 
@@ -1730,6 +1753,13 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self._commit("record_provider_outcome", outcome_only=True, outcome=outcome)
 
+    def commit_plan_controller(self, method_name, **fields):
+        with self.renewer._lock:
+            if self.renewer._session is None:
+                return False
+            with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
+                return self._commit(method_name, controller_only=True, **fields)
+
     def commit_session_source_events(self, method_name, **fields):
         with self.renewer._lock:
             if self.renewer._session is None:
@@ -1741,7 +1771,7 @@ class _ClaimFence:
         """One moving claim owner for controller and source-navigation writes."""
         return self._commit(method_name, **fields)
 
-    def _commit(self, method_name, *, source_events_only=False, outcome_only=False, **fields):
+    def _commit(self, method_name, *, source_events_only=False, outcome_only=False, controller_only=False, **fields):
         with self.renewer._lock:
             if self.renewer._error is not None:
                 raise ApplicationStateError('APP-STATE claim owner has stopped after a failed operation') from self.renewer._error
@@ -1767,6 +1797,16 @@ class _ClaimFence:
                     elif outcome_only:
                         claim, fresh = self.renewer._session.record_provider_outcome(
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                        if fresh is not True:
+                            raise AgentTurnServiceError("APP-STATE did not confirm a fresh execution event.",
+                                code="turn_persistence_indeterminate", status_code=409)
+                        self.renewer._claim = claim
+                        return True
+                    elif controller_only:
+                        from application_state.agent_conversation.native_plan_session import PlanSessionCommand
+                        claim, fresh = self.renewer._session.commit_controller(
+                            PlanSessionCommand(method_name), expected_revision=current.revision,
+                            expected_attempt=current.attempt, **fields)
                         if fresh is not True:
                             raise AgentTurnServiceError("APP-STATE did not confirm a fresh execution event.",
                                 code="turn_persistence_indeterminate", status_code=409)

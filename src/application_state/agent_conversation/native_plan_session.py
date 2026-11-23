@@ -257,6 +257,29 @@ class NativePlanSession:
         return self._execute(PlanSessionCommand.OUTCOME, expected_revision=expected_revision,
             expected_attempt=expected_attempt, fields={'outcome': outcome}, export_claim=True)
 
+    def commit_controller(self, command, *, expected_revision, expected_attempt, **fields):
+        if command not in (PlanSessionCommand.CONTROLLER, PlanSessionCommand.SELECTION):
+            raise ApplicationStateIntegrityError('Session controller export requires a controller command')
+        return self._execute(command, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields=fields, export_claim=True)
+
+    def current_selection(self):
+        from .plan_jev_decision import current_selection
+
+        with self._lock:
+            self._require_live()
+            return deepcopy(current_selection(self._committed))
+
+    def has_selected_read_closure(self, event_id):
+        from .native_batch_completion import selected_read_closure
+
+        with self._lock:
+            self._require_live()
+            turn = self._committed
+            return selected_read_closure(
+                turn.graph_context_receipt, turn.graph_context_execution, event_id
+            ) is not None
+
     def source_coordinates(self):
         with self._lock:
             self._require_live()
