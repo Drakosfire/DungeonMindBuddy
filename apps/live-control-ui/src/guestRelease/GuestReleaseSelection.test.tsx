@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { GuestReleaseSelection } from "./GuestReleaseSelection";
@@ -74,6 +74,15 @@ it("requires explicit fields and evidence before staging the exact selection", a
   await user.type(screen.getByLabelText("Option 1 outcome"), "A bell rings");
   await user.type(screen.getByLabelText("Option 2 label"), "Wait");
   await user.type(screen.getByLabelText("Option 2 outcome"), "A lantern flickers");
+  await user.click(screen.getByRole("checkbox", { name: "Include an editor-authored saved answer" }));
+  await user.type(screen.getByLabelText("Question"), "What happened");
+  let passage = screen.getByRole("group", { name: "Answer passage 1" });
+  await user.type(within(passage).getByLabelText("Passage"), "A plan");
+  await user.click(within(passage).getByRole("checkbox", { name: /Carnival · support/ }));
+  await user.click(screen.getByRole("button", { name: "Add answer passage" }));
+  passage = screen.getByRole("group", { name: "Answer passage 2" });
+  await user.type(within(passage).getByLabelText("Passage"), "A recap");
+  await user.click(within(passage).getByRole("checkbox", { name: /Recap · context/ }));
   await user.click(button);
   expect(await screen.findByRole("status")).toHaveTextContent("Copy prepared");
   expect(prepared).toHaveBeenCalledOnce();
@@ -83,7 +92,8 @@ it("requires explicit fields and evidence before staging the exact selection", a
     sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }, { document_id: "doc2" },
       { document_id: "recap-doc", excerpt: "outcomes", evidence_id: "recap-evidence" }], relationships: [], asset_ids: ["image"],
     saved_example: { title: "Saved scene", body: "A scene", source_indexes: [0, 1, 2], asset_id: "image", image_description: "A red tent" },
-    saved_choice: { prompt: "What next", options: [{ label: "Enter", outcome: "A bell rings" }, { label: "Wait", outcome: "A lantern flickers" }] } });
+    saved_choice: { prompt: "What next", options: [{ label: "Enter", outcome: "A bell rings" }, { label: "Wait", outcome: "A lantern flickers" }] },
+    saved_answer: { question: "What happened", passages: [{ text: "A plan", source_indexes: [1] }, { text: "A recap", source_indexes: [2] }] } });
 });
 
 it("accumulates pages by document without exposing another document's unselected excerpts", async () => {

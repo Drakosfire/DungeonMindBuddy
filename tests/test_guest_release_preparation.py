@@ -68,6 +68,26 @@ def test_saved_example_closes_references_and_preserves_old_copies():
         validate_example(manifest, repeated_span)
 
 
+def test_saved_answer_rejects_foreign_duplicate_and_unsafe_references():
+    first, second, page = uuid4(), uuid4(), uuid4()
+    bindings = [(first, page, 0, 0, 1, "a" * 64, 0, 4), (second, page, 0, 0, 1, "a" * 64, 5, 9)]
+    answer = {"version": "owner_saved_answer_v1", "question": "What happened", "passages": [
+        {"text": "The notes describe a plan", "references": [str(first)]},
+        {"text": "The recap reports a pickup", "references": [str(second)]}]}
+    validate_example({"saved_answer": answer}, bindings)
+    for bad in ([str(first), str(first)], [str(uuid4())], []):
+        invalid = {**answer, "passages": [{"text": "A passage", "references": bad}]}
+        with pytest.raises(ApplicationStateValidationError):
+            validate_example({"saved_answer": invalid}, bindings)
+    with pytest.raises(ApplicationStateValidationError):
+        validate_example({"saved_answer": {**answer, "question": "https://example.com"}}, bindings)
+    with pytest.raises(ApplicationStateValidationError):
+        validate_example({"saved_answer": {**answer, "extra": "hidden"}}, bindings)
+    duplicate_span = [bindings[0], (second, page, 0, 0, 1, "a" * 64, 0, 4)]
+    with pytest.raises(ApplicationStateValidationError, match="distinct spans"):
+        validate_example({"saved_answer": {**answer, "passages": [{"text": "A passage", "references": [str(first), str(second)]}]}}, duplicate_span)
+
+
 def test_preparation_localizes_saved_example_references_and_image(monkeypatch):
     monkeypatch.setattr(assembly.guest_release, "owner_generation", lambda **_: 1)
     access = SimpleNamespace(parsed=SimpleNamespace(get_evidence=lambda _: SimpleNamespace(evidence_role="context")))
@@ -142,3 +162,11 @@ def test_saved_choice_unicode_contract_matches_frontend_fixtures():
         else:
             with pytest.raises(ApplicationStateValidationError):
                 validate_example(manifest, bindings)
+
+
+def test_saved_answer_text_contract_matches_shared_cases():
+    from application_state.guest_release_example import _choice_text
+    cases = json.loads((Path(__file__).parents[1] / "apps/live-control-ui/src/guestRelease/savedAnswerParity.json").read_text())
+    for case in cases:
+        value = case["text"] * case.get("repeat", 1)
+        assert _choice_text(value, case["limit"], multiline=case["multiline"]) is case["valid"], case["name"]

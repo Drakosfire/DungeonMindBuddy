@@ -209,7 +209,10 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
             source_indexes=[0, len(sources) - 1], asset_id=asset_id, image_description="A small red image"),
         saved_choice=preparation.SavedChoiceSelection(prompt="What next", options=[
             preparation.SavedChoiceOption(label="Enter", outcome="A bell rings"),
-            preparation.SavedChoiceOption(label="Wait", outcome="A lantern flickers")]))
+            preparation.SavedChoiceOption(label="Wait", outcome="A lantern flickers")]),
+        saved_answer=preparation.SavedAnswerSelection(question="What do the notes say", passages=[
+            preparation.SavedAnswerPassage(text="A source describes a plan", source_indexes=[0]),
+            preparation.SavedAnswerPassage(text="Another excerpt provides context", source_indexes=[len(sources) - 1])]))
     monkeypatch.setenv(hosted_auth.DEPLOYMENT_ENVIRONMENT_ENV, "production")
     monkeypatch.setenv(hosted_auth.AUTH_MODE_ENV, "hosted_dms")
     monkeypatch.setenv(hosted_auth.TRUSTED_FRONTEND_ORIGINS_ENV, "https://buddy.example")
@@ -258,6 +261,9 @@ def test_private_source_candidate_review_publish_and_withdrawal(application_stat
     assert example["image"] == {"id": manifest["assets"][0]["id"], "description": "A small red image"}
     assert manifest["saved_choice"] == {"version": "owner_saved_choice_v1", "prompt": "What next", "options": [
         {"label": "Enter", "outcome": "A bell rings"}, {"label": "Wait", "outcome": "A lantern flickers"}]}
+    assert manifest["saved_answer"] == {"version": "owner_saved_answer_v1", "question": "What do the notes say", "passages": [
+        {"text": "A source describes a plan", "references": [manifest["sources"][0]["id"]]},
+        {"text": "Another excerpt provides context", "references": [manifest["sources"][-1]["id"]]}]}
     assert str(document_id) not in str(example) and str(asset_id) not in str(example)
     released_asset = UUID(manifest["assets"][0]["id"])
     assert released_asset != asset_id

@@ -119,3 +119,21 @@ it("requires confirmation to revoke and uses the observed pointer version to res
   await user.click(screen.getByRole("button", { name: "Confirm withdrawal" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Copy revoked");
 });
+
+it("blocks approval when a saved answer references another copy", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    const body = url.endsWith("/candidates") ? { candidates: [{ release_id: "copy", created_at: "2026-11-20T00:00:00Z" }] }
+      : url.endsWith("/published") ? { releases: [] } : url.endsWith("/status") ? { version: 0 }
+      : { digest: "a".repeat(64), source_visibility: { source: "internal" }, manifest: {
+        graph: { nodes: [], edges: [] }, sources: [{ id: "source", text: "Source", evidence_role: "support" }], assets: [],
+        saved_answer: { version: "owner_saved_answer_v1", question: "Question", passages: [{ text: "Answer", references: ["foreign"] }] } } };
+    return new Response(JSON.stringify(body), { status: 200 });
+  }));
+  const user = userEvent.setup();
+  render(<GuestReleaseReview worldId="world" />);
+  await user.click(screen.getByRole("button", { name: "Load prepared copies" }));
+  await user.click(await screen.findByRole("button", { name: /Review copy from/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("saved answer is malformed");
+  expect(screen.getByRole("checkbox", { name: /I reviewed this copy/ })).toBeDisabled();
+});
