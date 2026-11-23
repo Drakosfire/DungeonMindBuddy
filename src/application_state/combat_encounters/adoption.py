@@ -12,8 +12,8 @@ from application_state.world_mechanics.types import WorldMechanicsAssociation
 from . import repository as repo
 from .service import _require_integrity
 from .manual_encounters import ManualEncounterRecord
-from .types import CombatEncounterDraft,CombatMechanicsSnapshot,AcceptedCombatMechanicsSnapshot,SavedCombatMechanicsSnapshot
-from .adoption_types import AdoptMechanicsRequest,AdoptionReceipt,AdoptionOutcome,AdoptionTransition,AdoptionHistoryPage
+from .types import CombatEncounterDraft,CombatMechanicsSnapshot,AcceptedCombatMechanicsSnapshot,ConversationVariantCombatSnapshot,SavedCombatMechanicsSnapshot
+from .adoption_types import AdoptConversationPortraitRequest,AdoptMechanicsRequest,AdoptionReceipt,AdoptionOutcome,AdoptionTransition,AdoptionHistoryPage
 
 
 def _dsn():
@@ -164,11 +164,33 @@ def numeric_defaults(snapshot):
     return (ac if type(ac) is int else None,maximum if type(maximum) is int else None)
 
 
+def _portrait_source_proof(conn, world_id, snapshot, source, origin):
+    from application_state.agent_conversation.variant_portrait import read
+
+    if (snapshot.managed_world_id, snapshot.conversation_id, snapshot.turn_id, snapshot.review_id) != (
+        world_id, source.conversation_id, source.turn_id, source.review_id,
+    ):
+        raise ApplicationStateConflictError("Portrait belongs to a different saved review")
+    original, operation = read(
+        conn, world_id=world_id, conversation_id=source.conversation_id, turn_id=source.turn_id,
+        review_id=source.review_id, operation_id=source.portrait_operation_id,
+    )
+    if (original != origin.model_dump(mode="json") or operation is None
+            or operation["receipt"] != snapshot.locator.model_dump(mode="json")
+            or snapshot.locator != source.locator
+            or snapshot.locator.definition_digest != origin.definition_digest):
+        raise ApplicationStateConflictError("Portrait has no matching committed revision proof")
+
+
 def _replace(conn,world_id,record,request,snapshot,origin):
-    _source_proof(conn,world_id,snapshot,origin)
+    is_portrait = isinstance(request, AdoptConversationPortraitRequest)
+    if is_portrait:
+        _portrait_source_proof(conn, world_id, snapshot, request.source, origin)
+    else:
+        _source_proof(conn,world_id,snapshot,origin)
     selected={item.actor_id:item for item in request.actors};found=set();entities=[];transitions=[]
     historical_rows={};verified_saved={snapshot.snapshot_digest}
-    ac,maximum=numeric_defaults(snapshot)
+    ac,maximum=(None,None) if is_portrait else numeric_defaults(snapshot)
     for entity in record.draft.entities:
         choice=selected.get(entity.id)
         if choice is None:entities.append(entity);continue
@@ -179,7 +201,16 @@ def _replace(conn,world_id,record,request,snapshot,origin):
             raise ApplicationStateConflictError(f'{entity.name}: select a version of the same statblock')
         if prior.resource['definition']['ruleset']!=snapshot.resource['definition']['ruleset']:
             raise ApplicationStateConflictError(f'{entity.name}: ruleset differs')
-        if isinstance(prior,CombatMechanicsSnapshot):
+        if is_portrait:
+            if not isinstance(prior,ConversationVariantCombatSnapshot) or (
+                prior.managed_world_id, prior.conversation_id, prior.turn_id, prior.review_id, prior.locator
+            ) != (
+                world_id, snapshot.conversation_id, snapshot.turn_id, snapshot.review_id, origin
+            ):
+                raise ApplicationStateConflictError(f'{entity.name}: original conversation variant differs')
+        elif isinstance(prior,ConversationVariantCombatSnapshot):
+            raise ApplicationStateConflictError(f'{entity.name}: select the saved conversation variant portrait')
+        elif isinstance(prior,CombatMechanicsSnapshot):
             association=_historical_association(conn,world_id,prior,historical_rows)
             if association.request.draft_id!=snapshot.draft_id or association.origin_acceptance_operation_id!=snapshot.origin_acceptance_operation_id or association.origin_locator!=origin:
                 raise ApplicationStateConflictError(f'{entity.name}: original mechanics anchor differs')
@@ -225,7 +256,9 @@ def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None,au
             require_mutable_session(conn, owned_run)
         before=_encounter(conn,world_id,encounter_id)
         if before.revision!=request.expected_revision:raise ApplicationStateConflictError('Encounter changed; reload and preview adoption again')
-        if request.draft_id!=snapshot.draft_id or request.locator!=snapshot.locator:
+        if request.locator!=snapshot.locator or (
+            isinstance(request, AdoptMechanicsRequest) and request.draft_id!=snapshot.draft_id
+        ):
             raise ApplicationStateIntegrityError('Verified mechanics differ from the selected version')
         draft,transitions=_replace(conn,world_id,before,request,snapshot,origin)
         if authorize is not None:

@@ -165,7 +165,14 @@ export async function previewSavedCombatMechanics(worldId:string,draftId:string,
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({draft_id:draftId,locator}),
   }));
 }
-export async function adoptCombatMechanics(worldId:string,encounterId:string,request:import('./combatTypes').AdoptMechanicsRequest,cancel=false,scope?:RunEncounterScope):Promise<import('./combatTypes').MechanicsAdoptionOutcome> {
+export async function previewConversationPortrait(
+  worldId:string, source:import('./combatTypes').ConversationPortraitSelection,
+):Promise<{snapshot:import('./combatTypes').ConversationVariantCombatSnapshot}> {
+  return readJson(await fetchCombat(scopedPath(worldId,'/saved-mechanics/preview'),{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(source),
+  }));
+}
+export async function adoptCombatMechanics(worldId:string,encounterId:string,request:import('./combatTypes').CombatAdoptionRequest,cancel=false,scope?:RunEncounterScope):Promise<import('./combatTypes').MechanicsAdoptionOutcome> {
   return readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions${cancel?':cancel':''}`,scope),{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request),
   }));

@@ -163,6 +163,15 @@ export interface AdoptMechanicsRequest {
   schema:'dmb_combat_mechanics_adoption_request_v1';operation_id:string;expected_revision:number;
   draft_id:string;locator:WorldMechanicsAssociation['proof']['locator'];actors:ActorMechanicsAdoption[];
 }
+export interface ConversationPortraitSelection extends ConversationVariantCombatSelection {
+  portrait_operation_id:string;
+  locator:ConversationVariantCombatSnapshot['locator'];
+}
+export interface AdoptConversationPortraitRequest {
+  schema:'dmb_combat_conversation_portrait_adoption_v1';operation_id:string;expected_revision:number;
+  source:ConversationPortraitSelection;actors:ActorMechanicsAdoption[];
+}
+export type CombatAdoptionRequest = AdoptMechanicsRequest | AdoptConversationPortraitRequest;
 export interface MechanicsAdoptionPreview {snapshot:SavedCombatMechanicsSnapshot;armor_class:number|null;hit_points:number|null}
 export interface MechanicsAdoptionTransition {
   actor_id:string;before_snapshot_digest:string;after_snapshot_digest:string;

@@ -1,5 +1,6 @@
 import type { StatblockDefinitionV1_Output, StatblockRevisionResourceV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { authenticatedApiFetch, LiveApiError } from "./liveApi";
+import type { MechanicsLocatorV1 } from "./types";
 
 export interface ConversationDraftScope {
   worldId: string;
@@ -108,6 +109,25 @@ export async function confirmVariantReview(scope: ConversationDraftScope, review
   return requestDraftResource(scope, { method: "POST" }, `/variant-reviews/${encodeURIComponent(reviewId)}/confirm`);
 }
 
-export function openSavedConversationVariant(scope: ConversationDraftScope, reviewId: string): Promise<{ revision: StatblockRevisionResourceV1 }> {
-  return requestDraftResource(scope, undefined, `/variant-reviews/${encodeURIComponent(reviewId)}/saved`);
+export interface VariantPortraitSave {
+  operation_id: string;
+  base: MechanicsLocatorV1;
+  portrait_asset_id: string;
+}
+
+export function openSavedConversationVariant(
+  scope: ConversationDraftScope, reviewId: string, portraitOperationId?: string,
+): Promise<{ revision: StatblockRevisionResourceV1; locator: MechanicsLocatorV1 }> {
+  const query = portraitOperationId ? `?portrait_operation_id=${encodeURIComponent(portraitOperationId)}` : "";
+  return requestDraftResource(scope, undefined, `/variant-reviews/${encodeURIComponent(reviewId)}/saved${query}`);
+}
+
+export function saveConversationVariantPortrait(
+  scope: ConversationDraftScope, reviewId: string, command: VariantPortraitSave,
+): Promise<MechanicsLocatorV1> {
+  return requestDraftResource(scope, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(command),
+  }, `/variant-reviews/${encodeURIComponent(reviewId)}/saved/portrait`);
 }
