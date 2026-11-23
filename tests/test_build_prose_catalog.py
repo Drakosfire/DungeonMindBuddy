@@ -117,6 +117,32 @@ def test_mixed_build_capture_counts_protected_blocks_without_offering_them(mixed
     ]
 
 
+def test_table_hardbreak_is_checked_against_exact_editor_and_preserves_offsets(mixed_page):
+    basis, blocks, draft = mixed_page
+    paragraph = blocks[5]["content"][1]["content"][1]["content"][0]
+    paragraph["content"] = [
+        {"type": "text", "text": "Lit"}, {"type": "hardBreak"},
+        {"type": "text", "text": "until dawn"},
+    ]
+    draft = draft.replace("| Blue lanterns | Lit |", "| Blue lanterns | Lit<br>until dawn |")
+    basis = basis.model_copy(update={"draft_sha256": digest(draft)})
+    catalog = freeze_mixed_page(basis, blocks, draft)
+    assert catalog.target("passage2", "insert_after").from_ == 220
+    paragraph["content"][2]["text"] = "until dusk"
+    with pytest.raises(ValueError):
+        freeze_mixed_page(basis, blocks, draft)
+
+
+def test_table_hardbreak_does_not_admit_arbitrary_html(mixed_page):
+    basis, blocks, draft = mixed_page
+    paragraph = blocks[5]["content"][1]["content"][1]["content"][0]
+    paragraph["content"] = [{"type": "text", "text": "Lit"}, {"type": "hardBreak"},
+                            {"type": "text", "text": "until dawn"}]
+    draft = draft.replace("| Blue lanterns | Lit |", "| Blue lanterns | Lit<img>until dawn |")
+    with pytest.raises(ValueError):
+        freeze_mixed_page(basis.model_copy(update={"draft_sha256": digest(draft)}), blocks, draft)
+
+
 @pytest.mark.parametrize("change", ["callout_kind", "callout_body", "table", "image", "image_child"])
 def test_changed_protected_blocks_cannot_shift_a_valid_later_target(mixed_page, change):
     basis, blocks, draft = mixed_page
