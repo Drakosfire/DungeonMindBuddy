@@ -11,9 +11,18 @@ printf -v rollback '%040d' 2
 printf -v candidate_id 'sha256:%064d' 1
 printf -v rollback_id 'sha256:%064d' 2
 export candidate rollback candidate_id rollback_id
+printf -v obsolete '%040d' 3
+printf -v obsolete_id 'sha256:%064d' 3
+printf -v referenced '%040d' 4
+printf -v referenced_id 'sha256:%064d' 4
+printf -v staged '%040d' 5
+printf -v staged_id 'sha256:%064d' 5
+printf -v staged_alias '%040d' 6
+export obsolete obsolete_id referenced referenced_id
 mkdir -p "$scratch/releases" "$scratch/bin"
 sed -e "s|/etc/buddy-deploy|$scratch|" \
     -e "s|/run/lock/buddy-production-deploy.lock|$scratch/lock|" \
+    -e 's|\$config_dir/serving"|$config_dir/receipt"|' \
     "$source_dir/activate-buddy-release" > "$scratch/activate"
 cat > "$scratch/compose.conf" <<'POLICY'
 compose=(docker compose)
@@ -22,12 +31,19 @@ persistent_root=/test/buddy
 POLICY
 printf 'candidate_tag=dungeonmindbuddy:%s\nrollback_tag=dungeonmindbuddy:%s\nrollback_revision=%s\n' \
   "$candidate" "$rollback" "$rollback" > "$scratch/releases/$candidate.conf"
+printf 'candidate_id=%s\nrollback_id=%s\n' "$candidate_id" "$rollback_id" >> "$scratch/releases/$candidate.conf"
 
 cat > "$scratch/bin/stat" <<'STUB'
 #!/usr/bin/env bash
 [[ $1 == -c && $2 == '%u %a' && $3 == -- ]] || exit 91
 printf '%s\n' "$4" >> "$TEST_ROOT/policy-checks"
 printf '%s 600\n' "${TEST_OWNER:-0}"
+STUB
+cat > "$scratch/bin/mv" <<'STUB'
+#!/usr/bin/env bash
+set -eu
+/usr/bin/mv "$@"
+if [[ ${INTERRUPT_RECEIPT:-0} == 1 ]]; then kill -TERM "$PPID"; fi
 STUB
 cat > "$scratch/bin/curl" <<'STUB'
 #!/usr/bin/env bash
@@ -53,11 +69,26 @@ case "$1 $2" in
     case "${*: -1}" in
       "dungeonmindbuddy:$candidate") printf '%s %s\n' "${CANDIDATE_PIN_OVERRIDE:-$candidate_id}" "$candidate" ;;
       "dungeonmindbuddy:$rollback") printf '%s %s\n' "$rollback_id" "$rollback" ;;
+      "dungeonmindbuddy:$obsolete") printf '%s\n' "$obsolete_id" ;;
       *) exit 92 ;;
     esac ;;
+  'image ls') printf 'dungeonmindbuddy:%s\n' "$obsolete" ;;
+  'image rm')
+    [[ "$*" == "image rm --no-prune dungeonmindbuddy:$obsolete" ]] || exit 96
+    [[ $(cat "$TEST_ROOT/serving" ) == "$candidate_id" ]] || exit 97
+    [[ $(cat "$TEST_ROOT/receipt") == "BUDDY_LIVE $candidate $candidate_id" ]] || exit 98
+    if flock -n "$TEST_ROOT/lock" true; then exit 99; fi
+    [[ ${FAIL_RETENTION:-0} != 1 ]] || exit 100
+    printf '%s\n' "${*: -1}" >> "$TEST_ROOT/removals" ;;
+  'ps -aq') printf 'stopped-container\n' ;;
   'compose ps') printf 'buddy-container\n' ;;
   'compose port') printf '127.0.0.1:8000\n' ;;
-  'inspect --format') printf '%s healthy /test/buddy\n' "$(cat "$TEST_ROOT/serving")" ;;
+  'inspect --format')
+    if [[ "${*: -1}" == stopped-container ]]; then
+      printf '%s\n' "$referenced_id"
+    else
+      printf '%s healthy /test/buddy\n' "$(cat "$TEST_ROOT/serving")"
+    fi ;;
   'compose -f')
     [[ "$*" == 'compose -f - up -d --no-deps --no-build --pull never --wait --wait-timeout 330 buddy' ]] || exit 93
     case "$(cat)" in
@@ -128,4 +159,26 @@ grep -F 'deployment policy is not controlled by root' "$scratch/stderr"
   [[ ! -s "$scratch/policy-checks" ]]
 ) 9> "$scratch/lock"
 [[ ! -s "$scratch/activations" ]]
+reset "$rollback_id"
+if INTERRUPT_RECEIPT=1 run; then exit 1; fi
+[[ $(cat "$scratch/activations") == "$candidate_id" ]]
+grep -Fx "BUDDY_LIVE $candidate $candidate_id" "$scratch/receipt"
+printf 'candidate_tag=dungeonmindbuddy:%s\ncandidate_id=%s\nrollback_tag=dungeonmindbuddy:%s\nrollback_id=%s\nrollback_revision=%s\n' \
+  "$staged" "$staged_id" "$rollback" "$rollback_id" "$rollback" > "$scratch/releases/$staged.conf"
+printf 'dungeonmindbuddy:%s %s\n' \
+  "$candidate" "$candidate_id" "$rollback" "$rollback_id" \
+  "$referenced" "$referenced_id" "$staged_alias" "$staged_id" \
+  "$obsolete" "$obsolete_id" > "$scratch/retire-images"
+reset "$rollback_id"
+if FAIL_PUBLIC=1 run; then exit 1; fi
+[[ ! -e "$scratch/removals" ]]
+reset "$rollback_id"
+if FAIL_RETENTION=1 run; then exit 1; fi
+grep -F 'release is healthy and recorded; image retention did not finish' "$scratch/stderr"
+[[ $(cat "$scratch/activations") == "$candidate_id" && ! -e "$scratch/removals" ]]
+run
+[[ $(cat "$scratch/removals") == "dungeonmindbuddy:$obsolete" ]]
+printf 'candidate_id=%s\n' "$obsolete_id" >> "$scratch/releases/$staged.conf"
+if run; then exit 1; fi
+[[ $(cat "$scratch/removals") == "dungeonmindbuddy:$obsolete" && $(cat "$scratch/serving") == "$candidate_id" ]]
 printf 'Activation, no-op, rollback and preflight refusals passed.\n'

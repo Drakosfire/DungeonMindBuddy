@@ -82,3 +82,24 @@ identity, then verify the public HTTPS readiness and signed-out auth response.
 Only one deploy may run at a time. Do not run a manual Compose cutover
 concurrently with this workflow. Remove stale approvals once their activation
 window closes.
+
+## Retire obsolete image tags
+
+After confirming public HTTPS readiness, the activator records the serving
+revision and image ID in `/etc/buddy-deploy/serving` and emits the same
+`BUDDY_LIVE` receipt. It then applies any root-owned
+`/etc/buddy-deploy/retire-images` list while still holding the deployment lock.
+An absent list disables image removal.
+
+The operator writes one approved obsolete tag and full Docker image ID per
+line, separated by one space. Use only `dungeonmindbuddy:<full-sha>` tags.
+Update the list and retire expired release approvals under
+`/run/lock/buddy-production-deploy.lock`. Retained release approvals must
+use the literal assignments shown above or be written by the staging
+command. Malformed approvals or a changed image ID stop retention.
+
+The serving and rollback images, retained approval pins, and all running and
+stopped container image IDs are protected. A cleanup failure leaves the
+healthy release serving. Correct the retirement policy and repeat the same
+activation to retry cleanup. Check the serving receipt before deciding
+whether recovery is needed.
