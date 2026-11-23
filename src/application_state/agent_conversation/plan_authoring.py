@@ -1264,15 +1264,15 @@ def require_playable_body_not_repeated_as_excerpts(capture, segments) -> None:
     if not isinstance(capture, PlanAuthoringCaptureV1) or capture.playable_target is None:
         return
     body = " ".join(capture.playable_target.body_markdown.split())
-    excerpts = " ".join(
-        word for segment in segments if segment.kind == "authored_excerpt"
-        for word in segment.text.split()
-    )
-    if body and excerpts == body and any(
-        segment.kind == "proposal"
-        and f" {body} " in f" {' '.join(segment.text.split())} "
-        for segment in segments
-    ):
+    def contains_body(kind: str) -> bool:
+        words = (
+            word
+            for segment in segments if segment.kind == kind
+            for word in segment.text.split()
+        )
+        return f" {body} " in f" {' '.join(words)} "
+
+    if body and contains_body("authored_excerpt") and contains_body("proposal"):
         raise ApplicationStateValidationError(
             "The Plan writer repeated the original card body in its replacement. No suggestion was prepared."
         )

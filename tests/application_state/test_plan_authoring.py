@@ -176,7 +176,8 @@ def test_playable_body_range_is_distinct_from_the_editors_caret():
     assert '"anchor":14' in admitted.selection_json
 
 
-def test_playable_body_rejects_saved_excerpts_repeated_in_replacement():
+@pytest.mark.parametrize("extra_excerpt", [False, True])
+def test_playable_body_rejects_saved_excerpts_repeated_in_replacement(extra_excerpt):
     from application_state.errors import ApplicationStateValidationError
 
     spoken = "> [!READ-ALOUD] First sight\n> Lanterns glow over the marsh."
@@ -188,6 +189,8 @@ def test_playable_body_rejects_saved_excerpts_repeated_in_replacement():
         SimpleNamespace(kind="authored_excerpt", text=spoken + "\n"),
         SimpleNamespace(kind="authored_excerpt", text=prose + "\n"),
     )
+    if extra_excerpt:
+        excerpts += (SimpleNamespace(kind="authored_excerpt", text="The ferry leaves at dawn."),)
 
     require_playable_body_not_repeated_as_excerpts(
         capture, (*excerpts, SimpleNamespace(kind="proposal", text=note))
