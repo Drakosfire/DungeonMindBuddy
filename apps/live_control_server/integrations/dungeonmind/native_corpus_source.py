@@ -316,22 +316,20 @@ def _refresh_native_context(prepared, *, authority, principal, scope: ExitStack 
 
 def read_direct_native_source(prepared, *, authority, source_artifact_id, source_revision_id, content_sha256):
     """Read one explicit original catalogue choice through refreshed Core access."""
-    from dungeonmind.application.vnext import list_admitted_native_text_sources
+    from dungeonmind.application.vnext import get_admitted_native_text_source
     from application_state.agent_conversation.native_corpus import build_native_body_catalog, select_native_full_document
 
-    def matches(item):
-        return (item.source_artifact.source_artifact_id, item.source_revision.source_revision_id,
-                item.source_revision.content_sha256) == (source_artifact_id, source_revision_id, content_sha256)
-
     fresh = _refresh_native_context(prepared, authority=authority, principal=prepared.principal)
+    choice = dict(source_artifact_id=source_artifact_id, source_revision_id=source_revision_id,
+                  content_sha256=content_sha256)
     # The original revision is membership authority. A current source bearing a
     # similar name, or one admitted later, cannot satisfy this selection.
-    if not any(matches(item) for item in list_admitted_native_text_sources(prepared.access).sources):
+    if get_admitted_native_text_source(prepared.access, **choice) is None:
         raise ValueError("Direct source choice is absent from its original admitted catalogue")
-    eligible = [item for item in list_admitted_native_text_sources(fresh.access).sources if matches(item)]
-    if not eligible:
+    eligible = get_admitted_native_text_source(fresh.access, **choice)
+    if eligible is None:
         return None  # Revoked or unavailable; never substitute a different source.
-    for evidence_ref_id in sorted(eligible[0].evidence_ref_ids):
+    for evidence_ref_id in eligible.evidence_ref_ids:
         result = open_native_corpus_member(fresh, evidence_ref_id)
         if result is None:
             continue
