@@ -7,6 +7,46 @@ import choiceParity from "./savedChoiceParity.json";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); window.history.replaceState({}, "", "/"); });
 
+it("opens mobile point details and returns to the graph without losing selection", async () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ release_id: "copy", manifest: {
+    graph: { nodes: [{ id: "a", label: "Sizzek", kind: "npc", name_citations: ["s"], kind_citations: ["s"], name_basis: "asserted", kind_basis: "asserted" }], edges: [] },
+    sources: [{ id: "s", text: "A source", evidence_role: "support" }], assets: [],
+  } }), { status: 200 })));
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" />);
+  await user.click(await screen.findByRole("button", { name: "Sizzek npc" }));
+  expect(screen.getByRole("complementary")).toHaveFocus();
+  expect(window.location.hash).toBe("#copy/copy/point/a");
+  await user.click(screen.getByRole("button", { name: "← Back to graph" }));
+  expect(screen.getByRole("region", { name: "A web of connections" })).toHaveFocus();
+  expect(window.location.hash).toBe("#copy/copy/point/a");
+  await user.click(screen.getByRole("button", { name: "Read source: A source" }));
+  expect(screen.getByText("A source")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "← Back to graph" }));
+  expect(window.location.hash).toBe("#copy/copy/point/a/source/s");
+  await user.type(screen.getByRole("textbox", { name: "Point name" }), "A new clue");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Connect to a shared point" }), "a");
+  await user.click(screen.getByRole("button", { name: "Add temporary point" }));
+  expect(screen.getByRole("complementary")).toHaveFocus();
+  expect(screen.getByRole("heading", { name: "A new clue" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "← Back to graph" }));
+  await user.click(screen.getByRole("button", { name: "Reset my additions" }));
+  expect(screen.queryByRole("button", { name: "A new clue Your addition" })).not.toBeInTheDocument();
+});
+
+it("keeps desktop focus on the selected point", async () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ release_id: "copy", manifest: {
+    graph: { nodes: [{ id: "a", label: "Sizzek", kind: "npc", name_citations: [], kind_citations: [], name_basis: "asserted", kind_basis: "asserted" }], edges: [] }, sources: [], assets: [],
+  } }), { status: 200 })));
+  const user = userEvent.setup();
+  render(<GuestReleasePage publicId="public" />);
+  const point = await screen.findByRole("button", { name: "Sizzek npc" });
+  await user.click(point);
+  expect(point).toHaveFocus();
+});
+
 it("keeps mobile connection endpoints aligned when points are added and reset", async () => {
   const nodes = ["Sizzek", "Festival of Light and Gifts", "Izmati", "The Funhouse", "The Guild"].map((label, index) => ({
     id: String(index), label, kind: "place", name_citations: [], kind_citations: [], name_basis: "asserted", kind_basis: "asserted",
