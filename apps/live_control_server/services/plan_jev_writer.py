@@ -428,7 +428,9 @@ class PlanJevWriter:
                 rules_instructions=RULES_INSTRUCTIONS if rule_frame.lookups else None,
                 related_page_instructions=RELATED_PAGE_RESPONSE
                     if self.provider_work.get('related_authored_pages', {}).get('pages') else None,
-                single_variant_base=single_variant_base)
+                single_variant_base=single_variant_base,
+                build_source_status=(type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
+                                     and task in ('answer', 'build_discussion', 'scoped_discussion')))
             self.instructions = prompt.instructions
             self.prompt_components = prompt.manifest()  # Host-only inspectability.
         else:
