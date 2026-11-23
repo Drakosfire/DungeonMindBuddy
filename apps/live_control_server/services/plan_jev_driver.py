@@ -12,6 +12,31 @@ from .plan_jev_dispatch import PlanJevDispatch, decision_client
 _RUNTIME_GRAPH_FIELDS = {"retrievalSessionId", "addedClaimIds", "claimLedger"}
 
 
+def _expansion_review_candidates(examined, question):
+    """Project exact excerpts for Jev without changing acquired source evidence."""
+    from application_state.agent_conversation.corpus_source_search import terms
+
+    question_terms = set(terms(question))
+    passage_count = sum(candidate.reviewed_passage is not None for candidate in examined)
+    if not passage_count:
+        return examined
+    length = min(768, 24000 // passage_count)
+    reviewed = []
+    for candidate in examined:
+        text = candidate.reviewed_passage
+        if text is not None and len(text) > length:
+            # Overlapping windows let a relevant phrase near a seam stay together.
+            offsets = range(0, len(text) - length // 2, max(1, length // 2))
+            start = max(offsets, key=lambda offset: len(
+                question_terms.intersection(terms(text[offset:offset + length]))))
+            candidate = candidate.model_copy(update={
+                "label": candidate.label + " · excerpt of acquired passage",
+                "reviewed_passage": text[start:start + length] or None,
+            })
+        reviewed.append(candidate)
+    return reviewed
+
+
 class PlanJevDriver:
     def __init__(self, adapter, *, dialogue=(), rules=None, retained_navigation=()):
         self.adapter, self.rules = adapter, rules
@@ -775,6 +800,9 @@ class PlanJevDriver:
             examined.extend(self._native_statement_examined())
             examined.extend(self._native_assertion_examined())
         candidates = self.offered()
+        if any(candidate.kind.startswith("Expand to all other admitted native sources")
+               for candidate in candidates):
+            examined = _expansion_review_candidates(examined, self.adapter.request.message)
         return dict(candidates=candidates, dialogue=self.dialogue,
             examined_candidates=examined, allowed_operations=operations)
 
