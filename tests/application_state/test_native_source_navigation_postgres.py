@@ -248,7 +248,14 @@ def test_0053_constraint_roundtrip_preserves_historical_play(application_state_d
         with engine.connect() as conn:
             transaction = conn.begin()
             before = snapshot(conn)
-            original_constraint, original_version = constraint(conn), version(conn)
+            from importlib import import_module
+
+            guards = import_module(
+                "application_state.migrations.versions.20261123_0195_turn_graph_write_guards"
+            )
+            with Operations.context(MigrationContext.configure(conn)):
+                guards.downgrade()
+            original_version = version(conn)
             try:
                 # Exercise only this migration's owning constraint. A whole-head
                 # downgrade is intentionally forbidden by later migration0169.
@@ -265,7 +272,10 @@ def test_0053_constraint_roundtrip_preserves_historical_play(application_state_d
                 transaction.rollback()
         with engine.connect() as conn:
             assert snapshot(conn) == before
-            assert constraint(conn) == original_constraint
+            installed = conn.exec_driver_sql(
+                "SELECT to_regprocedure('agent.validate_turn_graph_write()') IS NOT NULL"
+            ).scalar_one()
+            assert installed
             assert version(conn) == original_version
     finally:
         engine.dispose()

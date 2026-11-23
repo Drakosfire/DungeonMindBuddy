@@ -13,7 +13,9 @@ def test_installed_relationship_completion_constraint_accepts_only_new_frozen_re
     policy={'working_draft_context_policy':'captured_build_working_draft_context_v1','related_page_context_policy':'selected_exact_related_authored_pages_v1','collaboration_output_policy':'typed_author_review_collaboration_v1','connected_page_review_policy':'typed_connected_page_review_v1','relationship_review_policy':'typed_saved_relationship_review_v1'}
     completion={'schema':'dmb_build_relationship_review_completion_v1','context_receipt_sha256':'a'*64,'answer_basis':'working_draft_context','answer_context_status':'creative_proposal','answer_segments':[{'kind':'connective','text':'Ready for author review.'}],'citation_map':None,'source_citations':[],'collaboration':proposal}
     with psycopg.connect(application_state_dsn) as c:
-        installed=c.execute("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='agent_turn_graph_completion_check'").fetchone()[0]
+        installed=c.execute(
+            "SELECT pg_get_functiondef('agent.validate_turn_graph_write()'::regprocedure)"
+        ).fetchone()[0]
         assert 'dmb_build_relationship_review_completion_v1' in installed
         def allowed(value,profile=policy):
             return c.execute('SELECT COALESCE(('+migration._REVIEW+'),FALSE) FROM (SELECT %s::jsonb completion,%s::jsonb graph_context_receipt,%s::jsonb graph_context_execution) v',(Jsonb(value),Jsonb(receipt),Jsonb({'policy':profile}))).fetchone()[0]
