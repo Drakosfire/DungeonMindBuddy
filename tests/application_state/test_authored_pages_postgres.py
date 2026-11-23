@@ -1,5 +1,6 @@
 """Authored pages share Content storage, never Plan/Runbook/Play admission."""
 
+from hashlib import sha256
 from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from threading import Barrier
@@ -990,3 +991,140 @@ def test_page_layout_writer_enrollment_rolls_back_and_legacy_database_write_fail
         with pytest.raises(psycopg.errors.CheckViolation, match="layout-aware writer"), conn.transaction():
             conn.execute("UPDATE content.working_copy SET markdown = 'legacy' WHERE work_object_id = %s", (document,))
     assert pages.snapshot_page(document, world_id=world_id) == current
+
+
+def test_page_v2_empty_paragraph_cold_reopen_and_old_writer_fence(world, monkeypatch):
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.main import create_app
+
+    page = pages.create_page(world_id=world, title='Empty paragraph test')
+    markdown = PLAN_PRESENTATION_MARKDOWN + '\n'
+    old = _presentation(markdown, identity_only=True)
+    items = [old.items[0], page_presentation.EmptyParagraph(id='blank'), *old.items[1:]]
+    layout = page_presentation.PagePresentation(
+        schema_version='dmb_page_presentation_v2', markdown_sha256=sha256_utf8(markdown), items=items,
+    ).checked(markdown)
+    with pytest.raises(ApplicationStateValidationError, match='layout-aware writer'):
+        pages.commit_page(ident(page), markdown, world_id=world, expected_revision=page.page.object_revision,
+                          expected_working_copy_revision=None, page_presentation=layout)
+    monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'local')
+    with TestClient(create_app(), base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        rejected = client.post(f'{PLAN_MARKDOWN_WRITE}/prepare', json={
+            'document_id': ident(page), 'markdown': markdown, 'expected_revision': page.page.object_revision,
+            'page_presentation': layout.model_dump(mode='json'),
+        })
+        assert rejected.status_code == 422, rejected.text
+    saved, _ = pages.commit_page(
+        ident(page), markdown, world_id=world, expected_revision=page.page.object_revision,
+        expected_working_copy_revision=None, page_presentation=layout,
+        layout_writer_profile=pages.PAGE_LAYOUT_WRITER_PROFILE,
+    )
+    document = ident(saved)
+    reopened = pages.snapshot_page(document, world_id=world)
+    assert reopened.markdown == markdown
+    assert reopened.presentation == layout
+    monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'local')
+    body = {'document_id': document, 'markdown': markdown, 'expected_revision': reopened.page.object_revision}
+    with TestClient(create_app(), base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as client:
+        snapshot = client.get(f'/api/live/workspace-documents/{document}/snapshot')
+        assert snapshot.status_code == 200, snapshot.text
+        assert snapshot.json()['page_presentation'] == layout.model_dump(mode='json')
+        for legacy in (body, {**body, 'page_presentation': None}):
+            rejected = client.post(f'{PLAN_MARKDOWN_WRITE}/prepare', json=legacy)
+            assert rejected.status_code == 409, rejected.text
+    assert pages.snapshot_page(document, world_id=world) == reopened
+
+
+def test_plan_rejects_page_v2_presentation(plain_plan):
+    layout = _presentation(PLAN_PRESENTATION_MARKDOWN, identity_only=True)
+    v2 = page_presentation.PagePresentation(
+        schema_version='dmb_page_presentation_v2', markdown_sha256=layout.markdown_sha256,
+        items=[layout.items[0], page_presentation.EmptyParagraph(id='empty'), *layout.items[1:]],
+    )
+    with pytest.raises(ApplicationStateValidationError, match='Plan does not support'):
+        _commit_layout(plain_plan[0], PLAN_PRESENTATION_MARKDOWN, v2)
+
+
+def _empty_v2_fixture():
+    source = 'First.\n\nSecond.\n'
+    raw = source.encode()
+    digest = lambda b: sha256(b).hexdigest()
+    data = {'schema_version': 'dmb_page_presentation_v2', 'markdown_sha256': digest(raw), 'items': [
+        {'kind': 'empty_paragraph', 'id': 'leading'},
+        {'kind': 'block', 'id': 'first', 'byte_start': 0, 'byte_end': 8, 'sha256': digest(raw[:8])},
+        {'kind': 'empty_paragraph', 'id': 'middle'},
+        {'kind': 'block', 'id': 'second', 'byte_start': 8, 'byte_end': len(raw), 'sha256': digest(raw[8:])},
+        {'kind': 'empty_paragraph', 'id': 'trailing'},
+    ]}
+    return source, data
+
+
+def test_v2_accepts_ordered_empty_blocks_without_changing_source_binding():
+    source, data = _empty_v2_fixture()
+    result = page_presentation.PagePresentation.model_validate(data).checked(source)
+    assert [item.id for item in result.items] == ['leading', 'first', 'middle', 'second', 'trailing']
+    with pytest.raises(ApplicationStateValidationError):
+        result.checked(source + 'changed')
+
+
+def test_empty_blocks_require_v2_and_unique_ids():
+    source, data = _empty_v2_fixture()
+    with pytest.raises(ApplicationStateValidationError):
+        page_presentation.PagePresentation.model_validate({**data, 'schema_version': 'dmb_page_presentation_v1'}).checked(source)
+    data['items'][-1]['id'] = 'leading'
+    with pytest.raises(ApplicationStateValidationError):
+        page_presentation.PagePresentation.model_validate(data).checked(source)
+
+
+def test_old_writers_cannot_remove_or_downgrade_v2():
+    source, data = _empty_v2_fixture()
+    current = page_presentation.PagePresentation.model_validate(data).checked(source)
+    for old_value in (None, page_presentation.UNSET):
+        with pytest.raises(ApplicationStateValidationError):
+            page_presentation.candidate(old_value, source, current)
+    v1 = {**data, 'schema_version': 'dmb_page_presentation_v1', 'items': [item for item in data['items'] if item['kind'] == 'block']}
+    with pytest.raises(ApplicationStateValidationError):
+        page_presentation.candidate(v1, source, current)
+
+
+def test_v2_refuses_unknown_and_nested_empty_items():
+    source, data = _empty_v2_fixture()
+    with pytest.raises(ValidationError):
+        page_presentation.PagePresentation.model_validate({**data, 'items': [{'kind': 'empty_paragraph', 'id': 'x', 'text': 'hidden'}]})
+    row = {'kind': 'row', 'id': 'r', 'slots': [{'id': 's', 'width': 12, 'blocks': [{'kind': 'empty_paragraph', 'id': 'x'}]}]}
+    with pytest.raises(ValidationError):
+        page_presentation.PagePresentation.model_validate({**data, 'items': [row]})
+
+
+def test_v2_allows_empty_body_after_exact_yaml_frontmatter():
+    source = '---\ntitle: Test\n---\n'
+    payload = {
+        'schema_version': 'dmb_page_presentation_v2',
+        'markdown_sha256': sha256(source.encode()).hexdigest(),
+        'items': [{'kind': 'empty_paragraph', 'id': 'blank'}],
+    }
+    assert page_presentation.PagePresentation.model_validate(payload).checked(source).items[0].id == 'blank'
+
+
+def test_existing_schema_upgrade_with_restricted_migration_role(application_state_dsn, monkeypatch):
+    from psycopg import sql
+    from urllib.parse import urlsplit, urlunsplit
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+
+    role = 'buddy_migration_test_' + uuid4().hex[:12]
+    with psycopg.connect(application_state_dsn, autocommit=True) as admin:
+        admin.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD 'synthetic-only'").format(sql.Identifier(role)))
+        try:
+            assert not admin.execute("SELECT has_database_privilege(%s, current_database(), 'CREATE')", (role,)).fetchone()[0]
+            admin.execute(sql.SQL('GRANT USAGE ON SCHEMA application_state TO {}').format(sql.Identifier(role)))
+            admin.execute(sql.SQL('GRANT SELECT, INSERT, UPDATE, DELETE ON application_state.schema_migrations TO {}').format(sql.Identifier(role)))
+            admin.execute("UPDATE application_state.schema_migrations SET version_num = '20261122_0198'")
+            parsed = urlsplit(application_state_dsn)
+            endpoint = f'{role}:synthetic-only@{parsed.hostname}:{parsed.port}'
+            monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, urlunsplit(parsed._replace(netloc=endpoint)))
+            assert cli.upgrade_to_head() == ('20261123_0200', '20261123_0200')
+        finally:
+            admin.execute(sql.SQL('DROP OWNED BY {}').format(sql.Identifier(role)))
+            admin.execute(sql.SQL('DROP ROLE {}').format(sql.Identifier(role)))

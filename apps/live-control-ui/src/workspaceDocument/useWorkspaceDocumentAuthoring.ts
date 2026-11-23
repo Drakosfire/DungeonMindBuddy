@@ -1,6 +1,6 @@
 import { requiresManualSave, releaseManualSave } from "./draftSavePolicy";
 import "../tiptap/pageComposer/apiPresentation";
-import { hydratePresentation, flattenPresentation, hasPresentation, projectPresentation, presentationFingerprint, composerDisabledReason, type PagePresentation } from "../tiptap/pageComposer/presentation";
+import { hydratePresentation, flattenPresentation, hasPresentation, hasEmptyParagraphs, projectPresentation, presentationFingerprint, composerDisabledReason, type PagePresentation } from "../tiptap/pageComposer/presentation";
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {WorkspaceDraftCoordinator, type DraftPersistenceStatus} from "./workspaceDraftCoordinator";
 import { conflictCopiesKey, preserveConflictCopies, type WorkspaceConflictRecovery, type WorkspaceConflictReview } from "./workspaceConflictRecovery";
@@ -381,7 +381,7 @@ export function useWorkspaceDocumentAuthoring(
     const retainedPlainBase = snap?.layout_writer_profile !== undefined
       || (snap?.page_presentation != null && snap.page_presentation.items.every(item => item.kind === "block"));
     const composing = args.kind === "worldbuilding_source" && args.surface === "build"
-      && (retainedPlainBase || current.page_presentation !== undefined || hasPresentation(tiptapJson));
+      && (retainedPlainBase || current.page_presentation !== undefined || hasPresentation(tiptapJson) || hasEmptyParagraphs(tiptapJson));
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     let projectionError: unknown;
     try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent, current.page_presentation, retainedPlainBase); }
@@ -745,7 +745,7 @@ export function useWorkspaceDocumentAuthoring(
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     try {
       if (args.kind === "worldbuilding_source" && args.surface === "build"
-        && (retainedPlainBase || localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
+        && (retainedPlainBase || localState.page_presentation !== undefined || hasPresentation(tiptapJson) || hasEmptyParagraphs(tiptapJson))) {
         projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent, localState.page_presentation, retainedPlainBase);
       }
     } catch (error) {
@@ -754,7 +754,7 @@ export function useWorkspaceDocumentAuthoring(
     }
     const editableBody = tiptapJsonToSemanticMarkdown(flattenPresentation(tiptapJson));
     const markdown = projected?.markdown ?? preserveLeadingYamlFrontmatter(snapshot.markdown, editableBody);
-    const profile = snapshot.layout_writer_profile ?? (localState.manual_save_required
+    const profile = snapshot.layout_writer_profile ?? ((localState.manual_save_required || projected?.presentation?.schema_version === "dmb_page_presentation_v2")
       && projected?.presentation && presentationFingerprint(projected.presentation) !== snapshot.page_presentation_sha256
       ? "dmb_page_layout_writer_v1" as const : undefined);
     const presentationFields = {

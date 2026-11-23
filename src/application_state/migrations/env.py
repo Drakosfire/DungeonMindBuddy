@@ -35,7 +35,14 @@ def run_migrations_online() -> None:
     engine = create_engine(sqlalchemy_url(load_runtime_dsn()))
     try:
         with engine.connect() as connection:
-            connection.execute(text("CREATE SCHEMA IF NOT EXISTS application_state"))
+            # PostgreSQL checks database CREATE even for IF NOT EXISTS. Existing
+            # deployments may deliberately grant the migration role access to
+            # the version table without granting database-wide CREATE.
+            exists = connection.execute(text(
+                "SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = 'application_state'"
+            )).scalar_one_or_none()
+            if exists is None:
+                connection.execute(text("CREATE SCHEMA IF NOT EXISTS application_state"))
             connection.commit()
             context.configure(
                 connection=connection,
