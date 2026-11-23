@@ -867,20 +867,23 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     dict(kind="discussion", text="We can explore a truce for this creature.")
                 ]
             if source_answer_output:
-                if source_answer_output == 'typed':
+                if source_answer_output in {'typed', 'typed_gap_format'}:
                     candidate['answer_segments'] = [dict(kind='related_page_claim',
                         text='The saved lore proposes that the local node wants freedom.',
                         read_id=next(page['selection'] for page in work['related_pages'] if page['title'] == 'Optional lore'))]
+                    if source_answer_output == 'typed_gap_format':
+                        candidate['limitations'] = ['missing_requested_details']
+                        candidate['requested_detail_gaps'] = [dict(question_phrase="the local node's alliance")]
                 elif source_answer_output in {'uncited', 'creative'}:
                     candidate['answer_segments'] = [dict(kind='discussion', text='The local node wants freedom.' if source_answer_output == 'uncited' else 'We can explore that possibility.')]
                 elif source_answer_output == 'empty':
                     candidate['answer_segments'] = []
                     candidate['limitations'] = []
                     candidate['requested_detail_gaps'] = []
-                elif source_answer_output == 'gap':
+                elif source_answer_output in {'gap', 'gap_format'}:
                     candidate['answer_segments'] = []
                     candidate['limitations'] = ['missing_requested_details']
-                    candidate['requested_detail_gaps'] = [dict(question_phrase='the local node’s alliance')]
+                    candidate['requested_detail_gaps'] = [dict(question_phrase='the local node’s alliance' if source_answer_output == 'gap' else "the local node's alliance")]
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -3445,16 +3448,16 @@ def test_deferred_build_display_keeps_admission_and_exact_native_citations(lane,
         assert membership["assertions"]
 
 
-@pytest.mark.parametrize('output', ['typed', 'uncited', 'empty', 'gap'])
+@pytest.mark.parametrize('output', ['typed', 'uncited', 'empty', 'gap', 'typed_gap_format', 'gap_format'])
 def test_source_lookup_discussion_requires_bound_claims_without_forcing_a_fact(lane, tmp_path, monkeypatch, output):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work='discuss', source_need='source_lookup', read_optional_page=True,
-        source_answer_output=output, message='What does the saved lore establish about the local node’s alliance?' if output == 'gap'
+        source_answer_output=output, message='What does the saved lore establish about the local node’s alliance?' if output in {'gap', 'typed_gap_format', 'gap_format'}
         else 'What does the saved lore propose about the local node?')
     request = json.loads(case.writer.calls[0].content)
     assert request['text']['format']['name'] == 'surface_native_build_source_answer_v1'
     assert len(case.writer.calls) == 1
-    if output in {'uncited', 'empty'}:
+    if output in {'uncited', 'empty', 'gap_format'}:
         assert case.response.status_code == 503
         assert case.turn.completion is None
         return
@@ -3462,7 +3465,10 @@ def test_source_lookup_discussion_requires_bound_claims_without_forcing_a_fact(l
     if output == 'gap':
         assert not any(x.kind == 'related_page_claim' for x in case.turn.completion.answer_segments)
         return
-    claim, = case.turn.completion.answer_segments
+    claim, = [x for x in case.turn.completion.answer_segments if x.kind == 'related_page_claim']
+    if output == 'typed_gap_format':
+        limitations = [x for x in case.turn.completion.answer_segments if x.kind != 'related_page_claim']
+        assert limitations and all(x.question_phrase is None for x in limitations)
     assert claim.kind == 'related_page_claim'
     opened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages/{claim.read_id}')
     assert opened.status_code == 200
