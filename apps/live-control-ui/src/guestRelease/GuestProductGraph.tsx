@@ -28,11 +28,11 @@ export function GuestProductGraph({ publicId }: { publicId: string }) {
     <div className="guest-product-graph__notice"><strong>Shared World · demo</strong><span>Explore the released copy in Graph. Changes here do not affect the private World.</span><a href="/">Demo home</a><a href={dungeonMindLoginHref("/graph")}>Sign in to create your World</a></div>
     {unavailable ? <main role="alert"><h1>This shared World is unavailable</h1><p>The owner may have withdrawn it.</p><a href="/">Return to demo home</a></main>
       : !ready ? <main role="status">Opening the shared graph…</main>
-      : <NativeGraphDemo key={`${publicId}:${ready.copy.release_id}`} api={ready.api} embedded mode="guest" worldTitle="Shared World" renderGuestNodeDetails={(id) => <GuestEvidence copy={ready.copy} nodeId={id} />} />}
+      : <NativeGraphDemo key={`${publicId}:${ready.copy.release_id}`} api={ready.api} embedded mode="guest" worldTitle="Shared World" renderGuestNodeDetails={(id, onExplore) => <GuestEvidence copy={ready.copy} nodeId={id} onExplore={onExplore} />} />}
   </AppChrome></IsolatedEntry>;
 }
 
-function GuestEvidence({ copy, nodeId }: { copy: GuestGraphRelease; nodeId: string }) {
+function GuestEvidence({ copy, nodeId, onExplore }: { copy: GuestGraphRelease; nodeId: string; onExplore: (nodeId: string) => void }) {
   const node = copy.manifest.graph.nodes.find((item) => item.id === nodeId);
   if (!node) return null;
   const sources = new Map(copy.manifest.sources.map((source) => [source.id, source]));
@@ -52,6 +52,7 @@ function GuestEvidence({ copy, nodeId }: { copy: GuestGraphRelease; nodeId: stri
     {copy.manifest.graph.edges.filter((edge) => edge.source === nodeId || edge.target === nodeId).map((edge) => <section key={edge.id}>
       <h4>{labels.get(edge.source)} · {guestGraphTerm(edge.label)} · {labels.get(edge.target)}</h4>
       <p>{edge.basis} · {edge.temporal === "unknown" ? "When this happened is not specified" : edge.temporal === "timeless" ? "Timeless" : edge.temporal}</p>
+      <button type="button" onClick={() => onExplore(edge.source === nodeId ? edge.target : edge.source)}>Explore {labels.get(edge.source === nodeId ? edge.target : edge.source)}</button>
       {[...new Set(edge.citations)].map(excerpt)}
     </section>)}
   </section>;

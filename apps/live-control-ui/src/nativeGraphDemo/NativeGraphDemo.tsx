@@ -464,7 +464,7 @@ export interface NativeGraphDemoProps {
   readonly entityOnlyDetails?: boolean;
   readonly readOnly?: boolean;
   /** Extra release-local evidence for a selected guest point. */
-  readonly renderGuestNodeDetails?: (nodeId: string) => ReactNode;
+  readonly renderGuestNodeDetails?: (nodeId: string, onExplore: (nodeId: string) => void) => ReactNode;
 }
 
 export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly: requestedReadOnly = false, renderGuestNodeDetails }: NativeGraphDemoProps) {
@@ -1850,7 +1850,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       handleCanvasSelectionChange(nodeId as LocalObjectId);
       requestCameraFocus(nodeId);
     }}
-  />{mode === "guest" ? renderGuestNodeDetails?.(selectedNode.id) : null}</> : null;
+  />{mode === "guest" ? renderGuestNodeDetails?.(selectedNode.id, (nodeId) => {
+    if (pendingOperation || !nodesById.has(nodeId)) return;
+    focusInspectorRef.current = true;
+    handleCanvasSelectionChange(nodeId as LocalObjectId);
+    requestCameraFocus(nodeId);
+  }) : null}</> : null;
 
 
   return (

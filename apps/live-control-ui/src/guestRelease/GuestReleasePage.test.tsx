@@ -357,6 +357,10 @@ it("opens the actual Graph workspace from the public copy without private or pla
   await user.click(screen.getAllByText("Read context: The released excerpt.")[0]);
   expect(screen.getAllByText("The released excerpt.").length).toBeGreaterThan(0);
   expect(screen.getByText("When this happened is not specified", { exact: false })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Explore Carnival" }));
+  expect(await screen.findByRole("heading", { name: "Carnival" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Back to Sizzek" }));
+  expect(await screen.findByRole("heading", { name: "Sizzek" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Graph tools" }));
   await user.click(screen.getByRole("button", { name: "Move nodes" }));
   const node = screen.getByRole("button", { name: "Sizzek, npc" });
