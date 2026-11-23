@@ -1707,6 +1707,10 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self.commit(method_name, **{event_name: event}, **extras)
 
+    def has_native_plan_session(self) -> bool:
+        with self.renewer._lock:
+            return self.renewer._session is not None
+
     def plan_execution_checkpoint(self):
         from application_state.agent_conversation.native_plan_session import PlanExecutionCheckpoint
 

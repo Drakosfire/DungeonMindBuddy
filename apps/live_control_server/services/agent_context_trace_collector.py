@@ -140,7 +140,10 @@ class ContextTraceCollector:
         # Keep its grant visible while transport waits, rather than leaving the
         # last activity at prompt preparation. Legacy owners already observe it.
         from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
-        if observe_authorization and type(getattr(self.fence.turn, "graph_context_execution", None)) is SurfaceNativeExecutionV1:
+        if not observe_authorization:
+            return
+        has_session = getattr(self.fence, "has_native_plan_session", lambda: False)
+        if has_session() or type(getattr(self.fence.turn, "graph_context_execution", None)) is SurfaceNativeExecutionV1:
             self.observe({"kind": "provider_call", "outcome": "authorized",
                 "provider_attempt_id": authorization.provider_attempt_id,
                 "provider": authorization.provider, "model": authorization.model})
