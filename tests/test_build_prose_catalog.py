@@ -245,17 +245,20 @@ def test_opening_must_match_retained_catalog_and_requested_work(captured_page, v
         )
 
 
-@pytest.mark.parametrize(("requested_work", "location", "relation", "destination", "expected"), [
-    ("write_current_page", "unstated", "unresolved", "current_page", "unique"),
-    ("write_current_page", "current_caret", "unresolved", "current_page", "unique"),
-    ("discuss", "unstated", "unresolved", "current_page", "unresolved"),
-    ("write_current_page", "unstated", "after", "current_page", "unresolved"),
-    ("write_current_page", "unclear", "unresolved", "current_page", "unresolved"),
-    ("write_current_page", "existing_location", "after", "current_page", "missing"),
-    ("write_current_page", "unstated", "unresolved", "different_page", "different_destination"),
+@pytest.mark.parametrize(("requested_work", "location", "relation", "scope", "heading_vote", "destination", "expected"), [
+    ("write_current_page", "unstated", "unresolved", "unscoped", "exclude", "current_page", "unique"),
+    ("write_current_page", "current_caret", "unresolved", "unscoped", "exclude", "current_page", "unique"),
+    ("discuss", "unstated", "unresolved", "unscoped", "exclude", "current_page", "unresolved"),
+    ("write_current_page", "unstated", "after", "unscoped", "exclude", "current_page", "unresolved"),
+    ("write_current_page", "unstated", "unresolved", "named", "exclude", "current_page", "unresolved"),
+    ("write_current_page", "current_caret", "unresolved", "named", "exclude", "current_page", "unresolved"),
+    ("write_current_page", "unstated", "unresolved", "unscoped", "include", "current_page", "unresolved"),
+    ("write_current_page", "unclear", "unresolved", "unscoped", "exclude", "current_page", "unresolved"),
+    ("write_current_page", "existing_location", "after", "named", "exclude", "current_page", "missing"),
+    ("write_current_page", "unstated", "unresolved", "unscoped", "exclude", "different_page", "different_destination"),
 ])
 def test_opening_uses_only_the_exact_uncontested_caret(
-    mixed_page, requested_work, location, relation, destination, expected,
+    mixed_page, requested_work, location, relation, scope, heading_vote, destination, expected,
 ):
     catalog = freeze_mixed_page(*mixed_page)
     first, duplicate = catalog.passages
@@ -273,10 +276,10 @@ def test_opening_uses_only_the_exact_uncontested_caret(
             for choice in choices
         },
     }
-    labels = dict(paragraph_work="place_paragraph", paragraph_scope="named",
+    labels = dict(paragraph_work="place_paragraph", paragraph_scope=scope,
                   paragraph_insertion_location=location,
                   paragraph_destination=destination, paragraph_relation=relation,
-                  paragraph_text0="include", paragraph_scope0="exclude", paragraph_scope1="exclude")
+                  paragraph_text0="include", paragraph_scope0=heading_vote, paragraph_scope1="exclude")
     response = DecisionResult(
         answers={name: ChoiceDecisionAnswer(selected=label) for name, label in labels.items()},
         observation=InferenceObservation(

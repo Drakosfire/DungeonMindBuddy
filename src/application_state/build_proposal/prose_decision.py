@@ -91,6 +91,10 @@ def prepare_build_boundary_decision(
             "whether the request specifies a location. The other location choices identify "
             "and match an existing anchor only when one is named."
         )
+        scope_question += (
+            " Choose unscoped if the author leaves the insertion location open or only names "
+            "the current caret. The subject of new writing is not a heading qualification."
+        )
         location_questions = (ChoiceDecisionQuestion(
             name="insertion_location", options=("unstated", "current_caret", "existing_location", "unclear"),
             question=(
@@ -134,7 +138,9 @@ def prepare_build_boundary_decision(
                                      question=f"Does existing_passages {alias} match the requested existing anchor independently of its heading?")
               for alias in texts),
             *(ChoiceDecisionQuestion(name=alias, options=("include", "exclude"),
-                                     question=f"Does existing_heading_paths {alias} satisfy every named heading qualification?")
+                                     question=f"Does existing_heading_paths {alias} satisfy every named heading qualification?"
+                                     + (" Exclude it when no heading qualification is stated, including when the caret is used."
+                                        if offer_caret else ""))
               for alias in scopes),
         ),
     )
@@ -226,10 +232,11 @@ def resolve_build_boundary(
     if judgment.insertion_location == "unclear":
         return BuildBoundaryResolution(disposition="unresolved")
     if judgment.insertion_location in {"unstated", "current_caret"}:
-        # Passage and heading votes describe existing anchors. They cannot choose
-        # a different location when the request leaves it open or names the caret.
+        # A passage without a side cannot place new prose. A named or uncertain
+        # section still conflicts with using the caret as an unqualified default.
         if (caret_target is None or judgment.destination != "current_page"
-                or judgment.relation != "unresolved"):
+                or judgment.relation != "unresolved" or judgment.scope != "unscoped"
+                or judgment.scope_aliases):
             return BuildBoundaryResolution(disposition="unresolved")
         return BuildBoundaryResolution(disposition="unique", target=caret_target)
     if judgment.relation == "unresolved" or judgment.scope == "unresolved":
