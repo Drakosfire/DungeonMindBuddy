@@ -500,6 +500,8 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/world-graph/managed-projection"): access.resolve_hosted_managed_projection,
             ("GET", "/api/live/graph-preview/build-recap-launches/{request_id}"): access.resolve_hosted_build_recap_recovery,
             ("POST", "/api/live/graph-preview/build-recap-launches"): access.resolve_hosted_build_extraction,
+            ("POST", "/api/live/graph-preview/build-worldbuilding-launches"): access.resolve_hosted_build_extraction,
+            ("GET", "/api/live/graph-preview/build-worldbuilding-launches/{request_id}"): access.resolve_hosted_build_recap_recovery,
             ("GET", "/api/live/source-statements/proposals/{operation_id}"): access.resolve_hosted_source_statement_proposal,
             ("POST", "/api/live/source-statements/proposals/{operation_id}/review"): access.resolve_hosted_source_statement_review,
             ("GET", "/api/live/source-statements/{world_id}/subjects/{entity_id}"): access.resolve_hosted_source_statement_subject,
@@ -7063,3 +7065,34 @@ def test_production_app_mounts_build_extraction_without_developer_routes(monkeyp
     assert ("GET", prefix + "/extraction-runs/{run_id}/candidate-projection") in methods_by_path
     assert ("GET", prefix + "/gold-review/sessions") not in methods_by_path
     assert ("GET", prefix + "/manual-review/beds") not in methods_by_path
+
+
+def test_hosted_worldbuilding_launch_and_recovery_require_owned_document(hosted, monkeypatch):
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import build_extraction
+    from apps.live_control_server.services import build_worldbuilding_launch, workspace_document_registry
+    document_id="00000000-0000-4000-8000-000000000001"
+    request_id="00000000-0000-4000-8000-000000000002"
+    payload={"document_id":document_id,"request_id":request_id,"managed_world_id":"managed",
+        "expected_revision":1,"expected_content_sha256":"a"*64,
+        "profile_id":"worldbuilding_shepherds_flock_v0","profile_version":"0.1"}
+    monkeypatch.setattr(workspace_document_registry,"get_workspace_document",
+        lambda *_:SimpleNamespace(kind="worldbuilding_source",world_id="managed"))
+    launch=Mock(return_value=SimpleNamespace(run_id="saved-run"))
+    recover=Mock(return_value=SimpleNamespace(run_id="saved-run"))
+    monkeypatch.setattr(build_worldbuilding_launch,"launch_build_worldbuilding",launch)
+    monkeypatch.setattr(build_worldbuilding_launch,"recover_build_worldbuilding_launch",recover)
+    monkeypatch.setattr(build_extraction,"get_extraction_run_build_context",
+        lambda run_id:{"document_id":document_id,"run_id":run_id})
+    base="/api/live/graph-preview/build-worldbuilding-launches"
+    path=f"{base}/{request_id}?document_id={document_id}&managed_world_id=managed"
+    for session in (None,"other-session"):
+        assert hosted.client.request("POST",base,json=payload,session=session).status_code in (401,403)
+        assert hosted.client.request("GET",path,session=session).status_code in (401,403)
+    assert hosted.client.request("POST",base,json={**payload,"managed_world_id":"foreign"}).status_code==403
+    assert hosted.client.request("GET",path.replace("managed_world_id=managed","managed_world_id=foreign")).status_code==403
+    assert hosted.client.request("GET",path+"&document_id="+document_id).status_code==403
+    launch.assert_not_called();recover.assert_not_called()
+    assert hosted.client.request("POST",base,json=payload).status_code==200
+    assert hosted.client.request("GET",path).status_code==200
+    assert launch.call_count==1 and recover.call_count==1
