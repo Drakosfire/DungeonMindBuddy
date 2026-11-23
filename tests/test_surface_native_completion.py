@@ -4,13 +4,17 @@ from copy import deepcopy
 from dataclasses import replace
 from hashlib import sha256
 import json
+from types import SimpleNamespace as NS
 from uuid import uuid4
 
 import httpx
 from openai import AsyncOpenAI
 import pytest
+from dungeonmind.contracts.vnext.domain import AssertionMetadata
 
 from application_state.agent_conversation import types as t
+from application_state.agent_conversation import native_plan_assertions as assertion_owner
+from application_state.agent_conversation.surface_evidence_answer import ASSERTION_POLICY, native_fact_segment
 from application_state.agent_conversation.native_completion import normalize_output, verify_completion, SurfaceNativeCompletionV1
 from application_state.agent_conversation.native_writer import model_frame, model_work_frame
 from application_state.agent_conversation.native_plan_assertions import POLICY
@@ -265,3 +269,72 @@ def test_retained_completion_reuses_exact_native_assertion_and_statement_owners(
     modified=execution(context.context_receipt_sha256,stored.policy,[*stored.events[:-1],event])
     with pytest.raises(ValueError,match='support'):
         t.validate_execution_completion(changed,context,modified,auth.provider_attempt_id,{})
+
+
+# Repeated native Graph reads retain each source citation.
+def duplicate_fixture_metadata():
+    return AssertionMetadata(
+        visibility={'kind': 'labels_any', 'labels': ['dungeonbuddy.visibility:gm']},
+        epistemic_basis='asserted', claim_mode='dungeonbuddy.claim:fact',
+        standing='established', temporal_scope={'kind': 'unknown'},
+    )
+
+
+def duplicate_fixture_cite(receipt, auth, event, read, span, *, index):
+    return NS(segment_index=index, read_event_id=event.event_id,
+              assertion_id=read.assertion.assertion_id, evidence_ref_id=span.evidence_ref_id)
+
+
+def test_repeated_assertion_reads_keep_each_citation_and_validate_closure(monkeypatch):
+    monkeypatch.setattr(assertion_owner, 'citation', duplicate_fixture_cite)
+    assertion = NS(assertion_id='assertion-A', metadata=duplicate_fixture_metadata())
+    first, second = NS(event_id='first'), NS(event_id='second')
+    a = NS(assertion=assertion, spans=(NS(evidence_ref_id='span-A'),))
+    b = NS(assertion=assertion, spans=(NS(evidence_ref_id='span-B'),))
+    support = NS(native_assertions=(('handle-A', first, a), ('handle-B', second, b)),
+                 native_statements=(), body_excerpts=())
+    row = {'kind': 'native_assertion_claim', 'text': 'A supported fact.',
+           'assertion_handles': ['handle-A', 'handle-B']}
+    claim, _, _, citations = native_fact_segment(row, policy=ASSERTION_POLICY, receipt=None,
+        auth=NS(provider_attempt_id='synthetic'), support=support, index=0)
+    assert claim.assertion_ids == ['assertion-A']
+    assert len(claim.qualifications) == 1
+    assert [(c.read_event_id, c.evidence_ref_id) for c in citations] == [
+        ('first', 'span-A'), ('second', 'span-B')]
+    reads = {('first', 'assertion-A'): (first, a), ('second', 'assertion-A'): (second, b)}
+    completion = NS(answer_segments=[claim], native_assertion_citations=citations)
+    assertion_owner.validate_citation_records(completion, None, None, reads)
+    completion.native_assertion_citations = citations[:1]
+    with pytest.raises(ValueError, match='omitted a supporting span'):
+        assertion_owner.validate_citation_records(completion, None, None, reads)
+    completion.native_assertion_citations = [NS(segment_index=0, read_event_id='foreign',
+        assertion_id='assertion-A', evidence_ref_id='span-A')]
+    with pytest.raises(ValueError, match='lacks exact included support'):
+        assertion_owner.validate_citation_records(completion, None, None, reads)
+
+
+def test_duplicate_or_unknown_handles_remain_rejected():
+    support = NS(native_assertions=(('handle-A', NS(), NS()),), native_statements=(), body_excerpts=())
+    for handles in (['handle-A', 'handle-A'], ['handle-A', 'foreign']):
+        with pytest.raises(ValueError, match='exact included assertion handles'):
+            native_fact_segment({'kind': 'native_assertion_claim', 'text': 'A fact.',
+                'assertion_handles': handles}, policy=ASSERTION_POLICY, receipt=None,
+                auth=NS(provider_attempt_id='synthetic'), support=support, index=0)
+
+
+def test_distinct_assertions_remain_distinct(monkeypatch):
+    monkeypatch.setattr(assertion_owner, 'citation', duplicate_fixture_cite)
+    first, second = NS(event_id='first'), NS(event_id='second')
+    a = NS(assertion=NS(assertion_id='assertion-B', metadata=duplicate_fixture_metadata()),
+           spans=(NS(evidence_ref_id='span-B'),))
+    b = NS(assertion=NS(assertion_id='assertion-A', metadata=duplicate_fixture_metadata()),
+           spans=(NS(evidence_ref_id='span-A'),))
+    support = NS(native_assertions=(('handle-B', first, a), ('handle-A', second, b)),
+                 native_statements=(), body_excerpts=())
+    claim, _, _, citations = native_fact_segment(
+        {'kind': 'native_assertion_claim', 'text': 'Two supported facts.',
+         'assertion_handles': ['handle-B', 'handle-A']}, policy=ASSERTION_POLICY,
+        receipt=None, auth=NS(provider_attempt_id='synthetic'), support=support, index=0)
+    assert claim.assertion_ids == ['assertion-A', 'assertion-B']
+    assertion_owner.validate_citation_records(NS(answer_segments=[claim], native_assertion_citations=citations),
+        None, None, {('first', 'assertion-B'): (first, a), ('second', 'assertion-A'): (second, b)})
