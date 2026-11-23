@@ -5,6 +5,8 @@ import type { Editor } from "@tiptap/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import * as worldApi from "../api/buildWorldbuildingApi";
+vi.mock("../api/buildWorldbuildingApi", async (original) => ({...await original<typeof import("../api/buildWorldbuildingApi")>(), launchBuildWorldbuilding:vi.fn(),recoverBuildWorldbuilding:vi.fn()}));
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { DOCUMENT_SAVE_COMMAND_ID } from "../markdownCanvas/markdownCanvasTypes";
 import {
@@ -291,6 +293,30 @@ describe("useBuildExtraction", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       snapshotFor(DOC_A, 2, "sha-a"),
     );
+  });
+
+  it("retains a timed-out managed World request and recovers the exact run after remount", async () => {
+    const sha="a".repeat(64);
+    writeCleanLocal(DOC_A,2,sha);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshotFor(DOC_A,2,sha));
+    vi.mocked(worldApi.launchBuildWorldbuilding).mockRejectedValue(new Error("Connection lost"));
+    const first=renderHook(()=>useBuildExtraction({documentId:DOC_A,worldId:"managed-a"}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(first.result.current.canLaunch).toBe(true));
+    await act(async()=>{await first.result.current.launch();});
+    expect(first.result.current.pendingWorldbuilding).toBe(true);
+    const request=vi.mocked(worldApi.launchBuildWorldbuilding).mock.calls[0][0];
+    expect(localStorage.getItem(worldApi.worldbuildingRecoveryKey("managed-a",DOC_A))).toContain(request.request_id);
+    first.unmount();
+    const envelope=statusEnvelope({runId:RUN_A,artifactId:ARTIFACT_A,documentId:DOC_A,revision:2,sha});
+    vi.mocked(worldApi.recoverBuildWorldbuilding).mockResolvedValue({...envelope,run:{...envelope.run,
+      lineage:{build_launch:{schema:"dmb_build_worldbuilding_launch_v1",request}}}});
+    const second=renderHook(()=>useBuildExtraction({documentId:DOC_A,worldId:"managed-a"}),{wrapper:extractionWrapper(DOC_A)});
+    await waitFor(()=>expect(second.result.current.pendingWorldbuilding).toBe(true));
+    await act(async()=>{await second.result.current.recoverWorldbuilding();});
+    expect(worldApi.recoverBuildWorldbuilding).toHaveBeenCalledWith(request);
+    expect(second.result.current.run?.run_id).toBe(RUN_A);
+    expect(second.result.current.pendingWorldbuilding).toBe(false);
+    expect(worldApi.launchBuildWorldbuilding).toHaveBeenCalledTimes(1);
   });
 
   it("retains an exact run id from the URL across refresh", async () => {

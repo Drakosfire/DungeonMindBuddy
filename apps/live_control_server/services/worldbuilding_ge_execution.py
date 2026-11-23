@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
+from typing import Any
 
 from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.services.source_artifact_registry import (
@@ -58,6 +59,7 @@ def run_gazetteer_with_generation_engine(
     expected_content_sha256: str,
     profile_version: str,
     execution_limits: RecapExecutionLimits | None = None,
+    reserved_run: Any | None = None,
 ) -> ProductionExtractionResult:
     """Run an exact registered Build revision through the selected bounded GE target.
 
@@ -131,5 +133,7 @@ def run_gazetteer_with_generation_engine(
             model_id=limits.model,
             allow_llm=True,
             category_client=client,
+            initial_lineage=reserved_run.lineage if reserved_run is not None else None,
+            reserved_run=reserved_run,
         )
     )
