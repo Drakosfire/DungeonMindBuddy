@@ -436,7 +436,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
       || pathname === "/api/live/source-statements/extend-evidence") return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
-  if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/graph-preview\/build-(?:recap|worldbuilding)-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
   if (pathname === "/api/live/graph-preview/extraction-runs") return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/usage$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)) return true;
@@ -1136,14 +1136,14 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && body.expected_revision > 0 && typeof body.expected_content_sha256 === "string"
       && /^(?:sha256:)?[a-f0-9]{64}$/.test(body.expected_content_sha256);
   }
-  if (path === "/api/live/graph-preview/build-recap-launches") {
+  if ((path === "/api/live/graph-preview/build-recap-launches" || path === "/api/live/graph-preview/build-worldbuilding-launches")) {
     const body = requestBodyRecord(init?.body);
     const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
     return method === "POST" && typeof body?.document_id === "string" && uuid.test(body.document_id)
       && typeof body.request_id === "string" && uuid.test(body.request_id)
       && typeof body.managed_world_id === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(body.managed_world_id);
   }
-  const recapRecovery = /^\/api\/live\/graph-preview\/build-recap-launches\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  const recapRecovery = /^\/api\/live\/graph-preview\/build-(?:recap|worldbuilding)-launches\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (recapRecovery) {
     const query = new URLSearchParams(recapRecovery[1]);
     const documentId = query.get("document_id");

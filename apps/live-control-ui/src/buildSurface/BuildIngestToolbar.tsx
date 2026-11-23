@@ -46,7 +46,7 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
     handoff,
     run,
     launch,
-    refresh, pendingRecap, recoverRecap, savedRecapRequests, setAsideRecap, restoreRecap,
+    refresh, pendingWorldbuilding, recoverWorldbuilding, setAsideWorldbuilding, restoreWorldbuilding, savedWorldbuildingRequests, pendingRecap, recoverRecap, savedRecapRequests, setAsideRecap, restoreRecap,
   } = useBuildExtraction({ documentId, profile, worldId, recap:mode==="recap"?{worldId:worldId??"",campaignId,session:Number(session),evidence}:null });
 
   const content = (
@@ -64,6 +64,15 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
           <option value="gazetteer">Gazetteer — places, people and setting details</option>
         </select>
       </label>}
+      {pendingWorldbuilding&&<div role="status"><p>A saved Worldbuilding extraction needs recovery. Checking its status does not start another extraction.</p>
+        <button disabled={launching||reviewBusy} onClick={()=>void recoverWorldbuilding()}>Check saved Worldbuilding extraction</button>
+        <button disabled={launching||reviewBusy} onClick={()=>void recoverWorldbuilding(true)}>Retry saved Worldbuilding request</button>
+        <p>Setting this request aside does not cancel it; it stays saved in this browser.</p>
+        <button disabled={launching||reviewBusy} onClick={setAsideWorldbuilding}>Set aside saved Worldbuilding request</button></div>}
+      {savedWorldbuildingRequests.length>0&&<details><summary>Saved Worldbuilding requests</summary>
+        {savedWorldbuildingRequests.map(item=><button key={item.index} disabled={launching||reviewBusy||pendingWorldbuilding}
+          onClick={()=>restoreWorldbuilding(item.index)}>Recover {item.label}</button>)}
+      </details>}
       {pendingRecap&&<div role="status"><p>A saved Recap request needs recovery. Checking its status does not start another extraction.</p>
         <button disabled={launching||reviewBusy} onClick={()=>void recoverRecap()}>Check saved extraction</button>
         <button disabled={launching||reviewBusy} onClick={()=>void recoverRecap(true)}>Retry saved extraction request</button>
