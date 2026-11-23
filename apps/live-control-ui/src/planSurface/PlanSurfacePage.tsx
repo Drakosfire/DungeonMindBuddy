@@ -696,7 +696,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const authoringMoveCaptureRef=useRef<NonNullable<WorldPlanEditBridge['captureAuthoringAt']>>(async()=>{throw new Error('Plan placement owner unavailable');});
   const authoringSaveRef=useRef<NonNullable<WorldPlanEditBridge['saveAuthoring']>>(async()=>{throw new Error('Plan Save owner unavailable');});
   const authoringReconcileRef=useRef<NonNullable<WorldPlanEditBridge['reconcileAuthoring']>>(async()=>{throw new Error('Plan recovery owner unavailable');});
-  const authoringAckRef=useRef<(application:PlanReviewApplication)=>Promise<void>>(async()=>{throw new Error('Plan Save receipt owner unavailable');});
+  const authoringAckRef=useRef<(application:PlanReviewApplication, isRecoveryCurrent?:()=>boolean)=>Promise<void>>(async()=>{throw new Error('Plan Save receipt owner unavailable');});
   const worldPlanEditBridge = useMemo<WorldPlanEditBridge>(() => ({
     freezeComposedAuthoring: async () => {
       const current = worldEditStateGetterRef.current(undefined, true);
@@ -845,9 +845,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           setLastSavedAt(snapshot.record.content_status === "committed"
             ? durableTimestamp(snapshot.record.updated_at)
             : null);
-          const revisionChangedUnderDraft = recoverLocal
-            && localDraft.revision !== snapshot.loaded_revision
-            && !localDraft.pending_write;
           const nextTitle = recoverLocal ? localDraft.title : snapshot.record.title;
           const nextMarkdown = recoverLocal ? localDraft.markdown : snapshot.markdown;
           const savedPresentation = checkedPlanPresentation(snapshot.markdown, snapshot);
@@ -855,6 +852,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             ? checkedPlanPresentation(nextMarkdown, localDraft)
               ?? (nextMarkdown === snapshot.markdown ? savedPresentation : null)
             : savedPresentation;
+          const draftMatchesCommit = snapshot.record.content_status === "committed"
+            && nextTitle === snapshot.record.title
+            && nextMarkdown === snapshot.markdown
+            && (localDraft?.page_presentation_sha256 ?? null) === presentationFingerprint(savedPresentation);
+          const revisionChangedUnderDraft = recoverLocal
+            && localDraft.revision !== snapshot.loaded_revision
+            && !localDraft.pending_write
+            && !draftMatchesCommit;
           serverPresentationRef.current = savedPresentation;
           updatePresentation(localPresentation);
           setComposing(Boolean(localPresentation || savedPresentation));
@@ -896,8 +901,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             markdown: nextMarkdown,
             page_presentation: localPresentation,
             page_presentation_sha256: presentationFingerprint(localPresentation),
-            revision: revisionChangedUnderDraft && (localPresentation || savedPresentation)
-              ? localDraft.revision : snapshot.loaded_revision,
+            revision: revisionChangedUnderDraft ? localDraft.revision : snapshot.loaded_revision,
             edit_generation: initialLocalDraft?.edit_generation ?? 0,
             pending_write: pendingWriteRef.current,
             create_uncertain: false,
@@ -924,6 +928,39 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     })();
     return () => { cancelled = true; };
   }, [initialDocumentId, initialLoadAttempt, localDraft, worldId]);
+
+  useEffect(() => {
+    if (status !== "ready" || !documentId || recoveryConflict || createUncertain) return;
+    const hold = readPlanApplicationHold(worldId, documentId);
+    if (!hold || typeof hold !== "object"
+      || !("action_id" in hold) || typeof hold.action_id !== "string"
+      || !("application_id" in hold) || typeof hold.application_id !== "string") return;
+    const { action_id: actionId, application_id: applicationId } = hold;
+    const epoch = selectionEpochRef.current;
+    let cancelled = false;
+    const recoveryIsCurrent = () => {
+      const current = readPlanApplicationHold(worldId, documentId);
+      return !cancelled && selectedViewIsCurrent(epoch, documentId)
+        && !savingRef.current && pendingWriteRef.current === null
+        && !!current && typeof current === "object"
+        && "action_id" in current && current.action_id === actionId
+        && "application_id" in current && current.application_id === applicationId
+        && markdownRef.current === serverMarkdownRef.current
+        && titleRef.current === serverTitleRef.current
+        && presentationFingerprint(presentationRef.current) === presentationFingerprint(serverPresentationRef.current);
+    };
+    if (!recoveryIsCurrent()) return;
+    void (async () => {
+      const receipt = await readPlanAuthoringReview(worldId, actionId);
+      const application = receipt.review?.applications.find(item => item.application_id === applicationId);
+      if (receipt.action_id !== actionId || receipt.world_id !== worldId
+        || application?.outcome !== "saved" || !recoveryIsCurrent()) return;
+      await authoringAckRef.current(application, recoveryIsCurrent);
+    })().catch(() => {
+      // Preserve the hold unless readback can verify its exact Save.
+    });
+    return () => { cancelled = true; };
+  }, [status, documentId, recoveryConflict, createUncertain, worldId]);
 
   const protectLayoutRecovery = () => {
     if (!documentIdRef.current || !composing) return false;
@@ -1532,14 +1569,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
 
   // Proposal Save uses the same Content owner; adopting its receipt never
   // replaces mounted editor content or a newer local working copy.
-  authoringAckRef.current=async application=>{
+  authoringAckRef.current=async (application,isRecoveryCurrent)=>{
     const exactId=application.capture.document_id,epoch=selectionEpochRef.current;
     if(application.outcome!=='saved'||application.capture.world_id!==worldId
       ||documentIdRef.current!==exactId)throw new Error('The Plan Save receipt belongs to another page.');
     const [snapshot,committed]=await Promise.all([
       getWorldOwnedPlanSnapshot(exactId),getWorldOwnedPlanCommittedRevision(exactId),
     ]);
-    if(!selectedViewIsCurrent(epoch,exactId))throw new Error('The page changed while checking its saved suggestion.');
+    if(!selectedViewIsCurrent(epoch,exactId) || (isRecoveryCurrent && !isRecoveryCurrent()))
+      throw new Error('The page changed while checking its saved suggestion.');
+    if (isRecoveryCurrent && (snapshot.record.content_status !== "committed" || committed.has_divergent_working_copy))
+      throw new Error("The current Plan is not an exact saved revision.");
     const savedPresentation = checkedPlanPresentation(snapshot.markdown, snapshot);
     if(snapshot.record.world_id!==worldId||snapshot.record.document_id!==exactId
       ||snapshot.record.kind!=='plan'||snapshot.record.campaign_id!==null||snapshot.record.status!=='active'
@@ -1550,9 +1590,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       ||committed.content_sha256!==application.after_draft_sha256||snapshot.record.title!==application.after_title
       ||(application.after_page_presentation_sha256 !== undefined
         && presentationFingerprint(savedPresentation) !== application.after_page_presentation_sha256)){
-      setRecoveryConflict(true);setServerDraft({title:snapshot.record.title,markdown:snapshot.markdown,
-        revision:snapshot.loaded_revision,contentSha256:snapshot.content_sha256,contentStatus:snapshot.record.content_status,
-        presentation:savedPresentation});
+      if (!isRecoveryCurrent) {
+        setRecoveryConflict(true);setServerDraft({title:snapshot.record.title,markdown:snapshot.markdown,
+          revision:snapshot.loaded_revision,contentSha256:snapshot.content_sha256,contentStatus:snapshot.record.content_status,
+          presentation:savedPresentation});
+      }
       throw new Error('The saved page changed after this suggestion. Your local draft is retained; inspect both copies.');
     }
     const retained=readWorldPlanLocalDraft(worldId);

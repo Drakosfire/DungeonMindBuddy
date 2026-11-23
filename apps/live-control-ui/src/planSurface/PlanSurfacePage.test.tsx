@@ -1960,6 +1960,65 @@ it("keeps a late World A create acknowledgement in A's recovery journal after na
   expect(commit).not.toHaveBeenCalled();
 });
 
+it.each(["matching", "changed-text", "changed-title", "matching-layout", "changed-layout"] as const)(
+  "reopens a newer committed Plan with an older %s recovery draft",
+  async (variant) => {
+    const hasLayout = variant === "matching-layout" || variant === "changed-layout";
+    const markdown = hasLayout ? "Travel pace is set by the GM.\n\nSecond paragraph.\n"
+      : "# Arrival\n\n> [!RULES]\n> Travel pace is set by the GM.\n";
+    const record = mockSavedPlanForAgent(savedAgentPlanId, 8, 8, markdown);
+    const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+    let savedLayoutFields = {};
+    let localLayoutFields = {};
+    if (hasLayout) {
+      const layoutFields = (width: number) => {
+        const doc = { type: "doc", content: [{ type: "pageRow", attrs: { id: "row" }, content: [
+          { type: "pageSlot", attrs: { id: "left", width }, content: [
+            { type: "paragraph", attrs: { pageBlockId: "first" }, content: [{ type: "text", text: "Travel pace is set by the GM." }] },
+          ] },
+          { type: "pageSlot", attrs: { id: "right", width: 12 - width }, content: [
+            { type: "paragraph", attrs: { pageBlockId: "second" }, content: [{ type: "text", text: "Second paragraph." }] },
+          ] },
+        ] }] };
+        const presentation = projectPresentation(doc, markdown, doc).presentation;
+        expect(presentation).not.toBeNull();
+        return { page_presentation: presentation, page_presentation_sha256: presentationFingerprint(presentation) };
+      };
+      savedLayoutFields = layoutFields(7);
+      localLayoutFields = layoutFields(variant === "changed-layout" ? 6 : 7);
+      const snapshot = await liveApi.getWorldOwnedPlanSnapshot(record.document_id);
+      vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({ ...snapshot, ...savedLayoutFields });
+    }
+    const localMarkdown = variant === "changed-text" ? markdown + "\nPrivate unsaved note.\n" : markdown;
+    const localTitle = variant === "changed-title" ? "Unsaved Plan title" : record.title;
+    localStorage.setItem(key, JSON.stringify({
+      schema_version: "dmb_plan_promotion_recovery_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: record.document_id,
+      title: localTitle,
+      markdown: localMarkdown,
+      revision: 7,
+      edit_generation: 2,
+      ...localLayoutFields,
+    }));
+    const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+    const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+    render(<SelectedWorldProvider locationSnapshot={location}><VerifiedPlanPage /></SelectedWorldProvider>);
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect(surface).toHaveTextContent("Travel pace is set by the GM."));
+    const conflict = screen.queryByRole("button", { name: "Use saved Plan version" });
+    if (variant === "matching" || variant === "matching-layout") {
+      expect(conflict).not.toBeInTheDocument();
+      expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({ revision: 8, markdown, ...savedLayoutFields });
+    } else {
+      expect(conflict).toBeInTheDocument();
+      expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({ revision: 7, title: localTitle, markdown: localMarkdown, ...localLayoutFields });
+    }
+    expect(prepare).not.toHaveBeenCalled();
+  },
+);
+
 it("persists the prepared revision before commit and retries against that exact revision", async () => {
   const documentId = "prepared-revision-plan";
   const record = worldPlanRecord(documentId, worldId, 1);
@@ -4228,6 +4287,64 @@ it('opens the current scene encounter tool while retaining the mounted Plan edit
   expect(sceneApi.getSceneTemplate).toHaveBeenCalledWith(expect.objectContaining({worldId,documentId:savedAgentPlanId,sceneId:'scene:arrival'}));
 });
 
+
+it.each(["saved", "applying", "different-revision"] as const)(
+  "recovers only a verified saved Plan application when the receipt is %s",
+  async variant => {
+    const reviewApi = await import("../api/planAuthoringReviewApi");
+    const markdown = "# Arrival\n\n> [!RULES]\n> Travel pace is set by the GM.\n";
+    const record = mockSavedPlanForAgent(savedAgentPlanId, 8, 8, markdown);
+    const committed = await liveApi.getWorldOwnedPlanCommittedRevision(record.document_id);
+    const getCommitted = vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...committed, has_divergent_working_copy: false,
+    });
+    getCommitted.mockClear();
+    const hold = {
+      world_id: worldId,
+      document_id: record.document_id,
+      action_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      application_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    };
+    const key = `dmb:plan-application-hold:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(record.document_id)}:${hold.action_id}:${hold.application_id}`;
+    localStorage.setItem(key, JSON.stringify(hold));
+    const application = {
+      application_id: hold.application_id,
+      capture: { world_id: worldId, document_id: record.document_id },
+      outcome: variant === "applying" ? "applying" : "saved",
+      after_markdown: markdown,
+      after_draft_sha256: committed.content_sha256,
+      after_title: record.title,
+      saved_revision_n: variant === "different-revision" ? committed.revision_n - 1 : committed.revision_n,
+      saved_work_revision_id: committed.work_revision_id,
+    } as import("../api/planAuthoringReviewApi").PlanReviewApplication;
+    const read = vi.spyOn(reviewApi, "readPlanAuthoringReview").mockResolvedValue({
+      schema: "dmb_plan_authoring_review_snapshot_v1",
+      world_id: worldId,
+      action_id: hold.action_id,
+      origin_sha256: "a".repeat(64),
+      review: { applications: [application] } as import("../api/planAuthoringReviewApi").PlanAuthoringReview,
+    });
+    const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+    const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+    const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+    render(<SelectedWorldProvider locationSnapshot={location}><VerifiedPlanPage /></SelectedWorldProvider>);
+    const editor = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect(read).toHaveBeenCalledWith(worldId, hold.action_id));
+    if (variant === "saved") {
+      await waitFor(() => expect(localStorage.getItem(key)).toBeNull());
+      expect(screen.getByText("Suggestion saved to this Plan.")).toBeInTheDocument();
+    } else {
+      if (variant === "different-revision") {
+        await waitFor(() => expect(getCommitted).toHaveBeenCalledWith(record.document_id));
+      }
+      expect(localStorage.getItem(key)).toBe(JSON.stringify(hold));
+    }
+    expect(screen.queryByRole("button", { name: "Use saved Plan version" })).not.toBeInTheDocument();
+    expect(editor).toHaveTextContent("Travel pace is set by the GM.");
+    expect(prepare).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+  },
+);
 
 it('fences ordinary Plan Save during proposal apply, uncertain confirmation and reload',async()=>{
   const nativeNavigator=navigator;let lockTail:Promise<unknown>=Promise.resolve();
