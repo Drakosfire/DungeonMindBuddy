@@ -1,6 +1,9 @@
 # DOGFOOD: retain useful lore replies with optional detail gaps
 
-ACTIVE. The user's writer/context cleanup goal authorizes this serial successor
+MERGED implementation; write lease transferred to
+HANDOFF-DOGFOOD-generic-reply-limitations.md. PR4536 merged
+2b1e7e1f89048320916f05438d169e8aaa7a69b3, tree46bbdffa2; deployment remains
+open. The user's writer/context cleanup goal authorizes this serial successor
 to PR4535, merged894202b12784edf725409580365608da039b8da9 (tree identical to
 reviewed/verifieda8d72179a75daa667cb30dfb0dd90a936dce7cc7). DOGFOOD owns design
 and implementation in branch codex/dogfood-lore-reply-limitations, this existing
