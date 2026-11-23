@@ -93,3 +93,9 @@ Selector correction HTTP diagnostic PASS: retained recap now emits actual typed
 native-body citations through existing format2; same-chat pointer fence remains
 closed. Historical format7 reconstruction remains explicitly replay-only in the
 independent Rules format validator. Broader605 runs remain evidence for605 only.
+
+Current-dispatch format guard diagnostic PASS: a fully preparedV3 request mutated
+to the historical format7 (with recomputed envelope/accounting) is rejected by
+APP admission before writer I/O; the ordinary valid request then completes with
+typed native citations.1 actual HTTP check passed37.82s. This is stronger than
+checking format-selection source alone.

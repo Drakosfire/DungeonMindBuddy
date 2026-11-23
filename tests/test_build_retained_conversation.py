@@ -194,17 +194,32 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     monkeypatch.setattr(AgentConversationService, 'admit_build_prior_body_evidence', checked_admit)
 
     original_authorize = AgentConversationService.authorize_native_writer
+    writers = []
+    if discussion:
+        from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+        original_init = PlanJevWriter.__init__
+        def track_writer(writer, *args, **kwargs):
+            original_init(writer, *args, **kwargs)
+            writers.append(writer)
+        monkeypatch.setattr(PlanJevWriter, '__init__', track_writer)
     tampered = []
     def checked_authorize(owner, world, conversation, turn_id, **values):
         from apps.live_control_server.services.agent_turn_service import _json_node_count
         prior = owner.inspect_turn(world_id=world, turn_id=turn_id)
         if retained.admission(prior.graph_context_execution) is not None:
-            for mutation in ('omit', 'change'):
+            for mutation in (('omit', 'change', 'discussion_only_format') if discussion else ('omit', 'change')):
                 request = json.loads(values['prepared_request_json'])
                 if mutation == 'omit':
                     request['input'] = request['input'][2:]
-                else:
+                elif mutation == 'change':
                     request['input'][0]['content'] = '{"conversation":"changed older context"}'
+                else:
+                    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+                    from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+                    writer = writers[-1]
+                    request['text']['format'] = native_output_format(writer.frame,
+                        model_rules_frame(writer.rules.frame()), writer.work_frame | writer.provider_work,
+                        build_local=True, format_version=7, execution=prior.graph_context_execution)
                 raw = json.dumps(request, ensure_ascii=False)
                 auth = values['authorization'].model_copy(update={
                     'envelope_sha256': sha256(raw.encode()).hexdigest(),
@@ -241,7 +256,8 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
                 event['kind'] = 'build_prior_body_evidence_admitted_v2'
         with pytest.raises(ValueError, match='unique producing Build work decision'):
             type(turn.graph_context_execution).model_validate(raw)
-    assert len(fenced) == 2 and tampered == ['omit', 'change']
+    assert len(fenced) == 2
+    assert tampered == (['omit', 'change', 'discussion_only_format'] if discussion else ['omit', 'change'])
     assert len(value.history) == turn_count
     assert value.history[0].turn_id == original.turn_id
     assert original.turn_id not in {pin.turn_id for pin in turn.graph_context_receipt.assembled_input.included_history}
