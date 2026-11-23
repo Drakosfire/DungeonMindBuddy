@@ -317,13 +317,15 @@ RELATED_PAGE_RESPONSE = (
 SUPPLIED_SOURCE_RESPONSE = ('\nFor saved_source_claim select the supplied local section_read_ids; '
                 'for related_page_claim select the supplied local read_id. Buddy binds the exact '
                 'supplied read to the citation. Do not return supporting_quotes or recopy evidence '
-                'as a validation witness. Ground each claim in its selected source, preserve uncertainty, '
+                'as a validation witness. For these two claim kinds, ground each claim in its selected source, preserve uncertainty, '
                 'and distinguish authored material from played events. Every factual clause in a '
                 'related_page_claim must be supported by its ONE selected page. Split claims that '
                 'draw on different pages into separate segments with their own references. Do not '
                 'declare a motive or choice unknown when the selected source states it explicitly; '
                 'qualify only the identity, mechanism or future actions that actually remain open. '
-                'Prose formatting is free.\n')
+                'These citation requirements do not apply to collaboration drafts, retained author '
+                'context, discussion or proposals; use those supplied materials according to their '
+                'existing instructions. Prose formatting is free.\n')
 
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules, *, dialogue=()):
@@ -544,7 +546,9 @@ class PlanJevWriter:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
 
                 self.instructions += "\n" + VARIANT_BASE.text
-        if self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1':
+        if (self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1'
+                and (self.work_frame['artifact_under_edit']['sections']
+                     or self.work_frame.get('related_authored_pages', {}).get('pages'))):
             self.instructions += SUPPLIED_SOURCE_RESPONSE
         if retained_dialogue is not None:
             self.instructions += (

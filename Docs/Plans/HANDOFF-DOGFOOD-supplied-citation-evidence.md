@@ -62,3 +62,11 @@ Admission audit: current Build dispatch rejects the old raw carrier as well as
 old semantic carriers. Historical Rules input fixture still proves input-before-
 reply under explicit retained replay, and now separately proves fresh refusal.
 Its three prior message/phase expectation failures are retained diagnostics.
+
+Onboarding acceptance checkpoint: exact1c85 passed full context to the writer
+(20 messages, original Ashbell notes in retained_authored_context) but the output
+returned an evidence-gap blank draft. Preserve failed runempty-world-935914ab43.
+Do not count it as acceptance. New citation guidance is scoped to its two claim
+kinds and emitted only when current saved sections/related reads actually exist;
+retained-only synthesis uses its unchanged conversation-authoring instructions.
+No context reduction or acquisition change. Repeat actual HTTP acceptance.

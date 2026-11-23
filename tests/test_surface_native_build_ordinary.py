@@ -717,7 +717,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert locator.revision_id not in req.content.decode()
             if work.get('citation_policy') == 'supplied_source_references_v1':
                 assert 'supporting_quotes containing' not in body['instructions']
-                assert 'Do not return supporting_quotes' in body['instructions']
+                if work['saved_sections'] or work.get('related_pages'):
+                    assert 'Do not return supporting_quotes' in body['instructions']
+                else:
+                    assert 'For saved_source_claim select' not in body['instructions']
             sections = work['saved_sections']
             def source_text(row):
                 if 'text' in row:
