@@ -57,3 +57,8 @@ overgeneralized unresolved motives. Retain this failed sample. Current guidance
 requires each related claim be fully supported by its one selected page, splits
 cross-page claims, and distinguishes explicit motives from genuinely open details.
 No semantic acceptance or production activation is claimed from that sample.
+
+Admission audit: current Build dispatch rejects the old raw carrier as well as
+old semantic carriers. Historical Rules input fixture still proves input-before-
+reply under explicit retained replay, and now separately proves fresh refusal.
+Its three prior message/phase expectation failures are retained diagnostics.
