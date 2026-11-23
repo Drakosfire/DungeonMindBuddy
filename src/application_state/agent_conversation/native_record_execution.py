@@ -163,6 +163,28 @@ def _advance(state, query, events):
         attempted=frozenset(attempted), pending_object_reads=frozenset(pending), writer=writer)
 
 
+class _OwnedRecordPrefix:
+    """Incremental fold for a single APP-owned, nonescaping execution."""
+
+    def __init__(self):
+        self._checkpoint = None
+
+    def validate(self, query, execution):
+        events = execution.events
+        state = _RecordState()
+        offset = 0
+        if self._checkpoint is not None:
+            known_query, known_events, known_state = self._checkpoint
+            if (query is known_query and len(events) >= len(known_events)
+                    and all(old is new for old, new in zip(known_events, events))):
+                state, offset = known_state, len(known_events)
+        next_state = _advance(state, query, events[offset:])
+        self._checkpoint = query, tuple(events), next_state
+
+    def clear(self):
+        self._checkpoint = None
+
+
 def validate(query, execution):
     """One recovery consumer; a pure record fold cannot authorize a full Turn."""
     _advance(_RecordState(), query, execution.events)
