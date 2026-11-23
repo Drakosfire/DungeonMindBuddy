@@ -389,3 +389,24 @@ def test_app207_menu_and_literal_review_schema_bytes_remain_unchanged():
         frame = {'response_contract': c.resolve(label, c.Capabilities(('answer_from_sources',), ('lore_page',), None, None), work_options=c._menu_work(menu)),
                  'artifact_under_edit': {'sections': []}, 'source_basis': {}}
         assert canonical_sha256(c.native_review_schema(frame)) == expected
+
+
+
+def test_request_review_normalizes_proposal_formatting_without_changing_legacy_readers():
+    from application_state.agent_conversation.lore_page_review import ProposedLorePageReference, ProposedLorePage
+    review=ProposedLorePageReference.model_validate({'kind':'lore_page',
+        'destination':{'request':'current_author_request','title':' \n The Memory Ferry — Échos \t'},
+        'open_questions':['  Who wrote\n the ledger?  ','\tWhat is its origin?\n']})
+    assert review.destination.title=='The Memory Ferry — Échos'
+    assert review.open_questions==('Who wrote the ledger?','What is its origin?')
+    assert review.destination.bind('Create the ferry page from our discussion.')==review.destination.title
+    with pytest.raises(ValueError):
+        ProposedLorePage.model_validate({'kind':'lore_page',
+            'destination':{'instruction':'Create a page for Ferry.','title':'Ferry'},
+            'open_questions':['Who wrote\n the ledger?']})
+    with pytest.raises(ValueError):
+        ProposedLorePageReference.model_validate({'kind':'lore_page',
+            'destination':{'request':'current_author_request','title':' \n\t '}})
+    with pytest.raises(ValueError):
+        ProposedLorePageReference.model_validate({'kind':'lore_page',
+            'destination':{'request':'current_author_request','title':'Ferry'},'open_questions':[' \n ']})

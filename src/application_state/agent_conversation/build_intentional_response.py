@@ -1187,7 +1187,8 @@ def normalize_native_review(candidate, segments, frame, *, author_text, request_
     if isinstance(review, ProposedLorePage):
         if isinstance(review, ProposedLorePageReference) != request_reference:
             raise ValueError('Lore destination differs from its producing writer contract')
-        if frame['response_contract']['requested_work'] == 'review_blank_lore_page' and (segments or review.open_questions):
+        if frame['response_contract']['requested_work'] == 'review_blank_lore_page' and (
+                any(getattr(segment, 'kind', None) != 'limitation' for segment in segments) or review.open_questions):
             raise ValueError('Blank lore-page request cannot carry a populated body')
         review.destination.bind(author_text, has_body=bool(segments or review.open_questions),
             conversational=frame["response_contract"]["requested_work"] == "review_lore_page_from_conversation")

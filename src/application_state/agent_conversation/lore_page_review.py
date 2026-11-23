@@ -144,6 +144,11 @@ class LorePageRequestReference(Closed):
     title: str = Field(min_length=1, max_length=200, pattern=r"^[^\n\r]+$",
         description="Propose the requested page title, preserving articles, punctuation and Unicode. The author reviews this exact title before saving.")
 
+    @field_validator("title", mode="before")
+    @classmethod
+    def normalize_title_formatting(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
     def bind(self, author_text: str, *, has_body=False, conversational=False) -> str:
         # Identity is proved by exact producing input/schema reconstruction, not
         # by copying an instruction or parsing natural language a second time.
@@ -158,3 +163,14 @@ class ProposedLorePageReference(ProposedLorePage):
     use discussion segments. An acknowledgment is not an invented idea or page body.
     """
     destination: LorePageRequestReference
+    open_questions: tuple[str, ...] = Field(default=(), max_length=24,
+        exclude_if=lambda value: not value,
+        description="Preserve all author-declared unresolved issues, including identities, motives, relationships, chronology and origins. Put questions here instead of duplicating them in the body. Whitespace is normalized for review.")
+
+    @field_validator("open_questions", mode="before")
+    @classmethod
+    def normalize_question_formatting(cls, value):
+        if not isinstance(value, (tuple, list)):
+            return value
+        return tuple(" ".join(question.split()) if isinstance(question, str) else question
+                     for question in value)

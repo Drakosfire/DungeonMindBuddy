@@ -5,13 +5,16 @@ review, concrete-progress merges and deployment. DOGFOOD owns this serial
 successor to merged #4557. The goal remains incomplete: the actual app rejected
 a valid twelve-turn synthesis after the APP0207 rollout.
 
-Base: verified serving source79d4d606538ed11c3efd99ab910f2d52f3897a49,
-image41968c4b859d8323a3762bcab341ca2fa6c5a7b000864438132920fcacc11451,
-APP207/Core0024. Branch codex/dogfood-lore-request-references in the existing
-isolated checkout. Remote mainf517fc1a5 and open4570/4568/4567/4561/4554/4550
-were inspected. Preserve their owners' independent Plan-performance and guest
-display work; do not absorb it. Re-anchor the actual serving parent before
-delivery. No runtime/deployment reservation is held during implementation.
+Re-anchored base: verified running sourcecc4bf0500de93ebb80ad691c7234de76ed93d27f,
+imagebd17c6d220a7498d7b56abcbffea4422d8295be22e9e5da137f76eb73e4c5282,
+APP207/Core0024. This preserves the deployed Winter and guest-label successors
+#4564/#4567 as well as #4557. Branch codex/dogfood-lore-request-references in the
+existing isolated checkout; PR4573 is serial. Retarget it to the pinned cc4 base
+before cumulative review. Remote main75f124648 and open4575/4568/4561/4554/4550
+were inspected. Preserve other owners' Plan-performance and mobile guest work;
+do not absorb it. Re-anchor the actual serving parent again before delivery.
+No runtime/deployment reservation is held during implementation. The original
+79d4/image419 adoption is historical evidence, not the current cutover parent.
 
 Failure: turn df281a6b-d3ec-46a0-b477-26a5760d0848, diagnostic
 5bbbc248-5afa-4179-8ac6-2f38b1208118, writer_validation ValueError:
@@ -127,3 +130,21 @@ requests. Retain the failed samples and require ordinary HTTP plus live-provider
 proof and actual app acceptance. This remains part of the active overall goal.
 Superseded65e0 qualification/build/replay evidence is retained, including failed
 samples; it is not evidence for a later amended source.
+
+Further contract audit: a real7442 blank reply supplied zero answer segments and
+one offered missing-details code. Host projection made that code a limitation
+segment, then the blank guard wrongly treated it as page body. Count only actual
+body segments/questions in that guard; the existing confirmation renderer already
+excludes host limitation segments. Verify ordinary HTTP review/confirm/reopen
+creates an empty page and repeated confirmation is identical, while real body or
+questions still fail. V2 proposed titles trim surrounding whitespace and V2
+questions normalize whitespace before the existing bounds; legacy V1 validators
+and schema bytes stay unchanged. These fields are reviewed proposals, not literal
+citation witnesses. Preserve all invalid-alias, empty-field and version checks.
+
+The7442 twelve-turn sample completed in3.65s with zero acquisition and a correct
+discussion acknowledgment, but omitted the tradition's unresolved origin. Do not
+claim full semantic coverage from that sample. The V2 questions description must
+state its existing obligation to preserve all author-declared unknowns, including
+chronology/origins, and avoid duplicating questions in body prose. New live evidence
+must check the full authored material, corrections and every declared unknown.

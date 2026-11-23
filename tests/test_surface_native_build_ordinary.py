@@ -899,6 +899,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     candidate['answer_segments'] = [dict(kind='discussion', text='Understood. I will keep the workpad unchanged and create nothing yet.')]
                     if source_answer_output == 'lore_ack':
                         candidate['collaboration'] = None
+                elif source_answer_output == 'blank_warning':
+                    candidate['limitations'] = ['missing_requested_details']
                 elif source_answer_output in {'blank_body', 'blank_questions'}:
                     if source_answer_output == 'blank_body':
                         candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea', text='Invented body on an empty page.')]
@@ -3827,3 +3829,27 @@ def test_lore_reference_allows_ordinary_ack_only_outside_a_page_draft(lane, tmp_
         segment,=case.turn.completion.answer_segments
         assert segment.kind=='discussion'
         assert 'Understood' in segment.text
+
+
+
+def test_blank_lore_warning_stays_outside_the_empty_confirmed_page(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    from application_state.content import pages
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='review_blank_lore_page', source_need='anchored', source_answer_output='blank_warning',
+        message='Create a blank page for Glass Regent.')
+    assert case.response.status_code==200,case.response.text
+    completion=case.turn.completion
+    assert completion.collaboration.kind=='lore_page'
+    assert completion.answer_segments and all(segment.kind=='limitation' for segment in completion.answer_segments)
+    request={'conversation_id':str(case.turn.conversation_id),'turn_id':str(case.turn.turn_id),
+             'review_sha256':canonical_sha256(completion)}
+    route=f'/api/live/agent/worlds/{case.world}/conversation/lore-pages'
+    reviewed=case.client.post(route+'/review',json=request)
+    assert reviewed.status_code==200,reviewed.text
+    saved=case.client.post(route+'/confirm',json=request)
+    assert saved.status_code==200,saved.text
+    receipt=saved.json()
+    assert pages.committed_page(receipt['document_id'],world_id=case.world).revision.markdown==''
+    repeated=case.client.post(route+'/confirm',json=request)
+    assert repeated.status_code==200 and repeated.json()==receipt

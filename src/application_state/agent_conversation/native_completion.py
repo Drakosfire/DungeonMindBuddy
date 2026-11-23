@@ -158,7 +158,9 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
             ]
             if len(reviews) != 1:
                 raise ValueError("Lore draft lacks its admitted Build review")
-            if reviews[0].requested_work == 'review_blank_lore_page' and (completion.answer_segments or completion.collaboration.open_questions):
+            if reviews[0].requested_work == 'review_blank_lore_page' and (
+                    any(segment.kind != 'limitation' for segment in completion.answer_segments)
+                    or completion.collaboration.open_questions):
                 raise ValueError('Blank lore-page request cannot carry a populated body')
             completion.collaboration.destination.bind(
                 execution.policy.action.intent.message,
