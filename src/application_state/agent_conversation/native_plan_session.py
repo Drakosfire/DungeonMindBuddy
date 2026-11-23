@@ -257,6 +257,12 @@ class NativePlanSession:
         return self._execute(PlanSessionCommand.OUTCOME, expected_revision=expected_revision,
             expected_attempt=expected_attempt, fields={'outcome': outcome}, export_claim=True)
 
+    def commit_controller(self, command, *, expected_revision, expected_attempt, **fields):
+        if command not in (PlanSessionCommand.CONTROLLER, PlanSessionCommand.SELECTION):
+            raise ApplicationStateIntegrityError('Session controller export requires a controller command')
+        return self._execute(command, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields=fields, export_claim=True)
+
     def source_coordinates(self):
         with self._lock:
             self._require_live()

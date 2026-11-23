@@ -1730,6 +1730,13 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self._commit("record_provider_outcome", outcome_only=True, outcome=outcome)
 
+    def commit_plan_controller(self, method_name, **fields):
+        with self.renewer._lock:
+            if self.renewer._session is None:
+                return False
+            with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
+                return self._commit(method_name, controller_only=True, **fields)
+
     def commit_session_source_events(self, method_name, **fields):
         with self.renewer._lock:
             if self.renewer._session is None:
@@ -1741,7 +1748,7 @@ class _ClaimFence:
         """One moving claim owner for controller and source-navigation writes."""
         return self._commit(method_name, **fields)
 
-    def _commit(self, method_name, *, source_events_only=False, outcome_only=False, **fields):
+    def _commit(self, method_name, *, source_events_only=False, outcome_only=False, controller_only=False, **fields):
         with self.renewer._lock:
             if self.renewer._error is not None:
                 raise ApplicationStateError('APP-STATE claim owner has stopped after a failed operation') from self.renewer._error
@@ -1767,6 +1774,16 @@ class _ClaimFence:
                     elif outcome_only:
                         claim, fresh = self.renewer._session.record_provider_outcome(
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                        if fresh is not True:
+                            raise AgentTurnServiceError("APP-STATE did not confirm a fresh execution event.",
+                                code="turn_persistence_indeterminate", status_code=409)
+                        self.renewer._claim = claim
+                        return True
+                    elif controller_only:
+                        from application_state.agent_conversation.native_plan_session import PlanSessionCommand
+                        claim, fresh = self.renewer._session.commit_controller(
+                            PlanSessionCommand(method_name), expected_revision=current.revision,
+                            expected_attempt=current.attempt, **fields)
                         if fresh is not True:
                             raise AgentTurnServiceError("APP-STATE did not confirm a fresh execution event.",
                                 code="turn_persistence_indeterminate", status_code=409)

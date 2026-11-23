@@ -251,10 +251,21 @@ class PlanJevDispatch:
             raise ValueError("Native Build decision counter differs from its actual policy")
         return DecisionContextMode(accounting.context_mode(json.loads(prepared.body), host_phase=self._host_phase()))
 
+    def _commit_controller(self, method, field, event, **proof):
+        from .agent_turn_service import _require_fresh_execution_append
+
+        adapter = self.adapter
+        session_commit = getattr(adapter.fence, "commit_plan_controller", None)
+        if session_commit is not None and session_commit(method, **{field: event}, producer_proof=proof):
+            return
+        adapter.turn = _require_fresh_execution_append(
+            adapter.fence.append(method, field, event, producer_proof=proof)
+        )
+
     def authorize(self, prepared):
         trace = getattr(self.adapter, "trace", None)
         with trace.measure_host_work('controller_authorization') if trace is not None else nullcontext():
-            from .agent_turn_service import AgentTurnServiceError, _json_node_count, _require_fresh_execution_append
+            from .agent_turn_service import AgentTurnServiceError, _json_node_count
             from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeParentV1
 
             author_scope = type(self.parent) is NativePlanAuthorScopeParentV1
@@ -331,8 +342,8 @@ class PlanJevDispatch:
                 included_assertion_ids=[], included_relationship_ids=[], included_evidence_ref_ids=[],
                 included_graph_event_ids=[], included_source_read_event_ids=[],
                 **({"build_context":build_context} if native else {}), **opening_fields)
-            a.turn = _require_fresh_execution_append(a.fence.append("authorize_plan_jev_provider", "authorization", auth,
-                producer_proof={"parent_request_json": self.parent.model_dump_json(by_alias=True), "request_json": raw}))
+            self._commit_controller("authorize_plan_jev_provider", "authorization", auth,
+                parent_request_json=self.parent.model_dump_json(by_alias=True), request_json=raw)
             a.last_provider_attempt_id = auth.provider_attempt_id
             a._capture_prepared_prompt(view, auth)
             self.prepared, self.authorization = prepared, auth
@@ -452,9 +463,13 @@ class PlanJevDispatch:
                 **selected_fields,
                 actual_input_tokens=result.observation.input_tokens,
                 actual_output_tokens=result.observation.output_tokens)
-            a.turn = _require_fresh_execution_append(a.fence.append('record_plan_requested_work_selection' if semantic else 'record_plan_jev_retrieval_selection', "selection", event,
-                producer_proof={"parent_request_json": self.parent.model_dump_json(by_alias=True),
-                    "request_json": self.prepared.body.decode(), "response_json": raw}))
+            method = 'record_plan_requested_work_selection' if semantic else 'record_plan_jev_retrieval_selection'
+            proof = {"parent_request_json": self.parent.model_dump_json(by_alias=True),
+                     "request_json": self.prepared.body.decode(), "response_json": raw}
+            if semantic:
+                a.turn = _require_fresh_execution_append(a.fence.append(method, "selection", event, producer_proof=proof))
+            else:
+                self._commit_controller(method, "selection", event, **proof)
             if not semantic and selected.operation == "finish_retrieval" and result.answers["operation"].selected == "finish_with_gaps":
                 a.context_capture.observe({"kind": "failure", "phase": "graph_retrieval",
                                            "code": "controller_finished_with_gaps"})
