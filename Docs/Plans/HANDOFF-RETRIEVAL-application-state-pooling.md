@@ -5,7 +5,7 @@ Status ACTIVE. The user lifted the read-only constraint for this bounded slice.
 Base: 769632f94868be9f7e992ceff88f41aeb763f5d9. Serial lane on
 codex/application-state-pooling in the managed application-state-pooling checkout.
 Write set: application-state unit of work and connection factory, focused
-application-state PostgreSQL tests, and this handoff. Use the existing SQLAlchemy
+application-state PostgreSQL tests, their contract inventory entry, and this handoff. Use the existing SQLAlchemy
 dependency and existing disposable evaluator. No schema or hosted changes.
 
 One unit of work remains one PostgreSQL transaction. Pool leases must reset

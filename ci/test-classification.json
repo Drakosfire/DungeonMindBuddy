@@ -829,6 +829,7 @@
       "tests/application_state/test_surface_native_decisions.py",
       "tests/application_state/test_surface_native_turns.py",
       "tests/application_state/test_surface_native_writers.py",
+      "tests/application_state/test_unit_of_work_pool.py",
       "tests/application_state/test_turn_retry.py",
       "tests/application_state/test_world_mechanics_associations_postgres.py",
       "tests/contracts/test_entity_tags.py",
