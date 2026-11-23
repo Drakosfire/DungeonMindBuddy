@@ -1,6 +1,7 @@
 # ONBOARD: reveal graph details on mobile
 
-Status: ACTIVE. After #4575 deployed the two-column graph, a signed-out 390px
+Status: MERGED on main in #4577 (`7047ea5ad8ea11e3bb37a5f8f35428c7df289a51`).
+Serving adoption follows this predecessor. After #4575 deployed the two-column graph, a signed-out 390px
 production check showed that selecting a point only highlights it: the matching
 connections and sources remain below the full graph and sandbox form. The
 owner-authorized onboarding goal calls for visitors to explore those connections.
