@@ -10,6 +10,15 @@ from application_state.agent_conversation import types as t
 from application_state.agent_conversation import retained_conversation as retained
 
 
+def layout_frames():
+    # The pure placement check leaves values to the actual frame owners, which
+    # the HTTP test exercises with real current work/evidence/Rules projections.
+    from application_state.agent_conversation.native_evidence_view import FIELDS
+    return [dict(role='user', content=json.dumps(value)) for value in (
+        {'build_work': {'source_class': 'historical', 'saved_sections': []}},
+        {'ruleset': 'test', 'lookups': [], 'supports': []}, dict.fromkeys(FIELDS))]
+
+
 def fixture_closure(count=60):
     world, chat = 'retained-world', uuid4()
     basis = t.BuildSourceContextBasisV1(world_id=world, document_id=str(uuid4()),
@@ -61,13 +70,13 @@ def test_complete_history_and_deduplicated_occurrences_survive_more_than_fifty_t
 @pytest.mark.parametrize('mutation', ['omitted', 'changed', 'extra'])
 def test_producing_request_rejects_missing_changed_and_unadmitted_dialogue(mutation):
     current, turns = fixture_closure()
-    execution = NS(events=(capture(current, turns),))
-    messages = retained.dialogue_messages(execution)
+    execution = NS(events=(capture(current, turns),), policy=NS(action=NS(intent=NS(message='Create the requested page.'))))
+    messages = retained.writer_messages(execution, layout_frames())
     retained.validate_dialogue_request(execution, {'input': messages})
     if mutation == 'omitted':
-        messages = messages[2:]
+        del messages[3:5]
     elif mutation == 'changed':
-        messages[0] = dict(role='user', content='changed')
+        messages[3] = dict(role='user', content='changed')
     else:
         messages.append(dict(role='user', content='{"conversation":"unadmitted"}'))
     with pytest.raises(ValueError):
@@ -208,12 +217,38 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         from apps.live_control_server.services.agent_turn_service import _json_node_count
         prior = owner.inspect_turn(world_id=world, turn_id=turn_id)
         if retained.admission(prior.graph_context_execution) is not None:
-            for mutation in (('omit', 'change', 'discussion_only_format') if discussion else ('omit', 'change')):
+            mutations = ['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role']
+            if discussion:
+                mutations.append('discussion_only_format')
+            for mutation in mutations:
                 request = json.loads(values['prepared_request_json'])
                 if mutation == 'omit':
-                    request['input'] = request['input'][2:]
+                    del request['input'][3:5]
                 elif mutation == 'change':
-                    request['input'][0]['content'] = '{"conversation":"changed older context"}'
+                    request['input'][3]['content'] = '{"conversation":"changed older context"}'
+                elif mutation == 'omit_tail':
+                    request['input'] = request['input'][:-1]
+                elif mutation in {'change_tail', 'change_request'}:
+                    tail = json.loads(request['input'][-1]['content'])
+                    if mutation == 'change_tail':
+                        tail['extra_author_context'] = 'unadmitted author direction'
+                    else:
+                        tail['request_now'] = 'A different current task'
+                    request['input'][-1]['content'] = json.dumps(tail)
+                elif mutation == 'extra_tail':
+                    request['input'].insert(-1, request['input'][-1])
+                elif mutation == 'move_tail':
+                    request['input'][-2:] = reversed(request['input'][-2:])
+                elif mutation == 'extra_frame':
+                    request['input'].insert(-1, dict(role='user', content='{"unadmitted":"extra context"}'))
+                elif mutation == 'frame_order':
+                    request['input'][0], request['input'][2] = request['input'][2], request['input'][0]
+                elif mutation == 'history_order':
+                    request['input'][3:5] = reversed(request['input'][3:5])
+                elif mutation == 'history_role':
+                    request['input'][3]['role'] = 'assistant'
+                elif mutation == 'frame_role':
+                    request['input'][0]['role'] = 'assistant'
                 else:
                     from application_state.agent_conversation.plan_writer_output_schema import native_output_format
                     from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
@@ -258,7 +293,8 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         with pytest.raises(ValueError, match='unique producing Build work decision'):
             type(turn.graph_context_execution).model_validate(raw)
     assert len(fenced) == 2
-    assert tampered == (['omit', 'change', 'discussion_only_format'] if discussion else ['omit', 'change'])
+    assert tampered == (['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role']
+                        + (['discussion_only_format'] if discussion else []))
     assert len(value.history) == turn_count
     assert value.history[0].turn_id == original.turn_id
     assert original.turn_id not in {pin.turn_id for pin in turn.graph_context_receipt.assembled_input.included_history}
@@ -270,10 +306,11 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     assert len(case.writer.calls) == before + 1
     request = json.loads(case.writer.calls[-1].content)
     assert request['reasoning']['effort'] == ('low' if discussion else 'none')
+    assert request['input'][-1] == retained.current_request_message(turn.graph_context_execution)
     if discussion:
         assert request['text']['format']['name'] != 'surface_native_evidence_selectors_v7'
         assert turn.completion.native_body_citations
-    assert request['input'][:turn_count * 2] == retained.dialogue_messages(turn.graph_context_execution)
+    assert request['input'][3:3 + turn_count * 2] == retained.dialogue_messages(turn.graph_context_execution)
     assert 'build_draft_context' not in case.request
     loaded = AgentConversationService().inspect_turn(world_id=case.world, turn_id=turn.turn_id)
     assert retained.admission(loaded.graph_context_execution) == value
@@ -308,13 +345,13 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         'decoded_rows': decoded_rows}, indent=2) + '\n')
 
 
-@pytest.mark.parametrize('revision,parent', [('0194', '0192'), ('0195', '0194'), ('0196', '0195')])
+@pytest.mark.parametrize('revision,parent', [('0194', '0192'), ('0195', '0194'), ('0196', '0195'), ('0197', '0196')])
 def test_old_reader_refuses_retained_context_database_before_decoding(application_state_dsn, monkeypatch, revision, parent):
     from importlib import import_module
     from application_state import cli
     from application_state.errors import ApplicationStateMigrationError
     name = {'0194': 'build_retained_conversation', '0195': 'build_discussion_context',
-            '0196': 'natural_page_title'}[revision]
+            '0196': 'natural_page_title', '0197': 'author_context_tail'}[revision]
     fence = import_module(f'application_state.migrations.versions.20261122_{revision}_{name}_fence')
     assert fence.down_revision == '20261122_' + parent
     cli.assert_at_head(dsn=application_state_dsn)
@@ -542,7 +579,7 @@ def test_retained_projection_preserves_external_links_fenced_literals_and_ordina
 def test_historical_retained_presentation_replays_but_cannot_authorize_new_dispatch():
     current, turns = fixture_closure(2)
     value = capture(current, turns)
-    assert value.presentation_policy == 'retained_conversation_semantic_v2'
+    assert value.presentation_policy == 'retained_conversation_semantic_v3'
     retained.require_current_presentation(NS(events=(value,)))
     historical = value.model_copy(update={'presentation_policy':'retained_conversation_full_v1'})
     wire = historical.model_dump_json()
@@ -612,3 +649,29 @@ def test_discussion_reuse_is_versioned_and_fresh_lookup_keeps_acquisition():
     assert type(value) is t.BuildPriorBodyEvidenceAdmittedV3
     assert t.BuildPriorBodyEvidenceAdmittedV3.model_validate_json(value.model_dump_json()) == value
     assert len(retained.dialogue_messages(NS(events=(value,)))) == 16
+
+
+def test_author_tail_keeps_every_prior_role_text_once_and_current_request_without_host_ids():
+    current, turns = fixture_closure(60)
+    turns[3].status = 'interrupted'
+    value = capture(current, turns)
+    execution = NS(events=(value,), policy=NS(action=NS(intent=NS(message='Create the Maelthor page.'))))
+    messages = retained.writer_messages(execution, layout_frames())
+    assert messages[:3] == layout_frames()
+    assert messages[3:-1] == retained.dialogue_messages(execution)
+    assert json.loads(messages[-1]['content']) == {'request_now': execution.policy.action.intent.message}
+    assert len(messages) == 3 + len(retained.dialogue_messages(execution)) + 1
+    texts = [json.loads(row['content'])['conversation'] for row in messages[3:-1] if row['role']=='user']
+    assert texts == [row.user_text for row in value.history]
+    assert str(current.conversation_id) not in json.dumps(messages)
+    assert str(turns[0].turn_id) not in json.dumps(messages)
+    retained.validate_dialogue_request(execution, {'input': messages})
+    for policy in ('retained_conversation_full_v1', 'retained_conversation_semantic_v2'):
+        historical = value.model_copy(update={'presentation_policy':policy})
+        old = NS(events=(historical,))
+        assert retained.current_request_message(old) is None
+        old_messages = retained.writer_messages(old, layout_frames())
+        assert old_messages == retained.dialogue_messages(old) + layout_frames()
+        retained.validate_dialogue_request(old, {'input': old_messages})
+        with pytest.raises(ValueError, match='replay-only'):
+            retained.require_current_presentation(old)

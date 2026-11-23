@@ -640,23 +640,28 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert inputs[:2] == [{"conversation": message}, {"conversation": ""}]
                     assert inputs[-1] == frame
                 else:
-                    from application_state.agent_conversation.retained_conversation import dialogue_messages
+                    from application_state.agent_conversation.retained_conversation import dialogue_messages, current_request_message
                     expected = dialogue_messages(self.adapter.turn.graph_context_execution)
                     if expected is None:
                         expected = [dict(role=role, content=json.dumps({"conversation": pair[role]}))
                             for pair in getattr(self.adapter, "build_frozen_history", ())
                             for role in ("user", "assistant")]
+                    current = current_request_message(self.adapter.turn.graph_context_execution)
+                    start = 3 if current is not None else 0
                     assert isinstance(body['input'], list)
-                    assert len(body['input']) == len(expected) + 3
-                    for row, wanted in zip(body['input'][:len(expected)], expected, strict=True):
+                    assert len(body['input']) == len(expected) + 3 + (current is not None)
+                    if current is not None:
+                        assert body['input'][-1] == current
+                    for row, wanted in zip(body['input'][start:start+len(expected)], expected, strict=True):
                         assert row['role'] == wanted['role']
                         assert json.loads(row['content']) == json.loads(wanted['content'])
-                    assert len(inputs) == len(expected) + 3
-                    assert inputs[:len(expected)] == [json.loads(row['content']) for row in expected]
-                    assert all(row['role'] == 'user' for row in body['input'][len(expected):])
-                    assert inputs[-3] == {"build_work": work}
-                    assert set(inputs[-2]) == {'lookups', 'ruleset', 'supports'}
-                    assert inputs[-1] == frame
+                    assert inputs[start:start+len(expected)] == [json.loads(row['content']) for row in expected]
+                    frames = body['input'][:3] if current is not None else body['input'][-3:]
+                    assert all(row['role'] == 'user' for row in frames)
+                    decoded = [json.loads(row['content']) for row in frames]
+                    assert decoded[0] == {"build_work": work}
+                    assert set(decoded[1]) == {'lookups', 'ruleset', 'supports'}
+                    assert decoded[2] == frame
             if self.adapter.submitted_intent.reviewed_step is not None:
                 from application_state.agent_conversation.reviewed_action import writer_scope,SCOPE_KEY
                 scope=writer_scope(self.adapter._broker_execution())

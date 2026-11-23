@@ -2580,7 +2580,7 @@ class BuildPriorBodyEvidenceAdmittedV2(BuildPriorBodyEvidenceAdmittedV1):
     attempt: int = Field(strict=True, ge=1)
     conversation_sequence: int = Field(strict=True, ge=1)
     pointer_revision: int = Field(strict=True, ge=0)
-    presentation_policy: Literal["retained_conversation_full_v1", "retained_conversation_semantic_v2"] = Field(
+    presentation_policy: Literal["retained_conversation_full_v1", "retained_conversation_semantic_v2", "retained_conversation_semantic_v3"] = Field(
         default="retained_conversation_full_v1",
         exclude_if=lambda value: value == "retained_conversation_full_v1")
     history: tuple[RetainedConversationTurnV1, ...]
