@@ -940,7 +940,7 @@ def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_cas
     assert updated.graph_context_execution.policy.max_provider_attempts > 0
 
 
-@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work"])
+@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work","authored_gap","proposal_gap","gap_only","retired_gap_field","unknown_limit_code","retired_reply_policy","forged_reply_policy","raw_reply_policy"])
 def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer(
     application_state_dsn,monkeypatch,tmp_path,source_case,mode,request,
 ):
@@ -1067,7 +1067,21 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
                 answer_segments.append(dict(kind='session_summary',text='Players want more exploration next time.',
                     selection_ids=[block['selection_id'] for block in source['text_blocks']]))
             output=dict(schema=evidence.get('answer_policy','dmb_surface_evidence_answer_v8'),
-                answer_segments=answer_segments,limitations=[],requested_detail_gaps=[])
+                answer_segments=answer_segments,limitations=[])
+            assert 'reply_limitations' not in evidence
+            base_schema = body['text']['format']['schema']
+            base_schema = base_schema.get('$defs', {}).get('Base', base_schema)
+            assert 'requested_detail_gaps' not in base_schema['properties']
+            if mode in {'authored_gap', 'proposal_gap', 'gap_only'}:
+                output['limitations'] = ['missing_requested_details']
+            if mode == 'proposal_gap':
+                output['answer_segments'] = [dict(kind='proposal', label='invented_idea', text='A possible direction for discussion.')]
+            if mode == 'gap_only':
+                output['answer_segments'] = []
+            if mode == 'retired_gap_field':
+                output['requested_detail_gaps'] = [{'question_phrase': 'stale earlier question'}]
+            if mode == 'unknown_limit_code':
+                output['limitations'] = ['not_a_limit_code']
             if mode=='rules':
                 rule=next(frame for frame in frames if 'ruleset' in frame)['supports'][0]
                 output=dict(kind='rules_answer',base_output=output,
@@ -1104,13 +1118,25 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             proof['source_frame']=play_source_frame(tuple(frames)).model_dump(mode='json',by_alias=True)
             return proof
         monkeypatch.setattr(plan_source_turn,'play_work_proof',forged)
-    if mode in {'unknown','writer_failure','source_failure','forged_work'}:
+    if mode == 'raw_reply_policy':
+        from application_state.agent_conversation import native_evidence_view
+        monkeypatch.setattr(native_evidence_view, 'semantic_frame', lambda host, **_options: host)
+    if mode in {'retired_reply_policy', 'forged_reply_policy'}:
+        from application_state.agent_conversation import plan_writer_output_schema
+        original_format = plan_writer_output_schema.native_output_format
+        def alternate_format(*args, **options):
+            if mode == 'retired_reply_policy':
+                return original_format(*args, **(options | {'generic_reply_limits': False}))
+            return original_format(*args, **options) | {'name': 'foreign_reply_schema'}
+        monkeypatch.setattr(plan_writer_output_schema, 'native_output_format', alternate_format)
+    if mode in {'unknown','writer_failure','source_failure','forged_work','retired_gap_field','unknown_limit_code',
+            'retired_reply_policy','forged_reply_policy','raw_reply_policy'}:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         with pytest.raises(AgentTurnServiceError):execute_agent_turn(request,**kwargs)
         kept=service.list_turns(world,wire.adapter.fence.turn.conversation_id)[-1]
         assert kept.status in {'interrupted','failed'} and kept.completion is None
         assert len(decisions.calls)==(0 if mode in {'source_failure','forged_work'} else 1)
-        assert len(wire.calls)==(1 if mode=='writer_failure' else 0)
+        assert len(wire.calls)==(1 if mode in {'writer_failure','retired_gap_field','unknown_limit_code'} else 0)
         if mode=='unknown':assert any(getattr(e,'outcome',None)=='outcome_unknown' for e in kept.graph_context_execution.events)
         trace=service.list_context_trace_attempts(world_id=world,turn_id=kept.turn_id)[-1]
         assert trace.capture_status!='recording'
@@ -1119,7 +1145,9 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         assert before==(len(decisions.calls),len(wire.calls))
         return
     response=execute_agent_turn(request,**kwargs)
-    assert response.answer.status=='ok'  and response.answer.text.startswith('Saved native note 🦉.')
+    assert response.answer.status=='ok'
+    if mode not in {'gap_only','proposal_gap'}:
+        assert response.answer.text.startswith('Saved native note 🦉.')
     delivered=response.rules_context.base_context if mode=='rules' else response.play_context
     assert type(delivered.receipt) is SurfaceNativeContextReceiptV1
     assert delivered.delivery_replay is False
@@ -1138,7 +1166,15 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     stored=AgentConversationService().list_turns(world,wire.adapter.turn.conversation_id)[-1]
     if mode=='rules':stored=stored.base_projection.turn
     assert stored.play_context_receipt==sub.play_context_receipt
-    assert stored.completion.answer_segments[0].source_kind=='play'
+    if mode in {'gap_only','proposal_gap','authored_gap'}:
+        limits = [row for row in stored.completion.answer_segments if row.kind == 'limitation']
+        assert limits and all(row.question_phrase is None for row in limits)
+    if mode == 'gap_only':
+        assert all(row.kind == 'limitation' for row in stored.completion.answer_segments)
+    elif mode == 'proposal_gap':
+        assert stored.completion.answer_segments[0].kind == 'proposal'
+    else:
+        assert stored.completion.answer_segments[0].source_kind=='play'
     # Exercise the actual saved-history consumer, not only execution replay.
     # Native object/source/mixed Play references must remain readable afterward.
     from starlette.requests import Request

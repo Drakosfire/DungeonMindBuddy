@@ -3,6 +3,7 @@ import asyncio
 from copy import deepcopy
 
 import pytest
+from application_state.agent_conversation.native_evidence_view import is_semantic_frame
 
 from application_state.agent_conversation.native_writer import (
     SCHEMA, LEGACY_SCHEMA, model_frame, model_work_frame, verify_input_records,
@@ -210,8 +211,7 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
     actual_frame = next(value for message in new['input']
         if isinstance(message.get('content'),str)
         for value in [json.loads(message['content'])]
-        if set(value) == {'input_status','user_question','native_body_evidence',
-            'native_statements','native_assertions'})
+        if is_semantic_frame(value))
     stored,grant=authorize(context,record,raw,actual_frame)
     accepted=verify_input_records(context,stored,grant,raw,**work)
     assert len(accepted.native_assertions)==len(writer.frame['native_assertions']['assertions'])
@@ -535,3 +535,123 @@ def test_play_retrieval_has_one_dialogue_location_and_rejects_divergent_host_cop
     for changed in [[],[dict(role='user',content='Substituted previous request.')]]:
         with pytest.raises(ValueError,match='actual retrieval parent'):
             NativePlayRetrievalDecisionInputV1(**(args|{'play_work':host|{'dialogue':changed}}))
+
+
+def test_fresh_native_reply_schema_does_not_require_a_question_phrase_echo():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from tests.test_surface_native_work_input import work_case
+    from tests.test_plan_writer_output_schema import rules
+    context, record, work = work_case('plan')
+    turn = SimpleNamespace(graph_context_receipt=context, graph_context_execution=record,
+        **{key: value for key, value in work.items() if key != 'work_proof'})
+    adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn), _broker_execution=lambda: record,
+        budget={'outputReserveTokens': 4096, 'contextLimitTokens': 128000})
+    writer = PlanJevWriter(adapter, work['work_proof'], SimpleNamespace(frame=rules, authoring=None))
+    schema = writer.output_format['schema']
+    base = schema.get('$defs', {}).get('Base', schema)
+    assert writer.generic_reply_limits is True
+    assert 'reply_limitations' not in writer.provider_frame
+    assert 'requested_detail_gaps' not in base['properties']
+    assert 'requested_detail_gaps' not in base['required']
+    assert base['properties']['limitations']['items']['enum'] == [
+        'missing_requested_details', 'partial_retrieval', 'unresolved_conflict']
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan'])
+@pytest.mark.parametrize('schema', [SCHEMA, LEGACY_SCHEMA])
+def test_current_reply_schema_cannot_revive_a_raw_host_evidence_carrier(published_lane, surface, schema):
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format, offered_generic_limits
+    from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+    from tests.test_plan_writer_output_schema import rules
+    context, record = published_case(surface, published_lane)
+    frame = model_frame(context, record, schema=schema)
+    work = work_submission(context, record)
+    host_work = model_work_frame(context, record, **work)
+    format = native_output_format(frame, model_rules_frame(rules()), host_work, generic_reply_limits=True)
+    assert offered_generic_limits(format)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=host_work, output_format=format))
+    stored, grant = authorize(context, record, raw, frame)
+    with pytest.raises(ValueError, match='require semantic native evidence'):
+        verify_input_records(context, stored, grant, raw, **work)
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan'])
+def test_generic_reply_schema_changes_presentation_without_adding_model_context(published_lane, surface):
+    from application_state.agent_conversation.native_evidence_view import semantic_frame, output_frame
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format, offered_generic_limits
+    from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+    from tests.test_plan_writer_output_schema import rules
+    context, record = published_case(surface, published_lane)
+    host = model_frame(context, record)
+    before = deepcopy(host)
+    provider = semantic_frame(host)
+    work = model_work_frame(context, record, **work_submission(context, record))
+    old = native_output_format(output_frame(host, provider), model_rules_frame(rules()), work)
+    current = native_output_format(output_frame(host, provider), model_rules_frame(rules()), work, generic_reply_limits=True)
+    assert host == before and provider == semantic_frame(host)
+    assert 'reply_limitations' not in provider
+    assert not offered_generic_limits(old) and offered_generic_limits(current)
+    expected = deepcopy(old)
+    del expected['schema']['properties']['requested_detail_gaps']
+    expected['schema']['required'].remove('requested_detail_gaps')
+    assert current == expected
+
+
+@pytest.mark.parametrize('question', [None, '', 'repeated repeated', 'Curly “quoted” wording.'])
+def test_current_limit_codes_do_not_invoke_historical_question_selector(monkeypatch, question):
+    from application_state.agent_conversation import source_writer_output as owner
+    monkeypatch.setattr(owner, 'gap_messages', lambda *args: pytest.fail('Fresh codes invoked historical phrase selection'))
+    limits = owner.project_surface_limitations(['missing_requested_details'], [], user_question=question,
+        derive_missing=True, host_partial=False, empty_answer=False, strict_gap_array=True, generic_codes_only=True)
+    assert len(limits) == 1 and limits[0].question_phrase is None
+    assert limits[0].text == owner.LIMITATIONS['missing_requested_details']
+
+
+def test_generic_limit_codes_reject_selectors_and_preserve_historical_specific_display():
+    from application_state.agent_conversation.source_writer_output import project_surface_limitations
+    options = dict(user_question='Describe the world.', derive_missing=True, host_partial=False,
+        empty_answer=False, strict_gap_array=True)
+    gaps = [{'question_phrase': 'the world'}]
+    old = project_surface_limitations(['missing_requested_details'], gaps, **options)
+    assert old[-1].question_phrase == 'the world'
+    with pytest.raises(ValueError, match='do not accept requested-detail selectors'):
+        project_surface_limitations(['missing_requested_details'], gaps, generic_codes_only=True, **options)
+    for invalid in [['unknown_code'], ['missing_requested_details', 'missing_requested_details']]:
+        with pytest.raises(ValueError):
+            project_surface_limitations(invalid, [], generic_codes_only=True, **options)
+
+
+@pytest.mark.parametrize('wrapped', [False, True])
+def test_generic_reply_schema_classifier_requires_a_known_unambiguous_positive_shape(wrapped):
+    from application_state.agent_conversation.plan_writer_output_schema import offered_generic_limits
+    from application_state.agent_conversation.native_plan_assertions import POLICY
+    base = dict(type='object', additionalProperties=False,
+        properties=dict(schema=dict(type='string', const=POLICY),
+            answer_segments=dict(type='array', items=dict(type='string')),
+            limitations=dict(type='array', items=dict(type='string', enum=[
+                'missing_requested_details', 'partial_retrieval', 'unresolved_conflict']))),
+        required=['schema', 'answer_segments', 'limitations'])
+    schema = base
+    if wrapped:
+        schema = dict(type='object', additionalProperties=False,
+            properties=dict(kind=dict(type='string', const='rules_answer'),
+                base_output=dict(anyOf=[{'$ref': '#/$defs/Base'}, {'type': 'null'}]),
+                rules_segments=dict(type='array'), ordered_refs=dict(type='array')),
+            required=['kind', 'base_output', 'rules_segments', 'ordered_refs'], **{'$defs': {'Base': base}})
+    valid = dict(type='json_schema', name='surface_native_evidence_selectors_v2', strict=True, schema=schema)
+    assert offered_generic_limits(valid)
+    invalid = [None, {}, valid | {'name': 'foreign'}, valid | {'strict': False}]
+    for malformed in [None, [], {'Base': None}]:
+        invalid.append(valid | {'schema': schema | {'$defs': malformed}})
+    for field, value in [('answer_segments', None), ('limitations', 'bad'), ('schema', None)]:
+        changed = deepcopy(valid)
+        target = changed['schema']['$defs']['Base'] if wrapped else changed['schema']
+        target['properties'][field] = value
+        invalid.append(changed)
+    changed = deepcopy(valid)
+    target = changed['schema']['$defs']['Base'] if wrapped else changed['schema']
+    target['required'].append('requested_detail_gaps')
+    invalid.append(changed)
+    for candidate in invalid:
+        assert not offered_generic_limits(candidate)

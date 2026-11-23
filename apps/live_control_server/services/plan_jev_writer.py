@@ -325,7 +325,7 @@ SOURCE_BACKED_DISCUSSION_RESPONSE = (
     'of flattening them into one unresolved summary. A draft\'s general open question does '
     'not itself retract a specific proposal in another supplied source. Explicit later '
     'author corrections still take precedence. Do not invent a fact to fill a gap: if the '
-    'available sources are insufficient, use the existing limitations and detail gaps. '
+    'available sources are insufficient, use the limitations offered by the response schema. '
     'No minimum factual claim is required.')
 
 RELATED_PAGE_RESPONSE = (
@@ -358,6 +358,7 @@ class PlanJevWriter:
         from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
         rule_frame = model_rules_frame(rules.frame())
         self.projection = None
+        self.generic_reply_limits = False
         if self.shared:
             from application_state.agent_conversation.native_writer import model_frame, model_work_frame
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
@@ -410,7 +411,9 @@ class PlanJevWriter:
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
-                format_version=format_version, execution=turn.graph_context_execution)
+                format_version=format_version, execution=turn.graph_context_execution, generic_reply_limits=True)
+            from application_state.agent_conversation.plan_writer_output_schema import offered_generic_limits
+            self.generic_reply_limits = offered_generic_limits(self.output_format)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)
@@ -480,6 +483,7 @@ class PlanJevWriter:
                 related_page_instructions=related_page_response
                     if self.provider_work.get('related_authored_pages', {}).get('pages') else None,
                 single_variant_base=single_variant_base,
+                generic_reply_limits=self.generic_reply_limits,
                 build_source_status=(type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
                                      and task in ('answer', 'build_discussion', 'scoped_discussion')))
             self.instructions = prompt.instructions
@@ -511,8 +515,9 @@ class PlanJevWriter:
                 from application_state.agent_conversation.native_writer import AUTHORING_GUIDANCE
                 from application_state.agent_conversation.native_plan_statements import INSTRUCTIONS as STATEMENT_INSTRUCTIONS
                 from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
-                from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
-                instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + BODY_INSTRUCTIONS.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
+                from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY, GENERIC_BODY_INSTRUCTIONS
+                native_body_instructions = GENERIC_BODY_INSTRUCTIONS if self.generic_reply_limits else BODY_INSTRUCTIONS
+                instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + native_body_instructions.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
                 from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
                 if SCOPE_KEY in self.work_frame:
                     instructions += '\n' + SCOPE_GUIDANCE
@@ -577,10 +582,14 @@ class PlanJevWriter:
             self.instructions += SUPPLIED_SOURCE_RESPONSE
         if self.shared and self.provider_work.get('build_work', {}).get('source_answer_policy') == 'typed_supplied_source_answer_v1':
             self.instructions += SOURCE_BACKED_DISCUSSION_RESPONSE
-        if self.shared and self.provider_work.get('build_work', {}).get('lore_limitation_policy') == 'validated_lore_review_generic_gaps_v1':
+        if self.shared and self.provider_work.get('build_work', {}).get('lore_limitation_policy') == 'validated_lore_review_generic_gaps_v1' and not self.generic_reply_limits:
             self.instructions += ('\nOptional requested_detail_gaps select phrases from the CURRENT user request only, '
                 'not an earlier dialogue turn. If no precise current phrase fits, return no specific gaps '
                 'and use a generic limitation code. Keep the useful requested page content and open questions.')
+        if self.generic_reply_limits:
+            self.instructions += ('\nRepresent reply-level evidence limitations with the supplied codes. '
+                'Do not return requested_detail_gaps or reproduce phrases from any user question. '
+                'A limitation may stand alone when the supplied evidence cannot support a useful fact.')
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '

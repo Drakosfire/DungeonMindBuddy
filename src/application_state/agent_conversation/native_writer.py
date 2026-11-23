@@ -153,6 +153,8 @@ class NativeWriterEvidence:
     supplied_source_references: bool = False
     typed_source_answer: bool = False
     lore_page_limitations: bool = False
+    generic_limitations: bool = False
+    semantic_evidence: bool = False
     variant_format: bool = False
     variant_edits: bool = False
     variant_visible_reply: bool = False
@@ -402,6 +404,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             or authorization.deduplicate_plan_recap_prose) and prose_work is None:
         raise ValueError('Plan compact prose markers require native Plan prose')
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'],prose_frame=prose_frame, prose_work=prose_work)
+    from .plan_writer_output_schema import offered_generic_limits
+    generic_reply_limits = offered_generic_limits(body.get('text', {}).get('format'))
     has_image = isinstance(body.get("input"), list) and proposal_packet_text(body) is not None
     from .native_execution import NativeBuildActionV1
     if isinstance(prefix.policy.action, NativeBuildActionV1):
@@ -428,6 +432,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         host = model_frame(receipt, prefix)
     else:
         host = model_frame(receipt, prefix, schema=frame.get('schema'))
+    semantic_evidence = is_semantic_frame(frame)
+    if generic_reply_limits and not semantic_evidence:
+        raise ValueError('Generic reply limitations require semantic native evidence')
     expected = host
     if is_semantic_frame(frame):
         project_build_images = isinstance(prefix.policy.action, NativeBuildActionV1)
@@ -480,6 +487,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         )
         if t.canonical_sha256(work_frame) != t.canonical_sha256(retained_work):
             raise ValueError('Native writer changed or omitted its exact surface work')
+    if generic_reply_limits and not (build_local or authored_local):
+        raise ValueError('Generic reply limitations require semantic surface work')
     from .native_execution import NativeWriterEstimatedBudgetV1
     if isinstance(execution.policy.writer_context_budget, NativeWriterEstimatedBudgetV1):
         # Trusted host estimation has the same boundary as controller accounting.
@@ -522,7 +531,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,
         supplied_source_references=supplied_source_references,typed_source_answer=typed_source_answer,
-        lore_page_limitations=lore_page_limitations,
+        lore_page_limitations=lore_page_limitations,generic_limitations=generic_reply_limits,
+        semantic_evidence=semantic_evidence,
         variant_format=variant_format,variant_edits=variant_edits,
         variant_visible_reply=format_name in {VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
         variant_witnesses=format_name in {VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},
