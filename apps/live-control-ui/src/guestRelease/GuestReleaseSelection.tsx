@@ -3,7 +3,7 @@ import { isSavedChoice } from "./savedChoice";
 
 type Field = { assertion_id: string; entity_id: string; kind: "name" | "classification" | "relationship"; value: string; predicate: string; target_id: string | null; temporal: string; basis: string; source_option_ids: string[] };
 type Source = { option_id: string; document_id: string; document_title: string; visibility: string; revision_n: number; sha256: string; start: number; end: number; excerpt: string; evidence_id: string; evidence_role: "support" | "context" };
-type Options = { graph_revision: string; fields: Field[]; sources: Source[]; source_options_truncated: boolean };
+type Options = { graph_revision: string; fields: Field[]; sources: Source[]; source_options_truncated: boolean; context_documents: { document_id: string; title: string }[]; next_offset: number | null };
 type Asset = { id: string; width: number; height: number; created_at: string };
 type Cursor = { before_time: string; before_id: string };
 
@@ -12,6 +12,8 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const [options, setOptions] = useState<Options | null>(null);
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [independentSources, setIndependentSources] = useState<Set<string>>(new Set());
+  const [contextDocument, setContextDocument] = useState("");
+  const [contextOffset, setContextOffset] = useState<number | null>(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState(false);
@@ -31,7 +33,7 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
   const [choiceOutcomes, setChoiceOutcomes] = useState<[string, string]>(["", ""]);
   const base = `/api/live/worlds/${encodeURIComponent(worldId)}/guest-releases`;
   async function load() {
-    setBusy(true); setError(null); setOptions(null); setChosen({}); setIndependentSources(new Set()); setPrepared(false);
+    setBusy(true); setError(null); setOptions(null); setChosen({}); setIndependentSources(new Set()); setContextDocument(""); setContextOffset(0); setPrepared(false);
     setExampleEnabled(false); setExampleTitle(""); setExampleBody(""); setExampleReferences(new Set()); setExampleImage(""); setExampleImageDescription("");
     setChoiceEnabled(false); setChoicePrompt(""); setChoiceLabels(["", ""]); setChoiceOutcomes(["", ""]);
     try {
@@ -39,6 +41,22 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       if (!response.ok) throw new Error("unavailable");
       setOptions(await response.json() as Options);
     } catch { setError("Could not load release options. Try again."); }
+    finally { setBusy(false); }
+  }
+  async function loadContext() {
+    if (!options || !contextDocument || contextOffset === null) return;
+    setBusy(true); setError(null);
+    try {
+      const response = await fetch(`${base}/selection-context`, { method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ document_id: contextDocument, offset: contextOffset }) });
+      if (!response.ok) throw new Error("unavailable");
+      const page = await response.json() as Options;
+      if (page.graph_revision !== options.graph_revision) throw new Error("changed");
+      setOptions(previous => previous && { ...previous, sources: [...previous.sources, ...page.sources.filter(source =>
+        !previous.sources.some(existing => existing.document_id === source.document_id && existing.revision_n === source.revision_n
+          && existing.evidence_id === source.evidence_id && existing.start === source.start && existing.end === source.end))] });
+      setContextOffset(page.next_offset);
+    } catch { setError("Could not load excerpts. The Graph or source may have changed; reload selection options."); }
     finally { setBusy(false); }
   }
   async function loadImages(cursor?: Cursor) {
@@ -130,7 +148,11 @@ export function GuestReleaseSelection({ worldId, onPrepared }: { worldId: string
       </li>)}</ul>
       <fieldset><legend>Additional source excerpts</legend>
         <p>Choose individual context excerpts to include. These do not establish a Graph fact or automatically support a saved scene.</p>
-        {options.sources.filter(source => source.evidence_role === "context").map(source => <label key={source.option_id}>
+        <label>Source document <select value={contextDocument} onChange={event => { setContextDocument(event.target.value); setContextOffset(0); }}>
+          <option value="">Choose a document</option>{(options.context_documents ?? []).map(item => <option key={item.document_id} value={item.document_id}>{item.title}</option>)}
+        </select></label>
+        <button type="button" disabled={busy || !contextDocument || contextOffset === null} onClick={loadContext}>Load source excerpts</button>
+        {options.sources.filter(source => source.evidence_role === "context" && (source.document_id === contextDocument || independentSources.has(source.option_id))).map(source => <label key={source.option_id}>
           <input type="checkbox" disabled={busy} checked={independentSources.has(source.option_id)} onChange={event => {
             const checked = event.target.checked; setIndependentSources(previous => { const next = new Set(previous); if (checked) next.add(source.option_id); else next.delete(source.option_id); return next; });
           }} /> {source.document_title} · {source.visibility === "internal" ? "private source" : "player-safe source"} · context, not direct support

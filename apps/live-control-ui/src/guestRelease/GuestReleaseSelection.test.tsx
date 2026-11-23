@@ -7,17 +7,18 @@ afterEach(() => vi.unstubAllGlobals());
 
 it("requires explicit fields and evidence before staging the exact selection", async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const body = String(input).endsWith("/selection-media/list") ? { assets: [{ id: "image", width: 2, height: 2, created_at: "2026-11-20T00:00:00Z" }], next: null }
+    const body = String(input).endsWith("/selection-context") ? { graph_revision: "rev", next_offset: null, sources: [
+      { option_id: "recap", document_id: "recap-doc", document_title: "Recap", visibility: "internal", revision_n: 1,
+        sha256: "c".repeat(64), start: 0, end: 8, excerpt: "outcomes", evidence_id: "recap-evidence", evidence_role: "context" }] }
+      : String(input).endsWith("/selection-media/list") ? { assets: [{ id: "image", width: 2, height: 2, created_at: "2026-11-20T00:00:00Z" }], next: null }
       : init?.method === "POST" ? { release_id: "candidate", digest: "digest" } : {
-      graph_revision: "rev", fields: [
+      graph_revision: "rev", context_documents: [{ document_id: "recap-doc", title: "Recap" }], fields: [
         { assertion_id: "name", entity_id: "entity", kind: "name", value: "Sizzek", predicate: "dnd5e:name", target_id: null, temporal: "unknown", basis: "inferred", source_option_ids: ["option"] },
         { assertion_id: "kind", entity_id: "entity", kind: "classification", value: "character", predicate: "dnd5e:classification", target_id: null, temporal: "unknown", basis: "inferred", source_option_ids: ["option2"] },
       ], sources: [{ option_id: "option", document_id: "doc", document_title: "Apprentice", visibility: "internal", revision_n: 1,
         sha256: "a".repeat(64), start: 0, end: 4, excerpt: "clue", evidence_id: "evidence", evidence_role: "context" },
         { option_id: "option2", document_id: "doc2", document_title: "Carnival", visibility: "internal", revision_n: 1,
-          sha256: "b".repeat(64), start: 0, end: 5, excerpt: "other", evidence_id: "evidence2", evidence_role: "support" },
-        { option_id: "recap", document_id: "recap-doc", document_title: "Recap", visibility: "internal", revision_n: 1,
-          sha256: "c".repeat(64), start: 0, end: 8, excerpt: "outcomes", evidence_id: "recap-evidence", evidence_role: "context" }],
+          sha256: "b".repeat(64), start: 0, end: 5, excerpt: "other", evidence_id: "evidence2", evidence_role: "support" }],
     };
     return new Response(JSON.stringify(body), { status: 200 });
   });
@@ -43,6 +44,9 @@ it("requires explicit fields and evidence before staging the exact selection", a
   fireEvent.load(image);
   await user.click(imageChoice);
   await user.click(screen.getByRole("checkbox", { name: "Include an owner-authored saved example" }));
+  await user.selectOptions(screen.getByLabelText("Source document"), "recap-doc");
+  await user.click(screen.getByRole("button", { name: "Load source excerpts" }));
+  expect(await screen.findByText("outcomes")).toBeInTheDocument();
   await user.click(screen.getByRole("checkbox", { name: /Recap · private source · context/ }));
   expect(button).toBeDisabled();
   await user.type(screen.getByLabelText("Example title"), "Saved scene");
@@ -68,7 +72,7 @@ it("requires explicit fields and evidence before staging the exact selection", a
   await user.click(button);
   expect(await screen.findByRole("status")).toHaveTextContent("Copy prepared");
   expect(prepared).toHaveBeenCalledOnce();
-  const posted = fetchMock.mock.calls.find(([input, init]) => init?.method === "POST" && !String(input).endsWith("/selection-media/list"));
+  const posted = fetchMock.mock.calls.find(([input, init]) => init?.method === "POST" && !String(input).endsWith("/selection-media/list") && !String(input).endsWith("/selection-context"));
   expect(JSON.parse(String(posted?.[1]?.body))).toMatchObject({ graph_revision: "rev", nodes: [{ entity_id: "entity",
     name_assertion_id: "name", kind_assertion_id: "kind", name_source_index: 0, kind_source_index: 1 }],
     sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }, { document_id: "doc2" },

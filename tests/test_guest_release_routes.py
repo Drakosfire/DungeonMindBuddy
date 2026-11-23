@@ -32,7 +32,7 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
     routes = {key: value for key, value in HOSTED_WORLD_SCOPE_RESOLVERS.items()
               if value is guest_releases.resolve_hosted_guest_release_world}
-    assert len(routes) == 12
+    assert len(routes) == 13
     hosted_auth.install_hosted_request_boundary(app, world_scope_resolvers=routes)
     async def principal(request):
         subject = request.headers.get("x-test-subject")
@@ -51,6 +51,16 @@ def test_owner_routes_fail_closed_and_require_owner(monkeypatch):
     response = request("GET", path, headers={"x-test-subject": "owner"})
     assert response.status_code == 200 and response.json() == {"public_id": None, "version": 0}
     assert response.headers["cache-control"] == "no-store"
+    context = "/api/live/worlds/world/guest-releases/selection-context"
+    body = {"document_id": str(uuid4()), "offset": 0}
+    headers = {"x-test-subject": "owner", "origin": "https://buddy.example"}
+    monkeypatch.setattr(guest_releases, "selection_options", lambda **_: {"graph_revision": "rev", "fields": [], "sources": []})
+    assert request("POST", context, json=body).status_code == 401
+    assert request("POST", context, json=body, headers={"x-test-subject": "other", "origin": "https://buddy.example"}).status_code == 403
+    response = request("POST", context, json=body, headers=headers)
+    assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+    assert request("POST", context, json={**body, "offset": -1}, headers=headers).status_code == 422
+    assert request("POST", context, json=body, headers={"x-test-subject": "owner", "origin": "https://evil.example"}).status_code == 403
     options = "/api/live/worlds/world/guest-releases/selection-options"
     monkeypatch.setattr(guest_releases, "selection_options", lambda **_: {"graph_revision": "rev", "fields": [], "sources": []})
     assert request("GET", options).status_code == 401
@@ -172,3 +182,40 @@ def test_inventory_denies_inflight_ownership_change(application_state_dsn, monke
     assert response.status_code in (404, 409)
     assert response.headers["cache-control"] == "no-store"
     assert b"new owner's private" not in response.content
+
+
+def test_independent_context_pagination_uses_exact_owner_source(monkeypatch):
+    from apps.live_control_server.services import guest_release_selection as selection
+    document = uuid4()
+    world = "world"
+    text = "\n".join(f"Line {index}" for index in range(205))
+    evidence = SimpleNamespace(evidence_role="context")
+    parsed = SimpleNamespace(get_evidence=lambda key: evidence if key == "ev" else None)
+    access = SimpleNamespace(parsed=parsed)
+    binding = SimpleNamespace(native_world_id="native")
+    head = SimpleNamespace(head_revision_id="revision")
+    source = SimpleNamespace(origin=SimpleNamespace(namespace="dungeonbuddy.workspace-document-registry",
+        object_id=str(document), revision_id="registry-revision:1"),
+        source_revision=SimpleNamespace(content_sha256="a" * 64), evidence_ref_ids=["ev"])
+    catalog = SimpleNamespace(complete=True, sources=[source])
+    page = SimpleNamespace(page=SimpleNamespace(status="active", object_revision=1, title="Recap"),
+        metadata=SimpleNamespace(visibility_state="internal"),
+        revision=SimpleNamespace(content_sha256="a" * 64, revision_n=1, markdown=text))
+    monkeypatch.setattr(selection, "resolve_managed_world_binding", lambda _: binding)
+    monkeypatch.setattr(selection.native_registry_source, "read_repository", lambda: SimpleNamespace(get_head=lambda _: head))
+    monkeypatch.setattr(selection, "read_owner_graph", lambda **_: (binding, None,
+        SimpleNamespace(listing=SimpleNamespace(admitted_assertion_ids=[])), access))
+    monkeypatch.setattr(selection, "list_admitted_native_text_sources", lambda *_, **__: catalog)
+    monkeypatch.setattr(selection, "committed_page", lambda *_, **__: page)
+    monkeypatch.setattr(selection, "open_admitted_native_text", lambda *_: SimpleNamespace(status="available", body_text=text,
+        span_start_byte=0, span_end_byte=len(text.encode())))
+    monkeypatch.setattr(selection, "selected_page_excerpt", lambda **kwargs: ({"id": "local", "text": kwargs["expected_excerpt"]}, ("local",) * 9))
+    monkeypatch.setattr(selection, "verify_source_citation", lambda **_: None)
+    inventory = selection.selection_options(world_id=world)
+    assert inventory["sources"] == [] and inventory["context_documents"] == [{"document_id": str(document), "title": "Recap"}]
+    pages = [selection.selection_options(world_id=world, context_document_id=str(document), offset=offset)
+             for offset in (0, 100, 200)]
+    assert [len(page["sources"]) for page in pages] == [100, 100, 5]
+    assert [page["next_offset"] for page in pages] == [100, 200, None]
+    assert [page["sources"][0]["excerpt"] for page in pages] == ["Line 0", "Line 100", "Line 200"]
+    assert selection.selection_options(world_id=world, context_document_id=str(uuid4()))["sources"] == []

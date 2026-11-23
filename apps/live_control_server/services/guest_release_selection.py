@@ -33,7 +33,7 @@ def _context_ranges(body: str, start: int, end: int):
             yield start + match.start() + left, start + match.start() + right
 
 
-def selection_options(*, world_id: str) -> dict:
+def selection_options(*, world_id: str, context_document_id: str | None = None, offset: int = 0) -> dict:
     """Inspect the current owner Graph and return selectable exact values."""
     binding = resolve_managed_world_binding(world_id)
     repo = native_registry_source.read_repository()
@@ -70,20 +70,38 @@ def selection_options(*, world_id: str) -> dict:
             continue
         assertions.append((assertion, kind, value))
         evidence_ids.update(assertion.metadata.evidence_ref_ids)
-    # Keep assertion evidence first: a long context document must not consume
-    # the bounded inventory before its Graph fields can be selected.
     catalog = list_admitted_native_text_sources(access)
-    independent_ids = {identity for source in catalog.sources for identity in source.evidence_ref_ids
-                       if identity not in evidence_ids
-                       and (evidence := access.parsed.get_evidence(identity)) is not None
+    catalog_complete = catalog.complete
+    documents = {}
+    independent_ids = set()
+    for source in catalog.sources:
+        origin = source.origin
+        if origin is None or origin.namespace != "dungeonbuddy.workspace-document-registry":
+            continue
+        try:
+            document_id = str(UUID(origin.object_id))
+            page = committed_page(document_id, world_id=world_id)
+            if (page.revision is None or page.page.status != "active"
+                or page.metadata.visibility_state not in {"internal", "player_safe"}
+                or origin.revision_id != f"registry-revision:{page.page.object_revision}"
+                or page.revision.content_sha256 != source.source_revision.content_sha256):
+                continue
+        except (ValueError, ApplicationStateError):
+            continue
+        context_ids = {identity for identity in source.evidence_ref_ids
+                       if (evidence := access.parsed.get_evidence(identity)) is not None
                        and evidence.evidence_role == "context"}
+        if context_ids:
+            documents[document_id] = page.page.title
+            if document_id == context_document_id:
+                independent_ids.update(context_ids)
     if len(evidence_ids | independent_ids) > 1000:
         raise GuestNativeGraphError("Graph has too much evidence for release selection")
     sources = []
     by_evidence = {}
     truncated = False
     scanned = 0
-    for evidence_id in [*sorted(evidence_ids), *sorted(independent_ids)]:
+    for evidence_id in sorted(independent_ids if context_document_id else evidence_ids):
         evidence = access.parsed.get_evidence(evidence_id)
         if evidence is None or evidence.evidence_role not in {"support", "context"}:
             continue
@@ -117,7 +135,9 @@ def selection_options(*, world_id: str) -> dict:
             candidates = [(start, end)]
         for selected_start, selected_end in candidates:
             scanned += 1
-            if scanned > 2000:
+            if context_document_id and scanned <= offset:
+                continue
+            if scanned > (offset + 100 if context_document_id else 2000):
                 truncated = True
                 break
             text = opened.body_text[selected_start:selected_end]
@@ -152,4 +172,7 @@ def selection_options(*, world_id: str) -> dict:
             "target_id": assertion.value.entity_id if kind == "relationship" else None,
             "temporal": assertion.metadata.temporal_scope.kind, "basis": assertion.metadata.epistemic_basis,
             "source_option_ids": eligible})
-    return {"graph_revision": revision_id, "fields": fields, "sources": sources, "source_options_truncated": truncated or not catalog.complete}
+    return {"graph_revision": revision_id, "fields": fields, "sources": sources,
+            "context_documents": [{"document_id": key, "title": value} for key, value in sorted(documents.items(), key=lambda item: (item[1], item[0]))],
+            "next_offset": offset + 100 if context_document_id and truncated else None,
+            "source_options_truncated": truncated or not catalog_complete}

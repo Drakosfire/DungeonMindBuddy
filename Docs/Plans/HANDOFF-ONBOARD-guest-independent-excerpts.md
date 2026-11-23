@@ -47,3 +47,12 @@ reach the requested document without starving Graph options, then verify its
 runtime and the owner/withdrawal boundary. Python syntax and diff whitespace
 are the only checks performed so far; frontend and backend behavior have not
 been qualified.
+
+Lease revision: bounded source-targeted discovery requires one owner-only POST
+route and its exact hosted World resolver. This adds `guest_releases.py`, the
+single resolver registration in `main.py`, and mounted route tests to the write
+set. It does not broaden anonymous exceptions or enable release switches.
+The route captures and rechecks the owner generation and uses the same Core
+view and source-binding checks as the existing owner inventory. Source pages
+are limited to 100 candidate lines per request; the client must reject a changed
+Graph revision and preparation still revalidates exact selected bytes.
