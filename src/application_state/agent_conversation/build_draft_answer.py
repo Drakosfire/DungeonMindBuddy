@@ -259,7 +259,7 @@ def validate_packet(packet, turn, auth):
         raise ValueError("Writer working draft was not included in its producing envelope")
 
 
-def normalize_native_segment(row, *, draft_record, saved_sections, related_pages, source_basis, index):
+def normalize_native_segment(row, *, draft_record, saved_sections, related_pages, source_basis, index, supplied_source_references=False):
     """Build work output through actual saved/draft owners, without a legacy packet."""
     from .source_writer_output import project_saved_claim
     from .source_quote_binding import validate_selected_quotes, CURRENT_POLICY
@@ -273,16 +273,26 @@ def normalize_native_segment(row, *, draft_record, saved_sections, related_pages
     if kind=='related_page_claim':
         from .build_related_pages import project_claim
         segment=dict(row)
+        has_quotes = 'supporting_quotes' in segment
         quotes=segment.pop('supporting_quotes',None)
-        validate_selected_quotes([segment.get('read_id')],quotes,
-            {str(read.read_id):read.markdown for read in related_pages},policy=CURRENT_POLICY,multiple=True)
+        if supplied_source_references:
+            if has_quotes:
+                raise ValueError('Supplied source references cannot carry regenerated quotes')
+        else:
+            validate_selected_quotes([segment.get('read_id')],quotes,
+                {str(read.read_id):read.markdown for read in related_pages},policy=CURRENT_POLICY,multiple=True)
         return project_claim(segment,related_pages),None
     if kind=='saved_source_claim':
         segment=dict(row)
+        has_quotes = 'supporting_quotes' in segment
         quotes=segment.pop('supporting_quotes',None)
         sections={str(read.read_id):read for read in saved_sections}
-        validate_selected_quotes(segment.get('section_read_ids'),quotes,
-            {key:read.text for key,read in sections.items()},policy=CURRENT_POLICY)
+        if supplied_source_references:
+            if has_quotes:
+                raise ValueError('Supplied source references cannot carry regenerated quotes')
+        else:
+            validate_selected_quotes(segment.get('section_read_ids'),quotes,
+                {key:read.text for key,read in sections.items()},policy=CURRENT_POLICY)
         return project_saved_claim(segment,sections,source_basis.content_sha256,index=index)
     raise ValueError('Unknown native Build work segment')
 
@@ -317,4 +327,13 @@ def native_variants(frame, prose, *, local=False):
         variants.append(_object({'kind':_literal('related_page_claim'),'text':prose,
             'read_id':_enum(select(row['read_id']) for row in related),
             'supporting_quotes':_array(prose,nonempty=True)}))
+    if frame.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1':
+        for variant in variants:
+            properties = variant['properties']
+            if properties['kind'].get('const') in {'saved_source_claim', 'related_page_claim'}:
+                del properties['supporting_quotes']
+                variant['required'].remove('supporting_quotes')
+                if properties['kind'].get('const') == 'related_page_claim':
+                    properties['read_id']['description'] = ('Select the ONE supplied page supporting every factual '
+                        'clause in this segment. Split claims from different pages into separate segments.')
     return variants
