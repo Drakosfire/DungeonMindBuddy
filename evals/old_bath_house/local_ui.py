@@ -16,7 +16,7 @@ async def app(scope, receive, send):
             if path.startswith("/assets/") and requested.is_file():
                 await FileResponse(requested)(scope, receive, send)
                 return
-            if path in {"/", "/statblock", "/combat", "/plan", "/play"}:
+            if path in {"/", "/build", "/statblock", "/combat", "/plan", "/play"}:
                 await FileResponse(_DIST / "index.html")(scope, receive, send)
                 return
     await buddy(scope, receive, send)

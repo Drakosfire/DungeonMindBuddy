@@ -7,6 +7,10 @@ const { measurePlay } = require('./play.cjs');
 
 async function runPinnedAssets(page, fixture, evidence) {
   const portrait = await bindSavedPortrait(page, fixture, chooseLibraryPortrait);
+  await runEncounter(page, fixture, portrait, evidence);
+}
+
+async function runEncounter(page, fixture, portrait, evidence) {
   evidence.timings_ms.portrait_binding = portrait.elapsedMs;
   evidence.evidence.portrait_operation_id = portrait.operationId;
 
@@ -33,4 +37,4 @@ async function runPinnedAssets(page, fixture, evidence) {
   Object.assign(evidence.evidence, result.evidence);
 }
 
-module.exports = { runPinnedAssets };
+module.exports = { runPinnedAssets, runEncounter };

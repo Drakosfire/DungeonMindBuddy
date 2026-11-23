@@ -55,17 +55,38 @@ def build(pins, *, exports, origin, state, isolation):
     )
 
 
+def with_live_grounding(data, grounding, grounding_sha256, core_head):
+    from .live_sources import live_manifest, read_grounding
+
+    read_grounding(grounding, grounding_sha256)
+    live = live_manifest(core_head)
+    digest = source_fixture_digest(live, {
+        "pinned_assets": data["sourceFixtureDigest"],
+        "grounding": grounding_sha256,
+        "portrait_handoff": "preview_then_bind_saved_portrait",
+    })
+    return dict(data, live=live, sourceFixtureDigest=digest)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exports", required=True, type=Path)
     parser.add_argument("--origin", required=True)
     parser.add_argument("--state", required=True, type=Path)
     parser.add_argument("--isolation", required=True, type=Path)
+    parser.add_argument("--live-grounding", type=Path)
+    parser.add_argument("--live-grounding-sha256")
+    parser.add_argument("--live-core-head")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     pins, _ = read(Path(__file__).with_name("source-pins.json"))
     isolation, _ = read(args.isolation)
     data = build(pins, exports=args.exports, origin=args.origin, state=args.state, isolation=isolation)
+    live_args = (args.live_grounding, args.live_grounding_sha256, args.live_core_head)
+    if any(live_args):
+        if not all(live_args):
+            parser.error("Live manifest requires grounding export, its SHA-256 and the Graph head")
+        data = with_live_grounding(data, *live_args)
     body = json.dumps(data, sort_keys=True, indent=2).encode() + b"\n"
     with args.output.open("xb") as stream:
         stream.write(body)

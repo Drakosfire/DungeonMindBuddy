@@ -8,7 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 
 
-def seed(path, digest, project, pins, lineage):
+def seed(path, digest, project, pins, lineage, *, original=None):
     endpoint = os.environ.get("FIRESTORE_EMULATOR_HOST", "")
     if not re.fullmatch(r"127\.0\.0\.1:[0-9]+", endpoint):
         raise ValueError("Statblock seeding requires a loopback Firestore emulator")
@@ -24,6 +24,8 @@ def seed(path, digest, project, pins, lineage):
 
     boss = pins["boss"]
     supplied = [*json.loads(data)["revisions"], lineage["original"]]
+    if original is not None:
+        supplied.append(original)
     revisions = {
         (row["statblock_id"], row["revision_id"]): StatblockRevisionResourceV1.model_validate(row)
         for row in supplied
@@ -32,6 +34,11 @@ def seed(path, digest, project, pins, lineage):
         boss["baseLocator"], boss["publishedPortraitLocator"],
         pins["minion"]["originalLocator"], pins["minion"]["locator"],
     )
+    if original is not None:
+        from .live_sources import ORIGINAL_MEAT_MIND
+
+        original_pin = dict(zip(("statblock_id", "revision_id", "definition_digest"), ORIGINAL_MEAT_MIND))
+        expected = (*expected, original_pin)
     if len(supplied) != len(expected) or len(revisions) != len(expected):
         raise ValueError("Unexpected revision inventory")
     for locator in expected:
@@ -48,7 +55,10 @@ def seed(path, digest, project, pins, lineage):
     client = Client(project=project, credentials=AnonymousCredentials())
     batch = client.batch()
     collection = client.collection(STATBLOCKS_COLLECTION)
-    for locator in (boss["baseLocator"], pins["minion"]["locator"]):
+    heads = (boss["baseLocator"], pins["minion"]["locator"])
+    if original is not None:
+        heads = (*heads, original_pin)
+    for locator in heads:
         revision = revisions[locator["statblock_id"], locator["revision_id"]]
         document = collection.document(revision.statblock_id)
         batch.create(document, _dump(StatblockResourceV1(
@@ -67,12 +77,21 @@ def main():
     parser.add_argument("--emulator-project", required=True)
     parser.add_argument("--lineage", type=Path, required=True)
     parser.add_argument("--lineage-sha256", required=True)
+    parser.add_argument("--live-grounding", type=Path)
+    parser.add_argument("--live-grounding-sha256")
     args = parser.parse_args()
     pins = json.loads(Path(__file__).with_name("source-pins.json").read_text())
     from .restore_app import revision_lineage
 
     lineage = revision_lineage(args.lineage, args.lineage_sha256, pins)
-    seed(args.assets, args.assets_sha256, args.emulator_project, pins, lineage)
+    if bool(args.live_grounding) != bool(args.live_grounding_sha256):
+        parser.error("--live-grounding and --live-grounding-sha256 must be supplied together")
+    original = None
+    if args.live_grounding:
+        from .live_sources import read_grounding
+
+        original = read_grounding(args.live_grounding, args.live_grounding_sha256)["statblock_revision"]
+    seed(args.assets, args.assets_sha256, args.emulator_project, pins, lineage, original=original)
 
 
 if __name__ == "__main__":

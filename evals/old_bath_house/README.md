@@ -55,3 +55,31 @@ Only runs with all required correctness checks and phase measurements enter
 timing distributions. Rejections remain visible. Warm and cold conditions
 and mismatched fixture digests are reported separately. A percentile is
 omitted when the sample count is too small to distinguish it from the maximum.
+
+## Live providers
+
+The live replay uses the same exact Buddy image and signed-in browser, plus
+pinned Old Bath House and Corrupted Edge source revisions, the original
+Meat Mind statblock, and a read-only copy of the relevant Graph. Supply
+OpenAI, Jev and fal credentials through the local operator environment.
+Pass `--live-grounding`, `--live-grounding-sha256` and `--live-core-head`
+to `make_fixture`. Restore the scoped source-page rows into the disposable
+App database and seed the exact original Meat Mind revision in the
+disposable statblock service.
+
+```sh
+python -m evals.old_bath_house.live_sources \
+  --grounding /path/to/live-source-rows.json --sha256 GROUNDING_SHA256 \
+  --isolation /path/to/isolation.json
+```
+Set `DUNGEONBUDDY_JEV_TOKENIZER_FILE` to the exact tokenizer asset required by the
+runtime. Portrait generation ends when the browser decodes the private
+preview. The replay then binds the existing reviewed portrait to the new
+statblock and records both asset IDs. No CDN upload is needed.
+
+The browser checks the visible and terminal replies, confirms a distinct
+statblock variant, and follows that variant and the saved portrait through
+Plan and Play. A successful live run must also match the server's provider
+trace to the browser turns. It applies the same exact-revision and explicit
+combat-start checks as the pinned-assets replay. Keep incomplete attempts
+as diagnostics. They do not enter the live baseline.

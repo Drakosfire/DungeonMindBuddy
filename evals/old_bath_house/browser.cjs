@@ -3,7 +3,10 @@
 const assert = require('node:assert/strict');
 const { createHash, randomUUID } = require('node:crypto');
 const { readFileSync, writeFileSync } = require('node:fs');
-const { runPinnedAssets } = require('./pinned.cjs');
+const { runPinnedAssets, runEncounter } = require('./pinned.cjs');
+const { runLiveTurns } = require('./live_turns.cjs');
+const { confirmVariant, generatePortrait } = require('./live_artifacts.cjs');
+const { bindSavedPortrait, chooseLibraryPortrait } = require('./portrait.cjs');
 
 async function main() {
   const [fixturePath, fixtureDigest, output] = process.argv.slice(2);
@@ -25,7 +28,7 @@ async function main() {
   });
   const evidence = {
     run_id: randomUUID(),
-    track: 'pinned-assets',
+    track: fixture.live ? 'live-provider' : 'pinned-assets',
     fixture_digest: fixture.sourceFixtureDigest,
     run_manifest_digest: fixtureDigest,
     conditions: 'fresh-browser-context',
@@ -68,7 +71,35 @@ async function main() {
         response_end_ms: requestStart >= 0 && responseEnd >= requestStart ? responseEnd - requestStart : null,
       });
     });
-    await runPinnedAssets(page, fixture, evidence);
+    if (fixture.live) {
+      await runLiveTurns(page, fixture, evidence, checkpoint => {
+        writeFileSync(output + '.checkpoint', JSON.stringify(checkpoint), { mode: 0o600 });
+      });
+      const variant = await confirmVariant(page, fixture, evidence);
+      const generated = await generatePortrait(page, fixture, variant, evidence);
+      assert.notEqual(generated.asset_id, fixture.boss.assetId);
+      evidence.evidence.portrait_handoff = {
+        generated_preview_asset_id: generated.asset_id,
+        saved_portrait_asset_id: fixture.boss.assetId,
+      };
+      const variantUrl = new URL(variant.url);
+      const liveFixture = {
+        ...fixture,
+        boss: {
+          ...fixture.boss,
+          name: variant.name,
+          conversationId: variantUrl.searchParams.get('conversation'),
+          turnId: variantUrl.searchParams.get('turn'),
+          reviewId: variantUrl.searchParams.get('variantReview'),
+          baseLocator: variant.locator,
+        },
+      };
+      const portrait = await bindSavedPortrait(page, liveFixture, chooseLibraryPortrait);
+      evidence.checks.live_preview_and_saved_portrait = true;
+      await runEncounter(page, liveFixture, portrait, evidence);
+    } else {
+      await runPinnedAssets(page, fixture, evidence);
+    }
   } catch (error) {
     evidence.failures.push(String(error.message));
     if (page) {
@@ -76,6 +107,16 @@ async function main() {
         label: node.querySelector('summary')?.textContent, open: node.open,
       }))).catch(() => []);
       evidence.evidence.disclosure_states = states;
+      evidence.evidence.visible_alerts = await page.getByRole('alert').allTextContents().catch(() => []);
+      if (fixture.live) {
+        evidence.evidence.visible_turns = await page.locator('article[data-turn-id]').evaluateAll(nodes => (
+          nodes.map(node => ({
+            turn_id: node.dataset.turnId,
+            class_name: node.className,
+            assistant_visible: Boolean(node.querySelector('.world-plan-agent-conversation__message--assistant')?.getClientRects().length),
+          }))
+        )).catch(() => []);
+      }
     }
     process.exitCode = 1;
   } finally {
