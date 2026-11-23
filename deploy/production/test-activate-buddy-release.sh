@@ -19,6 +19,7 @@ printf -v staged '%040d' 5
 printf -v staged_id 'sha256:%064d' 5
 printf -v staged_alias '%040d' 6
 export obsolete obsolete_id referenced referenced_id
+export buddy_cache=kawf9lmjnqr7xnpceypatjkyx
 mkdir -p "$scratch/releases" "$scratch/bin"
 sed -e "s|/etc/buddy-deploy|$scratch|" \
     -e "s|/run/lock/buddy-production-deploy.lock|$scratch/lock|" \
@@ -65,6 +66,17 @@ cat > "$scratch/bin/docker" <<'STUB'
 #!/usr/bin/env bash
 set -eu
 case "$1 $2" in
+  'buildx du')
+    [[ "$*" == *"--builder default --filter id=$buddy_cache"* ]] || exit 101
+    if [[ ! -e "$TEST_ROOT/cache-removed" ]]; then
+      printf '%s %s %s %s\n' "$buddy_cache" "${CACHE_SHARED:-false}" "${CACHE_RECLAIMABLE:-true}" \
+        "${CACHE_DESCRIPTION:-COPY scripts/prepare_patched_hermes.py}"
+    fi ;;
+  'buildx prune')
+    [[ "$*" == "buildx prune --builder default --force --filter id=$buddy_cache --filter shared!=true --filter description~=prepare_patched_hermes[.]py|patches/hermes-agent" ]] || exit 102
+    [[ $(cat "$TEST_ROOT/receipt") == "BUDDY_LIVE $candidate $candidate_id" ]] || exit 103
+    if flock -n "$TEST_ROOT/lock" true; then exit 104; fi
+    touch "$TEST_ROOT/cache-removed" ;;
   'image inspect')
     case "${*: -1}" in
       "dungeonmindbuddy:$candidate") printf '%s %s\n' "${CANDIDATE_PIN_OVERRIDE:-$candidate_id}" "$candidate" ;;
@@ -181,4 +193,19 @@ run
 printf 'candidate_id=%s\n' "$obsolete_id" >> "$scratch/releases/$staged.conf"
 if run; then exit 1; fi
 [[ $(cat "$scratch/removals") == "dungeonmindbuddy:$obsolete" && $(cat "$scratch/serving") == "$candidate_id" ]]
-printf 'Activation, no-op, rollback and preflight refusals passed.\n'
+rm "$scratch/retire-images"
+printf '%s\n' "$buddy_cache" > "$scratch/retire-cache"
+reset "$rollback_id"
+if FAIL_PUBLIC=1 run; then exit 1; fi
+[[ ! -e "$scratch/cache-removed" ]]
+reset "$rollback_id"
+if CACHE_SHARED=true run; then exit 1; fi
+grep -F 'release is healthy and recorded; build cache retention did not finish' "$scratch/stderr"
+[[ $(cat "$scratch/activations") == "$candidate_id" && ! -e "$scratch/cache-removed" ]]
+if CACHE_RECLAIMABLE=false run; then exit 1; fi
+if CACHE_DESCRIPTION='unrelated cache' run; then exit 1; fi
+[[ ! -e "$scratch/cache-removed" ]]
+run
+[[ -e "$scratch/cache-removed" ]]
+run
+printf 'Activation, no-op, rollback, image and cache retention checks passed.\n'

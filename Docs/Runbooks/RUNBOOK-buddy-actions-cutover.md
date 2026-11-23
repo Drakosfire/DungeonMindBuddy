@@ -103,3 +103,14 @@ stopped container image IDs are protected. A cleanup failure leaves the
 healthy release serving. Correct the retirement policy and repeat the same
 activation to retry cleanup. Check the serving receipt before deciding
 whether recovery is needed.
+
+## Retire obsolete build cache
+
+For the shared default BuildKit builder, the operator can add a root-owned
+`/etc/buddy-deploy/retire-cache` file under the same lock. Put one approved
+full cache ID per line. Use the builder's disk-usage report to confirm each
+record belongs to Buddy and is obsolete. The activator only prunes approved
+records that still match the Buddy Hermes setup or patch instructions and
+report as non-shared and reclaimable. It verifies each ID is gone afterward.
+An absent list disables cache removal. Cache failure leaves the healthy
+release serving and can be retried through the same activation.
