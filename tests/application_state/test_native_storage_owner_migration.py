@@ -28,6 +28,13 @@ def test_native_predicate_has_one_storage_owner(application_state_dsn):
             "WHERE conrelid='agent.turn'::regclass AND conname IN "
             "('agent_turn_lifecycle_check','agent_turn_graph_context_receipt_check',"
             "'agent_turn_graph_context_execution_check','agent_turn_graph_completion_check')").fetchall())
+        installed, saved = conn.execute(
+            "SELECT pg_get_functiondef(guard), obj_description(guard, 'pg_proc') "
+            "FROM (SELECT 'agent.validate_turn_graph_write()'::regprocedure AS guard) AS graph_guard"
+        ).fetchone()
+        for name, expression in json.loads(saved).items():
+            assert expression in installed
+            rows[name] = expression
         owner = import_module('application_state.migrations.versions.20261101_0103_shared_native_turns')
         conn.execute('CREATE TEMP TABLE native_expected_shape (LIKE agent.turn) ON COMMIT DROP')
         conn.execute('ALTER TABLE native_expected_shape ADD CONSTRAINT expected_native CHECK (COALESCE(('
