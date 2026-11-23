@@ -17,6 +17,7 @@
       "apps/live-control-ui/src/guestRelease/GuestReleasePage.test.tsx",
       "apps/live-control-ui/src/guestRelease/GuestReleaseSandbox.test.tsx",
       "apps/live-control-ui/src/guestRelease/GuestReleaseReview.test.tsx",
+      "apps/live-control-ui/src/guestRelease/GuestReleaseDrawer.test.tsx",
       "apps/live-control-ui/src/guestRelease/GuestReleaseSelection.test.tsx",
       "apps/live-control-ui/src/agentInteraction/AgentInteractionChrome.test.tsx",
       "apps/live-control-ui/src/agentInteraction/AgentInteractionProvider.test.tsx",
