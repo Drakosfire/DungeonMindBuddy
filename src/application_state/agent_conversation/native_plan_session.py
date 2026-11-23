@@ -122,7 +122,8 @@ class _SessionAdmission(AgentConversationService):
         candidate = execution.model_copy(update={'events': [*prior.events,
             *(_owned_event(event) for event in execution.events[count:])]})
         with self._owner._measure("plan_append_binding"):
-            return _validate_owned_context_binding(context, candidate)
+            return _validate_owned_context_binding(
+                context, candidate, source_identities=self._owner._source_identities)
 
     def _persist_execution_append(self, conn, *, world_id, turn_id, expected_revision, execution):
         owner = self._owner
@@ -183,6 +184,7 @@ class NativePlanSession:
     def __init__(self, expected, *, measure=None):
         self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
+        self._source_identities = {}
         self._committed = self._image = self._pending = None
         self._sealed = False
         self._busy = False
@@ -221,6 +223,7 @@ class NativePlanSession:
 
     def _seal(self):
         self._sealed = True
+        self._source_identities.clear()
         self._committed = self._image = self._pending = None
 
     def abort(self):

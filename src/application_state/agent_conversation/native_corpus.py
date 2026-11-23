@@ -493,7 +493,7 @@ def body_frame(reads):
         for row in reads]}
 
 
-def validate_native_body_events(execution):
+def validate_native_body_events(execution, *, source_identities=None):
     """One authorized search, unique reads and inclusion tied to actual providers."""
     from . import types as t
     grant = search = None
@@ -603,7 +603,14 @@ def validate_native_body_events(execution):
                 raise ValueError("Native search observation lacks its current authorization")
             pairs, catalogs = set(), {}
             for catalog in event.catalogs:
-                pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
+                source = catalog.source
+                key = (source.artifact_json, source.revision_json)
+                pair = source_identities.get(key) if source_identities is not None else None
+                if pair is None:
+                    pair = (source.artifact.source_artifact_id, source.revision.source_revision_id)
+                    # Cache scalar identities from exact bytes, never an authorization decision.
+                    if source_identities is not None and len(source_identities) < 512:
+                        source_identities[key] = pair
                 if catalog.authority != grant.authority or pair in pairs:
                     raise ValueError("Native search repeated or changed its source authority")
                 pairs.add(pair)

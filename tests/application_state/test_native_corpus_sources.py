@@ -1228,10 +1228,13 @@ def test_body_owner_accepts_shared_writer_without_second_inclusion_manifest(lane
         native_read_event_ids=tuple(sorted((row.event_id for row in reads),key=str)))
     execution=SimpleNamespace(context_receipt_sha256=original.context_receipt_sha256,
         execution_policy_sha256=original.execution_policy_sha256,policy=original.policy,events=[*prefix,shared])
-    validate_native_body_events(execution)
+    source_identities = {}
+    validate_native_body_events(execution, source_identities=source_identities)
+    assert source_identities
+    validate_native_body_events(execution, source_identities=source_identities)
     assert all(not isinstance(row,NativeBodyProviderIncludedV1) for row in execution.events)
     assert bool(reads[0].excerpt) != failed_read
     missing=[row for row in prefix if not isinstance(row,NativeBodyReadObservedV1)]
     execution.events=[*missing,shared.model_copy(update={"sequence":len(missing)})]
     with pytest.raises(ValueError,match="unresolved native body read"):
-        validate_native_body_events(execution)
+        validate_native_body_events(execution, source_identities=source_identities)

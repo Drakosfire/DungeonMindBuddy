@@ -559,7 +559,7 @@ class SurfaceNativeExecutionV1(Strict):
     events: list[SurfaceNativeEvent] = Field(max_length=NATIVE_EXECUTION_EVENT_LIMIT)
 
     @model_validator(mode="after")
-    def actual_records(self):
+    def actual_records(self, *, source_identities=None):
         # Recheck mutable owner models before trusting their frozen commitment.
         SurfaceNativeExecutionPolicyV1.model_validate(self.policy.model_dump(mode="python", by_alias=True))
         expected = t.canonical_sha256(dict(schema=self.schema_,
@@ -679,7 +679,7 @@ class SurfaceNativeExecutionV1(Strict):
             from .native_retrieval import validate_decision_phases
             validate_decision_phases(self)
             from .native_corpus import validate_native_body_events
-            validate_native_body_events(self)
+            validate_native_body_events(self, source_identities=source_identities)
         elif any(isinstance(event, t.NATIVE_BODY_EVENTS) for event in self.events):
             raise ValueError("Single-provider native body acquisition awaits its actual SDK selection proof")
         # This is retained acquisition history, not a provider request. Its event
@@ -703,7 +703,7 @@ def _revalidate_context_binding(context, execution):
     return context, _join_context_binding(context, execution)
 
 
-def _validate_owned_context_binding(context, execution):
+def _validate_owned_context_binding(context, execution, *, source_identities=None):
     """Run the complete predicate owners on APP's exclusively owned prefix.
 
     This pure function grants no IO authority. A session caller must prove
@@ -716,7 +716,7 @@ def _validate_owned_context_binding(context, execution):
         raise ValueError('Owned native binding requires its concrete complete components')
     if len(execution.events) > NATIVE_EXECUTION_EVENT_LIMIT:
         raise ValueError('Native execution exceeds its event bound')
-    execution.actual_records()
+    execution.actual_records(source_identities=source_identities)
     return _join_context_binding(context, execution)
 
 
