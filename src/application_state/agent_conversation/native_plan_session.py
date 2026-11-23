@@ -242,6 +242,17 @@ class NativePlanSession:
         return self._execute(command, expected_revision=expected_revision,
             expected_attempt=expected_attempt, fields=fields)
 
+    def matches_verified_execution(self, receipt, execution) -> bool:
+        """Recognize an exact detached snapshot of the committed Plan execution."""
+        with self._lock:
+            turn = self._committed
+            if turn is None or self._sealed or self._busy:
+                return False
+            return (type(receipt) is type(turn.graph_context_receipt)
+                and type(execution) is type(turn.graph_context_execution)
+                and receipt == turn.graph_context_receipt
+                and execution == turn.graph_context_execution)
+
     def execution_checkpoint(self) -> PlanExecutionCheckpoint:
         with self._lock:
             self._require_live()

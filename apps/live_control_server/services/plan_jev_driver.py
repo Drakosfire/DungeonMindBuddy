@@ -657,7 +657,9 @@ class PlanJevDriver:
         if a.fence is None or not isinstance(getattr(a, 'native_query', None), NativeGraphQueryV4):
             return ()
         receipt, execution = a.fence.turn.graph_context_receipt, a._broker_execution()
-        validate_execution_binding(receipt, execution)
+        verified = getattr(a.fence, 'matches_verified_plan_execution', None)
+        if verified is None or verified(receipt, execution) is not True:
+            validate_execution_binding(receipt, execution)
         from application_state.agent_conversation.native_execution import effective_native_query
         if effective_native_query(receipt, execution).sha256 != a.native_query.sha256:
             raise ValueError('Native controller query differs from its frozen receipt')
