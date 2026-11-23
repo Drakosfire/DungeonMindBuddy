@@ -3699,3 +3699,31 @@ def test_current_build_generic_policy_cannot_be_forged_in_recomputed_sdk_packet(
     assert case.response.status_code == 503
     assert not case.writer.calls
     assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('scope, message', [
+    ('source_lookup', 'Get familiar with Glass Regent and the world beyond this short draft.'),
+    ('anchored', 'Summarize the proposed local node context already supplied; do not search again.'),
+    ('anchored', 'Hello Buddy, are you ready to help?'),
+])
+def test_background_scope_guidance_reaches_actual_sdk_and_respects_the_offered_choice(
+        lane, tmp_path, monkeypatch, scope, message):
+    from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_GUIDANCE
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need=scope, read_optional_page=True,
+        source_answer_output='typed' if scope == 'source_lookup' else 'creative', message=message)
+    assert case.response.status_code == 200, case.response.text
+    opening = next(json.loads(call.content) for call in case.decisions.calls
+        if 'source_need' in json.loads(call.content)['questions'])
+    assert opening['questions']['source_need']['instructions'] == SOURCE_NEED_GUIDANCE
+    assert opening['state']['user_question'] == message
+    reads = [event for event in case.turn.graph_context_execution.events if event.kind == 'build_related_page_read_v1']
+    claims = [row for row in case.turn.completion.answer_segments if row.kind == 'related_page_claim']
+    if scope == 'source_lookup':
+        assert reads and claims
+        opened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages/{claims[0].read_id}')
+        assert opened.status_code == 200
+        assert opened.json()['markdown'] == 'The local node is proposed to want freedom.'
+    else:
+        assert not reads and not claims
+        assert all(row.kind == 'discussion' for row in case.turn.completion.answer_segments)
