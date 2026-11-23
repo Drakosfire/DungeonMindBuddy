@@ -821,12 +821,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 from apps.live_control_server.services.plan_jev_writer import LORE_PROPOSAL_GUIDANCE
 
                 author_text = self.adapter.turn.user_text
-                assert (LORE_PROPOSAL_GUIDANCE in body["instructions"]) == ("blank page" not in author_text)
+                assert (LORE_PROPOSAL_GUIDANCE in body["instructions"]) == (current_work != "review_blank_lore_page")
                 candidate["answer_segments"] = [
                     segment for segment in candidate["answer_segments"]
                     if segment["kind"] == "native_body_claim"
                 ]
-                if "blank page" in author_text:
+                if current_work == "review_blank_lore_page":
                     candidate["answer_segments"] = []
                 if lore_limitation and candidate["answer_segments"]:
                     candidate["limitations"] = ["missing_requested_details"]
@@ -895,6 +895,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                         candidate['collaboration'] = None
                     if source_answer_output == 'lore_invalid_destination':
                         candidate['collaboration']['destination']['request'] = 'prior_author_request'
+                elif source_answer_output in {'lore_ack', 'lore_uncited_body'}:
+                    candidate['answer_segments'] = [dict(kind='discussion', text='Understood. I will keep the workpad unchanged and create nothing yet.')]
+                    if source_answer_output == 'lore_ack':
+                        candidate['collaboration'] = None
                 elif source_answer_output in {'blank_body', 'blank_questions'}:
                     if source_answer_output == 'blank_body':
                         candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea', text='Invented body on an empty page.')]
@@ -3801,3 +3805,25 @@ def test_admitted_blank_page_refuses_populated_writer_reply(lane, tmp_path, monk
         message='Create a blank page for Glass Regent.')
     assert case.response.status_code == 503
     assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('output', ['lore_ack', 'lore_uncited_body'])
+def test_lore_reference_allows_ordinary_ack_only_outside_a_page_draft(lane, tmp_path, monkeypatch, output):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='review_lore_page_from_conversation', source_need='anchored', source_answer_output=output,
+        message='The deliverable must be a separate new lore page. Keep this neutral workpad completely unchanged. Acknowledge briefly only; do not search or create anything yet.')
+    assert len(case.writer.calls)==1
+    offered=json.loads(case.writer.calls[0].content)['text']['format']
+    assert offered['name']=='surface_native_lore_request_reference_v2'
+    base=offered['schema'].get('$defs',{}).get('Base',offered['schema'])
+    assert any(v['properties']['kind'].get('const')=='discussion'
+        for v in base['properties']['answer_segments']['items']['anyOf'])
+    if output=='lore_uncited_body':
+        assert case.response.status_code==503
+        assert case.turn.completion is None
+    else:
+        assert case.response.status_code==200,case.response.text
+        assert case.turn.completion.collaboration is None
+        segment,=case.turn.completion.answer_segments
+        assert segment.kind=='discussion'
+        assert 'Understood' in segment.text

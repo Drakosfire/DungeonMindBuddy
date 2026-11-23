@@ -153,4 +153,8 @@ class LorePageRequestReference(Closed):
 
 
 class ProposedLorePageReference(ProposedLorePage):
+    """Review a standalone page using sourced claims or explicitly labeled proposals.
+    For an ordinary acknowledgment or clarification, leave collaboration null and
+    use discussion segments. An acknowledgment is not an invented idea or page body.
+    """
     destination: LorePageRequestReference

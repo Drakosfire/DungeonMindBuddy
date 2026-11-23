@@ -339,7 +339,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                 else:
                     items = answer_segments['items']
                     items['anyOf'] = [variant for variant in items['anyOf']
-                        if variant['properties']['kind'].get('const') in {'native_body_claim', 'proposal'}]
+                        if variant['properties']['kind'].get('const') in {'native_body_claim', 'proposal', 'discussion'}]
             elif destination is not None:
                 from .lore_page_review import explicit_blank_lore_page
 

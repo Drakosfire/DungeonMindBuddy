@@ -95,3 +95,35 @@ exact-input replay to establish content correctness. Current reference dispatch
 is allowed for an old conversation-lore admission because its content mode is
 already fixed; historical reads select their captured format and remain V1.
 Old ambiguous ordinary lore menus retain V1 until a current opening admission.
+
+
+Live replay checkpoint: exact65e0 created/saved/reopened the actual twelve-turn
+synthetic request twice in3.83s/3.64s with zero source acquisition and one page.
+A repeat failed on an earlier acknowledge-only note: an admitted conversation
+lore mode offered no ordinary discussion shape, causing either empty output or
+an acknowledgment mislabeled as an invented proposal. The same contract slice
+must offer discussion when collaboration is null, retaining the existing strict
+source/proposal-only guard when a page is actually proposed. Real writer captures
+were added only in the disposable replay, without changing provider input/output.
+
+The explicit blank mode also exposed unnecessary retrieval despite producing a
+correctly empty review. Merely setting source_scope anchored does not suppress
+shared acquisition: that route currently recognizes only discussion/conversation
+and variant approval. Multiple-destination clarification similarly searched
+despite correctly asking a question and creating nothing. Keep this shared
+source-free routing outcome in the next serial slice; the current slice enforces
+blank/body separation, not a new general acquisition bypass. Preserve all observed
+failures and the proposed three source-vote regressions for that successor.
+
+BLOCKED successor: after this PR merges, pin a bounded source-free Build routing
+handoff against the then-current serving parent. It owns typed blank-page and
+clarification paths, their shared driver/materialization/terminal/pending-query
+validation, malformed vote rejection and independent no-acquisition proof. Inspect
+and split/transfer any shared Plan-driver lease before editing. Do not relabel the
+work as discussion, use regex intent detection, skip provider/evidence gates, or
+mislabel acknowledgments as invented ideas. Test anchored/uncertain/source_lookup
+votes for explicit blank work and the real quoted/negated/multiple-destination
+requests. Retain the failed samples and require ordinary HTTP plus live-provider
+proof and actual app acceptance. This remains part of the active overall goal.
+Superseded65e0 qualification/build/replay evidence is retained, including failed
+samples; it is not evidence for a later amended source.
