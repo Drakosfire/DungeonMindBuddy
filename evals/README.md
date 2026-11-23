@@ -170,7 +170,7 @@ command as well as choosing the writer sink.
 ```bash
 python -m evals.buddy_benchmark.workflow capture-context \\
   --manifest MANIFEST.json --output CAPTURE_DIRECTORY \\
-  --case Q01 --writer-transport --detailed-trace
+  --case Q01 --writer-transport --detailed-trace --clone-app
 ```
 
 The manifest's browser_capture object supplies a bundle directory, a
@@ -179,7 +179,14 @@ and a jev_wire file pin containing the exact successful wire exchange.
 Set DMB_BENCHMARK_NODE, DMB_BENCHMARK_PLAYWRIGHT and DMB_BENCHMARK_CHROMIUM
 to the local Node executable, Playwright package directory and browser
 executable. Use explicit local operator auth and launch without provider credentials.
-Use a disposable local App clone and a pinned Core database. The driver
+Pin a disposable local App template and the read-only Core database. With
+`--clone-app`, the App DSN names the template and its evaluator role needs
+database creation privileges. The command owns a unique App clone and drops
+it when capture exits successfully or raises an error. Saved capture artifacts
+remain on disk. A custom runner that creates its own clone must use
+`disposable_benchmark_database` around the entire run and close all workers
+before exiting the context. This does not remove caller-owned cohort seeds.
+The driver
 starts one loopback instance and submits from Buddy's ordinary Plan composer.
 The exact retained Jev request must match. The GenerationEngine writer
 request is captured at the local transport sink. Neither provider is called.
