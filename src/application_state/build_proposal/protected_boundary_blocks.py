@@ -1,5 +1,7 @@
 """Verify protected Build blocks before counting their editor positions."""
 
+from copy import copy
+
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
@@ -61,7 +63,16 @@ def require_boundary_table(node: dict, markdown: str) -> None:
             _children(paragraph, "paragraph")
             if cell.attrs:
                 raise ValueError("Build table alignment is absent from the editor capture")
-            require_matching_prose_inline(paragraph, cell.children[0].token.children or [])
+            # The Build table serializer represents an editor hardBreak as the
+            # exact literal <br>. Interpret only that encoding as a hard break;
+            # every other HTML token remains subject to the prose validator.
+            tokens = []
+            for token in cell.children[0].token.children or []:
+                if token.type == "html_inline" and token.content == "<br>":
+                    token = copy(token)
+                    token.type = "hardbreak"
+                tokens.append(token)
+            require_matching_prose_inline(paragraph, tokens)
 
 
 def require_boundary_image(node: dict, markdown: str) -> None:
