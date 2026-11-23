@@ -423,7 +423,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     from .plan_jev_decision import connected_page_review_enabled
     plan_review=connected_page_review_enabled(execution)
     review_enabled=plan_review or execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
-    keys={'schema','answer_segments','limitations','requested_detail_gaps'} | ({'collaboration'} if review_enabled else set())
+    keys={'schema','answer_segments','limitations'} | ({'collaboration'} if review_enabled else set())
+    if not evidence.generic_limitations:
+        keys.add('requested_detail_gaps')
     if evidence.variant_format:
         keys.add("statblock_variant")
     if (not isinstance(candidate,dict) or set(candidate) != keys
@@ -506,7 +508,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
                 author_text=execution.policy.action.intent.message,
             ) if review_enabled and not plan_review else None
         )
-    explicit_source_gap = evidence.typed_source_answer and bool(
+    explicit_source_gap = (evidence.typed_source_answer or evidence.generic_limitations) and bool(
         candidate.get('limitations') or candidate.get('requested_detail_gaps'))
     if review_enabled and not segments and collaboration is None and not explicit_source_gap:
         raise ValueError('Empty intentional response')
@@ -532,10 +534,12 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
                             or any(isinstance(s, StatblockPdfClaim) for s in segments)
                             or (evidence.typed_source_answer
                                 and any(isinstance(s, t.RelatedPageClaim) for s in segments)))
-    limitations = project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
+    limitations = project_surface_limitations(candidate['limitations'],
+        [] if evidence.generic_limitations else candidate['requested_detail_gaps'],
         user_question=execution.policy.action.intent.message, derive_missing=True,
         host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,
         empty_answer=not segments and collaboration is None, strict_gap_array=True,
+        generic_codes_only=evidence.generic_limitations,
         allow_generic_gap=(has_cited_answer or (evidence.lore_page_limitations
             and isinstance(collaboration, ProposedLorePage))))
     # A selected question phrase does not establish an absence of evidence.

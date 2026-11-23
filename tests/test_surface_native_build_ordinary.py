@@ -634,7 +634,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
-            frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
+            from application_state.agent_conversation.native_evidence_view import is_semantic_frame
+            frame = next(row for row in inputs if is_semantic_frame(row))
             work = next(row['build_work'] for row in inputs if 'build_work' in row)
             if not mode:
                 if requested_work == "review_lore_page" and self.adapter.turn.sequence == 2:
@@ -894,10 +895,18 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                         candidate['collaboration'] = None
                     if source_answer_output == 'lore_invalid_destination':
                         candidate['collaboration']['destination']['title'] = 'Foreign page'
+                elif source_answer_output in {'unknown_limit_code', 'retired_gap_field'}:
+                    candidate['answer_segments'] = []
+                    candidate['limitations'] = ['not_a_limit_code'] if source_answer_output == 'unknown_limit_code' else ['missing_requested_details']
+                    candidate['requested_detail_gaps'] = [{'question_phrase': 'obsolete witness'}]
                 elif source_answer_output in {'gap', 'gap_format'}:
                     candidate['answer_segments'] = []
                     candidate['limitations'] = ['missing_requested_details']
                     candidate['requested_detail_gaps'] = [dict(question_phrase='the local node’s alliance' if source_answer_output == 'gap' else "the local node's alliance")]
+            if 'requested_detail_gaps' not in body['text']['format']['schema'].get('$defs', {}).get('Base', body['text']['format']['schema'])['properties']:
+                base = candidate['base_output'] if candidate.get('kind') == 'rules_answer' else candidate
+                if base is not None and source_answer_output not in {'lore_malformed_gap', 'retired_gap_field'}:
+                    base.pop('requested_detail_gaps', None)
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -3471,12 +3480,13 @@ def test_source_lookup_discussion_requires_bound_claims_without_forcing_a_fact(l
     request = json.loads(case.writer.calls[0].content)
     assert request['text']['format']['name'] == 'surface_native_build_source_answer_v1'
     assert len(case.writer.calls) == 1
-    if output in {'uncited', 'empty', 'gap_format'}:
+    if output in {'uncited', 'empty'}:
         assert case.response.status_code == 503
         assert case.turn.completion is None
         return
     assert case.response.status_code == 200, case.response.text
-    if output == 'gap':
+    if output in {'gap', 'gap_format'}:
+        assert all(row.kind == 'limitation' and row.question_phrase is None for row in case.turn.completion.answer_segments)
         assert not any(x.kind == 'related_page_claim' for x in case.turn.completion.answer_segments)
         return
     claim, = [x for x in case.turn.completion.answer_segments if x.kind == 'related_page_claim']
@@ -3547,28 +3557,34 @@ def test_factual_build_recomputed_sdk_packet_cannot_forge_source_answer_policy(l
 
 @pytest.mark.parametrize('work', ['review_lore_page', 'review_lore_page_from_conversation'])
 @pytest.mark.parametrize('output', ['lore_stale_gap', 'lore_valid_gap', 'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap'])
-def test_lore_page_review_keeps_useful_reply_when_optional_detail_phrase_is_unbound(lane, tmp_path, monkeypatch, output, work):
+def test_lore_page_review_uses_generic_limits_without_optional_phrase(lane, tmp_path, monkeypatch, output, work):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work=work, source_need='anchored',
         source_answer_output=output,
         message='Create a page for Glass Regent. Use the context we discussed; keep the unresolved motive open; do not search again.')
     request = json.loads(case.writer.calls[0].content)
     assert request['text']['format']['name'] == 'surface_native_lore_review_limitations_v1'
-    if output in {'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap'}:
+    if output in {'lore_malformed_gap', 'lore_invalid_destination'}:
         assert case.response.status_code == 503
         assert case.turn.completion is None
         return
     assert case.response.status_code == 200, case.response.text
     completion = case.turn.completion
+    limits = [x for x in completion.answer_segments if x.kind == 'limitation']
+    assert limits and all(x.question_phrase is None for x in limits)
+    if output in {'lore_empty_gap', 'lore_null_gap'}:
+        assert completion.collaboration is None
+        if output == 'lore_empty_gap':
+            assert all(x.kind == 'limitation' for x in completion.answer_segments)
+        else:
+            assert any(x.kind == 'proposal' for x in completion.answer_segments)
+        return
     assert completion.collaboration.kind == 'lore_page'
     assert completion.collaboration.destination.title == 'Glass Regent'
     assert any(x.kind == 'proposal' and 'seeks freedom' in x.text for x in completion.answer_segments)
     limits = [x for x in completion.answer_segments if x.kind == 'limitation']
     assert limits
-    if output == 'lore_stale_gap':
-        assert all(x.question_phrase is None for x in limits)
-    else:
-        assert any(x.question_phrase == 'unresolved motive' for x in limits)
+    assert all(x.question_phrase is None for x in limits)
     assert not any(e.kind == 'build_related_page_read_v1' for e in case.turn.graph_context_execution.events)
 
 
@@ -3614,6 +3630,72 @@ def test_lore_review_recomputed_packet_cannot_forge_limitation_policy(lane, tmp_
         requested_work='discuss' if mutation.startswith('ineligible_') else 'review_lore_page',
         source_need='anchored', source_answer_output='creative' if mutation.startswith('ineligible_') else 'lore_stale_gap',
         message='Let us explore this premise without searching.' if mutation == 'ineligible_work' else 'Create a page for Glass Regent.')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+def test_fresh_build_refuses_whole_pre_generic_reply_contract_before_writer_io(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation import plan_writer_output_schema
+    original = plan_writer_output_schema.native_output_format
+    def historical(*args, **kwargs):
+        return original(*args, **(kwargs | {'generic_reply_limits': False}))
+    monkeypatch.setattr(plan_writer_output_schema, 'native_output_format', historical)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='anchored', source_answer_output='creative',
+        message='Let us discuss this premise without searching.')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('output', ['unknown_limit_code', 'retired_gap_field'])
+def test_current_build_limits_reject_unknown_codes_and_retired_echo_fields(lane, tmp_path, monkeypatch, output):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='anchored', source_answer_output=output,
+        message='Discuss the supplied premise without another search.')
+    assert case.response.status_code == 503
+    assert len(case.writer.calls) == 1
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('mutation', ['unknown_format', 'malformed_schema', 'raw_carrier', 'retired_schema'])
+def test_current_build_generic_policy_cannot_be_forged_in_recomputed_sdk_packet(lane, tmp_path, monkeypatch, mutation):
+    from copy import deepcopy
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.native_writer import model_frame
+    original = PlanJevWriter.__init__
+    def forge(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        if mutation == 'unknown_format':
+            self.output_format = self.output_format | {'name': 'foreign_reply_schema'}
+            return
+        if mutation == 'malformed_schema':
+            self.output_format = deepcopy(self.output_format)
+            base = self.output_format['schema'].get('$defs', {}).get('Base', self.output_format['schema'])
+            base['required'].append('requested_detail_gaps')
+            return
+        if mutation == 'retired_schema':
+            self.output_format = deepcopy(self.output_format)
+            base = self.output_format['schema'].get('$defs', {}).get('Base', self.output_format['schema'])
+            base['properties']['requested_detail_gaps'] = {'type': 'array', 'items': {'type': 'object',
+                'properties': {'question_phrase': {'type': 'string'}}, 'required': ['question_phrase'], 'additionalProperties': False}}
+            base['required'].append('requested_detail_gaps')
+            return
+        for message in self.messages:
+            frame = json.loads(message['content'])
+            if 'native_body_evidence' not in frame:
+                continue
+            frame = model_frame(self.adapter.turn.graph_context_receipt, self.adapter.turn.graph_context_execution)
+            self.provider_frame = frame
+            message['content'] = json.dumps(frame)
+            break
+        else:
+            raise AssertionError('Test requires the actual native reply evidence carrier')
+    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='anchored', source_answer_output='creative',
+        message='Discuss this premise without searching.')
     assert case.response.status_code == 503
     assert not case.writer.calls
     assert case.turn.completion is None
