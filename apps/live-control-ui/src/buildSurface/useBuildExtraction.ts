@@ -24,6 +24,8 @@ import {
 import {assertRecapLaunchBinding, launchBuildRecap, recoverBuildRecap, recapRecoveryKey, recapHistoryKey, validRecapRequest,
   type BuildRecapLaunchRequest, type BuildRecapSettings} from "../api/buildRecapApi";
 
+import {assertWorldbuildingLaunchBinding, launchBuildWorldbuilding, recoverBuildWorldbuilding, validWorldbuildingRequest, worldbuildingRecoveryKey, type BuildWorldbuildingLaunchRequest} from "../api/buildWorldbuildingApi";
+
 const RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
 
 /** Bounded BLD-08 worldbuilding profile (Build product default). */
@@ -220,6 +222,11 @@ export interface BuildExtractionState {
   savedRecapRequests: {index: number; label: string}[];
   setAsideRecap: () => void;
   restoreRecap: (index: number) => void;
+  pendingWorldbuilding: boolean;
+  recoverWorldbuilding: (retry?: boolean) => Promise<void>;
+  setAsideWorldbuilding: () => void;
+  restoreWorldbuilding: (index: number) => void;
+  savedWorldbuildingRequests: {index:number;label:string}[];
   pendingRecap: boolean;
   recoverRecap: (retry?: boolean) => Promise<void>;
 }
@@ -230,6 +237,20 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
   const worldId=args.worldId??null, recap=args.recap??null;
   const operationScope=JSON.stringify([documentId,worldId]);
   const scopeRef=useRef(operationScope);scopeRef.current=operationScope;
+  const worldPendingKey=worldbuildingRecoveryKey(worldId??"",documentId);
+  const [worldPendingState,setWorldPendingState]=useState<{key:string;value:unknown}>(()=>{
+    try{return {key:worldPendingKey,value:JSON.parse(localStorage.getItem(worldPendingKey)??"null")};}
+    catch{return {key:worldPendingKey,value:{unavailable:true}};}
+  });
+  const worldPending=worldPendingState.key===worldPendingKey?worldPendingState.value:null;
+  useEffect(()=>{try{setWorldPendingState({key:worldPendingKey,value:JSON.parse(localStorage.getItem(worldPendingKey)??"null")});}
+    catch{setWorldPendingState({key:worldPendingKey,value:{unavailable:true}});}},[worldPendingKey]);
+  const worldHistoryKey=worldPendingKey+".history";
+  const [worldHistory,setWorldHistory]=useState<{key:string;values:unknown[]}>({key:worldHistoryKey,values:[]});
+  useEffect(()=>{try{const values=JSON.parse(localStorage.getItem(worldHistoryKey)??"[]");
+    setWorldHistory({key:worldHistoryKey,values:Array.isArray(values)?values:[]});}catch{setWorldHistory({key:worldHistoryKey,values:[]});}},[worldHistoryKey]);
+  const savedWorldbuildingRequests=(worldHistory.key===worldHistoryKey?worldHistory.values:[]).map((value,index)=>({index,
+    label:validWorldbuildingRequest(value)?`${value.profile_id} · revision ${value.expected_revision}`:"Unavailable saved request"}));
   const pendingKey=recapRecoveryKey(worldId??"",documentId);
   const [pendingState,setPendingState]=useState<{key:string;value:unknown}>(()=>{
     try{return {key:pendingKey,value:JSON.parse(localStorage.getItem(pendingKey)??"null")};}
@@ -365,7 +386,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
   const launch = useCallback(async () => {
     const selectedDocumentId = documentId;
     // Reject synchronous re-entry before React re-renders the disabled button.
-    if (launchingRef.current || pending !== null) return;
+    if (launchingRef.current || pending !== null || worldPending !== null) return;
 
     // Invalidate every pre-existing refresh before the first await so a stale
     // refresh cannot adopt R1 after this launch adopts R2.
@@ -393,6 +414,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
           }
           // Plugins may not manufacture envelopes; use only the command-host capture.
           let savedRecapRequest: BuildRecapLaunchRequest|null=null;
+          let savedWorldRequest: BuildWorldbuildingLaunchRequest|null=null;
           let response: ExtractionRunLaunchResponse;
           if(recap){
             savedRecapRequest={request_id:crypto.randomUUID(),document_id:selectedDocumentId,
@@ -405,6 +427,17 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
             const status=await launchBuildRecap(savedRecapRequest);
             assertRecapLaunchBinding(savedRecapRequest,status);
             response={...status,schema_version:"dmb_extraction_run_launch_v1",failure_kind:status.run.status==="failed"?"extraction":null,diagnostics:status.run.diagnostics?.messages??[]};
+          }else if(worldId){
+            savedWorldRequest={request_id:crypto.randomUUID(),document_id:selectedDocumentId,managed_world_id:worldId,
+              expected_revision:envelope.revision,expected_content_sha256:envelope.contentSha256.replace(/^sha256:/,""),
+              profile_id:profile === "gazetteer" ? BUILD_GAZETTEER_PROFILE_ID : BUILD_WORLDBUILDING_PROFILE_ID,
+              profile_version:profile === "gazetteer" ? BUILD_GAZETTEER_PROFILE_VERSION : BUILD_WORLDBUILDING_PROFILE_VERSION};
+            if(!validWorldbuildingRequest(savedWorldRequest))throw new Error("The Worldbuilding request is invalid.");
+            localStorage.setItem(worldPendingKey,JSON.stringify(savedWorldRequest));
+            setWorldPendingState({key:worldPendingKey,value:savedWorldRequest});
+            const status=await launchBuildWorldbuilding(savedWorldRequest);
+            assertWorldbuildingLaunchBinding(savedWorldRequest,status);
+            response={...status,schema_version:"dmb_extraction_run_launch_v1",failure_kind:status.run.status==="failed"?"extraction":null,diagnostics:status.run.diagnostics?.messages??[]};
           }else response = await launchExtractionRun({
             document_id: selectedDocumentId,
             expected_revision: envelope.revision,
@@ -415,7 +448,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
           if (signal.aborted) {
             throw new Error("Extraction launch aborted.");
           }
-          return { response, envelope, savedRecapRequest };
+          return { response, envelope, savedRecapRequest, savedWorldRequest };
         },
       );
 
@@ -428,7 +461,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         return;
       }
 
-      const { response, envelope, savedRecapRequest } = commandResult.value;
+      const { response, envelope, savedRecapRequest, savedWorldRequest } = commandResult.value;
       const expectedProfile = recap ? "recap_category_v2@2.0" : profile === "gazetteer" ? `${BUILD_GAZETTEER_PROFILE_ID}@${BUILD_GAZETTEER_PROFILE_VERSION}` : `${BUILD_WORLDBUILDING_PROFILE_ID}@${BUILD_WORLDBUILDING_PROFILE_VERSION}`;
       if (response.run.profile_id !== expectedProfile) {
         setHandoff(null);
@@ -452,6 +485,9 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       if(savedRecapRequest && ["reviewable","failed","rejected","promoted"].includes(response.run.status)){
         localStorage.removeItem(pendingKey);setPendingState({key:pendingKey,value:null});
       }
+      if(savedWorldRequest && ["reviewable","failed","rejected","promoted"].includes(response.run.status)){
+        localStorage.removeItem(worldPendingKey);setWorldPendingState({key:worldPendingKey,value:null});
+      }
       setRun(response.run);
       setHandoff(validation.handoff);
       setSourceContentSha256(response.source_content_sha256);
@@ -471,7 +507,53 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         setLaunching(false);
       }
     }
-  }, [canvas, documentId, profile, recap, worldId, pending, pendingKey, operationScope]);
+  }, [canvas, documentId, profile, recap, worldId, pending, pendingKey, worldPending, worldPendingKey, operationScope]);
+
+  const recoverWorldbuilding = useCallback(async(retry=false)=>{
+    if(launchingRef.current)return;
+    if(!validWorldbuildingRequest(worldPending)||worldPending.document_id!==documentId||worldPending.managed_world_id!==worldId){
+      setError("The saved Worldbuilding request is unavailable or belongs to another document/World.");return;
+    }
+    launchingRef.current=true;setLaunching(true);setError(null);
+    const generation=++launchGenerationRef.current;refreshGenerationRef.current+=1;
+    try{
+      const status=await (retry?launchBuildWorldbuilding(worldPending):recoverBuildWorldbuilding(worldPending));
+      if(scopeRef.current!==operationScope||generation!==launchGenerationRef.current||documentIdFromLocation()!==documentId)return;
+      assertWorldbuildingLaunchBinding(worldPending,status);
+      const validation=validateExactRunIdentity({selectedDocumentId:documentId,requestedRunId:status.run.run_id,response:status,
+        expectedDocumentRevision:worldPending.expected_revision,expectedContentSha256:worldPending.expected_content_sha256});
+      if(!validation.ok)throw new Error(validation.reason);
+      setRun(status.run);setHandoff(validation.handoff);setSourceContentSha256(status.source_content_sha256);
+      writeStoredRunId(documentId,status.run.run_id);setRunIdInLocationForDocument(documentId,status.run.run_id);
+      if(["reviewable","failed","rejected","promoted"].includes(status.run.status)){
+        localStorage.removeItem(worldPendingKey);setWorldPendingState({key:worldPendingKey,value:null});
+      }
+    }catch(reason){if(scopeRef.current===operationScope)setError(reason instanceof Error?reason.message:"Worldbuilding recovery unavailable");}
+    finally{if(generation===launchGenerationRef.current){launchingRef.current=false;setLaunching(false);}}
+  },[documentId,worldId,worldPending,worldPendingKey,operationScope]);
+
+  const setAsideWorldbuilding=useCallback(()=>{
+    if(launchingRef.current||worldPending===null)return;
+    try{
+      const values=JSON.parse(localStorage.getItem(worldHistoryKey)??"[]");
+      if(!Array.isArray(values))throw new Error("Saved extraction history is unavailable.");
+      const raw=localStorage.getItem(worldPendingKey);
+      if(raw===null)throw new Error("The saved request changed. Reload before continuing.");
+      let retained:unknown;try{retained=JSON.parse(raw);}catch{retained={unavailable:true,raw};}
+      if(!values.some((value:unknown)=>JSON.stringify(value)===JSON.stringify(retained)))values.push(retained);
+      localStorage.setItem(worldHistoryKey,JSON.stringify(values));localStorage.removeItem(worldPendingKey);
+      setWorldHistory({key:worldHistoryKey,values});setWorldPendingState({key:worldPendingKey,value:null});setError(null);
+    }catch(reason){setError(reason instanceof Error?reason.message:"Could not retain the saved request.");}
+  },[worldPending,worldPendingKey,worldHistoryKey]);
+  const restoreWorldbuilding=useCallback((index:number)=>{
+    if(launchingRef.current||worldPending!==null)return;
+    try{
+      const values=JSON.parse(localStorage.getItem(worldHistoryKey)??"[]");const value=values[index];
+      if(!validWorldbuildingRequest(value)||value.document_id!==documentId||value.managed_world_id!==worldId)
+        throw new Error("The saved Worldbuilding request belongs to another document or World.");
+      localStorage.setItem(worldPendingKey,JSON.stringify(value));setWorldPendingState({key:worldPendingKey,value});setError(null);
+    }catch(reason){setError(reason instanceof Error?reason.message:"Could not restore the saved request.");}
+  },[worldPending,worldPendingKey,worldHistoryKey,documentId,worldId]);
 
   const recoverRecap = useCallback(async(retry=false)=>{
     if(launchingRef.current)return;
@@ -585,7 +667,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     };
   },[documentId,handoff,run,sourceContentSha256]);
 
-  const canLaunch = Boolean(committedClean && !launching && pending===null);
+  const canLaunch = Boolean(committedClean && !launching && pending===null && worldPending===null);
   const canRefresh = !launching;
   const canOpenGraphReview = Boolean(
     !launching
@@ -611,6 +693,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     statusLabel,
     error,
     launching,
+    pendingWorldbuilding:worldPending!==null, recoverWorldbuilding, setAsideWorldbuilding, restoreWorldbuilding, savedWorldbuildingRequests,
     pendingRecap:pending!==null, recoverRecap, savedRecapRequests, setAsideRecap, restoreRecap,
     canLaunch,
     canRefresh,
