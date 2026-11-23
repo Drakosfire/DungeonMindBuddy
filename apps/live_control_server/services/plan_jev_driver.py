@@ -227,13 +227,18 @@ class PlanJevDriver:
         event = dispatch.selection_event
         if (self.finished or self.current is not None or type(dispatch.parent) not in NATIVE_PLAN_OPENING_INPUT_TYPES
                 or type(event) not in NATIVE_PLAN_OPENING_SELECTION_TYPES or event.operation is None
-                or current_selection(self.adapter.fence.turn).event_id != event.event_id):
+                or self._current_selection().event_id != event.event_id):
             raise ValueError('Opening acquisition requires its actual active atomic selection')
         self._refresh_related_catalog()  # Actual work now narrows conditional metadata.
         return self._apply_admitted(dispatch, event)
 
+    def _current_selection(self):
+        fence = self.adapter.fence
+        read = getattr(fence, "current_plan_selection", None)
+        return read() if read is not None else current_selection(fence.turn)
+
     def _apply_admitted(self, dispatch, selected):
-        admitted = current_selection(self.adapter.fence.turn)
+        admitted = self._current_selection()
         if (admitted.controller_attempt_id != dispatch.authorization.provider_attempt_id
                 or admitted.decision_request_id != dispatch.parent.request_id
                 or admitted.parent_request_sha256 != dispatch.parent.digest
@@ -347,9 +352,15 @@ class PlanJevDriver:
                     if self.rules is None or self.rules.selected: raise ValueError("Plan Rules offer was already used")
                     self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
             from application_state.agent_conversation.native_batch_completion import selected_read_closure
-            turn = self.adapter.fence.turn
-            if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
-                    admitted.event_id) is not None:
+            fence = self.adapter.fence
+            check_closure = getattr(fence, "has_plan_read_closure", None)
+            if check_closure is None:
+                turn = fence.turn
+                closed = selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
+                    admitted.event_id) is not None
+            else:
+                closed = check_closure(admitted.event_id)
+            if closed:
                 from uuid import uuid4
                 self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
                     event_id=uuid4(), selection_event_id=admitted.event_id)

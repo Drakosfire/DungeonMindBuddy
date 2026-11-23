@@ -1707,6 +1707,25 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self.commit(method_name, **{event_name: event}, **extras)
 
+    def current_plan_selection(self):
+        from application_state.agent_conversation.plan_jev_decision import current_selection
+
+        with self.renewer._lock:
+            session = self.renewer._session
+            return session.current_selection() if session is not None else current_selection(self.turn)
+
+    def has_plan_read_closure(self, event_id):
+        from application_state.agent_conversation.native_batch_completion import selected_read_closure
+
+        with self.renewer._lock:
+            session = self.renewer._session
+            if session is not None:
+                return session.has_selected_read_closure(event_id)
+            turn = self.turn
+            return selected_read_closure(
+                turn.graph_context_receipt, turn.graph_context_execution, event_id
+            ) is not None
+
     def has_native_plan_session(self) -> bool:
         with self.renewer._lock:
             return self.renewer._session is not None
