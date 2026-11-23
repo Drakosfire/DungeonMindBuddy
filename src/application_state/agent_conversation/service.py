@@ -2519,27 +2519,13 @@ class AgentConversationService:
                     or pointer is None or pointer.active_conversation_id != current.conversation_id):
                 raise ValueError("Retained context requires the current Build conversation")
 
-            checked_documents = set()
-            def authorize_authored(basis):
-                if basis.document_id in checked_documents:
-                    return
-                # Legacy registry documents have no APP page identity. Their
-                # validated historical World receipt remains their read owner;
-                # the current request has already passed World authorization.
-                try:
-                    UUID(basis.document_id)
-                except ValueError:
-                    return
-                from application_state.content.pages import _state
-                page = _state(conn, basis.document_id, current.world_id)
-                if page.page.status != "active":
-                    raise ValueError("Retained authored page is no longer available")
-                checked_documents.add(basis.document_id)
-
+            # Existing saved-section readers own immutable historical snapshots
+            # under World/turn authorization; they do not reread today's page.
+            # Current page availability/ownership is not a second read grant.
             turns, seed = repo.list_retained_build_turns(conn, current)
             return capture(current, turns, seed=seed,
                 event_id=event_id, work_event_id=work.event_id,
-                pointer_revision=pointer.revision, authorize_authored=authorize_authored)
+                pointer_revision=pointer.revision)
 
         # Match reset's World -> conversation -> turn lock order. Holding only
         # the turn would let a reset race the pointer check or deadlock later.

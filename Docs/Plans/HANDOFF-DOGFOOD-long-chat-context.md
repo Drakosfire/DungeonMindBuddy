@@ -37,7 +37,11 @@ Invariants and review map:
 - Retain actual successful authorized read/catalog closures and exact earlier
   authored snapshots. Preserve original producing IDs/attempt and source revision;
   the new admission sequence owns current inclusion. Do not fabricate a new read
-  or a prior-completion citation. Source/World/access checks stay with owners.
+  or a prior-completion citation. Historical authored snapshots follow the existing
+  agent_saved_sections contract: typed original ownership and current World/turn
+  authorization, without a current-page lookup. Discarding or changing the old
+  page does not erase authorized conversation context. Native citation reopening
+  retains fresh Core principal checks.
 - Saved/draft/related authored text remains historical author context, not current
   page state or played truth. Preserve revisions, corrections, retractions and
   every chronological occurrence even when exact payloads share storage.
@@ -61,7 +65,8 @@ current-principal reopening through a retained read's original catalog authority
 new tests/test_build_retained_conversation.py, the ordinary HTTP fake writer and
 carried-citation expectations, and focused codec tests as needed.
 CI inventory is included only for the one new backend module: its world-and-content
-contract argv entry and domain-integration classification entry. This is a logical
+contract argv entry, domain-integration classification entry, and corresponding
+selector expectation in tests/test_ownership_ci_partition.py. This is a logical
 path split from ONBOARD guest-release entries, with no overlapping behavior or
 line ownership; ONBOARD was notified. Do not alter placement, Plan retrieval, Rules,
 provider/model, lockfiles or unrelated activation code.
@@ -101,3 +106,24 @@ Implementation checkpoint (working-tree diagnostics, not exact-SHA qualification
   run failed because Node was absent from PATH; retain that failed diagnostic.
 - Exact-source contracts, hosted verifier, independent exact-head review and live
   provider/app acceptance remain pending. No release-qualified or deployed claim.
+
+Exact80c checkpoint and scoped corrections:
+- Hosted verifier and retained-evidence validation PASS:1474 passed,0 failed,
+  154 pending; build/parity/cleanup PASS. Ingestion/review913 passed,9 skipped.
+- World/content511 passed,2 failed,2 skipped; saved readers562 passed,31 failed.
+  All32 non-inventory failures reproduced on exact parenta5c in the same locked
+  environment. Full IDs/traces are retained in the80c verification evidence and
+  parent-failure-comparison.json. These contracts remain red, not release-qualified.
+- The one new inventory guard failure identified its missing selector expectation;
+  correct that expectation with the new module registration.20 CI guards now pass.
+- Exact80c real-provider unmounted onboarding replay PASS:5548ms first draft,
+  49ms save/reopen, one page, identical repeated receipt, zero synthesis acquisition.
+- The frozen Maelthor replay exposed an excessive current-page metadata gate on
+  historical authored snapshots. Align with agent_saved_sections.open_saved_section:
+  typed original read ownership and current World/turn authorization; no current
+  page lookup. Changed-current-page plus discarded-original-page HTTP regression
+  and remaining focused cases now pass20/20 (60-turn case excluded in that check).
+- A later diagnostic briefly edited CI/documentation files in the verification
+  clone after its contract runs completed; it was restored clean. Treat that
+  Maelthor diagnostic as nonqualifying and repeat on the final isolated commit.
+  Earlier exact-source frontend/backend results are retained at their own SHA.

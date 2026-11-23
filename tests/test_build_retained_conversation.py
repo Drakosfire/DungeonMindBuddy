@@ -31,19 +31,17 @@ def fixture_closure(count=60):
     return current, turns
 
 
-def capture(current, turns, authorize=lambda basis: None, seed=None):
+def capture(current, turns, seed=None):
     return retained.capture(current, turns, event_id=uuid4(), work_event_id=uuid4(),
-        pointer_revision=7, authorize_authored=authorize, seed=seed)
+        pointer_revision=7, seed=seed)
 
 
 def test_complete_history_and_deduplicated_occurrences_survive_more_than_fifty_turns():
     current, turns = fixture_closure()
-    checked = []
-    value = capture(current, turns, checked.append)
+    value = capture(current, turns)
     assert len(value.history) == 60
     assert len(value.authored_context) == 1
     assert len(value.authored_context[0].occurrences) == 2
-    assert len(checked) == 2
     execution = NS(events=(value,))
     messages = retained.dialogue_messages(execution)
     assert len(messages) == 120
@@ -97,12 +95,13 @@ def test_foreign_or_current_turn_cannot_enter_frozen_closure(field):
         capture(current, turns)
 
 
-def test_current_access_denial_is_not_replaced_with_a_search_or_omission():
+def test_historical_saved_material_keeps_its_exact_original_world_owner():
     current, turns = fixture_closure(2)
-    def deny(basis):
-        raise ValueError('page no longer available')
-    with pytest.raises(ValueError, match='no longer available'):
-        capture(current, turns, deny)
+    read = turns[0].graph_context_execution.events[0]
+    foreign = read.model_copy(update={'source_basis': read.source_basis.model_copy(update={'world_id':'foreign'})})
+    turns[0].graph_context_execution.events = (foreign,)
+    with pytest.raises(ValueError, match='World ownership'):
+        capture(current, turns)
 
 
 def test_legacy_admission_does_not_change_historical_dialogue_codec():
@@ -150,10 +149,19 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         assert response.status_code == 200, response.text
     from tests.page_fixtures import save_page
     from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
-    save_page(tmp_path, case.page.document_id, '# A newer saved revision\n\nA proposed conversation.\n\nA different current setting.\n')
-    current = get_workspace_document_snapshot(tmp_path, case.page.document_id)
-    case.request['primary_work'].update(expected_revision=current.loaded_revision,
-        expected_content_sha256=current.content_sha256)
+    from tests.page_fixtures import create_page_fixture
+    from application_state.content import pages
+    replacement = create_page_fixture(tmp_path, world_id=case.world, campaign_id=case.world,
+        title='Different current page', kind='worldbuilding_source', source_domain='worldbuilding',
+        document_class='lore', authority_state='draft', visibility_state='internal')
+    save_page(tmp_path, replacement.document_id, '# Different current page\n\nA proposed conversation.\n')
+    current = get_workspace_document_snapshot(tmp_path, replacement.document_id)
+    original_page = pages.get_page(case.page.document_id, world_id=case.world)
+    pages.update_page(case.page.document_id, world_id=case.world,
+        expected_revision=original_page.page.object_revision, status='discarded')
+    case.request['surface']['instance_id'] = replacement.document_id
+    case.request['primary_work'].update(object_id=replacement.document_id,
+        expected_revision=current.loaded_revision, expected_content_sha256=current.content_sha256)
     from application_state.errors import (ApplicationStateConflictError,
         ApplicationStateNotFoundError, ApplicationStateValidationError)
     original_admit = AgentConversationService.admit_build_prior_body_evidence
@@ -220,6 +228,8 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     assert value.history[0].turn_id == original.turn_id
     assert original.turn_id not in {pin.turn_id for pin in turn.graph_context_receipt.assembled_input.included_history}
     assert value.authored_context and value.native_context
+    assert any(row.source_basis.document_id == case.page.document_id for row in value.authored_context)
+    assert turn.graph_context_receipt.work_context.source_basis.document_id == replacement.document_id
     assert not acquired_body_reads(turn.graph_context_execution)
     assert not any(isinstance(event, NativeBuildQuerySettledV1) for event in turn.graph_context_execution.events)
     assert len(case.writer.calls) == before + 1

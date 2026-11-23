@@ -42,7 +42,7 @@ def proposal_context(completion):
     raise ValueError("Unclassified retained conversation review")
 
 
-def capture(current, turns, *, event_id, work_event_id, pointer_revision, authorize_authored, seed=None):
+def capture(current, turns, *, event_id, work_event_id, pointer_revision, seed=None):
     from . import types as t
     from . import native_corpus as bodies
     from .rules_authority_reads import MixedCompletedTurnV1
@@ -69,7 +69,6 @@ def capture(current, turns, *, event_id, work_event_id, pointer_revision, author
             raise ValueError("Retained prefix lacks its completed producing owner")
         history.extend(seed.history)
         for row in seed.authored_context:
-            authorize_authored(row.source_basis)
             authored[authored_key(row.source_basis, row.role, row.title, row.text)] = dict(
                 source_basis=row.source_basis, role=row.role, title=row.title, text=row.text,
                 occurrences=list(row.occurrences))
@@ -133,7 +132,6 @@ def capture(current, turns, *, event_id, work_event_id, pointer_revision, author
                 continue
             if basis.world_id != current.world_id:
                 raise ValueError("Retained authored context crossed World ownership")
-            authorize_authored(basis)
             key = authored_key(basis, role, title, text)
             if key not in authored:
                 authored[key] = dict(source_basis=basis, role=role, title=title, text=text, occurrences=[])
