@@ -1,0 +1,70 @@
+{
+  "schema": "dmb_old_bath_house_source_pins_v1",
+  "runtime": {
+    "source": "2d4361fb05e0b6bbb4e652535b77acd7b30ad1fb",
+    "image": "sha256:a469deffc039f40de0459cd57f35c2412a50d2e3e6ba57bdb7de15202b57f418",
+    "app_schema": "20261123_0204",
+    "guest_build": "review=1;page=1;home=b4fe79bc-412c-43cc-a5c7-ad97ccaa5543"
+  },
+  "worldId": "elderwyld",
+  "documentId": "9bb69084-1b44-4574-aaee-ce87b7db0080",
+  "sceneId": "scene:87517938-55a6-4d46-872d-c47a5b3f9682",
+  "sceneTitle": "The welcome",
+  "encounterTitle": "Old Bath House",
+  "publishedPreparation": {
+    "encounter_id": "e6ebfcb9-188f-497b-b4d9-0729b6574ac6",
+    "revision": 3,
+    "digest": "sha256:5255b338e6dfb8494023d84f77a81c8b750ff47b301b65b0f3c380330f544b1f"
+  },
+  "boss": {
+    "name": "Edge Meat Mind",
+    "ac": 16,
+    "hp": 207,
+    "conversationId": "5afcba41-48e1-4545-b50e-d77449475708",
+    "turnId": "58a3d453-20a8-4b3a-962a-1a7029551989",
+    "reviewId": "fc326752-60f9-43b1-8278-01167f251c94",
+    "baseLocator": {
+      "contract": "dungeonmind.dungeonbuddy-statblocks",
+      "provider": "dungeonmind",
+      "contract_version": "1.0.0",
+      "statblock_id": "sb_9b6577dae6bf4df395a33ce8809c0909",
+      "revision_id": "rev_d932029aa1894016997b8a96c1612254",
+      "definition_digest": "sha256:74abf61f48c7975367ea4f3776af278a3125daaf24b11f2f7cf485a489448c27"
+    },
+    "publishedPortraitLocator": {
+      "contract": "dungeonmind.dungeonbuddy-statblocks",
+      "provider": "dungeonmind",
+      "contract_version": "1.0.0",
+      "statblock_id": "sb_9b6577dae6bf4df395a33ce8809c0909",
+      "revision_id": "rev_3fec3ab0eeff43948a5ec09dfce0b247",
+      "definition_digest": "sha256:74abf61f48c7975367ea4f3776af278a3125daaf24b11f2f7cf485a489448c27"
+    },
+    "publishedPortraitOperation": "183de0aa-c673-41f8-bc90-67ad1dbbad3b",
+    "assetId": "44b94281-5689-42c1-a350-a40cfa029f5a",
+    "imageUrl": "https://imagedelivery.net/SahcvrNe_-ej4lTB6vsAZA/buddy-44b94281568942c1a350a40cfa029f5a/public"
+  },
+  "minion": {
+    "name": "Bath House Meatling",
+    "ac": 12,
+    "hp": 7,
+    "draftId": "a19ac74d-1e8d-48d5-bebb-2dafdbdffc7e",
+    "locator": {
+      "contract": "dungeonmind.dungeonbuddy-statblocks",
+      "provider": "dungeonmind",
+      "contract_version": "1.0.0",
+      "statblock_id": "sb_a932ae6fabea448daa3d5bbdb6b11509",
+      "revision_id": "rev_237deef779714cc983d1ca90b392cc9e",
+      "definition_digest": "sha256:642b56d7d2ee7d016e1d8232f7bcda7c549037191aad7ca45f2c01b91db61649"
+    },
+    "imageUrl": "https://imagedelivery.net/SahcvrNe_-ej4lTB6vsAZA/buddy-ae5a3b00b8014affaf207f24769bb461/public",
+    "originalLocator": {
+      "contract": "dungeonmind.dungeonbuddy-statblocks",
+      "provider": "dungeonmind",
+      "contract_version": "1.0.0",
+      "statblock_id": "sb_a932ae6fabea448daa3d5bbdb6b11509",
+      "revision_id": "rev_3e51aff313e442c7b1c5494100284a9d",
+      "definition_digest": "sha256:642b56d7d2ee7d016e1d8232f7bcda7c549037191aad7ca45f2c01b91db61649"
+    },
+    "revisionOperation": "14d2299a-dc0a-41fd-a1bf-fb72fd512c68"
+  }
+}
