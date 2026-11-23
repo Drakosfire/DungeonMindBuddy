@@ -449,3 +449,24 @@ def test_lore_page_request_cannot_fall_through_to_connected_location_review(work
     assert c.selected(response, menu=prior) == "review_connected_page"
     with pytest.raises(ValueError, match="Invalid actual semantic selection"):
         c.selected(response, menu=c.MENU_DIGEST)
+
+
+@pytest.mark.parametrize('guidance', [c.SOURCE_NEED_GUIDANCE, c._REUSE_SOURCE_NEED_GUIDANCE,
+    c._PAGE_SOURCE_NEED_GUIDANCE, c._RETAINED_SOURCE_NEED_GUIDANCE])
+@pytest.mark.parametrize('scope', c.SOURCE_NEED_OPTIONS)
+def test_source_scope_recognizes_actual_current_and_original_question_contracts(guidance, scope):
+    request = {'questions': {'source_need': {'type': 'choice', 'instructions': guidance,
+        'criteria': dict.fromkeys(c.SOURCE_NEED_OPTIONS)}}}
+    response = {'answers': {'source_need': {'selected': scope,
+        'probabilities': {value: float(value == scope) for value in c.SOURCE_NEED_OPTIONS}}}}
+    assert c.source_need(request, response) == scope
+    request['questions']['source_need']['instructions'] = guidance + ' Unadmitted guidance.'
+    with pytest.raises(ValueError, match='differs from its offered decision'):
+        c.source_need(request, response)
+
+
+def test_current_source_scope_keeps_prior_reuse_guidance_and_adds_background_meaning():
+    assert c.SOURCE_NEED_GUIDANCE.startswith(c._REUSE_SOURCE_NEED_GUIDANCE)
+    assert 'get familiar with an existing named subject' in c.SOURCE_NEED_GUIDANCE
+    assert 'current-page draft is not evidence for the whole World' in c.SOURCE_NEED_GUIDANCE
+    assert 'do not reacquire carried evidence' in c.SOURCE_NEED_GUIDANCE
