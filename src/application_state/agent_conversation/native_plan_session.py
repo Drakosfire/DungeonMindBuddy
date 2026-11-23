@@ -136,7 +136,8 @@ class _SessionAdmission(AgentConversationService):
         with owner._measure("plan_append_storage_write_ack"):
             image = repo._append_plan_session_events(conn, world_id=world_id,
                 turn_id=turn_id, before=owner._image, execution=execution,
-                prior_count=len(owner._committed.graph_context_execution.events))
+                prior_count=len(owner._committed.graph_context_execution.events),
+                root_cache=owner._root_cache)
         if image is None:
             return None
         root = dict(image[0])
@@ -183,11 +184,13 @@ class NativePlanSession:
     def __init__(self, expected, *, measure=None):
         self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
+        self._root_cache = {}
         self._committed = self._image = self._pending = None
         self._sealed = False
         self._busy = False
         with unit_of_work(_ready_dsn()) as conn:
-            image = repo._lock_plan_session_image(conn, expected.world_id, expected.turn_id)
+            image = repo._lock_plan_session_image(
+                conn, expected.world_id, expected.turn_id, root_cache=self._root_cache)
             current = repo.lock_turn(conn, expected.world_id, expected.turn_id)
             if (current is None or not eligible(current)
                     or (current.conversation_id, current.revision, current.attempt)
@@ -213,7 +216,8 @@ class NativePlanSession:
     def _guard_locked(self, conn):
         self._require_live()
         turn = self._committed
-        current = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+        current = repo._lock_plan_session_image(
+            conn, turn.world_id, turn.turn_id, root_cache=self._root_cache)
         if current != self._image:
             raise ApplicationStateIntegrityError('Plan session differs from current locked storage')
         repo._verify_plan_checkpoint(conn, turn, self._checkpoint_base_count)
@@ -221,6 +225,7 @@ class NativePlanSession:
 
     def _seal(self):
         self._sealed = True
+        self._root_cache.clear()
         self._committed = self._image = self._pending = None
 
     def abort(self):

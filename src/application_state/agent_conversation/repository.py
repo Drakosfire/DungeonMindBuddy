@@ -161,7 +161,7 @@ def _turn_reference_rows(conn, turn_id, *, lock=False):
     return rows
 
 
-def _lock_plan_session_image(conn, world_id, turn_id):
+def _lock_plan_session_image(conn, world_id, turn_id, *, root_cache=None):
     """Read the complete storage image without constructing mutable JSON models.
 
     This is a transaction-local guard input, not an admission receipt. Its caller
@@ -171,16 +171,38 @@ def _lock_plan_session_image(conn, world_id, turn_id):
     json_columns = frozenset({"graph_context_receipt", "graph_context_execution",
                               "completion", "play_context_receipt"})
     columns = tuple(name.strip() for name in _TURN_BASE_COLS.split(","))
-    selected = ", ".join(
-        f"pg_catalog.jsonb_send({name}) AS {name}" if name in json_columns else name
-        for name in (*columns, "answer_composition_kind", "request_fingerprint",
-                     "idempotency_fingerprint", "submitted_intent_schema"))
+    names = (*columns, "answer_composition_kind", "request_fingerprint",
+             "idempotency_fingerprint", "submitted_intent_schema")
+    known = root_cache.get((world_id, turn_id)) if root_cache is not None else None
+    fields = []
+    params = []
+    if root_cache is not None:
+        fields.extend(("tableoid AS root_table", "xmin::text AS root_xmin", "ctid::text AS root_ctid"))
+    for name in names:
+        if name not in json_columns:
+            fields.append(name)
+        elif known is None:
+            fields.append(f"pg_catalog.jsonb_send({name}) AS {name}")
+        else:
+            fields.append(
+                f"CASE WHEN (tableoid, xmin::text, ctid::text) = (%s::oid, %s::text, %s::text) "
+                f"THEN NULL ELSE pg_catalog.jsonb_send({name}) END AS {name}")
+            params.extend(known[0])
     with conn.cursor(row_factory=dict_row, binary=True) as cur:
-        cur.execute(f"SELECT {selected} FROM agent.turn "
-                    "WHERE world_id=%s AND turn_id=%s FOR UPDATE", (world_id, turn_id))
+        cur.execute(f"SELECT {', '.join(fields)} FROM agent.turn "
+                    "WHERE world_id=%s AND turn_id=%s FOR UPDATE", (*params, world_id, turn_id))
         row = cur.fetchone()
         if row is None:
             return None
+        if root_cache is not None:
+            version = tuple(row.pop(field) for field in ("root_table", "root_xmin", "root_ctid"))
+            if known is not None and known[0] == version:
+                # The same locked heap tuple has the same stored JSON. Keep
+                # scalar and independent child reads fresh on every check.
+                row.update(known[1])
+            else:
+                root_cache[(world_id, turn_id)] = (
+                    version, {field: row[field] for field in json_columns})
         references = _turn_reference_rows(conn, turn_id, lock=True)
         # Apply the existing provenance bound and structural refusal owner.
         _references_from_rows(references)
@@ -303,7 +325,7 @@ def _finish_plan_checkpoint(conn, turn):
         raise ApplicationStateIntegrityError("Plan writer frontier differs from its committed events")
 
 
-def _append_plan_session_events(conn, *, world_id, turn_id, before, execution, prior_count):
+def _append_plan_session_events(conn, *, world_id, turn_id, before, execution, prior_count, root_cache=None):
     """Advance the existing claim and acknowledge only the newly admitted events."""
     prior = dict(before[0])
     if (prior["world_id"], prior["turn_id"], prior["status"]) != (world_id, turn_id, "running"):
@@ -356,7 +378,7 @@ def _append_plan_session_events(conn, *, world_id, turn_id, before, execution, p
     if marker_ack != (turn_id, prior["revision"] + 1, prior["attempt"],
                        checkpoint[2], len(execution.events)):
         raise ApplicationStateIntegrityError("Plan event checkpoint differs from its SQL acknowledgement")
-    after = _lock_plan_session_image(conn, world_id, turn_id)
+    after = _lock_plan_session_image(conn, world_id, turn_id, root_cache=root_cache)
     finished = database_clock(conn)
     if (after is None or after[1:] != before[1:] or root_ack[0] != prior["revision"] + 1
             or dict(after[0]) != prior | {"revision": root_ack[0], "updated_at": root_ack[1]}
