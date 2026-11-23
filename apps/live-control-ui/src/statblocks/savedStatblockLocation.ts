@@ -20,11 +20,17 @@ export function buildSavedStatblockHref(target: SavedStatblockTarget): string {
  return "/build?" + new URLSearchParams({world: target.worldId, draft: target.draftId, revision: target.revisionId, ...(target.sourceReviewId ? {sourceReview: target.sourceReviewId} : {})});
 }
 
-export interface SavedConversationVariantTarget extends ConversationDraftScope { reviewId: string }
+export interface SavedConversationVariantTarget extends ConversationDraftScope {
+ reviewId: string;
+ portraitOperationId?: string;
+}
+
+const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
 export function savedConversationVariantHref(target: SavedConversationVariantTarget): string {
  return "/statblock?" + new URLSearchParams({
   world: target.worldId, conversation: target.conversationId, turn: target.turnId, variantReview: target.reviewId,
+  ...(target.portraitOperationId ? { variantPortrait: target.portraitOperationId } : {}),
  });
 }
 
@@ -34,7 +40,9 @@ export function readSavedConversationVariantTarget(snapshot: string): SavedConve
  const values = ["world", "conversation", "turn", "variantReview"].map(key => params.getAll(key));
  if (values.some(items => items.length !== 1 || !items[0]?.trim())) return null;
  const [worldId, conversationId, turnId, reviewId] = values.map(items => items[0]!);
- return { worldId, conversationId, turnId, reviewId };
+ const portraits = params.getAll("variantPortrait");
+ if (portraits.length > 1 || portraits.length === 1 && !uuid.test(portraits[0]!)) return null;
+ return { worldId, conversationId, turnId, reviewId, ...(portraits[0] ? { portraitOperationId: portraits[0] } : {}) };
 }
 
 
@@ -44,7 +52,6 @@ export function admittedSavedConversationVariantHref(value: string): boolean {
  const target = readSavedConversationVariantTarget(value);
  if (!target) return false;
  const params = new URL(value, "http://localhost").searchParams;
- const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
- return [...params].length === 4 && /^[A-Za-z0-9._:-]+$/.test(target.worldId)
+ return [...params].length === (target.portraitOperationId ? 5 : 4) && /^[A-Za-z0-9._:-]+$/.test(target.worldId)
   && [target.conversationId, target.turnId, target.reviewId].every(part => uuid.test(part));
 }

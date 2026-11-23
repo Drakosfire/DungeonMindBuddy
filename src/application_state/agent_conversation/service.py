@@ -588,6 +588,37 @@ class AgentConversationService:
                 turn_id=turn_id, revision=revision, create_request=create_request,
             )
 
+    def read_variant_portrait(self, world_id, conversation_id, turn_id, *, review_id, operation_id):
+        from .variant_portrait import read
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return read(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, operation_id=operation_id,
+            )
+
+    def claim_variant_portrait(self, world_id, conversation_id, turn_id, *, review_id, operation_id,
+                               intent, append_request):
+        from .variant_portrait import claim
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return claim(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, operation_id=operation_id,
+                intent=intent, append_request=append_request,
+            )
+
+    def settle_variant_portrait(self, world_id, conversation_id, turn_id, *, review_id, operation_id,
+                                receipt=None, refusal=None):
+        from .variant_portrait import settle
+
+        with unit_of_work(_ready_dsn()) as conn:
+            settle(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, operation_id=operation_id,
+                receipt=receipt, refusal=refusal,
+            )
+
     def claim_conversation_variant_save(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         revision: int, create_request: dict,
