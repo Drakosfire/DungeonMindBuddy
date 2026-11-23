@@ -75,6 +75,18 @@ class SavedChoiceSelection(BaseModel):
     options: list[SavedChoiceOption] = Field(min_length=2, max_length=2)
 
 
+class SavedAnswerPassage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    text: str = Field(min_length=1, max_length=2000)
+    source_indexes: list[StrictInt] = Field(min_length=1, max_length=5)
+
+
+class SavedAnswerSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    question: str = Field(min_length=1, max_length=240)
+    passages: list[SavedAnswerPassage] = Field(min_length=1, max_length=10)
+
+
 class ReleaseSelection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     graph_revision: str = Field(min_length=1, max_length=255)
@@ -84,6 +96,7 @@ class ReleaseSelection(BaseModel):
     asset_ids: list[UUID] = Field(max_length=100)
     saved_example: SavedExampleSelection | None = None
     saved_choice: SavedChoiceSelection | None = None
+    saved_answer: SavedAnswerSelection | None = None
 
 
 def prepare(*, world_id: str, subject: str, selection: ReleaseSelection) -> tuple[UUID, str]:
@@ -174,6 +187,13 @@ def _prepare_candidate(*, world_id: str, subject: str, selection: ReleaseSelecti
         if selection.saved_example is None:
             raise GuestReleasePreparationError("Saved choice requires a saved example")
         manifest["saved_choice"] = {"version": "owner_saved_choice_v1", **selection.saved_choice.model_dump()}
+    if selection.saved_answer is not None:
+        answer = selection.saved_answer
+        if any(index < 0 or index >= len(sources) for passage in answer.passages for index in passage.source_indexes):
+            raise GuestReleasePreparationError("Saved answer selection is unavailable")
+        manifest["saved_answer"] = {"version": "owner_saved_answer_v1", "question": answer.question,
+            "passages": [{"text": passage.text, "references": [sources[index]["id"] for index in passage.source_indexes]}
+                         for passage in answer.passages]}
     return guest_release.stage(world_id=world_id, subject=subject, expected_owner_generation=generation,
         native_world_id=binding.native_world_id, native_binding_version=binding.binding_version,
         graph_revision=selection.graph_revision, manifest=manifest, assets=assets, source_bindings=bindings,
