@@ -113,6 +113,9 @@ async function capturePreparation(page, planUrl, fixture) {
     `/api/live/combat/scene-templates/${encodeURIComponent(documentId)}/scenes/${encodeURIComponent(sceneId)}`,
     planUrl,
   );
+  const snapshotPath = new URL(`/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot`, planUrl);
+  const document = page.waitForResponse(response => new URL(response.url()).href === snapshotPath.href
+    && response.request().method() === 'GET').then(json);
   await page.goto(planUrl);
   const preparation = responseFor(page, path, worldId, 'GET');
   await page.getByRole('button', { name: 'Scene encounter', exact: true }).click();
@@ -124,7 +127,25 @@ async function capturePreparation(page, planUrl, fixture) {
   assert.equal(view.encounter.revision, fixture.template.revision);
   assert.ok(view.versions.some(version => version.revision === fixture.template.revision
     && version.digest === fixture.template.digest));
-  return view;
+  return { preparation: view, plan: await document };
+}
+
+async function verifyRunningWrite(page, session, fixture, encounterId) {
+  const path = encounterPath(session.planUrl, session.runId, fixture.sceneId, `/encounters/${encounterId}`);
+  const damage = page.getByRole('button', { name: `Deal 1 damage to ${fixture.boss.name}`, exact: true });
+  await damage.click();
+  const save = responseFor(page, path, fixture.worldId, 'PUT');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const saved = await json(await save);
+  assert.equal(saved.encounter_id, encounterId);
+  assert.equal(saved.draft.entities.find(actor => actor.name === fixture.boss.name).hp, fixture.boss.hp - 1);
+
+  await page.goto(session.runUrl);
+  const read = responseFor(page, encounterPath(session.planUrl, session.runId, fixture.sceneId), fixture.worldId, 'GET');
+  await page.getByRole('button', { name: 'Scene encounter', exact: true }).click();
+  const reopened = await json(await read);
+  assert.equal(reopened.encounter.encounter_id, encounterId);
+  assert.equal(reopened.encounter.draft.entities.find(actor => actor.name === fixture.boss.name).hp, fixture.boss.hp - 1);
 }
 
 async function measurePlay(page, planUrl, fixture) {
@@ -143,6 +164,7 @@ async function measurePlay(page, planUrl, fixture) {
   const { captured, previewMs } = await openPreview(page, engagement, fixture);
   const { encounterId, startMs } = await startCombat(page, engagement, fixture, captured);
   const renderMs = await renderPortrait(page, fixture.boss.name, fixture.boss.imageUrl);
+  await verifyRunningWrite(page, engagement, fixture, encounterId);
 
   await page.goto(parley.runUrl);
   await openPreview(page, parley, fixture);
@@ -161,6 +183,7 @@ async function measurePlay(page, planUrl, fixture) {
       explicit_combat_start: true,
       distinct_running_encounter: true,
       plan_unchanged: true,
+      running_edit_persisted: true,
     },
     evidence: { parley_run_id: parley.runId, engagement_run_id: engagement.runId, encounter_id: encounterId },
   };

@@ -76,5 +76,5 @@ def source_fixture_digest(pins, exported_hashes):
     import json
 
     source = {key: value for key, value in pins.items() if key != "runtime"}
-    payload = {"source": source, "exports": exported_hashes, "protocol": "old_bath_house_v1"}
+    payload = {"source": source, "exports": exported_hashes, "protocol": "old_bath_house_v2"}
     return sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()

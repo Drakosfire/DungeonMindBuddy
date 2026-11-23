@@ -14,6 +14,7 @@ CHECKS = {
     "explicit_combat_start",
     "distinct_running_encounter",
     "plan_unchanged",
+    "running_edit_persisted",
 }
 PHASES = {
     "pinned-assets": {
