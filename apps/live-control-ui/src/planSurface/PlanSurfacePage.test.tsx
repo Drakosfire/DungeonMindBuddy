@@ -1960,6 +1960,41 @@ it("keeps a late World A create acknowledgement in A's recovery journal after na
   expect(commit).not.toHaveBeenCalled();
 });
 
+it.each(["matching", "changed-text", "changed-title"] as const)(
+  "reopens a newer committed Plan with an older %s recovery draft",
+  async (variant) => {
+    const markdown = "# Arrival\n\n> [!RULES]\n> Travel pace is set by the GM.\n";
+    const record = mockSavedPlanForAgent(savedAgentPlanId, 8, 8, markdown);
+    const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+    const localMarkdown = variant === "changed-text" ? markdown + "\nPrivate unsaved note.\n" : markdown;
+    const localTitle = variant === "changed-title" ? "Unsaved Plan title" : record.title;
+    localStorage.setItem(key, JSON.stringify({
+      schema_version: "dmb_plan_promotion_recovery_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: record.document_id,
+      title: localTitle,
+      markdown: localMarkdown,
+      revision: 7,
+      edit_generation: 2,
+    }));
+    const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+    const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+    render(<SelectedWorldProvider locationSnapshot={location}><VerifiedPlanPage /></SelectedWorldProvider>);
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect(surface).toHaveTextContent("Travel pace is set by the GM."));
+    const conflict = screen.queryByRole("button", { name: "Use saved Plan version" });
+    if (variant === "matching") {
+      expect(conflict).not.toBeInTheDocument();
+      expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({ revision: 8, markdown });
+    } else {
+      expect(conflict).toBeInTheDocument();
+      expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({ revision: 7, title: localTitle, markdown: localMarkdown });
+    }
+    expect(prepare).not.toHaveBeenCalled();
+  },
+);
+
 it("persists the prepared revision before commit and retries against that exact revision", async () => {
   const documentId = "prepared-revision-plan";
   const record = worldPlanRecord(documentId, worldId, 1);
