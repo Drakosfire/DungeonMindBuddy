@@ -10,7 +10,7 @@ from uuid import uuid4
 import httpx
 from openai import AsyncOpenAI
 import pytest
-from dungeonmind.contracts.vnext.domain import AssertionMetadata
+from dungeonmind.contracts.vnext.domain import Assertion, AssertionMetadata
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation import native_plan_assertions as assertion_owner
@@ -338,3 +338,29 @@ def test_distinct_assertions_remain_distinct(monkeypatch):
     assert claim.assertion_ids == ['assertion-A', 'assertion-B']
     assertion_owner.validate_citation_records(NS(answer_segments=[claim], native_assertion_citations=citations),
         None, None, {('first', 'assertion-B'): (first, a), ('second', 'assertion-A'): (second, b)})
+
+
+def test_repeated_assertion_keeps_real_read_bindings():
+    def assertion(standing):
+        metadata = AssertionMetadata(visibility={'kind':'labels_any','labels':['dungeonbuddy.visibility:gm']}, epistemic_basis='asserted', claim_mode='dungeonbuddy.claim:fact', standing=standing, temporal_scope={'kind':'unknown'})
+        return Assertion(assertion_id='same',subject_entity_id='subject',predicate='dnd5e:name',value={'kind':'literal','value':'A'},metadata=metadata)
+    def span(ref, revision, text):
+        return assertion_owner.NativeAssertionSpanV1(evidence_ref_id=ref,source_artifact_id='artifact',source_revision_id=revision,body_sha256='a'*64,start_byte=0,end_byte=len(text.encode()),span_sha256=sha256(text.encode()).hexdigest(),text=text)
+    first, second = NS(event_id=uuid4()), NS(event_id=uuid4())
+    a=NS(assertion=assertion('established'),spans=(span('ref-A','source-rev-A','A'),))
+    b=NS(assertion=assertion('provisional'),spans=(span('ref-B','source-rev-B','B'),))
+    support=NS(native_assertions=(('handle-A',first,a),('handle-B',second,b)),native_statements=(),body_excerpts=())
+    auth=NS(provider_attempt_id=uuid4(),envelope_sha256='b'*64)
+    receipt=NS(context_receipt_sha256='c'*64,native_query=NS(authority=NS(managed_world_id='world',native_world_id='native',revision_id='graph-rev')))
+    row={'kind':'native_assertion_claim','text':'A qualified fact.','assertion_handles':['handle-A','handle-B']}
+    claim, _, _, citations=native_fact_segment(row,policy=ASSERTION_POLICY,receipt=receipt,auth=auth,support=support,index=0)
+    assert claim.assertion_ids==['same']
+    assert {m.standing for m in claim.qualifications}=={'established','provisional'}
+    assert {(c.read_event_id,c.source_revision_id) for c in citations}=={(first.event_id,'source-rev-A'),(second.event_id,'source-rev-B')}
+    reads={(first.event_id,'same'):(first,a),(second.event_id,'same'):(second,b)}
+    result=NS(answer_segments=[claim],native_assertion_citations=citations)
+    assertion_owner.validate_citation_records(result,receipt,auth,reads)
+    altered=citations[1].model_copy(update={'source_revision_id':'forged'})
+    result.native_assertion_citations=[citations[0],altered]
+    with pytest.raises(ValueError,match='changed original source support'):
+        assertion_owner.validate_citation_records(result,receipt,auth,reads)
