@@ -411,6 +411,9 @@ class PlanJevWriter:
             self.messages.append({'role':'user','content':'Return JSON.'})
         from application_state.agent_conversation.retained_conversation import dialogue_messages
         retained_dialogue = dialogue_messages(turn.graph_context_execution) if self.shared else None
+        if retained_dialogue is not None:
+            from application_state.agent_conversation.retained_conversation import require_current_presentation
+            require_current_presentation(turn.graph_context_execution)
         self.messages = (retained_dialogue if retained_dialogue is not None else [
             {"role": item["role"], "content": canonical_bytes({"conversation": item["content"]}).decode()}
             for item in dialogue

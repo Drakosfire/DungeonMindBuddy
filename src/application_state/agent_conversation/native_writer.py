@@ -115,10 +115,8 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
     body_frame = bodies.model_body_frame_records(receipt.source_authority, execution, body_handle,
         passages_only=passages_only)
     body_frame["excerpts"].extend(support.frame() for support in bodies.prior_body_writer_supports(execution))
-    from .retained_conversation import native_supports
-    body_frame["excerpts"].extend(bodies.model_body_frame_rows(
-        receipt.source_authority, (), body_handle,
-        passage_supports=native_supports(execution))["excerpts"])
+    from .retained_conversation import native_frame_rows
+    body_frame["excerpts"].extend(native_frame_rows(execution, receipt.source_authority, body_handle))
     return dict(schema=schema, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
         user_question=execution.policy.action.intent.message,
         native_body_evidence=body_frame,

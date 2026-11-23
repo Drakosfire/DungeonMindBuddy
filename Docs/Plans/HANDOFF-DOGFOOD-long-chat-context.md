@@ -58,6 +58,7 @@ Expected exclusive writes: this handoff; predecessor authored-context-coverage
 and world-page-context handoffs for backward-looking settlement; new
 src/application_state/agent_conversation/retained_conversation.py; types.py,
 repository.py, service.py, native_execution.py, native_corpus.py, native_writer.py,
+model_markdown.py only for the new retained-source presentation helper,
 native_build_work_view.py and context_trace_store.py in that package;
 apps/live_control_server/services/build_jev_harness.py and plan_jev_writer.py only
 for Build retained-context projection; agent_native_source_sections.py only for
@@ -127,3 +128,39 @@ Exact80c checkpoint and scoped corrections:
   clone after its contract runs completed; it was restored clean. Treat that
   Maelthor diagnostic as nonqualifying and repeat on the final isolated commit.
   Earlier exact-source frontend/backend results are retained at their own SHA.
+
+Projection checkpoint: actual frozen context contains generated Buddy navigation
+URLs and a PDF provenance fingerprint embedded in old Markdown. V2's current model
+presentation must project these structural fields before dispatch, preserving raw
+read/citation bytes. Keep the earlier experimental V2 full presentation as an
+explicit historical codec only, and refuse new dispatch using that old policy.
+This is required by the existing model-prompt boundary, not a new retrieval grant.
+No current exclusive overlap: ONBOARD4489 changes surface_evidence_answer.py and
+native completion tests, not this retained-source projection.
+
+Exact0bb checkpoint:
+- Hosted retained evidence validates. World/content512 passed,1 inherited failure,
+  2 skipped; ingestion/review913 passed,9 skipped; saved readers562 passed,
+  31 inherited failures. All32 failure IDs match the exacta5c comparison.
+- A real interrupted-turn60-history diagnostic passed. Repeated full fallback
+  admission took286–312ms with zero new native acquisitions; no speed waiver or
+  silent truncation is needed for the conservative failed-turn fallback.
+- Frozen12-turn Maelthor: HTTP200, all context retained; draft16953ms and
+  save/reopen4330ms. An independent local semantic audit confirms both cited
+  original reads support the dream/password claims and preserve authored premises,
+  corrected directions and open questions. The older last-citation-SHA assertion
+  remains visibly false: V2 selected an earlier valid Session6 extent12–29 from
+  frozen turn7 rather than the later full1–29 extent. Revised acceptance requires
+  exact original read/source identity, exact reopened bytes AND claim-specific
+  support, never source-tuple equality alone. Latency remains a successor gap.
+- Final prompt audit found one generated navigation UUID and one PDF fingerprint
+  inside old source text. The new current presentation uses structural Markdown
+  projection for owned links and the standalone provenance field. Raw source bytes
+  and historical producing requests remain available. The earlier full V2 policy
+  is replay-only; new dispatch requires the semantic policy.16 pure checks and
+  23 focused cases pass; the real retained material projects to zero UUID/hash
+  values. A completed earlier V2 record still decodes under its full policy.
+- Diagnostic lower lore effort plus existing immutable Source cache preserved
+  fresh access contexts and reduced draft to13266ms/save to530ms, with0cached
+  provider tokens. These runtime monkeypatches are not product changes or final
+  latency acceptance. Provider/model identity is unchanged; successors need review.

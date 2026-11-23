@@ -446,3 +446,40 @@ def test_actual_approved_mixed_http_reply_retains_visible_questions(lane, tmp_pa
     wire = json.dumps(retained.dialogue_messages(NS(events=(value,))))
     assert str(envelope.turn_id) not in wire
     assert str(completed.accepted_binding_sha256) not in wire
+
+
+def test_retained_source_presentation_projects_owned_navigation_and_pdf_provenance():
+    from application_state.agent_conversation.model_markdown import project_retained_source_markdown
+    ident = str(uuid4())
+    source = (f'[Earlier notes](/build?world=retained-world&documentId={ident}) · saved revision 7\n\n'
+              f'Original PDF SHA-256: `{"a" * 64}`.\n\n'
+              'The lantern rings only when someone lies.\n')
+    projected = project_retained_source_markdown(source)
+    assert ident not in projected and 'a' * 64 not in projected
+    assert 'saved revision' not in projected
+    assert 'Earlier notes' in projected and 'The lantern rings only when someone lies.' in projected
+    assert len(projected.splitlines()) == len(source.splitlines())
+    assert source != projected  # Original caller-owned source remains unchanged.
+
+
+def test_retained_projection_preserves_external_links_fenced_literals_and_ordinary_hash_prose():
+    from application_state.agent_conversation.model_markdown import project_retained_source_markdown
+    source = (f'[An external reference](https://example.test/build?documentId={uuid4()})\n\n'
+              f'```text\nOriginal PDF SHA-256: `{"b" * 64}`.\n```\n\n'
+              f'The author supplied this literal code: `{"c" * 64}`.\n')
+    assert project_retained_source_markdown(source) == source
+
+
+def test_historical_retained_presentation_replays_but_cannot_authorize_new_dispatch():
+    current, turns = fixture_closure(2)
+    value = capture(current, turns)
+    assert value.presentation_policy == 'retained_conversation_semantic_v2'
+    retained.require_current_presentation(NS(events=(value,)))
+    historical = value.model_copy(update={'presentation_policy':'retained_conversation_full_v1'})
+    wire = historical.model_dump_json()
+    assert 'presentation_policy' not in wire
+    restored = t.BuildPriorBodyEvidenceAdmittedV2.model_validate_json(wire)
+    assert restored.presentation_policy == 'retained_conversation_full_v1'
+    assert retained.dialogue_messages(NS(events=(restored,))) == retained.dialogue_messages(NS(events=(value,)))
+    with pytest.raises(ValueError, match='replay-only'):
+        retained.require_current_presentation(NS(events=(restored,)))

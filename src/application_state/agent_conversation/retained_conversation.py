@@ -141,6 +141,7 @@ def capture(current, turns, *, event_id, work_event_id, pointer_revision, seed=N
         work_event_id=work_event_id, supports=(), world_id=current.world_id,
         conversation_id=current.conversation_id, turn_id=current.turn_id, attempt=current.attempt,
         conversation_sequence=current.sequence, pointer_revision=pointer_revision,
+        presentation_policy="retained_conversation_semantic_v2",
         history=tuple(history), authored_context=tuple(t.RetainedAuthoredContextV1(**row) for row in authored.values()),
         native_context=tuple(t.RetainedNativeContextV1(**row) for row in native.values()))
 
@@ -182,9 +183,11 @@ def authored_frame(execution):
     if value is None:
         return None
     turns = {row.turn_id: f"turn{i}" for i, row in enumerate(value.history)}
-    from .model_markdown import project_model_markdown
+    from .model_markdown import project_model_markdown, project_retained_source_markdown
+    project = (project_retained_source_markdown if value.presentation_policy == "retained_conversation_semantic_v2"
+               else project_model_markdown)
     return [dict(context=f"context{i}", role=row.role + "_historical_not_played_truth",
-        **({"title": row.title} if row.title is not None else {}), text=project_model_markdown(row.text),
+        **({"title": row.title} if row.title is not None else {}), text=project(row.text),
         from_turns=list(dict.fromkeys(turns[o.turn_id] for o in row.occurrences)))
         for i, row in enumerate(value.authored_context)]
 
@@ -212,3 +215,20 @@ def native_supports(execution):
     value = admission(execution)
     return (() if value is None else tuple(RetainedBodySupport(f"retained{i}", row.read, row.catalog, value)
                                            for i, row in enumerate(value.native_context)))
+
+
+def require_current_presentation(execution):
+    value = admission(execution)
+    if value is not None and value.presentation_policy != "retained_conversation_semantic_v2":
+        raise ValueError("Historical retained presentation is replay-only; start a fresh turn")
+
+
+def native_frame_rows(execution, source_authority, selector):
+    from .native_corpus import model_body_frame_rows
+    from .model_markdown import project_retained_source_markdown
+    rows = model_body_frame_rows(source_authority, (), selector,
+        passage_supports=native_supports(execution))["excerpts"]
+    value = admission(execution)
+    if value is not None and value.presentation_policy == "retained_conversation_semantic_v2":
+        rows = [row | {"text": project_retained_source_markdown(row["text"])} for row in rows]
+    return rows
