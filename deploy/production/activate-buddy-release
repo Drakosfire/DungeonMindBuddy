@@ -150,9 +150,36 @@ retain_images() {
   done
 }
 
+retain_build_cache() {
+  local approvals="$config_dir/retire-cache" id record
+  local description='prepare_patched_hermes[.]py|patches/hermes-agent'
+  local -a ids=()
+  [[ -e "$approvals" || -L "$approvals" ]] || return 0
+  [[ -f "$approvals" ]] || return 1
+  trusted "$approvals"
+  while IFS= read -r id || [[ -n "$id" ]]; do
+    [[ -n "$id" ]] || continue
+    [[ "$id" =~ ^[a-z0-9]{25}$ ]] || return 1
+    ids+=("$id")
+  done < "$approvals" || return 1
+
+  for id in "${ids[@]}"; do
+    record=$(docker buildx du --builder default --filter "id=$id" \
+      --format '{{.ID}} {{.Shared}} {{.Reclaimable}} {{.Description}}') || return 1
+    [[ -n "$record" ]] || continue
+    [[ "$record" != *$'\n'* && "$record" == "$id false true "* &&
+      "${record#"$id false true "}" =~ $description ]] || return 1
+    docker buildx prune --builder default --force --filter "id=$id" \
+      --filter 'shared!=true' --filter "description~=$description" || return 1
+    record=$(docker buildx du --builder default --filter "id=$id" --format '{{.ID}}') || return 1
+    [[ -z "$record" ]] || return 1
+  done
+}
+
 report_live() {
   printf 'BUDDY_LIVE %s %s\n' "$revision" "$candidate_id"
   retain_images || fail "release is healthy and recorded; image retention did not finish"
+  retain_build_cache || fail "release is healthy and recorded; build cache retention did not finish"
 }
 
 [[ "$upstream" =~ ^http://127\.0\.0\.1:[0-9]{1,5}$ ]] || fail "expected a Buddy loopback upstream"
