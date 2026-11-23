@@ -1294,7 +1294,7 @@ def prepare_authoring_proposal(action, capture, turn, result, proof):
         raise ValueError("Plan writing has no unique actual writer")
     writer = writers[0]
     base_result = result.base_result if isinstance(result, NativeRulesMixedTurnResultV1) else result
-    if base_result.completion is not None:
+    if base_result is not None and base_result.completion is not None:
         require_playable_body_not_repeated_as_excerpts(capture, base_result.completion.answer_segments)
     fragment = authored_markdown(result, execution=turn.graph_context_execution)
     origin = action.authoring_origin.model_dump(mode="json", by_alias=True) | {
