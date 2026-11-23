@@ -1079,17 +1079,25 @@ function insertionForTarget(
   if (!item) {
     const start = captured.editor.state.doc.resolve(captured.from);
     const end = captured.editor.state.doc.resolve(captured.to);
-    const paragraph = content.length === 1 && content[0]?.type === "paragraph" ? content[0] : null;
-    if (
-      paragraph
-      && start.sameParent(end)
-      && start.parent.type.name === "paragraph"
-      && captured.from !== captured.to
-    ) {
-      return {
-        range: { from: captured.from, to: captured.to },
-        content: paragraph.content ?? [],
-      };
+    if (start.sameParent(end) && start.parent.type.name === "paragraph" && captured.from !== captured.to) {
+      const replacement = content.length === 1 ? content[0] : undefined;
+      const existingCallout = start.depth > 0 ? start.node(start.depth - 1) : null;
+      // A matching reviewed wrapper repeats the existing callout identity.
+      // Only its paragraph replaces the selected body, never the outer node.
+      const repeatsExistingWrapper = replacement?.type === "callout"
+        && replacement.content?.length === 1
+        && existingCallout?.type.name === "callout"
+        && replacement.attrs?.kind === existingCallout.attrs.kind
+        && replacement.attrs?.label === existingCallout.attrs.label
+        && start.parentOffset === 0
+        && end.parentOffset === end.parent.content.size;
+      const paragraph = repeatsExistingWrapper ? replacement.content?.[0] : replacement;
+      if (paragraph?.type === "paragraph") {
+        return {
+          range: { from: captured.from, to: captured.to },
+          content: paragraph.content ?? [],
+        };
+      }
     }
     if (captured.from === captured.to && start.parent.type.name === "paragraph") {
       // Inserting block content splits the current paragraph. Whitespace that
