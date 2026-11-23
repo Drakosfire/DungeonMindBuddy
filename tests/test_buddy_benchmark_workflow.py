@@ -1442,3 +1442,48 @@ def test_cohort_member_verifies_exact_manifest_bytes_before_startup(tmp_path):
         w.capture(path, tmp_path / "out", context_only=True,
                   cohort_manifest_sha256=expected["sha256"])
     assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("capture_fails", [False, True])
+def test_capture_owns_disposable_app_scope(tmp_path, monkeypatch, capture_fails):
+    from contextlib import contextmanager
+
+    from evals.buddy_benchmark import disposable_database
+
+    env = "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL"
+    source = "postgresql://127.0.0.1:12345/eval_template"
+    template = dict(host="127.0.0.1", port=12345, database="eval_template",
+                    oid="1", system_identifier="2")
+    native = {**template, "database": "eval_core", "oid": "3"}
+    clone = {**template, "database": "benchmark_run_fixture", "oid": "4"}
+    manifest = {"isolation": {"app": template, "native": native}}
+    events = []
+    monkeypatch.setenv(env, source)
+    monkeypatch.setattr(w, "load_manifest", lambda *_, **__: (manifest, tmp_path))
+
+    @contextmanager
+    def owned(admin_dsn, expected):
+        assert admin_dsn == "postgresql://127.0.0.1:12345/postgres"
+        assert expected == template
+        events.append("created")
+        try:
+            yield clone
+        finally:
+            assert w.os.environ[env] == source
+            events.append("dropped")
+
+    def capture(pinned, *_args, **_options):
+        assert pinned["isolation"] == {"app": clone, "native": native}
+        assert w.os.environ[env].endswith("/benchmark_run_fixture")
+        if capture_fails:
+            raise RuntimeError("capture fixture failed")
+
+    monkeypatch.setattr(disposable_database, "disposable_benchmark_database", owned)
+    monkeypatch.setattr(w, "_capture", capture)
+    if capture_fails:
+        with pytest.raises(RuntimeError, match="capture fixture failed"):
+            w.capture("unused", tmp_path, context_only=True, clone_app=True)
+    else:
+        w.capture("unused", tmp_path, context_only=True, clone_app=True)
+    assert events == ["created", "dropped"]
+    assert w.os.environ[env] == source
