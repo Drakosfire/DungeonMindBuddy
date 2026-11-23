@@ -19,6 +19,7 @@
       "apps/live-control-ui/src/guestRelease/GuestReleaseReview.test.tsx",
       "apps/live-control-ui/src/guestRelease/GuestReleaseDrawer.test.tsx",
       "apps/live-control-ui/src/guestRelease/GuestReleaseSelection.test.tsx",
+      "apps/live-control-ui/src/guestRelease/savedAnswer.test.ts",
       "apps/live-control-ui/src/agentInteraction/AgentInteractionChrome.test.tsx",
       "apps/live-control-ui/src/agentInteraction/AgentInteractionProvider.test.tsx",
       "apps/live-control-ui/src/agentInteraction/BuddyReadiness.test.tsx",
