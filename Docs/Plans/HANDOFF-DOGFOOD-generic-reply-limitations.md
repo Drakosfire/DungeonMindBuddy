@@ -1,6 +1,9 @@
 # DOGFOOD: generic limitation codes for fresh native replies
 
-ACTIVE. The user's writer/context cleanup goal authorizes this serial successor
+MERGED: PR4549 at5428c5bd90545e8fc622eaaf903ea80515162859 after independent
+exactc592 source/fixture/semantic and bounded merge PASS. This lease is released
+to the serial background-source-choice successor; no serving deployment claimed.
+The user's writer/context cleanup goal authorizes this serial successor
 to PR4536, merged2b1e7e1f89048320916f05438d169e8aaa7a69b3 (tree46bbdffa2,
 independent bounded merge PASS). DOGFOOD owns design and implementation in
 codex/dogfood-generic-reply-limitations, this existing isolated checkout, base that
