@@ -565,7 +565,7 @@ def test_corpus_rejects_missing_batched_provenance(lane, monkeypatch):
         capture(lane, prepared=prepared)
 
 
-def test_default_source_context_caches_only_immutable_revision_and_refreshes_access(lane, monkeypatch):
+def test_default_uncached_source_context_refreshes_revision_and_access(lane, monkeypatch):
     from dungeonmind.application.vnext.native_source_access import NativeParsedRevisionCache
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
     receipt = admit(lane)
@@ -574,7 +574,7 @@ def test_default_source_context_caches_only_immutable_revision_and_refreshes_acc
         factories.append(read_only)
         assert not read_only
         return lane.repo
-    monkeypatch.setattr(owner, 'turn_source_repository', repository)
+    monkeypatch.setattr(owner.native, 'repository', repository)
     monkeypatch.setattr(owner, 'turn_parsed_revision_cache', NativeParsedRevisionCache())
     def resolve(world):
         resolutions.append(world)
@@ -585,7 +585,7 @@ def test_default_source_context_caches_only_immutable_revision_and_refreshes_acc
         principal=first_principal, resolve_identity=resolve)
     second = owner.prepare_native_source_context(managed_world_id='managed',
         principal=next_principal, resolve_identity=resolve)
-    assert first.access.parsed is second.access.parsed
+    assert first.access.parsed is not second.access.parsed
     assert first.access.source_view is not second.access.source_view
     assert first.access is not second.access
     assert first.principal is first_principal and second.principal is next_principal
@@ -596,7 +596,7 @@ def test_default_source_context_caches_only_immutable_revision_and_refreshes_acc
         source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id)
     withdrawn = owner.prepare_native_source_context(managed_world_id='managed',
         principal=next_principal, resolve_identity=resolve)
-    assert withdrawn.access.parsed is second.access.parsed
+    assert withdrawn.access.parsed is not second.access.parsed
     assert withdrawn.authority.acquisition_epoch > second.authority.acquisition_epoch
     assert owner.open_native_corpus_member(withdrawn, evidence) is None
     admit(lane, 'later')
