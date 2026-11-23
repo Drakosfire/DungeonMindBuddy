@@ -3586,40 +3586,7 @@ def test_fresh_lore_review_refuses_retired_limitation_policy_before_writer_io(la
     assert case.turn.completion is None
 
 
-@pytest.mark.parametrize('mutation', ['unknown_policy', 'omitted_policy', 'old_format', 'ineligible_context'])
-def test_lore_review_recomputed_packet_cannot_forge_limitation_policy(lane, tmp_path, monkeypatch, mutation):
-    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
-    original = PlanJevWriter.__init__
-    def forge(self, *args, **kwargs):
-        original(self, *args, **kwargs)
-        if mutation == 'old_format':
-            self.output_format = self.output_format | {'name': 'surface_native_evidence_selectors_v2'}
-            return
-        for message in self.messages:
-            frame = json.loads(message['content'])
-            if 'build_work' not in frame:
-                continue
-            if mutation == 'unknown_policy':
-                frame['build_work']['lore_limitation_policy'] = 'foreign_limitation_policy'
-            elif mutation == 'omitted_policy':
-                frame['build_work'].pop('lore_limitation_policy')
-            else:
-                frame['build_work']['lore_limitation_policy'] = 'validated_lore_review_generic_gaps_v1'
-            message['content'] = json.dumps(frame)
-            break
-        else:
-            raise AssertionError('Test requires the actual Build work carrier')
-    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
-    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
-        requested_work='discuss' if mutation == 'ineligible_context' else 'review_lore_page',
-        source_need='anchored', source_answer_output='creative' if mutation == 'ineligible_context' else 'lore_stale_gap',
-        message='Create a page for Glass Regent.')
-    assert case.response.status_code == 503
-    assert not case.writer.calls
-    assert case.turn.completion is None
-
-
-@pytest.mark.parametrize('mutation', ['unknown_policy', 'omitted_policy', 'old_format', 'ineligible_work'])
+@pytest.mark.parametrize('mutation', ['unknown_policy', 'omitted_policy', 'old_format', 'ineligible_work', 'ineligible_context'])
 def test_lore_review_recomputed_packet_cannot_forge_limitation_policy(lane, tmp_path, monkeypatch, mutation):
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
     original = PlanJevWriter.__init__
@@ -3644,8 +3611,8 @@ def test_lore_review_recomputed_packet_cannot_forge_limitation_policy(lane, tmp_
             raise AssertionError('Test requires actual semantic Build work')
     monkeypatch.setattr(PlanJevWriter, '__init__', forge)
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
-        requested_work='discuss' if mutation == 'ineligible_work' else 'review_lore_page',
-        source_need='anchored', source_answer_output='creative' if mutation == 'ineligible_work' else 'lore_stale_gap',
+        requested_work='discuss' if mutation.startswith('ineligible_') else 'review_lore_page',
+        source_need='anchored', source_answer_output='creative' if mutation.startswith('ineligible_') else 'lore_stale_gap',
         message='Let us explore this premise without searching.' if mutation == 'ineligible_work' else 'Create a page for Glass Regent.')
     assert case.response.status_code == 503
     assert not case.writer.calls
