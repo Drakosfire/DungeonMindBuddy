@@ -1208,14 +1208,14 @@ def list_retained_build_turns(conn, current):
             SELECT s.sequence FROM agent.turn s
             WHERE s.world_id=%s AND s.conversation_id=%s AND s.sequence<%s
               AND s.status='completed' AND s.answer_composition_kind='base'
-              AND s.graph_context_execution @? '$.events[*] ? (@.kind == "build_prior_body_evidence_admitted_v2")'
+              AND s.graph_context_execution @? '$.events[*] ? (@.kind == "build_prior_body_evidence_admitted_v2" || @.kind == "build_prior_body_evidence_admitted_v3")'
               AND NOT EXISTS (
                 SELECT 1 FROM agent.turn p
                 LEFT JOIN LATERAL (
                   SELECT h.turn_id,h.sequence,h.attempt
                   FROM jsonb_array_elements(s.graph_context_execution->'events') e,
                     jsonb_to_recordset(e->'history') AS h(turn_id uuid,sequence bigint,attempt integer)
-                  WHERE e->>'kind'='build_prior_body_evidence_admitted_v2'
+                  WHERE e->>'kind' IN ('build_prior_body_evidence_admitted_v2','build_prior_body_evidence_admitted_v3')
                 ) pin ON pin.turn_id=p.turn_id
                 WHERE p.world_id=s.world_id AND p.conversation_id=s.conversation_id
                   AND p.sequence<s.sequence

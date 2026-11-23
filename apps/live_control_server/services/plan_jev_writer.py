@@ -362,9 +362,10 @@ class PlanJevWriter:
                 variant_format = bool(not rule_frame.lookups and variant_sources(self.work_frame))
                 if variant_format:
                     format_version = variant_output_version(self.work_frame)
-                elif not rule_frame.lookups and any(
-                    is_anchored_discussion(event) for event in turn.graph_context_execution.events
-                ):
+                elif (not rule_frame.lookups
+                        and not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV3)
+                                    for event in turn.graph_context_execution.events)
+                        and any(is_anchored_discussion(event) for event in turn.graph_context_execution.events)):
                     format_version = 7
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
@@ -424,7 +425,8 @@ class PlanJevWriter:
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
         from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
-        conversation_draft = self.shared and native_conversation_terminal(turn) is not None
+        conversation_draft = (self.shared and native_conversation_terminal(turn) is not None
+            and self.provider_work.get("build_work", {}).get("requested_work", {}).get("requested_work") == "review_lore_page_from_conversation")
         self.reasoning_effort = "medium" if single_variant_base or conversation_draft else "low"
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
@@ -517,8 +519,14 @@ class PlanJevWriter:
                 fragment_scope = self.work_frame.get('focused_edit_target', {}).get('fragment_scope')
                 if fragment_scope is not None:
                     instructions += '\n' + fragment_scope['instruction']
-            if retained_dialogue is not None:
-                instructions += (
+            self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
+                RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
+            if single_variant_base:
+                from application_state.agent_conversation.response_prompt import VARIANT_BASE
+
+                self.instructions += "\n" + VARIANT_BASE.text
+        if retained_dialogue is not None:
+            self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '
                     'retractions over earlier proposals. Retained authored context is an exact '
                     'historical read or working draft, not the current saved page or played truth. '
@@ -528,12 +536,6 @@ class PlanJevWriter:
                     'passages are already supplied; select their offered handles without '
                     'claiming a new search or inventing citations.'
                 )
-            self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
-                RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
-            if single_variant_base:
-                from application_state.agent_conversation.response_prompt import VARIANT_BASE
-
-                self.instructions += "\n" + VARIANT_BASE.text
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False

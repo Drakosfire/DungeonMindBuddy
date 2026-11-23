@@ -1,6 +1,6 @@
 # DOGFOOD: retain full long-chat context without searching again
 
-ACTIVE, directly authorized by Alan to continue #4459, fix its remaining gaps and
+IMPLEMENTATION MERGED, directly authorized by Alan to continue #4459, fix its remaining gaps and
 deploy. DOGFOOD designs/owns this bounded Buddy runtime slice. No Core changes.
 
 Topology: stacked implementation, serial delivery. Parent serving source a5c7599c3c32731785de4562ced073cadf392e07 (APP0192),
@@ -174,3 +174,11 @@ Ten focused projection/presentation regressions pass. The initial broader comman
 without the disposable DB environment failed fixture setup (12 passed,1 error);
 repeat through the isolated DB helper, retaining that diagnostic as a setup error.
 No merge/deployment or exact-current-source pass is claimed at this checkpoint.
+
+Settlement: PR4484 merged b78681c150fad117ac1cd15bd0ffd6c60afcf5ed into its
+owned serving base, after independent cycle4 source PASS and exact0d0 qualification
+recorded on the PR. This capability is not deployed. The bounded discussion
+successor4496 explicitly adopts stacked implementation/serial delivery and owns
+backward-looking settlement here. Title/latency and actual-app acceptance remain
+required for4459. The earlier serial-undispatched start restriction is superseded
+only by that explicit successor assignment; no broad runtime lease is granted.

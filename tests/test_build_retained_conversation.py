@@ -114,18 +114,19 @@ def test_legacy_admission_does_not_change_historical_dialogue_codec():
 from tests.test_native_plan_assertions import lane as lane
 
 
-@pytest.mark.parametrize('turn_count', [8, 60])
+@pytest.mark.parametrize('turn_count,discussion', [(8, False), (60, False), (8, True)])
 def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_editor_or_new_search(
-        lane, tmp_path, monkeypatch, turn_count):
+        lane, tmp_path, monkeypatch, turn_count, discussion):
     from tests.test_surface_native_build_ordinary import _fresh_case
     from application_state.agent_conversation.native_corpus import acquired_body_reads
     from application_state.agent_conversation.service import AgentConversationService
     from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
 
-    synthesis = 'Create a new page titled "Glass Regent" from the context we discussed. Do not search again.'
+    synthesis = ('Recap everything we discussed, including the earlier saved notes. Do not search again.' if discussion
+                 else 'Create a new page titled "Glass Regent" from the context we discussed. Do not search again.')
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, True, False,
         native_body='irrelevant',
-        requested_work=lambda message: 'review_lore_page_from_conversation' if message == synthesis else 'discuss',
+        requested_work=lambda message: ('discuss' if discussion else 'review_lore_page_from_conversation') if message == synthesis else 'discuss',
         source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup')
     original = case.turn
     # The initial explicit source selection supplied the early read. Follow-ups
@@ -193,17 +194,32 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     monkeypatch.setattr(AgentConversationService, 'admit_build_prior_body_evidence', checked_admit)
 
     original_authorize = AgentConversationService.authorize_native_writer
+    writers = []
+    if discussion:
+        from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+        original_init = PlanJevWriter.__init__
+        def track_writer(writer, *args, **kwargs):
+            original_init(writer, *args, **kwargs)
+            writers.append(writer)
+        monkeypatch.setattr(PlanJevWriter, '__init__', track_writer)
     tampered = []
     def checked_authorize(owner, world, conversation, turn_id, **values):
         from apps.live_control_server.services.agent_turn_service import _json_node_count
         prior = owner.inspect_turn(world_id=world, turn_id=turn_id)
         if retained.admission(prior.graph_context_execution) is not None:
-            for mutation in ('omit', 'change'):
+            for mutation in (('omit', 'change', 'discussion_only_format') if discussion else ('omit', 'change')):
                 request = json.loads(values['prepared_request_json'])
                 if mutation == 'omit':
                     request['input'] = request['input'][2:]
-                else:
+                elif mutation == 'change':
                     request['input'][0]['content'] = '{"conversation":"changed older context"}'
+                else:
+                    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+                    from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+                    writer = writers[-1]
+                    request['text']['format'] = native_output_format(writer.frame,
+                        model_rules_frame(writer.rules.frame()), writer.work_frame | writer.provider_work,
+                        build_local=True, format_version=7, execution=prior.graph_context_execution)
                 raw = json.dumps(request, ensure_ascii=False)
                 auth = values['authorization'].model_copy(update={
                     'envelope_sha256': sha256(raw.encode()).hexdigest(),
@@ -215,6 +231,15 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
                 tampered.append(mutation)
         return original_authorize(owner, world, conversation, turn_id, **values)
     monkeypatch.setattr(AgentConversationService, 'authorize_native_writer', checked_authorize)
+    if discussion:
+        from apps.live_control_server.services import native_graph_reads, build_related_pages
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+        def forbidden(*args, **kwargs):
+            raise AssertionError('Anchored discussion attempted new source acquisition')
+        monkeypatch.setattr(native_graph_reads, 'prepare_query', forbidden)
+        monkeypatch.setattr(build_related_pages, 'acquire_selected_pages', forbidden)
+        monkeypatch.setattr(native_corpus_source, 'open_native_corpus_member', forbidden)
+        monkeypatch.setattr(native_corpus_source, 'read_native_corpus_member', forbidden)
     before = len(case.writer.calls)
     response = case.client.post('/api/live/agent/turn', json=case.request | {
         'turn_id': str(uuid4()), 'message': synthesis})
@@ -223,7 +248,16 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     turn = max(owner.list_turns(case.world, original.conversation_id), key=lambda row: row.sequence)
     value = retained.admission(turn.graph_context_execution)
     assert value is not None
-    assert len(fenced) == 2 and tampered == ['omit', 'change']
+    assert type(value) is (t.BuildPriorBodyEvidenceAdmittedV3 if discussion else t.BuildPriorBodyEvidenceAdmittedV2)
+    if discussion:
+        raw = turn.graph_context_execution.model_dump(mode='python', by_alias=True)
+        for event in raw['events']:
+            if event['kind'] == value.kind:
+                event['kind'] = 'build_prior_body_evidence_admitted_v2'
+        with pytest.raises(ValueError, match='unique producing Build work decision'):
+            type(turn.graph_context_execution).model_validate(raw)
+    assert len(fenced) == 2
+    assert tampered == (['omit', 'change', 'discussion_only_format'] if discussion else ['omit', 'change'])
     assert len(value.history) == turn_count
     assert value.history[0].turn_id == original.turn_id
     assert original.turn_id not in {pin.turn_id for pin in turn.graph_context_receipt.assembled_input.included_history}
@@ -234,6 +268,9 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     assert not any(isinstance(event, NativeBuildQuerySettledV1) for event in turn.graph_context_execution.events)
     assert len(case.writer.calls) == before + 1
     request = json.loads(case.writer.calls[-1].content)
+    if discussion:
+        assert request['text']['format']['name'] != 'surface_native_evidence_selectors_v7'
+        assert turn.completion.native_body_citations
     assert request['input'][:turn_count * 2] == retained.dialogue_messages(turn.graph_context_execution)
     assert 'build_draft_context' not in case.request
     loaded = AgentConversationService().inspect_turn(world_id=case.world, turn_id=turn.turn_id)
@@ -253,12 +290,14 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         'decoded_rows': decoded_rows}, indent=2) + '\n')
 
 
-def test_old_reader_refuses_retained_context_database_before_decoding(application_state_dsn, monkeypatch):
+@pytest.mark.parametrize('revision,parent', [('0193', '0192'), ('0194', '0193')])
+def test_old_reader_refuses_retained_context_database_before_decoding(application_state_dsn, monkeypatch, revision, parent):
     from importlib import import_module
     from application_state import cli
     from application_state.errors import ApplicationStateMigrationError
-    fence = import_module('application_state.migrations.versions.20261122_0193_build_retained_conversation_fence')
-    assert fence.down_revision == '20261122_0192'
+    name = 'build_retained_conversation' if revision == '0193' else 'build_discussion_context'
+    fence = import_module(f'application_state.migrations.versions.20261122_{revision}_{name}_fence')
+    assert fence.down_revision == '20261122_' + parent
     cli.assert_at_head(dsn=application_state_dsn)
     with monkeypatch.context() as old:
         old.setattr(cli, '_alembic_head', lambda: fence.down_revision)
@@ -345,14 +384,15 @@ def test_late_prior_completion_is_not_hidden_by_a_newer_retained_prefix(lane, tm
     assert selections == [((1,), False), ((1, 2, 3), False)]
 
 
-@pytest.mark.parametrize('boundary', ['admission', 'writer'])
-def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_path, monkeypatch, boundary):
+@pytest.mark.parametrize('boundary,discussion', [('admission', False), ('writer', False), ('admission', True), ('writer', True), ('writer_roundtrip', True)])
+def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_path, monkeypatch, boundary, discussion):
     from tests.test_surface_native_build_ordinary import _fresh_case
     from application_state.agent_conversation import AgentConversationService
-    synthesis = 'Create a page titled "Glass Regent" from our conversation.'
+    synthesis = ('Recap our conversation without another search.' if discussion
+                 else 'Create a page titled "Glass Regent" from our conversation.')
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
         native_body='irrelevant',
-        requested_work=lambda message: 'review_lore_page_from_conversation' if message == synthesis else 'discuss',
+        requested_work=lambda message: ('discuss' if discussion else 'review_lore_page_from_conversation') if message == synthesis else 'discuss',
         source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup')
     case.request['build_authored_references'] = None
     method = 'admit_build_prior_body_evidence' if boundary == 'admission' else 'authorize_native_writer'
@@ -366,6 +406,15 @@ def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_pa
                 command_id=uuid4(), expected_pointer_revision=pointer.revision,
                 expected_active_conversation_id=conversation))
             resets.append(receipt)
+            if boundary == 'writer_roundtrip':
+                moved = owner.get_world_pointer(world)
+                owner.reopen_conversation(t.ReopenCommand(world_id=world, command_id=uuid4(),
+                    expected_pointer_revision=moved.revision,
+                    expected_active_conversation_id=moved.active_conversation_id,
+                    conversation_id=conversation))
+                returned = owner.get_world_pointer(world)
+                assert returned.active_conversation_id == conversation
+                assert returned.revision > retained.admission(current.graph_context_execution).pointer_revision
         return original(owner, world, conversation, turn_id, **values)
     monkeypatch.setattr(AgentConversationService, method, reset_first)
     before = len(case.writer.calls)
@@ -374,7 +423,8 @@ def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_pa
     assert response.status_code in (409, 503), response.text
     assert len(resets) == 1
     assert len(case.writer.calls) == before
-    assert AgentConversationService().get_world_pointer(case.world).active_conversation_id != case.turn.conversation_id
+    pointer = AgentConversationService().get_world_pointer(case.world)
+    assert (pointer.active_conversation_id == case.turn.conversation_id) == (boundary == 'writer_roundtrip')
 
 
 def test_actual_mixed_unclaimed_completion_retains_approved_rules_dialogue_without_base_evidence(application_state_dsn):
@@ -529,3 +579,17 @@ def test_owned_navigation_keeps_source_line_endings_and_link_title_context():
     uri = '/build?documentId=' + str(uuid4())
     source = f'> [a **rumor**]({uri} "Unconfirmed possibility")\r\n\r\nKeep [external](https://example.test).\r\n'
     assert project_retained_source_markdown(source) == '> a **rumor** (Unconfirmed possibility)\r\n\r\nKeep [external](https://example.test).\r\n'
+
+
+def test_discussion_reuse_is_versioned_and_fresh_lookup_keeps_acquisition():
+    from application_state.agent_conversation.native_corpus import is_prior_conversation_work
+    assert not is_prior_conversation_work('discuss', 'anchored')
+    assert is_prior_conversation_work('discuss', 'anchored', allow_discussion=True)
+    for scope in ('source_lookup', 'uncertain'):
+        assert not is_prior_conversation_work('discuss', scope, allow_discussion=True)
+    current, turns = fixture_closure(8)
+    value = retained.capture(current, turns, event_id=uuid4(), work_event_id=uuid4(),
+        pointer_revision=7, discussion=True)
+    assert type(value) is t.BuildPriorBodyEvidenceAdmittedV3
+    assert t.BuildPriorBodyEvidenceAdmittedV3.model_validate_json(value.model_dump_json()) == value
+    assert len(retained.dialogue_messages(NS(events=(value,)))) == 16

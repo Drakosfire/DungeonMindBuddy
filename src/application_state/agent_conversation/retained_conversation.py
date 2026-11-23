@@ -42,7 +42,7 @@ def proposal_context(completion):
     raise ValueError("Unclassified retained conversation review")
 
 
-def capture(current, turns, *, event_id, work_event_id, pointer_revision, seed=None):
+def capture(current, turns, *, event_id, work_event_id, pointer_revision, seed=None, discussion=False):
     from . import types as t
     from . import native_corpus as bodies
     from .rules_authority_reads import MixedCompletedTurnV1
@@ -136,7 +136,8 @@ def capture(current, turns, *, event_id, work_event_id, pointer_revision, seed=N
             if key not in authored:
                 authored[key] = dict(source_basis=basis, role=role, title=title, text=text, occurrences=[])
             authored[key]["occurrences"].append(occurrence)
-    return t.BuildPriorBodyEvidenceAdmittedV2(
+    admission_type = t.BuildPriorBodyEvidenceAdmittedV3 if discussion else t.BuildPriorBodyEvidenceAdmittedV2
+    return admission_type(
         event_id=event_id, sequence=len(current.graph_context_execution.events),
         work_event_id=work_event_id, supports=(), world_id=current.world_id,
         conversation_id=current.conversation_id, turn_id=current.turn_id, attempt=current.attempt,

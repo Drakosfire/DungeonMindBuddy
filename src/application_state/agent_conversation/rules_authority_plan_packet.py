@@ -373,9 +373,12 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         elif evidence.build_local and not frame.lookups:
             from .build_intentional_response import is_anchored_discussion
 
-            if (not allow_retained_format or actual_format == "surface_native_evidence_selectors_v7") and any(
-                is_anchored_discussion(event) for event in graph_execution.events
-            ):
+            from .types import BuildPriorBodyEvidenceAdmittedV3
+            retained_discussion = any(isinstance(event, BuildPriorBodyEvidenceAdmittedV3)
+                                      for event in graph_execution.events)
+            if ((not retained_discussion or allow_retained_format)
+                    and (not allow_retained_format or actual_format == "surface_native_evidence_selectors_v7")
+                    and any(is_anchored_discussion(event) for event in graph_execution.events)):
                 version = 7
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
             build_local=evidence.build_local,format_version=version,execution=graph_execution)
