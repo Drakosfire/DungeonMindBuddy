@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
+from psycopg import sql
 
 from application_state.agent_conversation import conversation_drafts
 from application_state.agent_conversation.service import AgentConversationService
@@ -319,6 +320,7 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
         assert client.get(f"{review_path}/saved").json()["locator"] == recovered.json()
         assert len(admissions) == 1
         assert len(append_bodies) == 2
+        _check_portrait_claim_with_read_only_review(scope, review_id)
 
         portrait_selection = {
             **selection, "locator": saved_portrait.json(), "portrait_operation_id": operation_id,
@@ -356,3 +358,28 @@ def _check_variant_response_loss(service, scope, monkeypatch, app, draft_path, *
             assert client.post(adopt_url, json=adoption).json() == applied.json()
         assert client.get(f"{review_path}/saved").json()["locator"] == recovered.json()
     assert len(create_bodies) == 2
+
+
+def _check_portrait_claim_with_read_only_review(scope, review_id):
+    from application_state.agent_conversation.variant_portrait import claim
+
+    role = sql.Identifier(f"portrait_test_{uuid4().hex}")
+    with connect() as conn:
+        conn.execute(sql.SQL("CREATE ROLE {} NOLOGIN").format(role))
+        conn.execute(sql.SQL("GRANT USAGE ON SCHEMA agent TO {}").format(role))
+        conn.execute(sql.SQL(
+            "GRANT SELECT ON agent.turn, agent.conversation_variant_review, "
+            "agent.conversation_variant_save TO {}"
+        ).format(role))
+        conn.execute(sql.SQL(
+            "GRANT SELECT, INSERT ON agent.conversation_variant_portrait TO {}"
+        ).format(role))
+        conn.execute(sql.SQL("SET LOCAL ROLE {}").format(role))
+        operation = dict(
+            operation_id=uuid4(), intent={"portrait": "selected"}, append_request={"revision": "exact"},
+        )
+        assert claim(conn, **scope, review_id=review_id, **operation)["intent"] == operation["intent"]
+        assert claim(conn, **scope, review_id=review_id, **operation)["intent"] == operation["intent"]
+        with pytest.raises(ApplicationStateConflictError, match="Retry the pending portrait Save"):
+            claim(conn, **scope, review_id=review_id, **{**operation, "operation_id": uuid4()})
+        conn.rollback()

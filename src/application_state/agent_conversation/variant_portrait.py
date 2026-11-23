@@ -27,9 +27,10 @@ def read(conn, *, operation_id, **scope):
 def claim(conn, *, operation_id, intent, append_request, **scope):
     review_id = scope["review_id"]
     open_saved_receipt(conn, **scope)
+    # Serialize claims for this review without requiring write access to the immutable review.
     conn.execute(
-        "SELECT review_id FROM agent.conversation_variant_review WHERE review_id = %s FOR UPDATE",
-        (review_id,),
+        "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+        (f"conversation-variant-portrait:{review_id}",),
     )
     existing = _read(conn, review_id=review_id, operation_id=operation_id)
     if existing is not None:
