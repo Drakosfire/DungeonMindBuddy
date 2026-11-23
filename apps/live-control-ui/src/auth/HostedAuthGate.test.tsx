@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -34,6 +34,10 @@ describe("HostedAuthGate", () => {
       "/api/auth/login?return_to=%2Fplay%2Frun-7%3Fpanel%3Dhistory%23turn-3",
     );
     expect(screen.queryByText("Protected Buddy screen")).not.toBeInTheDocument();
+    const navigation = screen.getByRole("navigation", { name: "Buddy navigation" });
+    expect(within(navigation).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    expect(within(navigation).getByRole("link", { name: "Graph" })).toHaveAttribute("href", "/graph");
+    expect(within(navigation).getByRole("link", { name: "Build" })).toHaveAttribute("href", "/build");
   });
 
   it("permits signed-out children only when the caller marks the index playground exception", async () => {
@@ -51,6 +55,7 @@ describe("HostedAuthGate", () => {
     render(<HostedAuthGate enabled allowSignedOutChildren><div>Separate playground</div></HostedAuthGate>);
 
     expect(await screen.findByText("Sign-in status is unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Buddy navigation" })).toBeInTheDocument();
     expect(screen.queryByText("Separate playground")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
   });
