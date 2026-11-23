@@ -61,11 +61,26 @@ def main():
     parser.add_argument("--origin", required=True)
     parser.add_argument("--state", required=True, type=Path)
     parser.add_argument("--isolation", required=True, type=Path)
+    parser.add_argument("--live-grounding", type=Path)
+    parser.add_argument("--live-grounding-sha256")
+    parser.add_argument("--live-core-head")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     pins, _ = read(Path(__file__).with_name("source-pins.json"))
     isolation, _ = read(args.isolation)
     data = build(pins, exports=args.exports, origin=args.origin, state=args.state, isolation=isolation)
+    live_args = (args.live_grounding, args.live_grounding_sha256, args.live_core_head)
+    if any(live_args):
+        if not all(live_args):
+            parser.error("Live manifest requires grounding export, its SHA-256 and the Graph head")
+        from .live_sources import live_manifest, read_grounding
+
+        read_grounding(args.live_grounding, args.live_grounding_sha256)
+        data["live"] = live_manifest(args.live_core_head)
+        data["sourceFixtureDigest"] = source_fixture_digest(data["live"], {
+            "pinned_assets": data["sourceFixtureDigest"],
+            "grounding": args.live_grounding_sha256,
+        })
     body = json.dumps(data, sort_keys=True, indent=2).encode() + b"\n"
     with args.output.open("xb") as stream:
         stream.write(body)

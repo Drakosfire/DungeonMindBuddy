@@ -50,3 +50,25 @@ counts, warm/cold conditions, browser, dependencies, providers, timings,
 failures and distribution summaries. Report percentiles with sample-size
 context. Preserve per-run results so a later architecture can be compared
 without silently changing fixture or measurement boundaries.
+
+## Live-provider slice
+
+ACTIVE after merged #4555. Base `f5f6e775cc3a6ba0b38833c462c5add21ff3b4ae`
+on `codex/old-bath-house-live-benchmark`. The writable scope is the
+Old Bath House eval folder, this handoff, and targeted eval tests.
+The baseline runtime is unchanged. Capture only the named Corrupted
+Edge and Old Bath House pages and exact original Meat Mind mechanics
+as live grounding inputs. Use fresh isolated state and real provider
+credentials from the operator environment. Retain provider errors
+and record system and consent intervals independently. Reuse the
+pinned-assets workflow correctness assertions for the accepted artifacts.
+
+Two diagnostic replays on the pinned release completed all six browser
+turns with matching provider traces. One confirmed a new statblock and
+stopped at the portrait input. The other returned no current variant
+review. A third completed variant confirmation and generated a staged
+portrait through fal in 32.9 seconds from Generate to decoded preview.
+It stopped at the disabled CDN save. Retain all three as rejected
+samples. A qualified run requires disposable image delivery
+configuration and the full Plan and Combat checks against the resulting
+exact revisions.
