@@ -40,6 +40,7 @@ def validate_example(manifest: dict, source_bindings: list[tuple]) -> None:
 
     Excerpts are related material, not machine-verified support for scene prose.
     """
+    validate_answer(manifest, source_bindings)
     if "saved_example" not in manifest:
         if "saved_choice" in manifest:
             raise ApplicationStateValidationError("Saved choice requires a saved example")
@@ -81,3 +82,27 @@ def validate_example(manifest: dict, source_bindings: list[tuple]) -> None:
             for option in options)
         or _ascii_fold(options[0]["label"].strip(_TRIM)) == _ascii_fold(options[1]["label"].strip(_TRIM))):
         raise ApplicationStateValidationError("Invalid saved choice options")
+
+
+def validate_answer(manifest: dict, source_bindings: list[tuple]) -> None:
+    """Validate answer-local citations without asserting semantic entailment."""
+    if "saved_answer" not in manifest:
+        return
+    answer = manifest["saved_answer"]
+    if (not isinstance(answer, dict) or set(answer) != {"version", "question", "passages"}
+        or answer["version"] != "owner_saved_answer_v1" or not _choice_text(answer["question"], 240)
+        or not isinstance(answer["passages"], list) or not 1 <= len(answer["passages"]) <= 10):
+        raise ApplicationStateValidationError("Invalid saved answer")
+    bindings = {str(item[0]): item for item in source_bindings}
+    for passage in answer["passages"]:
+        if (not isinstance(passage, dict) or set(passage) != {"text", "references"}
+            or not _choice_text(passage["text"], 2000, multiline=True)):
+            raise ApplicationStateValidationError("Invalid saved answer passage")
+        references = passage["references"]
+        if (not isinstance(references, list) or not 1 <= len(references) <= 5
+            or any(not isinstance(item, str) or item not in bindings for item in references)
+            or len(set(references)) != len(references)):
+            raise ApplicationStateValidationError("Invalid saved answer references")
+        spans = [(str(bindings[item][1]), bindings[item][4], bindings[item][6], bindings[item][7]) for item in references]
+        if len(set(spans)) != len(spans):
+            raise ApplicationStateValidationError("Saved answer references must use distinct spans")
