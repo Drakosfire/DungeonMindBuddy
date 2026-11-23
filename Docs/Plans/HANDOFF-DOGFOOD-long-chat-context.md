@@ -164,3 +164,13 @@ Exact0bb checkpoint:
   fresh access contexts and reduced draft to13266ms/save to530ms, with0cached
   provider tokens. These runtime monkeypatches are not product changes or final
   latency acceptance. Provider/model identity is unchanged; successors need review.
+
+Review cycle3 HOLD at ae784: owned-link projection flattened mixed paragraphs,
+losing external destinations/formatting, and an owned autolink retained its UUID
+as visible text. Replace whole-block rendering with parser-owned source spans;
+project only owned controls and managed images, including nested image labels,
+reference definitions, source line endings and human link-title qualifiers.
+Ten focused projection/presentation regressions pass. The initial broader command
+without the disposable DB environment failed fixture setup (12 passed,1 error);
+repeat through the isolated DB helper, retaining that diagnostic as a setup error.
+No merge/deployment or exact-current-source pass is claimed at this checkpoint.

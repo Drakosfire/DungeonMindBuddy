@@ -451,7 +451,7 @@ def test_actual_approved_mixed_http_reply_retains_visible_questions(lane, tmp_pa
 def test_retained_source_presentation_projects_owned_navigation_and_pdf_provenance():
     from application_state.agent_conversation.model_markdown import project_retained_source_markdown
     ident = str(uuid4())
-    source = (f'[Earlier notes](/build?world=retained-world&documentId={ident}) · saved revision 7\n\n'
+    source = (f'[From Earlier notes](/build?world=retained-world&documentId={ident}) · saved revision 7, lines 5–5\n\n'
               f'Original PDF SHA-256: `{"a" * 64}`.\n\n'
               'The lantern rings only when someone lies.\n')
     projected = project_retained_source_markdown(source)
@@ -483,3 +483,49 @@ def test_historical_retained_presentation_replays_but_cannot_authorize_new_dispa
     assert retained.dialogue_messages(NS(events=(restored,))) == retained.dialogue_messages(NS(events=(value,)))
     with pytest.raises(ValueError, match='replay-only'):
         retained.require_current_presentation(NS(events=(restored,)))
+
+
+def test_owned_navigation_preserves_mixed_external_links_formatting_and_literal_counter():
+    from application_state.agent_conversation.model_markdown import project_retained_source_markdown
+    uri = '/build?documentId=' + str(uuid4())
+    source = f'Read [the **page**]({uri}), then [the reference](https://example.test/proof "Evidence") and *retain emphasis* · saved revision 7\n'
+    assert project_retained_source_markdown(source) == 'Read the **page**, then [the reference](https://example.test/proof "Evidence") and *retain emphasis* · saved revision 7\n'
+
+
+@pytest.mark.parametrize('form', ['auto', 'destination_label', 'reference', 'quote'])
+def test_structured_navigation_forms_do_not_reveal_destination_identity(form):
+    from application_state.agent_conversation.model_markdown import project_retained_source_markdown
+    ident = str(uuid4())
+    uri = 'https://buddy.dungeonmind.net/build?documentId=' + ident
+    sources = {
+        'auto': f'Read <{uri}> beside [external](https://example.test).\n',
+        'destination_label': f'[{uri}]({uri})\n',
+        'reference': f'[Earlier **notes**][note] and [external][other].\n\n[note]: {uri}\n[other]: https://example.test\n',
+        'quote': f'> Read [earlier\n> **notes**]({uri}) and *preserve this*.\n',
+    }
+    source = sources[form]
+    projected = project_retained_source_markdown(source)
+    assert ident not in projected
+    assert len(projected.splitlines()) == len(source.splitlines())
+    if form in {'auto', 'reference'}:
+        assert 'https://example.test' in projected
+    if form in {'reference', 'quote'}:
+        assert '**notes**' in projected
+    if form == 'quote':
+        assert '> **notes**' in projected and '*preserve this*' in projected
+
+
+def test_managed_images_preserve_external_destinations_and_nested_navigation_labels():
+    from application_state.agent_conversation.model_markdown import project_retained_source_markdown
+    media, document = str(uuid4()), str(uuid4())
+    source = (f'Keep **bold**, ![the *map*](dmb-media:{media}), and [reference](https://example.test).\n\n'
+              f'[![map](dmb-media:{media})](/build?documentId={document})\n')
+    assert project_retained_source_markdown(source) == (
+        'Keep **bold**, [Image: the *map*], and [reference](https://example.test).\n\n[Image: map]\n')
+
+
+def test_owned_navigation_keeps_source_line_endings_and_link_title_context():
+    from application_state.agent_conversation.model_markdown import project_retained_source_markdown
+    uri = '/build?documentId=' + str(uuid4())
+    source = f'> [a **rumor**]({uri} "Unconfirmed possibility")\r\n\r\nKeep [external](https://example.test).\r\n'
+    assert project_retained_source_markdown(source) == '> a **rumor** (Unconfirmed possibility)\r\n\r\nKeep [external](https://example.test).\r\n'
