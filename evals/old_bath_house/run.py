@@ -167,10 +167,11 @@ def run(fixture_path, fixture_digest, output):
          "--host", "127.0.0.1", "--port", port],
         env=launch_env, stdout=subprocess.DEVNULL, check=True,
     )
+    provider_proof = not fixture.get("live")
     try:
         wait_ready(origin, name)
         browser = Path(__file__).with_name("browser.cjs")
-        return subprocess.run(
+        browser_status = subprocess.run(
             [os.environ["DMB_BENCHMARK_NODE"], str(browser), str(fixture_path),
              fixture_digest, str(output / "run.json")],
             env=dict(os.environ, DMB_BENCHMARK_BROWSER_TOKEN=token),
@@ -188,11 +189,13 @@ def run(fixture_path, fixture_digest, output):
             browser_result = output / "run.json"
             if browser_result.is_file():
                 result = json.loads(browser_result.read_text())
-                result["checks"]["live_turn_provider_trace"] = verify_live_turn_traces(result, traces)
+                provider_proof = verify_live_turn_traces(result, traces)
+                result["checks"]["live_turn_provider_trace"] = provider_proof
                 pending = output / "run.with-provider-proof.json"
                 with pending.open("x") as report:
                     json.dump(result, report, indent=2, allow_nan=False)
                 pending.replace(browser_result)
+    return browser_status or int(not provider_proof)
 
 
 def main():

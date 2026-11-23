@@ -71,22 +71,30 @@ async function selectMeatMind(page, nodeId) {
   await page.getByRole('button', { name: 'Remove reference Meat Mind', exact: true }).waitFor();
 }
 
+function visibleAssistantReply({ previous, input, complete }) {
+  const replies = document.querySelectorAll('article[data-turn-id] .world-plan-agent-conversation__message--assistant');
+  for (const reply of replies) {
+    const turn = reply.closest('article[data-turn-id]');
+    if (previous.includes(turn.dataset.turnId) || !reply.getClientRects().length) continue;
+    if (turn.querySelector('.world-plan-agent-conversation__message--user > p')?.textContent !== input) continue;
+    if (complete && !turn.classList.contains('world-plan-agent-conversation__turn--complete')) continue;
+    const content = reply.innerText.trim().replace(/^Buddy\s*/, '');
+    if (content && !['Open Details to inspect this reply.', 'This reply did not finish.'].includes(content)) {
+      return turn.dataset.turnId;
+    }
+  }
+  return null;
+}
+
 async function sendTurn(page, input, { nodeId, checkpoint = {}, reportStage = () => {} } = {}) {
   const composer = page.getByLabel('Message DungeonBuddy', { exact: true });
   const send = page.getByRole('button', { name: 'Send message', exact: true });
   await observeTurnStream(page);
   await composer.fill(input);
   let firstVisible;
-  const firstReply = page.waitForFunction(previous => {
-    const replies = Array.from(document.querySelectorAll('article[data-turn-id] .world-plan-agent-conversation__message--assistant'));
-    const reply = replies.find(node => {
-      const turn = node.closest('article[data-turn-id]');
-      return !previous.includes(turn.dataset.turnId) && node.getClientRects().length > 0
-        && node.innerText.trim() !== 'Buddy' && turn.classList.contains('world-plan-agent-conversation__turn--complete');
-    });
-    return reply?.closest('article[data-turn-id]').dataset.turnId;
-  }, await page.locator('article[data-turn-id]').evaluateAll(nodes => nodes.map(node => node.dataset.turnId)),
-  { timeout: 180000 }).then(async handle => {
+  const previous = await page.locator('article[data-turn-id]').evaluateAll(nodes => nodes.map(node => node.dataset.turnId));
+  const firstReply = page.waitForFunction(visibleAssistantReply, { previous, input, complete: false },
+    { timeout: 180000 }).then(async handle => {
     firstVisible = performance.now();
     return handle.jsonValue();
   });
@@ -132,7 +140,9 @@ async function sendTurn(page, input, { nodeId, checkpoint = {}, reportStage = ()
   let visibleTurnId;
   let completeMs;
   try {
-    [visibleTurnId, completeMs] = await Promise.race([Promise.all([firstReply, finished]), timeout]);
+    const completedReply = page.waitForFunction(visibleAssistantReply, { previous, input, complete: true },
+      { timeout: 180000 }).then(handle => handle.jsonValue());
+    [, completeMs, visibleTurnId] = await Promise.race([Promise.all([firstReply, finished, completedReply]), timeout]);
   } finally {
     clearTimeout(deadline);
   }
