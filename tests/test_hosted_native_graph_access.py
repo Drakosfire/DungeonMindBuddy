@@ -7096,3 +7096,10 @@ def test_hosted_worldbuilding_launch_and_recovery_require_owned_document(hosted,
     assert hosted.client.request("POST",base,json=payload).status_code==200
     assert hosted.client.request("GET",path).status_code==200
     assert launch.call_count==1 and recover.call_count==1
+
+
+def test_production_registry_includes_worldbuilding_recovery_routes():
+    from apps.live_control_server.main import HOSTED_WORLD_SCOPE_RESOLVERS
+    from apps.live_control_server.services import hosted_native_graph_access as access
+    assert HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/graph-preview/build-worldbuilding-launches")] is access.resolve_hosted_build_extraction
+    assert HOSTED_WORLD_SCOPE_RESOLVERS[("GET", "/api/live/graph-preview/build-worldbuilding-launches/{request_id}")] is access.resolve_hosted_build_recap_recovery
