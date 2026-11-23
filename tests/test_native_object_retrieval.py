@@ -481,3 +481,31 @@ def test_malformed_json_operation_and_outcome_are_semantic_flags_not_mutable_ali
     operation.append("changed")
     outcome.append("changed")
     assert state.response_received is False and state.selection.select_candidates is False
+
+
+def test_owned_record_prefix_checks_only_new_events_and_rechecks_replaced_prefix(monkeypatch):
+    from application_state.agent_conversation import native_record_execution as records
+
+    query, ledger = _settled_record_case()
+    events = ledger.events
+    prefix = records._OwnedRecordPrefix()
+    consumed = []
+    advance = records._advance
+
+    def tracked(state, query, events):
+        consumed.append(len(events))
+        return advance(state, query, events)
+
+    monkeypatch.setattr(records, "_advance", tracked)
+    assert _record_judgment(prefix.validate, query, events[:3]) == ("PASS", None)
+    assert _record_judgment(prefix.validate, query, events[:4]) == ("PASS", None)
+    assert _record_judgment(prefix.validate, query, events) == ("PASS", None)
+    assert consumed == [3, 1, 1]
+
+    changed = [*events[:3], events[3].model_copy(update={"query_sha256": "d" * 64}), events[4]]
+    expected = _record_judgment(records.validate, query, changed)
+    assert expected[0] != "PASS"
+    assert _record_judgment(prefix.validate, query, changed) == expected
+    assert consumed[-2:] == [5, 5]
+    assert _record_judgment(prefix.validate, query, events) == ("PASS", None)
+    assert consumed[-1] == 0  # A rejected replacement did not publish its state.
