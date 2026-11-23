@@ -456,7 +456,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
                 from .native_build_work_view import resolve_selectors
                 row=resolve_selectors(row,evidence.work_frame)
             segment,citation=normalize_native_segment(row,draft_record=evidence.draft_record,
-                saved_sections=evidence.saved_sections,related_pages=evidence.related_pages,source_basis=getattr(receipt.work_context,'source_basis',None),index=len(segments))
+                saved_sections=evidence.saved_sections,related_pages=evidence.related_pages,source_basis=getattr(receipt.work_context,'source_basis',None),index=len(segments),
+                supplied_source_references=evidence.supplied_source_references)
             segments.append(segment)
             if citation is not None:
                 saved_cites.append(citation)

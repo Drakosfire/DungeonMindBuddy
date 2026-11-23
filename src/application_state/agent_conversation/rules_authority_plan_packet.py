@@ -380,6 +380,8 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
                     and (not allow_retained_format or actual_format == "surface_native_evidence_selectors_v7")
                     and any(is_anchored_discussion(event) for event in graph_execution.events)):
                 version = 7
+        if evidence.build_local and not allow_retained_format and not evidence.supplied_source_references:
+            raise ValueError('Current Build dispatch requires supplied source references')
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
             build_local=evidence.build_local,format_version=version,execution=graph_execution)
     if (auth.request_envelope_sha256 != expected_envelope_sha256

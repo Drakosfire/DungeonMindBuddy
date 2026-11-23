@@ -81,11 +81,13 @@ def variant_output_version(work_frame):
 
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
                    variant_passage_review=False, bind_lore_page=False,
-                   retained_raw_markdown=False):
+                   retained_raw_markdown=False, supplied_source_references=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
-    from .model_markdown import project_model_markdown
+    from .model_markdown import project_model_markdown, project_retained_source_markdown
 
     def authored_text(value):
+        if supplied_source_references:
+            return project_retained_source_markdown(value)
         return value if retained_raw_markdown else project_model_markdown(value)
 
     if (host.get('schema') != NATIVE_WORK_SCHEMA
@@ -108,6 +110,8 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
     work = {'source_class': 'authored_context_not_played_events',
         'visibility': host['source_basis']['visibility'],
         'saved_sections': [section(row) for row in host['artifact_under_edit']['sections']]}
+    if supplied_source_references:
+        work['citation_policy'] = 'supplied_source_references_v1'
     if 'retained_authored_context' in host:
         work['retained_authored_context'] = deepcopy(host['retained_authored_context'])
     if 'working_draft_context' in host:

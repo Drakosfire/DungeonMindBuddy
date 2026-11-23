@@ -370,6 +370,7 @@ class PlanJevWriter:
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
+                    supplied_source_references=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
@@ -529,6 +530,12 @@ class PlanJevWriter:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
 
                 self.instructions += "\n" + VARIANT_BASE.text
+        if self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1':
+            self.instructions += ('\nFor saved_source_claim select the supplied local section_read_ids; '
+                'for related_page_claim select the supplied local read_id. Buddy binds the exact '
+                'supplied read to the citation. Do not return supporting_quotes or recopy evidence '
+                'as a validation witness. Ground each claim in its selected source, preserve uncertainty, '
+                'and distinguish authored material from played events. Prose formatting is free.\n')
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '
