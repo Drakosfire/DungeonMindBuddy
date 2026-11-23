@@ -99,7 +99,8 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
   useEffect(() => {
     let current = true; setReview(null); setCatalog(null); setError(null);
     void getExactRunReviewPackage(run.run_id).then(async result => {
-      const spans=run.source_domain==='worldbuilding'&&result.inspectionStatus==='invalid_evidence'?await getWorldbuildingFrozenSpans(run.run_id):null;
+      const canCorrectWorldbuilding=run.source_domain==='worldbuilding'&&run.profile_id==='worldbuilding_shepherds_flock_v0@0.1';
+      const spans=canCorrectWorldbuilding&&result.inspectionStatus==='invalid_evidence'?await getWorldbuildingFrozenSpans(run.run_id):null;
       if (!current) return;
       const recap=run.source_domain==='recap';
       const context=run.lineage?.world_campaign_ingest_context as Record<string,unknown>|undefined;
@@ -114,7 +115,7 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
         || (run.lineage?.parent_run_id && result.derivedFromRunId !== run.lineage.parent_run_id)) {
         throw new Error('The review does not match this saved document, run, source revision and World.');
       }
-      if(run.source_domain==='worldbuilding'&&result.inspectionStatus==='invalid_evidence'&&(!spans||!validFrozenCatalog(spans,result,run,worldId)))throw new Error('The frozen source paragraphs do not match this exact extraction. Reopen its review.');
+      if(canCorrectWorldbuilding&&result.inspectionStatus==='invalid_evidence'&&(!spans||!validFrozenCatalog(spans,result,run,worldId)))throw new Error('The frozen source paragraphs do not match this exact extraction. Reopen its review.');
       setCatalog(spans);setReview(result);
     }).catch(reason => { if(current) setError(message(reason)); });
     return () => {current = false;};
@@ -185,6 +186,7 @@ function ExactReview({ document, currentRevision, run, handoff, sourceContentSha
           sourceContentSha256={sourceContentSha256} isScopeCurrent={isScopeCurrent} frozenCatalog={catalog} onBusyChange={setManualBusy}/></div>}</>}
 
     {review && <>
+      {run.source_domain==='worldbuilding'&&run.profile_id!=='worldbuilding_shepherds_flock_v0@0.1'&&review.inspectionStatus==='invalid_evidence'&&<p role="status">Some evidence needs attention. Inline quote correction is not available for this extraction approach; this run cannot be published until its evidence is valid.</p>}
       {recovery !== null && !recoveryValid && <p role="alert">{recoveryStorageKey.current===legacyKey?'An earlier correction request is retained; its retired format cannot be submitted.':'Saved correction details are unavailable or do not match this run.'} Abandoning retains the request in this browser; it does not cancel a submitted correction. <button type="button" onClick={abandon}>Abandon saved request</button></p>}
       <GraphReviewExactRunProjection review={review} showSource={false}
         correctionEnabled={run.source_domain==='recap' && review.inspectionStatus === 'invalid_evidence' && !!digest(run.components?.candidate_graph?.sha256)}
