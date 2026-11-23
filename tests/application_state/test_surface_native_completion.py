@@ -46,7 +46,31 @@ from tests.test_surface_native_writer import published_lane as published_lane
 
 def completed_input(dsn, *, used=False, base=True, acquired=None, answer_rows=None, gaps=None):
     case = prepared_case(dsn, used=used, acquired=acquired)
+    from application_state.agent_conversation.native_evidence_view import semantic_frame, output_frame
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame as semantic_work
+    from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from application_state.agent_conversation.rules_authority_types import canonical_bytes
+    host = case.frame
+    host_work = case.work_frame
+    case.frame = semantic_frame(host)
+    case.work_frame = semantic_work(host_work, case.turn.graph_context_execution)
+    current_rules = model_rules_frame(case.rule_frame)
+    case.messages = [dict(role='user', content=canonical_bytes(value).decode()) for value in
+        (case.frame, current_rules.model_dump(mode='json'), case.work_frame)]
+    case.fmt = native_output_format(output_frame(host, case.frame), current_rules,
+        host_work | case.work_frame, generic_reply_limits=True)
     candidate = json.loads(case.output)
+    target = candidate['base_output'] if used else candidate
+    target.pop('requested_detail_gaps')
+    if used:
+        candidate.pop('schema')
+        candidate['kind'] = 'rules_answer'
+        aliases = {str(row.support_id): f'rule_{index}' for index, row in
+            enumerate(sorted(case.rule_frame.supports, key=lambda item: str(item.support_id)))}
+        for row in candidate['rules_segments']:
+            if row['kind'] == 'rules_claim':
+                row['support_ids'] = [aliases[value] for value in row['support_ids']]
     selection = next(
         b["selection_id"]
         for b in case.work_frame["committed_plan_blocks"]
@@ -64,7 +88,8 @@ def completed_input(dsn, *, used=False, base=True, acquired=None, answer_rows=No
     else:
         candidate["answer_segments"] = rows
     if gaps is not None:
-        (candidate["base_output"] if used else candidate)["requested_detail_gaps"] = gaps
+        # Current presentation selects a limitation code, never a phrase witness.
+        (candidate["base_output"] if used else candidate)["limitations"] = ["missing_requested_details"]
     case.output = json.dumps(candidate)
     run_writer(case)
     case.capture = NativeProviderReply(

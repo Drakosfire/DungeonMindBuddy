@@ -123,3 +123,15 @@ question. Fresh generic-code projection must not call that matcher at all; keep
 closed/duplicate-code checks and existing host wording, while the default old
 branch remains exact. Owning projection tests verify no selector invocation and
 unchanged historical specific phrases. No citation/quote/parser changes.
+
+Full-contract fixture checkpoint: c3a22547 exact diagnostics exposed current mock
+writers still emitting retired gap fields/instruction expectations, plus direct
+APP acceptance fixtures using old raw evidence/work carriers. Extend this same
+presentation-only lease to tests/test_agent_native_corpus_sources.py,
+test_native_plan_statements.py, test_plan_jev_authoring.py,
+tests/application_state/test_plan_placement.py, test_plan_contextual_targets.py
+and test_surface_native_completion.py. Update only current producer fixtures to
+actual semantic projections/offered schema; preserve retained historical codecs,
+proof/rollback/CAS assertions, malformed-field rejection and frozen old203 proof.
+No runtime behavior expansion. Requalify the resulting exact source and request
+review of the cumulative fixture changes. The c3a broad red results remain visible.
