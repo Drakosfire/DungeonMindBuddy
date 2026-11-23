@@ -5,7 +5,7 @@ const { createHash, randomUUID } = require('node:crypto');
 const { readFileSync, writeFileSync } = require('node:fs');
 const { runPinnedAssets, runEncounter } = require('./pinned.cjs');
 const { runLiveTurns } = require('./live_turns.cjs');
-const { confirmVariant, generatePortrait, saveGeneratedPortrait } = require('./live_artifacts.cjs');
+const { confirmVariant, generatePortrait } = require('./live_artifacts.cjs');
 const { bindSavedPortrait, chooseLibraryPortrait } = require('./portrait.cjs');
 
 async function main() {
@@ -77,8 +77,11 @@ async function main() {
       });
       const variant = await confirmVariant(page, fixture, evidence);
       const generated = await generatePortrait(page, fixture, variant, evidence);
-      const imageUrl = await saveGeneratedPortrait(page, fixture, generated);
-      allowedImages.add(imageUrl);
+      assert.notEqual(generated.asset_id, fixture.boss.assetId);
+      evidence.evidence.portrait_handoff = {
+        generated_preview_asset_id: generated.asset_id,
+        saved_portrait_asset_id: fixture.boss.assetId,
+      };
       const variantUrl = new URL(variant.url);
       const liveFixture = {
         ...fixture,
@@ -89,12 +92,10 @@ async function main() {
           turnId: variantUrl.searchParams.get('turn'),
           reviewId: variantUrl.searchParams.get('variantReview'),
           baseLocator: variant.locator,
-          assetId: generated.asset_id,
-          imageUrl,
-          libraryLabel: fixture.live.portraitPrompt + ' · Saved',
         },
       };
       const portrait = await bindSavedPortrait(page, liveFixture, chooseLibraryPortrait);
+      evidence.checks.live_preview_and_saved_portrait = true;
       await runEncounter(page, liveFixture, portrait, evidence);
     } else {
       await runPinnedAssets(page, fixture, evidence);

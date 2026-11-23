@@ -101,14 +101,6 @@ def run(fixture_path, fixture_digest, output):
         for key in ("OPENAI_API_KEY", "TYPESAFE_JEV_API_KEY", "DUNGEONBUDDY_FAL_KEY", "FAL_KEY"):
             if os.environ.get(key):
                 env[key] = os.environ[key]
-        # New public benchmark images require an explicitly configured
-        # disposable CDN account. Never inherit the campaign's media account.
-        for target, source in (
-            ("CLOUDFLARE_ACCOUNT_ID", "DMB_BENCHMARK_CDN_ACCOUNT_ID"),
-            ("CLOUDFLARE_IMAGES_API_TOKEN", "DMB_BENCHMARK_CDN_IMAGES_TOKEN"),
-        ):
-            if os.environ.get(source):
-                env[target] = os.environ[source]
     token = secrets.token_urlsafe(32)
     env.update({
         "DMB_DEPLOYMENT_ENVIRONMENT": "local",

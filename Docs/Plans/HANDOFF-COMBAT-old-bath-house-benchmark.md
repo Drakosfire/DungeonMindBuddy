@@ -69,6 +69,7 @@ stopped at the portrait input. The other returned no current variant
 review. A third completed variant confirmation and generated a staged
 portrait through fal in 32.9 seconds from Generate to decoded preview.
 It stopped at the disabled CDN save. Retain all three as rejected
-samples. A qualified run requires disposable image delivery
-configuration and the full Plan and Combat checks against the resulting
-exact revisions.
+samples under the earlier protocol. Alan approved measuring generation
+through decoded preview and binding the existing reviewed portrait to
+the newly accepted statblock. Retain both asset IDs and verify the
+exact resulting revisions through the full Plan and Combat checks.

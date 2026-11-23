@@ -47,7 +47,10 @@ def summarize(records):
         rejected = {}
         for run in runs:
             failures = list(run.get("failures", []))
-            checks = CHECKS | ({"live_turn_provider_trace"} if key[0] == "live-provider" else set())
+            checks = CHECKS | (
+                {"live_turn_provider_trace", "live_preview_and_saved_portrait"}
+                if key[0] == "live-provider" else set()
+            )
             for check in sorted(checks):
                 if run.get("checks", {}).get(check) is not True:
                     failures.append(f"Correctness check failed or missing: {check}")

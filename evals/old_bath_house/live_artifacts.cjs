@@ -66,7 +66,9 @@ async function generatePortrait(page, fixture, variant, evidence) {
   assert.ok(response.ok(), `Portrait provider failed with HTTP ${response.status()}`);
   const result = await response.json();
   const [portrait] = result.images;
-  assert.ok(portrait?.asset_id && ['staged', 'ready'].includes(portrait.state));
+  assert.ok(portrait?.asset_id, 'Generated preview is missing its media identity');
+  assert.equal(portrait.state, 'staged');
+  assert.ok(!portrait.delivery_url, 'Generated preview unexpectedly has public delivery');
   const image = studio.getByRole('img', { name: fixture.live.portraitPrompt, exact: true });
   await image.evaluate(async node => { await node.decode(); });
   evidence.timings_ms.portrait_generation = performance.now() - started;
@@ -74,30 +76,4 @@ async function generatePortrait(page, fixture, variant, evidence) {
   return portrait;
 }
 
-async function saveGeneratedPortrait(page, fixture, portrait) {
-  if (portrait.state === 'ready' && portrait.delivery_url) return portrait.delivery_url;
-  const studio = page.getByRole('region', { name: 'Create an image', exact: true });
-  const details = studio.locator('summary').and(studio.getByText('Details', { exact: true }));
-  if (!(await details.evaluate(node => node.parentElement.open))) await details.click();
-  const save = studio.getByRole('button', { name: 'Save image', exact: true });
-  if (!(await save.isEnabled())) throw new Error('A disposable CDN account is required to bind the generated portrait');
-  const [response] = await Promise.all([
-    page.waitForResponse(result => {
-      const url = new URL(result.url());
-      return url.origin === fixture.origin
-        && url.pathname === `/api/live/media/images/${portrait.asset_id}/save`
-        && result.request().method() === 'POST';
-    }),
-    save.click(),
-  ]);
-  assert.ok(response.ok(), `Saving generated portrait failed with HTTP ${response.status()}`);
-  const saved = await response.json();
-  assert.equal(saved.asset_id, portrait.asset_id);
-  assert.equal(saved.state, 'ready');
-  const delivery = new URL(saved.delivery_url);
-  assert.equal(delivery.protocol, 'https:');
-  assert.equal(delivery.hostname, 'imagedelivery.net');
-  return delivery.href;
-}
-
-module.exports = { confirmVariant, generatePortrait, saveGeneratedPortrait };
+module.exports = { confirmVariant, generatePortrait };

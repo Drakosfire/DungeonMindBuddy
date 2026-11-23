@@ -73,12 +73,12 @@ python -m evals.old_bath_house.live_sources \
   --isolation /path/to/isolation.json
 ```
 Set `DUNGEONBUDDY_JEV_TOKENIZER_FILE` to the exact tokenizer asset required by the
-runtime. To deliver a newly generated portrait, supply credentials for a
-disposable Cloudflare Images account through `DMB_BENCHMARK_CDN_ACCOUNT_ID`
-and `DMB_BENCHMARK_CDN_IMAGES_TOKEN`. Keep these credentials out of manifests.
+runtime. Portrait generation ends when the browser decodes the private
+preview. The replay then binds the existing reviewed portrait to the new
+statblock and records both asset IDs. No CDN upload is needed.
 
 The browser checks the visible and terminal replies, confirms a distinct
-statblock variant, and follows that variant and its new portrait through
+statblock variant, and follows that variant and the saved portrait through
 Plan and Play. A successful live run must also match the server's provider
 trace to the browser turns. It applies the same exact-revision and explicit
 combat-start checks as the pinned-assets replay. Keep incomplete attempts
