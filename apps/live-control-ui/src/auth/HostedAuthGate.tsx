@@ -1,6 +1,18 @@
 import { invalidateHostedGraphAccess } from "../api/liveApi";
+import { APP_NAV_ITEMS } from "../chrome/appChromeConfig";
+import "./signedOutNavigation.css";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+
+function SignedOutNavigation() {
+  return <nav className="signed-out-nav" aria-label="Buddy navigation">
+    <a className="signed-out-nav__brand" href="/">DungeonMind · Buddy</a>
+    <div className="signed-out-nav__routes">
+      {APP_NAV_ITEMS.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}
+      <a href="https://www.dungeonmind.net/">DungeonMind.net ↗</a>
+    </div>
+  </nav>;
+}
 
 export type HostedAuthStatus = "checking" | "authenticated" | "signed_out" | "unavailable" | "local_operator";
 
@@ -116,11 +128,11 @@ export function HostedAuthGate({ children, enabled, allowSignedOutChildren = fal
 
   if (status === "unavailable") {
     return (
-      <main className="hosted-auth-state" aria-labelledby="hosted-auth-title">
+      <><SignedOutNavigation /><main className="hosted-auth-state" aria-labelledby="hosted-auth-title">
         <h1 id="hosted-auth-title">Sign-in status is unavailable</h1>
         <p>DungeonMind could not check your session. Try again when the authentication service is reachable.</p>
         <button type="button" onClick={() => void refreshSession()}>Retry</button>
-      </main>
+      </main></>
     );
   }
 
@@ -134,11 +146,11 @@ export function HostedAuthGate({ children, enabled, allowSignedOutChildren = fal
   const loginHref = dungeonMindLoginHref(currentLocation.href);
 
   return (
-    <main className="hosted-auth-state" aria-labelledby="hosted-auth-title">
+    <><SignedOutNavigation /><main className="hosted-auth-state" aria-labelledby="hosted-auth-title">
       <h1 id="hosted-auth-title">Sign in to DungeonMind</h1>
       <p>{message}</p>
       <a href={loginHref}>Sign in with DungeonMind</a>
       <button type="button" onClick={() => void refreshSession()}>Check again</button>
-    </main>
+    </main></>
   );
 }
