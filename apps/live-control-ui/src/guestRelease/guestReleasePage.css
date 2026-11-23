@@ -12,6 +12,7 @@
 .guest-world h1, .guest-world h2, .guest-world h3 { font-family: Georgia, serif; font-weight: 400; }
 .guest-world h1 { font-size: clamp(2.6rem, 7vw, 5.5rem); margin: .4rem 0 1rem; line-height: 1; }
 .guest-world__intro > p:last-child { max-width: 38rem; line-height: 1.7; color: #c9c6ba; }
+.guest-world__graph-entry { display: inline-block; padding: .7rem 1rem; border: 1px solid #c1a36b; border-radius: 4px; background: #4c4633; font-weight: 700; text-decoration: none; }
 .guest-world__layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(16rem, .8fr); gap: 1rem; }
 .guest-world__graph, .guest-world__detail { min-height: 23rem; padding: clamp(1.2rem, 3vw, 2rem); border: 1px solid #b9965755; border-radius: 8px; background: #252721d9; }
 .guest-world__section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; }
@@ -53,3 +54,9 @@
 .guest-world__choice-outcome { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
 
 .guest-world__citation { max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+
+.guest-product-graph__notice { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .75rem 1rem; color: #ede9dc; background: #252721; border-bottom: 1px solid #b9965755; }
+.guest-product-graph__notice a { color: #f0d49c; }
+.guest-product-graph__evidence { padding: 1rem; color: inherit; }
+.guest-product-graph__evidence section { border-top: 1px solid #b9965755; }
+.guest-product-graph__evidence blockquote { margin: .5rem 0 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
