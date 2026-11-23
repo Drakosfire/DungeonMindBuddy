@@ -1,6 +1,7 @@
 # ONBOARD: readable mobile guest graph
 
-Status: ACTIVE. The owner-authorized Sizzek onboarding goal includes a usable
+Status: MERGED on main in #4574 (`75f1246480c22bab0306fb7b8145dcf070347972`).
+Serving adoption proceeds through #4575. The owner-authorized Sizzek onboarding goal includes a usable
 signed-out demo on mobile. Production inspection at 390px showed the four-column
 graph forcing names such as “Sizzek’s Carnival” and “Festival of Light and Gifts”
 into unreadably narrow shapes. This serial implementation starts from the fetched
