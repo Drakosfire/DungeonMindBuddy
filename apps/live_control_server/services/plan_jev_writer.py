@@ -409,10 +409,15 @@ class PlanJevWriter:
                 )}]
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
-        self.messages = [
+        from application_state.agent_conversation.retained_conversation import dialogue_messages
+        retained_dialogue = dialogue_messages(turn.graph_context_execution) if self.shared else None
+        if retained_dialogue is not None:
+            from application_state.agent_conversation.retained_conversation import require_current_presentation
+            require_current_presentation(turn.graph_context_execution)
+        self.messages = (retained_dialogue if retained_dialogue is not None else [
             {"role": item["role"], "content": canonical_bytes({"conversation": item["content"]}).decode()}
             for item in dialogue
-        ] + self.messages
+        ]) + self.messages
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
@@ -512,6 +517,17 @@ class PlanJevWriter:
                 fragment_scope = self.work_frame.get('focused_edit_target', {}).get('fragment_scope')
                 if fragment_scope is not None:
                     instructions += '\n' + fragment_scope['instruction']
+            if retained_dialogue is not None:
+                instructions += (
+                    '\nThe supplied dialogue is chronological. Preserve later corrections and '
+                    'retractions over earlier proposals. Retained authored context is an exact '
+                    'historical read or working draft, not the current saved page or played truth. '
+                    'Use its relevant setting details with clear attribution, separately from '
+                    'later invented directions and unresolved questions. Do not omit supplied '
+                    'context because it was absent from an earlier assistant summary. Native '
+                    'passages are already supplied; select their offered handles without '
+                    'claiming a new search or inventing citations.'
+                )
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
                 RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
             if single_variant_base:

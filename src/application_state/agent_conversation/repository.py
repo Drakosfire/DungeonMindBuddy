@@ -1191,6 +1191,60 @@ def list_build_dialogue(conn, world_id: str, conversation_id: UUID) -> list[dict
     )) is not None]
 
 
+def list_retained_build_turns(conn, current):
+    """Freeze the complete prior terminal row set once, without a recent-window cap.
+
+    The caller holds the actual turn/World mutation transaction. Reference rows
+    identify these immutable turns; no second evidence/history selection occurs.
+    Start at the newest completed V2 owner when present: its validated closure
+    contains every earlier turn and read, so repeated synthesis stays linear in
+    retained context instead of decoding the full prefix once per old turn.
+    The fast path requires every older row completed and present at its exact
+    attempt/sequence in that seed. A late completion, interruption or retry falls
+    back to the complete row set, so an older in-flight turn cannot disappear.
+    """
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""WITH retained_anchor AS MATERIALIZED (
+            SELECT s.sequence FROM agent.turn s
+            WHERE s.world_id=%s AND s.conversation_id=%s AND s.sequence<%s
+              AND s.status='completed' AND s.answer_composition_kind='base'
+              AND s.graph_context_execution @? '$.events[*] ? (@.kind == "build_prior_body_evidence_admitted_v2")'
+              AND NOT EXISTS (
+                SELECT 1 FROM agent.turn p
+                LEFT JOIN LATERAL (
+                  SELECT h.turn_id,h.sequence,h.attempt
+                  FROM jsonb_array_elements(s.graph_context_execution->'events') e,
+                    jsonb_to_recordset(e->'history') AS h(turn_id uuid,sequence bigint,attempt integer)
+                  WHERE e->>'kind'='build_prior_body_evidence_admitted_v2'
+                ) pin ON pin.turn_id=p.turn_id
+                WHERE p.world_id=s.world_id AND p.conversation_id=s.conversation_id
+                  AND p.sequence<s.sequence
+                  AND (p.status<>'completed' OR pin.turn_id IS NULL
+                       OR pin.attempt<>p.attempt OR pin.sequence<>p.sequence)
+              )
+            ORDER BY s.sequence DESC LIMIT 1
+        ) SELECT {_TURN_READ_COLS_T},
+            (SELECT sequence FROM retained_anchor) AS retained_anchor_sequence
+            FROM agent.turn t JOIN agent.world_state w ON w.world_id=t.world_id
+              AND w.active_conversation_id=t.conversation_id
+            WHERE t.world_id=%s AND t.conversation_id=%s AND t.sequence<%s
+              AND t.status IN ('completed','failed','interrupted')
+              AND t.sequence>=COALESCE((SELECT sequence FROM retained_anchor),0)
+            ORDER BY t.sequence""", (current.world_id, current.conversation_id, current.sequence,
+                                    current.world_id, current.conversation_id, current.sequence))
+        rows = cur.fetchall()
+    anchor = rows[0]["retained_anchor_sequence"] if rows else None
+    for row in rows:
+        row.pop("retained_anchor_sequence")
+    references = _turn_reference_page(conn, rows)
+    turns = tuple(_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in rows)
+    from .retained_conversation import admission
+    seed = admission(turns[0].graph_context_execution) if anchor is not None else None
+    if anchor is not None and (not turns or turns[0].sequence != anchor or seed is None):
+        raise ValueError("Retained prefix lost its exact completed owner")
+    return turns, seed
+
+
 def get_retry_history_anchor(
     conn: psycopg.Connection, world_id: str, conversation_id: UUID, turn_id: UUID
 ) -> tuple[int, UUID] | None:

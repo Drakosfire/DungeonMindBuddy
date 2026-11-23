@@ -49,6 +49,7 @@
         "tests/test_application_state_database_fixture.py",
         "tests/test_ownership_ci_partition.py",
         "tests/test_surface_native_build_ordinary.py",
+        "tests/test_build_retained_conversation.py",
         "tests/application_state/test_world_catalog_postgres.py",
         "tests/application_state/test_world_catalog_cutover_migration.py",
         "tests/application_state/test_authored_pages_postgres.py",

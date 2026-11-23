@@ -115,6 +115,8 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
     body_frame = bodies.model_body_frame_records(receipt.source_authority, execution, body_handle,
         passages_only=passages_only)
     body_frame["excerpts"].extend(support.frame() for support in bodies.prior_body_writer_supports(execution))
+    from .retained_conversation import native_frame_rows
+    body_frame["excerpts"].extend(native_frame_rows(execution, receipt.source_authority, body_handle))
     return dict(schema=schema, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
         user_question=execution.policy.action.intent.message,
         native_body_evidence=body_frame,
@@ -188,6 +190,12 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
         from .build_intentional_response import validate_turn_arguments
         validate_turn_arguments(execution,user_text=action.intent.message,turn_id=turn_id,attempt=attempt)
         frame = native_work_frame(execution,receipt.work_context.source_basis)
+        from .retained_conversation import admission, authored_frame, validate_binding
+        retained = admission(execution)
+        if retained is not None:
+            validate_binding(retained, world_id=world_id, conversation_id=conversation_id,
+                turn_id=turn_id, attempt=attempt)
+            frame = frame | {'retained_authored_context': authored_frame(execution)}
         from .authored_graph_references import native_writer_context
         authored = native_writer_context(execution)
         return frame if authored is None else frame | {'authored_references': authored}
@@ -355,6 +363,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     from .native_evidence_view import PLAN_EVIDENCE_HEADING, render_plan_evidence, semantic_frame
     from .native_execution import NativePlanActionV2, NativePlanActionV3
     body = strict_json(raw)
+    from .retained_conversation import validate_dialogue_request
+    validate_dialogue_request(prefix, body)
     messages = body.get('input')
     prose_host = prose_frame = prose_work = None
     if type(prefix.policy.action) in (NativePlanActionV2, NativePlanActionV3) and isinstance(messages, list):
@@ -504,6 +514,8 @@ def read_evidence_records(prefix, frame, *, passages_only=False):
         bodies.NativeBodySupport(body_handle(read), read, catalogs[read.excerpt.catalog_sha256])
         for read in bodies.selected_body_reads(prefix)))
     supports += bodies.prior_body_writer_supports(prefix)
+    from .retained_conversation import native_supports
+    supports += native_supports(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = _writer_assertion_reads(prefix, passages_only=passages_only)
     return dict(body_excerpts=tuple(replace(support, handle=row['excerpt_handle']) for row, support in
