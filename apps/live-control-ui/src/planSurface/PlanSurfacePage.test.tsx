@@ -4288,6 +4288,64 @@ it('opens the current scene encounter tool while retaining the mounted Plan edit
 });
 
 
+it.each(["saved", "applying", "different-revision"] as const)(
+  "recovers only a verified saved Plan application when the receipt is %s",
+  async variant => {
+    const reviewApi = await import("../api/planAuthoringReviewApi");
+    const markdown = "# Arrival\n\n> [!RULES]\n> Travel pace is set by the GM.\n";
+    const record = mockSavedPlanForAgent(savedAgentPlanId, 8, 8, markdown);
+    const committed = await liveApi.getWorldOwnedPlanCommittedRevision(record.document_id);
+    const getCommitted = vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...committed, has_divergent_working_copy: false,
+    });
+    getCommitted.mockClear();
+    const hold = {
+      world_id: worldId,
+      document_id: record.document_id,
+      action_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      application_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    };
+    const key = `dmb:plan-application-hold:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(record.document_id)}:${hold.action_id}:${hold.application_id}`;
+    localStorage.setItem(key, JSON.stringify(hold));
+    const application = {
+      application_id: hold.application_id,
+      capture: { world_id: worldId, document_id: record.document_id },
+      outcome: variant === "applying" ? "applying" : "saved",
+      after_markdown: markdown,
+      after_draft_sha256: committed.content_sha256,
+      after_title: record.title,
+      saved_revision_n: variant === "different-revision" ? committed.revision_n - 1 : committed.revision_n,
+      saved_work_revision_id: committed.work_revision_id,
+    } as import("../api/planAuthoringReviewApi").PlanReviewApplication;
+    const read = vi.spyOn(reviewApi, "readPlanAuthoringReview").mockResolvedValue({
+      schema: "dmb_plan_authoring_review_snapshot_v1",
+      world_id: worldId,
+      action_id: hold.action_id,
+      origin_sha256: "a".repeat(64),
+      review: { applications: [application] } as import("../api/planAuthoringReviewApi").PlanAuthoringReview,
+    });
+    const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+    const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+    const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+    render(<SelectedWorldProvider locationSnapshot={location}><VerifiedPlanPage /></SelectedWorldProvider>);
+    const editor = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect(read).toHaveBeenCalledWith(worldId, hold.action_id));
+    if (variant === "saved") {
+      await waitFor(() => expect(localStorage.getItem(key)).toBeNull());
+      expect(screen.getByText("Suggestion saved to this Plan.")).toBeInTheDocument();
+    } else {
+      if (variant === "different-revision") {
+        await waitFor(() => expect(getCommitted).toHaveBeenCalledWith(record.document_id));
+      }
+      expect(localStorage.getItem(key)).toBe(JSON.stringify(hold));
+    }
+    expect(screen.queryByRole("button", { name: "Use saved Plan version" })).not.toBeInTheDocument();
+    expect(editor).toHaveTextContent("Travel pace is set by the GM.");
+    expect(prepare).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+  },
+);
+
 it('fences ordinary Plan Save during proposal apply, uncertain confirmation and reload',async()=>{
   const nativeNavigator=navigator;let lockTail:Promise<unknown>=Promise.resolve();
   const locks={request:(_name:string,work:()=>unknown)=>{const turn=lockTail.then(work);lockTail=turn.catch(()=>undefined);return turn;}};
