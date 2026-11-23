@@ -130,6 +130,24 @@ Only explicitly selected full_document rows represent complete documents. Partia
 and lexical navigation never establish corpus completeness. Do not mint citation metadata.
 """
 
+# Authored instruction variants only; never transform supplied context or retained
+# provider requests. The historical constants above keep their original bytes.
+_DETAIL_GAP_INSTRUCTIONS = """requested_detail_gaps is an array of objects, each exactly
+{"question_phrase":"exact phrase from user_question"}; never an array of strings.
+Select exact unique nonoverlapping phrases only for requested details not established
+by the supplied evidence. The host derives missing_requested_details from validated gaps.
+No paraphrased gap prose or byte offsets. If no requested fact is supported, return
+answer_segments:[] with the applicable limitations and these typed gap objects;
+never invent evidence or quote unrelated authored material to fill the answer.
+"""
+GENERIC_BODY_INSTRUCTIONS = BODY_INSTRUCTIONS.replace(
+    '"limitations":[],"requested_detail_gaps":[]}', '"limitations":[]}').replace(
+    _DETAIL_GAP_INSTRUCTIONS,
+    'Use only the supplied limitation codes, without copying user-question phrases.\n'
+    'If no requested fact is supported, return answer_segments:[] with the applicable\n'
+    'limitations. Never invent evidence or quote unrelated authored material to fill the answer.\n')
+
+
 @dataclass(frozen=True)
 class AuthoredSupport:
     handle: str

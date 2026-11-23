@@ -185,7 +185,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -478,7 +478,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         optional_page = create_page_fixture(tmp_path, world_id=world, campaign_id=world,
             title="Optional lore", kind="worldbuilding_source", source_domain="worldbuilding",
             document_class="lore", authority_state="draft", visibility_state="internal")
-        save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")
+        save_page(tmp_path, optional_page.document_id, "The local node is proposed to want freedom." if source_answer_output else "This unrelated lore should remain unread.")
 
     class Decisions(httpx2.AsyncBaseTransport):
         def __init__(self):
@@ -640,7 +640,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
-            frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
+            from application_state.agent_conversation.native_evidence_view import is_semantic_frame
+            frame = next(row for row in inputs if is_semantic_frame(row))
             work = next(row['build_work'] for row in inputs if 'build_work' in row)
             if not mode:
                 if requested_work == "review_lore_page" and self.adapter.turn.sequence == 2:
@@ -872,6 +873,46 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 candidate["answer_segments"] = [
                     dict(kind="discussion", text="We can explore a truce for this creature.")
                 ]
+            if source_answer_output:
+                if source_answer_output in {'typed', 'typed_gap_format'}:
+                    candidate['answer_segments'] = [dict(kind='related_page_claim',
+                        text='The saved lore proposes that the local node wants freedom.',
+                        read_id=next(page['selection'] for page in work['related_pages'] if page['title'] == 'Optional lore'))]
+                    if source_answer_output == 'typed_gap_format':
+                        candidate['limitations'] = ['missing_requested_details']
+                        candidate['requested_detail_gaps'] = [dict(question_phrase="the local node's alliance")]
+                elif source_answer_output in {'uncited', 'creative'}:
+                    candidate['answer_segments'] = [dict(kind='discussion', text='The local node wants freedom.' if source_answer_output == 'uncited' else 'We can explore that possibility.')]
+                elif source_answer_output == 'empty':
+                    candidate['answer_segments'] = []
+                    candidate['limitations'] = []
+                    candidate['requested_detail_gaps'] = []
+                elif source_answer_output in {'lore_stale_gap', 'lore_valid_gap', 'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap'}:
+                    candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea',
+                        text='Proposed direction: The local node seeks freedom and values its simulated town life. Its deeper plans remain open.')]
+                    candidate['limitations'] = ['missing_requested_details']
+                    candidate['requested_detail_gaps'] = [dict(question_phrase=(
+                        'unresolved motive' if source_answer_output == 'lore_valid_gap'
+                        else ['invalid'] if source_answer_output == 'lore_malformed_gap' else 'cosmology I have been operating with'))]
+                    if source_answer_output == 'lore_empty_gap':
+                        candidate['answer_segments'] = []
+                        candidate['collaboration'] = None
+                    if source_answer_output == 'lore_null_gap':
+                        candidate['collaboration'] = None
+                    if source_answer_output == 'lore_invalid_destination':
+                        candidate['collaboration']['destination']['title'] = 'Foreign page'
+                elif source_answer_output in {'unknown_limit_code', 'retired_gap_field'}:
+                    candidate['answer_segments'] = []
+                    candidate['limitations'] = ['not_a_limit_code'] if source_answer_output == 'unknown_limit_code' else ['missing_requested_details']
+                    candidate['requested_detail_gaps'] = [{'question_phrase': 'obsolete witness'}]
+                elif source_answer_output in {'gap', 'gap_format'}:
+                    candidate['answer_segments'] = []
+                    candidate['limitations'] = ['missing_requested_details']
+                    candidate['requested_detail_gaps'] = [dict(question_phrase='the local node’s alliance' if source_answer_output == 'gap' else "the local node's alliance")]
+            if 'requested_detail_gaps' not in body['text']['format']['schema'].get('$defs', {}).get('Base', body['text']['format']['schema'])['properties']:
+                base = candidate['base_output'] if candidate.get('kind') == 'rules_answer' else candidate
+                if base is not None and source_answer_output not in {'lore_malformed_gap', 'retired_gap_field'}:
+                    base.pop('requested_detail_gaps', None)
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -1241,6 +1282,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    if source_answer_output:
+        turn = AgentConversationService().inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
+        assert lane.repo.get_head(world).head_revision_id == current_revision
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        return SimpleNamespace(client=client, world=world, response=response, turn=turn,
+            writer=writer, decisions=decisions, request=body)
+
     if image_move and failure != "discussion_source_tie":
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
@@ -3432,3 +3480,261 @@ def test_deferred_build_display_keeps_admission_and_exact_native_citations(lane,
             (cite.assertion_id, cite.assertion_sha256) for cite in case.turn.completion.native_assertion_citations
         }])
         assert membership["assertions"]
+
+
+@pytest.mark.parametrize('output', ['typed', 'uncited', 'empty', 'gap', 'typed_gap_format', 'gap_format'])
+def test_source_lookup_discussion_requires_bound_claims_without_forcing_a_fact(lane, tmp_path, monkeypatch, output):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='source_lookup', read_optional_page=True,
+        source_answer_output=output, message='What does the saved lore establish about the local node’s alliance?' if output in {'gap', 'typed_gap_format', 'gap_format'}
+        else 'What does the saved lore propose about the local node?')
+    request = json.loads(case.writer.calls[0].content)
+    assert request['text']['format']['name'] == 'surface_native_build_source_answer_v1'
+    assert len(case.writer.calls) == 1
+    if output in {'uncited', 'empty'}:
+        assert case.response.status_code == 503
+        assert case.turn.completion is None
+        return
+    assert case.response.status_code == 200, case.response.text
+    if output in {'gap', 'gap_format'}:
+        assert all(row.kind == 'limitation' and row.question_phrase is None for row in case.turn.completion.answer_segments)
+        assert not any(x.kind == 'related_page_claim' for x in case.turn.completion.answer_segments)
+        return
+    claim, = [x for x in case.turn.completion.answer_segments if x.kind == 'related_page_claim']
+    if output == 'typed_gap_format':
+        limitations = [x for x in case.turn.completion.answer_segments if x.kind != 'related_page_claim']
+        assert limitations and all(x.question_phrase is None for x in limitations)
+    assert claim.kind == 'related_page_claim'
+    opened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages/{claim.read_id}')
+    assert opened.status_code == 200
+    assert opened.json()['markdown'] == 'The local node is proposed to want freedom.'
+
+
+def test_anchored_creative_discussion_keeps_its_no_acquisition_grammar(lane, tmp_path, monkeypatch):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='anchored', read_optional_page=True,
+        source_answer_output='creative', message='Let us explore this proposed direction; do not search.')
+    assert case.response.status_code == 200, case.response.text
+    assert not any(e.kind == 'build_related_page_read_v1' for e in case.turn.graph_context_execution.events)
+    assert all(e.kind == 'discussion' for e in case.turn.completion.answer_segments)
+    assert json.loads(case.writer.calls[0].content)['text']['format']['name'] != 'surface_native_build_source_answer_v1'
+
+
+def test_fresh_factual_build_refuses_old_discussion_contract_before_writer_io(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation import native_build_work_view
+    original = native_build_work_view.semantic_frame
+    def old_contract(host, execution, **kwargs):
+        return original(host, execution, **(kwargs | {'typed_source_answer': False}))
+    monkeypatch.setattr(native_build_work_view, 'semantic_frame', old_contract)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='source_lookup', read_optional_page=True,
+        source_answer_output='typed')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('mutation', ['unknown_policy', 'omitted_policy', 'old_format', 'ineligible_context'])
+def test_factual_build_recomputed_sdk_packet_cannot_forge_source_answer_policy(lane, tmp_path, monkeypatch, mutation):
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    original = PlanJevWriter.__init__
+    def forge(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        if mutation == 'old_format':
+            self.output_format = self.output_format | {'name': 'surface_native_evidence_selectors_v2'}
+            return
+        for message in self.messages:
+            frame = json.loads(message['content'])
+            if 'build_work' not in frame:
+                continue
+            if mutation == 'unknown_policy':
+                frame['build_work']['source_answer_policy'] = 'foreign_source_policy'
+            elif mutation == 'omitted_policy':
+                frame['build_work'].pop('source_answer_policy')
+            else:
+                frame['build_work']['source_answer_policy'] = 'typed_supplied_source_answer_v1'
+            message['content'] = json.dumps(frame)
+            break
+        else:
+            raise AssertionError('Test requires the actual Build work carrier')
+    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='anchored' if mutation == 'ineligible_context' else 'source_lookup',
+        read_optional_page=True, source_answer_output='creative' if mutation == 'ineligible_context' else 'typed')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('work', ['review_lore_page', 'review_lore_page_from_conversation'])
+@pytest.mark.parametrize('output', ['lore_stale_gap', 'lore_valid_gap', 'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap'])
+def test_lore_page_review_uses_generic_limits_without_optional_phrase(lane, tmp_path, monkeypatch, output, work):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work=work, source_need='anchored',
+        source_answer_output=output,
+        message='Create a page for Glass Regent. Use the context we discussed; keep the unresolved motive open; do not search again.')
+    request = json.loads(case.writer.calls[0].content)
+    assert request['text']['format']['name'] == 'surface_native_lore_review_limitations_v1'
+    if output in {'lore_malformed_gap', 'lore_invalid_destination'}:
+        assert case.response.status_code == 503
+        assert case.turn.completion is None
+        return
+    assert case.response.status_code == 200, case.response.text
+    completion = case.turn.completion
+    limits = [x for x in completion.answer_segments if x.kind == 'limitation']
+    assert limits and all(x.question_phrase is None for x in limits)
+    if output in {'lore_empty_gap', 'lore_null_gap'}:
+        assert completion.collaboration is None
+        if output == 'lore_empty_gap':
+            assert all(x.kind == 'limitation' for x in completion.answer_segments)
+        else:
+            assert any(x.kind == 'proposal' for x in completion.answer_segments)
+        return
+    assert completion.collaboration.kind == 'lore_page'
+    assert completion.collaboration.destination.title == 'Glass Regent'
+    assert any(x.kind == 'proposal' and 'seeks freedom' in x.text for x in completion.answer_segments)
+    limits = [x for x in completion.answer_segments if x.kind == 'limitation']
+    assert limits
+    assert all(x.question_phrase is None for x in limits)
+    assert not any(e.kind == 'build_related_page_read_v1' for e in case.turn.graph_context_execution.events)
+
+
+def test_fresh_lore_review_refuses_retired_limitation_policy_before_writer_io(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation import native_build_work_view
+    original = native_build_work_view.semantic_frame
+    def old_contract(host, execution, **kwargs):
+        return original(host, execution, **(kwargs | {'lore_page_limitations': False}))
+    monkeypatch.setattr(native_build_work_view, 'semantic_frame', old_contract)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='review_lore_page', source_need='anchored', source_answer_output='lore_stale_gap',
+        message='Create a page for Glass Regent.')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('mutation', ['unknown_policy', 'omitted_policy', 'old_format', 'ineligible_work', 'ineligible_context'])
+def test_lore_review_recomputed_packet_cannot_forge_limitation_policy(lane, tmp_path, monkeypatch, mutation):
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    original = PlanJevWriter.__init__
+    def forge(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        if mutation == 'old_format':
+            self.output_format = self.output_format | {'name': 'surface_native_evidence_selectors_v2'}
+            return
+        for message in self.messages:
+            frame = json.loads(message['content'])
+            if 'build_work' not in frame:
+                continue
+            if mutation == 'unknown_policy':
+                frame['build_work']['lore_limitation_policy'] = 'foreign_policy'
+            elif mutation == 'omitted_policy':
+                frame['build_work'].pop('lore_limitation_policy')
+            else:
+                frame['build_work']['lore_limitation_policy'] = 'validated_lore_review_generic_gaps_v1'
+            message['content'] = json.dumps(frame)
+            break
+        else:
+            raise AssertionError('Test requires actual semantic Build work')
+    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss' if mutation.startswith('ineligible_') else 'review_lore_page',
+        source_need='anchored', source_answer_output='creative' if mutation.startswith('ineligible_') else 'lore_stale_gap',
+        message='Let us explore this premise without searching.' if mutation == 'ineligible_work' else 'Create a page for Glass Regent.')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+def test_fresh_build_refuses_whole_pre_generic_reply_contract_before_writer_io(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation import plan_writer_output_schema
+    original = plan_writer_output_schema.native_output_format
+    def historical(*args, **kwargs):
+        return original(*args, **(kwargs | {'generic_reply_limits': False}))
+    monkeypatch.setattr(plan_writer_output_schema, 'native_output_format', historical)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='anchored', source_answer_output='creative',
+        message='Let us discuss this premise without searching.')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('output', ['unknown_limit_code', 'retired_gap_field'])
+def test_current_build_limits_reject_unknown_codes_and_retired_echo_fields(lane, tmp_path, monkeypatch, output):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='anchored', source_answer_output=output,
+        message='Discuss the supplied premise without another search.')
+    assert case.response.status_code == 503
+    assert len(case.writer.calls) == 1
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('mutation', ['unknown_format', 'malformed_schema', 'raw_carrier', 'retired_schema'])
+def test_current_build_generic_policy_cannot_be_forged_in_recomputed_sdk_packet(lane, tmp_path, monkeypatch, mutation):
+    from copy import deepcopy
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.native_writer import model_frame
+    original = PlanJevWriter.__init__
+    def forge(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        if mutation == 'unknown_format':
+            self.output_format = self.output_format | {'name': 'foreign_reply_schema'}
+            return
+        if mutation == 'malformed_schema':
+            self.output_format = deepcopy(self.output_format)
+            base = self.output_format['schema'].get('$defs', {}).get('Base', self.output_format['schema'])
+            base['required'].append('requested_detail_gaps')
+            return
+        if mutation == 'retired_schema':
+            self.output_format = deepcopy(self.output_format)
+            base = self.output_format['schema'].get('$defs', {}).get('Base', self.output_format['schema'])
+            base['properties']['requested_detail_gaps'] = {'type': 'array', 'items': {'type': 'object',
+                'properties': {'question_phrase': {'type': 'string'}}, 'required': ['question_phrase'], 'additionalProperties': False}}
+            base['required'].append('requested_detail_gaps')
+            return
+        for message in self.messages:
+            frame = json.loads(message['content'])
+            if 'native_body_evidence' not in frame:
+                continue
+            frame = model_frame(self.adapter.turn.graph_context_receipt, self.adapter.turn.graph_context_execution)
+            self.provider_frame = frame
+            message['content'] = json.dumps(frame)
+            break
+        else:
+            raise AssertionError('Test requires the actual native reply evidence carrier')
+    monkeypatch.setattr(PlanJevWriter, '__init__', forge)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='anchored', source_answer_output='creative',
+        message='Discuss this premise without searching.')
+    assert case.response.status_code == 503
+    assert not case.writer.calls
+    assert case.turn.completion is None
+
+
+@pytest.mark.parametrize('scope, message', [
+    ('source_lookup', 'Get familiar with Glass Regent and the world beyond this short draft.'),
+    ('anchored', 'Summarize the proposed local node context already supplied; do not search again.'),
+    ('anchored', 'Hello Buddy, are you ready to help?'),
+])
+def test_background_scope_guidance_reaches_actual_sdk_and_respects_the_offered_choice(
+        lane, tmp_path, monkeypatch, scope, message):
+    from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_GUIDANCE
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need=scope, read_optional_page=True,
+        source_answer_output='typed' if scope == 'source_lookup' else 'creative', message=message)
+    assert case.response.status_code == 200, case.response.text
+    opening = next(json.loads(call.content) for call in case.decisions.calls
+        if 'source_need' in json.loads(call.content)['questions'])
+    assert opening['questions']['source_need']['instructions'] == SOURCE_NEED_GUIDANCE
+    assert opening['state']['user_question'] == message
+    reads = [event for event in case.turn.graph_context_execution.events if event.kind == 'build_related_page_read_v1']
+    claims = [row for row in case.turn.completion.answer_segments if row.kind == 'related_page_claim']
+    if scope == 'source_lookup':
+        assert reads and claims
+        opened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages/{claims[0].read_id}')
+        assert opened.status_code == 200
+        assert opened.json()['markdown'] == 'The local node is proposed to want freedom.'
+    else:
+        assert not reads and not claims
+        assert all(row.kind == 'discussion' for row in case.turn.completion.answer_segments)

@@ -7,6 +7,39 @@ _OPTIONAL = frozenset({'working_draft_context', 'response_contract', 'captured_e
     'reviewed_discussion_scope', 'plan_output_contract', 'related_authored_pages',
     'authored_references', 'saved_statblocks', 'retained_authored_context'})
 
+SOURCE_ANSWER_POLICY = 'typed_supplied_source_answer_v1'
+SOURCE_ANSWER_FORMAT = 'surface_native_build_source_answer_v1'
+LORE_LIMITATION_POLICY = 'validated_lore_review_generic_gaps_v1'
+LORE_LIMITATION_FORMAT = 'surface_native_lore_review_limitations_v1'
+
+
+def source_backed_discussion(host, execution):
+    """Use captured work/scope and actual supplied reads, never lexical guessing."""
+    from .native_execution import NativeBuildActionV1
+    from .types import BuildRequestedWorkResolutionV1
+    if type(getattr(execution.policy, 'action', None)) is not NativeBuildActionV1:
+        return False
+    choices = [event for event in execution.events if isinstance(event, BuildRequestedWorkResolutionV1)]
+    return (len(choices) == 1 and choices[0].requested_work == 'discuss'
+            and choices[0].resolution.get('source_scope') == 'source_lookup'
+            and not variant_sources(host)
+            and bool(host['artifact_under_edit']['sections']
+                     or host.get('related_authored_pages', {}).get('pages')))
+
+
+def lore_page_reply(host, execution):
+    """Only an admitted, unblocked lore review can offer this presentation policy."""
+    from .native_execution import NativeBuildActionV1
+    from .types import BuildRequestedWorkResolutionV1
+    if type(getattr(execution.policy, 'action', None)) is not NativeBuildActionV1:
+        return False
+    choices = [event for event in execution.events if isinstance(event, BuildRequestedWorkResolutionV1)]
+    contract = host.get('response_contract', {})
+    return (len(choices) == 1
+            and choices[0].requested_work in {'review_lore_page', 'review_lore_page_from_conversation'}
+            and contract.get('requested_work') == choices[0].requested_work
+            and contract.get('barrier') is None and not variant_sources(host))
+
 
 def selection_aliases(host):
     """One deterministic local domain from the complete prewriter work catalog."""
@@ -81,7 +114,8 @@ def variant_output_version(work_frame):
 
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
                    variant_passage_review=False, bind_lore_page=False,
-                   retained_raw_markdown=False, supplied_source_references=False):
+                   retained_raw_markdown=False, supplied_source_references=False,
+                   typed_source_answer=False, lore_page_limitations=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     from .model_markdown import project_model_markdown, project_retained_source_markdown
 
@@ -112,6 +146,14 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
         'saved_sections': [section(row) for row in host['artifact_under_edit']['sections']]}
     if supplied_source_references:
         work['citation_policy'] = 'supplied_source_references_v1'
+    if typed_source_answer and source_backed_discussion(host, execution):
+        if not supplied_source_references:
+            raise ValueError('Typed source answers require supplied references')
+        work['source_answer_policy'] = SOURCE_ANSWER_POLICY
+    if lore_page_limitations and lore_page_reply(host, execution):
+        if not supplied_source_references:
+            raise ValueError('Lore review limitations require supplied references')
+        work['lore_limitation_policy'] = LORE_LIMITATION_POLICY
     if 'retained_authored_context' in host:
         work['retained_authored_context'] = deepcopy(host['retained_authored_context'])
     if 'working_draft_context' in host:

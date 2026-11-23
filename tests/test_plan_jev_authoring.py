@@ -1666,7 +1666,11 @@ def _shared_plan_authoring_case(
                         else "plan_contextual_discussion" if routing == "discuss"
                         and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
                         else "answer")
-                assert payload["instructions"] == compose_response_prompt(task=task).instructions
+                assert payload["instructions"] == (compose_response_prompt(task=task, generic_reply_limits=payload["text"]["format"]["name"] != "plan_contextual_question_v1").instructions
+                    + ("\nRepresent reply-level evidence limitations with the supplied codes. "
+                       "Do not return requested_detail_gaps or reproduce phrases from any user question. "
+                       "A limitation may stand alone when the supplied evidence cannot support a useful fact."
+                       if payload["text"]["format"]["name"] != "plan_contextual_question_v1" else ""))
                 schema = payload["text"]["format"]["schema"]
                 base = schema.get("$defs", {}).get("Base", schema)
                 if task in {"contextual_content_question", "contextual_target_question"}:
@@ -1745,7 +1749,6 @@ def _shared_plan_authoring_case(
                     )
                 ],
                 limitations=[],
-                requested_detail_gaps=[],
             )
             if payload['text']['format']['name'] == 'plan_contextual_question_v1':
                 candidate = dict(question=payload['text']['format']['schema']['properties']['question'].get(
@@ -2176,7 +2179,7 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
             else:
                 response = dict(schema=POLICY, answer_segments=[dict(
                     kind="proposal", label="invented_idea", text="Keep a lantern ready.",
-                )], limitations=[], requested_detail_gaps=[])
+                )], limitations=[])
             self.text = json.dumps(response)
             return await super().handle_async_request(request)
 

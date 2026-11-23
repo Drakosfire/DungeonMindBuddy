@@ -509,6 +509,8 @@ def render_plan_evidence(frame, work, *, compact_graph_qualifications=False, ded
     if work["dialogue_reference"]:
         parts.append("## Prior dialogue")
         parts.extend(words(turn) for turn in work["dialogue_reference"])
+    if work.get('citation_policy') == 'supplied_source_references_v1':
+        parts.append('## Saved-page citations\nSelect the supplied local page reference. Do not regenerate supporting quotes.')
     for page in work.get("related_authored_pages", {}).get("pages", ()):
         parts.append(f"## Saved reference · [{page['read_id']}] {page['title']}\n{page['markdown']}")
     for key in ("current_page_draft", "focused_edit_target", "selected_references"):

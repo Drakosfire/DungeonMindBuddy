@@ -287,7 +287,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
                 assert not frame['native_statements']['statements']
                 self.text = json.dumps({'schema': answer_policy, 'answer_segments': [],
                     'limitations': ['missing_requested_details', 'partial_retrieval'],
-                    'requested_detail_gaps': [{'question_phrase': 'What did B do?'}]})
+                    **({} if shared_sdk_receipt else {'requested_detail_gaps': [{'question_phrase': 'What did B do?'}]})})
                 return await super().handle_async_request(req)
             row = frame['native_statements']['statements'][0]
             assert row['payload']['quote'] == expected_quote
@@ -295,7 +295,8 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
             assert len(frame['native_statements']['statements']) == 1
             assert 'clause_text' not in row
             assert json.dumps(frame).count(json.dumps(row['payload']['quote'])) == 1
-            self.text = json.dumps({'schema': answer_policy, 'limitations': [], 'requested_detail_gaps': [],
+            self.text = json.dumps({'schema': answer_policy, 'limitations': [],
+                **({} if shared_sdk_receipt else {'requested_detail_gaps': []}),
                 'answer_segments': [{'kind': 'native_statement_report', 'text': 'A reports that B fled, with uncertainty.',
                     'statement_handles': [row['statement_handle']]}]})
             return await super().handle_async_request(req)
