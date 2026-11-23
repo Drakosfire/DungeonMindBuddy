@@ -2109,6 +2109,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     // Both callers use the same live-ref checks above; manual preview supersedes this read.
   }, [guidance?.tracking, tourVerificationScope?.walkthroughId, tourVerificationScope?.epoch,
     canStartPlayFromSavedPlan, documentId, worldId, savedBasis, savedPlanDirty, markdown, title, tourVerificationKey]);
+  const [buddyEncounterReview,setBuddyEncounterReview]=useState<import('../combat/sceneTemplatesApi').EncounterAttachmentReview|null>(null);
   const sceneEncounterContext=useMemo(()=>documentId && navigationSceneId ? {
     worldId,documentId,sceneId:navigationSceneId,
     sceneTitle:navigationSceneTitle,
@@ -2116,7 +2117,37 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     objectRevision:savedBasis.status==="verified"?savedBasis.revision:null,
     contentSha256:savedBasis.status==="verified"?savedBasis.contentSha256:null,
     verifiedPlan:currentTourPlan?.pin??null,
-  }:null,[worldId,documentId,navigationSceneId,navigationSceneTitle,canStartPlayFromSavedPlan,savedBasis,currentTourPlan]);
+    attachmentReview:buddyEncounterReview?.source.world_id===worldId
+      && buddyEncounterReview.pin.document_id===documentId && buddyEncounterReview.pin.scene_id===navigationSceneId
+      && savedBasis.status==='verified' && buddyEncounterReview.pin.content_sha256===savedBasis.contentSha256
+      ? buddyEncounterReview : null,
+  }:null,[worldId,documentId,navigationSceneId,navigationSceneTitle,canStartPlayFromSavedPlan,savedBasis,currentTourPlan,buddyEncounterReview]);
+  const encounterReviewScope=sceneEncounterContext?.canCreate
+    ? JSON.stringify([worldId,documentId,navigationSceneId,sceneEncounterContext.objectRevision,sceneEncounterContext.contentSha256])
+    : null;
+  const latestEncounterReviewScope=useRef(encounterReviewScope);
+  latestEncounterReviewScope.current=encounterReviewScope;
+  async function reviewBuddyEncounter(title:string) {
+    const target=sceneEncounterContext;
+    if(!target || !encounterReviewScope) throw new Error('Select a scene in a saved Plan before asking Buddy to attach an encounter.');
+    const committed=await getWorldOwnedPlanCommittedRevision(target.documentId);
+    if(latestEncounterReviewScope.current!==encounterReviewScope || committed.world_id!==target.worldId
+      || committed.document_id!==target.documentId || committed.kind!=='plan'
+      || committed.status!=='active' || committed.scope_mode!=='world' || committed.has_divergent_working_copy
+      || committed.object_revision!==target.objectRevision || committed.content_sha256!==target.contentSha256) {
+      throw new Error('The saved scene changed. Reopen it before asking Buddy to attach an encounter.');
+    }
+    const pin={document_id:target.documentId,scene_id:target.sceneId,revision_n:committed.revision_n,
+      work_revision_id:committed.work_revision_id,content_sha256:committed.content_sha256};
+    const {previewNamedEncounter,retainEncounterReview}=await import('../combat/sceneTemplatesApi');
+    const source=await previewNamedEncounter(target.worldId,{pin,title});
+    if(latestEncounterReviewScope.current!==encounterReviewScope || source.world_id!==target.worldId) {
+      throw new Error('The saved scene changed. Ask Buddy to review the encounter again.');
+    }
+    setBuddyEncounterReview({pin,source});
+    retainEncounterReview(target,{pin,source});
+    if(!await openSceneEncounterTool('combat')) throw new Error('The scene encounter review could not be opened.');
+  }
   useCombatProjection("plan",activePublication!==null,sceneEncounterContext);
   const cardScopeKey = `${navigationIdentity}:${cardsViewActive}:${navigationSceneId}`;
   if (cardScopeEpoch.current.key !== cardScopeKey) cardScopeEpoch.current = { key: cardScopeKey, generation: cardScopeEpoch.current.generation + 1 };
@@ -2630,6 +2661,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         savedDirty={savedPlanDirty}
         pageReady={status === "ready"}
         saveInFlight={saving || pendingWriteRef.current !== null}
+        onReviewEncounterAttachment={reviewBuddyEncounter}
         imagePromptHost={{
           unavailableReason: imageStudio.session ? "Close the current Image Studio before opening another prompt."
             : !documentId || status !== "ready" || fidelityBlocked || recoveryConflict ? "Reopen a ready Plan to use this image prompt." : null,

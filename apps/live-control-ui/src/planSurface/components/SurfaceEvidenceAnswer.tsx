@@ -50,9 +50,21 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
     </section>;
   };
   const chars=composition ? Array.from(composition.text) : [];
+  const encounter = completion.schema === 'dmb_surface_native_completion_v1' && completion.surface_id === 'plan'
+    ? completion.encounter_attachment_preview : undefined;
   return <div aria-label="Evidence-grounded answer">{composition ? composition.ranges.map((r,i)=>
     r.domain === 'base' && r.base_segment_index !== null
       ? renderSegment(completion.answer_segments[r.base_segment_index]!,r.base_segment_index,i)
       : <section key={i} aria-label="Rules statement"><WorldPlanAgentAnswer answer={chars.slice(r.text_start,r.text_end).join('')}/></section>)
-    : completion.answer_segments.map((s,i)=>renderSegment(s,i,i))}</div>;
+    : completion.answer_segments.map((s,i)=>renderSegment(s,i,i))}
+    {worldId && encounter?.world_id === worldId && (
+      <section aria-label="Proposed encounter attachment">
+        <h3>{encounter.encounter_title} · revision {encounter.source_revision}</h3>
+        <p>Prepare for {encounter.scene_title}</p>
+        <ul aria-label="Combatants">{encounter.participants.map((name, index) => <li key={index}>{name}</li>)}</ul>
+        {encounter.groups.length > 0 &&
+          <ul aria-label="Groups">{encounter.groups.map((name, index) => <li key={index}>{name}</li>)}</ul>}
+      </section>
+    )}
+  </div>;
 }
