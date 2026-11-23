@@ -82,6 +82,7 @@ type VisitorState = {
   lineOffset: number;
   options: MarkdownImportOptions;
   diagnostics: MarkdownImportDiagnostic[];
+  inTableCell?: boolean;
 };
 
 type TiptapMark = { type: string; attrs?: Record<string, unknown> };
@@ -344,6 +345,7 @@ function visitInlineNode(node: PhrasingContent, state: VisitorState): TiptapNode
       return sourceTextNodes(node, state);
     }
     case "html": {
+      if (state.inTableCell && /^<br\s*\/?>$/i.test(node.value)) return [{ type: "hardBreak" }];
       warn(state, "Raw HTML is not supported yet.", nodeStartLine(node));
       return sourceTextNodes(node, state);
     }
@@ -1192,6 +1194,7 @@ function repairUnevenTableRow(row: TableRow, width: number, state: VisitorState)
   return rawCells.map((cellText) => {
     const cellState: VisitorState = {
       ...state,
+      inTableCell: true,
       lines: [cellText],
       lineOffset: state.lineOffset + nodeStartLine(row) - 1,
     };
@@ -1213,7 +1216,7 @@ function visitTableRow(
       type: cellType,
       content: [{
         type: "paragraph",
-        content: repairedCells?.[index] ?? (cells[index] ? visitInlineChildren(cells[index].children, state) : []),
+        content: repairedCells?.[index] ?? (cells[index] ? visitInlineChildren(cells[index].children, { ...state, inTableCell: true }) : []),
       }],
     })),
   };

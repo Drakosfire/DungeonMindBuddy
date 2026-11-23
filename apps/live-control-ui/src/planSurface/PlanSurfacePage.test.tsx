@@ -3254,7 +3254,7 @@ it("reverts an editor transaction that the semantic Markdown serializer cannot p
   fireEvent.keyDown(proseMirror, { key: "Enter", code: "Enter", shiftKey: true });
 
   expect(await screen.findByRole("alert")).toHaveTextContent(/edit was reverted to protect the saved Plan/i);
-  expect(screen.getByRole("alert")).toHaveTextContent(/Hard breaks in headings or table cells/i);
+  expect(screen.getByRole("alert")).toHaveTextContent(/Hard breaks in headings/i);
   expect(localStorage.getItem(recoveryKey)).toBe(originalRecovery);
   const restoredEditor = editorSurface.querySelector(".ProseMirror") as HTMLElement;
   expect(restoredEditor).not.toBe(proseMirror);
