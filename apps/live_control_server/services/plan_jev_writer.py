@@ -314,6 +314,19 @@ RELATED_PAGE_RESPONSE = (
     'exact nonblank quotes from that same saved page. Do not ask for a supplied page again.')
 
 
+SUPPLIED_SOURCE_RESPONSE = ('\nFor saved_source_claim select the supplied local section_read_ids; '
+                'for related_page_claim select the supplied local read_id. Buddy binds the exact '
+                'supplied read to the citation. Do not return supporting_quotes or recopy evidence '
+                'as a validation witness. For these two claim kinds, ground each claim in its selected source, preserve uncertainty, '
+                'and distinguish authored material from played events. Every factual clause in a '
+                'related_page_claim must be supported by its ONE selected page. Split claims that '
+                'draw on different pages into separate segments with their own references. Do not '
+                'declare a motive or choice unknown when the selected source states it explicitly; '
+                'qualify only the identity, mechanism or future actions that actually remain open. '
+                'These citation requirements do not apply to collaboration drafts, retained author '
+                'context, discussion or proposals; use those supplied materials according to their '
+                'existing instructions. Prose formatting is free.\n')
+
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules, *, dialogue=()):
         self.adapter, self.proof, self.rules = adapter, proof, rules
@@ -370,6 +383,7 @@ class PlanJevWriter:
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
+                    supplied_source_references=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
@@ -424,6 +438,9 @@ class PlanJevWriter:
                 for item in dialogue
             ] + self.messages
         self.prompt_components = None
+        related_page_response = (SUPPLIED_SOURCE_RESPONSE
+            if self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1'
+            else RELATED_PAGE_RESPONSE)
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
@@ -437,7 +454,7 @@ class PlanJevWriter:
             prompt = compose_response_prompt(
                 task=task,
                 rules_instructions=RULES_INSTRUCTIONS if rule_frame.lookups else None,
-                related_page_instructions=RELATED_PAGE_RESPONSE
+                related_page_instructions=related_page_response
                     if self.provider_work.get('related_authored_pages', {}).get('pages') else None,
                 single_variant_base=single_variant_base)
             self.instructions = prompt.instructions
@@ -479,7 +496,7 @@ class PlanJevWriter:
                 if getattr(rules,'authoring',None) is not None:
                     instructions += '\n' + AUTHORING_INSTRUCTIONS
             if self.shared and self.provider_work.get('related_authored_pages', {}).get('pages'):
-                instructions += '\n' + RELATED_PAGE_RESPONSE + '\n'
+                instructions += '\n' + related_page_response + '\n'
             from application_state.agent_conversation.plan_jev_decision import connected_page_review_enabled
             if self.shared and connected_page_review_enabled(adapter._broker_execution()):
                 instructions += ('\nPrepare the requested new location page as a connected_page collaboration, '
@@ -529,6 +546,10 @@ class PlanJevWriter:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
 
                 self.instructions += "\n" + VARIANT_BASE.text
+        if (self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1'
+                and (self.work_frame['artifact_under_edit']['sections']
+                     or self.work_frame.get('related_authored_pages', {}).get('pages'))):
+            self.instructions += SUPPLIED_SOURCE_RESPONSE
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '

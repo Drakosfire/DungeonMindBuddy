@@ -249,8 +249,15 @@ def test_input_phase_does_not_require_future_reply_but_output_does(lane,surface)
     context,stored,owner,auth,proof,_capture,kwargs=producing_case(lane,surface)
     pending=owner.model_copy(update={'events':owner.events[:-1]})
     submission={k:v for k,v in kwargs.items() if k!='trace'}
+    if surface == 'build':
+        # This fixture uses the historical raw work carrier. It remains readable,
+        # but cannot admit a new writer through the old quote contract.
+        with pytest.raises(ValueError, match='requires supplied source references'):
+            verify_native_rules_packet_input(pending,context,stored,proof.prepared_request_json,
+                provider_attempt_id=auth.provider_attempt_id,expected_envelope_sha256=auth.envelope_sha256,**submission)
     evidence,frame=verify_native_rules_packet_input(pending,context,stored,proof.prepared_request_json,
-        provider_attempt_id=auth.provider_attempt_id,expected_envelope_sha256=auth.envelope_sha256,**submission)
+        provider_attempt_id=auth.provider_attempt_id,expected_envelope_sha256=auth.envelope_sha256,
+        allow_retained_format=surface == 'build',**submission)
     assert frame.supports and evidence.body_excerpts
     with pytest.raises(ValueError,match='sealed final answer'):
         r.validate_native_packet_writer(pending,auth.provider_attempt_id,require_reply=True)
@@ -289,7 +296,7 @@ def test_retained_native_v1_reply_reads_but_fresh_input_requires_v2(lane, surfac
     context, stored, owner, auth, proof, _capture, kwargs = case
     assert normalize(case).assistant_text
     submission = {k: v for k, v in kwargs.items() if k != 'trace'}
-    with pytest.raises(ValueError, match='declarations differ'):
+    with pytest.raises(ValueError, match='requires supplied source references' if surface == 'build' else 'declarations differ'):
         verify_native_rules_packet_input(owner, context, stored, proof.prepared_request_json,
             provider_attempt_id=auth.provider_attempt_id,
             expected_envelope_sha256=auth.envelope_sha256, **submission)

@@ -217,12 +217,19 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         from apps.live_control_server.services.agent_turn_service import _json_node_count
         prior = owner.inspect_turn(world_id=world, turn_id=turn_id)
         if retained.admission(prior.graph_context_execution) is not None:
-            mutations = ['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role']
+            mutations = ['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role', 'omit_citation_policy', 'change_citation_policy']
             if discussion:
                 mutations.append('discussion_only_format')
             for mutation in mutations:
                 request = json.loads(values['prepared_request_json'])
-                if mutation == 'omit':
+                if mutation in {'omit_citation_policy', 'change_citation_policy'}:
+                    frame = json.loads(request['input'][0]['content'])
+                    if mutation == 'omit_citation_policy':
+                        del frame['build_work']['citation_policy']
+                    else:
+                        frame['build_work']['citation_policy'] = 'unverified_sources'
+                    request['input'][0]['content'] = json.dumps(frame)
+                elif mutation == 'omit':
                     del request['input'][3:5]
                 elif mutation == 'change':
                     request['input'][3]['content'] = '{"conversation":"changed older context"}'
@@ -293,7 +300,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         with pytest.raises(ValueError, match='unique producing Build work decision'):
             type(turn.graph_context_execution).model_validate(raw)
     assert len(fenced) == 2
-    assert tampered == (['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role']
+    assert tampered == (['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role', 'omit_citation_policy', 'change_citation_policy']
                         + (['discussion_only_format'] if discussion else []))
     assert len(value.history) == turn_count
     assert value.history[0].turn_id == original.turn_id
@@ -345,13 +352,13 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         'decoded_rows': decoded_rows}, indent=2) + '\n')
 
 
-@pytest.mark.parametrize('revision,parent', [('0194', '0192'), ('0195', '0194'), ('0196', '0195'), ('0197', '0196')])
+@pytest.mark.parametrize('revision,parent', [('0194', '0192'), ('0195', '0194'), ('0196', '0195'), ('0197', '0196'), ('0198', '0197')])
 def test_old_reader_refuses_retained_context_database_before_decoding(application_state_dsn, monkeypatch, revision, parent):
     from importlib import import_module
     from application_state import cli
     from application_state.errors import ApplicationStateMigrationError
     name = {'0194': 'build_retained_conversation', '0195': 'build_discussion_context',
-            '0196': 'natural_page_title', '0197': 'author_context_tail'}[revision]
+            '0196': 'natural_page_title', '0197': 'author_context_tail', '0198': 'supplied_source_references'}[revision]
     fence = import_module(f'application_state.migrations.versions.20261122_{revision}_{name}_fence')
     assert fence.down_revision == '20261122_' + parent
     cli.assert_at_head(dsn=application_state_dsn)
