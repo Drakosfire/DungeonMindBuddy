@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from os import getpid
+from os import getpid, register_at_fork
 from threading import Lock
 
 import psycopg
 from psycopg.rows import tuple_row
 from sqlalchemy import event
+from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.pool import QueuePool
 
 from application_state.config import load_runtime_dsn
@@ -17,6 +18,20 @@ from application_state.engine import connect
 
 _pool_lock = Lock()
 _pool_owner: tuple[int, str, QueuePool] | None = None
+_inherited_pools: list[QueuePool] = []
+
+
+def _clear_inherited_owner() -> None:
+    global _pool_lock, _pool_owner
+    _pool_lock = Lock()
+    if _pool_owner is not None:
+        # The child must not dispose parent-owned PostgreSQL sessions.
+        _inherited_pools.append(_pool_owner[2])
+        _pool_owner = None
+
+
+register_at_fork(after_in_child=_clear_inherited_owner)
+
 
 
 def _new_pool(target: str) -> QueuePool:
@@ -27,6 +42,15 @@ def _new_pool(target: str) -> QueuePool:
         return conn
 
     pool = QueuePool(open_connection, pool_size=4, max_overflow=-1, reset_on_return=None)
+
+    @event.listens_for(pool, "checkout")
+    def check_connection(conn, _record, _lease):
+        try:
+            conn.autocommit = True
+            conn.execute("SELECT 1")
+            conn.autocommit = False
+        except psycopg.OperationalError as exc:
+            raise DisconnectionError("Application-state connection is unavailable") from exc
 
     @event.listens_for(pool, "reset")
     def reset(conn, _record, state):
