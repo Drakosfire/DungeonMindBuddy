@@ -31,6 +31,15 @@ STUB
 cat > "$scratch/bin/curl" <<'STUB'
 #!/usr/bin/env bash
 set -eu
+if [[ ${*: -1} == https://buddy.dungeonmind.net/health/ready ]]; then
+  printf '%s\n' "$(cat "$TEST_ROOT/serving")" >> "$TEST_ROOT/public-checks"
+  [[ ${FAIL_PUBLIC:-0} != 1 || $(cat "$TEST_ROOT/serving") != "$candidate_id" ]] || exit 22
+  if [[ $(cat "$TEST_ROOT/serving") == "$candidate_id" ]]; then
+    printf '%s' "${PUBLIC_CANDIDATE_STATUS:-200}"
+  else
+    printf '200'
+  fi
+fi
 if [[ ${FAIL_READY:-0} == 1 && ${*: -1} == */health/ready ]]; then
   [[ $(cat "$TEST_ROOT/serving") != "$candidate_id" ]] || exit 22
 fi
@@ -66,6 +75,7 @@ export PATH="$scratch/bin:$PATH"
 reset() {
   printf '%s\n' "$1" > "$scratch/serving"
   : > "$scratch/activations"
+  : > "$scratch/public-checks"
 }
 run() {
   bash "$scratch/activate" "$candidate" > "$scratch/stdout" 2> "$scratch/stderr"
@@ -85,6 +95,24 @@ if FAIL_READY=1 run; then exit 1; fi
 grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
 [[ $(cat "$scratch/serving") == "$rollback_id" ]]
 [[ $(cat "$scratch/activations") == "$candidate_id"$'\n'"$rollback_id" ]]
+
+reset "$rollback_id"
+if FAIL_PUBLIC=1 run; then exit 1; fi
+grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
+[[ ! -s "$scratch/stdout" ]]
+[[ $(cat "$scratch/serving") == "$rollback_id" ]]
+[[ $(cat "$scratch/public-checks") == "$candidate_id"$'\n'"$rollback_id" ]]
+
+reset "$rollback_id"
+if PUBLIC_CANDIDATE_STATUS=302 run; then exit 1; fi
+grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
+[[ ! -s "$scratch/stdout" ]]
+[[ $(cat "$scratch/serving") == "$rollback_id" ]]
+
+reset "$candidate_id"
+if FAIL_PUBLIC=1 run; then exit 1; fi
+grep -F 'already serving candidate did not pass public readiness' "$scratch/stderr"
+[[ ! -s "$scratch/stdout" && ! -s "$scratch/activations" ]]
 
 reset "$rollback_id"
 if CANDIDATE_PIN_OVERRIDE="$rollback_id" run; then exit 1; fi
