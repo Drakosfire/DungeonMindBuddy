@@ -1,6 +1,10 @@
 # DOGFOOD: source-backed factual discussion
 
-ACTIVE. The user's active writer/context cleanup goal authorizes this serial
+Implementation MERGED in PR4535 at894202b12784edf725409580365608da039b8da9,
+reviewed treea8d72179a. Its write lease is closed and transferred to
+HANDOFF-DOGFOOD-lore-reply-limitations.md. Deployment and broader goal remain open.
+
+The user's active writer/context cleanup goal authorized this serial
 successor to merged Plan citation PR4531 (`4c8323ebe721313c74c181fa213cb449c51fae64`,
 tree identical to independently reviewed/verified566afe14c). DOGFOOD owns design
 and implementation in branch `codex/dogfood-source-backed-discussion`, existing
