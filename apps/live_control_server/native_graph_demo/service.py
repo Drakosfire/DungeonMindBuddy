@@ -244,7 +244,7 @@ class NativeGraphDemoService:
                     target = names.get(value.get("entity_id")) if value.get("kind") == "entity_ref" else value.get("value", value.get("term", ""))
                     claim = f"{names.get(assertion['subject_entity_id'], 'Object')} · {assertion['predicate']} · {target}"
                     metadata = assertion["metadata"]
-                    qualification = f"{metadata.get('epistemic_basis', 'unknown')} · {metadata.get('standing', 'unknown')} · {json.dumps(metadata.get('temporal_scope', {}), ensure_ascii=False, sort_keys=True)}"
+                    qualification = f"{metadata.get('epistemic_basis', 'unknown')} · {metadata.get('claim_mode', 'unknown')} · {metadata.get('standing', 'unknown')} · {json.dumps(metadata.get('temporal_scope', {}), ensure_ascii=False, sort_keys=True)}"
                     for ref in metadata.get("evidence_ref_ids", []):
                         opened = open_admitted_native_text(scoped, ref)
                         if (opened.status != "available" or opened.body_text is None

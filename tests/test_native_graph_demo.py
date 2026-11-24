@@ -52,6 +52,7 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         mara = next(n["id"] for n in graph["nodes"] if n["name"] == "Mara")
         sources = visitor.node_sources(mara)["sources"]
         self.assertTrue(any("Mara" in item["text"] for item in sources))
+        self.assertTrue(all("claim" in item and len(item["qualification"].split(" · ")) >= 4 for item in sources))
         prepared = visitor.prepare(self._create_request(graph, name="Guest creation"))
         visitor.confirm(prepared["operation_id"])
         visitor.close()
