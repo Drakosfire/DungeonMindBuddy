@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {sessionSummaryMarkdown} from "../../shared/sessionEvidenceCitation";
 import {SourceCitationEvidence} from './SourceCitationEvidence';
 import {passageChoices,nativeChoices,nativeSavedChoices,nativeRecapChoices} from './sourceCitationReads';
@@ -11,6 +12,7 @@ type Composition = {text:string;ranges:{domain:string;base_segment_index:number|
 export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,buildSourceBasis,nativeScope,citationsOnly=false}:{
   citationsOnly?:boolean;nativeScope?:import("../../api/nativeGraphInspection").InspectionPin;completion:SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;buildSourceBasis?:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'];
 }) {
+  const [citationsOpen, setCitationsOpen] = useState(false);
   // Number visible citations across this answer, independent of transport indexes.
   let nextNumber=0;
   const summaries=new Map<number,ReturnType<typeof sessionSummaryMarkdown>>();
@@ -51,9 +53,13 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
   };
   const chars=composition ? Array.from(composition.text) : [];
   if (citationsOnly) {
-    const segments = completion.answer_segments.flatMap((segment, index) =>
-      choicesBySegment[index]?.length ? [renderSegment(segment, index, index)] : []);
-    return segments.length ? <section aria-label="Cited in the reply">{segments}</section> : null;
+    const segments = completion.answer_segments.flatMap((_, index) =>
+      choicesBySegment[index]?.length || summaries.get(index)?.targets.length ? [index] : []);
+    return segments.length ? <details onToggle={event => setCitationsOpen(event.currentTarget.open)}>
+      <summary>Cited in the reply</summary>
+      {citationsOpen && <section aria-label="Cited in the reply">{segments.map(index =>
+        renderSegment(completion.answer_segments[index]!, index, index))}</section>}
+    </details> : null;
   }
   return <div aria-label="Evidence-grounded answer">{composition ? composition.ranges.map((r,i)=>
     r.domain === 'base' && r.base_segment_index !== null
