@@ -143,6 +143,23 @@ requested the proposal, and product source was predecessor `d008072`. This
 demonstrates continuation plumbing, not independent model intent, actual apply,
 hosted authentication, current-head qualification or inline UI behavior.
 
+Cases 41–43 prepared a component-contract replay from the same controlled
+question, answer and proposal flow. Case 41 failed after the proposal checks
+because the capture helper omitted a `Path` import; case 42 corrected the helper
+and retained a library projection. Case 43 instead fetched the real
+local-operator-authenticated active-messages HTTP endpoint before archival;
+its three-message response contained the saved typed question and answer and
+has SHA-256 `80fc7b40f09389141c20dd3519c2359a4c87b44ceb1a211f45ecaba36f10e7b3`.
+The full controlled flow passed (1 test). A mounted-component replay of those
+exact synthetic bytes is prepared under
+`Projects/.codex/buddy-check.inline-real-replay.Zmi5uy`, but has not run: the
+first lock attempt refused and a 30-second wait expired while another live
+frontend verifier held the shared lock. Do not claim UI evidence from this
+prepared replay. The capture remains scripted-provider, memory-Core and
+predecessor-source evidence, not a live-model, current-head or deployed run.
+The case workers, generated tests and logs remain under `http-owner` and
+`http-owner/session/case-41` through `case-43`.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a
