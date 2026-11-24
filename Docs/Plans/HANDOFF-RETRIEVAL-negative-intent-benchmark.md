@@ -63,6 +63,14 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+The offline observer recognizes a completed, validated Build proposal completion
+only when the response and saved history agree; it does not infer proposal
+mobility. Provider-free predecessor HTTP case 69 exercised this correlation
+against the real proposal owner. Case 68 failed in its witness because the owner
+helper returned no case object; both are retained under `Projects/.codex/`
+`buddy-check.negative-inline.SsurDn/http-owner/session/case-68` and `case-69`.
+This uses synthetic binding, in-memory Core and scripted providers.
+
 The trace projector now recognizes the fixed host native read/search progress
 policies as unmapped attempts. Case 67 used a provider-free predecessor HTTP
 native-source turn and observed six matching activity events, all projected;

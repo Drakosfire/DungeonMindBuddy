@@ -50,8 +50,9 @@ is a definite violation of a zero-read budget and otherwise remains unknown.
 
 `capture_observation.observe` consumes the existing ordinary benchmark's saved
 HTTP envelopes and correlates the request, persisted turn, one trace attempt,
-and response. It validates retained HTTP bytes, recognizes only saved typed
-questions, and does not infer a UI result or semantic correctness. A lower-bound
+and response. It validates retained HTTP bytes, recognizes saved typed questions
+and matching validated Build proposal completions, and does not infer proposal
+mobility, a UI result or semantic correctness. A lower-bound
 projection of the supplied user trace recorded six related-page reads and an
 interrupted terminal; this is a failure observation, not a cohort rate. A
 separate read-only adapter smoke against an existing twelve-turn capture reached

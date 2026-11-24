@@ -234,6 +234,23 @@ def test_ordinary_capture_requires_exact_bound_saved_question():
     result = observe(request, envelope(history), envelope(trace), envelope(answer))
     assert result["outcome"] == "clarification" and result["completed_turn"]
     assert result["journal_complete"] is None
+    from application_state.agent_conversation.types import BuildAuthoringCompletionV1, BUILD_PROPOSAL_READY_TEXT
+    from uuid import uuid4
+    proposal = BuildAuthoringCompletionV1(context_receipt_sha256="a" * 64,
+        answer_segments=[{"kind": "connective", "text": BUILD_PROPOSAL_READY_TEXT}],
+        action_id=uuid4(), reservation_sha256="b" * 64, proposal_result_sha256="c" * 64,
+        provider_attempt_id=uuid4(), envelope_sha256="d" * 64).model_dump(mode="json", by_alias=True)
+    turn["knowledge_context"]["completion"] = proposal
+    answer["knowledge_context"] = {"completion": proposal}
+    result = observe(request, envelope(history), envelope(trace), envelope(answer))
+    assert result["outcome"] == "proposal"
+    assert assess(CASE, result)["checks"]["movable_proposal"] is None
+    answer["knowledge_context"] = {"completion": {**proposal, "action_id": str(uuid4())}}
+    assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
+    malformed = {**proposal, "action_id": "not-a-uuid"}
+    turn["knowledge_context"]["completion"] = malformed
+    answer["knowledge_context"] = {"completion": malformed}
+    assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
     turn["lifecycle_status"] = "interrupted"
     result = observe(request, envelope(history), envelope(trace), envelope({"detail": "question"}, 409))
     assert result["outcome"] is None and result["completed_turn"] is False

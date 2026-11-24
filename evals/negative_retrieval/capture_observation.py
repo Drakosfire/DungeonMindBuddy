@@ -69,9 +69,17 @@ def observe(request, history_envelope, trace_envelope, answer_envelope, *, relat
                        and isinstance(questions, list) and bool(questions)
                        and all(isinstance(q, dict) and isinstance(q.get("text"), str)
                                and q["text"].strip() for q in questions))
+    typed_proposal = False
+    if completed and completion.get("schema") == "dmb_build_authoring_completion_v1":
+        from application_state.agent_conversation.types import BuildAuthoringCompletionV1
+        try:
+            BuildAuthoringCompletionV1.model_validate(completion)
+            typed_proposal = ((answer.get("knowledge_context") or {}).get("completion") == completion)
+        except (ValueError, TypeError):
+            pass
     return {"reads": [row["label"] for row in projected["observed"]],
             "observed_acquisitions": projected["observed"], "journal_complete": None,
-            "outcome": "clarification" if typed_questions else None,
+            "outcome": "clarification" if typed_questions else "proposal" if typed_proposal else None,
             "completed_turn": completed, "http_status": answer_envelope["http_status"],
             "terminal_status": status, "trace_capture_status": projected["trace_capture_status"],
             "decision_observations": controller_observations(attempt)}
