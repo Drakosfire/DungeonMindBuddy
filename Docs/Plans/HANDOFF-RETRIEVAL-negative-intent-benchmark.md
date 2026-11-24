@@ -310,3 +310,17 @@ worker, derived test and log retained under `http-owner/session/case-17` and
 transports. This targeted inspection is not a complete boundary audit: the
 instruction text, all values, alternative calls and host binding checks still
 need review before live dispatch; no provider was contacted.
+
+Follow-up manual review of that same synthetic wire found a prompt-boundary
+concern outside this eval-only lease. Model-visible instructions contain the
+implementation version `dmb_surface_evidence_answer_v8` as the current answer
+policy and require it as the `schema` output value; the visible strict output
+schema repeats that constant. The ecosystem prompt policy excludes
+serializer/schema/pipeline implementation versions from model-visible input.
+The captured value appears to conflict with that rule even though the host may
+need its existing versioned contract for validation. The instruction family is
+constructed in `surface_evidence_answer.py`; the v8 policy is owned in
+`native_plan_assertions.py`. This is a synthetic predecessor-source observation,
+not proof of every live writer path. Do not strip values, weaken validation or
+change those shared runtime owners in this benchmark lease. The owning lane must
+review the final serialized request and host-side contract before live dispatch.
