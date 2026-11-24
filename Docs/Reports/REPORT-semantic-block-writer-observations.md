@@ -973,3 +973,27 @@ Retrying that exact confirmation returned HTTP 409. The UI retained the
 original operation and kept fresh authoring unavailable. This observation
 does not identify the exact rejection code or establish the earlier
 submission's outcome. No candidate reached Graph publication.
+
+### Hosted B01 after the Build caret and rich-paste Save fixes
+
+On November 23, 2026 (America/Denver), two independent Buddy Cloud
+Pilot documents exercised the exact B01 prompt with a collapsed caret
+at the end of the Arrival paragraph on serving revision `8b4f848f`.
+Each baseline contained the titled First sight callout, Arrival and
+Departure prose, and the Signal and State table. The rich-pasted
+baseline was committed before Send.
+
+| Editor setup | Pilot document | Placement and reopen | Save acknowledgment |
+| --- | --- | --- | --- |
+| Same editor session from rich paste through review | `a23a8d8b-7295-43e8-8f8b-358eb7a8b87e` | Read Aloud: Arrival followed by one GM Note immediately after the original Arrival paragraph. Both survived cold reopen and retained their bodies when collapsed and expanded. | Save committed the document and then displayed a change warning. The first receipt check in the mounted editor remained unresolved. After cold reopen, Check insertion reconciled the receipt and the page still contained one GM Note. |
+| Same rich-pasted baseline, cold reopened before Send | `d6122af9-4caa-48d0-9636-c2582d8259c0` | The same block kinds and order survived another cold reopen. | Save cleared the proposal and showed Saved without a receipt warning or a separate check. |
+
+In both runs, removing the two new rendered blocks recovered the
+baseline, including its headings, existing titled callout, paragraphs
+and table. The private reminder was absent from the new Read Aloud.
+The first arm passed placement and persistence and failed immediate
+acknowledgment. The cold-editor control passed all three checks.
+Buddy #4606 fixes the receipt digest mismatch in a deterministic
+regression. Immediate acknowledgment in a fresh mounted rich-paste
+run still needs hosted verification after its serving carry, #4608,
+is activated.
