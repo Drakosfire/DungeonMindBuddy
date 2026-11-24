@@ -238,3 +238,56 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     assert workflow.capture_case is original_case
     assert build_related_pages.discover is fail_discovery
     assert original_discover is not fail_discovery
+
+
+def test_offline_report_keeps_missing_and_positive_retrieval_evidence_honest(tmp_path):
+    import json
+    from evals.negative_retrieval.report import report_case
+
+    fixture = {"id": "case1", "request": "Write the idea."}
+    result = report_case(tmp_path, fixture, CASE)
+    assert result["status"] == "unproven"
+    assert "related-page-probe" in result["missing_artifacts"]
+    # An unrelated or malformed probe must not be accepted as evidence.
+    for name in ("request", "history-after", "context-trace", "answer-http"):
+        (tmp_path / f"{name}.json").write_text(json.dumps({"message": fixture["request"]}))
+    (tmp_path / "related-page-probe.json").write_text(json.dumps({"schema": "wrong"}))
+    try:
+        report_case(tmp_path, fixture, CASE)
+    except ValueError as exc:
+        assert "probe" in str(exc)
+    else:
+        raise AssertionError("unbound probe accepted")
+
+
+def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(tmp_path):
+    import hashlib
+    import json
+    from uuid import NAMESPACE_URL, uuid5
+    from evals.negative_retrieval.report import report_case
+
+    def envelope(body, status=200):
+        raw = json.dumps(body).encode()
+        return {"http_status": status, "body": body, "raw_body_hex": raw.hex(),
+                "raw_body_sha256": hashlib.sha256(raw).hexdigest()}
+    request = {"turn_id": "turn", "client_thread_id": "thread", "message": "Use that idea.",
+               "owner_scope": {"world_id": "world"}, "surface": {"surface_id": "build", "instance_id": "page"}}
+    turn = {"turn_id": "saved", "idempotency_key": str(uuid5(NAMESPACE_URL, "dmb-agent-turn:world:turn")),
+            "user_text": request["message"], "lifecycle_status": "completed", "provenance": {
+                "world_id": "world", "surface_id": "build", "surface_instance_id": "page"},
+            "knowledge_context": {"completion": {"collaboration": {"kind": "questions", "questions": [{"text": "Where?"}]}}}}
+    history = {"world_id": "world", "conversation_id": "conversation", "turns": [turn]}
+    attempt = {"schema": "dmb_turn_context_trace_v1", "world_id": "world", "conversation_id": "conversation",
+               "turn_id": "saved", "terminal_status": "completed", "capture_status": "complete", "observations": []}
+    trace = {"world_id": "world", "turn_id": "saved", "attempts": [attempt]}
+    probe = {"schema": "dmb_negative_retrieval_related_page_probe_v1", "coverage": "partial", "case_id": "case1",
+             "records": [{"owner": "related_catalog_discovery", "state": "returned"}]}
+    artifacts = {"request": request, "history-after": envelope(history), "context-trace": envelope(trace),
+                 "answer-http": envelope({"turn_id": "turn", "client_thread_id": "thread"}), "related-page-probe": probe}
+    for name, value in artifacts.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps(value))
+    result = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+    assert result["status"] == "fail"
+    assert result["checks"]["unexpected_retrieval"] is False
+    assert result["checks"]["inline_questions"] is None
+    assert len(result["artifact_sha256"]) == len(artifacts)
