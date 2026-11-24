@@ -446,3 +446,14 @@ Buddy main `93d94e9de081c1ba55daf530348a63cfacdfa124` merged the serial
 cohort App-clone runner #4583. This benchmark branch still needs integration
 against the updated runner and an authorized synthetic Core binding; that merge
 does not itself qualify the fixture or unblock model dispatch.
+
+The benchmark branch subsequently merged Buddy main
+`f5538e832756ccb58d2a14b1e96c824682b1da48` at merge commit
+`b94905804db142935880612c9fa6d544a8c19760`; the changed-file sets were
+disjoint. The evaluator suite passed 37 tests and 11 focused merged-runner
+cohort guard tests passed (121 deselected) using the shared Python environment.
+The runner's shared-clone mode requires one browser worker, captures at the
+writer-off boundary and performs Core inventories; it is not a drop-in full
+Build response cohort under this lane's no-full-scan policy. The eval wrapper's
+single owned-clone capture remains separate. No live capture, policy exception,
+Core write or exact-source qualification follows from this integration.
