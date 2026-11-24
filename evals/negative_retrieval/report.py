@@ -8,12 +8,15 @@ from .capture_observation import _body, observe
 from .related_page_probe import acquisition_labels, catalog_discovery_count
 
 
-def verify_fixture_pin(fixture, record, expected_fixture_sha256):
-    """Check the retained case pin against an independently supplied set pin."""
+def verify_fixture_pin(fixture, record, expected_fixture_sha256, fixture_set):
+    """Check case membership in the independently pinned fixture mapping."""
     from .capture import fixture_sha256
 
     if (not isinstance(expected_fixture_sha256, str) or len(expected_fixture_sha256) != 64
             or any(c not in "0123456789abcdef" for c in expected_fixture_sha256)
+            or not isinstance(fixture_set, dict)
+            or fixture_sha256(fixture_set) != expected_fixture_sha256
+            or fixture_set.get(fixture.get("id")) != fixture
             or not isinstance(record, dict)
             or record.get("schema") != "dmb_negative_retrieval_fixture_pin_v1"
             or record.get("case_id") != fixture.get("id")
@@ -23,7 +26,7 @@ def verify_fixture_pin(fixture, record, expected_fixture_sha256):
     return True
 
 
-def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None):
+def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fixture_set=None):
     """Report only what the bound capture proves; never infer semantic grades."""
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
@@ -51,7 +54,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None):
     pin_bound = None
     if "fixture-pin" in rows:
         try:
-            verify_fixture_pin(fixture, rows["fixture-pin"], expected_fixture_sha256)
+            verify_fixture_pin(fixture, rows["fixture-pin"], expected_fixture_sha256, fixture_set)
             pin_bound = True
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__

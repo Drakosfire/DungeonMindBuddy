@@ -134,9 +134,11 @@ capture; do not write to the shared read-only Core to supply one.
 
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
-the private rubric without calling a model. Supply the independently frozen
-fixture-set digest as `expected_fixture_sha256`; a missing or mismatched retained
-case pin leaves fixture context unverified. Missing files are unproven. This
+the private rubric without calling a model. Supply the frozen mapping as
+`fixture_set` and its independently supplied digest as `expected_fixture_sha256`;
+the report checks the mapping digest and case membership as well as the retained
+case pin. A missing or mismatched input leaves fixture context unverified.
+Missing files are unproven. This
 initial report intentionally has no authority to promote manual judgments or a
 partial journal to complete. It records observed zero-budget violations and
 separately reports whether the saved primary context and related-source fixture

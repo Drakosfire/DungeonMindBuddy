@@ -335,13 +335,16 @@ def test_fixture_pin_binds_case_and_caller_supplied_set_digest():
     pin = fixture_sha256(fixtures)
     record = {"schema": "dmb_negative_retrieval_fixture_pin_v1", "case_id": "case1",
               "fixture_set_sha256": pin, "case_sha256": fixture_sha256(fixtures)}
-    assert verify_fixture_pin(fixture, record, pin)
+    assert verify_fixture_pin(fixture, record, pin, fixtures)
     changed = copy.deepcopy(fixture)
     changed["page"] = "# Changed"
-    for case, proof, expected in ((changed, record, pin), (fixture, record, None),
-                                  (fixture, record, "0" * 64), (fixture, {**record, "case_id": "other"}, pin)):
+    forged_record = {**record, "case_sha256": fixture_sha256({"case1": changed})}
+    for case, proof, expected, full_set in ((changed, record, pin, fixtures), (fixture, record, None, fixtures),
+            (fixture, record, "0" * 64, fixtures), (fixture, {**record, "case_id": "other"}, pin, fixtures),
+            (changed, forged_record, pin, fixtures), (fixture, record, pin, None),
+            (changed, forged_record, pin, {"case1": changed})):
         with pytest.raises(ValueError, match="Fixture pin"):
-            verify_fixture_pin(case, proof, expected)
+            verify_fixture_pin(case, proof, expected, full_set)
 
 
 def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(tmp_path):
@@ -716,6 +719,28 @@ def test_capture_rejects_changed_or_unpinned_fixture_before_dispatch(tmp_path, m
         module.capture(manifest, tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN,
                        fixtures=fixtures, expected_fixture_sha256=pin)
     assert not (tmp_path / "out").exists()
+
+
+def test_capture_uses_frozen_fixture_snapshot_if_caller_mutates_input(tmp_path, monkeypatch):
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+
+    case = {"id": "case", "question": "Use that."}
+    fixtures = {"case": {"request": "Use that.", "history": [], "page": "# Original", "related_pages": []}}
+    pin = module.fixture_sha256(fixtures)
+    observed = []
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: (
+        {"conversation_mode": "build_sequence", "cases": [case]}, tmp_path))
+    monkeypatch.setattr(module, "verify_preflight_snapshot", lambda fixture, *a: observed.append(fixture["page"]))
+    monkeypatch.setattr(module, "inspect_related_pages", lambda *a: [])
+    monkeypatch.setattr(workflow, "capture_case", lambda *a, **k: "done")
+    def dispatch(manifest, output, **kwargs):
+        fixtures["case"]["page"] = "# Changed after pin"
+        return workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output)
+    monkeypatch.setattr(workflow, "capture", dispatch)
+    result = module.capture(_test_manifest(tmp_path), tmp_path / "out", fixtures=fixtures,
+                            expected_manifest_sha256=MANIFEST_PIN, expected_fixture_sha256=pin)
+    assert result == "done" and observed == ["# Original"]
 
 
 def test_seeder_rejects_unowned_shapes_before_database_access(monkeypatch):

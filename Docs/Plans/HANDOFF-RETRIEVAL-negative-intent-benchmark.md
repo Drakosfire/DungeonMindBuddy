@@ -473,3 +473,11 @@ caller-supplied set digest before marking fixture context verified. Missing or
 mismatched pins remain unproven. This does not authenticate the pin's author or
 prove independent held-out authorship. The focused suite passed 40 tests in the
 shared environment; no live capture or exact-source qualification is implied.
+
+The report now requires the independently pinned full fixture mapping and
+verifies that the reported case is actually a member of that mapping. Merely
+placing a valid set digest beside an unrelated case digest no longer qualifies
+the fixture. A focused regression also mutates the caller's fixture after the
+pin check and confirms capture uses its frozen snapshot. The shared-environment
+suite passed 41 tests. These checks do not authenticate authorship or establish
+a complete capture environment.
