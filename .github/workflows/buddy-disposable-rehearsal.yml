@@ -1,0 +1,51 @@
+name: Buddy disposable release rehearsal
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Candidate full commit SHA already on main
+        required: true
+        type: string
+      prior:
+        description: Earlier compatible full commit SHA already on main
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buddy-disposable-release-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  rehearse:
+    if: github.repository == 'Drakosfire/DungeonMindBuddy' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the initiating main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Drakosfire/DungeonMindBuddy
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Rehearse and record exact image recovery
+        shell: bash
+        env:
+          CANDIDATE_COMMIT: ${{ inputs.candidate }}
+          PRIOR_COMMIT: ${{ inputs.prior }}
+          BUDDY_REHEARSAL_ROOT: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/buddy-disposable-rehearsal.jsonl"
+          bash scripts/rehearse_buddy_disposable_release.sh "$CANDIDATE_COMMIT" "$PRIOR_COMMIT" | tee "$report"
+          {
+            echo '### Disposable Buddy readiness and recovery'
+            echo 'Synthetic data only. No image was published or deployed to a persistent host.'
+            echo '~~~json'
+            cat "$report"
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
