@@ -453,6 +453,10 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             variant_passage_witnesses=evidence.variant_passage_witnesses)
     rows = candidate['answer_segments']
     review = candidate.get('collaboration')
+    # Preserve the completion's limit on the raw provider response too: a
+    # large run of redundant rows must not become valid merely by filtering.
+    if len(rows) > 128:
+        raise ValueError('Native completion exceeds the answer segment limit')
     # Filter before constructing citations so their segment indexes still
     # refer to the final answer. Only an exact plain-discussion duplicate is
     # redundant; source and other evidence-bearing rows remain untouched.
