@@ -236,6 +236,11 @@ class NativeGraphDemoService:
             evidence = {item["evidence_ref_id"]: item for item in stored.graph_payload["evidence"]}
             names = {node["id"]: node["name"] for node in graph["nodes"]}
             excerpts = []
+            refs = [ref for assertion in linked for ref in assertion["metadata"].get("evidence_ref_ids", [])]
+            if len(refs) > 512 or len(set(refs)) > 128:
+                raise DemoError("source_limit_reached", "This node has too many source associations to open at once.", 413)
+            cached = {}
+            total_bytes = 0
             with context.source_view.read_scope() as view:
                 from dataclasses import replace
                 scoped = replace(context, source_view=view)
@@ -246,11 +251,17 @@ class NativeGraphDemoService:
                     metadata = assertion["metadata"]
                     qualification = f"{metadata.get('epistemic_basis', 'unknown')} · {metadata.get('claim_mode', 'unknown')} · {metadata.get('standing', 'unknown')} · {json.dumps(metadata.get('temporal_scope', {}), ensure_ascii=False, sort_keys=True)}"
                     for ref in metadata.get("evidence_ref_ids", []):
-                        opened = open_admitted_native_text(scoped, ref)
-                        if (opened.status != "available" or opened.body_text is None
-                                or opened.span_start_byte is None or opened.span_end_byte is None):
-                            raise PersistenceIntegrityError("node source evidence unavailable")
-                        span = opened.body_text.encode("utf-8")[opened.span_start_byte:opened.span_end_byte].decode("utf-8")
+                        if ref not in cached:
+                            opened = open_admitted_native_text(scoped, ref)
+                            if (opened.status != "available" or opened.body_text is None
+                                    or opened.span_start_byte is None or opened.span_end_byte is None):
+                                raise PersistenceIntegrityError("node source evidence unavailable")
+                            raw = opened.body_text.encode("utf-8")[opened.span_start_byte:opened.span_end_byte]
+                            cached[ref] = (raw.decode("utf-8"), len(raw))
+                        span, size = cached[ref]
+                        total_bytes += size + len(claim.encode("utf-8")) + len(qualification.encode("utf-8"))
+                        if total_bytes > 2 * 1024 * 1024:
+                            raise DemoError("source_limit_reached", "This node's source excerpts are too large to open at once.", 413)
                         excerpts.append({"text": span, "role": evidence[ref]["evidence_role"],
                                          "claim": claim, "qualification": qualification})
             return {"sources": excerpts}

@@ -104,6 +104,28 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         finally:
             visitor.close()
 
+    def test_node_sources_reuses_shared_evidence_and_bounds_response(self) -> None:
+        from apps.live_control_server.native_graph_demo import service as graph_service
+
+        graph = self.service.graph()
+        mara = self._id(graph, "Mara")
+        actual = graph_service.open_admitted_native_text
+        with mock.patch.object(graph_service, "open_admitted_native_text", wraps=actual) as reader:
+            sources = self.service.node_sources(mara)["sources"]
+        evidence_ids = [call.args[1] for call in reader.call_args_list]
+        self.assertEqual(len(evidence_ids), len(set(evidence_ids)))
+        self.assertGreaterEqual(len(sources), len(evidence_ids))
+
+        def huge(context, ref):
+            result = actual(context, ref)
+            return result.model_copy(update={"body_text": "a" * 1_048_576,
+                                              "span_start_byte": 0,
+                                              "span_end_byte": 1_048_576})
+        with mock.patch.object(graph_service, "open_admitted_native_text", side_effect=huge):
+            with self.assertRaises(DemoError) as rejected:
+                self.service.node_sources(mara)
+        self.assertEqual(rejected.exception.code, "source_limit_reached")
+
     def test_snapshot_supports_more_than_the_local_playground_limit(self) -> None:
         from dungeonmind.application.vnext.publication import _publish_validated_command
         from dungeonmind.application.vnext.world_copy import _command
