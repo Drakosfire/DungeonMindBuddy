@@ -1,3 +1,4 @@
+import { guestBuildCsrf, guestBuildEpochCurrent, guestBuildRequestEpoch } from "../guestWorld/guestBuildSession";
 import type { PdfLocator } from "./retainedPdfRegions";
 import {verifyNativeThreatReply,type NativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from './nativeThreatCreation';
 import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
@@ -1634,19 +1635,44 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
     }
     const requestEpoch = nativeGraphSessionEpoch;
     const usedBearer = Boolean(nativeGraphAccessToken);
+    const method = (frozenInit.method ?? "GET").toUpperCase();
+    const guestEpoch = !baseUrl ? guestBuildRequestEpoch(path, method) : null;
+    const guestCsrf = guestEpoch !== null ? guestBuildCsrf(path, method) : null;
     const response = await fetch(target.url, {
       ...frozenInit,
       ...(target.localGraphRequest || target.hostedGraphRequest
         ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
       ...(target.hostedGraphRequest ? { cache: "no-store" as const, mode: "same-origin" as const } : {}),
-      headers: target.hostedGraphRequest ? hostedGraphHeaders(path, {
-        ...(HOSTED_PDF_UPLOAD_PATH.test(path) ? {} : { "Content-Type": "application/json" }),
-        ...frozenInit.headers,
-      }) : nativeGraphHeaders(path, frozenInit.body, {
-        "Content-Type": "application/json", ...frozenInit.headers,
-        ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
-      }),
+      headers: {
+        ...(target.hostedGraphRequest ? hostedGraphHeaders(path, {
+          ...(HOSTED_PDF_UPLOAD_PATH.test(path) ? {} : { "Content-Type": "application/json" }),
+          ...frozenInit.headers,
+        }) : nativeGraphHeaders(path, frozenInit.body, {
+          "Content-Type": "application/json", ...frozenInit.headers,
+          ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
+        })),
+        ...(guestCsrf ? { "X-DMB-Index-Graph-CSRF": guestCsrf } : {}),
+      },
     });
+    if (guestEpoch !== null && !guestBuildEpochCurrent(guestEpoch)) {
+      throw new LiveApiError("The guest session changed during this request.", 401, { code: "guest_session_changed" });
+    }
+    if (guestCsrf && (response.status === 401 || response.status === 403)) {
+      const payload: unknown = await response.clone().json().catch(() => null);
+      if (isRecord(payload) && isRecord(payload.detail)
+          && ["csrf_rejected", "session_expired", "session_unknown", "session_required"].includes(String(payload.detail.code))) {
+        throw new LiveApiError("Your guest session changed. Copy any unsaved text, then reload Build to open the current session.",
+          response.status, { code: "guest_session_changed" });
+      }
+    }
+    if (guestEpoch !== null) {
+      const assertGuestCurrent = () => {
+        if (!guestBuildEpochCurrent(guestEpoch) || frozenInit.signal?.aborted) {
+          throw new LiveApiError("The guest session changed during this request.", 401, { code: "guest_session_changed" });
+        }
+      };
+      return { response: admittedReadResponse(response, assertGuestCurrent), csrf: null, requestEpoch, usedBearer: false };
+    }
     if (target.hostedGraphRequest) {
       const assertCurrent = () => {
         if (requestEpoch !== nativeGraphSessionEpoch || frozenInit.signal?.aborted) {

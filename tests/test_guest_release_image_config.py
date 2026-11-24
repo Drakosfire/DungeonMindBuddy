@@ -42,7 +42,7 @@ elif args[:2] == ["image", "inspect"]:
 def run_helper(fake_tools, **values):
     bindir, calls = fake_tools
     env = os.environ.copy()
-    for key in ("VITE_HOSTED_GUEST_GRAPH", "VITE_GUEST_RELEASE_REVIEW", "VITE_GUEST_RELEASE_PAGE", "VITE_GUEST_HOME_PUBLIC_ID"):
+    for key in ("VITE_HOSTED_GUEST_BUILD", "VITE_HOSTED_GUEST_GRAPH", "VITE_GUEST_RELEASE_REVIEW", "VITE_GUEST_RELEASE_PAGE", "VITE_GUEST_HOME_PUBLIC_ID"):
         env.pop(key, None)
     env.update(PATH=f"{bindir}:{env['PATH']}", DOCKER_CALLS=str(calls),
                FAKE_IMAGE=IMAGE, FAKE_REVISION=SHA, **values)
@@ -126,3 +126,17 @@ def test_invalid_guest_graph_flag_does_not_invoke_docker(fake_tools):
     result, calls = run_helper(fake_tools, VITE_HOSTED_GUEST_GRAPH="true")
     assert result.returncode == 2
     assert calls == []
+
+
+def test_guest_build_flag_is_bound_to_image_config(fake_tools):
+    config = "review=0;page=0;home=;graph=1;build=1"
+    result, calls = run_helper(fake_tools, VITE_HOSTED_GUEST_GRAPH="1", VITE_HOSTED_GUEST_BUILD="1", FAKE_CONFIG=config)
+    assert result.returncode == 0, result.stderr
+    build = next(c for c in calls if c[0] == "build")
+    assert "VITE_HOSTED_GUEST_BUILD=1" in build
+    assert "org.dungeonmindbuddy.guest-build=" + config in build
+
+
+def test_guest_build_requires_guest_graph(fake_tools):
+    result, _ = run_helper(fake_tools, VITE_HOSTED_GUEST_BUILD="1")
+    assert result.returncode == 2

@@ -1100,6 +1100,10 @@ def hosted_world_media_owner(world_id: str) -> str:
 def require_hosted_build_page_world(request: Request, world_id: str) -> None:
     if not world_id or getattr(request.state, "hosted_build_page_world", None) != world_id:
         raise _denied()
+    if getattr(request.state, "guest_build_world", None) is not None:
+        from apps.live_control_server.services.guest_build_access import require_guest_build_world
+        require_guest_build_world(request, world_id)
+        return
     _owned_world(_hosted_subject(request), world_id)
 
 
@@ -1280,6 +1284,10 @@ def require_hosted_build_page_inventory(request: Request, world_id: str | None) 
         return
     if not world_id or getattr(request.state, "hosted_build_page_inventory_world", None) != world_id:
         raise _denied()
+    if getattr(request.state, "guest_build_world", None) is not None:
+        from apps.live_control_server.services.guest_build_access import require_guest_build_world
+        require_guest_build_world(request, world_id)
+        return
     _owned_world(_hosted_subject(request), world_id)
 
 

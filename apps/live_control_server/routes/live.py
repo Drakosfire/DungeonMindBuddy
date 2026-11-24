@@ -785,7 +785,10 @@ def _require_markdown_media_world(request: Request, world_id: str, plan_world: s
 
 def _markdown_media_world(request: Request, markdown: str, plan_world: str | None) -> str | None:
     if not has_saved_media_references(markdown):
-        return None
+        guest_world = getattr(request.state, "guest_build_world", None)
+        if guest_world:
+            _require_markdown_media_world(request, guest_world, plan_world)
+        return guest_world
     from apps.live_control_server.services import hosted_auth
 
     if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
@@ -849,8 +852,11 @@ def post_tiptap_markdown_write_commit(
             else:
                 require_hosted_plan_world_context(request, locked_world)
 
+        from apps.live_control_server.services.guest_build_access import guest_write_capacity
+        guest = getattr(request.state, "guest_build_world", None)
         response = commit_tiptap_markdown_write(
             root=repo_root(), request=body,
+            **({"authorize_commit": lambda conn, world, size, replay: guest_write_capacity(request, conn, world, content_bytes=size, replay=replay)} if guest else {}),
             media_owner=hosted_world_media_owner(world_id) if world_id else "local_operator",
             authorize_world=authorize_locked_world if (
                 world_id or (body.world_id is not None and body.page_presentation is not None)

@@ -1,3 +1,4 @@
+import { guestBuildActive } from "../guestWorld/guestBuildSession";
 import { useHostedAuthStatus } from "../auth/HostedAuthGate";
 import { BuildNativeDocument } from "./BuildNativeDocument";
 import { listRetainedPdfDocuments, readRetainedPdfDocuments, type RetainedPdf } from "../api/retainedPdfRegions";
@@ -21,7 +22,7 @@ import { useBuildWorkspaceDocumentController } from "./useBuildWorkspaceDocument
 import "./buildSurface.css";
 
 export function BuildSurfacePage() {
-  const hosted = useHostedAuthStatus().status === "authenticated";
+  const hosted = useHostedAuthStatus().status === "authenticated" || guestBuildActive();
   const selectedWorld = useSelectedWorld();
   const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const [droppedPdf, setDroppedPdf] = useState<{ file: File; worldId: string; version: number }>();
@@ -132,7 +133,7 @@ export function BuildSurfacePage() {
         >
           <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} extractionTargetRef={setExtractionTarget} />
           <BuildReferenceCapability documentId={controller.activeDocumentId}>
-            <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} reviewTarget={reviewTarget} />
+            {!guestBuildActive() && <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} reviewTarget={reviewTarget} />}
             <BuildSurfaceShell onEditorTools={setEditorTools} onReviewTarget={setReviewTarget} />
           </BuildReferenceCapability>
         </MarkdownCanvasSessionProvider>

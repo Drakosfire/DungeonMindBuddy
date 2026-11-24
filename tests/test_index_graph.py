@@ -496,3 +496,63 @@ def test_main_registers_index_graph_without_hosted_world_exemption(
     route_paths = {route.path for route in app.routes}
     assert "/api/live/index-graph/session" in route_paths
     assert "/api/live/index-graph/graph" in route_paths
+
+
+def test_hosted_guest_world_bootstrap_is_session_bound_and_resettable(
+    application_state_dsn, monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    repository = InMemoryNativeSourceEvidenceRepository()
+    source = NativeGraphDemoService(repository, tmp_path / "source", storage_label="memory")
+    try:
+        source_graph = source.graph()
+    finally:
+        source.close()
+    monkeypatch.setattr(index_graph_service, "repository", lambda: repository)
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "production")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_GRAPH_ENABLED", "1")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_BUILD_ENABLED", "1")
+    monkeypatch.setenv("DMB_GUEST_GRAPH_SOURCE_SPACE", source_graph["world_id"])
+    monkeypatch.setenv("DMB_GUEST_GRAPH_SOURCE_REVISION", source_graph["revision_id"])
+    monkeypatch.setenv("AUTH_TRUSTED_FRONTEND_ORIGINS", "https://buddy.example")
+    app = FastAPI()
+    app.include_router(index_graph.router)
+    from apps.live_control_server.services.hosted_auth import install_hosted_request_boundary
+    install_hosted_request_boundary(app)
+    async def signed_out(_request):
+        return None
+    app.state.dms_principal_resolver = signed_out
+    headers = {"Origin": "https://buddy.example", "Sec-Fetch-Site": "same-origin"}
+    first = TestClient(app, base_url="https://buddy.example", headers=headers)
+    second = TestClient(app, base_url="https://buddy.example", headers=headers)
+    first_start = first.post("/api/live/index-graph/session")
+    second_start = second.post("/api/live/index-graph/session")
+    assert first_start.status_code == second_start.status_code == 200
+    assert first.get("/api/live/workspace-documents").status_code == 401
+    token = first_start.json()["csrf_token"]
+    second_token = second_start.json()["csrf_token"]
+    assert first.post("/api/live/index-graph/world", headers={"X-DMB-Index-Graph-CSRF": token}, json={"world_id": "forged"}).status_code == 400
+    first_world = first.post("/api/live/index-graph/world", headers={"X-DMB-Index-Graph-CSRF": token})
+    second_world = second.post("/api/live/index-graph/world", headers={"X-DMB-Index-Graph-CSRF": second_token})
+    assert first_world.status_code == second_world.status_code == 200
+    assert first_world.json()["world_id"] != second_world.json()["world_id"]
+    assert first.get("/api/live/index-graph/graph").json()["world_id"] != source_graph["world_id"]
+    reset = first.post("/api/live/index-graph/reset", headers={"X-DMB-Index-Graph-CSRF": token})
+    assert reset.status_code == 200
+    assert first.post("/api/live/index-graph/world", headers={"X-DMB-Index-Graph-CSRF": token}).status_code == 403
+    replacement = first.post("/api/live/index-graph/world", headers={"X-DMB-Index-Graph-CSRF": reset.json()["csrf_token"]})
+    assert replacement.status_code == 200
+    assert replacement.json()["world_id"] not in {first_world.json()["world_id"], second_world.json()["world_id"]}
+    replacement_graph = first.get("/api/live/index-graph/graph").json()["world_id"]
+    monkeypatch.setenv("DMB_HOSTED_GUEST_BUILD_ENABLED", "0")
+    resumed = first.post("/api/live/index-graph/session")
+    assert resumed.status_code == 200
+    assert first.get("/api/live/index-graph/graph").json()["world_id"] == replacement_graph
+    rollback_reset = first.post("/api/live/index-graph/reset", headers={"X-DMB-Index-Graph-CSRF": resumed.json()["csrf_token"]})
+    assert rollback_reset.status_code == 200
+    rollback_graph = first.get("/api/live/index-graph/graph").json()["world_id"]
+    monkeypatch.setenv("DMB_HOSTED_GUEST_BUILD_ENABLED", "1")
+    reenabled = first.post("/api/live/index-graph/session")
+    assert reenabled.status_code == 200
+    assert first.get("/api/live/index-graph/graph").json()["world_id"] == rollback_graph
+    assert repository.get_head(source_graph["world_id"]).head_revision_id == source_graph["revision_id"]

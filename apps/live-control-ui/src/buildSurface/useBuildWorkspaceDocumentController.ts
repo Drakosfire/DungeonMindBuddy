@@ -1,3 +1,4 @@
+import { guestBuildActive } from "../guestWorld/guestBuildSession";
 import {useTourNavigationRegistry} from '../guidedTour/Navigation';
 import { buildStarterKey } from "./buildStudioActions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -353,6 +354,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
   const activeDocumentId = activeRecord?.document_id ?? null;
   const refreshManagedWorlds = useCallback(async () => {
+    if (guestBuildActive()) return;
     try {
       const listed = await listWorldContainers();
       setManagedWorlds(listed.records);
@@ -733,7 +735,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const destinationOptions = useMemo((): BuildSourceDestinationOption[] => {
     const options: BuildSourceDestinationOption[] = [];
     const seen = new Set<string>();
-    for (const campaignId of creatableCampaignIds) {
+    for (const campaignId of guestBuildActive() ? [] : creatableCampaignIds) {
       const worldId = resolveWorldIdForBuildCreate(campaignId);
       if (!worldId) continue;
       const value = `campaign:${campaignId}`;
@@ -746,6 +748,11 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         label: campaignId,
         value,
       });
+    }
+    if (guestBuildActive() && selectedWorld.kind === "managed") {
+      options.push({ kind: "world", worldId: selectedWorld.worldId, label: selectedWorld.name,
+        value: `world:${selectedWorld.worldId}` });
+      seen.add(`world:${selectedWorld.worldId}`);
     }
     for (const world of managedWorlds) {
       // Kind-qualified values stay distinct even when world_id collides with a
@@ -761,7 +768,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       });
     }
     return options;
-  }, [creatableCampaignIds, managedWorlds]);
+  }, [creatableCampaignIds, managedWorlds, selectedWorld]);
 
   const createDocument = useCallback(
     async ({

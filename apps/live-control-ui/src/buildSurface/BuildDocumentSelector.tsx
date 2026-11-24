@@ -1,3 +1,5 @@
+import { guestBuildActive } from "../guestWorld/guestBuildSession";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { navigatePrimaryAppHref } from "../chrome/appNavigation";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { loadNativeDocuments, nativeDocumentHref } from "./buildNativeDocuments";
@@ -61,6 +63,8 @@ export function BuildDocumentSelector({
   loadMorePages,
   onSelect,
 }: BuildDocumentSelectorProps) {
+  const guest = guestBuildActive();
+  const selectedWorld = useSelectedWorld();
   const [query, setQuery] = useState("");
   const [catalogRequestedFor, setCatalogRequestedFor] = useState<string | null>(null);
   const [directDeleteRequest, setDirectDeleteRequest] = useState<{ id: string } | null>(null);
@@ -74,7 +78,7 @@ export function BuildDocumentSelector({
     directDeleteRequest: typeof directDeleteRequest;
   }>();
   useEffect(() => {
-    if (!worldId || statblockCatalogWorld !== worldId) return;
+    if (guest || !worldId || statblockCatalogWorld !== worldId) return;
     const request = new AbortController();
     Promise.all([listWorldThreatDrafts(worldId, request.signal), listWorldMechanicsAssociations(worldId)]).then(
       ([drafts, associations]) => {
@@ -91,17 +95,17 @@ export function BuildDocumentSelector({
       if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Map(), error: true, directDeleteRequest });
     });
     return () => request.abort();
-  }, [directDeleteRequest, statblockCatalogWorld, worldId]);
+  }, [directDeleteRequest, statblockCatalogWorld, worldId, guest]);
   const [reviewCatalog, setReviewCatalog] = useState<{ worldId: string; reviews: PdfStatblockReviewSummary[]; error?: boolean }>();
   useEffect(() => {
-    if (!worldId || catalogRequestedFor !== worldId) return;
+    if (guest || !worldId || catalogRequestedFor !== worldId) return;
     const request = new AbortController();
     listPdfStatblockReviews(worldId, request.signal).then(
       reviews => { if (!request.signal.aborted) setReviewCatalog({ worldId, reviews }); },
       () => { if (!request.signal.aborted) setReviewCatalog({ worldId, reviews: [], error: true }); },
     );
     return () => request.abort();
-  }, [catalogRequestedFor, worldId]);
+  }, [catalogRequestedFor, worldId, guest]);
   const currentReviews = reviewCatalog?.worldId === worldId ? reviewCatalog : undefined;
   const currentCatalog = catalog?.worldId === worldId ? catalog : undefined;
   const filter = query.trim().toLowerCase();
@@ -132,7 +136,7 @@ export function BuildDocumentSelector({
   });
   const [pdfCatalog, setPdfCatalog] = useState<{ worldId: string; documents: RetainedPdf[]; error?: boolean }>();
   useEffect(() => {
-    if (!worldId || catalogRequestedFor !== worldId) return;
+    if (guest || !worldId || catalogRequestedFor !== worldId) return;
     const request = new AbortController();
     listRetainedPdfDocuments(worldId, request.signal).then(documents => {
       if (!request.signal.aborted) setPdfCatalog({ worldId, documents });
@@ -140,14 +144,14 @@ export function BuildDocumentSelector({
       if (!request.signal.aborted) setPdfCatalog({ worldId, documents: [], error: true });
     });
     return () => request.abort();
-  }, [catalogRequestedFor, worldId]);
+  }, [catalogRequestedFor, worldId, guest]);
   const currentPdfCatalog = pdfCatalog?.worldId === worldId ? pdfCatalog : undefined;
   const retainedPdfs = currentPdfCatalog?.documents ?? [];
   const activePdf = retainedPdfs.find(entry => entry.locator.source_revision_id ===
     new URLSearchParams(window.location.search).get("pdf"));
   const [nativeCatalog, setNativeCatalog] = useState<{ worldId: string; sources: NativeSourceMetadata[]; error?: boolean }>();
   useEffect(() => {
-    if (!worldId || catalogRequestedFor !== worldId) return;
+    if (guest || !worldId || catalogRequestedFor !== worldId) return;
     const request = new AbortController();
     void loadNativeDocuments(worldId, request.signal).then(({ sources }) => {
       if (!request.signal.aborted) setNativeCatalog({ worldId, sources });
@@ -155,7 +159,7 @@ export function BuildDocumentSelector({
       if (!request.signal.aborted) setNativeCatalog({ worldId, sources: [], error: true });
     });
     return () => request.abort();
-  }, [catalogRequestedFor, worldId]);
+  }, [catalogRequestedFor, worldId, guest]);
   const currentNativeCatalog = nativeCatalog?.worldId === worldId ? nativeCatalog : undefined;
   const nativeSources = currentNativeCatalog?.sources ?? [];
   const activeNativeId = new URLSearchParams(window.location.search).get("nativeDocument");
@@ -207,7 +211,8 @@ export function BuildDocumentSelector({
       if (seenCampaigns.has(campaignId)) continue;
       groups.push({
         campaignId,
-        label: campaignId ? formatReviewCampaignLabel(campaignId) : "Pages without a campaign tag",
+        label: guest && selectedWorld.kind === "managed" && campaignId === selectedWorld.worldId
+          ? selectedWorld.name : campaignId ? formatReviewCampaignLabel(campaignId) : "Pages without a campaign tag",
         options: records.map((record) => ({
           id: record.document_id,
           label: buildDocumentOptionLabel(record, records),
@@ -222,7 +227,8 @@ export function BuildDocumentSelector({
       const orphanCampaign = activeRecord.campaign_id ?? "";
       groups.unshift({
         campaignId: orphanCampaign,
-        label: orphanCampaign ? formatReviewCampaignLabel(orphanCampaign) : "Pages without a campaign tag",
+        label: guest && selectedWorld.kind === "managed" && orphanCampaign === selectedWorld.worldId
+          ? selectedWorld.name : orphanCampaign ? formatReviewCampaignLabel(orphanCampaign) : "Pages without a campaign tag",
         options: [
           {
             id: activeRecord.document_id,
@@ -233,7 +239,7 @@ export function BuildDocumentSelector({
     }
 
     return groups;
-  }, [activeRecord, documents, preferredCampaignId]);
+  }, [activeRecord, documents, preferredCampaignId, guest, selectedWorld]);
 
   const activeId = activeNative && worldId ? nativeDocumentHref(worldId, activeNative)
     : activePdf && worldId ? retainedPdfBuildHref(worldId, activePdf)
@@ -274,7 +280,7 @@ export function BuildDocumentSelector({
   const pageRecords = new Map((documents ?? []).map(record => [record.document_id, record]));
   if (activeRecord) pageRecords.set(activeRecord.document_id, activeRecord);
   const byId = new Map(entries.map(entry => [entry.id, entry]));
-  const directStatblockId = activeStatblock && activeStatblock.worldId === worldId
+  const directStatblockId = !guest && activeStatblock && activeStatblock.worldId === worldId
     ? buildSavedStatblockHref({ worldId: activeStatblock.worldId, draftId: activeStatblock.draftId, revisionId: activeStatblock.revisionId })
     : null;
   const directDeleteReadFinished = currentCatalog?.directDeleteRequest === directDeleteRequest;
@@ -286,7 +292,7 @@ export function BuildDocumentSelector({
     : category === "Recent"
       ? recent.flatMap(id => byId.get(id) ?? []).filter(entry => entry.category !== "Statblock drafts")
       : entries.filter(entry => category === "All documents" ? entry.category !== "Statblock drafts" : entry.category === category);
-  const pending = listStatus === "loading" || Boolean(worldId && (!currentCatalog || !currentReviews || !currentPdfCatalog || !currentNativeCatalog));
+  const pending = listStatus === "loading" || Boolean(!guest && worldId && (!currentCatalog || !currentReviews || !currentPdfCatalog || !currentNativeCatalog));
   const errors = [
     currentReviews?.error && "PDF extraction drafts unavailable",
     currentCatalog?.error && "Saved statblocks unavailable",
@@ -409,7 +415,7 @@ export function BuildDocumentSelector({
           <button type="button" autoFocus onClick={cancelDelete}>Cancel</button>
         </section> : <div className="build-document-picker__body">
           <nav aria-label="Document categories">
-            {PICKER_CATEGORIES.map(item => <button key={item} type="button"
+            {PICKER_CATEGORIES.filter(item => !guest || ["Recent", "All documents", "Pages"].includes(item)).map(item => <button key={item} type="button"
               aria-pressed={!filter && category === item} onClick={() => { setCategory(item); setQuery(""); }}>
               {item}
             </button>)}
@@ -425,7 +431,7 @@ export function BuildDocumentSelector({
                 <span>{entry.label}</span>
                 <small id={`${rowPrefix}-${index}`}>{[entry.category, entry.detail].filter(Boolean).join(" · ")}</small>
               </button>
-              {worldId && page && onPageTrashed && <WorkspaceTrashControl showTrash={false} deleteLabel={`Move ${page.title} to Trash`}
+              {!guest && worldId && page && onPageTrashed && <WorkspaceTrashControl showTrash={false} deleteLabel={`Move ${page.title} to Trash`}
                 worldId={worldId} current={{ kind: "document", id: entry.id, title: page.title, surface: "build", revision: page.revision }}
                 blocked={switching || (entry.id === activeDocumentId && activePageTrashBlocked)}
                 onTrashed={() => onPageTrashed(entry.id)} />}

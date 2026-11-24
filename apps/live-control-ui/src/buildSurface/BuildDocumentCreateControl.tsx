@@ -1,3 +1,4 @@
+import { guestBuildActive } from "../guestWorld/guestBuildSession";
 import { BuildPdfPreview } from "./BuildPdfPreview";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useEffect, useRef, useState } from "react";
@@ -321,7 +322,7 @@ export function BuildDocumentCreateControl({
               {option.label}
             </option>
           ))}
-          <option value={NEW_WORLD_VALUE}>New world…</option>
+          {!guestBuildActive() && <option value={NEW_WORLD_VALUE}>New world…</option>}
         </select>
       </label>
       {isNewWorld ? (
