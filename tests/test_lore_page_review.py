@@ -337,3 +337,76 @@ def test_legacy_witness_reopens_under_original_grammar_in_mixed_prose(instructio
     witness = LorePageTitleWitness(instruction='Create a page titled "Ashbell"', title='Ashbell')
     assert witness.bind(instruction) == 'Ashbell'
     assert explicit_lore_page_witness(instruction).title == 'Ashbell'
+
+
+@pytest.mark.parametrize("title", ["The Memory Ferry", "A Ferry", "Échos — ‘Mémoire’", "Bridge: Three? Yes!"])
+def test_current_request_reference_preserves_proposed_title_without_instruction_echo(title):
+    from application_state.agent_conversation.build_intentional_response import Capabilities, resolve, normalize_native_review, native_review_schema
+    frame = {"response_contract": resolve("review_lore_page_from_conversation", Capabilities(("answer_from_sources",), ("lore_page",), None, None)),
+             "artifact_under_edit": {"sections": []}, "source_basis": {}}
+    # Exact real rejected instruction: includes separate, article, and trailing
+    # context wording; none must be re-parsed or reproduced by the writer.
+    message = "Create a separate new lore page titled The Memory Ferry from the full context we just discussed. Reuse our conversation only; do not search or re-fetch sources. Preserve the early details, later correction, authored-proposal status, open questions, and all constraints. Leave this workpad unchanged."
+    candidate = {"kind": "lore_page", "destination": {"request": "current_author_request", "title": title}, "open_questions": ["Who wrote the ledger?"]}
+    result = normalize_native_review(candidate, [], frame, author_text=message, request_reference=True)
+    assert result.destination.title == title
+    assert result.model_dump(mode='json') == candidate
+    schema, definitions = native_review_schema(frame, request_reference=True)
+    assert 'LorePageRequestReference' in definitions
+    assert 'LorePageTitleWitness' not in definitions
+    with pytest.raises(ValueError, match="producing writer contract"):
+        normalize_native_review(candidate, [], frame, author_text=message)
+    for bad in ({"request": "prior_author_request", "title": title},
+                {"request": "current_author_request", "instruction": message, "title": title}):
+        with pytest.raises(ValueError):
+            normalize_native_review({**candidate, "destination": bad}, [], frame, author_text=message, request_reference=True)
+
+
+def test_blank_mode_is_admitted_independently_of_writer_reference():
+    from application_state.agent_conversation.build_intentional_response import Capabilities, resolve, normalize_native_review
+    frame = {"response_contract": resolve("review_blank_lore_page", Capabilities(("answer_from_sources",), ("lore_page",), None, None)),
+             "artifact_under_edit": {"sections": []}, "source_basis": {}}
+    candidate = {"kind": "lore_page", "destination": {"request": "current_author_request", "title": "The Empty Ferry"}}
+    result = normalize_native_review(candidate, [], frame, author_text="Please leave the new ferry page empty.", request_reference=True)
+    assert result.destination.title == 'The Empty Ferry'
+    with pytest.raises(ValueError, match="Blank lore-page request"):
+        normalize_native_review({**candidate, "open_questions": ["Who wrote the ledger?"]}, [], frame,
+            author_text="Please leave the new ferry page empty.", request_reference=True)
+
+
+def test_app207_menu_and_literal_review_schema_bytes_remain_unchanged():
+    # Frozen from exact serving79d4, not recomputed from the current inventory.
+    from application_state.agent_conversation import build_intentional_response as c
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    menu = '3e65cfdc73f7ea8b0df24158471d0a2fbec800a326c7bd8bf69b261808ff2ca4'
+    resolver = '1f734fecdd45366e7ddf0eeaea5a7d995b99a874ff5f58e2eb0524b210663064'
+    assert c.known_semantics(menu, resolver)
+    assert 'review_blank_lore_page' not in c._menu_work(menu)
+    for label, expected in {
+        'review_lore_page': '2c40f2fda05636749e5e35ff31b53cbbfe558e04bbd7b2e8a201b95f3b83ad79',
+        'review_lore_page_from_conversation': 'c9c1343f5b29dce9fedf72294e3d9d94becaaedeeef6d6f4bc41e2d7ccc1a097',
+    }.items():
+        frame = {'response_contract': c.resolve(label, c.Capabilities(('answer_from_sources',), ('lore_page',), None, None), work_options=c._menu_work(menu)),
+                 'artifact_under_edit': {'sections': []}, 'source_basis': {}}
+        assert canonical_sha256(c.native_review_schema(frame)) == expected
+
+
+
+def test_request_review_normalizes_proposal_formatting_without_changing_legacy_readers():
+    from application_state.agent_conversation.lore_page_review import ProposedLorePageReference, ProposedLorePage
+    review=ProposedLorePageReference.model_validate({'kind':'lore_page',
+        'destination':{'request':'current_author_request','title':' \n The Memory Ferry — Échos \t'},
+        'open_questions':['  Who wrote\n the ledger?  ','\tWhat is its origin?\n']})
+    assert review.destination.title=='The Memory Ferry — Échos'
+    assert review.open_questions==('Who wrote the ledger?','What is its origin?')
+    assert review.destination.bind('Create the ferry page from our discussion.')==review.destination.title
+    with pytest.raises(ValueError):
+        ProposedLorePage.model_validate({'kind':'lore_page',
+            'destination':{'instruction':'Create a page for Ferry.','title':'Ferry'},
+            'open_questions':['Who wrote\n the ledger?']})
+    with pytest.raises(ValueError):
+        ProposedLorePageReference.model_validate({'kind':'lore_page',
+            'destination':{'request':'current_author_request','title':' \n\t '}})
+    with pytest.raises(ValueError):
+        ProposedLorePageReference.model_validate({'kind':'lore_page',
+            'destination':{'request':'current_author_request','title':'Ferry'},'open_questions':[' \n ']})

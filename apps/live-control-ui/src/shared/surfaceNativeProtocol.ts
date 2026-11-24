@@ -62,8 +62,9 @@ function isLorePageDraft(value: unknown): boolean {
     && (!questions || Array.isArray(value.open_questions) && value.open_questions.length>0
       && value.open_questions.length<=24 && value.open_questions.every(q=>text(q)&&[...q].length<=1000&&!/[\r\n]/.test(q)))
     && value.kind === 'lore_page'
-    && exact(value.destination, ['instruction', 'title'])
-    && text(value.destination.instruction) && [...value.destination.instruction].length <= 2000
+    && (exact(value.destination, ['instruction', 'title'])
+      && text(value.destination.instruction) && [...value.destination.instruction].length <= 2000
+      || exact(value.destination, ['request', 'title']) && value.destination.request === 'current_author_request')
     && text(value.destination.title) && [...value.destination.title].length <= 200
     && !/[\r\n]/.test(value.destination.title);
 }

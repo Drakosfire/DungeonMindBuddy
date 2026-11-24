@@ -406,7 +406,7 @@ class PlanJevWriter:
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                     supplied_source_references=True,
-                    typed_source_answer=True, lore_page_limitations=True,
+                    typed_source_answer=True, lore_page_limitations=True, lore_request_reference=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
@@ -540,7 +540,9 @@ class PlanJevWriter:
             if destination is not None:
                 from application_state.agent_conversation.lore_page_review import explicit_blank_lore_page
 
-                if not explicit_blank_lore_page(destination["instruction"]):
+                blank = (self.provider_work['build_work']['requested_work']['requested_work'] == 'review_blank_lore_page'
+                    if 'request' in destination else explicit_blank_lore_page(destination['instruction']))
+                if not blank:
                     instructions += "\n" + LORE_PROPOSAL_GUIDANCE
                 work = self.provider_work["build_work"]["requested_work"]
                 if work["requested_work"] == "review_lore_page_from_conversation":

@@ -1,6 +1,16 @@
 # DOGFOOD: serve reviewed writer and context fixes
 
-ACTIVE. Alan explicitly authorized deployment/cutover, all replays/submissions,
+SERVING APP0207; signed-in acceptance found a remaining request-witness defect.
+Merged #4557 at2f03c5b417de1c0d4e9b1f6e676019bb1ce4c21b; the activated
+reviewed source is79d4d606538ed11c3efd99ab910f2d52f3897a49 and image41968c4b… .
+The final host backup/restore preserved all84 tables and both images reopened
+all194 historical turns. Maelthor's fresh sourced reply and citation opened in
+the app. A separate twelve-turn new-context page request failed the literal
+instruction witness (diagnostic5bbbc248…). The overall goal is not complete;
+the serial successor is HANDOFF-DOGFOOD-lore-request-references.md. Existing
+red diagnostics and the separate World-creation availability gap remain recorded.
+
+Alan explicitly authorized deployment/cutover, all replays/submissions,
 independent review and concrete-progress merges. DOGFOOD owns this serving
 integration, recovery preparation and activation lane. Do not ask again.
 
