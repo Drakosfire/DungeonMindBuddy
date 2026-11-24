@@ -82,3 +82,15 @@ original-binding-receipt.json and source fixture stay in evidence-build-reply-71
 no trace identities or hashes belong in model input. An external ordinary HTTP
 replay must check the same claim under a newly assigned alias and exact citation
 reopening. Its obsolete-field negative is not the original quote-validation path.
+
+Broader qualification case59 finished 1,631 passing / nine failing tests, with
+workers closed and the same App retained. Six settlement controls still reject
+invalid requests but expected the original error substring. Preserve that wording
+while naming the admitted conversation alternative; all six then pass with SQL
+and network blocked. Three storage-owner checks remain unresolved: the external
+pinned adapter assumes a trigger absent from this serving lineage, one historical
+comparison calls the current application while the reused App is at0139, and a
+current predicate assertion includes0181 but omits later predicate extensions.
+Do not call this contract passing or deploy until those invariants are qualified.
+Production is healthy826d6220/APP0209. An online preflight archive passed checksum
+and unchanged-service checks; it is not the final drained APP0210 cutover archive.
