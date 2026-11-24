@@ -376,6 +376,69 @@ it("opens the actual Graph workspace from the public copy without private or pla
   expect(fetchMock.mock.calls.map((call) => String(call[0])).sort()).toEqual(["/api/auth/session", "/api/auth/session", `/api/live/guest-releases/${publicId}`, `/api/live/guest-releases/${publicId}`].sort());
 });
 
+it("adds and connects temporary points in the real Graph, then resets without storage or private writes", async () => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session"
+    ? new Response(null, { status: 401 }) : new Response(JSON.stringify(copy), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const storage = vi.spyOn(Storage.prototype, "setItem");
+  const { App } = await import("../App");
+  const user = userEvent.setup(); const view = render(<App />);
+  await screen.findByTestId("graph-scene");
+  await user.click(screen.getByRole("button", { name: "Graph tools" }));
+  await user.click(screen.getByRole("button", { name: "Move nodes" }));
+  const original = screen.getByRole("button", { name: "Sizzek, npc" });
+  const originalPosition = original.getAttribute("transform");
+  fireEvent.keyDown(original, { key: "ArrowRight" });
+  await waitFor(() => expect(original.getAttribute("transform")).not.toBe(originalPosition));
+  const movedPosition = original.getAttribute("transform");
+  await user.click(screen.getByText("Add to this graph"));
+  await user.type(screen.getByRole("textbox", { name: "New point" }), "A visitor clue");
+  await user.click(screen.getByRole("button", { name: "Add point" }));
+  const added = await screen.findByRole("button", { name: "A visitor clue, temporary" });
+  expect(screen.getByRole("button", { name: "Sizzek, npc" })).toHaveAttribute("transform", movedPosition);
+  await user.click(added);
+  expect(await screen.findByText("Your temporary point · not sourced from the shared World.")).toBeInTheDocument();
+  await user.selectOptions(screen.getByRole("combobox", { name: "To" }), "a");
+  await user.type(screen.getByRole("textbox", { name: "Connection" }), "points to");
+  await user.click(screen.getByRole("button", { name: "Connect points" }));
+  await user.click(await screen.findByRole("button", { name: "A visitor clue, temporary" }));
+  expect(screen.getByRole("button", { name: "Sizzek, npc" })).toHaveAttribute("transform", movedPosition);
+  expect(await screen.findByText("Your temporary connection · not sourced from the shared World.")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Explore Sizzek" }));
+  expect(await screen.findByText("Name: asserted")).toBeInTheDocument();
+  const reset = screen.getByRole("button", { name: "Reset my additions" });
+  await user.click(reset);
+  expect(reset).toHaveFocus();
+  await screen.findByRole("button", { name: "Sizzek, npc" });
+  expect(screen.queryByRole("button", { name: "A visitor clue, temporary" })).not.toBeInTheDocument();
+  expect(screen.queryByText("Your temporary connection · not sourced from the shared World.")).not.toBeInTheDocument();
+  view.unmount(); render(<App />);
+  await screen.findByRole("button", { name: "Sizzek, npc" });
+  expect(screen.queryByRole("button", { name: "A visitor clue, temporary" })).not.toBeInTheDocument();
+  expect(storage).not.toHaveBeenCalled();
+  expect(fetchMock.mock.calls.map((call) => String(call[0])).sort()).toEqual(["/api/auth/session", "/api/auth/session", `/api/live/guest-releases/${publicId}`, `/api/live/guest-releases/${publicId}`].sort());
+});
+
+it("does not restore an older delayed edit after reset", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session" ? new Response(null, { status: 401 }) : new Response(JSON.stringify(copy), { status: 200 })));
+  const { App } = await import("../App");
+  const user = userEvent.setup(); render(<App />);
+  await screen.findByRole("button", { name: "Sizzek, npc" });
+  const realDigest = webcrypto.subtle.digest.bind(webcrypto.subtle);
+  let releaseDigest: (() => void) | undefined;
+  vi.spyOn(webcrypto.subtle, "digest").mockImplementationOnce((algorithm, data) => new Promise((resolve, reject) => {
+    releaseDigest = () => { void realDigest(algorithm, data).then(resolve, reject); };
+  }));
+  await user.click(screen.getByText("Add to this graph"));
+  await user.type(screen.getByRole("textbox", { name: "New point" }), "Delayed clue");
+  await user.click(screen.getByRole("button", { name: "Add point" }));
+  await waitFor(() => expect(releaseDigest).toBeDefined());
+  await user.click(screen.getByRole("button", { name: "Reset my additions" }));
+  await screen.findByRole("button", { name: "Sizzek, npc" });
+  await act(async () => { releaseDigest?.(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+  expect(screen.queryByRole("button", { name: "Delayed clue, temporary" })).not.toBeInTheDocument();
+});
+
 it("fails closed when the released copy is unavailable", async () => {
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => new Response(null, { status: String(input) === "/api/auth/session" ? 401 : 404 })));
   const { App } = await import("../App");

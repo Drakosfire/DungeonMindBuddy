@@ -398,7 +398,7 @@ function NativeGraphDemoContext({
   const status = loading && !graph ? "Opening graph…"
     : !graph ? "Graph unavailable"
       : hasPendingOperation ? pendingStatus === "prepared" ? "Review ready" : pendingStatus === "preparing" ? "Preparing review" : pendingStatus === "checking" ? "Checking review" : "Review needs attention"
-        : mode === "guest" ? "Shared copy · read-only" : completeness?.status === "partial" ? "Partial native read" : "Saved to DungeonMind";
+        : mode === "guest" ? "Shared copy · temporary edits" : completeness?.status === "partial" ? "Partial native read" : "Saved to DungeonMind";
   const identity = mode === "guest" ? `Demo · ${worldTitle?.trim() || "Shared World"}` : mode === "managed"
     ? `World · ${worldTitle?.trim() || "Selected World"}`
     : "Buddy playground · private graph";
@@ -1008,8 +1008,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       }
     const controller = new AbortController();
     (api.readInitialGraph?.() ?? api.readGraph(controller.signal)).then(async (loadedGraph) => {
+      const preserveGuestState = mode === "guest" && graphRef.current?.world_id === loadedGraph.world_id;
       if (!installReadGraph(loadedGraph, graphRequest, owner)) return;
-      const pending = restoreWorldState(loadedGraph);
+      const pending = preserveGuestState ? null : restoreWorldState(loadedGraph);
       setLoading(false);
       setStorageWarning(false);
       if (pending) await recoverOperation(pending, null, owner);
@@ -1024,7 +1025,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       refreshControllerRef.current = null;
       if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
     };
-  }, [api, componentScope, recoverOperation, restoreWorldState, stateScopeId]);
+  }, [api, componentScope, mode, recoverOperation, restoreWorldState, stateScopeId]);
 
   const refreshGraph = useCallback(async () => {
     const owner = mountedOwnerRef.current;
@@ -1777,7 +1778,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   ) : null;
 
-  const infoPanel = mode === "guest" ? <section className="native-demo-limits-card"><h2>Shared demo graph</h2><p>This is a read-only released copy. Moving points changes only this view and resets when you leave.</p><p><a className="native-demo-button native-demo-button--light" href="/">Return to the demo for temporary additions and the saved scene</a></p></section> : (
+  const infoPanel = mode === "guest" ? <section className="native-demo-limits-card"><h2>Shared demo graph</h2><p>The released World stays unchanged. Your additions and layout are temporary and reset when you leave.</p><p><a className="native-demo-button native-demo-button--light" href="/">Return to the demo for the saved scene</a></p></section> : (
     <section className="native-demo-limits-card" aria-labelledby="native-demo-limits-title">
       <p className="native-demo-eyebrow">ABOUT THIS GRAPH</p>
       <h2 id="native-demo-limits-title">{mode === "managed" ? worldTitle?.trim() || "Selected World" : "A small, scoped playground"}</h2>

@@ -28,13 +28,15 @@ export function parseGuestGraphRelease(value: unknown): GuestGraphRelease {
   return value as unknown as GuestGraphRelease;
 }
 
-export async function createGuestGraphApi(publicId: string, copy: GuestGraphRelease): Promise<NativeGraphDemoApi> {
-  const bytes = new TextEncoder().encode(JSON.stringify(copy.manifest.graph));
+export type GuestGraphOverlay = { nodes: { id: string; name: string }[]; edges: { id: string; source_id: string; target_id: string; predicate: string }[] };
+
+export async function createGuestGraphApi(publicId: string, copy: GuestGraphRelease, overlay: GuestGraphOverlay = { nodes: [], edges: [] }): Promise<NativeGraphDemoApi> {
+  const bytes = new TextEncoder().encode(JSON.stringify({ graph: copy.manifest.graph, overlay }));
   const digest = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   const graph: NativeGraph = {
     world_id: `guest:${publicId}:${copy.release_id}`, revision_id: copy.release_id, graph_sha256: digest, storage: "memory",
-    nodes: copy.manifest.graph.nodes.map((node) => ({ id: node.id, name: node.label, kind: guestGraphTerm(node.kind) })),
-    edges: copy.manifest.graph.edges.map((edge) => ({ id: edge.id, source_id: edge.source, target_id: edge.target, predicate: guestGraphTerm(edge.label) })),
+    nodes: [...copy.manifest.graph.nodes.map((node) => ({ id: node.id, name: node.label, kind: guestGraphTerm(node.kind) })), ...overlay.nodes.map((node) => ({ ...node, kind: "temporary" }))],
+    edges: [...copy.manifest.graph.edges.map((edge) => ({ id: edge.id, source_id: edge.source, target_id: edge.target, predicate: guestGraphTerm(edge.label) })), ...overlay.edges],
     capabilities: { create: false, connect: false, rename: false, delete: false, object_kinds: [] }, limitations: [],
   };
   const unsupported = async (): Promise<never> => { throw new Error("The shared copy is read-only in Graph."); };
