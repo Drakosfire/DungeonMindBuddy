@@ -517,12 +517,13 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
             expected_revision=stored.revision, expected_attempt=stored.attempt, outcome=entered)
 
 
-@pytest.mark.parametrize("message, relation, intent", [
-    ("Could we add a warning?", "unresolved", "unresolved"),
-    ("What did the party learn?", "unstated_insertion_location", "discussion"),
+@pytest.mark.parametrize("message, relation, intent, scope_calls", [
+    ("Could we add a warning?", "unresolved", "unresolved", 1),
+    ("What did the party learn?", "unstated_insertion_location", "discussion", 1),
+    ("Insert a warning before that note.", "unstated_insertion_location", "discussion", 2),
 ])
-def test_unscoped_plan_request_skips_recheck_without_authorizing_write(
-    plan_adapter, application_state_dsn, message, relation, intent,
+def test_unscoped_plan_discussion_preserves_recheck_for_concrete_directions(
+    plan_adapter, application_state_dsn, message, relation, intent, scope_calls,
 ):
     import asyncio
 
@@ -569,7 +570,7 @@ def test_unscoped_plan_request_skips_recheck_without_authorizing_write(
         decision_api_key="synthetic-not-secret",
     )
     first = harness._interpret_author_scope(plan_adapter, (), [])
-    assert len(requests) == 1
+    assert len(requests) == scope_calls
     assert first.scope_observation.relation == relation
     opening = PlanJevDispatch.requested_work(
         plan_adapter, page_title="Preparation", author_scope=first,

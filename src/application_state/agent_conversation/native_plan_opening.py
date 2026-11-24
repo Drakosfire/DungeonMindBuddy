@@ -583,7 +583,7 @@ def can_skip_author_scope_recheck(request, observation, capture):
     unscoped_relation = observation.relation == 'unresolved' or (
         observation.relation == UNSTATED_INSERTION_LOCATION
         and observation.page_edit_intent == 'discussion'
-        and not explicit_direction_options(request.question)
+        and not explicit_direction_options(request.question, allow_plain_prose=True)
     )
     return (
         not request.dialogue
