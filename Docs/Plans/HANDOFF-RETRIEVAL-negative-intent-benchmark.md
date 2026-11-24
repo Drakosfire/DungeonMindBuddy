@@ -63,6 +63,16 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+The authored corpus-source path is now included in the partial owner probe and
+scored as an unmapped read attempt. In provider-free predecessor-source HTTP
+case 64, a saved authored-source body read was absent from the context trace and
+the trace projector observed zero acquisitions. Case 66 used the updated probe
+and observed that owner once on the same synthetic path; case 65 failed in the
+witness's missing import before exercising it. These cases use a synthetic App
+binding and in-memory Core, and establish neither complete acquisition coverage
+nor model quality. Retained evidence: `Projects/.codex/`
+`buddy-check.negative-inline.SsurDn/http-owner/session/case-64` through `case-66`.
+
 The process-local native probe now also covers the preimported authored-reference
 reader when that alias still points to the original owner; other acquisition
 paths remain unobserved. A provider-free predecessor-source diagnostic used the

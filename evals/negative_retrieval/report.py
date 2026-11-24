@@ -104,7 +104,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     # not be silently omitted from the assessment. Query preparation alone is
     # not evidence that a source was read.
     if native_probe is not None:
-        for owner in ("native_graph_selected_read", "native_graph_authored_reference_read"):
+        for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
+                      "native_corpus_authored_source_read"):
             counts = native_probe["counts"][owner]
             observed["reads"].extend([UNKNOWN] * sum(counts.values()))
     observed["catalog_discoveries"] = catalog_discovery_count(probe.get("records"))

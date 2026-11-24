@@ -312,6 +312,7 @@ def test_native_graph_probe_records_direct_calls_and_restores_after_error(monkey
 
 def test_native_graph_probe_observes_preimported_authored_reader(monkeypatch):
     from apps.live_control_server.services import native_authored_references, native_graph_reads
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
     from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
 
     def reader(*args):
@@ -319,10 +320,15 @@ def test_native_graph_probe_observes_preimported_authored_reader(monkeypatch):
 
     monkeypatch.setattr(native_graph_reads, "read_authored_reference", reader)
     monkeypatch.setattr(native_authored_references, "read_authored_reference", reader)
+    monkeypatch.setattr(native_corpus_source, "read_authored_source", reader)
+    monkeypatch.setattr(native_authored_references, "read_authored_source", reader)
     with observe_native_graph_owners() as records:
         assert native_authored_references.read_authored_reference("private") == "read"
-    assert records == [{"owner": "native_graph_authored_reference_read", "state": "returned"}]
+        assert native_authored_references.read_authored_source("private") == "read"
+    assert records == [{"owner": "native_graph_authored_reference_read", "state": "returned"},
+                       {"owner": "native_corpus_authored_source_read", "state": "returned"}]
     assert native_authored_references.read_authored_reference is reader
+    assert native_authored_references.read_authored_source is reader
 
 
 def test_empty_catalog_discovery_is_not_a_zero_acquisition_pass():
@@ -482,6 +488,7 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     for owner, state, expected in (
         ("native_graph_selected_read", "returned", False),
         ("native_graph_authored_reference_read", "raised", False),
+        ("native_corpus_authored_source_read", "returned", False),
         ("native_graph_selected_read", "entered", False),
         ("native_graph_query", "returned", None),
     ):

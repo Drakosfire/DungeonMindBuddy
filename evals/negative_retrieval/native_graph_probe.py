@@ -1,4 +1,4 @@
-"""Observe selected native Graph owner calls, never a complete journal.
+"""Observe selected native Graph and authored-source calls, not a complete journal.
 
 This process-local diagnostic records attempts and outcomes, not arguments,
 identities, query text or source bodies. Other Graph, corpus, lookup and
@@ -17,6 +17,7 @@ _OWNERS = {
     "read_authored_reference": "native_graph_authored_reference_read",
     "reopen_context": "native_graph_context_reopen",
 }
+_CORPUS_OWNER = "native_corpus_authored_source_read"
 
 
 def summarize_records(records):
@@ -24,14 +25,14 @@ def summarize_records(records):
     if not isinstance(records, list) or any(
         not isinstance(row, dict) or set(row) != {"owner", "state"}
         or not isinstance(row["owner"], str) or not isinstance(row["state"], str)
-        or row["owner"] not in _OWNERS.values()
+        or row["owner"] not in (*_OWNERS.values(), _CORPUS_OWNER)
         or row["state"] not in {"entered", "returned", "raised"}
         for row in records
     ):
         raise ValueError("Malformed native Graph probe evidence")
     return {owner: {state: sum(row["owner"] == owner and row["state"] == state for row in records)
                     for state in ("entered", "returned", "raised")}
-            for owner in _OWNERS.values()}
+            for owner in (*_OWNERS.values(), _CORPUS_OWNER)}
 
 
 @contextmanager
@@ -43,6 +44,7 @@ def observe_native_graph_owners():
     record_lock = Lock()
     try:
         from apps.live_control_server.services import native_graph_reads
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source
 
         def watch(owner, function):
             @wraps(function)
@@ -65,12 +67,17 @@ def observe_native_graph_owners():
             authored = sys.modules.get("apps.live_control_server.services.native_authored_references")
             authored_reader = getattr(authored, "read_authored_reference", None)
             original_reader = native_graph_reads.read_authored_reference
+            authored_source = getattr(authored, "read_authored_source", None)
+            original_source = native_corpus_source.read_authored_source
             for name, owner in _OWNERS.items():
                 stack.enter_context(patch.object(native_graph_reads, name, watch(owner, getattr(native_graph_reads, name))))
             # This module imports the reader at module load; preserve its alias
             # when already loaded and avoid replacing a separately patched owner.
             if authored is not None and authored_reader is original_reader:
                 stack.enter_context(patch.object(authored, "read_authored_reference", native_graph_reads.read_authored_reference))
+            stack.enter_context(patch.object(native_corpus_source, "read_authored_source", watch(_CORPUS_OWNER, original_source)))
+            if authored is not None and authored_source is original_source:
+                stack.enter_context(patch.object(authored, "read_authored_source", native_corpus_source.read_authored_source))
             yield records
     finally:
         _lock.release()
