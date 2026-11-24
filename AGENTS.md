@@ -207,10 +207,10 @@ requested behavior. A shipped route or passing component test alone does
 not establish ordinary workflow proof.
 
 When a change affects which action Buddy should choose or when it may act,
-add or update a case in the [workflow decision benchmark](evals/plan-authoring-benchmark.md#workflow-decision-benchmark).
-Reuse the shared fixtures and scorer. Include the closest contrasting
-action or no-action case, including when retrieval is required or forbidden.
-Apply the state-settlement rule above when new evidence arrives after merge.
+use the [benchmark catalog](evals/README.md) to identify the owning suite
+and update its coverage in the same PR. Follow that suite’s fixture,
+scoring, and verification requirements. Apply the state-settlement rule
+above when new evidence arrives after merge.
 
 ## Efficient investigation
 
