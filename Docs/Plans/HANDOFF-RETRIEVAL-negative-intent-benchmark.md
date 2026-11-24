@@ -82,7 +82,8 @@ owned App clone per workstream, serial resets and retries, a read-only shared
 Core and no full inventory scans. The wrapper now refuses per-capture clones
 and delegates through the pinned cohort path that enforces read-only Core and
 skips Core table-content inventories. Owner lifecycle, capacity and cleanup
-remain executor prerequisites; no database has been allocated by this lane.
+remain executor prerequisites. The allocation and retained owner are recorded
+in the provider-free baseline below.
 
 The clarification scorer now separates an answerable question that addresses
 the actual gap from one that repeats supplied information or adds false
@@ -173,3 +174,16 @@ resolution or host-side authorization and must not be used as a blanket
 provider-dispatch approval. The related-page questions were still offered in
 this anchored synthetic case, and the synthetic read votes led to the observed
 materializations; the capture does not show how a live model would vote.
+
+Case 4 ran the existing ordinary Build draft scope controls through the same
+owner-bound clone, with the related-page owners instrumented. The anchored
+control made one catalog-discovery attempt and zero materialization calls;
+the `source_lookup` control made one discovery and four materialization calls.
+Both existing event assertions and the physical-read assertions passed (2
+tests); the retained worker, derived test and full log are under
+`http-owner/session/case-4`, with the worker beside `session`. These synthetic
+controller votes demonstrate that discovery and materialization must be scored
+separately. The optional page is not established as necessary evidence for
+this draft, so this is not a genuine required-evidence positive control or a
+model-quality rate. It uses the same predecessor source and mocked provider and
+in-memory Core as the earlier cases; it does not qualify the current head.
