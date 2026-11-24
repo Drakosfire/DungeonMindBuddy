@@ -27,9 +27,12 @@ IDS = ["artifact:recap:campaign:session-8:retained", "opaque/database/source-key
 
 
 @pytest.fixture(params=IDS)
-def lane(request, tmp_path, monkeypatch, application_state_dsn):
-    # The existing fixture owns/drops only its freshly named APP database.
-    assert "dungeonbuddy_app_state_test_" in application_state_dsn
+def lane(request, tmp_path, monkeypatch, application_state_dsn, application_state_database):
+    from scripts.ci_app_database import verify_assignment
+
+    assignment = application_state_database.assignment
+    assert application_state_dsn == assignment.dsn
+    verify_assignment(assignment)
     monkeypatch.setenv(config.ARTIFACT_DATA_ROOT_ENV, str(tmp_path))
     monkeypatch.setenv(config.MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path))
     for key, value in {"DMB_DEPLOYMENT_ENVIRONMENT": "local", "DMB_AUTH_MODE": "local_operator",
