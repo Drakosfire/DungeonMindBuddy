@@ -94,6 +94,7 @@ class PlanJevHarness:
                 acquire(adapter)
                 driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
                 driver.native_sources.discover_initial()
+                adapter.fence.begin_plan_opening()
                 author_scope = (self._interpret_author_scope(adapter, dialogue, author_scope_calls)
                     if type(action) is NativePlanActionV3 else None)
                 with measure("plan_opening_candidate_preparation"):
