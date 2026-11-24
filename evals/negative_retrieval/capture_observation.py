@@ -77,9 +77,19 @@ def observe(request, history_envelope, trace_envelope, answer_envelope, *, relat
             typed_proposal = ((answer.get("knowledge_context") or {}).get("completion") == completion)
         except (ValueError, TypeError):
             pass
+    typed_answer = False
+    if completed and completion.get("schema") == "dmb_surface_native_completion_v1":
+        from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+        try:
+            native = SurfaceNativeCompletionV1.model_validate(completion)
+            typed_answer = (native.surface_id == "build" and bool(native.answer_segments)
+                            and native.collaboration is None
+                            and (answer.get("knowledge_context") or {}).get("completion") == completion)
+        except (ValueError, TypeError):
+            pass
     return {"reads": [row["label"] for row in projected["observed"]],
             "observed_acquisitions": projected["observed"], "journal_complete": None,
-            "outcome": "clarification" if typed_questions else "proposal" if typed_proposal else None,
+            "outcome": "clarification" if typed_questions else "proposal" if typed_proposal else "answer" if typed_answer else None,
             "completed_turn": completed, "http_status": answer_envelope["http_status"],
             "terminal_status": status, "trace_capture_status": projected["trace_capture_status"],
             "decision_observations": controller_observations(attempt)}

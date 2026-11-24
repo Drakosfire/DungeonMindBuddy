@@ -63,6 +63,15 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+The observer now recognizes a validated non-object-only native Build answer
+whose response and saved completion agree. Required support and semantic quality
+remain separate unknowns. Provider-free predecessor case 73 exercised the frozen
+related-ledger positive control with correlated history and observed the answer.
+Case 70 used an outdated synthetic writer key and case 72 omitted correlation
+fields; both failed witnesses are retained alongside cases 71 and 73 under
+`Projects/.codex/buddy-check.negative-inline.SsurDn/http-owner/session/`.
+These use scripted providers and synthetic memory Core, not live-model evidence.
+
 The offline observer recognizes a completed, validated Build proposal completion
 only when the response and saved history agree; it does not infer proposal
 mobility. Provider-free predecessor HTTP case 69 exercised this correlation

@@ -251,6 +251,20 @@ def test_ordinary_capture_requires_exact_bound_saved_question():
     turn["knowledge_context"]["completion"] = malformed
     answer["knowledge_context"] = {"completion": malformed}
     assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
+    from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+    native = SurfaceNativeCompletionV1(surface_id="build", context_receipt_sha256="a" * 64,
+        producing_provider_attempt_id=uuid4(), answer_context_status="discussion",
+        answer_segments=[{"kind": "discussion", "text": "A response."}], collaboration=None,
+        saved_source_citations=[], native_body_citations=[], native_clause_citations=[],
+        native_assertion_citations=[]).model_dump(mode="json", by_alias=True)
+    turn["knowledge_context"]["completion"] = native
+    answer["knowledge_context"] = {"completion": native}
+    observed = observe(request, envelope(history), envelope(trace), envelope(answer))
+    assert observed["outcome"] == "answer"
+    positive = {**CASE, "outcomes": ["answer"], "required_reads": ["ledger"], "allowed_reads": ["ledger"]}
+    assert assess(positive, observed)["checks"]["required_support"] is None
+    answer["knowledge_context"] = {"completion": {**native, "surface_id": "plan"}}
+    assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
     turn["lifecycle_status"] = "interrupted"
     result = observe(request, envelope(history), envelope(trace), envelope({"detail": "question"}, 409))
     assert result["outcome"] is None and result["completed_turn"] is False
