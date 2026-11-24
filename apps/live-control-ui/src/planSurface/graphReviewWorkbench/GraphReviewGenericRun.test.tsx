@@ -435,7 +435,7 @@ describe("GraphReviewGenericRun", () => {
     const prepare = vi.spyOn(worldbuildingApi, "prepareWorldbuilding");
     const confirm = vi.spyOn(worldbuildingApi, "confirmWorldbuilding");
     renderModule();
-    expect(await screen.findByRole("group", {name:"Review provisional GM facts"})).toBeEnabled();
+    expect(await screen.findByRole("group", {name:"Review GM facts"})).toBeEnabled();
     expect(screen.getByLabelText("Candidate object")).toHaveTextContent("vial");
     expect(context).toHaveBeenCalledExactlyOnceWith({managed_world_id:"managed-world-a",run_id:exactRun.run_id,
       source_artifact_id:exactRun.source_artifact_id,source_sha256:sourceSha256});
