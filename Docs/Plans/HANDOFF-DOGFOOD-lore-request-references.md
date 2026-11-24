@@ -173,5 +173,22 @@ in earlier benchmark plans; it does not silently mark missing CI checks green.
 The exact022f live12, historical194-Turn and built-image proofs are retained
 predecessor evidence after the ab642 rebase. The existing workstream clone is
 retained; new cases must pin the new head explicitly. Named CI includes tests
-whose purpose is physical-clone isolation; the question about whether Alan
-intends this benchmark rule to change that CI contract remains unanswered.
+whose purpose was physical-clone isolation. Alan explicitly answered that the
+one-clone rule applies to CI too; that question is handled. CI4598 implements
+the repository-wide migration independently. It is not a writer runtime or
+merge prerequisite, and the proposed CI-only serving adoption is withdrawn.
+The writer uses a clearly pinned external compliant one-clone harness for its
+owning checks, without claiming broad CI is green. Verification on the retained
+App remains serial; writer qualification takes priority to unblock other lanes.
+
+
+Priority correction after Alan reported PR4573 blocking other lanes: remove the
+self-imposed dependency on finishing CI4598. Runtime behavior remains one coherent
+request-reference slice. Finish exact-head HTTP/SDK admission/confirmation and
+historical-reader checks, the actual twelve-turn replay with zero acquisition,
+and the required exact frontend diagnostics; request bounded merge judgment.
+Forward recovery and production/signed-in acceptance remain deployment gates.
+The positive low-score image fixture now includes the zero-vote conversation
+lore option already present in the offered menu. Its original incomplete vector
+was correctly refused; the updated synthetic fixture preserves the captured
+ranking and never weakens product validation. CI source leases remain separate.

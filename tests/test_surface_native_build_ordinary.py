@@ -2489,12 +2489,12 @@ def test_native_selection_semantic_sdk_wire_and_exact_legacy_v2_reader(lane,tmp_
 
 
 def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(lane,tmp_path,monkeypatch):
-    # Captured controller shape: unique maximum .40, no response-contract resolution
-    # previously survived the duplicated .90 gate. No image provider is called.
+    # Derived from the captured .40 winner, with zero votes for newer menu labels.
+    # This synthetic response exercises the unique maximum, not a .90 gate. No image provider is called.
     scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
         discuss=0.0,draft_in_conversation=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
         publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
-        review_variant_approval=0.0,review_lore_page=0.0,review_blank_lore_page=0.0,save_page=0.0,write_current_page=.19)
+        review_variant_approval=0.0,review_lore_page=0.0,review_lore_page_from_conversation=0.0,review_blank_lore_page=0.0,save_page=0.0,write_current_page=.19)
     _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
         message='Create an interior design detailed enough to generate a map from.')
 
