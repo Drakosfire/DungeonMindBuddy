@@ -1355,3 +1355,30 @@ def test_retained_keyword_focus_reader_fence_has_no_row_rewrite(application_stat
     fence=import_module('application_state.migrations.versions.20261107_0124_native_keyword_focus')
     assert fence.upgrade() is None
     with pytest.raises(RuntimeError,match='Older readers'):fence.downgrade()
+
+def test_source_append_connection_reuse_preserves_independent_commits(application_state_dsn):
+    from contextlib import nullcontext
+
+    import psycopg
+    from application_state.agent_conversation.service import (
+        _execution_append_transaction,
+        reuse_source_append_connection,
+    )
+
+    with psycopg.connect(application_state_dsn) as observer:
+        observer.execute("CREATE TABLE source_append_commit_witness (sequence integer PRIMARY KEY)")
+    with reuse_source_append_connection():
+        with _execution_append_transaction(lambda _: nullcontext(), source_append=True) as first:
+            first.execute("INSERT INTO source_append_commit_witness VALUES (1)")
+        with psycopg.connect(application_state_dsn) as observer:
+            assert observer.execute("SELECT sequence FROM source_append_commit_witness").fetchall() == [(1,)]
+
+        with pytest.raises(RuntimeError, match="failed source read"):
+            with _execution_append_transaction(lambda _: nullcontext(), source_append=True) as second:
+                assert second is first
+                second.execute("INSERT INTO source_append_commit_witness VALUES (2)")
+                raise RuntimeError("failed source read")
+
+        with psycopg.connect(application_state_dsn) as observer:
+            assert observer.execute("SELECT sequence FROM source_append_commit_witness").fetchall() == [(1,)]
+    assert first.closed
