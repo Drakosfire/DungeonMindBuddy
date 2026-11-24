@@ -44,14 +44,19 @@ it('synchronizes the trail and step list, and cancels playback when paused', () 
   try {
     render(<BuddyRetrievalReplay steps={[lookup(4, 'Caelynn'), lookup(8, 'Mossglade')]} />)
     const trail = screen.getByRole('group', { name: 'Recorded graph nodes' })
-    expect(screen.queryByRole('list', { name: 'Recorded retrieval steps' })).not.toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Recorded retrieval steps' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
   openReplayDetails()
     expect(screen.getByRole('list', { name: 'Recorded retrieval steps' })).toBeVisible()
     const first = within(trail).getByRole('button', { name: 'Caelynn' })
     const second = within(trail).getByRole('button', { name: 'Mossglade' })
     expect(first).toHaveAttribute('aria-pressed', 'true')
+    expect(second).toHaveAttribute('aria-disabled', 'true')
+    expect(second).toHaveAttribute('tabindex', '-1')
     fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+    fireEvent.click(second)
+    expect(screen.queryByRole('dialog', { name: 'Replay node details' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
     act(() => vi.advanceTimersByTime(2000))
     expect(first).toHaveAttribute('aria-pressed', 'true')
@@ -66,7 +71,8 @@ it('synchronizes the trail and step list, and cancels playback when paused', () 
     const reopenedSteps = screen.getByRole('list', { name: 'Recorded retrieval steps' })
     expect(within(reopenedSteps).getAllByRole('button')[1]).toHaveAttribute('aria-current', 'step')
     fireEvent.keyDown(first, { key: 'Enter' })
-    expect(within(reopenedSteps).getAllByRole('button')[0]).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByRole('dialog', { name: 'Replay node details' })).toBeVisible()
+    expect(within(reopenedSteps).getAllByRole('button')[1]).toHaveAttribute('aria-current', 'step')
   } finally {
     vi.useRealTimers()
   }
@@ -232,7 +238,9 @@ it('reveals recorded seeds, draws directed hops in order, and explains object-li
     object_limit_pruned_count: 1,
   }
   const trace = { observations: [{ ...step, kind: 'graph_tool' }] } as BuddyTurnContextTrace
-  render(<BuddyRetrievalReplay steps={replaySteps(trace)} trace={trace} />)
+  const revisited = lookup(6, 'Previously excluded')
+  revisited.result.nodes[0]!.node_id = 'discarded'
+  render(<BuddyRetrievalReplay steps={[...replaySteps(trace), lookup(5, 'After pruning'), revisited]} trace={trace} />)
   const trail = screen.getByRole('group', { name: 'Recorded graph nodes' })
   const seed = within(trail).getByRole('button', { name: 'Caelynn' })
   const position = seed.getAttribute('transform')
@@ -241,6 +249,8 @@ it('reveals recorded seeds, draws directed hops in order, and explains object-li
   expect(trail.querySelectorAll('line')).toHaveLength(0)
   fireEvent.click(next)
   expect(within(trail).getByRole('button', { name: 'Mossglade' })).toBeInTheDocument()
+  expect(within(screen.getByRole('list', { name: 'Recorded retrieval steps' }))
+    .getByRole('button', { name: 'Caelynn → Mossglade' })).toHaveAttribute('aria-current', 'step')
   const arrow = trail.querySelector('line')!
   expect(arrow).toHaveAttribute('marker-end')
   expect(arrow).toHaveAttribute('x1', '44')
@@ -252,6 +262,11 @@ it('reveals recorded seeds, draws directed hops in order, and explains object-li
   expect(seed).toHaveAttribute('transform', position)
   expect(within(trail).getByRole('button', { name: 'Unnamed object' })).toHaveAttribute('data-visit', 'pruned')
   expect(screen.getByText('Dropped by the neighborhood object limit.')).toBeInTheDocument()
+  fireEvent.click(next)
+  expect(screen.getByRole('status')).toHaveTextContent('Step 6 of 7')
+  expect(within(trail).getByRole('button', { name: 'Unnamed object' })).toHaveAttribute('data-visit', 'pruned')
+  fireEvent.click(next)
+  expect(trail.querySelector('[data-visit="pruned"]')).toBeNull()
 })
 
 it('opens and closes contextual details for the selected replay node', () => {
@@ -322,7 +337,7 @@ it('uses the same playback position when popping out and returning to the conver
   fireEvent.click(screen.getByRole('button', { name: 'Pop out replay' }))
   const dialog = within(screen.getByRole('dialog', { name: 'Expanded retrieval replay' }))
   expect(dialog.getByRole('status')).toHaveTextContent('Step 2 of 2')
-  expect(dialog.queryByRole('list', { name: 'Recorded retrieval steps' })).not.toBeInTheDocument()
+  expect(dialog.getByRole('list', { name: 'Recorded retrieval steps' })).toBeVisible()
   expect(screen.getAllByRole('group', { name: 'Recorded graph nodes' })).toHaveLength(1)
   fireEvent.click(dialog.getByRole('button', { name: 'Previous step' }))
   fireEvent.click(dialog.getByRole('button', { name: 'Return to conversation' }))
