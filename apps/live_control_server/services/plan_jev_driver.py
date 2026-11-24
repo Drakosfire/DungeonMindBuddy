@@ -139,7 +139,7 @@ class PlanJevDriver:
             )
         )
 
-    def offered(self):
+    def offered(self, *, object_catalog=None):
         if self.finished or self._variant_approval():
             return ()
         if self._anchored_variant_draft():
@@ -162,7 +162,7 @@ class PlanJevDriver:
         from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
         query = getattr(self.adapter, 'native_query', None)
         if isinstance(query, NativeGraphQueryV4):
-            result.extend(self._native_object_candidates())
+            result.extend(self._native_object_candidates(catalog=object_catalog))
         elif isinstance(query, NativePlanQueryV1):
             result.extend(RetrievalCandidate(handle=selection_handle(query, match), label=match.label,
                 kind='Qualified native source statement; select to open its complete attributed support')
@@ -627,11 +627,12 @@ class PlanJevDriver:
         if unavailable:
             self.gaps.append(f"native_{record_kind}_support_unavailable")
 
-    def _native_object_candidates(self, *, examined=False, opened=()):
+    def _native_object_candidates(self, *, examined=False, opened=(), catalog=None):
         from application_state.agent_conversation.native_plan_assertions import object_record_catalog
-        query = self.adapter.native_query
+        if catalog is None:
+            catalog = object_record_catalog(self.adapter.native_query)
         result = []
-        for unit in object_record_catalog(query).units:
+        for unit in catalog.units:
             statement_ids, assertion_ids = unit.statement_ids, unit.assertion_ids
             if not statement_ids and not assertion_ids:
                 continue  # Query gap codes retain unavailable/empty discovery status.
@@ -646,7 +647,7 @@ class PlanJevDriver:
                     'Native Graph object; open its complete admitted statement and assertion support')))
         return tuple(result)
 
-    def _native_object_examined(self):
+    def _native_object_examined(self, *, catalog=None):
         """Navigation only after both record families settle under the frozen owner."""
         from application_state.agent_conversation.native_plan_assertions import (
             NativeGraphQueryV4, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1)
@@ -679,7 +680,7 @@ class PlanJevDriver:
             assertion = field == 'assertion_ids'
             opened.update((assertion, r.assertion.assertion_id if assertion else r.support.statement_id)
                 for e in observed for r in e.reads)
-        return self._native_object_candidates(examined=True, opened=opened)
+        return self._native_object_candidates(examined=True, opened=opened, catalog=catalog)
 
     def _native_assertion_examined(self):
         from application_state.agent_conversation.native_plan_assertions import (
@@ -768,13 +769,17 @@ class PlanJevDriver:
                 if isinstance(event, BuildSavedStatblockReadV1) and event.handle in self.saved_statblocks
             )
         examined.extend(self.native_sources.examined())
-        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
-        if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
-            examined.extend(self._native_object_examined())
+        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4, object_record_catalog
+        query = getattr(self.adapter, 'native_query', None)
+        object_catalog = None
+        if isinstance(query, NativeGraphQueryV4):
+            if self.adapter.fence is not None:
+                object_catalog = object_record_catalog(query)
+            examined.extend(self._native_object_examined(catalog=object_catalog))
         else:
             examined.extend(self._native_statement_examined())
             examined.extend(self._native_assertion_examined())
-        candidates = self.offered()
+        candidates = self.offered() if object_catalog is None else self.offered(object_catalog=object_catalog)
         return dict(candidates=candidates, dialogue=self.dialogue,
             examined_candidates=examined, allowed_operations=operations)
 
