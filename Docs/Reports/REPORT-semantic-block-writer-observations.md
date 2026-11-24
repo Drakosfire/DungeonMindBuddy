@@ -904,3 +904,25 @@ fixture's saved state as its baseline.
 
 These are individual checks on reused fixtures. They do not fill the
 independent repetition matrix.
+
+### Three independent hosted P03 card-body runs on ab642ad0
+
+On November 23, 2026 (America/Denver), the exact P03 request passed on
+three newly saved synthetic Plans in Buddy Cloud Pilot on serving revision
+`ab642ad0`. Each run used a fresh conversation and the marked Arrival card
+in Cards view. The retained turns recorded the OpenAI Responses writer
+with `gpt-6-luna`.
+
+| Fixture | Retained turn |
+| --- | --- |
+| P03 Baseline, one titled Read Aloud and an ordinary Arrival paragraph | `08616e2a-9f5f-4567-9deb-01834505a731` |
+| P03 Mixed Blocks, with a second titled Read Aloud, a pre-existing GM Note, Warning and Rules | `be838025-2c48-4ccc-9f47-b3fb24185f49` |
+| P03 Mixed Blocks Repeat, separately seeded from the same mixed baseline | `123c76a9-0fef-489f-9a83-03b76a287d92` |
+
+Each suggestion was saved without editing it. After reload, the Plan
+Markdown contained exactly one new GM Note. Removing that note and
+comparing trimmed nonblank lines reproduced the original Markdown in
+order, including both scene markers, the choice and option markers,
+Departure prose and the table. No retrieval footer was found. These are
+three passes for the exercised Cards writer route. They do not exercise
+the historical writer response that duplicated a whole replacement body.
