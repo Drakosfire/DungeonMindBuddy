@@ -33,3 +33,18 @@ remaining live repetitions and quality checks.
 
 - [Benchmark suite](https://github.com/Drakosfire/DungeonMindBuddy/pull/4275) and [shared writing contract](https://github.com/Drakosfire/DungeonMindBuddy/pull/4277)
 - [Hosted release](https://github.com/Drakosfire/DungeonMindBuddy/pull/4618) and [benchmark evidence](Docs/Reports/REPORT-semantic-block-writer-observations.md)
+
+## [DONE] Permission-aware guidance for a loaded empty Graph — 2026-11-24
+
+[#4626](https://github.com/Drakosfire/DungeonMindBuddy/pull/4626) shipped on
+`386bdf65`. A writable empty Graph prompts users to add an object. A read-only
+empty Graph offers an available navigation step. Tests on the deployed source
+covered both cases and loading. Hosted smoke checks covered unavailable and
+filtered, nonempty Graphs.
+
+## [DONE] Plain-language GM facts review label — 2026-11-24
+
+[#4631](https://github.com/Drakosfire/DungeonMindBuddy/pull/4631) shipped on
+`826d6220`. The shared Build and Plan fieldset now uses “Review GM facts” for
+its visible legend and accessible name. The saved Pilot review reached
+confirmation with its existing evidence. The check stopped before publishing.

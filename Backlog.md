@@ -47,7 +47,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | Idea | Next useful slice or decision |
 | --- | --- |
 | [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
-| [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
+| [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Loaded-empty Graph guidance shipped. Audit setup, unavailable, and optional-Graph states across surfaces. |
 | [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
 | [Shared agent actions across surfaces](#idea-shared-agent-actions-across-surfaces) | Prove one inline text edit in Build and Plan through their native saves; then test a sourced Graph relationship. |
 | [Agent page-formatting benchmarks](#idea-agent-page-formatting-benchmarks) | Compare Buddy on repeatable Build formatting tasks; preserve content and prove the saved rendered result. |
@@ -75,7 +75,8 @@ One row per product idea. These rows are pointers, not separate status records. 
 ## [IDEA] Inviting canvases with no graph loaded — captured 2026-11-16
 
 **Context:** Hosted dogfood reached Buddy with no graph available to load.
-**Action:** Audit Home, Graph, Plan, Play, Ingest, Build, and Combat Tracker without a loaded graph. For each surface, check that the canvas feels open and inviting and offers the next action appropriate to that surface. Where a graph is optional, check that users can still start working. Check loading, access denial, and failure separately so those states remain understandable.
+**Shipped:** [#4626](https://github.com/Drakosfire/DungeonMindBuddy/pull/4626) added permission-aware guidance after an empty Graph loads. Both permission states passed tests on the deployed source. Hosted smoke checks distinguished an unavailable Graph from Pilot’s filtered one-object Graph. A disposable hosted World with a loaded-empty Graph is still needed for direct browser verification.
+**Remaining:** Audit Home, Graph, Plan, Play, Ingest, Build, and Combat Tracker before Graph publication or when a graph cannot load. Give each surface an available next action and let users start working wherever Graph is optional. Keep loading, setup, access denial, and failure distinct. In managed Graph, check whether the unavailable view can offer the selected World’s Build workspace alongside retry.
 **Surfaces when:** Reviewing shared navigation, World selection, or empty states across Buddy.
 
 ## Dated evidence pointers — 2026-11-17
@@ -385,6 +386,7 @@ a prototype is not a new durable authority.
 
 **Context:** Buddy Cloud Pilot could save Build and Plan documents while Graph, Play, and Combat Tracker exposed internal Graph provisioning and publication states.
 **Insight:** Provisional state is useful for backend lifecycle management and provenance. A user should see a World and the actions available in it. An empty World should feel ready to start.
-**Action:** Audit World creation, navigation, and empty states across Buddy. Keep provisioning and provenance in backend records and operator diagnostics. Hide provisional labels and internal publication states from the normal workspace. When setup prevents an action, show the next step the user can take, or explain when to retry.
+**Shipped:** [#4631](https://github.com/Drakosfire/DungeonMindBuddy/pull/4631) renamed the shared Build and Plan fieldset to “Review GM facts.” Hosted Pilot verified the visible and accessible label and reached confirmation with a saved supporting excerpt.
+**Remaining:** Audit World creation, navigation, extraction, and first-Graph setup for internal lifecycle labels. Start with Build’s source admission status and retry controls. Describe what the user can do or when to retry. Keep lifecycle state and provenance in backend records and operator diagnostics.
 **Verification:** Open a new World before and after its first Graph publication. Check that user-facing surfaces show an inviting empty state or actionable feedback and that operators can still inspect the underlying state and provenance.
 **Surfaces when:** World onboarding, first Graph publication, or empty states across Buddy are being changed.
