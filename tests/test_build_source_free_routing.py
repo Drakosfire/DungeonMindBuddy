@@ -362,3 +362,104 @@ def test_pending_settlement_does_not_smuggle_unselected_authored_targets():
     values["native_query"] = query
     with pytest.raises(ValidationError, match="prepared source authority"):
         NativeBuildSourceSettledV1.model_validate(values)
+
+
+
+def pending_policy_values():
+    from tests.test_surface_native_execution import component
+    _, execution = component("build")
+    values = execution.policy.model_dump(mode="python", by_alias=True)
+    for key in ("policy_version", "source_authority_sha256", "native_query_sha256"):
+        values.pop(key)
+    values["source_observation_sha256"] = "e" * 64
+    return values
+
+
+def test_pending_policy_commits_observation_without_fabricated_source_hashes():
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    policy = BuildPendingExecutionPolicyV1.model_validate(pending_policy_values())
+    wire = policy.model_dump_json(by_alias=True)
+    assert BuildPendingExecutionPolicyV1.model_validate_json(wire) == policy
+    assert "source_authority_sha256" not in type(policy).model_fields
+    assert "native_query_sha256" not in type(policy).model_fields
+    assert policy.action.related_page_catalog is None
+
+
+@pytest.mark.parametrize("fields", [
+    {"source_authority_sha256": "f" * 64}, {"native_query_sha256": "f" * 64},
+    {"policy_version": "surface_native_execution_v1"},
+    {"source_observation_sha256": "not-a-digest"},
+])
+def test_pending_policy_rejects_old_authority_or_policy_substitution(fields):
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    with pytest.raises(ValidationError):
+        BuildPendingExecutionPolicyV1.model_validate(pending_policy_values() | fields)
+
+
+def test_pending_policy_does_not_treat_an_empty_discovered_catalog_as_no_discovery():
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    values = pending_policy_values()
+    values["action"]["related_page_catalog"] = ()
+    with pytest.raises(ValidationError, match="acquired related-page catalog"):
+        BuildPendingExecutionPolicyV1.model_validate(values)
+
+
+def test_pending_policy_keeps_the_actual_build_controller_role():
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    values = pending_policy_values()
+    values["provider_roles"]["controller"]["api_mode"] = "decision"
+    with pytest.raises(ValidationError, match="roles differ"):
+        BuildPendingExecutionPolicyV1.model_validate(values)
+
+
+def test_pending_policy_keeps_the_actual_writer_budget_identity():
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    values = pending_policy_values()
+    values["provider_roles"]["writer"]["model"] = "different-writer"
+    with pytest.raises(ValidationError):
+        BuildPendingExecutionPolicyV1.model_validate(values)
+
+
+@pytest.mark.parametrize("field", ["controller_continuation_accounting", "writer_context_budget"])
+def test_pending_policy_cannot_omit_the_frozen_role_accounting(field):
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    values = pending_policy_values()
+    values[field] = None
+    with pytest.raises(ValidationError):
+        BuildPendingExecutionPolicyV1.model_validate(values)
+
+
+
+def estimated_pending_policy_values():
+    values = pending_policy_values()
+    counter = values["controller_continuation_accounting"]
+    values["writer_context_budget"] = dict(schema="dmb_native_writer_estimated_budget_v1",
+        provider="openai", model="gpt-6-luna", api_mode="responses",
+        estimator=counter["policy"], tokenizer_version=counter["tokenizer_version"],
+        context_limit_tokens=None, output_reserve_tokens=0)
+    return values
+
+
+def test_pending_policy_preserves_current_provider_owned_writer_allowance():
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    policy = BuildPendingExecutionPolicyV1.model_validate(estimated_pending_policy_values())
+    assert policy.writer_context_budget.context_limit_tokens is None
+    assert policy.writer_context_budget.output_reserve_tokens == 0
+    assert policy.writer_context_budget.estimator == policy.controller_continuation_accounting.policy
+
+
+def test_pending_policy_rejects_a_different_writer_tokenizer():
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    values = estimated_pending_policy_values()
+    values["writer_context_budget"]["tokenizer_version"] = "different-tokenizer"
+    with pytest.raises(ValidationError, match="writer accounting differs"):
+        BuildPendingExecutionPolicyV1.model_validate(values)
+
+
+def test_pending_policy_rejects_a_different_writer_and_controller_estimator():
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    values = estimated_pending_policy_values()
+    values["controller_continuation_accounting"].update(
+        policy="o200k_double_plus_4096_adaptive_context_v3", raw_wire_limit_bytes=256000)
+    with pytest.raises(ValidationError, match="writer accounting differs"):
+        BuildPendingExecutionPolicyV1.model_validate(values)

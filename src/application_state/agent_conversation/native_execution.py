@@ -260,6 +260,38 @@ class SurfaceNativeExecutionPolicyV1(Strict):
         return self
 
 
+class BuildPendingExecutionPolicyV1(Strict):
+    """Fresh Build policy with an observation commitment, not source authority."""
+    policy_version: Literal["build_pending_execution_v1"] = "build_pending_execution_v1"
+    action: NativeBuildActionV1
+    source_observation_sha256: Digest
+    provider_roles: t.GraphControllerWriterRolesV1
+    provider_input_accounting: t.GraphExecutionAccountingV1
+    max_provider_attempts: int | None = Field(ge=1, strict=True)
+    max_total_provider_input_tokens: int | None = Field(ge=1, strict=True)
+    max_total_provider_output_tokens: int | None = Field(ge=1, strict=True)
+    controller_continuation_accounting: t.BuildControllerContinuationAccountingV4 | t.BuildControllerContinuationAccountingV3
+    writer_context_budget: t.BuildWriterContextBudgetV1 | NativeWriterEstimatedBudgetV1
+
+    @model_validator(mode="after")
+    def fresh_observed_build(self):
+        action = self.action
+        if (action.intent.reviewed_step is not None
+                or getattr(action.intent, "authored_references", None) is not None):
+            raise ValueError("Pending Build policy requires fresh work without authored references")
+        if action.related_page_catalog is not None:
+            raise ValueError("Pending Build policy cannot capture an acquired related-page catalog")
+        if (self.provider_roles.controller.identity() != ("typesafe", "jev-1.14.0", "typesafe_decision")
+                or self.provider_roles.writer.identity() != self.writer_context_budget.identity()):
+            raise ValueError("Pending Build roles differ from their frozen role/accounting owners")
+        if isinstance(self.writer_context_budget, NativeWriterEstimatedBudgetV1):
+            counter = self.controller_continuation_accounting
+            if (self.writer_context_budget.estimator != counter.policy
+                    or self.writer_context_budget.tokenizer_version != counter.tokenizer_version):
+                raise ValueError("Pending Build writer accounting differs from its controller counter")
+        return self
+
+
 class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
     """One native producing frame and exact read set for every new surface.
 
