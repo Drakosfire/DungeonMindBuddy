@@ -187,6 +187,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         monkeypatch.setattr(intent, 'GUIDANCE', guidance)
         monkeypatch.setattr(intent, 'MENU_DIGEST', intent.digest(intent.question(guidance=guidance, work_options=work)))
         monkeypatch.setattr(intent, 'RESOLVER_DIGEST', intent._resolver_digest(work))
+        # The function's default captured the new digest at import time; emulate
+        # the old producer's actual instructions as well as its menu commitments.
+        instructions = intent.decision_instructions
+        old_menu = intent.MENU_DIGEST
+        monkeypatch.setattr(intent, 'decision_instructions',
+            lambda menu_digest=old_menu: instructions(menu_digest))
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
