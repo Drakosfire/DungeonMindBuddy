@@ -4,6 +4,111 @@ Run from the root of the reviewed Buddy checkout on the selected deployment host
 
 Record release-host and public validation outcomes using the [release rehearsal checklist](RELEASE-REHEARSAL-buddy-checklist.md). It summarizes pending evidence and does not replace the steps below.
 
+## Agent-assisted upgrades through SSH
+
+Use the assigned active [deployment handoff](../Plans/HANDOFF-DEPLOY-agent-assisted-ssh-upgrade.md)
+for the current release identity, authorization, and unresolved gates.
+
+Use this workflow for an existing hosted installation. The operator owns
+production changes. SSH access is temporary and release-scoped. On this host,
+the `alan` account can access Docker; Docker access is effectively host-root
+access. Treat it as privileged, not as a general agent credential. An agent
+may run only the exact read-only probes or exact reviewed-release preparation
+command authorized by the active handoff. The agent must not read environment
+values, run arbitrary Docker or Compose commands, access database credentials,
+or perform production backup, restore, migration, or cutover operations.
+
+The current Buddy production host is `srv586875` and the SSH target is
+`alan@191.101.14.169`. Use this target from the deployment workstation.
+
+1. **Establish temporary SSH access.** The operator loads the existing deploy
+   key on the workstation with `ssh-add -t 1h ~/.ssh/id_rsa` (substitute the
+   configured key path). Never copy the private key into a checkout, chat, or
+   server. Use the existing trusted host key. Check noninteractive access with
+   `ssh -F /dev/null -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=yes alan@191.101.14.169 'hostname && whoami'`.
+   Require output `srv586875` and `alan`; stop if the host or account differs.
+   If the agent refuses signing, have the operator refresh the key. Host-key
+   errors require verifying the host identity through the established channel.
+   The temporary identity is for the explicitly assigned release only; do not
+   leave it loaded or reuse it for another task.
+2. **Pin and inspect the release.** Fetch the owning remote. Record the exact
+   reviewed source SHA and frontend verification result. Inspect the running
+   container's image, health, and Compose project labels with `docker inspect
+   --format`. Record the app and Graph migration revisions using the read-only
+   checks below. Compare the candidate against the serving SHA. For a bounded
+   hotfix, transplant the reviewed change onto the serving revision, verify
+   the resulting diff, and run the verifier against that exact release SHA.
+   For a migration-bearing release, use the backup, rehearsal, and separate
+   migration credentials in this runbook.
+3. **Stage and build.** Check host capacity first. Use a clean checkout and
+   `scripts/prepare_buddy_release_image.sh <release-sha>`. If the server has
+   no checkout, stream `git archive <release-sha>` over SSH into a fresh
+   release directory and run `docker build --target api -f Dockerfile.production
+   --label "org.opencontainers.image.revision=<release-sha>"
+   -t "dungeonmindbuddy:<release-sha>" .` there. Inspect the completed image
+   ID and revision label. Stage a Compose override that sets only
+   `services.buddy.image` to the exact tag. Verify the prior image is still
+   available and retain the previous Compose configuration for rollback.
+4. **Hand off production commands to the operator.** Send one exact command
+   with its expected output, wait for the operator to run it in the cloud
+   terminal, and verify that output before giving the next command. Do not
+   automate `sudo`, pass a password through SSH, or combine backup, migration,
+   and cutover into one opaque command. The operator runs the privileged
+   Compose switch in the cloud terminal. Recheck the serving image against
+   the recorded expected SHA. Reuse the running container's ordered
+   `com.docker.compose.project.config_files`, project name, and protected
+   environment file. On the current server that file is
+   `/srv/dungeonmindbuddy/secrets/buddy.env`. The operator runs the privileged
+   Compose command with those inputs and the new image override last.
+   Start with this setup in the operator's Bash session. Fill in the reviewed
+   SHA, the immutable image ID recorded during staging, and the verified
+   paths and project name from the release record. List the active Compose
+   files in their recorded order and put the staged image override last.
+   This setup also works when the image was staged from a source archive.
+
+   ```bash
+   buddy_release='<reviewed full release SHA>'
+   buddy_image_id='<recorded staging image ID including sha256:>'
+   buddy_tag="dungeonmindbuddy:$buddy_release"
+   buddy_compose=(sudo docker compose --project-name '<running Compose project>'
+     --env-file /srv/dungeonmindbuddy/secrets/buddy.env
+     -f '<absolute path to first active Compose file>'
+     -f '<absolute path to next active Compose file, if present>'
+     -f '<absolute path to staged image override>')
+   ```
+
+   Use one `-f` per active file before the staged override. The handoff
+   command must contain the actual values and paths. In the same Bash session,
+   check the staged image ID and resolved Compose image immediately before
+   switching. Continue only when both checks succeed.
+
+   ```bash
+   test "$(sudo docker image inspect --format '{{.Id}}' "$buddy_tag")" = "$buddy_image_id" &&
+     test "$("${buddy_compose[@]}" config --images buddy)" = "$buddy_tag" &&
+     "${buddy_compose[@]}" up -d --no-deps --pull never --wait --wait-timeout 180 buddy
+   ```
+
+   Afterward, verify the running container against the same image ID and
+   reviewed SHA.
+
+   ```bash
+   running_buddy=$("${buddy_compose[@]}" ps -q buddy) &&
+     test -n "$running_buddy" &&
+     test "$(sudo docker inspect --format '{{.Image}}' "$running_buddy")" = "$buddy_image_id" &&
+     test "$(sudo docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$running_buddy")" = "$buddy_release"
+   ```
+
+   If either identity differs, stop and follow the rollback procedure. Keep the
+   root-owned environment file in place and avoid printing rendered Compose
+   config, which can contain secrets. Use narrowly formatted
+   `docker inspect --format` queries; never print the container's full
+   inspection document or environment.
+5. **Verify and settle.** Inspect the running revision and health again
+   over SSH, check the public route, and reproduce the release-specific
+   behavior in a signed-in browser. If health or the smoke test fails,
+   follow the rollback procedure below. Retire old Buddy images only after
+   the rollback window and the retention checks in this runbook.
+
 ## 1. Prepare the release record
 
 Record the host and SSH alias, release commit, image ID or registry digest, Compose project, host bind port, approved absolute persistent root, Nginx virtual host, DNS records, certificate owner, and rollback owner. Record the approved DMS test account and expected World, both database owners and migration heads, and the backup and restore evidence. Keep credentials and session cookies in their designated stores.
