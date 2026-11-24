@@ -42,6 +42,24 @@ def test_positive_control_requires_evidence_not_merely_activity():
     assert assess(case, observation(outcome="answer", reads=["archive"]))["status"] == "unproven"
 
 
+def test_partial_journal_can_prove_required_read_but_not_its_absence():
+    from evals.negative_retrieval.trace_observation import UNKNOWN
+
+    case = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
+            "allowed_reads": ["ledger"], "outcomes": ["answer"]}
+    found = assess(case, observation(outcome="answer", reads=["ledger", UNKNOWN],
+                                     journal_complete=False, required_support=True))
+    assert found["checks"]["required_evidence"] is True
+    assert found["checks"]["unexpected_retrieval"] is None
+    assert found["status"] == "unproven"
+    absent = assess(case, observation(outcome="answer", reads=[], journal_complete=False,
+                                      required_support=True))
+    assert absent["checks"]["required_evidence"] is None
+    complete_absence = assess(case, observation(outcome="answer", reads=[], journal_complete=True,
+                                                required_support=True))
+    assert complete_absence["checks"]["required_evidence"] is False
+
+
 def test_proposal_requires_movable_and_safe_boundary():
     assert assess(CASE, observation(outcome="proposal", movable_proposal=True))["status"] == "pass"
     assert assess(CASE, observation(outcome="proposal"))["status"] == "unproven"
@@ -108,7 +126,7 @@ def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
 
 
 def test_rates_do_not_count_unbound_or_unverified_capture_observations():
-    from evals.negative_retrieval.assessment import summarize
+    from evals.negative_retrieval.assessment import REPORT_SCHEMA, summarize
 
     positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
                 "allowed_reads": ["ledger"], "outcomes": ["answer"]}
@@ -116,8 +134,8 @@ def test_rates_do_not_count_unbound_or_unverified_capture_observations():
     negative = assess(CASE, observation(reads=["unrelated"]))
     missing_read = assess(positive, observation(outcome="answer", required_support=True))
     results = {
-        "negative": {**negative, "fixture_context_verified": None, "capture_environment_verified": True},
-        "positive": {**missing_read, "fixture_context_verified": True, "capture_environment_verified": None},
+        "negative": {**negative, "schema": REPORT_SCHEMA, "fixture_context_verified": None, "capture_environment_verified": True},
+        "positive": {**missing_read, "schema": REPORT_SCHEMA, "fixture_context_verified": True, "capture_environment_verified": None},
         "missing": {"status": "unproven", "missing_artifacts": ["request"]},
     }
     rates = summarize(cases, results)
@@ -131,6 +149,10 @@ def test_rates_do_not_count_unbound_or_unverified_capture_observations():
     assert rates["unnecessary_retrieval"]["failures"] == 1
     assert rates["missed_required_reads"]["failures"] == 1
     del results["negative"]["capture_environment_verified"]
+    assert summarize(cases, results)["unnecessary_retrieval"]["failures"] == 0
+    del results["negative"]["fixture_context_verified"]
+    assert summarize(cases, results)["unnecessary_retrieval"]["failures"] == 0
+    del results["negative"]["schema"]
     assert summarize(cases, results)["unnecessary_retrieval"]["failures"] == 0
 
 

@@ -6,6 +6,9 @@ caller must supply independently reviewed judgments and complete journals.
 
 from .trace_observation import UNKNOWN
 
+ASSESSMENT_SCHEMA = "dmb_negative_retrieval_assessment_v1"
+REPORT_SCHEMA = "dmb_negative_retrieval_report_v1"
+
 
 def assess(case, observation):
     """Score a case without treating missing observations as success."""
@@ -42,7 +45,10 @@ def assess(case, observation):
     unexpected = None if reads is None else sorted(set(reads) - allowed - {UNKNOWN})
     if unknown_labels and not allowed:
         unexpected.append(UNKNOWN)
-    missing = (None if reads is None or complete is not True or unknown_labels
+    # Observed required reads prove presence even in a partial journal. Only a
+    # complete, fully mapped journal can prove a required read was missed.
+    missing = (None if reads is None else [] if required <= set(reads)
+               else None if complete is not True or unknown_labels
                else sorted(required - set(reads)))
     outcome = observation.get("outcome")
     checks = {
@@ -70,7 +76,8 @@ def assess(case, observation):
         if value is not None and type(value) is not bool:
             raise ValueError(f"{key} must be boolean or null")
     status = "fail" if False in checks.values() else "unproven" if None in checks.values() else "pass"
-    return {"status": status, "checks": checks, "unexpected_reads": unexpected, "missing_reads": missing}
+    return {"schema": ASSESSMENT_SCHEMA, "status": status, "checks": checks,
+            "unexpected_reads": unexpected, "missing_reads": missing}
 
 
 def summarize(cases, results):
@@ -89,10 +96,13 @@ def summarize(cases, results):
             # Reports have explicit binding fields; a raw assessor result does
             # not. A violation on an unbound capture is evidence to investigate,
             # not a measured outcome for this frozen cohort.
-            fields = ("fixture_context_verified", "capture_environment_verified")
-            return (isinstance(result.get("checks"), dict)
-                    and (not any(field in result for field in fields)
-                         or all(result.get(field) is True for field in fields)))
+            if not isinstance(result.get("checks"), dict):
+                return False
+            if result.get("schema") == ASSESSMENT_SCHEMA:
+                return True
+            return (result.get("schema") == REPORT_SCHEMA
+                    and result.get("fixture_context_verified") is True
+                    and result.get("capture_environment_verified") is True)
 
         if key == "negative_retrieval":
             values = []

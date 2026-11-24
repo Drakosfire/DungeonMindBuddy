@@ -3,7 +3,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 
-from .assessment import assess
+from .assessment import REPORT_SCHEMA, assess
 from .capture_observation import _body, observe
 from .related_page_probe import acquisition_labels, catalog_discovery_count
 
@@ -19,7 +19,7 @@ def report_case(directory, fixture, rubric):
     hashes = {name: sha256(path.read_bytes()).hexdigest() for name, path in present.items()}
     missing = [name for name in names if name not in present]
     if missing:
-        return {"case_id": fixture["id"], "status": "unproven", "missing_artifacts": missing,
+        return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "status": "unproven", "missing_artifacts": missing,
                 "artifact_sha256": hashes}
     rows = {name: json.loads(path.read_text()) for name, path in present.items()}
     if rows["request"].get("message") != fixture["request"]:
@@ -62,7 +62,7 @@ def report_case(directory, fixture, rubric):
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
     fixture_bound = True if primary_bound and related_bound else None
-    return {"case_id": fixture["id"], **grade, "status": "unproven",
+    return {**grade, "schema": REPORT_SCHEMA, "case_id": fixture["id"], "status": "unproven",
             "observation_status": grade["status"], "primary_context_verified": primary_bound,
             "related_context_verified": related_bound, "fixture_context_verified": fixture_bound,
             "capture_environment_verified": None,

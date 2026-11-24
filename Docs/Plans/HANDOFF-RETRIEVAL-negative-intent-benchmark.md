@@ -343,3 +343,17 @@ Missing-artifact reports also contribute unknown rather than causing a crash.
 The raw failure remains visible in the report. Focused diagnostic: 36 tests
 passed in the shared Python environment; the report still cannot itself attest
 the capture environment, and exact-head qualification remains outstanding.
+
+The scorer now distinguishes proof of a required read from proof of its
+absence: an explicitly mapped required read establishes presence even when
+the acquisition journal is partial, while an absent or unmapped witness is
+unknown until the journal is complete and fully mapped. Semantic support and
+overall journal completeness remain separate requirements. The focused
+diagnostic suite passed 37 tests in the shared environment; no benchmark rate
+or exact-head qualification is implied.
+
+Offline reports now have a distinct format tag from direct assessor results.
+The rate summarizer treats reports with either verification field missing as
+unknown, and also treats unrecognized or missing format tags as unknown. The
+focused test removes each field and the tag to exercise these cases. The tags
+are format discrimination, not authentication of manually edited artifacts.

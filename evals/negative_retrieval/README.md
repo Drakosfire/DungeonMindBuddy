@@ -13,7 +13,9 @@ complete journal is an affirmative, independently established capture property,
 not merely an empty list. Unknown or unrecorded values are `None`. A partial
 journal can prove an unexpected read but cannot prove no read occurred. Required
 labels need source-specific proof and semantic assessment of the actual support;
-a count alone is insufficient. `semantic_quality` is an independent judgment
+a count alone is insufficient. A mapped observed required read proves its
+presence even in a partial journal; a missing read remains unknown unless the
+journal is complete and fully mapped. `semantic_quality` is an independent judgment
 against the case's private rubric, never an exact-string test. For clarification,
 relevance to the unresolved decision, answerability, non-repetition of supplied
 information, and absence of false premises are separate semantic judgments. The
@@ -60,7 +62,11 @@ reports, it also requires both fixture-context and capture-environment
 verification before counting an observed failure or success in a cohort rate;
 unbound, unverified and missing-artifact reports remain unknown. Raw observed
 violations remain visible for investigation. The current report cannot verify
-its capture environment and therefore cannot by itself qualify a rate.
+its capture environment and therefore cannot by itself qualify a rate. Offline
+reports and direct assessor results carry distinct schema tags so missing report
+verification fields do not turn a report into an eligible direct assessment.
+These tags identify formats, not proof against intentional artifact tampering;
+the caller remains responsible for retaining and verifying evidence.
 
 `related_page_probe.observe_related_page_owners()` instruments the actual
 related-page discovery and materialization functions in a serial isolated
