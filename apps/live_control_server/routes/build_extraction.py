@@ -9,11 +9,63 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
 from apps.live_control_server.models.exact_run_candidate_projection import ExactRunCandidateProjection
 from apps.live_control_server.models.build_worldbuilding_launch import BuildWorldbuildingLaunchRequest
 from apps.live_control_server.services.native_recap_source_admission import public_run
 
 router = APIRouter(tags=["build-extraction"])
+
+
+@router.post("/build-recap-launches")
+def post_build_recap_launch(request: Request, body: BuildRecapLaunchRequest) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.build_recap_launch import launch_build_recap
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+
+    hosted = hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
+    if hosted:
+        if request.query_params:
+            raise HTTPException(status_code=403, detail="Unexpected recap launch query")
+        require_hosted_build_native_source(request, body.managed_world_id)
+    else:
+        enforce_native_graph_gm(request)
+    def authorize() -> None:
+        require_hosted_build_native_source(request, body.managed_world_id)
+
+    try:
+        run = launch_build_recap(repo_root(), body, authorize=authorize if hosted else None)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
+    context = get_extraction_run_build_context(run.run_id)
+    if hosted:
+        require_hosted_build_native_source(request, body.managed_world_id)
+    return context
+
+
+@router.get("/build-recap-launches/{request_id}")
+def get_build_recap_launch(request: Request, request_id: UUID, document_id: UUID, managed_world_id: str) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.build_recap_launch import recover_build_recap_launch
+    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        enforce_native_graph_gm(request)
+    else:
+        require_hosted_build_native_source(request, managed_world_id)
+    try:
+        run = recover_build_recap_launch(repo_root(),request_id=request_id,document_id=document_id,managed_world_id=managed_world_id)
+    except Exception as exc:
+        raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
+    context = get_extraction_run_build_context(run.run_id)
+    if context["document_id"] != str(document_id):
+        raise HTTPException(status_code=409, detail="Saved recap launch does not match this document")
+    require_hosted_build_native_source(request, managed_world_id)
+    return context
 
 
 @router.post('/build-worldbuilding-launches')

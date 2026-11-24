@@ -112,7 +112,7 @@ def test_reserved_revision_cas_precedes_model_execution(tmp_path,request_body,co
 def test_authenticated_routes_recover_the_exact_build_envelope(tmp_path,request_body,execute,monkeypatch):
     monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'local')
     monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
-    monkeypatch.setattr('apps.live_control_server.routes.graph_preview.repo_root',lambda:tmp_path)
+    monkeypatch.setattr('apps.live_control_server.routes.build_extraction.repo_root',lambda:tmp_path)
     token = "test-build-recap-local-operator-token"
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
