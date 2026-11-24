@@ -258,6 +258,10 @@
       "argv": [
         "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
         "tests/test_guest_managed_world.py",
+        "tests/test_hosted_index_graph_boundary.py",
+        "tests/test_index_graph.py",
+        "tests/test_index_graph_storage.py",
+        "tests/test_native_graph_demo.py",
         "tests/test_guest_release_assertions.py",
         "tests/test_guest_release_evidence.py",
         "tests/test_guest_release_integration.py",

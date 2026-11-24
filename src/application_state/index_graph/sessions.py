@@ -48,6 +48,8 @@ _FORWARDED_HEADERS = (
     "x-real-ip",
 )
 HOSTED_COOKIE = "__Secure-dmb-guest-graph"
+HOSTED_WORLD_COOKIE = "__Secure-dmb-guest-world"
+HOSTED_WORLD_COOKIE_PATH = "/api/live"
 
 
 def hosted_guest_graph_enabled() -> bool:
@@ -55,8 +57,18 @@ def hosted_guest_graph_enabled() -> bool:
             and os.environ.get("DMB_HOSTED_GUEST_GRAPH_ENABLED") == "1")
 
 
+def hosted_guest_world_enabled() -> bool:
+    return hosted_guest_graph_enabled() and os.environ.get("DMB_HOSTED_GUEST_BUILD_ENABLED") == "1"
+
+
 def graph_cookie_name() -> str:
+    if hosted_guest_world_enabled():
+        return HOSTED_WORLD_COOKIE
     return HOSTED_COOKIE if hosted_guest_graph_enabled() else local_profile()[2]
+
+
+def graph_cookie_path() -> str:
+    return HOSTED_WORLD_COOKIE_PATH if hosted_guest_world_enabled() else COOKIE_PATH
 
 
 @dataclass(frozen=True)
@@ -208,6 +220,22 @@ def read_cookie_credential(request: Request, cookie_name: str) -> str | None:
             "session_cookie_invalid", "The guest session cookie is invalid."
         )
     return credential
+
+
+
+def bootstrap_cookie_credential(request: Request) -> tuple[str | None, bool]:
+    """Read the World cookie, or migrate the old Graph-only cookie once.
+
+    A conflicting pair is never resolved by guessing which credential is
+    authoritative. Only the Graph bootstrap endpoint invokes this fallback.
+    """
+    credential = read_cookie_credential(request, graph_cookie_name())
+    if not hosted_guest_world_enabled():
+        return credential, False
+    legacy = read_cookie_credential(request, HOSTED_COOKIE)
+    if credential is not None and legacy is not None and credential != legacy:
+        raise IndexGraphSessionError("session_cookie_invalid", "The guest session cookie is ambiguous.")
+    return credential or legacy, legacy is not None
 
 
 def create_session(*, replace_credential: str | None = None) -> tuple[str, IndexGraphSession]:

@@ -71,7 +71,7 @@ _GUEST_READ_PATH = re.compile(
     rf"/api/live/guest-releases/{_GUEST_UUID}(?:/releases/{_GUEST_UUID}/assets/{_GUEST_UUID})?"
 )
 _GUEST_GRAPH_PATH = re.compile(
-    rf"/api/live/index-graph/(?:session|graph|prepare|confirm|reset|operations/{_GUEST_UUID}|nodes/[^/]{{1,256}}/sources)"
+    rf"/api/live/index-graph/(?:session|graph|world|prepare|confirm|reset|operations/{_GUEST_UUID}|nodes/[^/]{{1,256}}/sources)"
 )
 
 
@@ -579,7 +579,7 @@ def install_hosted_request_boundary(
                                                    or "/operations/" in request.url.path
                                                    or request.url.path.endswith("/sources")))
                      or (request.method == "POST" and request.url.path.rsplit("/", 1)[-1]
-                         in {"session", "prepare", "confirm", "reset"}))):
+                         in {"session", "world", "prepare", "confirm", "reset"}))):
             response = await call_next(request)
             response.headers["Cache-Control"] = "no-store"
             response.headers["X-Content-Type-Options"] = "nosniff"
