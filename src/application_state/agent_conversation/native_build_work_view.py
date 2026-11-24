@@ -18,7 +18,10 @@ def semantic_reply_eligible(host, execution):
     """Ordinary Build only; Rules eligibility is checked by its existing owner."""
     from .native_execution import NativeBuildActionV1
     return (type(getattr(execution.policy, 'action', None)) is NativeBuildActionV1
-            and not variant_sources(host) and not lore_outcome_eligible(host, execution))
+            and not variant_sources(host)
+            and not (lore_page_reply(host, execution)
+                     and host.get('response_contract', {}).get('requested_work')
+                     in {'review_lore_page', 'review_lore_page_from_conversation'}))
 
 
 def source_backed_discussion(host, execution):
