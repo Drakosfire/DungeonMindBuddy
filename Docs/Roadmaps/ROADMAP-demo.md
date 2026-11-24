@@ -33,11 +33,14 @@ separately. Stream only user-facing answer text. The saved reply and citations
 remain authoritative after completion and reload.
 
 The goal is complete when a hosted browser check in Buddy Cloud Pilot shows at
-least two visible text updates before completion. Record time from Send to
-context ready, first visible text, and completion. Verify that reload shows one
-saved reply with its citations, and that a disconnect, failed turn, or switch to
-another conversation or World leaves partial text out of completed history.
-Check keyboard focus and coherent screen-reader announcements.
+least two visible text updates before completion. Measure Send to context
+ready, context ready to first visible text, and Send to completion separately.
+After reload, verify that exactly one reply appears and that its text and
+citations match the stored turn. Automate checks for event ordering and for
+disconnects, failed turns, and conversation or World switches. Partial text must
+stay out of completed history and out of other conversations. Check keyboard
+focus and confirm with a screen reader that the reply is announced coherently
+once.
 
 [Issue #3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838) owns
 implementation scope and acceptance. Use small, independently reviewed PRs and
