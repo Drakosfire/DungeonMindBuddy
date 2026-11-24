@@ -732,7 +732,9 @@ class NativeBodyNavigation:
     def select(self, handles):
         # Close Core's read transport separately from the APP commit's exception
         # handling. Each observation still owns its original durable boundary.
-        with closing(ExitStack()) as source_session:
+        from application_state.agent_conversation.service import reuse_source_append_connection
+
+        with reuse_source_append_connection(), closing(ExitStack()) as source_session:
             return self._select_with_read_session(handles, source_session)
 
     def _select_with_read_session(self, handles, source_session):

@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-from contextlib import ExitStack, contextmanager, nullcontext
+from contextlib import ExitStack, closing, contextmanager, nullcontext
+from contextvars import ContextVar
+from functools import cache
+from threading import get_ident
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
+from psycopg.pq import TransactionStatus
 
 from application_state.agent_conversation import repository as repo
 from application_state.agent_conversation.context_trace import (
@@ -102,6 +106,7 @@ from application_state.errors import (
     ApplicationStateNotFoundError,
     ApplicationStateValidationError,
 )
+from application_state.engine import connect
 from application_state.unit_of_work import unit_of_work
 
 if TYPE_CHECKING:
@@ -271,11 +276,36 @@ def _ready_dsn() -> str:
     return dsn
 
 
+_source_append_connection = ContextVar("_source_append_connection", default=None)
+
+
 @contextmanager
-def _execution_append_transaction(measure):
+def reuse_source_append_connection():
+    """Lease one App connection for synchronous source appends in a selection."""
+    with ExitStack() as scope:
+        @cache
+        def open_connection():
+            return scope.enter_context(closing(connect(load_runtime_dsn())))
+
+        token = _source_append_connection.set((get_ident(), open_connection))
+        try:
+            yield
+        finally:
+            _source_append_connection.reset(token)
+
+
+@contextmanager
+def _execution_append_transaction(measure, *, source_append=False):
     with ExitStack() as stack:
         with measure("first_jev_send_transaction_open"):
-            conn = stack.enter_context(unit_of_work(load_runtime_dsn()))
+            lease = _source_append_connection.get() if source_append else None
+            if lease is not None and lease[0] == get_ident():
+                conn = lease[1]()
+                if conn.info.transaction_status != TransactionStatus.IDLE:
+                    raise ApplicationStateIntegrityError("Source append connection is not idle")
+                stack.enter_context(conn.transaction())
+            else:
+                conn = stack.enter_context(unit_of_work(load_runtime_dsn()))
         with measure("first_jev_send_schema_check"):
             assert_connection_at_head(conn)
         yield conn
@@ -1726,7 +1756,9 @@ class AgentConversationService:
         if _connection is not None:
             transaction = nullcontext(_connection)
         else:
-            transaction = _execution_append_transaction(measure)
+            transaction = _execution_append_transaction(
+                measure, source_append=native_source_materializer is not None,
+            )
         with transaction as conn:
             action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
                 conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
