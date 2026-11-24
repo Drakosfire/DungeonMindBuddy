@@ -12,6 +12,10 @@ const GuestReleasePage = deferredComponent(
   () => import("./guestRelease/GuestReleasePage").then(module => ({ default: module.GuestReleasePage })),
   "shared World",
 );
+const GuestProductGraph = deferredComponent(
+  () => import("./guestRelease/GuestProductGraph").then(module => ({ default: module.GuestProductGraph })),
+  "shared Graph",
+);
 
 function guestReleaseId(locationSnapshot: string): string | null {
   const match = /^\/visit\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:#.*)?$/.exec(locationSnapshot);
@@ -59,6 +63,9 @@ function HomeOrWorld({ locationSnapshot }: { locationSnapshot: string }) {
   const publicId = guestHomeId();
   if (auth.status === "signed_out" && publicId && isGuestHomeLocation(locationSnapshot)) {
     return <GuestReleasePage publicId={publicId} home />;
+  }
+  if (auth.status === "signed_out" && publicId && locationSnapshot === "/graph") {
+    return <GuestProductGraph publicId={publicId} />;
   }
   return <SelectedWorldProvider locationSnapshot={locationSnapshot}>
     <SharedBuddyApp locationSnapshot={locationSnapshot} />
