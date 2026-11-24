@@ -496,6 +496,18 @@ negative-path diagnostic, not a qualified fixture, model rate, real Core or
 deployed result. The test's later explicit page save simulates author action;
 the owner assertions check the unchanged page before that action.
 
+Case 25 adapted the same disposable owner fixture to expose exactly the frozen
+`harbour` related-page inventory and verified its title, body and identity before
+and after the measured product turn. Those pre/post fixture reads were excluded
+from the probe. The proposal path completed, but the zero-retrieval assertion
+failed: one catalog discovery and two materialization calls for the related
+page. The derived witness, worker and failure log are retained under
+`http-owner/session/case-25` and `http-owner`. The synthetic owner fixture's
+unrelated source page was made ineligible for related-page discovery within
+that disposable World; prior dialogue still used test Plan provenance, the Core
+was in memory, and the controller/writer were scripted. This improves fixture
+matching but is not a qualified live-model cohort or exact-head result.
+
 Offline reporting now exposes available terminal status and separate
 discovery/materialization attempt and exception counts even when other
 required capture artifacts are missing. Such reports stay unproven and count
