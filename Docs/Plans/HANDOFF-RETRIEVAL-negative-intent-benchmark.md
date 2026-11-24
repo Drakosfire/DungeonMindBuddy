@@ -385,3 +385,15 @@ The worker, derived test and log are retained under `http-owner` and
 in memory, and the product source is the predecessor SHA. This is a successful
 saved-question control, not the ambiguous placement case, a mounted UI test,
 answer submission, continuation, current-head qualification or deployed proof.
+
+Cases 20–22 extended that owner test with a synthetic answer submitted through
+the ordinary Build endpoint. Case 20 failed because the fixture still forbade
+controller routing after the reviewed step; case 21 received HTTP 200 but the
+test incorrectly expected a lifecycle field in the library projection. Case 22
+reset the fixture and checked status through the conversation owner: it passed
+HTTP submission, completed saved answer turn, retained typed question and
+answer after conversation switch, and unchanged primary page (1 test). All
+workers, derived tests and logs remain under `http-owner/session/case-20`–
+`case-22`. The controller/writer were scripted and the output was not judged
+to complete the original task. This is not mounted UI, ambiguous-placement,
+live-model, exact-head or deployed evidence.
