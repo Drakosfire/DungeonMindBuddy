@@ -5,6 +5,77 @@ side effects, in addition to whether Buddy produces a useful response. Use the
 existing Plan authoring contract and retained APP turn evidence. Keep the
 assessment local.
 
+## Action catalog
+
+An **ordinary turn** uses Buddy’s product intent and provider routes in an
+isolated or hosted setting. Record which setting and turn were observed.
+**Component evidence** covers isolated owners, scripted rehearsals, or
+prototypes. **Requested** describes the behavior to qualify. Record draft,
+confirmation, mutation, and independent reopen individually. A successful
+stage supplies evidence only for that stage.
+
+| Action | Strongest verified boundary | Requested behavior or remaining proof |
+| --- | --- | --- |
+| Discuss, clarify, or brainstorm in chat | The opening Meat Mind dogfood produced a grounded reply with excessive retrieval. PA01 retains a Sheep discussion where Buddy offered an unsolicited insertion after prior page writing. | Stay in conversation, ask a focused question when needed, reuse adequate admitted context, and offer zero page proposals. |
+| Draft and edit in conversation | Revisioned conversation draft ownership shipped [in #3827](https://github.com/Drakosfire/DungeonMindBuddy/pull/3827). | PA03 must demonstrate two independently editable drafts and restore both edits after reopen, with zero page effects. |
+| Propose a targeted edit, insert a table, then apply and save | PA02 retains a Sheep placement control. AW01 proves provider-free targeted Edge row save and reopen. | AW03 needs an ordinary six-NPC request, one reviewed table insertion in the exact location, and preservation of neighboring content. |
+| Research and cite PDF evidence, then assemble Plan cards | The ordinary Conks Plan turn used 13 reviewed Events and returned 26 links to 13 PDF regions, all reopened. The full proposal covered 9 of 24 qualified items fully, 11 partially, and missed 4. The separate three-card aftermath slice saved and reopened after review and reorder. | Build and save the full playable Plan with choices, triggers, optional scenes, numbered cards, and exact source links. |
+| Draft a standalone page from prior discussion and confirm it | AW10’s isolated ordinary Maelthor replay used zero new acquisition, kept exact retained citations, and saved/reopened one page with an idempotent confirmation receipt. [Release evidence](../Docs/Plans/HANDOFF-DOGFOOD-aw10-release-selection.md) | Keep the research contrast, stale and foreign review controls, and exact citation ownership checks. |
+| Retrieve, adapt, preview, save, link, or load a statblock | AW09 has component evidence for draft review, variant save/reopen, confirmed link, and exact Combat admission. The joined rehearsal used scripted outputs. [Evidence](../Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Ordinary Meat Mind brainstorming through confirmed save, Edge link, independent discovery, and Combat load. Also qualify a new incidental NPC from a name and description in both Plan and Play. |
+| Correct names and resolve existing identity | C2S30 supplies the observed corrections, possessive, and identity ambiguity used by AW02, AW04, and AW05. | Preserve original input, apply only the accepted occurrence, and reuse a reviewed identity without creating a duplicate. Qualify each boundary. |
+| Verify support, publish, block, or replace | Reviewed PDF Event prep publication and exact citation reopening are proven component boundaries. C2S30 supplies the support-error fixture. | AW06–AW08 must distinguish safe refusal from verified publication. Replacement must preserve authored and shared material and keep the prior revision inspectable. |
+| Prepare map, reference objects, and NPC art | The Conks prototype provides design evidence. | Excerpt or generate a map, link locations and reopen them, support editable Items and rollable Tables, and attach adopted or generated art to NPC identities so it appears in scene. |
+| Run a prepared scene, load Combat, record notes, and carry forward played history | Isolated controls exercised loaded Guardian mechanics, a combat round, a resource change, scene notes, and cited Event readback. | Prove the joined flow with PCs and saved mechanics, a departure from the Plan, reviewed recap publication, and a cited fresh follow-up. |
+
+The [adventure-to-follow-up benchmark](adventure-to-follow-up-benchmark.md)
+owns the Conks and Sheep journey acceptance and its evidence. The original AW
+and PA cases below retain their fixture and execution requirements.
+
+## Workflow decision benchmark
+
+**Design for qualification.** Reuse PA/AW and adventure fixtures and the
+existing capture and scoring owners. Each row below is an independent
+decision checkpoint with a pinned dialogue prefix, active surface and
+selection, available sources, durable state, and confirmation state. Change
+one condition per contrast. Keep the expected decision and evidence rubric
+local. Ordinary Buddy turns exercise selection with the normal decision
+route. Provider-free owner tests exercise persistence, retry, and readback.
+
+| Workflow checkpoint | Expected choice | Contrast and prohibited effects |
+| --- | --- | --- |
+| Sheep discussion after a page-writing turn | Discuss or ask a relevant question in chat. | Explicit insertion request on the same Plan stages one proposal at the requested placement. Any page proposal during discussion fails, including a dismissed proposal. |
+| Two editable drafts requested in chat | Stage two editable conversation drafts. | An explicit later request can stage a chosen draft at the page target. Draft edits alone never reserve or mutate the page. |
+| Maelthor evidence already in prior turns | Stage a sourced standalone page review from retained turns. | Explicit research or materially missing support calls for a bounded read or clarification, as specified by the fixture. Sufficient retained evidence permits zero new discovery. |
+| Maelthor or Meat Mind confirmation | Commit the displayed revision once and reopen it independently. | Unconfirmed or stale review produces zero durable mutations. Retry after a lost acknowledgement resolves the existing receipt. A link or Combat action needs its own requested destination and boundary. |
+| Meat Mind discussion with an explicit statblock reference | Open the exact reference and relevant Edge context once, then discuss. Reuse it when the follow-up only changes the premise. | A request for a draft stages a reviewable statblock. A new evidence gap permits a targeted read. Neither discussion nor preview creates a saved variant. |
+| Conks prep versus an unexpected encounter in Play | In Plan, propose playable branches and source-backed cards. In Play, offer usable reviewed mechanics for the incidental NPC when requested. | Combat begins only after explicit authorization with the exact saved mechanics. Play notes and recap reflect the branch actually played. |
+| C2S30 ambiguity or missing support | Ask for identity selection or report the missing publication prerequisite. | Verified support and a reviewed identity permit one publication. A blocked case preserves the candidate and produces zero mutation or success receipt. |
+| Review a recap after Play | Stage a draft from played notes and retain open threads. | Publish only on confirmation and reopen cited played Events. Unused Plan branches remain prep. A fresh follow-up reads the played outcome. |
+
+At each checkpoint record the first consequential action and the ordered
+sequence through the next review or delivery boundary. Include read
+discovery and exact opens, destination, proposals, confirmations,
+mutations, receipts, and reopen results. Score independently:
+
+1. **Choice** — the observed operation, acquisition scope, destination, and
+   timing fit an explicitly allowed sequence for the pinned state.
+2. **Safety** — forbidden effects fail immediately. Missing telemetry makes
+   a no-action result unverified. Measure duplicate and preconfirmation
+   mutations with the ordered journal and independent readback.
+3. **Fulfillment** — the requested reply, draft, or durable state is usable
+   and required citations reopen exactly. A safe refusal can pass a blocked
+   fixture without proving the blocked mutation.
+4. **Efficiency** — report new reads, repeated opens, provider calls, tokens,
+   time, and operator interventions when observed. Record unknown values.
+
+A workflow passes when every required checkpoint passes choice, safety, and
+fulfillment. Report checkpoint totals and the first failing step. Use the
+existing action report for its supported side-effect and fulfillment checks.
+Action-sequence grading is new work. Start with offline scoring of retained
+Sheep and Maelthor captures. Extend the shared scorer once to compare ordered
+events with allowed sequences, and use it for the remaining fixtures. Report
+missing evidence before scheduling any fresh replay.
+
 ## Plan authoring and conversation-only cohort
 
 | Case | Request and starting state | Required result |
