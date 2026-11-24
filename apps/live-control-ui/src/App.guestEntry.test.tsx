@@ -569,6 +569,7 @@ describe("canonical local guest entry", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
     expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sizzek World graph" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset guest World" })).toBeInTheDocument();
     expectOnlyScopedIndexCalls(fetchMock);
     fireEvent.click(screen.getByRole("button", { name: "Lina, person" }));

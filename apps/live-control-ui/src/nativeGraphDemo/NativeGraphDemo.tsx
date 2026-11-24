@@ -1609,7 +1609,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   if (loading && !graph) {
     return <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
       {embeddedContext}
-      <h1 className={embedded ? "native-demo-sr-only" : undefined}>{embedded ? mode !== "playground" ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground" : ""}</h1>
+      <h1 className={embedded ? "native-demo-sr-only" : undefined}>{embedded ? mode !== "playground" || worldTitle ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground" : ""}</h1>
       <div className="native-demo-loading" role="status">Opening the DungeonMind graph…</div>
     </main>;
   }
@@ -1619,7 +1619,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
         {embeddedContext}
         <section className="native-demo-error-card" aria-labelledby="native-demo-title">
-          <p className="native-demo-kicker">{embedded ? mode !== "playground" ? `BUDDY · ${worldTitle?.trim() || "SHARED WORLD"}` : "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
+          <p className="native-demo-kicker">{embedded ? mode !== "playground" || worldTitle ? `BUDDY · ${worldTitle?.trim() || "SHARED WORLD"}` : "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
           <h1 id="native-demo-title">The graph is not available yet</h1>
           <p role="alert">{notice?.text ?? (embedded ? mode === "managed" ? `Buddy could not open ${worldTitle?.trim() || "the selected World"} right now.` : "Buddy could not open the private playground right now." : "The isolated DungeonMind service has not returned a graph.")}</p>
           {mode !== "managed" || stateScopeId ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
@@ -1876,7 +1876,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         }
       }}>
       {embeddedContext}
-      {embedded ? <h1 className="native-demo-sr-only">{mode !== "playground" ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground"}</h1> : null}
+      {embedded ? <h1 className="native-demo-sr-only">{mode !== "playground" || worldTitle ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground"}</h1> : null}
       <div className={`native-demo-layout${embedded ? " native-demo-layout--embedded" : ""}`}>
         {!embedded ? <header className="native-demo-header">
           <div className="native-demo-brand-mark" aria-hidden="true"><span>{embedded ? "B" : "DM"}</span></div>
