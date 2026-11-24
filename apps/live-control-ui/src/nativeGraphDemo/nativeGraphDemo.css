@@ -113,6 +113,8 @@
 .native-demo-limit-detail { margin: 8px 0 0; color: #aaa99f; font-size: 11px; line-height: 1.5; }
 .native-demo-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 22px; margin-top: 18px; padding: 0 4px; color: #8f928b; font-size: 10px; line-height: 1.5; }
 .native-demo-loading, .native-demo-error-card { width: min(680px, 100%); margin: 15vh auto 0; padding: 28px; border: 1px solid #474234; border-radius: 18px; background: #222523; color: #e9e1d0; box-shadow: 0 20px 60px rgb(0 0 0 / 25%); }
+.native-demo-error-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.native-demo-error-actions a { display: inline-flex; align-items: center; text-decoration: none; }
 .native-demo-error-card h1 { margin: 0; font: 600 28px/1.15 Georgia, serif; }
 .native-demo-error-card p:not(.native-demo-kicker) { margin: 12px 0 18px; color: #d1c4a9; font-size: 14px; line-height: 1.55; }
 

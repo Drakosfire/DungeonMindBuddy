@@ -1,3 +1,4 @@
+import { interceptPrimaryNavigationClick } from "../chrome/appNavigation";
 import { downloadBlob } from "../shared/downloadBlob";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type {
@@ -87,7 +88,7 @@ interface LayoutState {
 
 type PendingStatus = "none" | "prepare_retry" | "not_sent" | "preparing" | "checking" | "not_found" | "rejected" | "unknown" | "prepared";
 type NoticeKind = "success" | "info" | "warning" | "error";
-interface Notice { readonly kind: NoticeKind; readonly text: string }
+interface Notice { readonly kind: NoticeKind; readonly text: string; readonly accessDenied?: boolean }
 
 const EMPTY_DRAFT: DemoFormDraft = {
   objectName: "",
@@ -284,6 +285,11 @@ function asApiError(error: unknown): NativeGraphDemoApiError | null {
   return error instanceof NativeGraphDemoApiError ? error : null;
 }
 
+function isGraphAccessDenied(error: unknown): boolean {
+  const status = asApiError(error)?.status;
+  return status === 401 || status === 403;
+}
+
 function detailLimitations(graph: NativeGraph): string[] {
   return graph.limitations.filter((value) => typeof value === "string" && Boolean(value.trim()));
 }
@@ -460,6 +466,7 @@ export interface NativeGraphDemoProps {
   readonly worldTitle?: string;
   /** Stable managed-world identity used only to isolate browser draft and layout storage. */
   readonly stateScopeId?: string;
+  readonly openBuildHref?: string;
   /** Presentation limit only; does not authorize entity or source access. */
   readonly entityOnlyDetails?: boolean;
   readonly readOnly?: boolean;
@@ -467,7 +474,7 @@ export interface NativeGraphDemoProps {
   readonly renderGuestNodeDetails?: (nodeId: string, onExplore: (nodeId: string) => void) => ReactNode;
 }
 
-export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly: requestedReadOnly = false, renderGuestNodeDetails }: NativeGraphDemoProps) {
+export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, openBuildHref, entityOnlyDetails = false, readOnly: requestedReadOnly = false, renderGuestNodeDetails }: NativeGraphDemoProps) {
   const readOnly = requestedReadOnly || mode === "guest";
   const api = useMemo(() => providedApi ?? (mode !== "playground" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
@@ -1016,7 +1023,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     }).catch((error: unknown) => {
       if (!ownsMount(owner) || graphRequest !== graphRequestGenerationRef.current) return;
       setLoading(false);
-      setNotice({ kind: "error", text: describeError(error) });
+      setNotice({ kind: "error", text: describeError(error), accessDenied: isGraphAccessDenied(error) });
     });
     return () => {
       controller.abort();
@@ -1046,7 +1053,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       setNotice({ kind: "success", text: "Latest graph revision loaded from DungeonMind. Your current form draft is preserved." });
     } catch (error) {
       if (!ownsMount(owner) || graphRequest !== graphRequestGenerationRef.current) return;
-      setNotice({ kind: "error", text: `The latest graph could not be loaded. Your draft is unchanged: ${describeError(error)}` });
+      setNotice({
+        kind: "error",
+        text: `The latest graph could not be loaded. Your draft is unchanged: ${describeError(error)}`,
+        accessDenied: isGraphAccessDenied(error),
+      });
     } finally {
       if (refreshControllerRef.current === controller) {
         refreshControllerRef.current = null;
@@ -1620,16 +1631,22 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }
 
   if (!graph) {
+    const accessDenied = mode === "managed" && notice?.accessDenied;
     return (
       <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
         {embeddedContext}
         <section className="native-demo-error-card" aria-labelledby="native-demo-title">
           <p className="native-demo-kicker">{embedded ? mode !== "playground" || worldTitle ? `BUDDY · ${worldTitle?.trim() || "SHARED WORLD"}` : "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
-          <h1 id="native-demo-title">The graph is not available yet</h1>
+          <h1 id="native-demo-title">{accessDenied ? "Graph access unavailable" : "The graph is not available yet"}</h1>
           <p role="alert">{notice?.text ?? (embedded ? mode === "managed" ? `Buddy could not open ${worldTitle?.trim() || "the selected World"} right now.` : "Buddy could not open the private playground right now." : "The isolated DungeonMind service has not returned a graph.")}</p>
-          {mode !== "managed" || stateScopeId ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
-            {refreshing ? "Checking…" : "Try again"}
-          </button> : null}
+          <div className="native-demo-error-actions">
+            {mode !== "managed" || stateScopeId ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
+              {refreshing ? "Checking…" : "Try again"}
+            </button> : null}
+            {mode === "managed" && stateScopeId && openBuildHref && !accessDenied ? (
+              <a className="native-demo-button native-demo-button--light" href={openBuildHref} onClick={interceptPrimaryNavigationClick}>Open Build</a>
+            ) : null}
+          </div>
         </section>
       </main>
     );

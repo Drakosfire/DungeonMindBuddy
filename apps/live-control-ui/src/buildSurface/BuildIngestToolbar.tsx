@@ -85,12 +85,14 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
       <div className="build-ingest-toolbar-row">
         <p data-testid="build-native-source-status" aria-live="polite">
           {nativeSource.loading
-            ? "Native World source: checking…"
+            ? "Checking whether the source is ready for World reviews…"
             : nativeSource.status?.state === "admitted"
-              ? "Native World source: admitted"
+              ? "Source saved and ready to use as evidence in World reviews."
               : nativeSource.status?.state === "pending"
-                ? "Source saved; native World admission pending"
-                : "Native World source status unavailable"}
+                ? nativeSource.status.code === "native_admission_pending"
+                  ? "Source saved. It isn’t ready to use as evidence in World reviews yet."
+                  : "Source saved. Buddy couldn’t check whether it’s ready for World reviews."
+                : "Couldn’t check whether the source is ready for World reviews."}
         </p>
         <div className="build-ingest-toolbar-actions">
           {nativeSource.status?.state === "pending" ? (
@@ -100,7 +102,7 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
               onClick={() => void nativeSource.retry()}
               disabled={nativeSource.retrying || nativeSource.loading}
             >
-              {nativeSource.retrying ? "Admitting…" : "Retry World admission"}
+              {nativeSource.retrying ? "Preparing source…" : "Retry source preparation"}
             </button>
           ) : null}
           <button
@@ -109,7 +111,7 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
             onClick={() => void nativeSource.reload()}
             disabled={nativeSource.loading || nativeSource.retrying}
           >
-            Refresh World status
+            Check source status
           </button>
         </div>
       </div>
