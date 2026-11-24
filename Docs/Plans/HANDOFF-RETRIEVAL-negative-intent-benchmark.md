@@ -397,3 +397,23 @@ workers, derived tests and logs remain under `http-owner/session/case-20`–
 `case-22`. The controller/writer were scripted and the output was not judged
 to complete the original task. This is not mounted UI, ambiguous-placement,
 live-model, exact-head or deployed evidence.
+
+An isolated mounted-component follow-up exercised a scripted completed answer,
+updated synthetic saved history and remount. The first attempt failed to find
+the question after remount; its console output was truncated. A corrected
+saved-reply projection still failed (`corrected.log`). Adding diagnostic DOM
+output produced one pass (`reopen-dom.log`), but replacing that output with a
+five-second asynchronous assertion failed again (`waited.log`). The scripted
+reply and answer appeared in the passing DOM capture, but this inconsistent
+result does not establish successful reopen or a product defect: the synthetic
+harness and timing remain unresolved. The derived test and logs are retained
+at `Projects/.codex/buddy-check.inline-continuation.666msV`; its disposable UI
+copy and copied dependencies were removed after the process exited. Node 21.6.2
+and matching copied lockfile dependencies were used under the frontend lock;
+this is not the required Node 22 exact-source verification, actual server
+continuation, live-model behavior or deployed smoke.
+
+Buddy main `93d94e9de081c1ba55daf530348a63cfacdfa124` merged the serial
+cohort App-clone runner #4583. This benchmark branch still needs integration
+against the updated runner and an authorized synthetic Core binding; that merge
+does not itself qualify the fixture or unblock model dispatch.
