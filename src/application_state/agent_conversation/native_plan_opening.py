@@ -575,14 +575,22 @@ def bind_opening_author_scope(execution, observation_event_id, observation):
 
 
 def can_skip_author_scope_recheck(request, observation, capture):
-    from .plan_author_location import UnscopedLocation
+    from .plan_author_location import UnscopedLocation, explicit_direction_options
+    from .plan_contextual_targets import UNSTATED_INSERTION_LOCATION
 
+    # A bare caret supplies no location for an explicit discussion decision.
+    # Keep the provider observation intact and preserve the direction veto.
+    unscoped_relation = observation.relation == 'unresolved' or (
+        observation.relation == UNSTATED_INSERTION_LOCATION
+        and observation.page_edit_intent == 'discussion'
+        and not explicit_direction_options(request.question)
+    )
     return (
         not request.dialogue
         and request.requested_operation is None
         and (capture is None or not capture.selected_text)
         and observation.page_edit_intent in ('discussion', 'unresolved')
-        and observation.relation == 'unresolved'
+        and unscoped_relation
         and observation.selected_alias == 'none'
         and isinstance(observation.scope, UnscopedLocation)
         and not _author_scope_offers(request)
