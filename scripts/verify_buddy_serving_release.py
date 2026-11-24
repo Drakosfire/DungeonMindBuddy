@@ -23,6 +23,33 @@ def validate_pr(record: dict[str, Any], *, revision: str, branch: str) -> None:
         raise ValueError("PR is not merged at the requested revision into the configured serving branch")
 
 
+def validate_serving_parent(*, revision: str, parent: str) -> None:
+    """Require the live source to be the first parent or an identical ancestor.
+
+    A serving branch merge can have the deployed source as its second parent
+    while retaining exactly that source tree. The immutable rollback image is
+    still checked against the supplied parent by the staging helper.
+    """
+    first_parent = subprocess.check_output(
+        ["git", "rev-parse", f"{revision}^1"], text=True,
+    ).strip()
+    if first_parent == parent:
+        return
+    try:
+        subprocess.run(["git", "merge-base", "--is-ancestor", parent, first_parent],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        expected_tree = subprocess.check_output(
+            ["git", "rev-parse", f"{parent}^{{tree}}"], text=True,
+        ).strip()
+        first_parent_tree = subprocess.check_output(
+            ["git", "rev-parse", f"{first_parent}^{{tree}}"], text=True,
+        ).strip()
+    except subprocess.CalledProcessError as exc:
+        raise ValueError("serving parent is not an ancestor of the candidate base") from exc
+    if expected_tree != first_parent_tree:
+        raise ValueError("candidate base differs from the currently serving source tree")
+
+
 def verify(*, revision: str, parent: str, pr: str, branch: str, repository: str) -> None:
     if not SHA.fullmatch(revision) or not SHA.fullmatch(parent) or revision == parent:
         raise ValueError("exact, distinct candidate and serving-parent revisions are required")
@@ -46,9 +73,9 @@ def verify(*, revision: str, parent: str, pr: str, branch: str, repository: str)
         env = {**os.environ, "GIT_ASKPASS": str(askpass), "GIT_TERMINAL_PROMPT": "0"}
         subprocess.run(["git", "fetch", "--no-tags", "origin", f"+refs/heads/{branch}:{ref}"], check=True, env=env)
     actual = subprocess.check_output(["git", "rev-parse", ref], text=True).strip()
-    first_parent = subprocess.check_output(["git", "rev-parse", f"{revision}^1"], text=True).strip()
-    if actual != revision or first_parent != parent:
-        raise ValueError("candidate must be the configured serving branch tip and directly follow the expected serving parent")
+    if actual != revision:
+        raise ValueError("candidate must be the configured serving branch tip")
+    validate_serving_parent(revision=revision, parent=parent)
 
 
 def main() -> int:

@@ -174,6 +174,8 @@ def test_serving_source_requires_exact_merged_pr_tip_and_parent(monkeypatch):
             return json.dumps(metadata)
         if command[-1].endswith("^1"):
             return parent + "\n"
+        if command[-1].endswith("^{tree}"):
+            return ("e" if command[-1].startswith(parent) else "f") * 40 + "\n"
         return revision + "\n"
     monkeypatch.setattr(module.subprocess, "check_output", output)
     monkeypatch.setattr(module.subprocess, "run", lambda command, **kwargs: calls.append(command))
@@ -198,3 +200,46 @@ def test_serving_source_requires_exact_merged_pr_tip_and_parent(monkeypatch):
     monkeypatch.setattr(module.subprocess, "check_output", old_tip)
     with pytest.raises(ValueError):
         module.verify(revision=revision, parent=parent, pr="4607", branch=branch, repository="Drakosfire/DungeonMindBuddy")
+
+
+def test_serving_parent_requires_ancestor_with_identical_tree(tmp_path):
+    import importlib.util
+
+    script = SCRIPT.parent / "verify_buddy_serving_release.py"
+    spec = importlib.util.spec_from_file_location("verify_buddy_serving_release_git", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    def git(*args):
+        return subprocess.check_output(
+            ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", *args],
+            cwd=tmp_path, text=True, stderr=subprocess.PIPE,
+        ).strip()
+
+    git("init", "-q")
+    tracked = tmp_path / "source.txt"
+    tracked.write_text("deployed\n")
+    git("add", "source.txt")
+    git("commit", "-q", "-m", "deployed")
+    deployed = git("rev-parse", "HEAD")
+    tracked.write_text("intermediate\n")
+    git("commit", "-qam", "intermediate")
+    different_ancestor = git("rev-parse", "HEAD")
+    tracked.write_text("deployed\n")
+    git("commit", "-qam", "identical serving tree")
+    base = git("rev-parse", "HEAD")
+    tracked.write_text("candidate\n")
+    git("commit", "-qam", "candidate")
+    candidate = git("rev-parse", "HEAD")
+    unrelated = git("commit-tree", git("rev-parse", f"{deployed}^{{tree}}"), "-m", "unrelated")
+    original = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        module.validate_serving_parent(revision=candidate, parent=base)
+        module.validate_serving_parent(revision=candidate, parent=deployed)
+        with pytest.raises(ValueError, match="differs"):
+            module.validate_serving_parent(revision=candidate, parent=different_ancestor)
+        with pytest.raises(ValueError, match="not an ancestor"):
+            module.validate_serving_parent(revision=candidate, parent=unrelated)
+    finally:
+        os.chdir(original)
