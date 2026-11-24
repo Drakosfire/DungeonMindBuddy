@@ -31,9 +31,13 @@ assessment, not exact wording matching.
 ## Topology and verification
 
 Serial. Slice 1 is eval-only on current main; inspect open PRs and leases before
-claiming any shared path. PR #4573 records a blocked serial acquisition-routing
-successor; PR #3867 owns related Build targeting work. This slice neither
-changes nor dispatches either. Subsequent runtime/delivery fixes require their
+claiming any shared path. PR #4573 merged as
+`5c8c859f337fce63978206cacf6f43e2df3bce75` into its pinned serving lineage,
+clearing the successor's predecessor-merge gate without establishing deployment.
+Its handoff requires a bounded routing assignment pinned to the then-current
+serving parent and a shared Plan-driver lease check before editing. PR #3867 owns
+related Build targeting work. This slice neither changes nor dispatches either.
+Subsequent runtime/delivery fixes require their
 own pinned ownership and sequencing after this benchmark identifies failures.
 Merge and deployment require separate authority.
 
