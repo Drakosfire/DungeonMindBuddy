@@ -77,6 +77,26 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         finally:
             reopened.close()
 
+    def test_snapshot_uses_source_world_manual_profile(self) -> None:
+        from graph_memory.vnext.domain_runtime import dungeonbuddy_dnd5e_manual_profile
+
+        self.service._profile = dungeonbuddy_dnd5e_manual_profile()
+        source = self.service.graph()
+        visitor = NativeGraphDemoService(
+            self.repository, self.state_dir / "manual-profile", storage_label="test-memory",
+            allocation_id="visitor:manual-profile",
+            source_snapshot=(source["world_id"], source["revision_id"], datetime.now(UTC)),
+        )
+        try:
+            copied = visitor.graph()
+            self.assertEqual(visitor._profile.profile_revision, "4")
+            prepared = visitor.prepare(self._create_request(copied, name="Guest manual"))
+            changed = visitor.confirm(prepared["operation_id"])["graph"]
+            self.assertTrue(any(node["name"] == "Guest manual" for node in changed["nodes"]))
+            self.assertFalse(any(node["name"] == "Guest manual" for node in self.service.graph()["nodes"]))
+        finally:
+            visitor.close()
+
     def test_snapshot_copy_recovers_after_lost_response(self) -> None:
         from apps.live_control_server.native_graph_demo import service as graph_service
 

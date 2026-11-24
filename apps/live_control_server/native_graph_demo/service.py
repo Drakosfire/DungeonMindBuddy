@@ -42,6 +42,7 @@ from graph_memory.vnext.domain_runtime import (
     GM_LABEL,
     dungeonbuddy_dnd5e_custom_predicate_profile,
     dungeonbuddy_world_domain_contract,
+    resolve_dungeonbuddy_descriptors,
 )
 from worldkeeper.application.commit import (
     CommitAuthorityIntegrityFailure,
@@ -634,9 +635,21 @@ class NativeGraphDemoService:
                 raise ValueError("invalid snapshot binding")
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise DemoError("snapshot_binding_invalid", "The guest World binding is invalid.", 503) from exc
-        if self._repository.get_space_provisioning_receipt(f"native-world-copy:{self._allocation_id}") is None:
-            source = self._repository.get_revision(space_id, revision_id)
-            payload = source.graph_payload if source is not None else None
+        allocation = self._repository.get_space_provisioning_receipt(f"native-world-copy:{self._allocation_id}")
+        if allocation is None:
+            descriptor_revision = self._repository.get_revision(space_id, revision_id)
+        else:
+            descriptor_revision = self._repository.get_revision(
+                allocation.space_id, allocation.publication_receipt.published_revision_id,
+            )
+        if descriptor_revision is None:
+            raise DemoError("snapshot_unavailable", "The shared World is unavailable.", 503)
+        self._domain, self._profile = resolve_dungeonbuddy_descriptors(
+            domain_ref=descriptor_revision.revision.domain_contract_ref,
+            profile_ref=descriptor_revision.revision.semantic_profile_ref,
+        )
+        if allocation is None:
+            payload = descriptor_revision.graph_payload
             if not isinstance(payload, dict):
                 raise DemoError("snapshot_unavailable", "The shared World is unavailable.", 503)
             entities, assertions, aliases, evidence = (payload.get(key) for key in ("entities", "assertions", "aliases", "evidence"))
