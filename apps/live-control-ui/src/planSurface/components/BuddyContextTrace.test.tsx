@@ -350,3 +350,13 @@ it('keeps selected unread references and prepared writer input distinct from pro
  expect(screen.getByText('Graph references · selected, unread')).toBeInTheDocument();expect(screen.getByText('Graph references · prepared writer input')).toBeInTheDocument();expect(screen.getByText(/See provider lifecycle records for transmission and response/)).toBeInTheDocument();
  expect(buddyTraceText(captured)).toContain('writer-attempt');expect(buddyTraceText(captured)).toContain('current-revision');expect(screen.queryByText('response_received')).toBeNull();
 });
+
+
+it('distinguishes a raw retrieval fallback vote from an effective host action', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([
+    {kind:'context_snapshot',stage:'after',sequence:0,elapsed_ms:1,
+      materials:[{item_id:'unvalidated-native-retrieval-result:attempt',state:'model_context',role:'assistant',text:'{\"operation\":\"finish_retrieval\"}'}]},
+  ])} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.getByRole('note')).toHaveTextContent('does not establish the action Buddy executed')
+})

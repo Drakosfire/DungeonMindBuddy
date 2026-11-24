@@ -84,6 +84,7 @@ function ContextSnapshot({ event, trace, passages }: { event: Extract<BuddyTrace
   }) : []
   return <details><summary>{label}</summary>
     <p className="buddy-context-trace__muted">Captured material inventory. When captured, the composed input includes the exact instructions and request envelope.</p>
+    {event.materials.some(item => item.item_id.startsWith('unvalidated-native-retrieval-result:')) && <p role="note">A finish-retrieval vote in this raw model response can be a fallback when no eligible candidates are selected. It does not establish the action Buddy executed; the effective selection is not shown here.</p>}
     {!event.snapshot_kind && <p className="buddy-context-trace__muted">This historical snapshot did not record its purpose. No context changes are inferred.</p>}
     {event.snapshot_kind === 'provider_response' && <p className="buddy-context-trace__muted">Raw returned response, before validation. This is not an inventory of what the provider received.</p>}
     {previous && <div aria-label="Context changes">{changes.length ? changes.map(change =>
