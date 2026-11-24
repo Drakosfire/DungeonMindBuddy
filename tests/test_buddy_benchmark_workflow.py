@@ -662,6 +662,8 @@ def test_relative_capture_output_qualifies_absolute_owned_paths(tmp_path, monkey
         def __exit__(self, *args):
             return False
         def execute(self, query):
+            if "transaction_read_only" in query:
+                return SimpleNamespace(fetchone=lambda: ("on", True))
             return SimpleNamespace(fetchone=lambda: (self.database, "1", "2"))
     monkeypatch.setattr(psycopg, "connect", lambda dsn, **kw: Connection(dsn.rsplit("/", 1)[1]))
     package = ModuleType("apps.live_control_server")
@@ -1541,3 +1543,10 @@ def test_browser_scratch_uses_explicit_directory_on_evidence_filesystem(tmp_path
     monkeypatch.setenv("DMB_BENCHMARK_BROWSER_TMPDIR", "relative")
     with pytest.raises(ValueError, match="existing absolute directory"):
         browser_scratch_directory(output)
+
+
+def test_full_response_capture_cli_passes_clone_request(monkeypatch):
+    calls = []
+    monkeypatch.setattr(w, "capture", lambda *args, **kwargs: calls.append((args, kwargs)))
+    w.main(["capture", "--manifest", "pinned.json", "--output", "isolated", "--clone-app"])
+    assert calls == [(("pinned.json", "isolated"), {"clone_app": True})]

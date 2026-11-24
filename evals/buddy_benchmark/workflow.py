@@ -562,10 +562,9 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
         with psycopg.connect(dsn, options="-c default_transaction_read_only=on", row_factory=dict_row) as conn:
             yield conn
     native_dsn = dsns["DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"]
-    if cohort_member:
-        from .cohort_capture import require_read_only_core
-        require_read_only_core(native_dsn)
-    else:
+    from .cohort_capture import require_read_only_core
+    require_read_only_core(native_dsn)
+    if not cohort_member:
         native_before = row_inventory(native_dsn, readonly=readonly)
         expected_native = json.loads(read_pin(manifest["isolation"]["native"]["inventory"], base))
         if native_before != expected_native:
@@ -635,11 +634,6 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
                     if response.status_code != 200:
                         raise ValueError("Build turn failed; later turns not dispatched")
                     conversation_id = _wrapped(directory / "history-after.json")["body"]["active_conversation_id"]
-                if not cohort_member:
-                    checkpoint = row_inventory(native_dsn, readonly=readonly)
-                    immutable_save(output, "native-after-" + case["id"], checkpoint)
-                    if checkpoint != native_before:
-                        raise ValueError("Native authority changed; later questions not dispatched")
     finally:
         if not cohort_member:
             native_after = row_inventory(native_dsn, readonly=readonly)
@@ -1298,8 +1292,8 @@ def main(argv=None):
         parser.error("--detailed-trace requires capture-context or a browser cohort")
     if args.writer_transport and args.mode != "capture-context":
         parser.error("--writer-transport requires capture-context")
-    if args.clone_app and args.mode not in {"capture-context", "capture-context-cohort"}:
-        parser.error("--clone-app requires capture-context or capture-context-cohort")
+    if args.clone_app and args.mode not in {"capture", "capture-context", "capture-context-cohort"}:
+        parser.error("--clone-app requires capture, capture-context or capture-context-cohort")
     if args.mode != "report" and (args.oracle or args.citation_readback):
         parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "trace-report":
@@ -1321,7 +1315,7 @@ def main(argv=None):
     elif args.mode == "action-report":
         immutable_save(Path(args.output), "action-report", action_report(args.manifest))
     elif args.mode == "capture":
-        capture(args.manifest, args.output)
+        capture(args.manifest, args.output, clone_app=args.clone_app)
     elif args.mode == "capture-context":
         options = {"browser_case": args.case} if args.case is not None else {}
         if args.clone_app:
