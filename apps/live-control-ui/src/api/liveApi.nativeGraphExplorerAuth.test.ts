@@ -1726,3 +1726,39 @@ it.each([403, 404, 409, 500, "network"])("never falls back to public recap POST 
   expect(String(fetch.mock.calls[0]![0])).toContain("/graph-evidence?");
   expect(fetch.mock.calls[0]![1]?.method ?? "GET").toBe("GET");
 });
+
+it("preserves the hosted reply opt-in on the exact Build turn request", async () => {
+  const api = await setup();
+  hostedOrigin();
+  api.setNativeGraphAccessToken("local-bearer");
+  const request = {
+    turn_id: "reply-test", client_thread_id: "thread-test", surface: {surface_id: "build"}, owner_scope: {kind: "world", world_id: "managed-a"},
+    primary_work: {kind: "build"}, graph_request: {mode: "world", world_id: "managed-a"},
+  } as Parameters<typeof api.postWorldBuildAgentTurn>[0];
+  const frame = (kind: string, extra: object = {}) => "data: " + JSON.stringify({
+    schema: "dmb_build_turn_stream_v1", client_turn_id: request.turn_id, kind, ...extra,
+  }) + "\n\n";
+  const final = {answer: {text: "Saved reply"}};
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(
+    frame("reply_context_ready") + frame("reply_text", {sequence: 1, text: "Real answer"})
+      + frame("result", {response: final}),
+    {headers: {"content-type": "text/event-stream"}},
+  )).mockResolvedValueOnce(Response.json({}));
+  const observe = vi.fn();
+  await expect(api.postWorldBuildAgentTurn(request, undefined, observe)).resolves.toEqual(final);
+  const [url, init] = fetch.mock.calls[0]!;
+  expect(url).toBe("/api/live/agent/turn");
+  expect(init).toMatchObject({credentials: "same-origin", redirect: "error"});
+  expect(Object.fromEntries(new Headers(init?.headers))).toEqual({
+    accept: "text/event-stream", "content-type": "application/json", "x-buddy-reply-stream": "1",
+  });
+  expect(observe.mock.calls.flat()).toEqual([
+    {kind: "context_ready"}, {kind: "text", sequence: 1, text: "Real answer"},
+  ]);
+
+  await api.authenticatedApiFetch("/api/live/native-graph-explorer/graph", {
+    method: "POST", body: JSON.stringify({managed_world_id: "managed-a"}),
+    headers: {"X-Buddy-Reply-Stream": "1"},
+  });
+  expect(new Headers(fetch.mock.calls[1]?.[1]?.headers).has("X-Buddy-Reply-Stream")).toBe(false);
+});
