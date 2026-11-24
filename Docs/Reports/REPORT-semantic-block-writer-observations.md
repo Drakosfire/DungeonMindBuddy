@@ -872,9 +872,12 @@ subsequent guest Graph delivery. The completed synthetic turn
 `b6d8465c-8c76-41f5-9a6d-7a3a67af189e` started after the serving container's
 recorded startup.
 
-On the saved **Protected Arrival** page, put the caret at the end of the
-Arrival paragraph and sent the exact B03 request in a fresh conversation.
-The suggestion preview offered two ordinary paragraphs at that boundary.
+The test placed the caret at the end of the Arrival paragraph on the
+saved **Protected Arrival** page and sent the exact B03 request in a fresh
+conversation. The retained trace records Jev 1.14.0 decisions and an OpenAI
+Responses writer call to `gpt-6-luna`. It also records
+`controller_finished_with_gaps` before the writer call. The turn completed
+and the suggestion preview offered two ordinary paragraphs at that boundary.
 Save acknowledged the proposal. After a full reload, the two paragraphs
 were the next two editor blocks after Arrival. Removing those additions
 from the rendered-block comparison recovered all 18 original blocks in
