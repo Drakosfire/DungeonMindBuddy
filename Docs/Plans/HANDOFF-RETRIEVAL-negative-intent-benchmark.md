@@ -101,6 +101,20 @@ derived test and log are retained under `http-owner/session/case-34` and
 `http-owner`. This does not exercise HTTP authentication, integrated App access
 inside a Build turn, a live provider, shared Core, current head or UI.
 
+Case 35 extended the frozen placement HTTP skip-vote witness with a real
+synthetic App binding to its own memory Core head and real managed binding and
+source identity resolvers. The disposable test used the real catalog owner to
+prepare an unbound local-operator-owned World, and checked owner access before
+the request; it restored the fixture's substituted native binding function to
+the real one. The local-operator-authenticated HTTP proposal was created, moved
+and prepared without a premature page mutation; pre/post related inventory
+matched. The zero-acquisition assertion remained red with one catalog discovery
+and no materializations. Worker, generated test and failure log are retained
+under `http-owner/session/case-35` and `http-owner`. Controller and writer were
+scripted, Core was memory-backed and product source was predecessor `d008072`.
+The preflight access check is separate from the HTTP path; this does not prove
+hosted authentication, a live-model decision, current-head behavior or UI.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a
