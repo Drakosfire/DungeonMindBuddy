@@ -126,8 +126,11 @@ under the distinct Build receipt/action/menu discriminator:
 - native_execution: distinct Build pending/settled prefix validation and binding.
 - native_corpus: distinct current source-free admission route, no changes to old
   prior_conversation_work semantics.
-- native_writer/native_completion/writer_evidence_selection: matching current
-  receipt/admission projections and terminals, preserving historical codecs.
+- native_writer/writer_evidence_selection: matching current receipt/admission
+  projections and terminals, preserving historical codecs. native_completion is
+  leased only for new pending/source-free Build dispatch in normalize_output and
+  dedicated new-codec helpers. Existing normalize_candidate question normalization
+  and its question-only helpers are excluded under the explicit split below.
 - owning append/service event registration and the next serving-line reader fence
   migration, if new persisted records require it. Reserve serving-line 20261124_0211_build_source_free_pending.py after rechecking
   that no concurrent serving-line migration owns that revision.
@@ -161,6 +164,29 @@ integrity are later qualification owners, not blanket permission gates for offli
 implementation. Do not claim a diverse long-chat success rate from repetitive
 synthetic sixty-turn fixtures or the narrow Maelthor replay.
 
+## Clarification ownership split
+
+DOGFOOD, the designer/owner of this assignment, explicitly splits the shared
+native_completion.py lease with Restore Clarifying questions / CLARIFICATION4652.
+The original broad path list reserved more than the new routing code needs and
+must not block the independently useful valid-question repair.
+
+CLARIFICATION owns exact-duplicate plain discussion removal for typed questions
+inside the existing normalize_candidate path and any question-only helper it
+introduces, including enforcing the original raw segment bound before deduplication.
+It retains the captured provider response and independently verifies replay and
+reader compatibility. DOGFOOD does not edit or redesign that legacy normalization
+section under this routing assignment. This handoff grants that bounded function
+split now; it does not grant merge, deployment or broader routing authority.
+
+DOGFOOD retains only new pending/source-free Build delegation at normalize_output
+and dedicated new-codec helpers in this file. Existing question normalization is
+read-only to routing. Adopt CLARIFICATION's independently reviewed result when it
+lands; checkpoint any newly required overlap before editing. The rest of the
+Build-only split and the full source-free objective remain intact. The committed
+prototype is currently parked while writer deployment has priority; no source-free
+runtime is active and no passing source-free outcome is claimed.
+
 ## Exclusive bounded implementation write lease
 
 New src/application_state/agent_conversation/build_source_free.py owns the new
@@ -170,9 +196,11 @@ apps/live_control_server/services/{agent_turn_service,build_jev_harness,build_je
 apps/live_control_server/integrations/dungeonmind/native_corpus_source.py only a
 new metadata-observation helper delegating public metadata owners, not the selected
 passage resolver leased by #4561;
-src/application_state/agent_conversation/{build_intentional_response,native_context,native_execution,native_corpus,native_writer,native_completion,writer_evidence_selection,retained_conversation,service,types}.py;
+src/application_state/agent_conversation/{build_intentional_response,native_context,native_execution,native_corpus,native_writer,writer_evidence_selection,retained_conversation,service,types}.py;
 src/application_state/migrations/versions/20261124_0211_build_source_free_pending.py;
 Docs/Plans/HANDOFF-DOGFOOD-source-free-build-routing.md.
+src/application_state/agent_conversation/native_completion.py only the new-codec
+entry dispatch/helpers specified above; legacy question normalization is excluded.
 Only Build-discriminated new-codec registration/delegation in shared validators
 and service admission is allocated; old receipt/action/Plan/Play semantics remain
 byte-identical or have exact unchanged-codec reconstruction tests. Changing more
