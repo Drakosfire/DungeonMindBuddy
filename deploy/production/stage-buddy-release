@@ -5,7 +5,11 @@ umask 077
 
 fail() { printf 'Buddy stage: %s\n' "$*" >&2; exit 1; }
 
-[[ $# == 5 ]] || fail "expected revision, registry digest, image ID, rollback revision and rollback image ID"
+[[ $# == 5 || $# == 6 ]] || fail "expected revision, registry digest, image ID, rollback revision, rollback image ID and optional guest-graph mode"
+mode=${6:-default}
+[[ "$mode" == default || "$mode" == guest-graph ]] || fail "invalid staging mode"
+guest_config='review=0;page=0;home='
+if [[ "$mode" == guest-graph ]]; then guest_config="$guest_config;graph=1"; fi
 revision=$1
 digest=$2
 candidate_id=$3
@@ -56,8 +60,8 @@ identity='{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
   fail "rollback image does not match the approved identity"
 docker pull --platform linux/amd64 "$ref"
 candidate_identity="$identity {{.Os}}/{{.Architecture}} {{index .Config.Labels \"org.dungeonmindbuddy.guest-build\"}}"
-[[ "$(docker image inspect --format "$candidate_identity" "$ref")" == "$candidate_id $revision linux/amd64 review=0;page=0;home=" ]] ||
-  fail "registry image does not match the approved default release identity"
+[[ "$(docker image inspect --format "$candidate_identity" "$ref")" == "$candidate_id $revision linux/amd64 $guest_config" ]] ||
+  fail "registry image does not match the approved release identity"
 
 existing=$(docker image ls --filter "reference=$candidate_tag" --format '{{.Repository}}:{{.Tag}}')
 if [[ -z "$existing" ]]; then

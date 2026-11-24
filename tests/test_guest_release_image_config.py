@@ -42,7 +42,7 @@ elif args[:2] == ["image", "inspect"]:
 def run_helper(fake_tools, **values):
     bindir, calls = fake_tools
     env = os.environ.copy()
-    for key in ("VITE_GUEST_RELEASE_REVIEW", "VITE_GUEST_RELEASE_PAGE", "VITE_GUEST_HOME_PUBLIC_ID"):
+    for key in ("VITE_HOSTED_GUEST_GRAPH", "VITE_GUEST_RELEASE_REVIEW", "VITE_GUEST_RELEASE_PAGE", "VITE_GUEST_HOME_PUBLIC_ID"):
         env.pop(key, None)
     env.update(PATH=f"{bindir}:{env['PATH']}", DOCKER_CALLS=str(calls),
                FAKE_IMAGE=IMAGE, FAKE_REVISION=SHA, **values)
@@ -110,3 +110,48 @@ def test_invalid_configuration_does_not_invoke_docker(fake_tools, values):
     result, calls = run_helper(fake_tools, **values)
     assert result.returncode == 2
     assert calls == []
+
+
+def test_guest_graph_build_has_distinct_configuration_and_tag(fake_tools):
+    config = "review=0;page=0;home=;graph=1"
+    result, calls = run_helper(fake_tools, VITE_HOSTED_GUEST_GRAPH="1", FAKE_CONFIG=config)
+    assert result.returncode == 0, result.stderr
+    build = next(c for c in calls if c[0] == "build")
+    assert "VITE_HOSTED_GUEST_GRAPH=1" in build
+    assert "dungeonmindbuddy:" + SHA + "-guest-" + hashlib.sha256(config.encode()).hexdigest()[:16] in build
+    assert "org.dungeonmindbuddy.guest-build=" + config in build
+
+
+def test_invalid_guest_graph_flag_does_not_invoke_docker(fake_tools):
+    result, calls = run_helper(fake_tools, VITE_HOSTED_GUEST_GRAPH="true")
+    assert result.returncode == 2
+    assert calls == []
+
+
+def test_publisher_keeps_graph_builds_distinct_and_default_off():
+    workflow = (SCRIPT.parents[1] / ".github/workflows/publish-buddy-image.yml").read_text()
+    dockerfile = (SCRIPT.parents[1] / "Dockerfile.production").read_text()
+    assert "ARG VITE_HOSTED_GUEST_GRAPH=0" in dockerfile
+    assert "hosted_guest_graph:" in workflow
+    assert "default: false" in workflow
+    assert "VITE_HOSTED_GUEST_GRAPH=\"$GUEST_GRAPH\"" in workflow
+    assert 'tag="$REVISION-guest-graph"' in workflow
+    assert 'docker image push "$repository:$tag"' in workflow
+
+
+def test_guest_graph_release_rejects_older_source_and_accepts_complete_contract(tmp_path):
+    script = SCRIPT.parent / "verify_guest_graph_release.sh"
+    assert subprocess.run(["bash", str(script), str(tmp_path)], capture_output=True).returncode != 0
+    files = {
+        "Dockerfile.production": "ARG VITE_HOSTED_GUEST_GRAPH=0\n",
+        "apps/live-control-ui/src/App.tsx": "VITE_HOSTED_GUEST_GRAPH\n",
+        "src/application_state/index_graph/sessions.py": "DMB_HOSTED_GUEST_GRAPH_ENABLED\n",
+        "apps/live_control_server/services/hosted_auth.py": "DMB_HOSTED_GUEST_GRAPH_ENABLED\n",
+    }
+    for name, content in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    assert subprocess.run(["bash", str(script), str(tmp_path)], capture_output=True).returncode == 0
+    (tmp_path / "apps/live_control_server/services/hosted_auth.py").write_text("")
+    assert subprocess.run(["bash", str(script), str(tmp_path)], capture_output=True).returncode != 0

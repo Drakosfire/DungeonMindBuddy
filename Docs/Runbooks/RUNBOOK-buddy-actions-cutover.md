@@ -78,7 +78,10 @@ retain the separate paired backup rehearsal and migration procedure.
 Run **Publish Buddy release image** on GitHub Actions from `main`, with the
 full reviewed first-parent commit as `revision`. Copy the immutable registry
 reference from the successful run summary. The image uses the default guest
-build configuration. Derive the expected local image ID from the manifest:
+build configuration unless `hosted_guest_graph` is explicitly selected. The
+selected build uses a separate registry tag and records `graph=1` in its guest
+configuration label. This build option alone does not enable the backend or
+select the authorized snapshot; verify those settings during activation. Derive the expected local image ID from the manifest:
 
 ```bash
 candidate_image_id=$(docker buildx imagetools inspect --raw "$registry_ref" |
@@ -97,6 +100,11 @@ sudo /usr/local/sbin/stage-buddy-release \
   "$revision" "$registry_digest" "$candidate_image_id" \
   "$rollback_revision" "$rollback_image_id"
 ```
+
+For a guest Graph image, append the literal `guest-graph` argument to the stage
+command after installing the reviewed guest-capable stage helper; the default
+five-argument mode continues to accept only the default build. The command
+verifies the corresponding image label.
 
 The command pulls by registry digest, verifies the candidate and rollback
 identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`

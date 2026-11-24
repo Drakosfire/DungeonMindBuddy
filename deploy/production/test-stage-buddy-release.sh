@@ -41,7 +41,7 @@ STUB
 chmod +x "$scratch/bin/"*
 export PATH="$scratch/bin:$PATH"
 record="$scratch/releases/$revision.conf"
-run() { bash "$scratch/stage" "$revision" "$digest" "$candidate_id" "$rollback" "$rollback_id"; }
+run() { bash "$scratch/stage" "$revision" "$digest" "$candidate_id" "$rollback" "$rollback_id" "$@"; }
 refuse() {
   if run >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Unexpected staging success' >&2; exit 1; fi
   grep -F -- "$1" "$scratch/stderr"
@@ -66,4 +66,11 @@ grep -Fx "registry_digest=$digest" "$record"
 [[ $(grep -c '^image tag ' "$scratch/docker") == 1 ]]
 printf '# different approval\n' >> "$record"
 refuse 'existing release policy differs'
-printf 'Staging, idempotency, conflict and lock checks passed.\n'
+rm "$record" "$scratch/tag"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Guest image accepted as default' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+if run invalid-mode >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Invalid mode accepted' >&2; exit 1; fi
+grep -F 'invalid staging mode' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph
+printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'
