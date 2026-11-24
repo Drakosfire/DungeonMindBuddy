@@ -489,6 +489,32 @@ def test_ui_witness_generator_requires_exact_owner_fixture(tmp_path):
         generate(broken, derived)
 
 
+def test_frozen_placement_generator_pins_input_and_owner_anchors(tmp_path):
+    from pathlib import Path
+    import pytest
+    from evals.negative_retrieval.frozen_placement_witness import generate
+
+    root = Path(__file__).resolve().parents[2]
+    source = root / "tests/test_surface_native_build_ordinary.py"
+    fixture = root / "evals/negative_retrieval/fixtures/development.json"
+    digest = sha256(fixture.read_bytes()).hexdigest()
+    output = tmp_path / "derived.py"
+    generate(source, output, fixture, expected_fixture_sha256=digest)
+    content = output.read_text()
+    compile(content, str(output), "exec")
+    assert "test_negative_retrieval_frozen_placement_http" in content
+    assert "negative_retrieval_frozen_inventory_before: verified" in content
+    assert "zero discovery and materialization budget" in content
+    with pytest.raises(ValueError, match="new file"):
+        generate(source, output, fixture, expected_fixture_sha256=digest)
+    with pytest.raises(ValueError, match="pin"):
+        generate(source, tmp_path / "bad.py", fixture, expected_fixture_sha256="0" * 64)
+    broken = tmp_path / "owner.py"
+    broken.write_text(source.read_text().replace("    world = lane.world.world_id\n", "    world = 'changed'\n"))
+    with pytest.raises(ValueError, match="anchor"):
+        generate(broken, tmp_path / "bad-owner.py", fixture, expected_fixture_sha256=digest)
+
+
 def test_related_page_fixture_preflight_rejects_extra_changed_and_duplicate_sources(monkeypatch):
     import copy
     import hashlib

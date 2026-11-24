@@ -508,6 +508,16 @@ that disposable World; prior dialogue still used test Plan provenance, the Core
 was in memory, and the controller/writer were scripted. This improves fixture
 matching but is not a qualified live-model cohort or exact-head result.
 
+Case 26 ran the new eval-owned `frozen_placement_witness` generator against
+the owner test and the pinned development fixture. It reproduced the expected
+red result: verified pre/post inventory, completed scripted proposal, one
+catalog discovery and two materialization attempts. The generator and fixture
+hashes, generated test, worker and failure log are retained under
+`http-owner/session/case-26` and `http-owner`. The generator checks its fixture
+pin and exact test anchors; the focused evaluator suite passed 43 tests in the
+shared environment. This remains predecessor-source, synthetic-provider and
+in-memory Core evidence; it does not qualify a real-model rate or deployment.
+
 Offline reporting now exposes available terminal status and separate
 discovery/materialization attempt and exception counts even when other
 required capture artifacts are missing. Such reports stay unproven and count

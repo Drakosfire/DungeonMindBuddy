@@ -204,3 +204,14 @@ derived witnesses and failed logs are recorded in the
 `HANDOFF-RETRIEVAL-negative-intent-benchmark.md` provider-free baseline.
 These runs are predecessor-source diagnostic evidence, not a live-model cohort,
 current-head qualification or deployed UI evidence.
+
+`frozen_placement_witness.generate` derives the separate frozen development
+placement witness from the same owner test and a caller-pinned fixture file.
+It verifies the related-page inventory around the measured turn and expects
+zero discovery or materialization. The generated test requires the verified
+owned App clone and scripted provider/in-memory Core fixture. On predecessor
+source it intentionally failed that budget after one discovery and two
+materializations, with the proposal path completed. It is not a live-model
+cohort, independent held-out evaluation, or exact-head qualification. The
+owner fixture's later page save simulates author action; the owner asserts the
+page was unchanged before that action.
