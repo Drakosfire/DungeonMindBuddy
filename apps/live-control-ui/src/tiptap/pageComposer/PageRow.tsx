@@ -364,7 +364,9 @@ export const PageBlockIdentity = Extension.create({
         // transaction and only source-level blocks, not paragraphs inside tables.
         const changed = transactions.filter(transaction => transaction.docChanged);
         if (!changed.length) return null;
-        // Exact reviewed insertion and history keep plain pages free of the sidecar.
+        // A plain reviewed insertion already carries an exact editor postimage.
+        // Existing transient paste IDs do not turn it into a layout edit.
+        if (changed.every(transaction => transaction.getMeta(PLAIN_REVIEW_INSERTION) === true)) return null;
         if (!hasSourceBlockIdentities(state.doc) && changed.every(transaction =>
           transaction.getMeta(PLAIN_REVIEW_INSERTION) === true || isHistoryTransaction(transaction))) return null;
         const tr = state.tr;
