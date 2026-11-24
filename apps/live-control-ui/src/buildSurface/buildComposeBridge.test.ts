@@ -178,6 +178,7 @@ it.each(['plain','identity-only','composed','protected','clean-arrival'] as cons
   bridge.applyPrepared(prepared);
   const after = editor.getJSON().content!;
   expect([...after.slice(0, index), ...after.slice(index + 2)]).toEqual(originalDoc.content);
+  expect(await testDigest(JSON.stringify(editor.getJSON()))).toBe(prepared.afterEditorSha256);
   if (hasCallouts) {
    expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 2);
    const trailing = after.slice(index, index + 2);
