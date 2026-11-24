@@ -41,6 +41,7 @@ them on an ordinary conversational turn.
 | Capability | Verified boundary | Decision checkpoint to qualify |
 | --- | --- | --- |
 | Look up public Rules and cite them with World evidence | Native Plan Rules tool accepted on local Buddy. Rules authority and World evidence have separate owners. [Plan Rules evidence](../Docs/Plans/HANDOFF-RULES-native-plan-host.md) | Use Rules for a mechanics question, World sources for campaign history, and both when requested. Verify citation ownership and no Rules call for a lore-only control. |
+| Ask and resume clarifying questions in conversation | Clarification is an existing intent and inline conversation response. Retained [conversation-first cases](conversation_first/cases.py) cover asking first, staying off the page, and proceeding after the user answers. Restore Clarifying Questions owns restoration work. | Qualify reopen and continuation against that lane's accepted evidence. An unanswered preference calls for a question, with no retrieval or page proposal. Keep the request and the user's answer bound to the same workflow. |
 | Create a connected page from a saved origin | Saved-origin review owner, UI and readback were delivered. [Connected-page evidence](../Docs/Plans/HANDOFF-PLAN-connected-page-review.md) | Contrast standalone page, connected Location page, and current-page edit. Verify destination, exact origin link, confirmation and independent reopen. |
 | Review and publish relationships or manual World knowledge | Build's relationship review and native confirmation, hosted owner publication, and exact Worldbuilding support review have shipped. [Relationship confirmation](https://github.com/Drakosfire/DungeonMindBuddy/pull/3322) · [Exact support review](https://github.com/Drakosfire/DungeonMindBuddy/pull/4614) | Contrast suggesting a relationship, reviewing an exact edge, and explicitly confirming the publication. Missing support or ambiguous endpoints must hold the mutation. |
 | Review and continue a multi-step work plan | The ordinary continuation rehearsal saved edited selected and deferred steps, reloaded them, and ran only the explicitly continued discussion step. [Continuation evidence](../Docs/Plans/HANDOFF-MIND-work-plan-continuation-copy.md) | Select one step while leaving another deferred, interrupt after acceptance, and recover without starting the deferred step or repeating a durable action. |
@@ -70,6 +71,63 @@ selection, available sources, durable state, and confirmation state. Change
 one condition per contrast. Keep the expected decision and evidence rubric
 local. Ordinary Buddy turns exercise selection with the normal decision
 route. Provider-free owner tests exercise persistence, retry, and readback.
+
+### Right Action at the Right Time
+
+Start with **fresh conversations and sufficient first-turn input**. Freeze the
+user message and any exact selection, supplied source, or available draft that
+Buddy normally receives. A visible page or a mention alone does not establish
+admission. Check what the decision model actually sees before labeling a case
+sufficient. Keep the same permissions and target across each contrast.
+
+| Initial case | Supplied context and request | Expected first action |
+| --- | --- | --- |
+| Clarify before work | Give a complete shop objective and ask for two questions about tone and conflict before doing anything else. | Ask two relevant questions in chat, then wait. No retrieval, draft, proposal, or write. |
+| Current-page revision | Supply the exact selected paragraph and say “Tighten this paragraph and stage it here for review.” | Stage one review against the selection. Zero new evidence acquisition and zero save. |
+| Editable conversation drafts | Supply the complete premise and ask for two editable alternatives here in chat. | Prepare two chat drafts. Zero new acquisition and zero page proposals. |
+| Image direction | Supply the composition, subject, and purpose and ask for an editable illustration prompt. | Prepare the direction. Zero new acquisition, zero generation jobs and zero page changes. |
+| Connected Location | Supply the admitted origin passage with name, role, and exact origin and explicitly request a connected-page review. | Stage one review at the connected destination. Resolve the exact binding only. No discovery or publish. |
+| Mechanics or encounter handoff | Supply the mechanics or roster and request an operation unavailable to the current conversation route. | Give the appropriate review or operator handoff, as specified by the surface fixture. No discovery to compensate for an unavailable action and no false success receipt. |
+
+Each case gets at least one close contrast. Remove a required fact from the
+selected paragraph and ask for a factual addition so a targeted read becomes
+necessary. Leave a preference unresolved so a question is the right action.
+Change chat-only to explicit page review while keeping the prose fixed.
+Change prompt preparation to explicit Generate at the operator boundary.
+Include an explicit research request on a fully specified fixture to ensure
+the benchmark also rewards retrieval when requested. Predeclare the allowed
+read count or scope for each contrast.
+
+**Measurement.** Label reads as supplied context loading, exact reference or
+retained receipt resolution, fresh discovery, or fresh source acquisition.
+Count each separately using the request, tool trace, and action journal.
+For a zero-new-retrieval case, any new search, traversal, or source
+acquisition fails the choice check even if the final artifact is correct.
+Permit only the pinned fixture's required identity or provenance resolution.
+Missing acquisition telemetry means the result is unverified. Measure
+Send-to-first consequential action, Send-to-review or reply, and time in
+fresh retrieval, alongside calls and tokens. Compare sufficiency and
+necessary-retrieval controls separately. Keep writer fulfillment and effect
+integrity visible so an empty reply or a blanket retrieval bypass cannot pass.
+
+**Then add multi-turn cases from traces.** Pin the turn that acquired evidence
+and the later step that applies it. Start with Sheep's change from writing to
+discussion, Maelthor's existing citations, Meat Mind's follow-up premise and
+draft request, and an answered clarification. Reopen the conversation where
+appropriate. Pair reuse with a materially changed source, a new question, or
+newly requested research. Record which citation or admitted fact carried
+forward and verify exact reopening. Track pending, answered, and restored
+clarification separately from evidence acquisition.
+
+Use the retained [conversation-first cases](conversation_first/cases.py)
+as development evidence. Freeze fresh first-turn contrasts before prompt
+tuning and keep additional surface/action combinations for validation.
+Record new actions as data in the same manifest with a stable case ID,
+pinned context, allowable reads, expected action and destination, forbidden
+effects, and stage checkpoints. Reuse the ordinary capture workflow and
+extend the shared scorer once. No action-specific scripts are required.
+
+### Retained workflow checkpoints
 
 | Workflow checkpoint | Expected choice | Contrast and prohibited effects |
 | --- | --- | --- |
@@ -104,10 +162,9 @@ Use the decision checkpoints in the additional capability table as a second coho
 A workflow passes when every required checkpoint passes choice, safety, and
 fulfillment. Report checkpoint totals and the first failing step. Use the
 existing action report for its supported side-effect and fulfillment checks.
-Action-sequence grading is new work. Start with offline scoring of retained
-Sheep and Maelthor captures. Extend the shared scorer once to compare ordered
-events with allowed sequences, and use it for the remaining fixtures. Report
-missing evidence before scheduling any fresh replay.
+Action-sequence grading is new work. Qualify the first-turn cohort through
+ordinary Buddy first. Use retained Sheep and Maelthor evidence to map the
+subsequent multi-turn fixtures and identify telemetry gaps before rerunning.
 
 ## Plan authoring and conversation-only cohort
 
