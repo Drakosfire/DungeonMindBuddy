@@ -30,10 +30,16 @@ def report_case(directory, fixture, rubric, *, related_labels=None, source_label
                        related_labels=related_labels, source_labels=source_labels)
     observed["reads"] += acquisition_labels(probe.get("records"))
     grade = assess(rubric, observed)
-    return {"case_id": fixture["id"], **grade, "artifact_sha256": hashes,
+    # Request text alone does not prove the frozen page and conversation prefix.
+    # Preserve observed violations, but do not grade the case until a future
+    # fixture-bound verifier independently establishes that precondition.
+    return {"case_id": fixture["id"], **grade, "status": "unproven",
+            "observation_status": grade["status"], "fixture_context_verified": None,
+            "artifact_sha256": hashes,
             "http_status": observed["http_status"], "terminal_status": observed["terminal_status"],
             "trace_capture_status": observed["trace_capture_status"],
             "trace_acquisitions": observed["observed_acquisitions"],
             "related_page_probe": probe["records"],
             "limits": ["Probe and trace are a partial acquisition journal.",
+                       "Frozen page and conversation-prefix binding are not verified here.",
                        "Semantic, mutation, inline delivery, continuation and reopen evidence are not assessed here."]}

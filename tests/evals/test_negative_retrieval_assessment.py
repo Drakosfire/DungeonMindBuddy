@@ -287,7 +287,9 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     for name, value in artifacts.items():
         (tmp_path / f"{name}.json").write_text(json.dumps(value))
     result = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
-    assert result["status"] == "fail"
+    assert result["status"] == "unproven"
+    assert result["observation_status"] == "fail"
+    assert result["fixture_context_verified"] is None
     assert result["checks"]["unexpected_retrieval"] is False
     assert result["checks"]["inline_questions"] is None
     assert len(result["artifact_sha256"]) == len(artifacts)

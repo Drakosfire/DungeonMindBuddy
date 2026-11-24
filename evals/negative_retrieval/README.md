@@ -77,5 +77,7 @@ invoking it; the wrapper does not support Plan or the context-only writer stop.
 checks the request against the fixture, hashes retained artifacts, and applies
 the private rubric without calling a model. Missing files are unproven. This
 initial report intentionally has no authority to promote manual judgments or a
-partial journal to complete; it can prove an observed zero-budget violation but
+partial journal to complete. It records observed zero-budget violations, but
+leaves the case unproven until an independent verifier binds the frozen page and
+conversation prefix; matching the final request alone is insufficient. It
 cannot establish a passing end-to-end case by itself.
