@@ -1391,7 +1391,8 @@ function hostedGraphHeaders(path: string, headers: Record<string, string>): Reco
   // this cookie-authenticated request. Ownership comes only from the server.
   return Object.fromEntries(Object.entries(headers).filter(([key]) =>
     ["accept", "content-type"].includes(key.toLowerCase())
-      || (key.toLowerCase() === "x-pdf-created-at" && HOSTED_PDF_UPLOAD_PATH.test(path))));
+      || (key.toLowerCase() === "x-pdf-created-at" && HOSTED_PDF_UPLOAD_PATH.test(path))
+      || (key.toLowerCase() === "x-buddy-reply-stream" && path === "/api/live/agent/turn")));
 }
 
 function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
