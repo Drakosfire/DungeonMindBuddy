@@ -145,3 +145,15 @@ hashes remain in `session/case-1` and `session/case-2`. They prove the bounded
 HTTP failure and safety checks, not model quality, deployed UI or a full
 negative-retrieval rate. Do not rerun unchanged. The source-free routing owner
 and the inline successful-completion path remain separate required work.
+
+Case 3 captured the actual serialized synthetic controller input before its
+mock transport, using the same owned clone and no external provider. It again
+returned the same 409, after confirming the unchanged page and zero proposals.
+The retained `session/case-3` evidence includes the derived witness, failure
+log and owner-only controller input (SHA-256
+`bd19a922189a49c4d32b47c884e0fa8b4aacd7bfdf114bfe88da1a6008678610`).
+The input's `placement_policy` is semantic guidance for selecting an insertion
+point, rather than capacity or accounting policy. A field inventory alone is
+not a complete prompt-boundary audit: inspect actual values, nested inputs and
+host bindings against the ecosystem policy before any provider dispatch. This
+synthetic capture does not qualify the current head or establish model quality.
