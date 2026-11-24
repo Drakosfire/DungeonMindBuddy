@@ -14,6 +14,7 @@ construction_sink: ContextVar[Callable[[dict], None] | None] = ContextVar('const
 deferred_construction_sink: ContextVar[Callable[[Callable[[], dict]], None] | None] = ContextVar(
     'deferred_construction_sink', default=None,
 )
+reply_sink: ContextVar[Callable[[str | None], None] | None] = ContextVar("build_reply_sink", default=None)
 _running: set[asyncio.Task] = set()
 
 
@@ -158,7 +159,9 @@ class MarkdownStringProgress:
         return self.revision != before
 
 
-def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingResponse:
+def turn_stream(
+    execute: Callable[[], dict], client_turn_id: str, *, include_reply=False,
+) -> StreamingResponse:
     """One owned execution, continued after observer disconnect; no replay/cache."""
     async def events():
         loop = asyncio.get_running_loop()
@@ -168,6 +171,9 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
         terminal = None
         retired = False
         wake_pending = False
+        reply_ready = False
+        reply_deltas: list[str] = []
+        reply_sequence = 0
 
         def publish(value, *, final=False):
             nonlocal latest, terminal, wake_pending
@@ -184,7 +190,21 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
                 wake_pending = True
                 loop.call_soon_threadsafe(wake.set)
 
+        def publish_reply(text: str | None) -> None:
+            nonlocal reply_ready, wake_pending
+            with lock:
+                if retired or loop.is_closed():
+                    return
+                if text is None:
+                    reply_ready = True
+                else:
+                    reply_deltas.append(text)
+                if not wake_pending:
+                    wake_pending = True
+                    loop.call_soon_threadsafe(wake.set)
+
         def work():
+            reply_token = reply_sink.set(publish_reply if include_reply else None)
             token = construction_sink.set(publish)
             deferred_token = deferred_construction_sink.set(publish)
             result = {'kind': 'error', 'status': 500, 'detail': {'code': 'turn_stream_failed',
@@ -196,6 +216,7 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
             except Exception:
                 pass  # The route/service already owns durable uncertainty and diagnostics.
             finally:
+                reply_sink.reset(reply_token)
                 deferred_construction_sink.reset(deferred_token)
                 construction_sink.reset(token)
                 publish(result, final=True)
@@ -215,6 +236,8 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
                 with lock:
                     value, latest = latest, None
                     end = terminal
+                    ready, reply_ready = reply_ready, False
+                    deltas, reply_deltas = reply_deltas, []
                     wake_pending = False
                 if callable(value):
                     try:
@@ -224,6 +247,14 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
                 if value is not None:
                     yield 'data: ' + json.dumps({'schema': 'dmb_build_turn_stream_v1',
                         'client_turn_id': client_turn_id, 'kind': 'construction', 'progress': value}) + '\n\n'
+                if ready:
+                    yield 'data: ' + json.dumps({'schema': 'dmb_build_turn_stream_v1',
+                        'client_turn_id': client_turn_id, 'kind': 'reply_context_ready'}) + '\n\n'
+                if deltas:
+                    reply_sequence += 1
+                    yield 'data: ' + json.dumps({'schema': 'dmb_build_turn_stream_v1',
+                        'client_turn_id': client_turn_id, 'kind': 'reply_text',
+                        'sequence': reply_sequence, 'text': ''.join(deltas)}) + '\n\n'
                 if end is not None:
                     yield 'data: ' + json.dumps({'schema': 'dmb_build_turn_stream_v1',
                         'client_turn_id': client_turn_id, **end}) + '\n\n'
@@ -232,6 +263,7 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
             with lock:
                 retired = True
                 latest = terminal = None
+                reply_deltas.clear()
             # Do not cancel the one durable request when only its observer retires.
 
     return StreamingResponse(events(), media_type='text/event-stream',
