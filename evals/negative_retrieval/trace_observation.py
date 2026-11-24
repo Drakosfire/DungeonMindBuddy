@@ -7,6 +7,12 @@ provided by the evaluator, never by the product model.
 
 RELATED_POLICY = "selected_exact_related_authored_pages_v1"
 UNKNOWN = "<unmapped-acquisition>"
+NATIVE_READ_POLICIES = frozenset(
+    f"native_{operation}_progress_v{version}"
+    for operation in ("assertion_read", "statement_read", "source_document_read",
+                      "source_section_read", "source_search")
+    for version in (1, 2)
+)
 
 
 def observed_acquisitions(trace, *, related_labels=None, source_labels=None):
@@ -28,6 +34,12 @@ def observed_acquisitions(trace, *, related_labels=None, source_labels=None):
         elif kind == "source_passage":
             label = source_labels.get(event.get("source_artifact_id"), UNKNOWN)
             observed.append({"sequence": sequence, "kind": "source_read", "label": label})
+        elif (kind == "context_decision" and event.get("policy_version") in NATIVE_READ_POLICIES
+              and event.get("action") in {"expanded", "retrieved", "retained"}):
+            items = event.get("item_ids")
+            if not isinstance(items, list) or not items or any(not isinstance(x, str) or not x for x in items):
+                raise ValueError("Native read activity has no valid target")
+            observed.append({"sequence": sequence, "kind": "native_read_attempt", "label": UNKNOWN})
         elif (kind == "context_decision" and event.get("action") == "retrieved"
               and event.get("policy_version") == RELATED_POLICY):
             items = event.get("item_ids")

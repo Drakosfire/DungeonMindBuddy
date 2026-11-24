@@ -63,6 +63,13 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+The trace projector now recognizes the fixed host native read/search progress
+policies as unmapped attempts. Case 67 used a provider-free predecessor HTTP
+native-source turn and observed six matching activity events, all projected;
+attempt and completion events are not counts of distinct sources. Evidence is
+retained under `Projects/.codex/buddy-check.negative-inline.SsurDn/http-owner/`
+`session/case-67`. Other owners remain uncovered, so absence stays unproven.
+
 The authored corpus-source path is now included in the partial owner probe and
 scored as an unmapped read attempt. In provider-free predecessor-source HTTP
 case 64, a saved authored-source body read was absent from the context trace and

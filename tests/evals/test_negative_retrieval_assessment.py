@@ -113,6 +113,28 @@ def test_saved_trace_projection_is_a_lower_bound_and_ignores_reuse():
         raise AssertionError("out-of-order trace accepted")
 
 
+def test_native_read_activity_is_an_unmapped_attempt_not_a_complete_journal():
+    import pytest
+    from evals.negative_retrieval.trace_observation import UNKNOWN, observed_acquisitions
+
+    policies = ("native_statement_read_progress_v1", "native_assertion_read_progress_v1",
+                "native_source_document_read_progress_v2", "native_source_section_read_progress_v2",
+                "native_source_search_progress_v2")
+    events = [{"sequence": index, "kind": "context_decision", "action": action,
+               "policy_version": policy, "item_ids": ["opaque", "display"]}
+              for index, (policy, action) in enumerate(zip(policies, ("expanded", "retained", "retrieved", "expanded", "retrieved")))]
+    events.append({"sequence": len(events), "kind": "context_decision", "action": "retrieved",
+                   "policy_version": "native_unknown_progress_v2", "item_ids": ["opaque"]})
+    trace = {"schema": "dmb_turn_context_trace_v1", "observations": events}
+    result = observed_acquisitions(trace)
+    assert [row["label"] for row in result["observed"]] == [UNKNOWN] * len(policies)
+    assert result["journal_complete"] is None
+    assert assess(CASE, observation(reads=[row["label"] for row in result["observed"]], journal_complete=False))["checks"]["unexpected_retrieval"] is False
+    events[0]["item_ids"] = []
+    with pytest.raises(ValueError, match="Native read activity"):
+        observed_acquisitions(trace)
+
+
 def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
     from evals.negative_retrieval.assessment import REPORT_SCHEMA, rubric_sha256, summarize
 

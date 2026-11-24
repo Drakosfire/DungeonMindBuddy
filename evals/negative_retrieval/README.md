@@ -35,9 +35,12 @@ UI evidence, and failed observations. The existing capture-context workflow
 intentionally stops before writer dispatch and therefore cannot alone establish
 clarification delivery or continuation.
 
-`trace_observation.observed_acquisitions` projects a lower bound from the actual
-saved trace: Graph operations, new source passages, authored-reference reads,
-and selected related-page reads. Reused historical passages are not new reads.
+`trace_observation.observed_acquisitions` projects a lower bound from the saved
+trace: Graph operations, new source passages, authored-reference reads, selected
+related-page reads, and recognized native Graph and corpus read/search activity.
+Attempt and completion events are not deduplicated into source counts; their
+source identity is unmapped. Unknown native policies are not inferred. Reused
+historical passages are not new reads.
 Even `capture_status: complete` does not establish a complete acquisition
 journal: for example, `BuildJevHarness.configured_budget` calls related-page
 catalog discovery before first-step selection, and that discovery is not an
