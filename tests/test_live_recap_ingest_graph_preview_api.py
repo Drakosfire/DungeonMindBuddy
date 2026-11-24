@@ -24,8 +24,12 @@ TOKEN = "synthetic-process-operator-token-000000"
 
 
 @pytest.fixture
-def client_env(application_state_dsn, tmp_path, monkeypatch):
-    assert "dungeonbuddy_app_state_test_" in application_state_dsn
+def client_env(application_state_dsn, application_state_database, tmp_path, monkeypatch):
+    from scripts.ci_app_database import verify_assignment
+
+    assignment = application_state_database.assignment
+    assert application_state_dsn == assignment.dsn
+    verify_assignment(assignment)
     for name, value in {
         "DMB_DEPLOYMENT_ENVIRONMENT": "local",
         "DMB_AUTH_MODE": "local_operator",

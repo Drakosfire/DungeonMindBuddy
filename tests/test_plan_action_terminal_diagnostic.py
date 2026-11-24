@@ -9,9 +9,10 @@ from tests.application_state.test_plan_action_prompt_capture import frozen
 
 
 @pytest.fixture
-def application_state_dsn(monkeypatch):
+def application_state_dsn(application_state_dsn):
     from tests.application_state import test_plan_action_consultation as cases
-    yield from cases.application_state_dsn.__wrapped__(monkeypatch)
+    cases.action_worlds.__wrapped__(application_state_dsn)
+    yield application_state_dsn
 
 
 FAILURE = dict(phase="provider_lifecycle", reason="provider_transport_ambiguous",

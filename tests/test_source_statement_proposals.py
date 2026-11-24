@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.models.source_statement_proposals import ProposalRequest
 from apps.live_control_server.services import source_statement_proposals as service
 from apps.live_control_server.services import source_statements
-from tests.application_state.conftest import (
+from tests.application_state.database_fixture import (
     application_state_dsn as application_state_dsn,
 )
 from tests.test_source_statements import BODY, GM, NOW, advance
