@@ -10,7 +10,7 @@ from contextvars import ContextVar
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import ConfigDict, Discriminator, Tag, Field, ValidationInfo, field_validator, model_validator
+from pydantic import ConfigDict, Discriminator, Tag, Field, TypeAdapter, ValidationInfo, field_validator, model_validator
 
 from application_state.build_proposal.types import BuildWriteCapability
 from application_state.build_proposal.image_move_capture import BuildImageMoveCapture
@@ -702,6 +702,16 @@ def _revalidate_context_binding(context, execution):
     context = SurfaceNativeContextReceiptV1.model_validate(context.model_dump(mode="python", by_alias=True))
     execution = SurfaceNativeExecutionV1.model_validate(execution.model_dump(mode="python", by_alias=True))
     return context, _join_context_binding(context, execution)
+
+
+_NATIVE_EVENT_CODEC = TypeAdapter(SurfaceNativeEvent)
+
+
+def validate_locked_opening_append(context, execution, event):
+    """Validate a single suffix event on a freshly locked, decoded APP Turn."""
+    appended = _NATIVE_EVENT_CODEC.validate_python(event.model_dump(mode="python", by_alias=True))
+    candidate = execution.model_copy(update={"events": [*execution.events, appended]})
+    return _validate_owned_context_binding(context, candidate)
 
 
 def _validate_owned_context_binding(context, execution, *, record_prefix=None):

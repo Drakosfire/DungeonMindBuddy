@@ -2319,11 +2319,34 @@ class AgentConversationService:
             events = [*execution.events, *([native_inclusion] if native_inclusion is not None else []), *produced,
                 *([section_inclusion] if section_inclusion is not None else []),
                 *([play_body_inclusion] if play_body_inclusion is not None else [])]
+            from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
+
+            locked_opening_append = (
+                type(self) is AgentConversationService and _connection is None
+                and type(turn) is Turn and type(execution) is SurfaceNativeExecutionV1
+                and type(execution.policy.action) in NATIVE_PLAN_ACTION_TYPES and turn.completion is None
+                and len(events) == len(execution.events) + 1 and events[-1] is event
+                and (
+                    type(event) in (NativePlanAuthorScopeAuthorizedV1,
+                                    NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeObservedV1)
+                    or (type(event) is ProviderOutcomeEventV1
+                        and event.outcome in {"sdk_entered", "response_received"}
+                        and any(type(auth) in (NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1)
+                                and auth.provider_attempt_id == event.provider_attempt_id
+                                for auth in execution.events))
+                )
+            )
             try:
                 if isinstance(execution, SurfaceNativeExecutionV1):
                     with measure("first_jev_send_prospective_validation"):
-                        updated_execution = self._bind_execution_append(turn.graph_context_receipt,
-                            execution.model_copy(update={"events": events}))
+                        if locked_opening_append:
+                            from .native_execution import validate_locked_opening_append
+
+                            updated_execution = validate_locked_opening_append(
+                                turn.graph_context_receipt, execution, event)
+                        else:
+                            updated_execution = self._bind_execution_append(turn.graph_context_receipt,
+                                execution.model_copy(update={"events": events}))
                 else:
                     execution_type = type(execution)
                     updated_execution = execution_type.model_validate_json(json.dumps(
@@ -2338,8 +2361,6 @@ class AgentConversationService:
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             with measure("first_jev_send_update_and_readback"):
-                from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
-
                 if (
                     type(self) is AgentConversationService and type(turn) is Turn
                     and turn.completion is None and type(event) is ProviderOutcomeEventV1
