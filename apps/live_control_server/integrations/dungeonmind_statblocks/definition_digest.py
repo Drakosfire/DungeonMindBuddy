@@ -122,6 +122,18 @@ def canonicalize_definition_dict(source_definition: dict[str, Any]) -> str:
     )
 
 
+def historical_definition_canonical(canonical: str) -> str:
+    """Reconstruct sealed pre-parity revisions that omitted null explains."""
+    definition = json.loads(canonical)
+    for element in definition["rule_elements"]:
+        if element["explains"] is None:
+            del element["explains"]
+    return json.dumps(
+        definition, ensure_ascii=False, allow_nan=False,
+        separators=(",", ":"), sort_keys=True,
+    )
+
+
 def canonicalize_definition_payload(definition: StatblockDefinitionV1Input) -> str:
     """Return version-1 Buddy canonical JSON for a parsed definition."""
     payload = _canonical_payload(definition)
