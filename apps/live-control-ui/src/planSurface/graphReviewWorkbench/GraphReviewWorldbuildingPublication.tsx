@@ -424,7 +424,7 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
     {committed ? <p role="status">Worldbuilding publication confirmed.</p> :
       packet ? <button type="button" disabled={busy} onClick={() => void run(true)}>Confirm native publication</button> :
       context ? <fieldset disabled={busy}>
-        <legend>Review provisional GM facts</legend>
+        <legend>Review GM facts</legend>
         <label>Candidate object<select value={recordId} onChange={event =>
           setRecordId(event.target.value)}>
           <option value="">Choose an object</option>
