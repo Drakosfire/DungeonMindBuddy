@@ -3791,7 +3791,10 @@ def test_lore_request_reference_rejects_downgrades_before_writer_io(lane, tmp_pa
                 continue
             destination = frame['build_work']['lore_page_destination']
             if mutation in {'legacy_outcome', 'outcome_old_menu'}:
-                continue
+                frame['build_work'] = self.provider_work['build_work']
+                message['content'] = json.dumps(frame)
+                prepared.append(True)
+                break
             if mutation == 'prior_request':
                 destination['request'] = 'prior_author_request'
             elif mutation == 'hybrid':
@@ -3908,8 +3911,9 @@ def test_current_lore_outcome_question_is_visible_without_creating_a_page(lane, 
     assert any(row.kind == 'discussion' and row.text == 'Which subject and premise should the page describe?'
         for row in completion.answer_segments)
     assert all(page.page.title != 'Glass Regent' for page in pages.list_pages(world_id=case.world))
-    reopened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}')
+    reopened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation')
     assert reopened.status_code == 200, reopened.text
+    assert 'Which subject and premise should the page describe?' in reopened.text
     assert not any(e.kind in {'native_body_search_v1', 'build_related_page_read_v1'}
         for e in case.turn.graph_context_execution.events)
 
