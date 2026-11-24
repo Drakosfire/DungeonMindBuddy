@@ -522,7 +522,7 @@ class PlanJevWriter:
 
         conversation_draft = (self.shared and native_conversation_terminal(turn) is not None
             and self.provider_work.get("build_work", {}).get("requested_work", {}).get("requested_work") == "review_lore_page_from_conversation")
-        self.reasoning_effort = "medium" if single_variant_base else "none" if conversation_draft else "low"
+        self.reasoning_effort = "medium" if single_variant_base or conversation_draft else "low"
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
