@@ -115,3 +115,73 @@ def test_retries_catalog_failure_against_original_copied_graph(
     monkeypatch.setattr(managed_world, "bind_initialized_guest_world", original)
     recovered = index_graph.ensure_guest_managed_world(session)
     assert recovered.record.native_graph_binding.native_world_id == original_id
+
+
+def test_catalog_write_failure_rolls_back_and_retry_recovers(
+    application_state_dsn, guest_repository, monkeypatch,
+):
+    from application_state.index_graph import managed_world
+
+    _, session = create_session()
+    with index_graph.open_index_graph_service(session) as graph:
+        native_id = graph.graph()["world_id"]
+    write = catalog._write
+    def fail_after_write(*args, **kwargs):
+        write(*args, **kwargs)
+        raise RuntimeError("simulated interrupted transaction")
+    with monkeypatch.context() as patch:
+        patch.setattr(catalog, "_write", fail_after_write)
+        with pytest.raises(RuntimeError, match="interrupted transaction"):
+            managed_world.bind_initialized_guest_world(session)
+    recovered = managed_world.bind_initialized_guest_world(session)
+    assert recovered.revision == 1
+    assert recovered.record.native_graph_binding.native_world_id == native_id
+
+
+def test_binding_rejects_naturally_expired_session(application_state_dsn, guest_repository):
+    from application_state.engine import connect
+
+    _, session = create_session()
+    with index_graph.open_index_graph_service(session) as graph:
+        graph.graph()
+    with connect() as connection:
+        connection.execute(
+            "UPDATE application_state.index_graph_sessions SET expires_at = clock_timestamp() - interval '1 second' WHERE session_id = %s::uuid",
+            (session.session_id,),
+        )
+        connection.commit()
+    with pytest.raises(ApplicationStateConflictError, match="no longer active"):
+        bind_initialized_guest_world(session)
+
+
+def test_reset_waits_for_inflight_binding_and_then_revokes_it(
+    application_state_dsn, guest_repository, monkeypatch,
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    credential, session = create_session()
+    with index_graph.open_index_graph_service(session) as graph:
+        graph.graph()
+    entered, release = Event(), Event()
+    original_write = catalog._write
+    def delayed_write(*args, **kwargs):
+        entered.set()
+        if not release.wait(10):
+            raise RuntimeError("binding test timed out")
+        return original_write(*args, **kwargs)
+    monkeypatch.setattr(catalog, "_write", delayed_write)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        binding = pool.submit(bind_initialized_guest_world, session)
+        try:
+            assert entered.wait(10)
+            reset = pool.submit(create_session, replace_credential=credential)
+            assert not reset.done()
+        finally:
+            release.set()
+        old_world = binding.result(timeout=10)
+        _, replacement = reset.result(timeout=10)
+    with pytest.raises(ApplicationStateConflictError, match="no longer active"):
+        bind_initialized_guest_world(session)
+    new_world = index_graph.ensure_guest_managed_world(replacement)
+    assert old_world.record.world_id != new_world.record.world_id
