@@ -113,6 +113,7 @@ def test_guest_world_cookie_migration_rejects_conflicting_credentials(hosted, mo
     from apps.live_control_server.routes import index_graph
 
     monkeypatch.setenv("DMB_HOSTED_GUEST_BUILD_ENABLED", "1")
+    monkeypatch.setattr(sessions, "lookup_session", lambda _credential: object())
     headers = [(b"cookie", f"{HOSTED_COOKIE}=old; {sessions.HOSTED_WORLD_COOKIE}=other".encode())]
     response = index_graph._start_or_resume_session(request("POST", headers))
     assert response.status_code == 401
@@ -175,3 +176,25 @@ def test_guest_world_refuses_disclosure_if_session_expires_during_provisioning(h
                            (b"x-dmb-index-graph-csrf", csrf_token("credential", "session").encode()),
                            (b"cookie", f"{sessions.HOSTED_WORLD_COOKIE}=credential".encode())])
     assert index_graph._get_guest_world(req).status_code == 401
+
+
+def test_guest_cookie_recovers_reset_during_older_image_rollback(hosted, monkeypatch):
+    from application_state.index_graph import sessions
+    from apps.live_control_server.routes import index_graph
+
+    monkeypatch.setenv("DMB_HOSTED_GUEST_BUILD_ENABLED", "1")
+    current = sessions.IndexGraphSession("session", "buddy-index-graph:current", datetime.now(UTC) + timedelta(days=30))
+    def lookup(credential):
+        if credential == "expired-world":
+            raise sessions.IndexGraphSessionError("session_expired", "expired")
+        if credential == "current-graph":
+            return current
+        raise sessions.IndexGraphSessionError("session_unknown", "unknown")
+    monkeypatch.setattr(sessions, "lookup_session", lookup)
+    monkeypatch.setattr(index_graph, "lookup_session", lookup)
+    headers = [(b"cookie", f"{HOSTED_COOKIE}=current-graph; {sessions.HOSTED_WORLD_COOKIE}=expired-world".encode())]
+    response = index_graph._start_or_resume_session(request("POST", headers))
+    assert response.status_code == 200
+    assert any(cookie.startswith(f"{sessions.HOSTED_WORLD_COOKIE}=current-graph;") for cookie in response.headers.getlist("set-cookie"))
+    headers = [(b"cookie", f"{HOSTED_COOKIE}=current-graph; {sessions.HOSTED_WORLD_COOKIE}=unknown".encode())]
+    assert index_graph._start_or_resume_session(request("POST", headers)).status_code == 401

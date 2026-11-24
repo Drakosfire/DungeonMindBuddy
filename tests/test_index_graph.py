@@ -548,4 +548,11 @@ def test_hosted_guest_world_bootstrap_is_session_bound_and_resettable(
     resumed = first.post("/api/live/index-graph/session")
     assert resumed.status_code == 200
     assert first.get("/api/live/index-graph/graph").json()["world_id"] == replacement_graph
+    rollback_reset = first.post("/api/live/index-graph/reset", headers={"X-DMB-Index-Graph-CSRF": resumed.json()["csrf_token"]})
+    assert rollback_reset.status_code == 200
+    rollback_graph = first.get("/api/live/index-graph/graph").json()["world_id"]
+    monkeypatch.setenv("DMB_HOSTED_GUEST_BUILD_ENABLED", "1")
+    reenabled = first.post("/api/live/index-graph/session")
+    assert reenabled.status_code == 200
+    assert first.get("/api/live/index-graph/graph").json()["world_id"] == rollback_graph
     assert repository.get_head(source_graph["world_id"]).head_revision_id == source_graph["revision_id"]

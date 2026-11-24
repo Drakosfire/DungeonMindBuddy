@@ -234,6 +234,22 @@ def bootstrap_cookie_credential(request: Request) -> tuple[str | None, bool]:
         return credential, False
     legacy = read_cookie_credential(request, HOSTED_COOKIE)
     if credential is not None and legacy is not None and credential != legacy:
+        # A reset can leave an older cookie behind across an image rollback
+        # or interrupted response. Recover only when exactly one credential
+        # remains active and the other is known expired; unknown and two live
+        # credentials stay ambiguous.
+        try:
+            lookup_session(credential)
+        except IndexGraphSessionError as exc:
+            if exc.code != "session_expired":
+                raise IndexGraphSessionError("session_cookie_invalid", "The guest session cookie is ambiguous.") from None
+            lookup_session(legacy)
+            return legacy, True
+        try:
+            lookup_session(legacy)
+        except IndexGraphSessionError as exc:
+            if exc.code == "session_expired":
+                return credential, True
         raise IndexGraphSessionError("session_cookie_invalid", "The guest session cookie is ambiguous.")
     return credential or legacy, credential is None or legacy is None
 
