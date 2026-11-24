@@ -5,7 +5,11 @@ umask 077
 
 fail() { printf 'Buddy stage: %s\n' "$*" >&2; exit 1; }
 
-[[ $# == 5 ]] || fail "expected revision, registry digest, image ID, rollback revision and rollback image ID"
+[[ $# == 5 || $# == 6 ]] || fail "expected revision, registry digest, image ID, rollback revision, rollback image ID and optional guest-graph mode"
+mode=${6:-default}
+[[ "$mode" == default || "$mode" == guest-graph || "$mode" == guest-graph-serving ]] || fail "invalid staging mode"
+guest_config='review=0;page=0;home='
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then guest_config="$guest_config;graph=1"; fi
 revision=$1
 digest=$2
 candidate_id=$3
@@ -41,10 +45,27 @@ for dir in "$config_dir" "$config_dir/releases"; do
   trusted "$dir"
 done
 
+# The selected baseline is operator-owned policy, not a request parameter.
+# Freeze it in the immutable release record so later edits cannot retarget it.
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then
+  guest_policy="$config_dir/guest-graph.conf"
+  [[ -f "$guest_policy" ]] || fail "missing guest Graph baseline policy"
+  trusted "$guest_policy"
+  unset guest_graph_space guest_graph_revision
+  # shellcheck source=/dev/null
+  source "$guest_policy"
+  [[ "${guest_graph_space:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid guest Graph space"
+  [[ "${guest_graph_revision:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid guest Graph revision"
+fi
+
 tmp=$(mktemp "$config_dir/releases/.stage.XXXXXX")
 trap 'rm -f -- "$tmp"' EXIT
 printf 'candidate_tag=%s\ncandidate_id=%s\nrollback_tag=%s\nrollback_id=%s\nrollback_revision=%s\nregistry_digest=%s\n' \
   "$candidate_tag" "$candidate_id" "$rollback_tag" "$rollback_id" "$rollback_revision" "$digest" > "$tmp"
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then
+  printf 'guest_graph_enabled=1\nguest_graph_space=%s\nguest_graph_revision=%s\n' \
+    "$guest_graph_space" "$guest_graph_revision" >> "$tmp"
+fi
 if [[ -e "$record" || -L "$record" ]]; then
   [[ -f "$record" ]] || fail "release policy is not a regular file"
   trusted "$record"
@@ -56,8 +77,17 @@ identity='{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
   fail "rollback image does not match the approved identity"
 docker pull --platform linux/amd64 "$ref"
 candidate_identity="$identity {{.Os}}/{{.Architecture}} {{index .Config.Labels \"org.dungeonmindbuddy.guest-build\"}}"
-[[ "$(docker image inspect --format "$candidate_identity" "$ref")" == "$candidate_id $revision linux/amd64 review=0;page=0;home=" ]] ||
-  fail "registry image does not match the approved default release identity"
+expected_identity="$candidate_id $revision linux/amd64 $guest_config"
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then
+  candidate_identity="$candidate_identity {{index .Config.Labels \"org.dungeonmindbuddy.serving-parent\"}}"
+  if [[ "$mode" == guest-graph-serving ]]; then
+    expected_identity="$expected_identity $rollback_revision"
+  else
+    expected_identity="$expected_identity <no value>"
+  fi
+fi
+[[ "$(docker image inspect --format "$candidate_identity" "$ref")" == "$expected_identity" ]] ||
+  fail "registry image does not match the approved release identity"
 
 existing=$(docker image ls --filter "reference=$candidate_tag" --format '{{.Repository}}:{{.Tag}}')
 if [[ -z "$existing" ]]; then

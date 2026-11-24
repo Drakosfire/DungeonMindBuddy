@@ -30,6 +30,13 @@ source "$config_dir/compose.conf"
 # shellcheck source=/dev/null
 source "$release"
 
+guest_graph_enabled=${guest_graph_enabled:-0}
+[[ "$guest_graph_enabled" == 0 || "$guest_graph_enabled" == 1 ]] || fail "invalid staged guest Graph setting"
+if [[ "$guest_graph_enabled" == 1 ]]; then
+  [[ "${guest_graph_space:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph space"
+  [[ "${guest_graph_revision:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph revision"
+fi
+
 verify_image() {
   local tag=$1 digest=$2 expected_revision=$3
   [[ "$tag" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ && "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] ||
@@ -44,11 +51,17 @@ verify_image "$candidate_tag" "$candidate_id" "$revision"
 verify_image "$rollback_tag" "$rollback_id" "$rollback_revision"
 [[ "$candidate_id" != "$rollback_id" ]] || fail "candidate and rollback must be distinct"
 
-# The only difference between the two Compose invocations is the image tag.
+# The guest baseline is attached only to the candidate; rollback uses the
+# existing base Compose configuration without the candidate's guest settings.
 with_image() {
   local tag=$1
   shift
-  printf 'services:\n  buddy:\n    image: %s\n' "$tag" | "${compose[@]}" -f - "$@"
+  if [[ "$tag" == "$candidate_tag" && "$guest_graph_enabled" == 1 ]]; then
+    printf 'services:\n  buddy:\n    image: %s\n    environment:\n      DMB_HOSTED_GUEST_GRAPH_ENABLED: "1"\n      DMB_GUEST_GRAPH_SOURCE_SPACE: "%s"\n      DMB_GUEST_GRAPH_SOURCE_REVISION: "%s"\n' \
+      "$tag" "$guest_graph_space" "$guest_graph_revision" | "${compose[@]}" -f - "$@"
+  else
+    printf 'services:\n  buddy:\n    image: %s\n' "$tag" | "${compose[@]}" -f - "$@"
+  fi
 }
 
 verify_serving() {
@@ -59,7 +72,14 @@ verify_serving() {
   [[ "$actual" == "$1 healthy $persistent_root" ]] &&
     [[ "$("${compose[@]}" port buddy 8000)" == "${upstream#http://}" ]] &&
     curl --connect-timeout 5 --max-time 15 -fsS "$upstream/health/live" >/dev/null &&
-    curl --connect-timeout 5 --max-time 15 -fsS "$upstream/health/ready" >/dev/null
+    curl --connect-timeout 5 --max-time 15 -fsS "$upstream/health/ready" >/dev/null || return 1
+  if [[ "$1" == "$candidate_id" && "$guest_graph_enabled" == 1 ]]; then
+    local guest_env
+    guest_env=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container") || return 1
+    grep -Fxq 'DMB_HOSTED_GUEST_GRAPH_ENABLED=1' <<< "$guest_env" &&
+      grep -Fxq "DMB_GUEST_GRAPH_SOURCE_SPACE=$guest_graph_space" <<< "$guest_env" &&
+      grep -Fxq "DMB_GUEST_GRAPH_SOURCE_REVISION=$guest_graph_revision" <<< "$guest_env" || return 1
+  fi
 }
 
 verify_public_ready() {
@@ -108,6 +128,10 @@ retain_images() {
           [[ "$value" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ ]] || return 1 ;;
         rollback_revision)
           [[ "$value" =~ ^[0-9a-f]{40}$ ]] || return 1 ;;
+        guest_graph_enabled)
+          [[ "$value" == 1 ]] || return 1 ;;
+        guest_graph_space|guest_graph_revision)
+          [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || return 1 ;;
         *) return 1 ;;
       esac
       [[ ! "${pins[$key]+yes}" ]] || return 1

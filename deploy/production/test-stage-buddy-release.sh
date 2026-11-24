@@ -28,7 +28,11 @@ case "$*" in
   "pull --platform linux/amd64 ghcr.io/drakosfire/dungeonmindbuddy@$digest")
     ;;
   "image inspect "*"@$digest")
-    printf '%s %s linux/amd64 %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}" ;;
+    if [[ "$*" == *org.dungeonmindbuddy.serving-parent* ]]; then
+      printf '%s %s linux/amd64 %s %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}" "${TEST_SERVING_PARENT-<no value>}"
+    else
+      printf '%s %s linux/amd64 %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}"
+    fi ;;
   "image ls "*)
     if [[ -e "$TEST_ROOT/tag" ]]; then printf 'dungeonmindbuddy:%s\n' "$revision"; fi ;;
   "image tag ghcr.io/drakosfire/dungeonmindbuddy@$digest dungeonmindbuddy:$revision")
@@ -41,7 +45,7 @@ STUB
 chmod +x "$scratch/bin/"*
 export PATH="$scratch/bin:$PATH"
 record="$scratch/releases/$revision.conf"
-run() { bash "$scratch/stage" "$revision" "$digest" "$candidate_id" "$rollback" "$rollback_id"; }
+run() { bash "$scratch/stage" "$revision" "$digest" "$candidate_id" "$rollback" "$rollback_id" "$@"; }
 refuse() {
   if run >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Unexpected staging success' >&2; exit 1; fi
   grep -F -- "$1" "$scratch/stderr"
@@ -66,4 +70,26 @@ grep -Fx "registry_digest=$digest" "$record"
 [[ $(grep -c '^image tag ' "$scratch/docker") == 1 ]]
 printf '# different approval\n' >> "$record"
 refuse 'existing release policy differs'
-printf 'Staging, idempotency, conflict and lock checks passed.\n'
+rm "$record" "$scratch/tag"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Guest image accepted as default' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+if run invalid-mode >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Invalid mode accepted' >&2; exit 1; fi
+grep -F 'invalid staging mode' "$scratch/stderr"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Missing baseline accepted' >&2; exit 1; fi
+grep -F 'missing guest Graph baseline policy' "$scratch/stderr"
+printf 'guest_graph_space=space:test\nguest_graph_revision=rev:test\n' > "$scratch/guest-graph.conf"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph
+grep -Fx 'guest_graph_enabled=1' "$record"
+grep -Fx 'guest_graph_space=space:test' "$record"
+grep -Fx 'guest_graph_revision=rev:test' "$record"
+printf 'guest_graph_space=space:changed\nguest_graph_revision=rev:test\n' > "$scratch/guest-graph.conf"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Retargeted baseline accepted' >&2; exit 1; fi
+grep -F 'existing release policy differs' "$scratch/stderr"
+printf 'guest_graph_space=space:test\nguest_graph_revision=rev:test\n' > "$scratch/guest-graph.conf"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT=wrong run guest-graph-serving >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Wrong serving parent accepted' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT="$rollback" run guest-graph-serving
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT="$rollback" run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Serving image accepted without parent verification' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'

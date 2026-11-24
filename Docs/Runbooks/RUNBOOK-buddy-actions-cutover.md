@@ -78,13 +78,28 @@ retain the separate paired backup rehearsal and migration procedure.
 Run **Publish Buddy release image** on GitHub Actions from `main`, with the
 full reviewed first-parent commit as `revision`. Copy the immutable registry
 reference from the successful run summary. The image uses the default guest
-build configuration. Derive the expected local image ID from the manifest:
+build configuration unless `hosted_guest_graph` is explicitly selected. The
+selected build uses a separate registry tag and records `graph=1` in its guest
+configuration label. This build option alone does not enable the backend or
+select the authorized snapshot; verify those settings during activation. Derive the expected local image ID from the manifest:
 
 ```bash
 candidate_image_id=$(docker buildx imagetools inspect --raw "$registry_ref" |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["config"]["digest"])')
 registry_digest=${registry_ref##*@}
 ```
+
+For a guest Graph serving overlay, first merge its reviewed PR into the exact
+serving branch. Set the protected `buddy-image-release` environment variable
+`BUDDY_SERVING_RELEASE_BRANCH` to that branch. Dispatch the publisher from
+`main` with `hosted_guest_graph=true`, the merged PR number in `serving_pr`,
+its merge SHA in `revision`, and the currently serving source SHA in
+`serving_parent`. The publisher verifies the PR is merged to that configured
+branch and its merge is the current branch tip. The specified live serving
+SHA must either be its first parent or an ancestor of that parent with an
+identical Git tree. The image label records the exact specified live SHA, which
+must also match the rollback source used in staging. Keep the serving and
+rollback image pins unchanged until staging and activation.
 
 Set `registry_digest` to the `sha256:…` portion of that registry reference.
 Verify the candidate's compatibility with the current schema and data.
@@ -98,10 +113,19 @@ sudo /usr/local/sbin/stage-buddy-release \
   "$rollback_revision" "$rollback_image_id"
 ```
 
+Before staging either guest mode, install a root-owned, root-only `/etc/buddy-deploy/guest-graph.conf` containing the authorized baseline as shell assignments `guest_graph_space=<space>` and `guest_graph_revision=<revision>`. Use the exact approved identifiers; the helper validates and freezes them in the release record. Changing them cannot retarget an existing staged release. Do not include credentials.
+
+For a main-line guest Graph image, append the literal `guest-graph` argument to
+the stage command after installing the reviewed guest-capable stage helper.
+For a guest Graph serving overlay, append `guest-graph-serving` instead. That
+mode requires the candidate's serving-parent label to equal the rollback source
+SHA; ordinary guest mode rejects a labeled serving image. The default
+five-argument mode continues to accept only the default build.
+
 The command pulls by registry digest, verifies the candidate and rollback
 identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`
 under the deployment lock. Confirm the resulting `BUDDY_STAGED` receipt.
-Release records contain these literal fields:
+Guest records also contain the enabled switch and the two validated baseline identifiers. The activator supplies and verifies them for the candidate only; rollback uses the existing base Compose policy. Release records contain these literal fields:
 
 ```bash
 candidate_tag=dungeonmindbuddy:<full-candidate-sha>

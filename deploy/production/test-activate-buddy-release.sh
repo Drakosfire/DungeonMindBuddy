@@ -98,16 +98,22 @@ case "$1 $2" in
   'inspect --format')
     if [[ "${*: -1}" == stopped-container ]]; then
       printf '%s\n' "$referenced_id"
+    elif [[ "${3:-}" == *'.Config.Env'* ]]; then
+      if [[ "${GUEST_ENV_MISSING:-0}" != 1 ]]; then
+        printf '%s\n' 'DMB_HOSTED_GUEST_GRAPH_ENABLED=1' 'DMB_GUEST_GRAPH_SOURCE_SPACE=space:test' 'DMB_GUEST_GRAPH_SOURCE_REVISION=rev:test'
+      fi
     else
       printf '%s healthy /test/buddy\n' "$(cat "$TEST_ROOT/serving")"
     fi ;;
   'compose -f')
     [[ "$*" == 'compose -f - up -d --no-deps --no-build --pull never --wait --wait-timeout 330 buddy' ]] || exit 93
-    case "$(cat)" in
-      *"image: dungeonmindbuddy:$candidate") id=$candidate_id ;;
-      *"image: dungeonmindbuddy:$rollback") id=$rollback_id ;;
+    payload=$(cat)
+    case "$payload" in
+      *"image: dungeonmindbuddy:$candidate"*) id=$candidate_id ;;
+      *"image: dungeonmindbuddy:$rollback"*) id=$rollback_id ;;
       *) exit 94 ;;
     esac
+    printf '%s\n' "$payload" > "$TEST_ROOT/payload-$id"
     printf '%s\n' "$id" >> "$TEST_ROOT/activations"
     printf '%s\n' "$id" > "$TEST_ROOT/serving" ;;
   *) exit 95 ;;
@@ -177,6 +183,7 @@ if INTERRUPT_RECEIPT=1 run; then exit 1; fi
 grep -Fx "BUDDY_LIVE $candidate $candidate_id" "$scratch/receipt"
 printf 'candidate_tag=dungeonmindbuddy:%s\ncandidate_id=%s\nrollback_tag=dungeonmindbuddy:%s\nrollback_id=%s\nrollback_revision=%s\n' \
   "$staged" "$staged_id" "$rollback" "$rollback_id" "$rollback" > "$scratch/releases/$staged.conf"
+printf 'guest_graph_enabled=1\nguest_graph_space=space:test\nguest_graph_revision=rev:test\n' >> "$scratch/releases/$staged.conf"
 printf 'dungeonmindbuddy:%s %s\n' \
   "$candidate" "$candidate_id" "$rollback" "$rollback_id" \
   "$referenced" "$referenced_id" "$staged_alias" "$staged_id" \
@@ -208,4 +215,15 @@ if CACHE_DESCRIPTION='unrelated cache' run; then exit 1; fi
 run
 [[ -e "$scratch/cache-removed" ]]
 run
-printf 'Activation, no-op, rollback, image and cache retention checks passed.\n'
+# A staged guest candidate gets its pinned baseline; rollback does not inherit it.
+printf 'guest_graph_enabled=1\nguest_graph_space=space:test\nguest_graph_revision=rev:test\n' >> "$scratch/releases/$candidate.conf"
+reset "$rollback_id"
+run
+grep -F 'DMB_HOSTED_GUEST_GRAPH_ENABLED: "1"' "$scratch/payload-$candidate_id"
+grep -F 'DMB_GUEST_GRAPH_SOURCE_SPACE: "space:test"' "$scratch/payload-$candidate_id"
+grep -F 'DMB_GUEST_GRAPH_SOURCE_REVISION: "rev:test"' "$scratch/payload-$candidate_id"
+reset "$rollback_id"
+if GUEST_ENV_MISSING=1 run; then echo 'Candidate missing guest settings accepted' >&2; exit 1; fi
+grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
+if grep -F 'DMB_HOSTED_GUEST_GRAPH_ENABLED' "$scratch/payload-$rollback_id"; then echo 'Rollback inherited candidate settings' >&2; exit 1; fi
+printf 'Activation, no-op, rollback, image, guest baseline and cache retention checks passed.\n'
