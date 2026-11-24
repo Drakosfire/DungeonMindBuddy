@@ -2962,6 +2962,10 @@ export function WorldPlanAgentConversation({
   const uncertainPlayNoticeRef = useRef<{ turnId: string; message: string } | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [buildReply, setBuildReply] = useState<{
+    scopeKey: string; conversationId: string | null; turnId: string; text: string; sequence: number;
+  } | null>(null);
+  const lastVisibleBuildReply = useRef<{ turnId: string; sequence: number } | null>(null);
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const connectionOptionsRef = useRef<HTMLDetailsElement | null>(null);
@@ -4404,7 +4408,7 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn, restoreInitialComposerReferences = false, tourDispatch:TourDispatchScope|null=null) {
+  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn, restoreInitialComposerReferences = false, tourDispatch:TourDispatchScope|null=null, sendStartedAt?: number) {
     const request = stored.request;
     if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending || buildCompose.busy) return;
     try {
@@ -4430,6 +4434,19 @@ export function WorldPlanAgentConversation({
     }
     const token = Symbol("world-readonly-turn");
     const constructionEpoch=latestRef.current.buildPlacementEpoch;
+    const originConversationId = historySnapshotRef.current?.conversation_id ?? null;
+    const observeBuildReply = request.primary_work.kind === "build" && sendStartedAt !== undefined;
+    function markBuildReply(phase: string, at?: number, sequence?: number) {
+      if (!observeBuildReply) return;
+      performance.mark(`buddy-build-reply:${phase}`, {startTime: at,
+        detail: {turnId: request.turn_id, ...(sequence === undefined ? {} : {sequence})}});
+    }
+    if (observeBuildReply) {
+      for (const phase of ["send", "context-ready", "visible", "complete"]) {
+        performance.clearMarks(`buddy-build-reply:${phase}`);
+      }
+      markBuildReply("send", sendStartedAt);
+    }
     let constructionRetired=false;
     requestRef.current = { token, scopeKey: request.owner_scope.world_id, fenceKey: JSON.stringify(request.primary_work) };
     sharedConversation?.setPendingTurn({ surface: request.surface.surface_id, turnId: request.turn_id });
@@ -4451,7 +4468,21 @@ export function WorldPlanAgentConversation({
         ? postWorldBuildAgentTurn(request as WorldBuildAgentTurnRequestV1, progress=>{
             if(latestRef.current.buildPlacementEpoch!==constructionEpoch)constructionRetired=true;
             if(!constructionRetired&&requestRef.current?.token===token&&latestRef.current.mounted)buildCompose.observeConstruction(progress);
-          })
+          }, observeBuildReply ? event => {
+            if (requestRef.current?.token !== token || !latestRef.current.mounted
+              || latestRef.current.verifiedWorldId !== request.owner_scope.world_id
+              || !surfaceVisibleRef.current
+              || (historySnapshotRef.current?.conversation_id ?? null) !== originConversationId) return;
+            if (event.kind === "context_ready") {
+              markBuildReply("context-ready");
+              return;
+            }
+            setBuildReply(current => ({
+              scopeKey, conversationId: originConversationId, turnId: request.turn_id,
+              text: (current?.turnId === request.turn_id ? current.text : "") + event.text,
+              sequence: event.sequence,
+            }));
+          } : undefined)
         : postWorldPlayAgentTurn(request as WorldPlayAgentTurnRequestV1));
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       const mixed = response.schema === 'dmb_agent_rules_turn_response_v1' || response.schema === 'dmb_agent_play_rules_turn_response_v1';
@@ -4562,6 +4593,7 @@ export function WorldPlanAgentConversation({
         }
       }
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
+      markBuildReply("complete");
       if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } catch (reason) {
@@ -4643,6 +4675,7 @@ export function WorldPlanAgentConversation({
       setError(notice);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } finally {
+      if (observeBuildReply) setBuildReply(current => current?.turnId === request.turn_id ? null : current);
       if (requestRef.current?.token === token) {
         requestRef.current = null;
         setSending(false);
@@ -4722,6 +4755,7 @@ export function WorldPlanAgentConversation({
   async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest,
     freshBuildRetry?:{context:TurnRetryContext;references:WorldBuildAgentTurnRequestV1['build_authored_references']}) {
     event?.preventDefault();
+    const sendStartedAt = event && isBuild ? performance.now() : undefined;
     const tourDispatch=guidance?.captureScope()??null;
     if(surfacePreparationRef.current&&!explicitRequest)return;
     if (questionOverride === undefined) setRetryPresentationOrigin(null);
@@ -4839,7 +4873,7 @@ export function WorldPlanAgentConversation({
         }
         setComposerMessage(current => current.trim() === message ? "" : current);
       }
-      await dispatchSavedPlayTurn(stored,!explicitRequest&&questionOverride===undefined,tourDispatch);
+      await dispatchSavedPlayTurn(stored,!explicitRequest&&questionOverride===undefined,tourDispatch,sendStartedAt);
       return;
     }
 
@@ -7423,6 +7457,11 @@ export function WorldPlanAgentConversation({
         </div>
       </details>
     </>);
+  const visibleBuildReply = isBuild && visible && sending && buildReply?.text.trim()
+    && buildReply.scopeKey === scopeKey && buildReply.conversationId === (history?.conversation_id ?? null)
+    && !displayHistory?.turns.some(turn => turn.assistant_text && turn.user_text === submittedMessage?.message
+      && (turn.turn_id === buildReply.turnId || ("idempotency_key" in turn && submittedMessage?.idempotencyKey
+        && turn.idempotency_key === submittedMessage.idempotencyKey))) ? buildReply : null;
   const messages = (
     <div className="world-plan-agent-conversation__body">
       {newConversationError && !hostedNewConversationAuthError ? <p role="alert">{newConversationError}</p> : null}
@@ -7482,6 +7521,25 @@ export function WorldPlanAgentConversation({
             ) : null}
           </article>
         ) : null}
+        {visibleBuildReply && (
+          <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant"
+            aria-hidden="true" data-build-reply-preview data-build-reply-sequence={visibleBuildReply.sequence}
+            ref={node => {
+              if (!node) return;
+              const {turnId, sequence} = visibleBuildReply;
+              requestAnimationFrame(() => {
+                const last = lastVisibleBuildReply.current;
+                if (node.isConnected && node.dataset.buildReplySequence === String(sequence)
+                  && (last?.turnId !== turnId || last.sequence < sequence)) {
+                  lastVisibleBuildReply.current = {turnId, sequence};
+                  performance.mark("buddy-build-reply:visible", {detail: {turnId, sequence}});
+                }
+              });
+            }}>
+            <span className="world-plan-agent-conversation__speaker">Buddy</span>
+            <p className="world-plan-agent-conversation__streamed-text">{visibleBuildReply.text}</p>
+          </div>
+        )}
         {conversationNotice && conversationNotice !== "The server confirmed this Ask. World history refreshed."
           ? <p role="status">{conversationNotice}</p> : null}
         {(presentationHosts || isReadOnly) && newReplyAvailable ? (
