@@ -146,6 +146,24 @@ Workers, generated tests and logs are retained under `http-owner` and
 synthetic memory-Core and local-operator evidence, without inline UI or live
 provider qualification.
 
+Cases 50–53 exercised frozen `dev-research` as a required-evidence positive
+control with the real synthetic App binding, memory Core and a scripted
+`source_lookup`/read decision. Cases 50–51 failed in the fake writer because it
+looked for the ledger under incorrect input keys. Case 52 established that the
+exact ledger text was in serialized writer input under `related_pages`, but its
+deliberate non-answer failed the answer assertion. Case 53 used the offered
+local selector and exact source quote: HTTP returned 200, one persisted related
+page read matched the frozen ledger, the writer input contained its text, and
+the host accepted the scripted answer of two copper pieces on market days
+(1 test). Pre/post related inventory and the primary page were unchanged; the
+probe recorded one catalog discovery and two materializations of the related
+page. Workers, generated tests and logs remain under `http-owner` and
+`http-owner/session/case-50` through `case-53`. Some inherited console markers
+say `ambiguous`; the fixture pin and generated test select `dev-research`.
+This is predecessor `d008072`, local-operator and scripted-provider evidence,
+not a live-model decision, independent semantic review, full acquisition
+journal, current-head qualification or cohort rate.
+
 Cases 36–37 extended the prior scripted saved-question and answer witness with
 the real synthetic App binding and source-identity resolvers against memory
 Core. Case 36 failed because the diagnostic incorrectly expected a lifecycle
