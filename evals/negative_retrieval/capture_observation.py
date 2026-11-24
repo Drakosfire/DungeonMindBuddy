@@ -67,9 +67,26 @@ def observe(request, history_envelope, trace_envelope, answer_envelope, *, relat
     typed_questions = False
     if completed and isinstance(collaboration, dict) and collaboration.get("kind") == "questions":
         from application_state.agent_conversation.collaboration import ProposedQuestions
+        from application_state.agent_conversation import types as t
+        from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+        completion_types = {
+            "dmb_surface_native_completion_v1": SurfaceNativeCompletionV1,
+            "dmb_build_collaboration_completion_v1": t.BuildCollaborationCompletionV1,
+            "dmb_build_connected_page_review_completion_v1": t.BuildConnectedPageReviewCompletionV1,
+            "dmb_build_relationship_review_completion_v1": t.BuildRelationshipReviewCompletionV1,
+            "dmb_build_relationship_review_completion_v2": t.BuildRelationshipReviewCompletionV2,
+            "dmb_build_relationship_review_completion_v3": t.BuildRelationshipReviewCompletionV3,
+            "dmb_build_intentional_response_completion_v1": t.BuildIntentionalResponseCompletionV1,
+            "dmb_build_intentional_response_completion_v2": t.BuildIntentionalResponseCompletionV2,
+            "dmb_build_intentional_response_completion_v3": t.BuildIntentionalResponseCompletionV3,
+        }
         try:
             ProposedQuestions.model_validate(collaboration)
-            typed_questions = ((answer.get("knowledge_context") or {}).get("completion") == completion)
+            completion_type = completion_types.get(completion.get("schema"))
+            if completion_type is not None:
+                parsed = completion_type.model_validate(completion)
+                typed_questions = (getattr(parsed, "surface_id", "build") == "build"
+                                   and (answer.get("knowledge_context") or {}).get("completion") == completion)
         except (ValueError, TypeError):
             pass
     typed_proposal = False

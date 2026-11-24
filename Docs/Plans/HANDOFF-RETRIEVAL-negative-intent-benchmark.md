@@ -63,6 +63,12 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+The question observer now validates the containing recognized Build completion,
+not only the question object, before accepting matching saved and response
+evidence. Provider-free predecessor HTTP case 77 passed with the real saved
+question; catalog discovery remained an observed zero-budget violation. Evidence:
+`Projects/.codex/buddy-check.negative-inline.SsurDn/http-owner/session/case-77`.
+
 Question recognition now validates the typed question object and requires the
 saved completion to match the HTTP response. Provider-free predecessor HTTP
 case 74 confirmed this on the frozen ambiguous case. The witness observed the

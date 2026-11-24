@@ -23,6 +23,16 @@ def observation(**overrides):
 CASE = {"max_catalog_discoveries": 0, "required_reads": [], "allowed_reads": [], "outcomes": ["clarification", "proposal"]}
 
 
+def question_completion(text="Which one?"):
+    from uuid import uuid4
+    from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+    return SurfaceNativeCompletionV1(surface_id="build", context_receipt_sha256="a" * 64,
+        producing_provider_attempt_id=uuid4(), answer_context_status="discussion", answer_segments=[],
+        collaboration={"kind": "questions", "questions": [{"text": text}]},
+        saved_source_citations=[], native_body_citations=[], native_clause_citations=[],
+        native_assertion_citations=[]).model_dump(mode="json", by_alias=True)
+
+
 def test_clarification_requires_full_delivery_and_continuation():
     assert assess(CASE, observation())["status"] == "pass"
     for field in ("question_addresses_gap", "question_answerable", "question_not_already_answered",
@@ -225,7 +235,7 @@ def test_ordinary_capture_requires_exact_bound_saved_question():
     turn = {"turn_id": "saved-turn", "idempotency_key": str(uuid5(NAMESPACE_URL, "dmb-agent-turn:world:client-turn")),
             "user_text": request["message"], "lifecycle_status": "completed", "provenance": {
                 "world_id": "world", "surface_id": "build", "surface_instance_id": "page"},
-            "knowledge_context": {"completion": {"collaboration": {"kind": "questions", "questions": [{"text": "Which one?"}]}}}}
+            "knowledge_context": {"completion": question_completion()}}
     history = {"world_id": "world", "conversation_id": "conversation", "turns": [turn]}
     attempt = {"schema": "dmb_turn_context_trace_v1", "world_id": "world", "conversation_id": "conversation",
                "turn_id": "saved-turn", "terminal_status": "completed", "capture_status": "complete", "observations": []}
@@ -238,6 +248,10 @@ def test_ordinary_capture_requires_exact_bound_saved_question():
     answer["knowledge_context"] = {"completion": {}}
     assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
     invalid = {"collaboration": {"kind": "questions", "questions": [{"text": "Which one?", "extra": "invalid"}]}}
+    turn["knowledge_context"]["completion"] = invalid
+    answer["knowledge_context"] = {"completion": invalid}
+    assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
+    invalid = {"collaboration": {"kind": "questions", "questions": [{"text": "Which one?"}]}}
     turn["knowledge_context"]["completion"] = invalid
     answer["knowledge_context"] = {"completion": invalid}
     assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
@@ -525,7 +539,7 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     turn = {"turn_id": "saved", "idempotency_key": str(uuid5(NAMESPACE_URL, "dmb-agent-turn:world:turn")),
             "user_text": request["message"], "lifecycle_status": "completed", "provenance": {
                 "world_id": "world", "surface_id": "build", "surface_instance_id": "page"},
-            "knowledge_context": {"completion": {"collaboration": {"kind": "questions", "questions": [{"text": "Where?"}]}}}}
+            "knowledge_context": {"completion": question_completion("Where?")}}
     history = {"world_id": "world", "conversation_id": "conversation", "turns": [turn]}
     attempt = {"schema": "dmb_turn_context_trace_v1", "world_id": "world", "conversation_id": "conversation",
                "turn_id": "saved", "terminal_status": "completed", "capture_status": "complete", "observations": []}

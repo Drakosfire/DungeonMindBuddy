@@ -51,7 +51,8 @@ is a definite violation of a zero-read budget and otherwise remains unknown.
 `capture_observation.observe` consumes the existing ordinary benchmark's saved
 HTTP envelopes and correlates the request, persisted turn, one trace attempt,
 and response. It validates retained HTTP bytes, recognizes validated saved typed
-questions only when the response completion matches the saved completion,
+questions only when a recognized Build completion validates and the response
+completion matches the saved completion,
 and matching validated Build proposal or native answer completions. Answer
 support, proposal mobility, UI results and semantic correctness require separate
 evidence. A lower-bound
