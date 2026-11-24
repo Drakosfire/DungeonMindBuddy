@@ -55,6 +55,7 @@ def browser_scratch_directory(output):
 
 
 def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail):
+    from apps.live_control_server.hosted_worker import with_startup_gc
     from apps.live_control_server.services import plan_jev_dispatch
     import httpx2
 
@@ -198,7 +199,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                      DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host,
                      TYPESAFE_JEV_API_KEY="retained-jev-replay",
                      OPENAI_API_KEY="local-writer-transport-sink")
-    server = uvicorn.Server(uvicorn.Config(serve, log_level="warning", access_log=False, timeout_graceful_shutdown=10))
+    server = uvicorn.Server(uvicorn.Config(with_startup_gc(serve), log_level="warning",
+                                           access_log=False, timeout_graceful_shutdown=10))
     route = "/api/live/agent/worlds/" + world + "/conversation"
     try:
         with (patch.dict(os.environ, local_env),

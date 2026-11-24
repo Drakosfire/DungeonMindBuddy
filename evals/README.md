@@ -191,6 +191,8 @@ The driver
 starts one loopback instance and submits from Buddy's ordinary Plan composer.
 The exact retained Jev request must match. The GenerationEngine writer
 request is captured at the local transport sink. Neither provider is called.
+The browser server uses Buddy’s hosted startup garbage-collection wrapper.
+Compare these timing captures with others that use the same startup policy.
 
 The optional manifest field browser_capture.settled_pane waits for a quiet
 pane before timing Send. Leave it false for immediate Send after the
