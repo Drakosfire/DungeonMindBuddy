@@ -3980,17 +3980,39 @@ def test_current_lore_sdk_omits_host_metadata_but_preserves_authored_words(lane,
 
 @pytest.mark.parametrize('downgrade', [False, True, 'review_kind_drift'])
 def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, tmp_path, monkeypatch, downgrade):
+    from copy import deepcopy
     from dataclasses import replace
-    from types import MappingProxyType
+    from types import MappingProxyType, SimpleNamespace
     from application_state.agent_conversation import AgentConversationService
     from application_state.agent_conversation import build_intentional_response as intent
-    from application_state.agent_conversation.native_build_work_view import semantic_frame
+    from application_state.agent_conversation.native_build_work_view import semantic_frame, lore_outcome_eligible
     from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from apps.live_control_server.services import build_jev_runtime as runtime_factory
+    base_harness = runtime_factory.BuildJevHarness
+    snapshots = []
+    original_init = PlanJevWriter.__init__
+    def capture_producer(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        snapshots.append(SimpleNamespace(frame=deepcopy(self.frame), work=deepcopy(self.work_frame),
+            rules=deepcopy(model_rules_frame(self.rules.frame()))))
+    monkeypatch.setattr(PlanJevWriter, '__init__', capture_producer)
     first = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work='review_lore_page_from_conversation', source_need='anchored',
         source_answer_output='lore_valid_gap', message='Prepare a separate page for Glass Regent from our discussion.')
     assert first.response.status_code == 200, first.response.text
+    producer = snapshots[0]
+    offered = json.loads(first.writer.calls[0].content)['text']['format']
+    def reconstruct_format():
+        outcome = lore_outcome_eligible(producer.work, first.turn.graph_context_execution)
+        wire = semantic_frame(producer.work, first.turn.graph_context_execution,
+            bind_lore_page=True, supplied_source_references=True, typed_source_answer=True,
+            lore_page_limitations=True, lore_request_reference=True, lore_outcome=outcome)
+        return native_output_format(producer.frame, producer.rules, producer.work | wire,
+            build_local=True, generic_reply_limits=True, lore_outcome=outcome,
+            execution=first.turn.graph_context_execution)
+    assert reconstruct_format() == offered
     old_menu = intent.MENU_DIGEST
     frozen = intent._MENU_CONTRACTS[old_menu]
     assert intent.menu_offers_lore_outcomes(old_menu)
@@ -3998,13 +4020,12 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
         work_options=intent._PRE_LORE_OUTCOME_WORK))
     assert not intent.menu_offers_lore_outcomes(old_v2)
     work = dict(intent.WORK)
-    # A later producer's metadata cannot reinterpret the captured selection.
     work['review_lore_page_from_conversation'] = replace(work['review_lore_page_from_conversation'],
-        family='discuss', meaning='Prepare the requested page now under successor guidance.')
+        family='discuss', meaning='Prepare the requested page now from supplied authored context.')
     if downgrade == 'review_kind_drift':
         work['review_lore_page_from_conversation'] = replace(work['review_lore_page_from_conversation'], review='questions')
     work = MappingProxyType(work)
-    guidance = intent.GUIDANCE + '\nSuccessor menu: preserve the meaningful page outcome.'
+    guidance = intent.GUIDANCE + '\nPreserve authored proposals and unresolved questions.'
     menu = intent.digest(intent.question(guidance=guidance, work_options=work))
     resolver = intent._resolver_digest(work)
     monkeypatch.setattr(intent, '_MENU_CONTRACTS', MappingProxyType({**intent._MENU_CONTRACTS,
@@ -4016,23 +4037,21 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
     instructions = intent.decision_instructions
     monkeypatch.setattr(intent, 'decision_instructions', lambda menu_digest=menu: instructions(menu_digest))
     assert intent.menu_offers_lore_outcomes(old_menu) and intent.menu_offers_lore_outcomes(menu)
-    if downgrade == 'review_kind_drift':
-        with pytest.raises(ValueError, match='frozen review kind'):
-            intent.review_kind('review_lore_page_from_conversation')
-        from application_state.errors import ApplicationStateIntegrityError
-        with pytest.raises((ValueError, ApplicationStateIntegrityError)) as refused:
-            AgentConversationService().inspect_turn(world_id=first.world, turn_id=first.turn.turn_id)
-        errors = []
-        error = refused.value
-        while error is not None:
-            errors.append(str(error))
-            error = error.__cause__
-        assert any('frozen review kind' in message for message in errors)
-        first.client.close()
-        return
     reopened = AgentConversationService().inspect_turn(world_id=first.world, turn_id=first.turn.turn_id)
     assert reopened.completion == first.turn.completion
+    if downgrade == 'review_kind_drift':
+        # A typed stored read is unchanged; the owning producing-schema boundary
+        # must refuse reinterpretation under inconsistent review metadata.
+        with pytest.raises(ValueError, match='frozen review kind'):
+            intent.review_kind('review_lore_page_from_conversation')
+        with pytest.raises(ValueError, match='frozen review kind'):
+            reconstruct_format()
+        first.client.close()
+        return
+    assert reconstruct_format() == offered
     first.client.close()
+    # Each helper installs an HTTP harness; do not inherit its first transports.
+    monkeypatch.setattr(runtime_factory, 'BuildJevHarness', base_harness)
     if downgrade:
         original = PlanJevWriter.__init__
         def older_reply(self, *args, **kwargs):
@@ -4046,13 +4065,10 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
                     value['build_work'] = wire['build_work']
                     message['content'] = json.dumps(value)
             self.provider_work = wire
-            from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
             self.output_format = native_output_format(self.frame, model_rules_frame(self.rules.frame()),
                 self.work_frame | wire, build_local=True, generic_reply_limits=True)
         monkeypatch.setattr(PlanJevWriter, '__init__', older_reply)
     from tests.test_source_statements import make_lane
-    # A new in-memory World avoids republishing the same fixture contribution;
-    # both serial calls still use the same owned physical App database.
     second_lane = make_lane(tmp_path, monkeypatch, narrow=True)
     second = _fresh_case(second_lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work='review_lore_page_from_conversation', source_need='anchored',
