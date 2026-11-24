@@ -160,6 +160,19 @@ predecessor-source evidence, not a live-model, current-head or deployed run.
 The case workers, generated tests and logs remain under `http-owner` and
 `http-owner/session/case-41` through `case-43`.
 
+The first mounted replay eventually acquired the frontend lock and failed to
+find the question component. It used case 43's active-messages bytes but
+incorrectly supplied empty detailed history, so that result does not identify a
+product defect. Case 44 captured matching actual active-messages and detailed
+history HTTP responses in one controlled flow (1 server-side test passed):
+SHA-256 `2e14ab42a36a045abb19391659cb627964b6146e1e00617641ab55d5c4512bb2`
+and `e3df29abb1326a74a9efc07d1f72cbea15754c6170a3a693de05a4e154ca3b19`.
+The matching-payload UI replay is prepared in the same isolated directory but
+its 30-second lock wait expired before Vitest started. The first failure and
+new attempt remain in `replay-attempt6.log` and `replay-attempt7.log`. Neither
+establishes an inline result; this is synthetic scripted-provider predecessor
+evidence, not a live browser/server session or current-head qualification.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a
