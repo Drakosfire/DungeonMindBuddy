@@ -7,8 +7,8 @@ copy; it does not complete the broader Build, Plan, Play and Buddy objective.
 
 Topology: DungeonMind PR #299 merged at
 `6beb506ea3a03b34e27fb309cccf37393d01318e`; this slice consumes that merged
-revision. Buddy base is
-`f5538e832756ccb58d2a14b1e96c824682b1da48`, branch
+revision. Buddy is stacked on the combined one-App runner #4598 at
+`21b0561950c6e55afbad57e3f40dc11c054008d2`; merge and qualify #4598 first, then re-anchor and merge this Graph slice. Branch
 `codex/sizzek-hosted-guest-graph`, checkout this worktree. Open Buddy PRs and
 the Core lease were checked; existing Build/Play work is separate. No production
 database, service, port, or provider is leased for implementation or tests.
