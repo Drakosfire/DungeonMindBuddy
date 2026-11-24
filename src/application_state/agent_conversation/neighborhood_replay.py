@@ -58,3 +58,31 @@ def replay_exclusion_steps(execution, *, start, stop):
         and start <= event["sequence"] and (stop is None or event["sequence"] < stop)
         and event.get("exclusion_replay") is not None
     ]
+
+
+class EffectiveRetrievalSelection(BaseModel):
+    """Non-authoritative projection of a durable host selection."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    sequence: int = Field(strict=True, ge=0)
+    controller_attempt_id: str = Field(min_length=1, max_length=64)
+    operation: str = Field(pattern=r"^(select_candidates|discover_more|finish_retrieval)$")
+    selected_count: int = Field(strict=True, ge=0)
+
+
+def effective_retrieval_selections(execution, *, start, stop):
+    """Project actual selection events within one attempt, never model votes."""
+    if not isinstance(execution, dict):
+        return []
+    return [
+        EffectiveRetrievalSelection(
+            sequence=event["sequence"],
+            controller_attempt_id=str(event["controller_attempt_id"]),
+            operation=event["operation"],
+            selected_count=len(event["selected_handles"]),
+        )
+        for event in execution.get("events", [])
+        if event.get("kind") in {"native_retrieval_selected_v1",
+                                 "native_retrieval_selected_v2",
+                                 "plan_jev_retrieval_selected_v1"}
+        and start <= event["sequence"] and (stop is None or event["sequence"] < stop)
+    ]

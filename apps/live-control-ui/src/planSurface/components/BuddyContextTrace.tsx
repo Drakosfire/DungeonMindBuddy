@@ -76,6 +76,10 @@ function ContextSnapshot({ event, trace, passages }: { event: Extract<BuddyTrace
       : event.snapshot_kind === 'compaction_output' && !!event.comparison_id
         && item.snapshot_kind === 'compaction_input' && item.comparison_id === event.comparison_id)).at(-1)
   const label = traceSnapshotLabel(event)
+  const retrievalMaterial = event.materials.find(item => /^(unvalidated-native-retrieval-result|unvalidated-plan-jev-result):/.test(item.item_id))
+  const retrievalAttempt = retrievalMaterial?.item_id.split(':')[1]
+  const effective = retrievalAttempt ? trace.effective_retrieval_selections?.find(item => item.controller_attempt_id === retrievalAttempt) : undefined
+  const showRetrievalNote = !!effective || !!retrievalMaterial?.item_id.startsWith('unvalidated-native-retrieval-result:')
   const changes = previous ? [...new Set([...previous.materials.map(item => item.item_id), ...event.materials.map(item => item.item_id)])].flatMap(id => {
     const before = previous.materials.find(item => item.item_id === id)
     const now = event.materials.find(item => item.item_id === id)
@@ -84,7 +88,7 @@ function ContextSnapshot({ event, trace, passages }: { event: Extract<BuddyTrace
   }) : []
   return <details><summary>{label}</summary>
     <p className="buddy-context-trace__muted">Captured material inventory. When captured, the composed input includes the exact instructions and request envelope.</p>
-    {event.materials.some(item => item.item_id.startsWith('unvalidated-native-retrieval-result:')) && <p role="note">A finish-retrieval vote in this raw model response can be a fallback when no eligible candidates are selected. It does not establish the action Buddy executed; the effective selection is not shown here.</p>}
+    {showRetrievalNote && <p role="note">A finish-retrieval vote in this raw model response can be a fallback when no eligible candidates are selected. {effective ? <>Recorded host selection: <strong>{effective.operation}</strong> · {effective.selected_count} selected.</> : <>The effective host selection is not available in this trace.</>}</p>}
     {!event.snapshot_kind && <p className="buddy-context-trace__muted">This historical snapshot did not record its purpose. No context changes are inferred.</p>}
     {event.snapshot_kind === 'provider_response' && <p className="buddy-context-trace__muted">Raw returned response, before validation. This is not an inventory of what the provider received.</p>}
     {previous && <div aria-label="Context changes">{changes.length ? changes.map(change =>

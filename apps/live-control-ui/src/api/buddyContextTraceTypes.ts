@@ -84,6 +84,7 @@ export interface BuddyTurnContextTrace {
   capture_status: 'recording' | 'complete' | 'incomplete'; capture_failure_code: string | null
   observations: BuddyTraceObservation[]
   writer_evidence_sequences?: number[] | null
+  effective_retrieval_selections?: { sequence: number; controller_attempt_id: string; operation: 'select_candidates' | 'discover_more' | 'finish_retrieval'; selected_count: number }[] | null
   graph_replay_order?: Record<string, number> | null
   native_discovery_replay?: {
     revision_id: string

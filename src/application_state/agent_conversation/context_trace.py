@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from .neighborhood_replay import NeighborhoodReplay, ReplayExclusionStep
+from .neighborhood_replay import NeighborhoodReplay, ReplayExclusionStep, EffectiveRetrievalSelection
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
@@ -447,6 +447,7 @@ class TurnContextTraceV1(TraceModel):
     capture_failure_code: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,63}$")
     observations: list[ContextTraceObservation] = Field(max_length=2048)
     writer_evidence_sequences: list[int] | None = Field(default=None, max_length=2048)
+    effective_retrieval_selections: list[EffectiveRetrievalSelection] | None = Field(default=None, max_length=2048, exclude_if=lambda value: value is None)
     native_assertion_steps: list[NativeReplayAssertionStep] | None = Field(default=None, max_length=2048)
     native_discovery_replay: NativeDiscoveryReplay | None = Field(default=None, exclude_if=lambda value: value is None)
     retrieval_exclusion_steps: list[ReplayExclusionStep] | None = Field(default=None, max_length=2048, exclude_if=lambda value: value is None)

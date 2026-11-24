@@ -30,6 +30,7 @@ from application_state.errors import (
 )
 from application_state.unit_of_work import unit_of_work
 from .native_replay import native_assertion_steps, native_discovery_replay
+from .neighborhood_replay import effective_retrieval_selections
 from .neighborhood_replay import replay_exclusion_steps
 
 
@@ -515,6 +516,7 @@ class TurnContextTraceStore:
                 }
             traces[index] = trace.model_copy(update={
                 "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
+                "effective_retrieval_selections": effective_retrieval_selections(turn[0], start=trace.execution_start_sequence, stop=next_start) or None,
                 "native_assertion_steps": native_steps or None,
                 "native_discovery_replay": native_discovery_replay(turn[2], turn[0], stop=next_start) if trace.attempt == 1 else None,
                 "retrieval_exclusion_steps": exclusion_steps or None,
