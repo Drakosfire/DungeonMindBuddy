@@ -517,8 +517,13 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
             expected_revision=stored.revision, expected_attempt=stored.attempt, outcome=entered)
 
 
-def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write(
-    plan_adapter, application_state_dsn
+@pytest.mark.parametrize("message, relation, intent, scope_calls", [
+    ("Could we add a warning?", "unresolved", "unresolved", 1),
+    ("What did the party learn?", "unstated_insertion_location", "discussion", 1),
+    ("Insert a warning before that note.", "unstated_insertion_location", "discussion", 2),
+])
+def test_unscoped_plan_discussion_preserves_recheck_for_concrete_directions(
+    plan_adapter, application_state_dsn, message, relation, intent, scope_calls,
 ):
     import asyncio
 
@@ -529,7 +534,7 @@ def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write
     from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
 
     plan_adapter.request = plan_adapter.request.model_copy(
-        update={"message": "Could we add a warning?"}
+        update={"message": message}
     )
     capture, turn = _claim_contextual_scope_turn(plan_adapter)
     requests = []
@@ -539,9 +544,9 @@ def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write
         requests.append(wire)
         assert not wire["state"]["scope_hypotheses"]
         choices = {
-            "location_relation": "unresolved",
+            "location_relation": relation,
             "existing_scope": "none",
-            "page_edit_intent": "unresolved",
+            "page_edit_intent": intent,
         }
         answers = {
             name: {
@@ -565,7 +570,8 @@ def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write
         decision_api_key="synthetic-not-secret",
     )
     first = harness._interpret_author_scope(plan_adapter, (), [])
-    assert len(requests) == 1
+    assert len(requests) == scope_calls
+    assert first.scope_observation.relation == relation
     opening = PlanJevDispatch.requested_work(
         plan_adapter, page_title="Preparation", author_scope=first,
     )
@@ -575,9 +581,9 @@ def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write
     ))
     confirmed = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
     selection = confirmed.graph_context_execution.events[-1]
-    assert work == "clarify"
+    assert work == ("discuss" if intent == "discussion" else "clarify")
     assert selection.author_scope_binding.observation_event_id == first.event_id
-    assert selection.author_scope_binding.page_edit_intent == "unresolved"
+    assert selection.author_scope_binding.page_edit_intent == intent
     assert selection.placement_selector is None and selection.target_capture_sha256 is None
     with pytest.raises(ApplicationStateValidationError, match="frozen destination or target"):
         plan_adapter.service.reserve_plan_authoring_action(
