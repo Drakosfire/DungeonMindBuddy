@@ -106,6 +106,7 @@ function nativeIndexFetch(graph = guestGraph, authStatus: "local_operator" | "si
       : response(200, { status: authStatus });
     if (path === "/api/live/index-graph/session") return response(200, { csrf_token: "guest-csrf" });
     if (path === "/api/live/index-graph/graph") return response(200, graph);
+    if (path.startsWith("/api/live/index-graph/nodes/") && path.endsWith("/sources")) return response(200, { sources: [{ text: "Lina lives near the quay.", role: "support", claim: "Lina · lives near · Amber Quay", qualification: "asserted · established · time unknown" }] });
     return response(404, { error: "Not found.", code: "not_found" });
   });
 }
@@ -560,6 +561,27 @@ describe("canonical local guest entry", () => {
     );
     expect(screen.queryByRole("button", { name: "Lina, person" })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([path]) => String(path))).toEqual(["/api/auth/session"]);
+  });
+
+  it("opens the existing editable Graph for a signed-out Sizzek guest", async () => {
+    vi.stubEnv("VITE_HOSTED_GUEST_GRAPH", "1");
+    const fetchMock = nativeIndexFetch(guestGraph, "signed_out");
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset guest World" })).toBeInTheDocument();
+    expectOnlyScopedIndexCalls(fetchMock);
+    fireEvent.click(screen.getByRole("button", { name: "Lina, person" }));
+    expect(await screen.findByText(/Source evidence: Lina/)).toBeInTheDocument();
+    expect(screen.getByText("Lina lives near the quay.")).toBeInTheDocument();
+  });
+
+  it("offers the Sizzek Graph from Buddy Home when signed out", async () => {
+    vi.stubEnv("VITE_HOSTED_GUEST_GRAPH", "1");
+    vi.stubGlobal("fetch", nativeIndexFetch(guestGraph, "signed_out"));
+    window.history.replaceState({}, "", "/");
+    render(<App />);
+    expect(await screen.findByRole("link", { name: /explore sizzek world/i })).toHaveAttribute("href", "/graph");
   });
 
   it.each(["/", "/#buddy-about", "/#buddy-home-main"])("keeps Home and its introductory anchors public at %s", async location => {

@@ -21,6 +21,11 @@ from dungeonmind.application.vnext import (
     create_empty_space,
     publish_native_text_source_evidence,
 )
+from dungeonmind.application.vnext.world_copy import copy_native_world
+from dungeonmind.application.vnext.native_source_access import (
+    open_admitted_native_text,
+    open_native_text_source_access_context,
+)
 from dungeonmind.contracts.vnext.common import LabelsAnyVisibility
 from dungeonmind.contracts.vnext.native_source import (
     NativeTextEvidenceSpanRequestV1,
@@ -173,6 +178,7 @@ class NativeGraphDemoService:
         *,
         store: Any | None = None,
         allocation_id: str = _DEMO_ALLOCATION_ID,
+        source_snapshot: tuple[str, str, datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._storage_label = storage_label
@@ -191,6 +197,9 @@ class NativeGraphDemoService:
             )
         self._store = store
         self._allocation_id = allocation_id
+        self._source_snapshot = source_snapshot
+        self._max_nodes = 256 if source_snapshot is not None else MAX_NODES
+        self._max_edges = 512 if source_snapshot is not None else MAX_EDGES
         self._domain = dungeonbuddy_world_domain_contract()
         self._profile = dungeonbuddy_dnd5e_custom_predicate_profile()
         self._space_id: str | None = None
@@ -201,6 +210,50 @@ class NativeGraphDemoService:
         with self._store.atomic():
             self._ensure_initialized()
             return self._read_graph()
+
+    def node_sources(self, node_id: str) -> dict[str, Any]:
+        """Open source spans associated with a node in this session's current graph."""
+        with self._store.atomic():
+            self._ensure_initialized()
+            graph = self._read_graph()
+            if node_id not in {node["id"] for node in graph["nodes"]}:
+                raise DemoError("node_not_found", "This graph node is unavailable.", 404)
+            stored = self._repository.get_revision(self._space_id, graph["revision_id"])
+            if stored is None:
+                raise PersistenceIntegrityError("source graph revision missing")
+            linked = []
+            for assertion in stored.graph_payload["assertions"]:
+                value = assertion.get("value", {})
+                if assertion.get("subject_entity_id") == node_id or (
+                    value.get("kind") == "entity_ref" and value.get("entity_id") == node_id
+                ):
+                    linked.append(assertion)
+            context = open_native_text_source_access_context(
+                repository=self._repository, space_id=self._space_id,
+                revision_id=graph["revision_id"], domain_contract=self._domain,
+                audience_labels=[GM_LABEL],
+            )
+            evidence = {item["evidence_ref_id"]: item for item in stored.graph_payload["evidence"]}
+            names = {node["id"]: node["name"] for node in graph["nodes"]}
+            excerpts = []
+            with context.source_view.read_scope() as view:
+                from dataclasses import replace
+                scoped = replace(context, source_view=view)
+                for assertion in linked:
+                    value = assertion["value"]
+                    target = names.get(value.get("entity_id")) if value.get("kind") == "entity_ref" else value.get("value", value.get("term", ""))
+                    claim = f"{names.get(assertion['subject_entity_id'], 'Object')} · {assertion['predicate']} · {target}"
+                    metadata = assertion["metadata"]
+                    qualification = f"{metadata.get('epistemic_basis', 'unknown')} · {metadata.get('standing', 'unknown')} · {json.dumps(metadata.get('temporal_scope', {}), ensure_ascii=False, sort_keys=True)}"
+                    for ref in metadata.get("evidence_ref_ids", []):
+                        opened = open_admitted_native_text(scoped, ref)
+                        if (opened.status != "available" or opened.body_text is None
+                                or opened.span_start_byte is None or opened.span_end_byte is None):
+                            raise PersistenceIntegrityError("node source evidence unavailable")
+                        span = opened.body_text.encode("utf-8")[opened.span_start_byte:opened.span_end_byte].decode("utf-8")
+                        excerpts.append({"text": span, "role": evidence[ref]["evidence_role"],
+                                         "claim": claim, "qualification": qualification})
+            return {"sources": excerpts}
 
     def close(self) -> None:
         """Release the local durable operation journal connection."""
@@ -508,6 +561,10 @@ class NativeGraphDemoService:
         if self._initialized:
             return
         try:
+            if self._source_snapshot is not None:
+                self._ensure_snapshot()
+                self._initialized = True
+                return
             receipt = create_empty_space(
                 repository=self._repository,
                 allocation_id=self._allocation_id,
@@ -545,6 +602,65 @@ class NativeGraphDemoService:
                 exc, "The native demo graph could not be initialized."
             )
             raise mapped from exc
+
+    def _ensure_snapshot(self) -> None:
+        """Bind a session once and recover the same copy after interruption."""
+        assert self._source_snapshot is not None
+        binding = self._store.get_metadata("source_snapshot")
+        if binding is None:
+            space_id, revision_id, created_at = self._source_snapshot
+            binding = canonical_json({"space_id": space_id, "revision_id": revision_id,
+                                      "created_at": created_at.isoformat()})
+            self._store.set_metadata("source_snapshot", binding)
+        try:
+            saved = json.loads(binding)
+            space_id = saved["space_id"]
+            revision_id = saved["revision_id"]
+            created_at = datetime.fromisoformat(saved["created_at"])
+            if (not isinstance(space_id, str) or not space_id
+                    or not isinstance(revision_id, str) or not revision_id
+                    or created_at.utcoffset() is None):
+                raise ValueError("invalid snapshot binding")
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise DemoError("snapshot_binding_invalid", "The guest World binding is invalid.", 503) from exc
+        if self._repository.get_space_provisioning_receipt(f"native-world-copy:{self._allocation_id}") is None:
+            source = self._repository.get_revision(space_id, revision_id)
+            payload = source.graph_payload if source is not None else None
+            if not isinstance(payload, dict):
+                raise DemoError("snapshot_unavailable", "The shared World is unavailable.", 503)
+            entities, assertions, aliases, evidence = (payload.get(key) for key in ("entities", "assertions", "aliases", "evidence"))
+            if not all(isinstance(items, list) for items in (entities, assertions, aliases, evidence)):
+                raise DemoError("snapshot_unavailable", "The shared World is unavailable.", 503)
+            named = {item.get("subject_entity_id") for item in assertions if isinstance(item, dict)
+                     and item.get("predicate") == "dnd5e:name" and isinstance(item.get("value"), dict)
+                     and item["value"].get("kind") == "literal" and isinstance(item["value"].get("value"), str)}
+            if any(not isinstance(item, dict) or item.get("entity_id") not in named for item in entities):
+                raise DemoError("snapshot_unavailable", "The shared World contains an unnamed graph object.", 503)
+            edge_count = sum(1 for item in assertions if isinstance(item, dict)
+                             and isinstance(item.get("value"), dict)
+                             and item["value"].get("kind") == "entity_ref")
+            if (len(entities) > self._max_nodes - 10
+                    or edge_count > self._max_edges - 10
+                    or len(assertions) > self._max_nodes * 2 + self._max_edges - 20
+                    or len(aliases) > self._max_nodes
+                    or len(evidence) > MAX_JOURNAL_OPERATIONS + len(_SEED_LINES)
+                    or len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > 512 * 1024):
+                raise DemoError("snapshot_too_large", "The shared World exceeds this session's graph capacity.", 503)
+        # Persist the source binding before Core can commit any destination writes.
+        with self._store.checkpoint():
+            result = copy_native_world(
+                repository=self._repository, operation_id=self._allocation_id,
+                source_space_id=space_id, source_revision_id=revision_id,
+                created_at=created_at, domain_contract=self._domain,
+                semantic_profile=self._profile, audience_labels=[GM_LABEL],
+            )
+        saved_id = self._store.get_metadata("space_id")
+        if saved_id is not None and saved_id != result.space_id:
+            raise DemoError("space_binding_mismatch", "The guest World binding changed.", 503)
+        self._store.set_metadata("space_id", result.space_id)
+        self._store.set_metadata("genesis_revision_id", result.revision_id)
+        self._space_id = result.space_id
+        self._genesis_revision_id = result.revision_id
 
     def _ensure_seed(self) -> None:
         assert self._space_id is not None and self._genesis_revision_id is not None
@@ -992,10 +1108,10 @@ class NativeGraphDemoService:
                 "Only person and location objects are supported.",
                 400,
             )
-        if len(graph["nodes"]) >= MAX_NODES:
+        if len(graph["nodes"]) >= self._max_nodes:
             raise DemoError(
                 "node_limit_reached",
-                f"This demo supports at most {MAX_NODES} objects.",
+                f"This graph supports at most {self._max_nodes} objects.",
                 409,
             )
         return None
@@ -1003,10 +1119,10 @@ class NativeGraphDemoService:
     def _prepare_connect(
         self, request: dict[str, str], graph: dict[str, Any]
     ) -> dict[str, Any] | None:
-        if len(graph["edges"]) >= MAX_EDGES:
+        if len(graph["edges"]) >= self._max_edges:
             raise DemoError(
                 "edge_limit_reached",
-                f"This demo supports at most {MAX_EDGES} relationships.",
+                f"This graph supports at most {self._max_edges} relationships.",
                 409,
             )
         node_ids = {node["id"] for node in graph["nodes"]}
@@ -1356,10 +1472,10 @@ class NativeGraphDemoService:
                 or not isinstance(assertions, list)
                 or not isinstance(evidence, list)
                 or not isinstance(aliases, list)
-                or len(entities) > MAX_NODES
-                or len(assertions) > (MAX_NODES * 2 + MAX_EDGES)
+                or len(entities) > self._max_nodes
+                or len(assertions) > (self._max_nodes * 2 + self._max_edges)
                 or len(evidence) > (MAX_JOURNAL_OPERATIONS + len(_SEED_LINES))
-                or len(aliases) > MAX_NODES
+                or len(aliases) > self._max_nodes
             ):
                 raise DemoError(
                     "native_graph_limit_failure",
@@ -1456,7 +1572,7 @@ class NativeGraphDemoService:
                     )
                 names_by_id[entity_id] = name
                 nodes.append({"id": entity_id, "name": name, "kind": kind})
-            if len(nodes) > MAX_NODES:
+            if len(nodes) > self._max_nodes:
                 raise DemoError(
                     "native_graph_limit_failure",
                     "The native graph exceeds the demo object cap.",
@@ -1503,7 +1619,7 @@ class NativeGraphDemoService:
                         "predicate": label,
                     }
                 )
-            if len(edges) > MAX_EDGES:
+            if len(edges) > self._max_edges:
                 raise DemoError(
                     "native_graph_limit_failure",
                     "The native graph exceeds the demo relationship cap.",
