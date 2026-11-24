@@ -62,3 +62,13 @@ it against a shared service, concurrent evaluator, or live World. A focused
 synthetic test confirmed that the real Build budget path invokes catalog
 discovery before a controller decision; its registry was stubbed, so this is
 not a model-quality or full-turn result.
+
+`capture.capture(manifest, output, clone_app=...)` wraps the existing ordinary
+Build sequence capture, preserving its runtime, source, provider, and database
+preflight. It records the partial probe separately for each turn, including a
+failure before a response, and restores the patched owner functions. The wrapper
+is a process-global diagnostic: use an isolated serial process and the existing
+owned database procedure. It does not seed a fixture, establish database
+capacity, authorize a provider or deployment, or provide the missing complete
+acquisition journal. Read the ordinary benchmark manifest and policy before
+invoking it; the wrapper does not support Plan or the context-only writer stop.

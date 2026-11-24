@@ -207,3 +207,34 @@ def test_empty_catalog_discovery_is_not_a_zero_acquisition_pass():
     result = assess(CASE, observation(reads=acquisition_labels(evidence), journal_complete=False))
     assert result["checks"]["unexpected_retrieval"] is False
     assert result["status"] == "fail"
+
+
+def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, monkeypatch):
+    import json
+    import pytest
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+    from apps.live_control_server.services import build_related_pages
+
+    original_discover = build_related_pages.discover
+    def fail_case(client, world, template, case, directory, **kwargs):
+        build_related_pages.discover(None)
+
+    def fail_discovery(request):
+        raise RuntimeError("observed failure")
+
+    monkeypatch.setattr(build_related_pages, "discover", fail_discovery)
+    monkeypatch.setattr(workflow, "capture_case", fail_case)
+    original_case = workflow.capture_case
+    def ordinary_capture(manifest, output, **kwargs):
+        return workflow.capture_case(None, "world", {}, {"id": "case1"}, output)
+    monkeypatch.setattr(workflow, "capture", ordinary_capture)
+    monkeypatch.setattr(workflow, "load_manifest", lambda *args, **kwargs: ({"conversation_mode": "build_sequence"}, tmp_path))
+    with pytest.raises(RuntimeError, match="observed failure"):
+        capture("manifest.json", tmp_path / "case1")
+    evidence = json.loads((tmp_path / "case1" / "related-page-probe.json").read_text())
+    assert evidence["coverage"] == "partial"
+    assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "raised"}]
+    assert workflow.capture_case is original_case
+    assert build_related_pages.discover is fail_discovery
+    assert original_discover is not fail_discovery
