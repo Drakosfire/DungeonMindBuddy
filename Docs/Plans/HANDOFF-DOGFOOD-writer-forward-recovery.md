@@ -1,7 +1,7 @@
 # DOGFOOD: compatible APP0210 forward recovery
 
 ACTIVE operational artifact under Alan's deployment/recovery authorization.
-Prepare against exact product candidate3013b7f3a5bca1adceba726711e2b1fba80223de,
+Prepare against exact product candidate38cdd508a46bb2b554e3610374112babac0d7f4c,
 PR4630, based on serving83c968186. The product PR is not yet merged or qualified;
 that blocks activation, not bounded recovery preparation. Preserve subsequent
 serving changes before delivery. Reuse the existing dogfood-lore-review checkout,
@@ -40,10 +40,14 @@ inspect the cumulative parent-to-recovery diff and obtain independent review.
 Fresh production backup/rehearsal and sealed source/image/config/schema CAS gates
 remain required before activation. Do not reuse old209 cutover receipts as210 proof.
 
+The candidate's settlement rejection wording is preserved here as well; it keeps
+the original rejection substring and the conversation-evidence alternative. Earlier
+9221 image/source evidence remains historical, not qualification of this head.
+
 Resources: same retained App benchmark_run_e27fc178267a4d7cbc90bf173dd3ecfe,
 OID210452/cluster7711451860937605159, evaluator buddy-retrieval-projects-4560,
 port33351; no new clone or per-case databases. Reuse shared read-only Core when
-needed. Product case57 currently owns the App serial run; do not start a recovery
+needed. Product case60 currently owns the App serial run; do not start a recovery
 run until its workers/connections close and the owner admits the reviewed worker.
 Evidence remains beneath Projects/.codex/buddy-check.retained-80c.MPEaXT.
 Release only after acceptance/abandonment and exact owned-clone closure/teardown.
