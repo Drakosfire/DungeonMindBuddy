@@ -280,7 +280,7 @@ export function BuildDocumentSelector({
   const pageRecords = new Map((documents ?? []).map(record => [record.document_id, record]));
   if (activeRecord) pageRecords.set(activeRecord.document_id, activeRecord);
   const byId = new Map(entries.map(entry => [entry.id, entry]));
-  const directStatblockId = activeStatblock && activeStatblock.worldId === worldId
+  const directStatblockId = !guest && activeStatblock && activeStatblock.worldId === worldId
     ? buildSavedStatblockHref({ worldId: activeStatblock.worldId, draftId: activeStatblock.draftId, revisionId: activeStatblock.revisionId })
     : null;
   const directDeleteReadFinished = currentCatalog?.directDeleteRequest === directDeleteRequest;
