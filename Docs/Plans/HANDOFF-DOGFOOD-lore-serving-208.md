@@ -77,3 +77,58 @@ Preserve V2 producing requests and all historical reads unchanged. The accepted
 source/API/frontend/history/image evidence for3c418 remains predecessor evidence;
 qualify the amended exact source, including repeated actual12 semantic checks.
 This checkpoint revises the existing handoff; source-free routing remains separate.
+
+
+## Adopted correction: versioned meaningful lore outcomes
+
+Case26 independently reproduced the empty successful reply at1e28 despite the
+new guidance; case25 passed. Both are retained. Guidance alone is insufficient.
+DOGFOOD, the assigned owner, adopts this bounded contract correction in4612.
+It supersedes the guidance-only write restriction above, not the overall goal.
+
+One coupled outcome: a newly admitted populated page request produces either an
+inert page draft or a specific missing-context question. New current menu text
+resolves what is requested NOW: drafting versus acknowledge/defer/discuss or
+clarification. Continuing constraints/approval requirements remain binding.
+Freeze the previous menu/guidance/resolver mapping for historical reconstruction.
+Only the new menu's unblocked populated review choices acquire the V3 outcome
+policy; blank mode and old admissions retain their existing captured contracts.
+
+The new format surface_native_lore_request_reference_v3 retains current-request
+reference/title/evidence selectors. collaboration is either the page proposal or
+an explicit needs_context object with one nonblank question. A draft needs real
+body segments; needs_context has no draft segments and projects that exact
+question to existing discussion output. Null collaboration, bare generic codes,
+mixed question/draft results, wrong producing menu/format and V2 downgrades must
+fail closed for NEW V3 admissions. Preserve V2's schema, normalization and wire
+readback exactly, including its previously accepted empty completion. Do not
+infer user intent with text matching or manufacture a page/question on the host.
+The writer may discover genuine insufficiency after reading full context; this
+is not mandatory creation at any cost. Finite output cannot prove semantic
+completeness, which still needs independent actual-input/output assessment.
+
+Exclusive additions to the existing lease: current menu/history registration in
+build_intentional_response.py; V3 model/projection in lore_page_review.py;
+native_build_work_view/native_writer/plan_writer_output_schema/rules_authority_
+plan_packet/native_completion producer reconstruction and fresh-only gates;
+PlanJevWriter dispatch; direct owning lore/ordinary HTTP tests; new forward-only
+APP20261123_0209 reader fence, parent0208; this handoff. These already-coupled
+producer/reader paths must travel together. Existing completion/client DTOs are
+unchanged because an explicit context question projects to discussion. No other
+owner paths, retrieval algorithm, providers/models, automatic retry, allocator,
+lockfiles or CI changes. Reserved209 is required so208 readers cannot serve new
+outcomes; compatible209 recovery replaces the earlier planned208 artifact.
+
+Critique/validation: retain V2 captured requests/completions and all earlier
+history unchanged; reject forged new policy on old menus, new-menu downgrade,
+null/barecodes/mixedoutputs/bodylessdraft, wrong reference and invalid citations.
+Accept title/question whitespace variations and meaningful context questions;
+keep explicit blank semantics separate. Exercise exact SDK and ordinary HTTP
+review/confirm/reopen/idempotence/scope/reset/digest, not only projections.
+Actual controller controls must distinguish acknowledgement/deferred notes,
+approvals, quoted/negated requests and unresolved multiple destinations. Repeat
+the frozen full twelve-turn actual case with semantic review, zero acquisition,
+one page, unchanged workpad and latency. Keep every observed failure. Current
+exact source/frontend/backend/history/image evidence, independent review,
+compatible recovery and production rehearsal precede delivery. No deployment is
+qualified by the predecessor208 images. Keep the same owned App for serial tests.
