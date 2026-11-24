@@ -1357,16 +1357,23 @@ describe("one App-level World conversation host across Plan and Play", () => {
     });
     await waitFor(() => expect(performance.getEntriesByName("buddy-build-reply:visible")).toHaveLength(2));
 
-    // The correlated terminal has arrived. Deliberately do not supply an
-    // accepted turn, so timing cannot accidentally depend on its history.
-    await act(async () => resolve({turn_id: request.turn_id, answer: {status: "ok"}} as
-      Awaited<ReturnType<typeof postWorldBuildAgentTurn>>));
+    // Use the actual Build response envelope and leave history unchanged.
+    const wire = nativeBuildWire.response;
+    await act(async () => resolve({
+      ...wire, turn_id: request.turn_id, client_thread_id: request.client_thread_id,
+      surface: {...wire.surface, instance_id: request.surface.instance_id},
+      owner_scope: {...wire.owner_scope, owner_id: request.owner_scope.world_id},
+      conversation: {
+        ...wire.conversation, turn_id: request.turn_id, client_thread_id: request.client_thread_id,
+        conversation_id: history([]).conversation_id,
+      },
+    } as Awaited<ReturnType<typeof postWorldBuildAgentTurn>>));
     const transcript = screen.getByRole("region", {name: "World conversation transcript"});
     const timing = JSON.parse(transcript.getAttribute("data-build-reply-timing") ?? "{}");
     expect(timing.visibleUpdates).toBe(2);
     expect(timing.sendToContextMs).toBeGreaterThanOrEqual(0);
     expect(timing.contextToFirstVisibleMs).toBeGreaterThanOrEqual(0);
-    expect(timing.sendToCompleteMs).toBeGreaterThan(timing.sendToContextMs + timing.contextToFirstVisibleMs);
+    expect(timing.sendToTerminalMs).toBeGreaterThan(timing.sendToContextMs + timing.contextToFirstVisibleMs);
     expect(screen.queryByText("A lantern lights the path")).not.toBeInTheDocument();
   });
 

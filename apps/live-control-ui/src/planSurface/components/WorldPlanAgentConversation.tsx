@@ -4442,7 +4442,7 @@ export function WorldPlanAgentConversation({
         detail: {turnId: request.turn_id, ...(sequence === undefined ? {} : {sequence})}});
     }
     if (observeBuildReply) {
-      for (const phase of ["send", "context-ready", "visible", "complete"]) {
+      for (const phase of ["send", "context-ready", "visible", "terminal"]) {
         performance.clearMarks(`buddy-build-reply:${phase}`);
       }
       setBuildReplyTiming(null);
@@ -4488,21 +4488,30 @@ export function WorldPlanAgentConversation({
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       // Measure arrival of the correlated terminal independently of history hydration.
       // The validation below still owns which reply may be treated as saved.
-      if (observeBuildReply && response.turn_id === request.turn_id && response.answer?.status === "ok"
+      if (observeBuildReply && response.schema === "dmb_agent_turn_response_v1"
+        && response.turn_id === request.turn_id && response.client_thread_id === request.client_thread_id
+        && response.surface?.status === "resolved" && response.surface.surface_id === "build"
+        && response.surface.instance_id === request.surface.instance_id
+        && response.owner_scope?.status === "resolved" && response.owner_scope.kind === "world"
+        && response.owner_scope.owner_id === request.owner_scope.world_id
+        && response.conversation?.turn_id === request.turn_id
+        && response.conversation.client_thread_id === request.client_thread_id
+        && response.conversation.conversation_id === originConversationId
+        && response.answer?.status === "ok" && typeof response.answer.text === "string"
         && latestRef.current.verifiedWorldId === request.owner_scope.world_id
         && (historySnapshotRef.current?.conversation_id ?? null) === originConversationId) {
-        markBuildReply("complete");
+        markBuildReply("terminal");
         const marks = (phase: string) => performance.getEntriesByName(`buddy-build-reply:${phase}`, "mark");
         const send = marks("send")[0]?.startTime;
         const context = marks("context-ready")[0]?.startTime;
         const visible = marks("visible");
-        const complete = marks("complete")[0]?.startTime;
-        if (send !== undefined && complete !== undefined) {
+        const terminal = marks("terminal")[0]?.startTime;
+        if (send !== undefined && terminal !== undefined) {
           setBuildReplyTiming({scopeKey, conversationId: originConversationId, measurements: JSON.stringify({
             sendToContextMs: context === undefined ? null : context - send,
             contextToFirstVisibleMs: context === undefined || !visible.length ? null : visible[0].startTime - context,
-            sendToCompleteMs: complete - send,
-            visibleUpdates: visible.filter(entry => entry.startTime < complete).length,
+            sendToTerminalMs: terminal - send,
+            visibleUpdates: visible.filter(entry => entry.startTime < terminal).length,
           })});
         }
       }
