@@ -1844,6 +1844,75 @@ def update_graph_execution(
     return None if row is None else _turn_from_row(conn, row)
 
 
+def acknowledge_plan_opening_outcome(conn, turn, execution):
+    """Read back an ordinary Plan outcome without decoding an identical Turn."""
+    from .native_execution import _join_turn_fields, _join_turn_lifecycle
+    from .rules_authority_reads import validate_base_composition_summary
+
+    changed = {"revision", "updated_at", "graph_context_execution"}
+    columns = [name.strip() for name in _TURN_BASE_COLS.split(",")]
+    stable = [name for name in columns if name not in changed] + ["answer_composition_kind"]
+    exact_json = {"graph_context_receipt", "completion", "play_context_receipt"}
+    previous = ", ".join(stable)
+
+    def comparable_fields(alias):
+        return ", ".join(
+            f"pg_catalog.jsonb_send({alias}.{name})" if name in exact_json else f"{alias}.{name}"
+            for name in stable
+        )
+
+    before_fields = comparable_fields("prior")
+    after_fields = comparable_fields("t")
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            WITH prior AS MATERIALIZED (
+                SELECT {previous}, revision FROM agent.turn
+                WHERE world_id=%s AND turn_id=%s AND revision=%s
+            ), payload AS (SELECT %s::jsonb AS execution)
+            UPDATE agent.turn t SET graph_context_execution=payload.execution,
+                revision=prior.revision+1, updated_at=clock_timestamp()
+            FROM prior,payload
+            WHERE t.world_id=prior.world_id AND t.turn_id=prior.turn_id
+              AND t.revision=prior.revision AND t.attempt=%s
+              AND t.status='running' AND t.claim_expires_at>clock_timestamp()
+              AND NOT EXISTS (
+                  SELECT 1 FROM agent.plan_execution_checkpoint c WHERE c.turn_id=t.turn_id)
+            RETURNING t.ctid::text AS tuple_id, t.revision, t.updated_at,
+                ROW({after_fields}) IS NOT DISTINCT FROM ROW({before_fields})
+                AND pg_catalog.jsonb_send(t.graph_context_execution)
+                    = pg_catalog.jsonb_send(payload.execution) AS exact
+            """,
+            (turn.world_id, turn.turn_id, turn.revision,
+             Jsonb(execution.model_dump(mode="json", by_alias=True)), turn.attempt),
+        )
+        ack = cur.fetchone()
+        if ack is None:
+            return None
+        if ack["revision"] != turn.revision + 1 or ack["exact"] is not True:
+            raise ApplicationStateIntegrityError("Plan outcome changed its acknowledged Turn")
+        # AFTER triggers run after the RETURNING projection. With the root lock
+        # still held, verify that the acknowledged tuple is the actual final row.
+        cur.execute(
+            f"""SELECT ctid::text=%s AS exact, {_rules_summary_select("agent.turn")}
+                FROM agent.turn WHERE world_id=%s AND turn_id=%s""",
+            (ack["tuple_id"], turn.world_id, turn.turn_id),
+        )
+        final = cur.fetchone()
+    if final is None or final["exact"] is not True:
+        raise ApplicationStateIntegrityError("Plan outcome changed after SQL acknowledgement")
+    validate_base_composition_summary(final["rules_summary"])
+    refs = _turn_references(conn, turn.turn_id)
+    provenance = turn.provenance
+    if refs != (provenance.primary_work, list(provenance.supporting_work), provenance.selected_object):
+        raise ApplicationStateIntegrityError("Plan outcome changed its historical references")
+    updated = turn.model_copy(update=dict(revision=ack["revision"], updated_at=ack["updated_at"],
+                                          graph_context_execution=execution))
+    _join_turn_fields(updated.graph_context_receipt, execution, updated.completion, updated.assistant_text)
+    _join_turn_lifecycle(updated)
+    return updated
+
+
 def interrupt_expired_graph_execution(
     conn: psycopg.Connection,
     *,
