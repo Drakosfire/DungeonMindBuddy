@@ -45,3 +45,16 @@ def open_index_graph_service(
             service.close()
         else:
             store.close()
+
+
+def ensure_guest_managed_world(session: IndexGraphSession):
+    """Initialize this session's Graph and bind that same copy for Buddy surfaces.
+
+    Authentication, origin checks and session credential resolution are the
+    caller's responsibility; this function grants no request access.
+    """
+    from application_state.index_graph.managed_world import bind_initialized_guest_world
+
+    with open_index_graph_service(session) as service:
+        service.graph()
+    return bind_initialized_guest_world(session)

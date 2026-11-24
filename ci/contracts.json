@@ -257,6 +257,7 @@
       "cwd": ".",
       "argv": [
         "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
+        "tests/test_guest_managed_world.py",
         "tests/test_guest_release_assertions.py",
         "tests/test_guest_release_evidence.py",
         "tests/test_guest_release_integration.py",
