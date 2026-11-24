@@ -263,16 +263,16 @@ const Trail = memo(function Trail({ layout, active, wide, resolve, pruned, revea
         const name = displayNodeName(presentation)
         if (reveal && position > active) return null
         const state = pruned.has(node.node_id) ? 'pruned' : current ? 'current' : position < active ? 'visited' : 'upcoming'
-        const selectVisit = (trigger: SVGGElement) => {
-          inspect(node.node_id, trigger)
-        }
+        const canInspect = position <= active
         return <g key={node.node_id} transform={`translate(${x} ${y})`}
-          data-visit={state} data-inspected={inspectedId === node.node_id || undefined} role="button" tabIndex={wide || current ? 0 : -1}
+          data-visit={state} data-inspected={inspectedId === node.node_id || undefined} role="button" tabIndex={canInspect ? 0 : -1} aria-disabled={!canInspect || undefined}
           aria-label={name} aria-description={state === 'pruned' ? 'Excluded' : state === 'current' ? 'In this step' : state === 'visited' ? 'Visited earlier' : 'Appears in a later step'} aria-pressed={current}
-          aria-haspopup="dialog" onClick={event => selectVisit(event.currentTarget)} onKeyDown={event => {
-            if (event.key === 'Enter' || event.key === ' ') {
+          aria-haspopup={canInspect ? "dialog" : undefined} onClick={event => {
+            if (canInspect) inspect(node.node_id, event.currentTarget)
+          }} onKeyDown={event => {
+            if (canInspect && (event.key === 'Enter' || event.key === ' ')) {
               event.preventDefault()
-              selectVisit(event.currentTarget)
+              inspect(node.node_id, event.currentTarget)
             }
           }}>
           <title>{name}</title>
@@ -482,7 +482,14 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       return [{ assertionId, read, position }]
     }))
     .slice(0, 3)
-  const prunedIds = new Set(steps.slice(0, index + 1).flatMap(item => item.pruning?.ids ?? []))
+  const prunedIds = new Set<string>()
+  for (const item of steps.slice(0, index + 1)) {
+    if (item.pruning) {
+      for (const id of item.pruning.ids) prunedIds.add(id)
+    } else if (prunedIds.size) {
+      for (const node of item.result.nodes) prunedIds.delete(node.node_id)
+    }
+  }
   const inspectedPruning = inspectedVisits.filter(position =>
     inspectedId !== null && steps[position].pruning?.ids.includes(inspectedId))
   const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status } = step.result
