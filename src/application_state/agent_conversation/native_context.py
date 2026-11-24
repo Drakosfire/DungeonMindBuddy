@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from .native_corpus import NativeCorpusAuthorityV1
+from .build_source_free import BuildSourceObservationV1
 from .native_plan_assertions import NativePlanQueryV2, NativeGraphQueryV3, NativeGraphQueryV4
 from .native_plan_statements import NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1
 from .native_statement_input import Strict
@@ -86,6 +87,11 @@ class NativeProviderInputV1(Strict):
 class NativeBuildProviderInputV2(NativeProviderInputV1):
     """Fresh Build routing presentation; all control metadata stays host-side."""
     assembler_version: Literal["native_build_semantic_initial_v2"] = "native_build_semantic_initial_v2"
+
+
+class NativeBuildPendingProviderInputV3(NativeProviderInputV1):
+    """Initial Build input before any native revision/catalog verification."""
+    assembler_version: Literal["native_build_pending_initial_v3"] = "native_build_pending_initial_v3"
 
 
 class NativeReviewedActionInputV1(Strict):
@@ -173,6 +179,32 @@ class SurfaceNativeContextReceiptV1(Strict):
         value = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
         if canonical_sha256(value) != self.context_receipt_sha256:
             raise ValueError("Native context digest differs from its contents")
+        return self
+
+
+class BuildPendingContextReceiptV1(Strict):
+    """Build observation commitment, deliberately not a native source receipt.
+
+    No source authority, native query, domain/profile or evidence can be supplied
+    under this discriminator. A separate settlement must verify actual sources.
+    """
+    schema_: Literal["dmb_build_pending_context_receipt_v1"] = Field(
+        default="dmb_build_pending_context_receipt_v1", alias="schema")
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"] = "canonical-json-utf8-v1"
+    context_receipt_sha256: Digest
+    provenance_sha256: Digest
+    work_context: BuildWorkContextV1
+    source_observation: BuildSourceObservationV1
+    assembled_input: NativeBuildPendingProviderInputV3
+
+    @model_validator(mode="after")
+    def coherent_pending_build(self):
+        if work_world_id(self.work_context) != self.source_observation.managed_world_id:
+            raise ValueError("Pending Build observation differs from its actual work World")
+        value = self.model_dump(mode="json", by_alias=True,
+                                exclude={"context_receipt_sha256"})
+        if canonical_sha256(value) != self.context_receipt_sha256:
+            raise ValueError("Pending Build context digest differs from its contents")
         return self
 
 
