@@ -2338,10 +2338,22 @@ class AgentConversationService:
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             with measure("first_jev_send_update_and_readback"):
-                updated = self._persist_execution_append(
-                    conn, world_id=world_id, turn_id=turn_id,
-                    expected_revision=expected_revision, execution=updated_execution,
-                )
+                from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
+
+                if (
+                    type(self) is AgentConversationService and type(turn) is Turn
+                    and turn.completion is None and type(event) is ProviderOutcomeEventV1
+                    and event.outcome in {"sdk_entered", "response_received"}
+                    and any(type(auth) in (NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1)
+                            and auth.provider_attempt_id == event.provider_attempt_id
+                            for auth in execution.events)
+                ):
+                    updated = repo.acknowledge_plan_opening_outcome(conn, turn, updated_execution)
+                else:
+                    updated = self._persist_execution_append(
+                        conn, world_id=world_id, turn_id=turn_id,
+                        expected_revision=expected_revision, execution=updated_execution,
+                    )
             if (
                 updated is not None and isinstance(event, ValidatedSourceReadEventV2)
                 and trace_active and source_observations

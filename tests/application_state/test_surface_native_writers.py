@@ -706,3 +706,63 @@ def test_readonly_plan_writer_settles_checkpoint_with_rules_authorization(
         after = snapshot(case)
         assert not admit(case, raw, auth)
         assert snapshot(case) == after
+
+
+@pytest.mark.parametrize("drift", [None, "after", "before"])
+def test_compact_opening_outcome_acknowledges_the_final_locked_row(
+    application_state_dsn, monkeypatch, drift,
+):
+    from application_state.agent_conversation import repository as repo
+    from application_state.errors import ApplicationStateIntegrityError
+
+    case = prepared_case(application_state_dsn,
+                         acquired=sdk_case(application_state_dsn, native="current", readonly_session=True))
+    turn = case.turn
+    with psycopg.connect(application_state_dsn) as conn:
+        if drift == "after":
+            conn.execute("""
+                CREATE FUNCTION pg_temp.perturb_outcome_ack() RETURNS trigger
+                LANGUAGE plpgsql AS $$ BEGIN
+                    IF pg_trigger_depth() = 1 THEN
+                        UPDATE agent.turn SET updated_at=NEW.updated_at + interval '1 second'
+                        WHERE turn_id=NEW.turn_id;
+                    END IF;
+                    RETURN NULL;
+                END $$
+                """)
+            conn.execute("""
+                CREATE TRIGGER perturb_outcome_ack AFTER UPDATE ON agent.turn
+                FOR EACH ROW EXECUTE FUNCTION pg_temp.perturb_outcome_ack()
+                """)
+        if drift == "before":
+            conn.execute("""
+                CREATE FUNCTION pg_temp.perturb_receipt_encoding() RETURNS trigger
+                LANGUAGE plpgsql AS $$ BEGIN
+                    NEW.graph_context_receipt := jsonb_set(NEW.graph_context_receipt,
+                        '{assembled_input,output_token_reserve}',
+                        to_jsonb(((NEW.graph_context_receipt #>>
+                            '{assembled_input,output_token_reserve}') || '.0')::numeric));
+                    RETURN NEW;
+                END $$
+                """)
+            conn.execute("""
+                CREATE TRIGGER perturb_receipt_encoding BEFORE UPDATE ON agent.turn
+                FOR EACH ROW EXECUTE FUNCTION pg_temp.perturb_receipt_encoding()
+                """)
+        locked = repo.lock_turn(conn, turn.world_id, turn.turn_id)
+        assert locked == turn
+        with monkeypatch.context() as patch:
+            def repeated_decode(*args, **kwargs):
+                pytest.fail("Compact acknowledgement decoded the Turn again")
+
+            patch.setattr(repo, "_turn_from_row", repeated_decode)
+            if drift:
+                with pytest.raises(ApplicationStateIntegrityError, match="Plan outcome changed"):
+                    repo.acknowledge_plan_opening_outcome(conn, locked, turn.graph_context_execution)
+                conn.rollback()
+            else:
+                acknowledged = repo.acknowledge_plan_opening_outcome(conn, locked, turn.graph_context_execution)
+                assert acknowledged.revision == locked.revision + 1
+                assert repo.acknowledge_plan_opening_outcome(conn, locked, turn.graph_context_execution) is None
+    reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened == (turn if drift else acknowledged)
