@@ -375,3 +375,13 @@ foreign-World pointer before materialization (1 test passed). The worker,
 derived test and log are retained under `http-owner` and `session/case-18`.
 Product source was the predecessor `d00807237abff7a190960cef85796a7faa4c8166`;
 this is not an exact-head run or a live-model benchmark.
+
+Case 19 ran the existing ordinary Build reviewed-step owner test with a
+synthetic typed-question writer result on the owner-bound App clone. It passed
+the HTTP completion, saved typed reply, replay, unchanged-page, archived
+conversation library reopen and foreign-scope refusal assertions (1 test).
+The worker, derived test and log are retained under `http-owner` and
+`session/case-19`. The controller and writer transports are scripted, Core is
+in memory, and the product source is the predecessor SHA. This is a successful
+saved-question control, not the ambiguous placement case, a mounted UI test,
+answer submission, continuation, current-head qualification or deployed proof.
