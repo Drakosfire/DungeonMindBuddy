@@ -180,3 +180,37 @@ files, any historical codec semantics, a Core public contract, a model/provider,
 Plan routing, frontend UX, benchmark qualification code or a shared registry/lockfile
 is a stop/split signal. The split is adopted here after independent design-readiness review. Any expansion
 requires a bounded owner checkpoint before editing.
+
+
+## Read-owner closure checkpoint
+
+Implementation inspection and independent owner review found two omitted shared
+read owners. Extend this same protocol lease to native_reads.py and
+native_retrieval.py under src/application_state/agent_conversation, restricted to
+exact new-Build-discriminator delegation. This adds no capability or new PR.
+
+native_reads: validate_execution_binding, _owner, _validate_prospective_read,
+selected statement/assertion authorization/observation, _body_group and direct
+source authorization/observation need consistent new-Build owner/type handling.
+Its three imports of plan_jev_decision.current_selection may use a local guarded
+selector that delegates new Build to its validated native owner and otherwise
+calls the original helper. Do not change Plan's selector or producer meanings.
+native_retrieval: _action, owner and the request/selection/effective-query joins
+may delegate only the exact new Build execution/policy; existing Plan/Play/V1
+behavior and producer proofs remain with their existing owners.
+
+Use a distinct Build pending execution/policy codec. Pending observations cannot
+populate V1 source_authority_sha256/native_query_sha256 or be serialized as a
+fabricated V1 receipt. One original pending receipt plus exactly one typed full
+settlement resolves effective source authority through one validated owner.
+Before settlement, all acquisition grants fail closed. A nonserialized internal
+owner view is not a new provenance authority and cannot bypass current stored
+Turn/attempt/pointer admission or original historical-citation access checks.
+Do not add generic Turn callbacks, broaden old unions without their version
+fence, or treat structural join tests as transactional admission evidence.
+
+The observed closure does not require editing native_plan_session.py or
+plan_jev_decision.py. If implementation reveals further files or leased helpers,
+checkpoint again before editing rather than silently broadening this lease.
+The initial metadata/receipt/settlement codecs remain unregistered until the
+whole producer/reader/terminal/fence invariant is integrated and qualified.

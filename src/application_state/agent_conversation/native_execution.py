@@ -457,6 +457,37 @@ class NativeBuildQuerySettledV1(Strict):
     query: NativeGraphQueryV4
 
 
+class NativeBuildSourceSettledV1(Strict):
+    """Full source preparation result for the distinct pending Build receipt.
+
+    Structural closure only. The APP append owner must additionally join the
+    exact request/work/pointer, current access and one-way execution prefix.
+    """
+    kind: Literal["native_build_source_settled_v1"] = "native_build_source_settled_v1"
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    pending_context_receipt_sha256: Digest
+    work_event_id: UUID
+    source_authority: t.NativeCorpusAuthorityV1
+    native_query: NativeGraphQueryV4 | t.NativePlanQueryUnavailableV1
+
+    @model_validator(mode="after")
+    def same_prepared_source(self):
+        source, query = self.source_authority, self.native_query
+        if type(query) is t.NativePlanQueryUnavailableV1:
+            if query.managed_world_id != source.managed_world_id:
+                raise ValueError("Settled Build query belongs to another managed World")
+        else:
+            authority = query.authority
+            if (query.authored_targets or authority.scope_mode != "world" or authority.campaign_id is not None
+                    or authority.session_id is not None
+                    or any(getattr(authority, key) != getattr(source, key) for key in (
+                        "managed_world_id", "native_world_id", "binding_version", "revision_id",
+                        "domain_ref", "profile_ref", "acquisition_epoch"))):
+                raise ValueError("Settled Build query differs from its prepared source authority")
+        return self
+
+
 def effective_native_query(context, execution):
     """Return the query admitted by this prefix, or the typed pending commitment."""
     query = context.native_query

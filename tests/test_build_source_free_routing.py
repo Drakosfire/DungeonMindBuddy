@@ -218,3 +218,147 @@ def test_pending_receipt_rejects_a_non_build_work_discriminator():
     values["work_context"]["surface_id"] = "plan"
     with pytest.raises(ValidationError):
         seal_pending_receipt(values)
+
+
+
+def settled_source(**changes):
+    from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+    reference = dict(authority_id="test-descriptor", revision="test-revision", descriptor_sha256="d" * 64)
+    return NativeCorpusAuthorityV1(**(dict(managed_world_id="world-author", native_world_id="native-observed",
+        binding_version=1, provisioning_id=None, revision_id="observed-revision",
+        domain_ref=reference, profile_ref=reference, acquisition_epoch=1) | changes))
+
+
+def pending_with_binding(**changes):
+    observed = BuildSourceObservationV1(**observation(binding=binding(),
+        observed_head_revision_id="observed-revision", **changes))
+    return seal_pending_receipt(pending_receipt_values(
+        source_observation=observed.model_dump(mode="json", by_alias=True)))
+
+
+def source_settlement(receipt, *, authority=None, query_world="world-author"):
+    from uuid import uuid4
+    from application_state.agent_conversation.native_execution import NativeBuildSourceSettledV1
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
+    return NativeBuildSourceSettledV1(event_id=uuid4(), sequence=3,
+        pending_context_receipt_sha256=receipt.context_receipt_sha256,
+        work_event_id=uuid4(), source_authority=authority if authority is not None else settled_source(),
+        native_query=NativePlanQueryUnavailableV1(managed_world_id=query_world,
+            reason="native_graph_binding_unavailable"))
+
+
+def test_source_settlement_joins_only_its_captured_observation():
+    from application_state.agent_conversation.build_source_free import validate_pending_source_settlement
+    receipt = pending_with_binding()
+    original = receipt.model_dump_json(by_alias=True)
+    event = source_settlement(receipt)
+    assert validate_pending_source_settlement(receipt, event) is None
+    assert receipt.model_dump_json(by_alias=True) == original
+
+
+@pytest.mark.parametrize("changes", [
+    {"managed_world_id": "foreign-world"}, {"native_world_id": "different-native"},
+    {"binding_version": 2}, {"provisioning_id": "new-provisioning"},
+    {"revision_id": "newer-head"},
+])
+def test_source_settlement_rejects_scope_substitution(changes):
+    from application_state.agent_conversation.build_source_free import validate_pending_source_settlement
+    receipt = pending_with_binding()
+    source = settled_source(**changes)
+    event = source_settlement(receipt, authority=source, query_world=source.managed_world_id)
+    with pytest.raises(ValueError):
+        validate_pending_source_settlement(receipt, event)
+
+
+def test_unobserved_source_cannot_be_replaced_by_a_later_available_head():
+    from application_state.agent_conversation.build_source_free import validate_pending_source_settlement
+    receipt = seal_pending_receipt(pending_receipt_values())
+    with pytest.raises(ValueError, match="Unobserved source scope"):
+        validate_pending_source_settlement(receipt, source_settlement(receipt))
+
+
+def test_explicit_historical_request_is_not_settled_as_the_observed_head():
+    from application_state.agent_conversation.build_source_free import validate_pending_source_settlement
+    receipt = pending_with_binding(requested_revision_id="explicit-historical")
+    with pytest.raises(ValueError, match="requested or observed revision"):
+        validate_pending_source_settlement(receipt, source_settlement(receipt))
+    assert validate_pending_source_settlement(receipt, source_settlement(receipt,
+        authority=settled_source(revision_id="explicit-historical"))) is None
+
+
+def test_source_settlement_refuses_a_different_pending_receipt():
+    from application_state.agent_conversation.build_source_free import validate_pending_source_settlement
+    receipt = pending_with_binding()
+    event = source_settlement(receipt).model_copy(update={"pending_context_receipt_sha256": "f" * 64})
+    with pytest.raises(ValueError, match="pending receipt"):
+        validate_pending_source_settlement(receipt, event)
+
+
+def test_source_settlement_revalidates_constructed_or_copied_records():
+    from application_state.agent_conversation.build_source_free import validate_pending_source_settlement
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
+    receipt = pending_with_binding()
+    event = source_settlement(receipt).model_copy(update={"native_query": NativePlanQueryUnavailableV1(
+        managed_world_id="foreign-world", reason="native_graph_binding_unavailable")})
+    with pytest.raises(ValidationError, match="another managed World"):
+        validate_pending_source_settlement(receipt, event)
+    bad_receipt = receipt.model_copy(update={"context_receipt_sha256": "f" * 64})
+    with pytest.raises(ValidationError, match="digest differs"):
+        validate_pending_source_settlement(bad_receipt, source_settlement(receipt))
+
+
+
+def prepared_query(source, **authority_changes):
+    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryAuthorityV1
+    authority = NativePlanQueryAuthorityV1(**({key: getattr(source, key) for key in (
+        "managed_world_id", "native_world_id", "binding_version", "revision_id", "domain_ref",
+        "profile_ref", "acquisition_epoch")} | dict(scope_mode="world", campaign_id=None) | authority_changes))
+    return NativeGraphQueryV4(authority=authority, question="Test requested source question",
+        search_result_sha256="e" * 64, discovered_entity_ids=(), matches=(), status="complete",
+        gap_codes=(), assertion_matches=(), authored_targets=(), object_matches=())
+
+
+def test_settlement_keeps_graph_query_and_source_authority_in_the_same_scope():
+    from application_state.agent_conversation.native_execution import NativeBuildSourceSettledV1
+    from application_state.agent_conversation.build_source_free import validate_pending_source_settlement
+    receipt = pending_with_binding()
+    original = source_settlement(receipt)
+    values = original.model_dump(mode="python")
+    values["native_query"] = prepared_query(original.source_authority)
+    event = NativeBuildSourceSettledV1.model_validate(values)
+    assert validate_pending_source_settlement(receipt, event) is None
+
+
+@pytest.mark.parametrize("changes", [
+    {"managed_world_id": "foreign-world"}, {"native_world_id": "foreign-native"},
+    {"binding_version": 2}, {"revision_id": "other-revision"}, {"acquisition_epoch": 2},
+    {"domain_ref": dict(authority_id="other-domain", revision="test-revision", descriptor_sha256="d" * 64)},
+    {"profile_ref": dict(authority_id="other-profile", revision="test-revision", descriptor_sha256="d" * 64)},
+    {"scope_mode": "campaign", "campaign_id": "different-scope"},
+    {"campaign_id": "hidden-campaign"},
+    {"campaign_id": "hidden-campaign", "session_id": "hidden-session"},
+])
+def test_settlement_refuses_a_graph_query_from_a_different_authority(changes):
+    from application_state.agent_conversation.native_execution import NativeBuildSourceSettledV1
+    receipt = pending_with_binding()
+    original = source_settlement(receipt)
+    values = original.model_dump(mode="python")
+    values["native_query"] = prepared_query(original.source_authority, **changes)
+    with pytest.raises(ValidationError, match="prepared source authority"):
+        NativeBuildSourceSettledV1.model_validate(values)
+
+
+
+def test_pending_settlement_does_not_smuggle_unselected_authored_targets():
+    from application_state.agent_conversation.native_execution import NativeBuildSourceSettledV1
+    from application_state.agent_conversation.native_plan_assertions import NativeAuthoredTargetV1
+    receipt = pending_with_binding()
+    original = source_settlement(receipt)
+    query = prepared_query(original.source_authority).model_copy(update={"authored_targets": (
+        NativeAuthoredTargetV1(node_id="unselected-node", selection_revision_id="unselected-revision",
+            matches=(), assertion_matches=(), status="complete", gap_codes=()),)})
+    values = original.model_dump(mode="python")
+    values["native_query"] = query
+    with pytest.raises(ValidationError, match="prepared source authority"):
+        NativeBuildSourceSettledV1.model_validate(values)

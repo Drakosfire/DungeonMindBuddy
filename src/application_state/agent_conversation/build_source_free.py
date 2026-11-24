@@ -42,3 +42,32 @@ class BuildSourceObservationV1(Strict):
     def requested_or_observed_revision(self) -> str | None:
         """An identity to verify later, never proof that a revision exists."""
         return self.requested_revision_id or self.observed_head_revision_id
+
+
+
+def validate_pending_source_settlement(receipt, settlement):
+    """Join stored identities, without granting access or admitting an event.
+
+    Current principal/request/pointer and one-way prefix checks remain with the
+    transactional APP owner. This function never prepares or reopens a source.
+    """
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import NativeBuildSourceSettledV1
+
+    if type(receipt) is not BuildPendingContextReceiptV1 or type(settlement) is not NativeBuildSourceSettledV1:
+        raise ValueError("Source settlement requires the distinct pending Build codec")
+    # Do not trust model_copy/model_construct values to have run validators.
+    BuildPendingContextReceiptV1.model_validate_json(receipt.model_dump_json(by_alias=True))
+    NativeBuildSourceSettledV1.model_validate_json(settlement.model_dump_json(by_alias=True))
+    if settlement.pending_context_receipt_sha256 != receipt.context_receipt_sha256:
+        raise ValueError("Source settlement differs from its pending receipt")
+    observed, source = receipt.source_observation, settlement.source_authority
+    binding = observed.binding
+    revision = observed.requested_or_observed_revision
+    if binding is None or revision is None:
+        raise ValueError("Unobserved source scope cannot be replaced during settlement")
+    if any(getattr(source, key) != getattr(binding, key) for key in (
+            "managed_world_id", "native_world_id", "binding_version", "provisioning_id")):
+        raise ValueError("Source settlement differs from the observed binding")
+    if source.revision_id != revision:
+        raise ValueError("Source settlement differs from the requested or observed revision")
