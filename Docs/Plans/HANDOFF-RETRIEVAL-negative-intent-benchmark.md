@@ -366,3 +366,12 @@ test rejects foreign, primary and invalid-revision pointers before the
 materialization call; all 37 focused tests passed in the shared environment.
 The real Build catalog already scopes discovery; this is evaluator-side
 defense and does not establish a current-head owning-boundary run.
+
+Case 18 loaded the updated preflight by SHA-256
+`5e4fa2b88683d39c83e8564f857de44ba58d92bca19aa0c0308b1fe210bd6d7e`
+against the real synthetic page catalog on the owner-bound App clone. It
+matched the provisioned fixture inventory, then rejected an injected
+foreign-World pointer before materialization (1 test passed). The worker,
+derived test and log are retained under `http-owner` and `session/case-18`.
+Product source was the predecessor `d00807237abff7a190960cef85796a7faa4c8166`;
+this is not an exact-head run or a live-model benchmark.
