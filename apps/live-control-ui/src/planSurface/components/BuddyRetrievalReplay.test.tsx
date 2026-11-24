@@ -233,7 +233,7 @@ it('reveals recorded seeds, draws directed hops in order, and explains object-li
     object_limit_pruned_count: 1,
   }
   const trace = { observations: [{ ...step, kind: 'graph_tool' }] } as BuddyTurnContextTrace
-  render(<BuddyRetrievalReplay steps={replaySteps(trace)} trace={trace} />)
+  render(<BuddyRetrievalReplay steps={[...replaySteps(trace), lookup(5, 'After pruning')]} trace={trace} />)
   const trail = screen.getByRole('group', { name: 'Recorded graph nodes' })
   const seed = within(trail).getByRole('button', { name: 'Caelynn' })
   const position = seed.getAttribute('transform')
@@ -256,6 +256,7 @@ it('reveals recorded seeds, draws directed hops in order, and explains object-li
   expect(within(trail).getByRole('button', { name: 'Unnamed object' })).toHaveAttribute('data-visit', 'pruned')
   expect(screen.getByText('Dropped by the neighborhood object limit.')).toBeInTheDocument()
   fireEvent.click(next)
+  expect(screen.getByRole('status')).toHaveTextContent('Step 6 of 6')
   expect(within(trail).getByRole('button', { name: 'Unnamed object' })).toHaveAttribute('data-visit', 'pruned')
 })
 

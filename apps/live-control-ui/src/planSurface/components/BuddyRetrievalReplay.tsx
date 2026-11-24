@@ -547,7 +547,8 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         {steps.map((item, position) => (
           <li key={stepKey(item)} data-replay-active={position === index ? true : undefined}>
             <button type="button" aria-current={position === index ? 'step' : undefined}
-              onClick={() => select(position)}>{readableStep(item, position)}</button>
+              onClick={() => select(position)}>{readableStep(item, position)}
+              {!item.native && showsLookupResult(item) && writerObservations.has(item.sequence) && <strong> · Writer evidence</strong>}</button>
           </li>
         ))}
       </ol>
