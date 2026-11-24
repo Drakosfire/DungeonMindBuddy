@@ -5,11 +5,12 @@ umask 077
 
 fail() { printf 'Buddy stage: %s\n' "$*" >&2; exit 1; }
 
-[[ $# == 5 || $# == 6 ]] || fail "expected revision, registry digest, image ID, rollback revision, rollback image ID and optional guest-graph mode"
+[[ $# == 5 || $# == 6 ]] || fail "expected revision, registry digest, image ID, rollback revision, rollback image ID and optional guest mode"
 mode=${6:-default}
-[[ "$mode" == default || "$mode" == guest-graph || "$mode" == guest-graph-serving ]] || fail "invalid staging mode"
+[[ "$mode" == default || "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]] || fail "invalid staging mode"
 guest_config='review=0;page=0;home='
-if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then guest_config="$guest_config;graph=1"; fi
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]]; then guest_config="$guest_config;graph=1"; fi
+if [[ "$mode" == guest-build || "$mode" == guest-build-serving ]]; then guest_config="$guest_config;build=1"; fi
 revision=$1
 digest=$2
 candidate_id=$3
@@ -47,7 +48,7 @@ done
 
 # The selected baseline is operator-owned policy, not a request parameter.
 # Freeze it in the immutable release record so later edits cannot retarget it.
-if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]]; then
   guest_policy="$config_dir/guest-graph.conf"
   [[ -f "$guest_policy" ]] || fail "missing guest Graph baseline policy"
   trusted "$guest_policy"
@@ -62,9 +63,10 @@ tmp=$(mktemp "$config_dir/releases/.stage.XXXXXX")
 trap 'rm -f -- "$tmp"' EXIT
 printf 'candidate_tag=%s\ncandidate_id=%s\nrollback_tag=%s\nrollback_id=%s\nrollback_revision=%s\nregistry_digest=%s\n' \
   "$candidate_tag" "$candidate_id" "$rollback_tag" "$rollback_id" "$rollback_revision" "$digest" > "$tmp"
-if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]]; then
   printf 'guest_graph_enabled=1\nguest_graph_space=%s\nguest_graph_revision=%s\n' \
     "$guest_graph_space" "$guest_graph_revision" >> "$tmp"
+  if [[ "$mode" == guest-build || "$mode" == guest-build-serving ]]; then printf 'guest_build_enabled=1\n' >> "$tmp"; fi
 fi
 if [[ -e "$record" || -L "$record" ]]; then
   [[ -f "$record" ]] || fail "release policy is not a regular file"
@@ -78,9 +80,9 @@ identity='{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
 docker pull --platform linux/amd64 "$ref"
 candidate_identity="$identity {{.Os}}/{{.Architecture}} {{index .Config.Labels \"org.dungeonmindbuddy.guest-build\"}}"
 expected_identity="$candidate_id $revision linux/amd64 $guest_config"
-if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]]; then
   candidate_identity="$candidate_identity {{index .Config.Labels \"org.dungeonmindbuddy.serving-parent\"}}"
-  if [[ "$mode" == guest-graph-serving ]]; then
+  if [[ "$mode" == guest-graph-serving || "$mode" == guest-build-serving ]]; then
     expected_identity="$expected_identity $rollback_revision"
   else
     expected_identity="$expected_identity <no value>"

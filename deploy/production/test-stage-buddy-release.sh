@@ -92,4 +92,21 @@ grep -F 'registry image does not match' "$scratch/stderr"
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT="$rollback" run guest-graph-serving
 if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT="$rollback" run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Serving image accepted without parent verification' >&2; exit 1; fi
 grep -F 'registry image does not match' "$scratch/stderr"
+# Guest Build requires a distinct image configuration and a pinned guest Graph baseline.
+rm "$record" "$scratch/tag"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-build >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Graph-only image accepted as guest Build' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-serving
+grep -Fx 'guest_build_enabled=1' "$record"
+grep -Fx 'guest_graph_enabled=1' "$record"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-serving
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT=wrong run guest-build-serving >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Wrong Build serving parent accepted' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Build approval silently downgraded' >&2; exit 1; fi
+grep -F 'existing release policy differs' "$scratch/stderr"
+rm "$record" "$scratch/tag"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Build image accepted as Graph-only' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' run guest-build
+grep -Fx 'guest_build_enabled=1' "$record"
 printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'

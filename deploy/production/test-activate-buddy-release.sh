@@ -100,7 +100,7 @@ case "$1 $2" in
       printf '%s\n' "$referenced_id"
     elif [[ "${3:-}" == *'.Config.Env'* ]]; then
       if [[ "${GUEST_ENV_MISSING:-0}" != 1 ]]; then
-        printf '%s\n' 'DMB_HOSTED_GUEST_GRAPH_ENABLED=1' 'DMB_GUEST_GRAPH_SOURCE_SPACE=space:test' 'DMB_GUEST_GRAPH_SOURCE_REVISION=rev:test'
+        printf '%s\n' 'DMB_HOSTED_GUEST_GRAPH_ENABLED=1' "DMB_HOSTED_GUEST_BUILD_ENABLED=${TEST_GUEST_BUILD_ENABLED:-0}" 'DMB_GUEST_GRAPH_SOURCE_SPACE=space:test' 'DMB_GUEST_GRAPH_SOURCE_REVISION=rev:test'
       fi
     else
       printf '%s healthy /test/buddy\n' "$(cat "$TEST_ROOT/serving")"
@@ -226,4 +226,16 @@ reset "$rollback_id"
 if GUEST_ENV_MISSING=1 run; then echo 'Candidate missing guest settings accepted' >&2; exit 1; fi
 grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
 if grep -F 'DMB_HOSTED_GUEST_GRAPH_ENABLED' "$scratch/payload-$rollback_id"; then echo 'Rollback inherited candidate settings' >&2; exit 1; fi
+# Build is candidate-only, checked at runtime, and requires Graph.
+printf 'guest_build_enabled=1\n' >> "$scratch/releases/$candidate.conf"
+reset "$rollback_id"
+TEST_GUEST_BUILD_ENABLED=1 run
+grep -F 'DMB_HOSTED_GUEST_BUILD_ENABLED: "1"' "$scratch/payload-$candidate_id"
+reset "$rollback_id"
+if TEST_GUEST_BUILD_ENABLED=0 run; then echo 'Candidate missing guest Build switch accepted' >&2; exit 1; fi
+grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
+if grep -F 'DMB_HOSTED_GUEST_BUILD_ENABLED' "$scratch/payload-$rollback_id"; then echo 'Rollback inherited guest Build' >&2; exit 1; fi
+sed -i '/^guest_graph_enabled=/d' "$scratch/releases/$candidate.conf"
+if TEST_GUEST_BUILD_ENABLED=1 run; then echo 'Guest Build without Graph accepted' >&2; exit 1; fi
+grep -F 'guest Build requires guest Graph' "$scratch/stderr"
 printf 'Activation, no-op, rollback, image, guest baseline and cache retention checks passed.\n'
