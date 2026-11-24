@@ -79,6 +79,16 @@ source readback, current-head or shared-Core behavior, model quality, or UI.
 The owner separately confirmed the schema-version prompt leak; live provider
 dispatch on the predecessor remains held pending final serialized-request audit.
 
+Case 33 repeated that synthetic binding and admitted the frozen primary page
+into the same in-memory Core using its native source owner. Opening the source
+at the resulting head returned the exact page text and digest (1 test). The
+earlier real App owner/foreign-principal checks also passed, but the Core read
+used a test-selected GM audience: it does not prove that an ordinary Build
+request derives that audience from its principal. It remains provider-free,
+predecessor-source evidence, not a shared-Core or live-model qualification.
+The worker, derived test and log are retained under `http-owner/session/case-33`
+and `http-owner`; no provider or shared Core was used.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a

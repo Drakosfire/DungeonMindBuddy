@@ -131,7 +131,9 @@ provision or activate a native Graph binding: the resulting World fails the
 ordinary binding resolver with `native_graph_binding_missing`. A provider-free
 diagnostic subsequently bound the same synthetic World to its own in-memory
 Core through the App binding owner, then checked the real binding, identity and
-principal access owners. This does not yet exercise an ordinary Build turn or
+principal access owners. A follow-up admitted and reopened the exact page in the
+same memory Core using a test-selected GM audience; principal-to-audience
+derivation remains unproven. This does not yet exercise an ordinary Build turn or
 establish live-model or shared-Core qualification. A separately verified
 binding and prompt-boundary audit are required for a real capture; do not write
 to the shared read-only Core to supply one.
