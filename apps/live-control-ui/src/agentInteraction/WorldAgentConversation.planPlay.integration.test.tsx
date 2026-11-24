@@ -214,7 +214,14 @@ function ProposalFixture() {
 function NewerPendingFixture() {
   const state = useWorldAgentConversationState();
   return <><button type="button" onClick={() => state?.setPendingTurn({ surface: "plan", turnId: "newer-client-request" })}>Seed newer pending request</button>
-    <button type="button" onClick={() => state?.setHistoryRefreshNonce(value => value + 1)}>Refresh shared history fixture</button></>;
+    <button type="button" onClick={() => state?.setHistoryRefreshNonce(value => value + 1)}>Refresh shared history fixture</button>
+    <button type="button" onClick={() => {
+      const conversationId = "22222222-2222-4222-8222-222222222222";
+      state?.setHistory(current => current ? {...current, turns: [], conversation_id: conversationId,
+        active_conversation_id: conversationId, pointer_revision: current.pointer_revision + 1} : current);
+    }}>Switch same World conversation fixture</button>
+    <button type="button" onClick={() => state?.setHistory(current => current
+      ? {...history(), pointer_revision: current.pointer_revision + 1} : current)}>Restore original conversation fixture</button></>;
 }
 function SceneEditorFixture({ content, allowed, onUnsubmitted }: { content: PlayRunContent; allowed: boolean; onUnsubmitted: (v: boolean) => void }) {
   const [accepted, setAccepted] = useState(content);
@@ -1304,7 +1311,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }
   });
 
-  it.each(["disconnect", "World switch"])("clears a visible Build reply preview after %s", async (ending) => {
+  it.each(["disconnect", "World switch", "conversation switch"])("clears a visible Build reply preview after %s", async (ending) => {
     let reject!: (reason: Error) => void;
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
     const {container} = render(<Harness initial="build" />);
@@ -1329,7 +1336,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(input).toHaveFocus();
 
     if (ending === "World switch") fireEvent.click(screen.getByRole("button", {name: "Switch World"}));
-    else await act(async () => reject(new Error("Lost connection")));
+    else if (ending === "conversation switch") {
+      fireEvent.click(screen.getByRole("button", {name: "Switch same World conversation fixture"}));
+      expect(container.ownerDocument.querySelector("[data-build-reply-preview]")).toBeNull();
+      fireEvent.click(screen.getByRole("button", {name: "Restore original conversation fixture"}));
+      expect(container.ownerDocument.querySelector("[data-build-reply-preview]")).toBeNull();
+    } else await act(async () => reject(new Error("Lost connection")));
     await waitFor(() => expect(container.ownerDocument.querySelector("[data-build-reply-preview]")).toBeNull());
     await act(async () => observe({kind: "text", sequence: 3, text: "Late text"}));
     expect(screen.queryByText(/Late text/)).not.toBeInTheDocument();

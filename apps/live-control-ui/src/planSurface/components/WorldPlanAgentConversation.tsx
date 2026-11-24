@@ -2965,6 +2965,16 @@ export function WorldPlanAgentConversation({
   const [buildReplyTiming, setBuildReplyTiming] = useState<{
     scopeKey: string; conversationId: string | null; measurements: string;
   } | null>(null);
+  const buildReplyObserver = useRef<{token: symbol; scopeKey: string; conversationId: string | null} | null>(null);
+  const observedBuildConversationId = history?.conversation_id;
+  useLayoutEffect(() => {
+    const observer = buildReplyObserver.current;
+    if (observer && (observer.scopeKey !== scopeKey || (observedBuildConversationId !== undefined
+      && observedBuildConversationId !== observer.conversationId))) {
+      buildReplyObserver.current = null;
+      setBuildReply(null);
+    }
+  }, [scopeKey, observedBuildConversationId]);
   const lastVisibleBuildReply = useRef<{ turnId: string; sequence: number } | null>(null);
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -4442,6 +4452,7 @@ export function WorldPlanAgentConversation({
         detail: {turnId: request.turn_id, ...(sequence === undefined ? {} : {sequence})}});
     }
     if (observeBuildReply) {
+      buildReplyObserver.current = {token, scopeKey, conversationId: originConversationId};
       for (const phase of ["send", "context-ready", "visible", "terminal"]) {
         performance.clearMarks(`buddy-build-reply:${phase}`);
       }
@@ -4470,7 +4481,8 @@ export function WorldPlanAgentConversation({
             if(latestRef.current.buildPlacementEpoch!==constructionEpoch)constructionRetired=true;
             if(!constructionRetired&&requestRef.current?.token===token&&latestRef.current.mounted)buildCompose.observeConstruction(progress);
           }, observeBuildReply ? event => {
-            if (requestRef.current?.token !== token || !latestRef.current.mounted
+            if (buildReplyObserver.current?.token !== token
+              || requestRef.current?.token !== token || !latestRef.current.mounted
               || latestRef.current.verifiedWorldId !== request.owner_scope.world_id
               || !surfaceVisibleRef.current
               || (historySnapshotRef.current?.conversation_id ?? null) !== originConversationId) return;
@@ -4488,7 +4500,7 @@ export function WorldPlanAgentConversation({
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       // Measure arrival of the correlated terminal independently of history hydration.
       // The validation below still owns which reply may be treated as saved.
-      if (observeBuildReply && response.schema === "dmb_agent_turn_response_v1"
+      if (buildReplyObserver.current?.token === token && response.schema === "dmb_agent_turn_response_v1"
         && response.turn_id === request.turn_id && response.client_thread_id === request.client_thread_id
         && response.surface?.status === "resolved" && response.surface.surface_id === "build"
         && response.surface.instance_id === request.surface.instance_id
@@ -4704,6 +4716,7 @@ export function WorldPlanAgentConversation({
       setError(notice);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } finally {
+      if (buildReplyObserver.current?.token === token) buildReplyObserver.current = null;
       if (observeBuildReply) setBuildReply(current => current?.turnId === request.turn_id ? null : current);
       if (requestRef.current?.token === token) {
         requestRef.current = null;
