@@ -613,6 +613,21 @@ def install_hosted_request_boundary(
             else:
                 principal = await resolver(request)
             if principal is None:
+                from apps.live_control_server.services.guest_build_access import (
+                    admit_guest_build_request, matches_guest_build_route, require_guest_build_world,
+                )
+                from application_state.index_graph.sessions import hosted_guest_world_enabled
+                if hosted_guest_world_enabled() and matches_guest_build_route(request.method, request.url.path):
+                    try:
+                        guest_world = await admit_guest_build_request(request)
+                        response = await call_next(request)
+                        await run_in_threadpool(require_guest_build_world, request, guest_world)
+                        response.headers["Cache-Control"] = "no-store"
+                        response.headers["X-Content-Type-Options"] = "nosniff"
+                        return response
+                    except HTTPException as exc:
+                        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail},
+                                            headers={"Cache-Control": "no-store"})
                 return JSONResponse(
                     status_code=401,
                     headers={"WWW-Authenticate": "Session"},

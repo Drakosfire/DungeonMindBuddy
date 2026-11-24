@@ -257,6 +257,7 @@
       "cwd": ".",
       "argv": [
         "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
+        "tests/test_guest_build_access.py",
         "tests/test_guest_managed_world.py",
         "tests/test_hosted_index_graph_boundary.py",
         "tests/test_index_graph.py",
@@ -295,8 +296,10 @@
             "--",
             "src/localWorld",
             "src/App.guestHome.test.tsx",
+            "src/App.guestBuild.test.tsx",
             "src/App.guestRelease.test.tsx",
             "src/guestRelease",
+            "src/guestWorld/guestBuildSession.test.ts",
             "src/media/MediaImageWizard.test.tsx",
             "src/statblocks/render/StatblockRenderer.test.tsx",
             "src/auth/HostedAuthGate.test.tsx",

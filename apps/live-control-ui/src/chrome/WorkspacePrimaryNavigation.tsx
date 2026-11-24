@@ -1,3 +1,4 @@
+import { guestBuildActive } from "../guestWorld/guestBuildSession";
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { CompactAppNavigation } from "./CompactAppNavigation";
@@ -37,7 +38,7 @@ export function WorkspacePrimaryNavigation({ route, children }: { route: AppRout
   return (
     <WorkspaceNavigationContext.Provider value={attach}>
       <header ref={setFallbackHeader} className="app-chrome-header workspace-navigation-fallback" />
-      {createPortal(<CompactAppNavigation activeRoute={route} primaryActionsRef={primaryActionsRef} />, portalHost)}
+      {createPortal(<CompactAppNavigation activeRoute={route} localOnly={guestBuildActive()} primaryActionsRef={primaryActionsRef} />, portalHost)}
       {children}
     </WorkspaceNavigationContext.Provider>
   );

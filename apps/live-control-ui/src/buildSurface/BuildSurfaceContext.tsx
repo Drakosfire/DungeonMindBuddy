@@ -1,3 +1,4 @@
+import { guestBuildActive } from "../guestWorld/guestBuildSession";
 import { createPortal } from "react-dom";
 import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
 import { useOptionalAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
@@ -91,6 +92,7 @@ export function BuildSurfaceContext({
   const openReferenceTool = agentInteraction?.openTool;
   const linkAvailable = agentInteraction?.surfaceInteractionPublication?.tools.some(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID && tool.availability.status === "enabled") ?? false;
   const selectedWorld = useSelectedWorld();
+  const guest = guestBuildActive();
   const documentWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const tourSelection=useRef<symbol|null>(null);
@@ -136,7 +138,8 @@ export function BuildSurfaceContext({
   const campaignId = liveRecord?.campaign_id ?? activeRecord?.campaign_id ?? null;
   const documentClass = liveRecord?.document_class ?? activeRecord?.document_class ?? null;
   const campaignBadge = campaignId
-    ? formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "")
+    ? guest && selectedWorld.kind === "managed" && campaignId === selectedWorld.worldId
+      ? selectedWorld.name : formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "")
     : null;
 
   const metadataBusy =
@@ -227,7 +230,7 @@ export function BuildSurfaceContext({
               {documentClass ? <SurfaceContextBadge>{documentClass}</SurfaceContextBadge> : null}
               {!needsRecovery && session && (session.dirty || session.draftRecoveryAvailable || session.conflictRecovery?.protectedCopies) ?
                 <details className="build-source-recovery"><summary>Draft and recovery copies</summary><BuildDraftRecovery session={session} /></details> : null}
-              {session ? (
+              {session && !guest ? (
                 <BuildDocumentRenameControl
                   currentTitle={displayTitle ?? ""}
                   renaming={metadataBusy}
@@ -244,12 +247,12 @@ export function BuildSurfaceContext({
             </div>
           </details>}
           {activeDocumentId ? <>
-            <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title="Link an existing graph node" disabled={!linkAvailable || !renameAdmitted || documentMutationBusy}
+            <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title={guest ? "Node linking in Build is not yet available to guests" : "Link an existing graph node"} disabled={guest || !linkAvailable || !renameAdmitted || documentMutationBusy}
               onClick={() => { if (linkAvailable) openReferenceTool?.(BUILD_FIND_EXISTING_TOOL_ID); }}>Link node</SurfaceContextAction>
-            <SurfaceContextAction className="build-navbar-tool" aria-label="Open Image Studio" title="Create or place an image" disabled={!renameAdmitted || documentMutationBusy}
+            <SurfaceContextAction className="build-navbar-tool" aria-label="Open Image Studio" title={guest ? "Image creation is not yet available to guests" : "Create or place an image"} disabled={guest || !renameAdmitted || documentMutationBusy}
               onClick={() => requestBuildStudioAction("image")}>Images</SurfaceContextAction>
           </> : null}
-          {trashWorldId ? <WorkspaceTrashControl showTrash={false} worldId={trashWorldId}
+          {!guest && trashWorldId ? <WorkspaceTrashControl showTrash={false} worldId={trashWorldId}
             current={liveRecord && activeDocumentId ? {kind:"document", id:activeDocumentId, title:displayTitle ?? "Build document", surface:"build", revision:liveRecord.revision} : null}
             blocked={documentMutationBusy || !session || session.dirty || buildSaveStateFor(session) !== "saved"}
             onTrashed={() => window.location.assign(`/build?world=${encodeURIComponent(trashWorldId)}`)} /> : null}
@@ -288,6 +291,7 @@ export function BuildSurfaceContext({
     [
       openReferenceTool,
       linkAvailable,
+      guest,
       activationError,
       activeDocumentId,
       authoringStatusLabel,
@@ -335,7 +339,7 @@ export function BuildSurfaceContext({
     content,
   });
 
-  return <BuildConnectedPageControl selectDocument={selectDocument} refreshDocuments={refreshDocuments} relationshipsHost={relationshipsHost}/>;
+  return guest ? null : <BuildConnectedPageControl selectDocument={selectDocument} refreshDocuments={refreshDocuments} relationshipsHost={relationshipsHost}/>;
 }
 
 

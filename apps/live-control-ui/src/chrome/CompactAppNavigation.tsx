@@ -85,7 +85,7 @@ export function CompactAppNavigation({ activeRoute, localOnly = false, primaryAc
     {!expanded ? <span className="app-nav-current">{current}</span> : null}
     <div id={routesId} ref={routes} className="app-site-nav__routes" hidden={!expanded} onKeyDown={dismiss}>
       {APP_NAV_ITEMS.map((item) => <a key={item.href}
-        href={item.route && world.kind === "managed" ? worldScopedSurfaceHref(item.href, world.worldId) : item.href}
+        href={item.route && !localOnly && world.kind === "managed" ? worldScopedSurfaceHref(item.href, world.worldId) : item.href}
         className={item.route === activeRoute ? "active" : undefined} aria-current={item.route === activeRoute ? "page" : undefined}
         onClick={interceptPrimaryNavigationClick}>
         {item.label}
@@ -94,6 +94,7 @@ export function CompactAppNavigation({ activeRoute, localOnly = false, primaryAc
     {primaryActionsRef && <div className="app-nav-primary-actions" ref={primaryActionsRef} />}
     {tour?<button className="app-nav-tour" type="button" onClick={()=>{if(tour.entryLabel==='Start tour'||tour.entryLabel==='Resume tour')tour.teach();else tour.open();}}>{tour.entryLabel}</button>:null}
     {!localOnly ? <div className="app-nav-world-context">{campaignTrash ? <WorkspaceTrashControl campaignId={campaignTrash} current={null} onTrashed={() => undefined} /> : world.kind === "managed" ? <WorkspaceTrashControl worldId={world.worldId} current={null} onTrashed={() => undefined} /> : null}<WorldSelector compact creationPath={activeRoute === "graph" ? "/graph" : activeRoute === "index" ? "/" : "/plan"} /><AppChromeWorldGraphStatus activeRoute={activeRoute} /></div> : null}
+    {localOnly && world.kind === "managed" && <span className="app-nav-guest-world">{world.name}</span>}
     <AppearanceControl key={activeRoute} />
     {auth.status === "authenticated" && <details>
       <summary aria-label={`Account: ${auth.displayName ?? auth.subject}`}>
