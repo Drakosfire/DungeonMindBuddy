@@ -663,13 +663,19 @@ it("registers only an exact Worldbuilding excerpt and recovers a lost acknowledg
     });
     view.unmount();
     render(<GraphReviewWorldbuildingPublication review={exactReview} />);
+    const retry = await screen.findByRole("button", { name: "Retry exact support request" });
+    contextRead.mockRejectedValueOnce(new Error("Review read unavailable"));
+    fireEvent.click(retry);
+    expect(await screen.findByText(/The support was registered/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry exact support request" })).toBeEnabled();
     contextRead.mockResolvedValue({
       ...context,
       sourceSupport: [{ evidence_ref_id: "support:tower", start_byte: 0, end_byte: excerpt.length, text: excerpt }],
     });
-    fireEvent.click(await screen.findByRole("button", { name: "Retry exact support request" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry exact support request" }));
     await waitFor(() => expect(screen.getByRole("option", { name: excerpt })).toBeInTheDocument());
-    expect(register.mock.calls[1][1]).toEqual(retained);
+    expect(register.mock.calls.slice(1).map(call => call[1])).toEqual([retained, retained]);
+    expect(screen.queryByRole("button", { name: "Retry exact support request" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Prepare selected facts" })).toBeDisabled();
   } finally {
     vi.stubGlobal("crypto", previousCrypto);

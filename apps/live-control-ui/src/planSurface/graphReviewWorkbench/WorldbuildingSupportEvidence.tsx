@@ -62,13 +62,17 @@ export function WorldbuildingSupportEvidence({ context, sourceProse, sourceSha25
         if (localStorage.getItem(key) !== retained) throw new Error("The exact evidence request could not be retained.");
         setPending(true);
         await extendEvidence(context, request);
+        if (!isCurrent()) return;
+        try {
+          await onCommitted();
+        } catch {
+          throw new Error("The support was registered. Retry the saved request to refresh the review.");
+        }
+        if (!isCurrent()) return;
         if (localStorage.getItem(key) !== retained) throw new Error("The retained evidence request changed.");
         localStorage.removeItem(key);
-        if (isCurrent()) {
-          setPending(false);
-          setQuote("");
-          await onCommitted();
-        }
+        setPending(false);
+        setQuote("");
       });
     } catch (reason) {
       if (isCurrent()) setError(reason instanceof Error ? reason.message : "The evidence request could not be verified.");
