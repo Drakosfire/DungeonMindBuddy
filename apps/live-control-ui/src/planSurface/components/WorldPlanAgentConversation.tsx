@@ -4486,6 +4486,26 @@ export function WorldPlanAgentConversation({
           } : undefined)
         : postWorldPlayAgentTurn(request as WorldPlayAgentTurnRequestV1));
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
+      // Measure arrival of the correlated terminal independently of history hydration.
+      // The validation below still owns which reply may be treated as saved.
+      if (observeBuildReply && response.turn_id === request.turn_id && response.answer?.status === "ok"
+        && latestRef.current.verifiedWorldId === request.owner_scope.world_id
+        && (historySnapshotRef.current?.conversation_id ?? null) === originConversationId) {
+        markBuildReply("complete");
+        const marks = (phase: string) => performance.getEntriesByName(`buddy-build-reply:${phase}`, "mark");
+        const send = marks("send")[0]?.startTime;
+        const context = marks("context-ready")[0]?.startTime;
+        const visible = marks("visible");
+        const complete = marks("complete")[0]?.startTime;
+        if (send !== undefined && complete !== undefined) {
+          setBuildReplyTiming({scopeKey, conversationId: originConversationId, measurements: JSON.stringify({
+            sendToContextMs: context === undefined ? null : context - send,
+            contextToFirstVisibleMs: context === undefined || !visible.length ? null : visible[0].startTime - context,
+            sendToCompleteMs: complete - send,
+            visibleUpdates: visible.filter(entry => entry.startTime < complete).length,
+          })});
+        }
+      }
       const mixed = response.schema === 'dmb_agent_rules_turn_response_v1' || response.schema === 'dmb_agent_play_rules_turn_response_v1';
       const nativePlay = request.primary_work.kind === 'run' && request.graph_request.mode === 'world';
       const sourcePlay = request.primary_work.kind === 'run' && request.graph_request.mode === 'none';
@@ -4594,23 +4614,6 @@ export function WorldPlanAgentConversation({
         }
       }
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
-      markBuildReply("complete");
-      if (observeBuildReply && latestRef.current.verifiedWorldId === request.owner_scope.world_id
-        && (historySnapshotRef.current?.conversation_id ?? null) === originConversationId) {
-        const marks = (phase: string) => performance.getEntriesByName(`buddy-build-reply:${phase}`, "mark");
-        const send = marks("send")[0]?.startTime;
-        const context = marks("context-ready")[0]?.startTime;
-        const visible = marks("visible");
-        const complete = marks("complete")[0]?.startTime;
-        if (send !== undefined && complete !== undefined) {
-          setBuildReplyTiming({scopeKey, conversationId: originConversationId, measurements: JSON.stringify({
-            sendToContextMs: context === undefined ? null : context - send,
-            contextToFirstVisibleMs: context === undefined || !visible.length ? null : visible[0].startTime - context,
-            sendToCompleteMs: complete - send,
-            visibleUpdates: visible.filter(entry => entry.startTime < complete).length,
-          })});
-        }
-      }
       if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } catch (reason) {
