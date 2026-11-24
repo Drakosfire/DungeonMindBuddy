@@ -257,3 +257,34 @@ def test_guest_build_flag_is_bound_to_image_config(fake_tools):
 def test_guest_build_requires_guest_graph(fake_tools):
     result, _ = run_helper(fake_tools, VITE_HOSTED_GUEST_BUILD="1")
     assert result.returncode == 2
+
+
+def test_publisher_guest_build_is_explicit_and_bound_to_graph():
+    workflow = (SCRIPT.parents[1] / ".github/workflows/publish-buddy-image.yml").read_text()
+    assert "hosted_guest_build:" in workflow
+    assert '[[ "$GUEST_BUILD" == 0 || "$GUEST_BUILD" == 1 ]]' in workflow
+    assert '[[ "$GUEST_BUILD" == 0 || "$GUEST_GRAPH" == 1 ]]' in workflow
+    assert 'VITE_HOSTED_GUEST_BUILD="$GUEST_BUILD"' in workflow
+    assert 'guest_config="$guest_config;build=1"' in workflow
+    assert 'tag="$tag-build"' in workflow
+    assert '"$PWD" "$GUEST_BUILD"' in workflow
+
+
+def test_guest_build_release_requires_both_ui_and_server_boundary(tmp_path):
+    script = SCRIPT.parent / "verify_guest_graph_release.sh"
+    files = {
+        "Dockerfile.production": "ARG VITE_HOSTED_GUEST_GRAPH=0\nARG VITE_HOSTED_GUEST_BUILD=0\n",
+        "apps/live-control-ui/src/App.tsx": "VITE_HOSTED_GUEST_GRAPH\nVITE_HOSTED_GUEST_BUILD\n",
+        "src/application_state/index_graph/sessions.py": "DMB_HOSTED_GUEST_GRAPH_ENABLED\nDMB_HOSTED_GUEST_BUILD_ENABLED\n",
+        "apps/live_control_server/services/hosted_auth.py": "DMB_HOSTED_GUEST_GRAPH_ENABLED\nadmit_guest_build_request\n",
+        "apps/live_control_server/services/guest_build_access.py": "# boundary\n",
+    }
+    for name, content in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    assert subprocess.run(["bash", str(script), str(tmp_path), "1"], capture_output=True).returncode == 0
+    (tmp_path / "apps/live_control_server/services/guest_build_access.py").unlink()
+    assert subprocess.run(["bash", str(script), str(tmp_path), "1"], capture_output=True).returncode != 0
+    assert subprocess.run(["bash", str(script), str(tmp_path), "0"], capture_output=True).returncode == 0
+    assert subprocess.run(["bash", str(script), str(tmp_path), "invalid"], capture_output=True).returncode != 0

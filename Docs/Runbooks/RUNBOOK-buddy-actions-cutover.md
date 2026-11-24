@@ -81,7 +81,7 @@ reference from the successful run summary. The image uses the default guest
 build configuration unless `hosted_guest_graph` is explicitly selected. The
 selected build uses a separate registry tag and records `graph=1` in its guest
 configuration label. This build option alone does not enable the backend or
-select the authorized snapshot; verify those settings during activation. Derive the expected local image ID from the manifest:
+select the authorized snapshot; verify those settings during activation. For the guest Build editor, also select `hosted_guest_build=true`; it requires guest Graph, uses a distinct image tag, and records `graph=1;build=1` in the guest configuration label. Both flags default off. Derive the expected local image ID from the manifest:
 
 ```bash
 candidate_image_id=$(docker buildx imagetools inspect --raw "$registry_ref" |
@@ -125,7 +125,7 @@ five-argument mode continues to accept only the default build.
 The command pulls by registry digest, verifies the candidate and rollback
 identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`
 under the deployment lock. Confirm the resulting `BUDDY_STAGED` receipt.
-Guest records also contain the enabled switch and the two validated baseline identifiers. The activator supplies and verifies them for the candidate only; rollback uses the existing base Compose policy. Release records contain these literal fields:
+Guest records also contain the enabled switch and the two validated baseline identifiers. For a guest Build image, use `guest-build` for a main-line release or `guest-build-serving` for a serving overlay. The stage helper requires the Build-specific image label and records `guest_build_enabled=1`; the activator sets and verifies the Build runtime switch only for the candidate. Rollback uses the existing base Compose configuration. The activator supplies and verifies them for the candidate only; rollback uses the existing base Compose policy. Release records contain these literal fields:
 
 ```bash
 candidate_tag=dungeonmindbuddy:<full-candidate-sha>
