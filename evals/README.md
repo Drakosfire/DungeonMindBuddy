@@ -207,6 +207,9 @@ each case serially in a fresh worker. The browser starts a new conversation
 for each case. The runner does not scan the owned App database. It verifies
 the shared read-only Core inventory once before and once after the cohort.
 Writer request bytes, citations, timings and individual results are retained.
+For deep output paths, set `DMB_BENCHMARK_BROWSER_TMPDIR` to a short
+existing scratch directory on the same Projects filesystem to fit
+Chromium's Unix socket path.
 
 All workers close before the ownership helper drops the exact clone and
 verifies removal. If execution is interrupted, check the recorded clone

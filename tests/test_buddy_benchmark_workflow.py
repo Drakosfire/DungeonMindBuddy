@@ -1525,3 +1525,19 @@ def test_capture_owns_disposable_app_scope(tmp_path, monkeypatch, capture_fails)
         w.capture("unused", tmp_path, context_only=True, clone_app=True)
     assert events == ["created", "dropped"]
     assert w.os.environ[env] == source
+
+
+def test_browser_scratch_uses_explicit_directory_on_evidence_filesystem(tmp_path, monkeypatch):
+    from evals.buddy_benchmark.browser_capture import browser_scratch_directory
+
+    output = tmp_path / "nested" / "output"
+    output.mkdir(parents=True)
+    scratch = tmp_path / "chrome"
+    scratch.mkdir()
+    monkeypatch.delenv("DMB_BENCHMARK_BROWSER_TMPDIR", raising=False)
+    assert browser_scratch_directory(output) == output.parent
+    monkeypatch.setenv("DMB_BENCHMARK_BROWSER_TMPDIR", str(scratch))
+    assert browser_scratch_directory(output) == scratch
+    monkeypatch.setenv("DMB_BENCHMARK_BROWSER_TMPDIR", "relative")
+    with pytest.raises(ValueError, match="existing absolute directory"):
+        browser_scratch_directory(output)
