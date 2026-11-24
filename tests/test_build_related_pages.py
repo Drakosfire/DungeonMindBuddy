@@ -1199,23 +1199,3 @@ def test_missing_historical_capture_remains_unavailable_without_substitution(com
     monkeypatch.setattr(retry.repo,"get_turn",lambda conn,world,tid:historical if tid == turn.turn_id else original(conn,world,tid))
     with pytest.raises(retry.RetryUnavailableError,match="original working draft"):
         retry.read_discussion_retry_input(turn.world_id,turn.conversation_id,turn.turn_id,turn.revision)
-
-
-@pytest.mark.parametrize('completed', ['typed_plan_only'], indirect=True)
-def test_retained_intentional_completion_rejects_changed_frozen_review_kind(completed, monkeypatch):
-    from dataclasses import replace
-    from application_state.agent_conversation import build_intentional_response as owner
-
-    turn, service, *_ = completed
-    original = turn.model_dump(mode='json', by_alias=True)
-    assert turn.completion.schema_ == 'dmb_build_intentional_response_completion_v3'
-    assert t.Turn.model_validate(original).completion == turn.completion
-    selected, = [event for event in turn.graph_context_execution.events
-        if isinstance(event, t.BuildRequestedWorkResolutionV1)]
-    changed = dict(owner.WORK)
-    changed[selected.requested_work] = replace(changed[selected.requested_work], review='questions')
-    monkeypatch.setattr(owner, 'WORK', changed)
-    with pytest.raises(ValueError, match='changed its frozen review kind'):
-        t.Turn.model_validate(original)
-    with pytest.raises(ValueError, match='changed its frozen review kind'):
-        service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)

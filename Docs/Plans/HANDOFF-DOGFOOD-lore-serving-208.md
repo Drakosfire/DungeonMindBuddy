@@ -200,3 +200,13 @@ and an empty proposal). Give V3 explicit needs_context variants while retaining
 V2 instruction bytes. Exercise actual SDK instructions for both contracts before
 any real provider call; retain case33 three PASS and case34 original-head results
 as predecessor evidence, not amended-head qualification.
+
+Case35: eight amended-head HTTP checks passed; the attempted legacy completed
+fixture correctly failed fresh native admission before the new assertion. That
+fixture is retired for this regression, with failure evidence retained. Replace
+it with a database-free owner-unit test using validated typed legacy receipt,
+selection and completion plus a downstream source-binding sentinel. It proves
+legacy validation ordering and review-kind drift refusal only, not full Turn
+decode, SQL readback or historical replay. No admission bypass is introduced.
+The temporary tests/test_build_related_pages.py addition is removed; its earlier
+lease addition is superseded. Existing native-history evidence remains separate.

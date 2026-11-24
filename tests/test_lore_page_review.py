@@ -458,3 +458,67 @@ def test_meaningful_lore_outcomes_refuse_empty_and_mixed_results(mutation):
             del raw['collaboration']['question']
     with pytest.raises(ValueError):
         project_lore_outcome(raw)
+
+
+def test_legacy_completion_checks_frozen_review_kind_before_source_binding(monkeypatch):
+    """Owner ordering/drift refusal, not full Turn or SQL historical replay."""
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation import build_intentional_response as owner, types as t
+
+    receipt_data = dict(
+        receipt_serializer_version='canonical-json-utf8-v1',
+        source_basis=dict(world_id='fixture-world', document_id='fixture-page',
+            registry_revision=1, content_sha256='a'*64, visibility='internal'),
+        graph_authority=dict(managed_world_id='fixture-world', native_world_id='fixture-native',
+            binding_version=1, scope_mode='world', campaign_id=None,
+            admissibility_version='gm-v1', graph_revision='fixture-revision'),
+        graph_packet=dict(schema='dmb_plan_world_graph_packet_v1', packet_serializer_version='canonical-json-utf8-v1',
+            selection_policy_version='fixture-selection', evidence_sufficiency_policy_version='fixture-evidence',
+            retrieval_packet_sha256='b'*64, candidate_assertion_ids=[], candidate_relationship_ids=[],
+            candidate_evidence_ref_ids=[], retrieval_status='empty', evidence_sufficiency_status='insufficient',
+            result_limit=0, coverage_status='incomplete', truncated=False, omission_reasons=[]),
+        assembled_input=dict(assembler_version='fixture-assembler', budget_policy_version='fixture-budget',
+            provider_model_name='fixture-model', provider_model_version='fixture-version',
+            tokenizer_name='fixture-tokenizer', tokenizer_version='fixture-version',
+            provider_envelope_input_tokens=0, output_token_reserve=0, context_window_limit=1,
+            packet_disposition='omitted_insufficient', packet_disposition_reason='insufficient_evidence',
+            dispatched_packet_sha256=None, dispatched_assertion_ids=[], dispatched_relationship_ids=[],
+            dispatched_evidence_ref_ids=[], source_token_accounting=[], included_history=[],
+            assembled_input_sha256='c'*64), evidence_mode='metadata_only', source_opened=False,
+    )
+    receipt_data['schema'] = 'dmb_build_graph_context_receipt_v1'
+    receipt = t.BuildGraphContextReceiptV1.model_validate(
+        receipt_data | dict(context_receipt_sha256=owner.digest(receipt_data)))
+    menu = owner.digest(owner.question(guidance=owner._PRE_LORE_OUTCOME_GUIDANCE,
+        work_options=owner._PRE_LORE_OUTCOME_WORK))
+    capabilities = owner.Capabilities(('answer_from_sources',), ('questions',), False)
+    selection = t.BuildRequestedWorkResolutionV1(
+        event_id=uuid4(), sequence=0, kind='build_requested_work_resolved_v1',
+        controller_attempt_id=uuid4(), controller_envelope_sha256='d'*64,
+        machine_request_id='fixture-selection', operation='answer_from_sources',
+        broker_operation_id='fixture-operation', capability_sha256=None, arguments_sha256='e'*64,
+        controller_response_sha256='f'*64, requested_work='clarify_request', intent_family='discuss',
+        menu_sha256=menu, resolver_sha256=owner._resolver_digest(owner._PRE_LORE_OUTCOME_WORK),
+        response_capabilities_sha256='a'*64, resolution=owner.resolve('clarify_request', capabilities),
+    )
+    completion = t.BuildIntentionalResponseCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256, answer_basis='conversation',
+        source_citations=[], answer_context_status='discussion', answer_segments=[],
+        collaboration={'kind':'questions', 'questions':[{'text':'Which subject should we develop?'}]},
+    )
+    execution = SimpleNamespace(policy=SimpleNamespace(intentional_response_policy=owner.POLICY),
+        events=[selection])
+    class ReachedSourceBinding(Exception):
+        pass
+    def downstream_binding(*args):
+        raise ReachedSourceBinding
+    monkeypatch.setattr(t, 'validate_selected_source_binding', downstream_binding)
+    with pytest.raises(ReachedSourceBinding):
+        owner.validate_completion(completion, receipt, execution, uuid4(), {})
+    changed = dict(owner.WORK)
+    changed['clarify_request'] = replace(changed['clarify_request'], review='lore_page')
+    monkeypatch.setattr(owner, 'WORK', changed)
+    with pytest.raises(ValueError, match='changed its frozen review kind'):
+        owner.validate_completion(completion, receipt, execution, uuid4(), {})
