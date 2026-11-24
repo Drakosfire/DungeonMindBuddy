@@ -43,6 +43,15 @@ Subsequent runtime/delivery fixes require their
 own pinned ownership and sequencing after this benchmark identifies failures.
 Merge and deployment require separate authority.
 
+The subsequent serving writer PR #4612 merged as
+`f2645348438b7322d41062e1cc5e213aa45ad36f`, satisfying its merge prerequisite.
+The source-free routing handoff at `e5c6e7d393c46ade5a1be5d4d7c40427fa3c8256`
+still records a BLOCKED design/lease, with a possible no-Plan-driver-write path
+under investigation. Production activation and signed-in acceptance remain
+separate; neither the merge nor that possible design activates the routing lane.
+The new V3 writer's prompt cleanup does not qualify predecessor or other roles
+for live provider dispatch.
+
 Validate scorer and fixture integrity with focused tests, including false pass,
 missing evidence, zero-read, required-read, and clarification/proposal controls.
 Run actual ordinary runtime and UI integration on isolated exact source when the
