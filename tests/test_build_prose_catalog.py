@@ -278,7 +278,10 @@ def test_opening_must_match_retained_catalog_and_requested_work(captured_page, v
     ("write_current_page", "unstated", "after", "unscoped", "exclude", "current_page", "unresolved"),
     ("write_current_page", "unstated", "unresolved", "named", "exclude", "current_page", "unresolved"),
     ("write_current_page", "current_caret", "unresolved", "named", "exclude", "current_page", "unresolved"),
-    ("write_current_page", "unstated", "unresolved", "unscoped", "include", "current_page", "unresolved"),
+    # The hosted B01 decision classified the request as unstated and unscoped,
+    # then voted for the heading that matched the subject of the new prose.
+    ("write_current_page", "unstated", "unresolved", "unscoped", "include", "current_page", "unique"),
+    ("write_current_page", "unstated", "unresolved", "named", "include", "current_page", "unresolved"),
     ("write_current_page", "unclear", "unresolved", "unscoped", "exclude", "current_page", "unresolved"),
     ("write_current_page", "existing_location", "after", "named", "exclude", "current_page", "missing"),
     ("write_current_page", "unstated", "unresolved", "unscoped", "exclude", "different_page", "different_destination"),
