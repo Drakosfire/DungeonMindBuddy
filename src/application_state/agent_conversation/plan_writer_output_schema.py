@@ -327,10 +327,20 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     if work_frame.get('schema')==BUILD_WORK_SCHEMA:
         from .build_intentional_response import native_review_enabled, native_review_schema
         if native_review_enabled(work_frame):
-            review,definitions=native_review_schema(work_frame,local=build_local)
+            request_reference = work_frame.get('build_work', {}).get('lore_page_destination') == {'request': 'current_author_request'}
+            review,definitions=native_review_schema(work_frame,local=build_local,request_reference=request_reference)
             destination = work_frame.get("build_work", {}).get("lore_page_destination")
             base=schema['$defs']['Base'] if rules.lookups else schema
-            if destination is not None:
+            if request_reference:
+                answer_segments = base['properties']['answer_segments']
+                if work_frame['response_contract']['requested_work'] == 'review_blank_lore_page':
+                    answer_segments['maxItems'] = 0
+                    review = review['anyOf'][0]
+                else:
+                    items = answer_segments['items']
+                    items['anyOf'] = [variant for variant in items['anyOf']
+                        if variant['properties']['kind'].get('const') in {'native_body_claim', 'proposal', 'discussion'}]
+            elif destination is not None:
                 from .lore_page_review import explicit_blank_lore_page
 
                 definitions["LorePageTitleWitness"]["properties"]["title"]["enum"] = [destination["title"]]
@@ -483,7 +493,12 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     from generationengine.utils.schema_utils import make_schema_strict
     from .native_plan_work_view import SOURCE_REFERENCE_FORMAT, SOURCE_REFERENCE_POLICY
     plan_references = work_frame.get('schema') == PLAN_WORK_SCHEMA and work_frame.get('citation_policy') == SOURCE_REFERENCE_POLICY
-    if lore_limitation_policy:
+    from .lore_page_review import LORE_REQUEST_FORMAT
+    if work_frame.get('build_work', {}).get('lore_page_destination') == {'request': 'current_author_request'}:
+        if not lore_limitation_policy or not generic_reply_limits:
+            raise ValueError('Request reference requires the current lore reply contract')
+        format_name = LORE_REQUEST_FORMAT
+    elif lore_limitation_policy:
         format_name = LORE_LIMITATION_FORMAT
     elif source_answer_policy:
         format_name = SOURCE_ANSWER_FORMAT
@@ -504,7 +519,8 @@ def offered_generic_limits(format):
     """
     from .native_build_work_view import SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT
     from .native_plan_work_view import SOURCE_REFERENCE_FORMAT
-    names = {f'surface_native_evidence_selectors_v{v}' for v in range(1, 12)} | {
+    from .lore_page_review import LORE_REQUEST_FORMAT
+    names = {f'surface_native_evidence_selectors_v{v}' for v in range(1, 12)} | {LORE_REQUEST_FORMAT,
         SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT, SOURCE_REFERENCE_FORMAT}
     if (not isinstance(format, dict) or set(format) != {'type', 'name', 'strict', 'schema'}
             or format['type'] != 'json_schema' or format['strict'] is not True or format['name'] not in names):

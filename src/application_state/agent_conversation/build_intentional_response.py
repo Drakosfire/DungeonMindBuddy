@@ -415,6 +415,7 @@ def resolve(label, capabilities, *, work_options=None):
         "review_connected_page": {"discuss_request", "review_connected_page"},
         "review_lore_page": {"discuss_request", "review_lore_page"},
         "review_lore_page_from_conversation": {"discuss_request", "review_lore_page"},
+        "review_blank_lore_page": {"discuss_request", "review_lore_page"},
         "review_relationship": {"discuss_request", "review_relationship"},
         "publish_relationships": {"discuss_request", "review_relationship"},
         "save_page": {"discuss_request", "author_save_current_page"},
@@ -584,6 +585,25 @@ questions. Use review_lore_page for new research or a blank page.
 """
 
 
+_PRE_REQUEST_REFERENCE_WORK = WORK
+_PRE_REQUEST_REFERENCE_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_PRE_REQUEST_REFERENCE_WORK,
+    "review_lore_page": Work("create", "Review a populated new standalone page, or continue its review.", review="lore_page"),
+    "review_blank_lore_page": Work("create", "Review an explicitly requested empty new standalone page, with no body or open questions.", review="lore_page"),
+})
+GUIDANCE = _PRE_REQUEST_REFERENCE_GUIDANCE.replace(
+    "questions. Use review_lore_page for new research or a blank page.",
+    "questions. Use review_lore_page for new research.") + """
+Choose review_blank_lore_page only for an explicit request for an empty page.
+Choose review_lore_page for populated material requiring new research and
+review_lore_page_from_conversation for material already discussed. A quoted
+example, negated request, or brainstorming suggestion does not request creation.
+If multiple destinations remain unresolved, choose clarify_creation. The writer
+proposes one title for the author's explicit review before any page is saved.
+"""
+
+
 def _resolver_digest(work_options):
     return digest({
         "policy": POLICY,
@@ -597,6 +617,8 @@ MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
 _MENU_CONTRACTS = MappingProxyType({
     MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    digest(question(guidance=_PRE_REQUEST_REFERENCE_GUIDANCE, work_options=_PRE_REQUEST_REFERENCE_WORK)):
+        (_PRE_REQUEST_REFERENCE_GUIDANCE, _PRE_REQUEST_REFERENCE_WORK, _resolver_digest(_PRE_REQUEST_REFERENCE_WORK)),
     digest(question(guidance=_PRE_CONVERSATION_LORE_GUIDANCE, work_options=_PRE_CONVERSATION_LORE_WORK)):
         (_PRE_CONVERSATION_LORE_GUIDANCE, _PRE_CONVERSATION_LORE_WORK, _resolver_digest(_PRE_CONVERSATION_LORE_WORK)),
     digest(question(guidance=_PRE_LORE_PAGE_GUIDANCE, work_options=_PRE_LORE_PAGE_WORK)):
@@ -1097,7 +1119,7 @@ def native_origin_rows(frame):
     return selected_rows(frame.get('related_authored_pages',{}).get('pages',[]),primary,frame['source_basis'])
 
 
-def native_review_schema(frame, *, local=False):
+def native_review_schema(frame, *, local=False, request_reference=False):
     """Existing typed review model with only the actual producing selectors."""
     from .collaboration import ProposedQuestions, ProposedPlanV3, ProposedConnectedPage
     from .relationship_review import ProposedRelationship
@@ -1121,6 +1143,9 @@ def native_review_schema(frame, *, local=False):
         return {'type':'null'},{}
     if kind=='plan' and not selection_packet(frame):
         raise ValueError('Plan review lacks its pre-writer selection contract')
+    if kind == 'lore_page' and request_reference:
+        from .lore_page_review import ProposedLorePageReference
+        model = ProposedLorePageReference
     schema=model.model_json_schema()
     definitions=schema.pop('$defs',{})
     if kind == "lore_page":
@@ -1140,14 +1165,15 @@ def native_review_schema(frame, *, local=False):
     return ({'anyOf':[schema,{'type':'null'}]} if kind not in {'questions','plan'} else schema),definitions
 
 
-def normalize_native_review(candidate, segments, frame, *, author_text):
+def normalize_native_review(candidate, segments, frame, *, author_text, request_reference=False):
     from pydantic import TypeAdapter
     from .relationship_review import RelationshipCollaborationV3
     from .build_draft_context import resolve_body_aliases
     from .collaboration import ProposedPlanV3
     from .plan_objective import selection_packet
     from .lore_page_review import ProposedLorePage
-    review=TypeAdapter(RelationshipCollaborationV3 | ProposedLorePage | None).validate_python(candidate)
+    from .lore_page_review import ProposedLorePageReference
+    review=TypeAdapter(RelationshipCollaborationV3 | ProposedLorePageReference | ProposedLorePage | None).validate_python(candidate)
     frame=resolve_body_aliases(frame)
     from .reviewed_action import SCOPE_KEY,ReviewedDiscussionScopeV1
     if SCOPE_KEY in frame:
@@ -1159,6 +1185,11 @@ def normalize_native_review(candidate, segments, frame, *, author_text):
     validate_collaboration(review,segments,frame['response_contract'],
         primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
     if isinstance(review, ProposedLorePage):
+        if isinstance(review, ProposedLorePageReference) != request_reference:
+            raise ValueError('Lore destination differs from its producing writer contract')
+        if frame['response_contract']['requested_work'] == 'review_blank_lore_page' and (
+                any(getattr(segment, 'kind', None) != 'limitation' for segment in segments) or review.open_questions):
+            raise ValueError('Blank lore-page request cannot carry a populated body')
         review.destination.bind(author_text, has_body=bool(segments or review.open_questions),
             conversational=frame["response_contract"]["requested_work"] == "review_lore_page_from_conversation")
     if isinstance(review,ProposedPlanV3) and not selection_packet(frame):
@@ -1429,7 +1460,9 @@ def semantic_collaboration(card):
     if kind == "lore_page":
         from .lore_page_review import ProposedLorePage
 
-        draft = ProposedLorePage.model_validate(card)
+        from pydantic import TypeAdapter
+        from .lore_page_review import ProposedLorePageReference
+        draft = TypeAdapter(ProposedLorePageReference | ProposedLorePage).validate_python(card)
         return {"kind": kind, "title": draft.destination.title}
     fields = {
         "plan": {"kind", "objective", "steps"},

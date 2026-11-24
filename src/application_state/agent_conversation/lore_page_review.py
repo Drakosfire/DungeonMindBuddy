@@ -1,4 +1,4 @@
-"""User text witness for an inert standalone lore-page review."""
+"""Versioned destinations for inert standalone lore-page reviews."""
 
 import re
 from typing import Literal
@@ -133,3 +133,44 @@ class ProposedLorePage(Closed):
                for question in value):
             raise ValueError("Open questions require concise nonblank text")
         return value
+
+
+LORE_REQUEST_FORMAT = "surface_native_lore_request_reference_v2"
+
+
+class LorePageRequestReference(Closed):
+    """Local selection of the producing request; title remains a reviewed proposal."""
+    request: Literal["current_author_request"]
+    title: str = Field(min_length=1, max_length=200, pattern=r"^[^\n\r]+$",
+        description="Propose the requested page title, preserving articles, punctuation and Unicode. The author reviews this exact title before saving.")
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def normalize_title_formatting(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    def bind(self, author_text: str, *, has_body=False, conversational=False) -> str:
+        # Identity is proved by exact producing input/schema reconstruction, not
+        # by copying an instruction or parsing natural language a second time.
+        if not author_text.strip() or self.title != self.title.strip():
+            raise ValueError("Lore page reference requires a current request and nonblank proposed title")
+        return self.title
+
+
+class ProposedLorePageReference(ProposedLorePage):
+    """Review a standalone page using sourced claims or explicitly labeled proposals.
+    For an ordinary acknowledgment or clarification, leave collaboration null and
+    use discussion segments. An acknowledgment is not an invented idea or page body.
+    """
+    destination: LorePageRequestReference
+    open_questions: tuple[str, ...] = Field(default=(), max_length=24,
+        exclude_if=lambda value: not value,
+        description="Preserve all author-declared unresolved issues, including identities, motives, relationships, chronology and origins. Put questions here instead of duplicating them in the body. Whitespace is normalized for review.")
+
+    @field_validator("open_questions", mode="before")
+    @classmethod
+    def normalize_question_formatting(cls, value):
+        if not isinstance(value, (tuple, list)):
+            return value
+        return tuple(" ".join(question.split()) if isinstance(question, str) else question
+                     for question in value)
