@@ -2962,7 +2962,9 @@ export function WorldPlanAgentConversation({
   const [buildReply, setBuildReply] = useState<{
     scopeKey: string; conversationId: string | null; turnId: string; text: string; sequence: number;
   } | null>(null);
-  const [buildReplyTiming, setBuildReplyTiming] = useState<string | null>(null);
+  const [buildReplyTiming, setBuildReplyTiming] = useState<{
+    scopeKey: string; conversationId: string | null; measurements: string;
+  } | null>(null);
   const lastVisibleBuildReply = useRef<{ turnId: string; sequence: number } | null>(null);
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -4601,12 +4603,12 @@ export function WorldPlanAgentConversation({
         const visible = marks("visible");
         const complete = marks("complete")[0]?.startTime;
         if (send !== undefined && complete !== undefined) {
-          setBuildReplyTiming(JSON.stringify({
+          setBuildReplyTiming({scopeKey, conversationId: originConversationId, measurements: JSON.stringify({
             sendToContextMs: context === undefined ? null : context - send,
             contextToFirstVisibleMs: context === undefined || !visible.length ? null : visible[0].startTime - context,
             sendToCompleteMs: complete - send,
             visibleUpdates: visible.filter(entry => entry.startTime < complete).length,
-          }));
+          })});
         }
       }
       if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
@@ -7487,7 +7489,9 @@ export function WorldPlanAgentConversation({
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite" aria-busy={historyLoading || !history}
-        data-build-reply-timing={isBuild ? buildReplyTiming ?? undefined : undefined}>
+        data-build-reply-timing={isBuild && buildReplyTiming?.scopeKey === scopeKey
+          && buildReplyTiming.conversationId === (history?.conversation_id ?? null)
+          ? buildReplyTiming.measurements : undefined}>
 
         {historyLoading && !history ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
         {historyError ? (
