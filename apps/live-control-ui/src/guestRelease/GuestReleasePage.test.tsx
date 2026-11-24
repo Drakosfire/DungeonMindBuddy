@@ -410,6 +410,14 @@ it("adds and connects temporary points in the real Graph, then resets without st
   await user.click(reset);
   expect(reset).toHaveFocus();
   await screen.findByRole("button", { name: "Sizzek, npc" });
+  await user.click(screen.getByRole("button", { name: "Done" }));
+  expect(screen.getByText("Add to this graph")).toHaveFocus();
+  await user.click(screen.getByText("Add to this graph"));
+  screen.getByRole("textbox", { name: "New point" }).focus();
+  await user.keyboard("{Escape}");
+  expect(screen.getByText("Add to this graph")).toHaveFocus();
+  expect(screen.getByText("Add to this graph").closest("details")).not.toHaveAttribute("open");
+  await screen.findByRole("button", { name: "Sizzek, npc" });
   expect(screen.queryByRole("button", { name: "A visitor clue, temporary" })).not.toBeInTheDocument();
   expect(screen.queryByText("Your temporary connection · not sourced from the shared World.")).not.toBeInTheDocument();
   view.unmount(); render(<App />);

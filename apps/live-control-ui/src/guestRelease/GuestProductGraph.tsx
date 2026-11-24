@@ -72,8 +72,13 @@ function GuestGraphSession({ publicId, ready }: { publicId: string; ready: Ready
     revision.current += 1;
     setApi(null); setOverlay({ nodes: [], edges: [] }); setName(""); setSource(""); setTarget(""); setPredicate(""); setMessage("Your additions were reset to the shared copy.");
   }
+  function closeTools(details: HTMLDetailsElement | null) {
+    if (!details) return;
+    details.open = false;
+    details.querySelector("summary")?.focus();
+  }
   return <>
-    <details className="guest-product-graph__tools"><summary>Add to this graph</summary>
+    <details className="guest-product-graph__tools" onKeyDown={(event) => { if (event.key === "Escape" && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); closeTools(event.currentTarget); } }}><summary>Add to this graph</summary>
       <div className="guest-product-graph__tools-panel"><p>Your additions stay in this tab until you leave or reset. They do not change the shared World.</p>
       <form onSubmit={addPoint}><label>New point <input value={name} maxLength={120} onChange={(event) => setName(event.target.value)} /></label><button type="submit" disabled={!name.trim() || overlay.nodes.length >= pointLimit}>Add point</button></form>
       <form onSubmit={addConnection}>
@@ -84,7 +89,7 @@ function GuestGraphSession({ publicId, ready }: { publicId: string; ready: Ready
       </form>
       <button type="button" onClick={reset}>Reset my additions</button>
       <p role="status">{message}</p>
-      <button type="button" onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}>Done</button></div>
+      <button type="button" onClick={(event) => closeTools(event.currentTarget.closest("details"))}>Done</button></div>
     </details>
     {api ? <NativeGraphDemo api={api} embedded mode="guest" worldTitle="Shared World" renderGuestNodeDetails={(id, onExplore) => <GuestEvidence copy={ready.copy} overlay={overlay} nodeId={id} onExplore={onExplore} />} /> : graphError ? <p role="alert">This graph could not be updated. Try resetting your additions.</p> : <p role="status">Updating your graph…</p>}
   </>;
