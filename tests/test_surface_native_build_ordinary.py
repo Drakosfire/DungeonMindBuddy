@@ -3919,6 +3919,9 @@ def test_current_lore_outcome_question_is_visible_without_creating_a_page(lane, 
         source_answer_output=output, message='Prepare the separate page when its subject and premise are clear. Ask for essential missing context; do not invent it.')
     request = json.loads(case.writer.calls[0].content)
     assert request['text']['format']['name'] == 'lore_page_response'
+    assert 'leave collaboration null' not in request['instructions']
+    assert 'leave the proposal empty' not in request['instructions']
+    assert 'return needs_context with the specific question needed to continue' in request['instructions']
     assert request['input'][-1]['role'] == 'user'
     if output != 'lore_context_question':
         assert case.response.status_code == 503
@@ -3946,6 +3949,8 @@ def test_old_lore_admission_keeps_its_v2_request_and_page_readback(lane, tmp_pat
     assert case.response.status_code == 200, case.response.text
     request = json.loads(case.writer.calls[0].content)
     assert request['text']['format']['name'] == 'surface_native_lore_request_reference_v2'
+    assert 'leave collaboration null' in request['instructions']
+    assert 'leave the proposal empty' in request['instructions']
     assert case.turn.completion.collaboration.destination.title == 'Glass Regent'
     from application_state.agent_conversation import AgentConversationService
     reopened = AgentConversationService().inspect_turn(world_id=case.world, turn_id=case.turn.turn_id)

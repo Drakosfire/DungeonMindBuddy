@@ -1358,7 +1358,7 @@ def validate_completion(completion, receipt, execution, attempt_id, graph_bindin
         raise ValueError("Intentional completion differs from its admitted operation")
     review = completion.collaboration
     allowed_review = (
-        WORK[choices[0].requested_work].review
+        review_kind(choices[0].requested_work)
         if isinstance(choices[0], t.BuildRequestedWorkResolutionV1)
         and not choices[0].resolution["barrier"]
         else None

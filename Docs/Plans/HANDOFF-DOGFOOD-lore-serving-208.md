@@ -189,3 +189,14 @@ ordinary successor/current-family changes preserve old V3 output. Case31 retaine
 17 passes and two test setup errors from republishing one Core fixture identity;
 use a fresh in-memory World for its second serial call on the SAME App, without
 new database allocation or relaxing identity collision checks.
+
+
+Final bounded review cleanup: route the remaining intentional-completion validator
+through the same frozen review_kind owner. The additional exclusive test write is
+tests/test_build_related_pages.py, only its historical intentional-completion
+regression; no related-page runtime capability is added. Actual V3 SDK audit found
+two inherited clarification clauses contradicting the new schema (null collaboration
+and an empty proposal). Give V3 explicit needs_context variants while retaining
+V2 instruction bytes. Exercise actual SDK instructions for both contracts before
+any real provider call; retain case33 three PASS and case34 original-head results
+as predecessor evidence, not amended-head qualification.

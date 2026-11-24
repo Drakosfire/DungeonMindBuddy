@@ -323,6 +323,15 @@ CONVERSATION_LORE_REQUEST_GUIDANCE = (
 )
 
 
+CONVERSATION_LORE_OUTCOME_GUIDANCE = CONVERSATION_LORE_REQUEST_GUIDANCE.replace(
+    "If essential context really is missing, leave collaboration null and ask the specific "
+    "question needed to continue in a discussion segment; do not return only generic limitation "
+    "codes.",
+    "If essential context really is missing, return needs_context with the specific "
+    "question needed to continue and an empty answer_segments array; do not return null "
+    "collaboration, a bodyless draft or only generic limitation codes.",
+)
+
 PLAN_SOURCE_REFERENCE_RESPONSE = (
     'Saved authored pages describe authored material, not played truth. Use related_page_claim '
     'with the supplied local read_id. Buddy binds that exact supplied page to the citation. '
@@ -597,12 +606,16 @@ class PlanJevWriter:
                         'open_questions, retain material unresolved identities, motives and relationships, '
                         'including relationships named in a proposal. Retain the alternatives already '
                         'discussed. Before returning, compare the draft with relevant earlier context and '
-                        'later additions so neither is silently dropped. If there is too little material '
-                        'to draft accurately, leave the proposal empty and surface the specific gap for '
-                        'the author. '
+                        'later additions so neither is silently dropped. '
+                        + ('If there is too little material to draft accurately, return needs_context '
+                           'with the specific essential question and no draft segments. '
+                           if self.lore_outcome else
+                           'If there is too little material to draft accurately, leave the proposal empty '
+                           'and surface the specific gap for the author. ')
                     )
                     if destination == {'request': 'current_author_request'}:
-                        instructions += '\n' + CONVERSATION_LORE_REQUEST_GUIDANCE
+                        instructions += '\n' + (CONVERSATION_LORE_OUTCOME_GUIDANCE
+                            if self.lore_outcome else CONVERSATION_LORE_REQUEST_GUIDANCE)
             if self.shared:
                 fragment_scope = self.work_frame.get('focused_edit_target', {}).get('fragment_scope')
                 if fragment_scope is not None:
