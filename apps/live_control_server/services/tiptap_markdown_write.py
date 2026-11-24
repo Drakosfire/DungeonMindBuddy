@@ -840,7 +840,7 @@ def prepare_tiptap_markdown_write(
 
 
 def commit_tiptap_markdown_write(
-    *, root: Path, request: TiptapMarkdownWriteCommitRequest, authorize_world=None,
+    *, root: Path, request: TiptapMarkdownWriteCommitRequest, authorize_world=None, authorize_commit=None,
     authorize_runbook_world=None, media_owner: str = "local_operator"
 ) -> TiptapMarkdownWriteCommitResponse:
     write_mode = _normalize_write_mode(request.write_mode)
@@ -855,7 +855,7 @@ def commit_tiptap_markdown_write(
         if state is not None:
             if authorize_runbook_world is not None:
                 raise TiptapMarkdownWriteConflictError("The authorized Runbook is no longer available")
-            return _commit_page(request, write_mode, state, authorize_world=authorize_world)
+            return _commit_page(request, write_mode, state, authorize_world=authorize_world, authorize_commit=authorize_commit)
     except ApplicationStateError as exc:
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
@@ -994,7 +994,7 @@ def _prepare_page(request, mode, state):
     )
 
 
-def _commit_page(request, mode, state, *, authorize_world=None):
+def _commit_page(request, mode, state, *, authorize_world=None, authorize_commit=None):
     from application_state.content import pages
     from apps.live_control_server.services.workspace_document_registry import (
         _record_from_page,
@@ -1050,6 +1050,7 @@ def _commit_page(request, mode, state, *, authorize_world=None):
         page_presentation=layout,
         **({"layout_writer_profile": request.layout_writer_profile} if request.layout_writer_profile is not None else {}),
         **({"authorize_world": authorize_world} if authorize_world is not None else {}),
+        **({"authorize_commit": authorize_commit} if authorize_commit is not None else {}),
     )
     record = _record_from_page(committed)
     locator = _content_receipt_locator(committed.page)

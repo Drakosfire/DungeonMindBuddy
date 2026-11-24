@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { clearGuestBuildSession, openGuestBuildWorld } from "../guestWorld/guestBuildSession";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorldOwnedPlanSnapshot, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
 import { useHostedAuthStatus } from "../auth/HostedAuthGate";
@@ -277,4 +278,56 @@ export function useSelectedWorldAdmission(): SelectedWorldState {
 
 export function useRetrySelectedWorld(): () => void {
   return useContext(SelectedWorldRetryContext);
+}
+
+/** Resolve guest Build through the same session that owns the Graph copy. */
+export function GuestBuildWorldProvider({ locationSnapshot, children }: { locationSnapshot: string; children: ReactNode }) {
+  const [state, setState] = useState<SelectedWorldState>({ kind: "loading", requestedWorldId: null });
+  const [retryGeneration, setRetryGeneration] = useState(0);
+  const guestWorldRef = useRef<string | null>(null);
+  const retry = useCallback(() => setRetryGeneration(value => value + 1), []);
+  useEffect(() => {
+    const controller = new AbortController();
+    setState({ kind: "loading", requestedWorldId: null });
+    void (async () => {
+      try {
+        const world = await openGuestBuildWorld(controller.signal);
+        guestWorldRef.current = world.worldId;
+        const selection = requestedWorldSelection(locationSnapshot);
+        if (selection.explicit && selection.worldId !== world.worldId) throw new Error("This document belongs to another World.");
+        if (selection.documentId) {
+          const document = await getWorkspaceDocumentAny(selection.documentId);
+          if (document.kind !== "worldbuilding_source" || document.world_id !== world.worldId) {
+            throw new Error("This document belongs to another World.");
+          }
+        }
+        if (!controller.signal.aborted) setState({ kind: "managed", worldId: world.worldId,
+          name: world.name, documentId: selection.documentId, graphStatus: "active" });
+      } catch (error) {
+        if (!controller.signal.aborted) setState({ kind: "error", message: error instanceof Error ? error.message : "Guest World unavailable." });
+      }
+    })();
+    return () => { controller.abort(); };
+  }, [locationSnapshot, retryGeneration]);
+  useEffect(() => () => {
+    currentVerifiedManagedWorld = null;
+    clearGuestBuildSession();
+    // A sign-in transition can unmount this provider without leaving Build.
+    // Do not carry a guest document selector into the signed-in World picker.
+    const url = new URL(window.location.href);
+    if (url.pathname === "/build" && guestWorldRef.current &&
+        (url.searchParams.get("world") === guestWorldRef.current || url.searchParams.get("campaign") === guestWorldRef.current)) {
+      url.searchParams.delete("world");
+      url.searchParams.delete("campaign");
+      url.searchParams.delete("documentId");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      announceSelectedWorldLocationChange();
+    }
+  }, []);
+  currentVerifiedManagedWorld = state.kind === "managed" ? state : null;
+  return <SelectedWorldRetryContext.Provider value={retry}>
+    <SelectedWorldContext.Provider value={state}>
+      <SelectedWorldAdmissionContext.Provider value={state}>{children}</SelectedWorldAdmissionContext.Provider>
+    </SelectedWorldContext.Provider>
+  </SelectedWorldRetryContext.Provider>;
 }

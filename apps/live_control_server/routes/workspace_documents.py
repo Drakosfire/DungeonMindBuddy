@@ -175,10 +175,13 @@ def get_workspace_page_inventory(
 
 
 @router.post("/workspace-documents", response_model=WorkspaceDocumentRecord)
-def post_workspace_document(body: CreateWorkspaceDocumentRequest) -> dict[str, Any]:
+def post_workspace_document(body: CreateWorkspaceDocumentRequest, request: Request) -> dict[str, Any]:
     try:
+        from apps.live_control_server.services.guest_build_access import guest_write_capacity
+        guest = getattr(request.state, "guest_build_world", None)
         record = create_workspace_document(
             repo_root(),
+            **({"authorize_allocation": lambda conn, world: guest_write_capacity(request, conn, world, creating=True)} if guest else {}),
             title=body.title,
             campaign_id=body.campaign_id,
             kind=body.kind,

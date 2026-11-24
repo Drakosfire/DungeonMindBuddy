@@ -535,6 +535,7 @@ def create_workspace_document(
     authority_state: Literal["draft", "reviewed", "canonical"] | None = None,
     visibility_state: Literal["internal", "player_safe"] | None = None,
     _connected_reservation: tuple[str, str] | None = None,
+    authorize_allocation=None,
 ) -> WorkspaceDocumentRecord:
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
@@ -568,6 +569,7 @@ def create_workspace_document(
                 title=cleaned_title,
                 campaign_id=campaign_id,
                 document_id=ident,
+                **({"authorize_allocation": authorize_allocation} if authorize_allocation is not None else {}),
                 metadata=pages.PageMetadata(
                     document_class=fields["document_class"],
                     authority_state=fields["authority_state"],
