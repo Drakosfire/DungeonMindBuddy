@@ -1304,6 +1304,38 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }
   });
 
+  it.each(["disconnect", "World switch"])("clears a visible Build reply preview after %s", async (ending) => {
+    let reject!: (reason: Error) => void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
+    const {container} = render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, {target: {value: "Describe Mirathorn"}});
+    fireEvent.click(screen.getByRole("button", {name: "Send message"}));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const observe = vi.mocked(postWorldBuildAgentTurn).mock.calls[0][2]!;
+    expect(observe).toBeTypeOf("function");
+    input.focus();
+    await act(async () => {
+      observe({kind: "context_ready"});
+      observe({kind: "text", sequence: 1, text: "A lantern"});
+    });
+    const preview = container.ownerDocument.querySelector("[data-build-reply-preview]");
+    expect(preview).toHaveTextContent("A lantern");
+    expect(preview).toHaveAttribute("aria-hidden", "true");
+    await act(async () => observe({kind: "text", sequence: 2, text: " lights the path"}));
+    expect(preview).toHaveTextContent("A lantern lights the path");
+    expect(input).toHaveFocus();
+
+    if (ending === "World switch") fireEvent.click(screen.getByRole("button", {name: "Switch World"}));
+    else await act(async () => reject(new Error("Lost connection")));
+    await waitFor(() => expect(container.ownerDocument.querySelector("[data-build-reply-preview]")).toBeNull());
+    await act(async () => observe({kind: "text", sequence: 3, text: "Late text"}));
+    expect(screen.queryByText(/Late text/)).not.toBeInTheDocument();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
   it("shows recovery only after an active Build request becomes uncertain, including after remount", async () => {
     let reject!: (reason: Error) => void;
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_resolve, rejectRequest) => { reject = rejectRequest; }));
