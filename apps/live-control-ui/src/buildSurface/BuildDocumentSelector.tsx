@@ -63,9 +63,11 @@ export function BuildDocumentSelector({
 }: BuildDocumentSelectorProps) {
   const [query, setQuery] = useState("");
   const [catalogRequestedFor, setCatalogRequestedFor] = useState<string | null>(null);
+  const [directDeleteId, setDirectDeleteId] = useState<string | null>(null);
+  const statblockCatalogWorld = directDeleteId ? worldId : catalogRequestedFor;
   const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; published: Map<string, Set<string>>; error: boolean }>();
   useEffect(() => {
-    if (!worldId || catalogRequestedFor !== worldId) return;
+    if (!worldId || statblockCatalogWorld !== worldId) return;
     const request = new AbortController();
     Promise.all([listWorldThreatDrafts(worldId, request.signal), listWorldMechanicsAssociations(worldId)]).then(
       ([drafts, associations]) => {
@@ -82,7 +84,7 @@ export function BuildDocumentSelector({
       if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Map(), error: true });
     });
     return () => request.abort();
-  }, [catalogRequestedFor, worldId]);
+  }, [statblockCatalogWorld, worldId]);
   const [reviewCatalog, setReviewCatalog] = useState<{ worldId: string; reviews: PdfStatblockReviewSummary[]; error?: boolean }>();
   useEffect(() => {
     if (!worldId || catalogRequestedFor !== worldId) return;
@@ -104,6 +106,7 @@ export function BuildDocumentSelector({
   }, [worldId]);
   const search = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const directDeleteTrigger = useRef<HTMLButtonElement>(null);
   const recentKey = `buddy:build:recent:${worldId ?? preferredCampaignId ?? ""}`;
   const [deleteTarget, setDeleteTarget] = useState<PickerEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -264,6 +267,12 @@ export function BuildDocumentSelector({
   const pageRecords = new Map((documents ?? []).map(record => [record.document_id, record]));
   if (activeRecord) pageRecords.set(activeRecord.document_id, activeRecord);
   const byId = new Map(entries.map(entry => [entry.id, entry]));
+  const directStatblockId = activeStatblock && activeStatblock.worldId === worldId
+    ? buildSavedStatblockHref({ worldId: activeStatblock.worldId, draftId: activeStatblock.draftId, revisionId: activeStatblock.revisionId })
+    : null;
+  const confirmationTarget = directDeleteId
+    ? directDeleteId === directStatblockId ? byId.get(directDeleteId) : undefined
+    : deleteTarget;
   const visible = filter
     ? entries.filter(entry => entry.category !== "Statblock drafts" && `${entry.label} ${entry.category} ${entry.detail ?? ""}`.toLowerCase().includes(filter))
     : category === "Recent"
@@ -279,11 +288,36 @@ export function BuildDocumentSelector({
 
   function closePicker() {
     if (deleting) return;
+    dismissPicker();
+  }
+
+  function dismissPicker() {
     setDeleteTarget(null);
+    setDirectDeleteId(null);
     setDeleteError("");
     if (dialog.current?.close) dialog.current.close();
     else dialog.current?.removeAttribute("open");
-    trigger.current?.focus();
+    (directDeleteId ? directDeleteTrigger : trigger).current?.focus();
+  }
+
+  function showDialog() {
+    if (dialog.current?.showModal) dialog.current.showModal();
+    else dialog.current?.setAttribute("open", "");
+  }
+
+  function openDirectDelete() {
+    if (!directStatblockId) return;
+    setDirectDeleteId(directStatblockId);
+    setDeleteError("");
+    showDialog();
+  }
+
+  function cancelDelete() {
+    if (directDeleteId) closePicker();
+    else {
+      setDeleteTarget(null);
+      setDeleteError("");
+    }
   }
 
   function openPicker() {
@@ -291,26 +325,30 @@ export function BuildDocumentSelector({
     setCategory("Recent");
     setQuery("");
     setRecent(readRecent(recentKey));
-    if (dialog.current?.showModal) dialog.current.showModal();
-    else dialog.current?.setAttribute("open", "");
+    showDialog();
     search.current?.focus();
   }
 
   async function deleteSource() {
-    if (!worldId || !deleteTarget || deleting) return;
+    const target = confirmationTarget;
+    if (!worldId || !target || deleting) return;
     setDeleting(true);
     setDeleteError("");
     try {
-      if (deleteTarget.withdrawal) await withdrawBuildSource(worldId, deleteTarget.withdrawal);
-      else if (deleteTarget.statblock) {
-        const { draftId, version } = deleteTarget.statblock;
+      if (target.withdrawal) await withdrawBuildSource(worldId, target.withdrawal);
+      else if (target.statblock) {
+        const { draftId, version } = target.statblock;
         await archiveBuildStatblock(worldId, draftId, version);
         setArchivedDrafts(ids => [...ids, draftId]);
       }
       else return;
-      setWithdrawn(ids => [...ids, deleteTarget.id]);
-      setDeleteTarget(null);
-      if (deleteTarget.id === activeId || (deleteTarget.statblock && deleteTarget.statblock.draftId === activeStatblock?.draftId)) {
+      setWithdrawn(ids => [...ids, target.id]);
+      if (directDeleteId) dismissPicker();
+      else setDeleteTarget(null);
+      const openStatblock = readSavedStatblockTarget(window.location.href);
+      const deletedOpenStatblock = target.statblock && openStatblock?.worldId === worldId
+        && openStatblock?.draftId === target.statblock.draftId;
+      if (deletedOpenStatblock || (!target.statblock && target.id === activeId)) {
         navigatePrimaryAppHref("/build?" + new URLSearchParams({ world: worldId }), { allowBuildTargetChange: true });
       }
     } catch (error) {
@@ -337,23 +375,30 @@ export function BuildDocumentSelector({
           <path d="M3 18V6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2M3 18l2-7h17l-2 7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
         </svg>
       </button>
-      <dialog ref={dialog} className="build-document-picker" aria-label="Open document" data-native-escape-owner
+      {directStatblockId && <button ref={directDeleteTrigger} type="button" className="surface-context-action" aria-label="Delete statblock"
+        disabled={switching} onClick={openDirectDelete}>Delete</button>}
+      <dialog ref={dialog} className="build-document-picker" aria-label={directDeleteId ? "Delete statblock" : "Open document"} data-native-escape-owner
         onCancel={event => {
           if (event.target !== event.currentTarget) return;
-          if (deleteTarget && !deleting) { event.preventDefault(); setDeleteTarget(null); setDeleteError(""); return; }
+          if (confirmationTarget && !deleting) { event.preventDefault(); cancelDelete(); return; }
           event.preventDefault();
           closePicker();
         }}>
-        <header className="build-document-picker__toolbar">
+        {!directDeleteId && <header className="build-document-picker__toolbar">
           <input ref={search} type="search" aria-label="Search documents" placeholder="Search documents"
             value={query} onChange={event => setQuery(event.target.value)} />
           <button type="button" aria-label="Close document picker" onClick={closePicker}>×</button>
-        </header>
-        {deleteTarget ? <section className="build-document-picker__confirmation" aria-label="Confirm document deletion">
-          <p>Delete “{deleteTarget.label}” from this World? {deleteTarget.statblock ? "Existing references to saved mechanics will keep working." : "Existing links to this source will stop opening it."}</p>
+        </header>}
+        {confirmationTarget ? <section className="build-document-picker__confirmation" aria-label="Confirm document deletion">
+          <p>Delete “{confirmationTarget.label}” from this World? {confirmationTarget.statblock ? "Existing references to saved mechanics will keep working." : "Existing links to this source will stop opening it."}</p>
           {deleteError && <p role="alert">{deleteError}</p>}
-          <button type="button" disabled={deleting} onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>Cancel</button>
+          <button type="button" disabled={deleting} autoFocus={Boolean(directDeleteId)} onClick={cancelDelete}>Cancel</button>
           <button type="button" disabled={deleting} onClick={() => void deleteSource()}>{deleting ? "Deleting…" : "Delete document"}</button>
+        </section> : directDeleteId ? <section className="build-document-picker__confirmation">
+          <p role="status">{currentCatalog || directDeleteId !== directStatblockId
+            ? "This statblock is unavailable to delete. Reopen it from the document picker and try again."
+            : "Checking the saved statblock…"}</p>
+          <button type="button" autoFocus onClick={cancelDelete}>Cancel</button>
         </section> : <div className="build-document-picker__body">
           <nav aria-label="Document categories">
             {PICKER_CATEGORIES.map(item => <button key={item} type="button"

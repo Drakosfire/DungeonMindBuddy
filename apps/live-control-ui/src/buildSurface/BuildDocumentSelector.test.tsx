@@ -99,6 +99,49 @@ describe("BuildDocumentSelector", () => {
     }
   });
 
+  it("reuses the picker confirmation and archives the open saved statblock by exact draft version", async () => {
+    const path = "/build?world=pilot&draft=creature&revision=saved-revision";
+    const previousUrl = window.location.href;
+    window.history.replaceState({}, "", path);
+    setNativeGraphAccessToken("fixture");
+    const request = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      const body = String(url).includes("world-mechanics/associations")
+        ? [{ request: { draft_id: "creature", target: { campaign_scope: null } },
+            proof: { locator: { revision_id: "saved-revision" } } }]
+        : { total: 1, drafts: [{ world_id: "pilot", draft_id: "creature", version: 3, name: "Test creature" }] };
+      return new Response(JSON.stringify(body));
+    });
+    const archives = () => request.mock.calls.filter(([, init]) => init?.method === "DELETE");
+    try {
+      render(<BuildDocumentSelector worldId="pilot" documents={[]} listStatus="ready"
+        activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
+        switching={false} onSelect={vi.fn()} />);
+      const directDelete = screen.getByRole("button", { name: "Delete statblock" });
+      expect(request).not.toHaveBeenCalled();
+      await userEvent.click(directDelete);
+      const dialog = screen.getByRole("dialog", { name: "Delete statblock" });
+      expect(await within(dialog).findByText(/Delete “Test creature” from this World/)).toBeVisible();
+      expect(within(dialog).queryByRole("searchbox")).not.toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(archives()).toHaveLength(0);
+      expect(window.location.pathname + window.location.search).toBe(path);
+      expect(directDelete).toHaveFocus();
+
+      await userEvent.click(directDelete);
+      await userEvent.click(await within(dialog).findByRole("button", { name: "Delete document" }));
+      await waitFor(() => expect(window.location.search).toBe("?world=pilot"));
+      expect(archives()).toHaveLength(1);
+      const [url] = archives()[0]!;
+      expect(String(url)).toContain("/threat-drafts/creature/saved-statblock?world_id=pilot&expected_version=3");
+      expect(screen.queryByRole("dialog", { name: "Delete statblock" })).not.toBeInTheDocument();
+    } finally {
+      window.history.replaceState({}, "", previousUrl);
+      request.mockRestore();
+      setNativeGraphAccessToken(null);
+    }
+  });
+
   it("loads the current World’s catalogs while the picker is open", async () => {
     setNativeGraphAccessToken("fixture");
     const request = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
