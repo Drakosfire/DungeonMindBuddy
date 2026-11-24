@@ -63,9 +63,16 @@ export function BuildDocumentSelector({
 }: BuildDocumentSelectorProps) {
   const [query, setQuery] = useState("");
   const [catalogRequestedFor, setCatalogRequestedFor] = useState<string | null>(null);
-  const [directDeleteId, setDirectDeleteId] = useState<string | null>(null);
-  const statblockCatalogWorld = directDeleteId ? worldId : catalogRequestedFor;
-  const [catalog, setCatalog] = useState<{ worldId: string; drafts: WorldThreatDraftSummary[]; published: Map<string, Set<string>>; error: boolean }>();
+  const [directDeleteRequest, setDirectDeleteRequest] = useState<{ id: string } | null>(null);
+  const directDeleteId = directDeleteRequest?.id ?? null;
+  const statblockCatalogWorld = directDeleteRequest ? worldId : catalogRequestedFor;
+  const [catalog, setCatalog] = useState<{
+    worldId: string;
+    drafts: WorldThreatDraftSummary[];
+    published: Map<string, Set<string>>;
+    error: boolean;
+    directDeleteRequest: typeof directDeleteRequest;
+  }>();
   useEffect(() => {
     if (!worldId || statblockCatalogWorld !== worldId) return;
     const request = new AbortController();
@@ -78,13 +85,13 @@ export function BuildDocumentSelector({
           revisions.add(proof.locator.revision_id);
           published.set(association.draft_id, revisions);
         }
-        if (!request.signal.aborted) setCatalog({ worldId, drafts, published, error: false });
+        if (!request.signal.aborted) setCatalog({ worldId, drafts, published, error: false, directDeleteRequest });
       },
     ).catch(() => {
-      if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Map(), error: true });
+      if (!request.signal.aborted) setCatalog({ worldId, drafts: [], published: new Map(), error: true, directDeleteRequest });
     });
     return () => request.abort();
-  }, [statblockCatalogWorld, worldId]);
+  }, [directDeleteRequest, statblockCatalogWorld, worldId]);
   const [reviewCatalog, setReviewCatalog] = useState<{ worldId: string; reviews: PdfStatblockReviewSummary[]; error?: boolean }>();
   useEffect(() => {
     if (!worldId || catalogRequestedFor !== worldId) return;
@@ -270,8 +277,9 @@ export function BuildDocumentSelector({
   const directStatblockId = activeStatblock && activeStatblock.worldId === worldId
     ? buildSavedStatblockHref({ worldId: activeStatblock.worldId, draftId: activeStatblock.draftId, revisionId: activeStatblock.revisionId })
     : null;
+  const directDeleteReadFinished = currentCatalog?.directDeleteRequest === directDeleteRequest;
   const confirmationTarget = directDeleteId
-    ? directDeleteId === directStatblockId ? byId.get(directDeleteId) : undefined
+    ? directDeleteReadFinished && directDeleteId === directStatblockId ? byId.get(directDeleteId) : undefined
     : deleteTarget;
   const visible = filter
     ? entries.filter(entry => entry.category !== "Statblock drafts" && `${entry.label} ${entry.category} ${entry.detail ?? ""}`.toLowerCase().includes(filter))
@@ -293,7 +301,7 @@ export function BuildDocumentSelector({
 
   function dismissPicker() {
     setDeleteTarget(null);
-    setDirectDeleteId(null);
+    setDirectDeleteRequest(null);
     setDeleteError("");
     if (dialog.current?.close) dialog.current.close();
     else dialog.current?.removeAttribute("open");
@@ -307,7 +315,7 @@ export function BuildDocumentSelector({
 
   function openDirectDelete() {
     if (!directStatblockId) return;
-    setDirectDeleteId(directStatblockId);
+    setDirectDeleteRequest({ id: directStatblockId });
     setDeleteError("");
     showDialog();
   }
@@ -395,7 +403,7 @@ export function BuildDocumentSelector({
           <button type="button" disabled={deleting} autoFocus={Boolean(directDeleteId)} onClick={cancelDelete}>Cancel</button>
           <button type="button" disabled={deleting} onClick={() => void deleteSource()}>{deleting ? "Deleting…" : "Delete document"}</button>
         </section> : directDeleteId ? <section className="build-document-picker__confirmation">
-          <p role="status">{currentCatalog || directDeleteId !== directStatblockId
+          <p role="status">{directDeleteReadFinished || directDeleteId !== directStatblockId
             ? "This statblock is unavailable to delete. Reopen it from the document picker and try again."
             : "Checking the saved statblock…"}</p>
           <button type="button" autoFocus onClick={cancelDelete}>Cancel</button>
