@@ -1,6 +1,6 @@
 # ONBOARD: publish guest Graph image
 
-Status: ACTIVE. The owner authorized signed-out Sizzek delivery, review, merge and deployment. This is a stacked release-configuration slice on Buddy PR #4604, head c86e5ba29356f95e3ab6eef27d37f0f142213176. Merge #4604 first, rebase and review this slice on the resulting main, then publish and activate only after backend and production verification. Branch codex/sizzek-guest-release-image uses this isolated checkout. No production runtime, database, port or provider is leased for implementation.
+Status: ACTIVE. The owner authorized signed-out Sizzek delivery, review, merge and deployment. This is a stacked release-configuration slice on Buddy PR #4604, head ce98d07b23486c32d66180f199add5ea7f47208d. Merge #4604 first, rebase and review this slice on the resulting main, then publish and activate only after backend and production verification. Branch codex/sizzek-guest-release-image uses this isolated checkout. No production runtime, database, port or provider is leased for implementation.
 
 Outcome: explicitly requested release builds can compile the existing signed-out Graph; default builds stay off. Image labels and tags distinguish the configured image from default builds at the same source revision. The runtime switch and server-selected snapshot are separate, operator-owned settings; this slice does not enable them or change serving/rollback pins.
 
