@@ -518,6 +518,17 @@ pin and exact test anchors; the focused evaluator suite passed 43 tests in the
 shared environment. This remains predecessor-source, synthetic-provider and
 in-memory Core evidence; it does not qualify a real-model rate or deployment.
 
+Cases 27–28 exercised the existing proposal-move App owner control. Case 27
+stopped during setup because its legacy fixture assumed an empty `elderwyld`
+conversation, while the retained clone already had state. Case 28 adapted the
+disposable test and helper to a fresh synthetic World and passed: move persisted
+across reopen, stale revision was rejected, apply preparation used the moved
+position, and the primary page remained unchanged (1 test). The worker,
+derived test and logs remain under `http-owner/session/case-27` and `case-28`.
+This proves the existing move capability separately from the frozen placement
+proposal; it does not prove that specific proposal was moved in the UI, current
+head qualification or deployment. No provider was contacted.
+
 Offline reporting now exposes available terminal status and separate
 discovery/materialization attempt and exception counts even when other
 required capture artifacts are missing. Such reports stay unproven and count
