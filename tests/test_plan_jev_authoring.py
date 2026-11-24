@@ -517,8 +517,13 @@ def test_author_scope_input_admission_joins_exact_native_turn_without_granting_w
             expected_revision=stored.revision, expected_attempt=stored.attempt, outcome=entered)
 
 
-def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write(
-    plan_adapter, application_state_dsn
+@pytest.mark.parametrize("message, relation, intent, scope_calls", [
+    ("Could we add a warning?", "unresolved", "unresolved", 1),
+    ("What did the party learn?", "unstated_insertion_location", "discussion", 1),
+    ("Insert a warning before that note.", "unstated_insertion_location", "discussion", 2),
+])
+def test_unscoped_plan_discussion_preserves_recheck_for_concrete_directions(
+    plan_adapter, application_state_dsn, message, relation, intent, scope_calls,
 ):
     import asyncio
 
@@ -529,7 +534,7 @@ def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write
     from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
 
     plan_adapter.request = plan_adapter.request.model_copy(
-        update={"message": "Could we add a warning?"}
+        update={"message": message}
     )
     capture, turn = _claim_contextual_scope_turn(plan_adapter)
     requests = []
@@ -539,9 +544,9 @@ def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write
         requests.append(wire)
         assert not wire["state"]["scope_hypotheses"]
         choices = {
-            "location_relation": "unresolved",
+            "location_relation": relation,
             "existing_scope": "none",
-            "page_edit_intent": "unresolved",
+            "page_edit_intent": intent,
         }
         answers = {
             name: {
@@ -565,7 +570,8 @@ def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write
         decision_api_key="synthetic-not-secret",
     )
     first = harness._interpret_author_scope(plan_adapter, (), [])
-    assert len(requests) == 1
+    assert len(requests) == scope_calls
+    assert first.scope_observation.relation == relation
     opening = PlanJevDispatch.requested_work(
         plan_adapter, page_title="Preparation", author_scope=first,
     )
@@ -575,9 +581,9 @@ def test_unscoped_ambiguous_plan_request_skips_recheck_without_authorizing_write
     ))
     confirmed = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
     selection = confirmed.graph_context_execution.events[-1]
-    assert work == "clarify"
+    assert work == ("discuss" if intent == "discussion" else "clarify")
     assert selection.author_scope_binding.observation_event_id == first.event_id
-    assert selection.author_scope_binding.page_edit_intent == "unresolved"
+    assert selection.author_scope_binding.page_edit_intent == intent
     assert selection.placement_selector is None and selection.target_capture_sha256 is None
     with pytest.raises(ApplicationStateValidationError, match="frozen destination or target"):
         plan_adapter.service.reserve_plan_authoring_action(
@@ -651,6 +657,9 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         expected = {'current_request', 'dialogue', 'scope_hypotheses', 'current_editor_focus'}
         focus = wire['state']['current_editor_focus']
         assert ('selected existing text' if selected else 'has a text caret') in focus
+        if not selected:
+            assert "First determine the requested work" in focus
+        assert "caret_guidance_version" not in request.content.decode()
         if selected:
             assert capture.selected_text not in request.content.decode()
         assert capture.document_id not in request.content.decode()
@@ -2333,3 +2342,33 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
     else:
         assert selection.target_resolution == ("ambiguous" if outcome == "ambiguous" else "unresolved")
         assert response.plan_proposal is None and action is None
+
+
+def test_caret_guidance_version_preserves_historical_scope_wire():
+    from application_state.agent_conversation.native_plan_opening import (
+        NativePlanAuthorScopeInputV1, prepare_author_scope_decision, validate_author_scope_wire,
+    )
+
+    historical = NativePlanAuthorScopeInputV1(
+        question="Trace what the party learned.", dialogue=(), max_span_attempts=2048,
+        quote_context=False, assess_page_edit=True, editor_focus="caret", implicit_caret_version="v1",
+    )
+    assert "caret_guidance_version" not in historical.model_dump()
+    current = historical.model_copy(update={"caret_guidance_version": "v2"})
+    old_request = prepare_author_scope_decision(historical)
+    new_request = prepare_author_scope_decision(current)
+    assert "When the author asks to add writing" in old_request.state["current_editor_focus"]
+    assert "First determine the requested work" in new_request.state["current_editor_focus"]
+    assert old_request.questions == new_request.questions
+    assert {key: value for key, value in old_request.state.items() if key != "current_editor_focus"} == {
+        key: value for key, value in new_request.state.items() if key != "current_editor_focus"
+    }
+    old_wire = json.dumps({
+        "model": old_request.model,
+        "state": old_request.state,
+        "questions": {q.name: {"type": "choice", "instructions": q.question,
+                                "criteria": q.option_descriptions} for q in old_request.questions},
+    }).encode()
+    validate_author_scope_wire(historical, old_wire)
+    with pytest.raises(ValueError, match="reconstructed local choices"):
+        validate_author_scope_wire(current, old_wire)

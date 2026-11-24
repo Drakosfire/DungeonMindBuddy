@@ -1003,6 +1003,7 @@ def test_graph_write_guard_validates_final_rows_and_restores_checks(application_
     migration = import_module(
         "application_state.migrations.versions.20261123_0195_turn_graph_write_guards"
     )
+    lifecycle = import_module("application_state.migrations.versions.20261123_0196_turn_lifecycle_write_guard")
     case = sdk_case(application_state_dsn, native="current")
     turn_id = case.turn.turn_id
     url = make_url(application_state_dsn).set(drivername="postgresql+psycopg")
@@ -1015,6 +1016,11 @@ def test_graph_write_guard_validates_final_rows_and_restores_checks(application_
             """).all()
             assert enabled == [(name, "A") for name in migration._TRIGGERS]
             conn.exec_driver_sql("UPDATE agent.turn SET revision=revision+1 WHERE turn_id=%s", (turn_id,))
+            lifecycle.downgrade()
+            assert conn.exec_driver_sql("""
+                SELECT convalidated FROM pg_constraint WHERE conrelid='agent.turn'::regclass
+                AND conname='agent_turn_lifecycle_check'
+            """).scalar_one()
             migration.downgrade()
             restored = conn.exec_driver_sql("""
                 SELECT conname FROM pg_constraint WHERE conrelid='agent.turn'::regclass
@@ -1022,6 +1028,10 @@ def test_graph_write_guard_validates_final_rows_and_restores_checks(application_
             """, (list(migration._CHECKS),)).scalars().all()
             assert restored == list(migration._CHECKS)
             migration.upgrade()
+            original_lifecycle = conn.exec_driver_sql("""
+                SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='agent.turn'::regclass
+                AND conname='agent_turn_lifecycle_check'
+            """).scalar_one()
             # Isolate the target predicate so overlapping lifecycle checks
             # cannot account for the rejection in this rollback-only test.
             conn.exec_driver_sql("ALTER TABLE agent.turn DROP CONSTRAINT agent_turn_lifecycle_check")
@@ -1041,5 +1051,25 @@ def test_graph_write_guard_validates_final_rows_and_restores_checks(application_
                 conn.exec_driver_sql("UPDATE agent.turn SET revision=revision+1 WHERE turn_id=%s", (turn_id,))
             assert isinstance(failure.value.orig, psycopg.errors.CheckViolation)
             assert failure.value.orig.diag.constraint_name in migration._CHECKS
+            conn.exec_driver_sql("DROP TRIGGER bad_graph ON agent.turn")
+            conn.exec_driver_sql(
+                f"ALTER TABLE agent.turn ADD CONSTRAINT agent_turn_lifecycle_check {original_lifecycle}"
+            )
+            lifecycle.upgrade()
+            conn.exec_driver_sql("""
+                CREATE FUNCTION pg_temp.bad_lifecycle() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    NEW.user_text := NEW.user_text || ' changed by before trigger';
+                    RETURN NEW;
+                END; $$
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER bad_lifecycle BEFORE UPDATE OF revision ON agent.turn
+                FOR EACH ROW EXECUTE FUNCTION pg_temp.bad_lifecycle()
+            """)
+            with pytest.raises(IntegrityError) as failure, conn.begin_nested():
+                conn.exec_driver_sql("UPDATE agent.turn SET revision=revision+1 WHERE turn_id=%s", (turn_id,))
+            assert isinstance(failure.value.orig, psycopg.errors.CheckViolation)
+            assert failure.value.orig.diag.constraint_name == lifecycle._LIFECYCLE
     finally:
         engine.dispose()

@@ -862,3 +862,114 @@ outcomes. The per-route repetition target in the
 Build and Plan, including a clean P03 run and the remaining prose, Warning and
 Rules repetitions. The Play scene edit used the existing explicit proposal
 mode. The evidence does not score implicit scene edits from default Play chat.
+
+### Hosted Build prose insertion after #4581
+
+On November 23, 2026 (America/Denver), B03 passed in Buddy Cloud Pilot on
+serving revision `ab642ad0`. This release contains Build
+[#4581](https://github.com/Drakosfire/DungeonMindBuddy/pull/4581) and the
+subsequent guest Graph delivery. The completed synthetic turn
+`b6d8465c-8c76-41f5-9a6d-7a3a67af189e` started after the serving container's
+recorded startup.
+
+The test placed the caret at the end of the Arrival paragraph on the
+saved **Protected Arrival** page and sent the exact B03 request in a fresh
+conversation. The retained trace records Jev 1.14.0 decisions and an OpenAI
+Responses writer call to `gpt-6-luna`. It also records
+`controller_finished_with_gaps` before the writer call. The turn completed
+and the suggestion preview offered two ordinary paragraphs at that boundary.
+Save acknowledged the proposal. After a full reload, the two paragraphs
+were the next two editor blocks after Arrival. Removing those additions
+from the rendered-block comparison recovered all 18 original blocks in
+order, including the callouts, Departure text and table. Scrolling the
+reopened page loaded the saved 1,024-pixel illustration.
+
+The older protected-fixture attempts stopped at placement guidance or could
+not reconcile Save. This run verifies proposal, placement and persistence
+for one repetition on the current serving lineage. The remaining independent
+repetitions and the Plan P03 check remain open.
+
+### Hosted Build rewrite and callout controls on ab642ad0
+
+On November 23, 2026 (America/Denver), three synthetic turns completed in
+Buddy Cloud Pilot on `ab642ad0` through the OpenAI Responses writer with
+`gpt-6-luna`. Each request used a fresh conversation and the existing
+fixture's saved state as its baseline.
+
+| Case | Retained turn | Result after Save and reload |
+| --- | --- | --- |
+| B02, Artwork Rewrite | `293f2c6c-5c4a-4b93-971c-642351c1178d` | Replaced only the selected First sight body with the proposed two sentences. The Read Aloud kind and title, all 16 neighboring rendered blocks, the table, and Departure matched the baseline. The saved illustration loaded at 1,024 pixels. |
+| X02, Warning, Clean Arrival | `1d12e1b9-9d66-483f-becb-40ed8ba6358d` | The semantic Warning was saved directly after Arrival. Removing that one addition recovered all seven original rendered blocks in order. |
+| X02, Rules, Clean Arrival | `7ceb4349-3d1a-4083-a196-4330d4388be2` | The semantic Rules block was saved at the same paragraph boundary and contained only the supplied rule. Reload briefly showed a retained insertion check. **Check insertion** cleared the prompt with no change to the reopened blocks. The earlier Warning was retained once. |
+
+These are individual checks on reused fixtures. They do not fill the
+independent repetition matrix.
+
+### Three independent hosted P03 card-body runs on ab642ad0
+
+On November 23, 2026 (America/Denver), the exact P03 request passed on
+three newly saved synthetic Plans in Buddy Cloud Pilot on serving revision
+`ab642ad0`. Each run used a fresh conversation and the marked Arrival card
+in Cards view. The retained turns recorded the OpenAI Responses writer
+with `gpt-6-luna`.
+
+| Fixture | Retained turn |
+| --- | --- |
+| P03 Baseline, one titled Read Aloud and an ordinary Arrival paragraph | `08616e2a-9f5f-4567-9deb-01834505a731` |
+| P03 Mixed Blocks, with a second titled Read Aloud, a pre-existing GM Note, Warning and Rules | `be838025-2c48-4ccc-9f47-b3fb24185f49` |
+| P03 Mixed Blocks Repeat, separately seeded from the same mixed baseline | `123c76a9-0fef-489f-9a83-03b76a287d92` |
+
+Each suggestion was saved without editing it. After reload, the Plan
+Markdown contained exactly one new GM Note. Removing that note and
+comparing trimmed nonblank lines reproduced the original Markdown in
+order, including both scene markers, the choice and option markers,
+Departure prose and the table. No retrieval footer was found. These are
+three passes for the exercised Cards writer route. They do not exercise
+the historical writer response that duplicated a whole replacement body.
+
+### Hosted Plan document edits and Play adoption on ab642ad0
+
+On November 23, 2026 (America/Denver), two fresh synthetic Plans and one
+fresh Play session in Buddy Cloud Pilot exercised the document writer
+and adopted scene on `ab642ad0`.
+
+| Case | Retained turn | Observed result |
+| --- | --- | --- |
+| P01, ordinary Plan Document Send | `e5626769-2feb-400a-9536-d3049f84f373` | Save and reload placed a separate Read Aloud and GM Note immediately after the Arrival paragraph. The spoken passage omitted the private instruction. Removing the new blocks recovered all original nonblank Markdown lines and playable markers. |
+| P02, selected First sight body | `2bf61211-28b9-4eea-b7d8-4837dcfaf4d9` | The proposal displayed the same titled Read Aloud wrapper. Save and reload retained one original wrapper with the new body. All other nonblank Markdown lines and playable markers matched. |
+| PL02, exact generic chat request | `ac937d42-fa3b-4d4e-afad-10f46c3bc6e7` | Play adopted both P01 blocks. The reply quoted the earlier First sight block. It omitted the private cue and opened no edit proposal. Reload preserved the scene. This missed the newly authored passage expected by the case. |
+| PL02, named diagnostic in the same Run | `82eadd78-873a-4132-b1b3-9dd3b6081456` | Asking for the Boardwalk read-aloud returned the exact new passage. It omitted the private cue, opened no edit proposal, and left the scene unchanged. |
+
+The Plan proposals used the OpenAI Responses writer with `gpt-6-luna`.
+Both Play requests recorded a Jev 1.14.0 decision and an OpenAI Responses
+call with `gpt-6-luna`. Two eligible read-aloud blocks were present in the
+adopted scene. The named diagnostic verifies selection by title. The
+generic request still needs an explicit expectation for scenes with
+multiple eligible passages.
+
+### Hosted Play scene edit and Pilot Graph publication on ab642ad0
+
+On November 23, 2026 (America/Denver), PL01 passed in the fresh Pilot
+Run adopted from the P01 Plan. **Propose scene edit** produced two
+distinct blocks, Read Aloud and GM Note. The current scene matched its
+baseline during review. Apply and reload retained both additions.
+Excluding their rendered lines recovered the original scene lines in
+order. The retained proposal `5a64dfe2-7ffd-4596-9f30-470283fde8a4`
+records the observed writer `gpt-6-luna`. The session edition advanced
+from 0 to 1. Read-only comparison confirmed the parent Plan still matched
+its pinned revision 2 and digest, and the Departure text matched exactly.
+The new GM cue was present in the session edition and absent from the
+parent Plan.
+
+G01 remains blocked at fixture preparation. The Pilot Graph showed zero
+objects. A new Sealed Tower extraction
+(`81f6ecbd-6b7c-580c-9b9a-9ad6987a43d3`) classified it as a Location and
+showed its quote. Publication still offered no selectable supporting
+excerpt. A read-only check opened the exact admitted source span at the
+current head and found one matching evidence reference with role
+`context`. The extraction publication picker requires `support`.
+The manual authoring path retained an earlier signed profile transition.
+Retrying that exact confirmation returned HTTP 409. The UI retained the
+original operation and kept fresh authoring unavailable. This observation
+does not identify the exact rejection code or establish the earlier
+submission's outcome. No candidate reached Graph publication.

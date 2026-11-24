@@ -232,11 +232,10 @@ def resolve_build_boundary(
     if judgment.insertion_location == "unclear":
         return BuildBoundaryResolution(disposition="unresolved")
     if judgment.insertion_location in {"unstated", "current_caret"}:
-        # A passage without a side cannot place new prose. A named or uncertain
-        # section still conflicts with using the caret as an unqualified default.
+        # Heading matches qualify a named scope. With an unscoped judgment,
+        # incidental matches to the subject of new prose cannot override the caret.
         if (caret_target is None or judgment.destination != "current_page"
-                or judgment.relation != "unresolved" or judgment.scope != "unscoped"
-                or judgment.scope_aliases):
+                or judgment.relation != "unresolved" or judgment.scope != "unscoped"):
             return BuildBoundaryResolution(disposition="unresolved")
         return BuildBoundaryResolution(disposition="unique", target=caret_target)
     if judgment.relation == "unresolved" or judgment.scope == "unresolved":

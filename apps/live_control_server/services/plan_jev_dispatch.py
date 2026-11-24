@@ -224,11 +224,13 @@ class PlanJevDispatch:
         review = tuple(NativePlanOpeningScopeBindingV1(
             observation_event_id=event.event_id, observation=event.scope_observation) for event in review_scope)
         dispatch = cls(adapter, (), dialogue=dialogue)
+        editor_focus = author_editor_focus(turn.graph_context_execution.policy.action)
         dispatch.parent = NativePlanAuthorScopeParentV1(
             question=turn.user_text, dialogue=tuple(dialogue), quote_context=prior_scope is not None,
             assess_page_edit=not review,
             selection_reference_version='v1',
-            editor_focus=author_editor_focus(turn.graph_context_execution.policy.action),
+            editor_focus=editor_focus,
+            caret_guidance_version='v2' if editor_focus == 'caret' else None,
             implicit_caret_version=('v1' if opening_input_type(turn.graph_context_execution.policy.action)
                 in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) else None),
             requested_operation=adapter.request.plan_requested_operation if not review else None,

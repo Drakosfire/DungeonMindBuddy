@@ -1,7 +1,7 @@
 """Parallel ordinary retrieval with a single pinned, read-only Core snapshot."""
 
 from concurrent.futures import ProcessPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import json
 import multiprocessing
 import os
@@ -80,7 +80,8 @@ def _endpoint(dsn, expected):
         raise ValueError("Cohort database identity differs from its pin")
 
 
-def _capture_member(manifest, output, app_dsn, manifest_sha256, *, browser_case=None, detailed_trace=False):
+def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
+                    browser_case=None, detailed_trace=False, shared_app=None):
     from .workflow import capture
 
     scratch = output.parent / "scratch" / output.name
@@ -91,17 +92,21 @@ def _capture_member(manifest, output, app_dsn, manifest_sha256, *, browser_case=
         os.environ[key] = str(directory)
     os.environ[APP_DSN] = app_dsn
     capture(manifest, output, context_only=True, cohort_manifest_sha256=manifest_sha256,
-            browser_case=browser_case, writer_transport=browser_case is not None, detailed_trace=detailed_trace)
+            browser_case=browser_case, writer_transport=browser_case is not None,
+            detailed_trace=detailed_trace, cohort_app=shared_app)
 
 
-def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False):
+def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False, clone_app=False):
     """Capture independent member manifests, then prove Core parity once."""
     from .workflow import load_manifest, read_pin
+    from .disposable_database import disposable_benchmark_database
 
     if detailed_trace and not browser:
         raise ValueError("Detailed cohort tracing requires browser mode")
     if not 1 <= workers <= 8:
         raise ValueError("Cohort workers must be between 1 and 8")
+    if clone_app and (workers != 1 or not browser):
+        raise ValueError("A shared App clone requires one browser cohort worker")
     path = Path(manifest_path).resolve()
     config = json.loads(path.read_text())
     if (config.get("schema") != "dmb_context_capture_cohort_v1"
@@ -113,6 +118,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
     expected_inventory = None
     cases = set()
     app_identities = set()
+    app_template = None
     jobs = []
     output = Path(output).resolve()
     for entry in config["members"]:
@@ -127,7 +133,15 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
         elif (native, expected_inventory) != (locator, inventory):
             raise ValueError("Cohort members must share the exact pinned Core inventory")
         identity = (app["system_identifier"], app["oid"])
-        if identity in app_identities or identity == (native["system_identifier"], native["oid"]):
+        if identity == (native["system_identifier"], native["oid"]):
+            raise ValueError("App and Core databases must differ")
+        if clone_app:
+            if app_template is None:
+                app_template = app
+                _endpoint(os.environ[APP_DSN], app_template)
+            elif app != app_template:
+                raise ValueError("Every member must pin the same shared App template")
+        elif identity in app_identities:
             raise ValueError("Cohort requires separate App databases for each member")
         app_identities.add(identity)
         ids = {case["id"] for case in member["cases"]}
@@ -137,7 +151,8 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
             raise ValueError("Repeated case identity in cohort")
         cases |= ids
         app_dsn = app_url._replace(path="/" + quote(app["database"], safe="")).geturl()
-        _endpoint(app_dsn, app)
+        if not clone_app:
+            _endpoint(app_dsn, app)
         jobs.append(((member_path, output / "members" / min(ids), app_dsn, entry["sha256"]), ids))
 
     _endpoint(core_dsn, native)
@@ -148,10 +163,25 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
         raise ValueError("Native corpus differs from pinned inventory")
     immutable_save(output, "native-before", before)
     try:
-        with ProcessPoolExecutor(max_workers=workers, max_tasks_per_child=1,
-                                 mp_context=multiprocessing.get_context("spawn")) as executor:
+        ownership = (disposable_benchmark_database(app_url._replace(path="/postgres").geturl(), app_template)
+                     if clone_app else nullcontext())
+        with ownership as shared_app, ProcessPoolExecutor(
+                max_workers=workers, max_tasks_per_child=1,
+                mp_context=multiprocessing.get_context("spawn")) as executor:
+            if shared_app is not None:
+                immutable_save(output, "owned-app", {"database": shared_app, "manifest": str(path)})
+                shared_dsn = app_url._replace(path="/" + quote(shared_app["database"], safe="")).geturl()
+                from application_state.cli import upgrade_to_head
+                from unittest.mock import patch
+
+                with patch.dict(os.environ, {APP_DSN: shared_dsn}):
+                    upgrade_to_head()
+                jobs = [((manifest, member, shared_dsn, digest), ids)
+                        for (manifest, member, _, digest), ids in jobs]
             futures = [
                 (job[1], ids, executor.submit(_capture_member, *job, **(
+                    {"shared_app": shared_app} if shared_app is not None else {}
+                ), **(
                     {"browser_case": next(iter(ids)), "detailed_trace": detailed_trace} if browser else {}
                 )))
                 for job, ids in jobs

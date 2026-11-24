@@ -253,7 +253,9 @@ def test_0053_constraint_roundtrip_preserves_historical_play(application_state_d
             guards = import_module(
                 "application_state.migrations.versions.20261123_0195_turn_graph_write_guards"
             )
+            lifecycle = import_module("application_state.migrations.versions.20261123_0196_turn_lifecycle_write_guard")
             with Operations.context(MigrationContext.configure(conn)):
+                lifecycle.downgrade()
                 guards.downgrade()
             original_version = version(conn)
             try:

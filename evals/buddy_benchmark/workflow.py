@@ -471,12 +471,16 @@ def verify_capture_environment(expected):
 
 
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
-            browser_case=None, cohort_manifest_sha256=None, clone_app=False):
+            browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None):
     """Explicit live entry point; never invoked by offline reporting."""
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
     options = dict(context_only=context_only, writer_transport=writer_transport,
                    detailed_trace=detailed_trace, browser_case=browser_case,
                    cohort_member=cohort_manifest_sha256 is not None)
+    if cohort_app is not None:
+        if cohort_manifest_sha256 is None or clone_app:
+            raise ValueError("Shared App override requires a pinned cohort member")
+        manifest["isolation"]["app"] = cohort_app
     if not clone_app:
         return _capture(manifest, base, output, **options)
 
@@ -1294,8 +1298,8 @@ def main(argv=None):
         parser.error("--detailed-trace requires capture-context or a browser cohort")
     if args.writer_transport and args.mode != "capture-context":
         parser.error("--writer-transport requires capture-context")
-    if args.clone_app and args.mode != "capture-context":
-        parser.error("--clone-app requires capture-context")
+    if args.clone_app and args.mode not in {"capture-context", "capture-context-cohort"}:
+        parser.error("--clone-app requires capture-context or capture-context-cohort")
     if args.mode != "report" and (args.oracle or args.citation_readback):
         parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "trace-report":
@@ -1320,12 +1324,14 @@ def main(argv=None):
         capture(args.manifest, args.output)
     elif args.mode == "capture-context":
         options = {"browser_case": args.case} if args.case is not None else {}
+        if args.clone_app:
+            options["clone_app"] = True
         capture(args.manifest, args.output, context_only=True, writer_transport=args.writer_transport,
-                detailed_trace=args.detailed_trace, clone_app=args.clone_app, **options)
+                detailed_trace=args.detailed_trace, **options)
     elif args.mode == "capture-context-cohort":
         from .cohort_capture import capture_cohort
         capture_cohort(args.manifest, args.output, workers=args.workers,
-                       browser=browser_cohort, detailed_trace=args.detailed_trace)
+                       browser=browser_cohort, detailed_trace=args.detailed_trace, clone_app=args.clone_app)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     elif args.mode == "context-tasting":
