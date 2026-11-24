@@ -64,3 +64,15 @@ long60 lore semantic HOLD and source-free/retained attribution work are not clos
 by this ordinary writer release. The precutover signed-in festival page31e3dac4
 was created/reopened correctly; Memory Ferry stayed unchanged. This is useful app
 evidence, not proof the new writer or workbook has been deployed.
+
+## Current serving UI carry
+
+Production advanced to15dba47d7d65b93c3c2918fd18c88add057bfb48 during
+verification. Its only845d delta is the hosted reply-stream header allowlist,
+UI timing observation and their existing API regression. Preserve all three
+UI files. The running backend contract source remains frozen b2a90762; all
+non-UI execution/dependency/fixture bytes are identical in this carry. Attribute
+that run to b2 and retain explicit closure equality; run exact new frontend
+verification/builds and a current15d parent diagnostic. No new backend run is
+claimed merely because the UI/source-label commit changes. Never edit the active
+b2 checkout until its worker closes. All prior cutover packets remain retired.
