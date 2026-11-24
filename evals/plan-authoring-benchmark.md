@@ -78,6 +78,9 @@ route. Provider-free owner tests exercise persistence, retry, and readback.
 
 ### Right Action at the Right Time
 
+The [coverage matrix](right-action-coverage.md) sets three increasing
+challenges per action and defines the baseline before tool-presentation tuning.
+
 Start with **fresh conversations and sufficient first-turn input**. Freeze the
 user message and any exact selection, supplied source, or available draft that
 Buddy normally receives. A visible page or a mention alone does not establish
