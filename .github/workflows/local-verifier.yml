@@ -40,6 +40,7 @@ jobs:
         run: >-
           uv run --no-project --no-config
           --with pytest==9.0.2 --with pyyaml==6.0.3
+          --with psycopg[binary]==3.3.4
           --with iniconfig==2.3.0 --with packaging==26.0
           --with pluggy==1.6.0 --with pygments==2.19.2
           python -m pytest --noconftest -q
