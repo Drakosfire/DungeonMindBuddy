@@ -1336,6 +1336,47 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
+  it("records visible reply timing when the correlated terminal arrives before history hydration", async () => {
+    let resolve!: (response: Awaited<ReturnType<typeof postWorldBuildAgentTurn>>) => void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(done => { resolve = done; }));
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, {target: {value: "Describe Mirathorn"}});
+    fireEvent.click(screen.getByRole("button", {name: "Send message"}));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const [request, , observe] = vi.mocked(postWorldBuildAgentTurn).mock.calls[0]!;
+    await act(async () => {
+      observe!({kind: "context_ready"});
+      observe!({kind: "text", sequence: 1, text: "A lantern"});
+    });
+    await waitFor(() => expect(performance.getEntriesByName("buddy-build-reply:visible")).toHaveLength(1));
+    await act(async () => {
+      observe!({kind: "text", sequence: 2, text: " lights the path"});
+    });
+    await waitFor(() => expect(performance.getEntriesByName("buddy-build-reply:visible")).toHaveLength(2));
+
+    // Use the actual Build response envelope and leave history unchanged.
+    const wire = nativeBuildWire.response;
+    await act(async () => resolve({
+      ...wire, turn_id: request.turn_id, client_thread_id: request.client_thread_id,
+      surface: {...wire.surface, instance_id: request.surface.instance_id},
+      owner_scope: {...wire.owner_scope, owner_id: request.owner_scope.world_id},
+      conversation: {
+        ...wire.conversation, turn_id: request.turn_id, client_thread_id: request.client_thread_id,
+        conversation_id: history([]).conversation_id,
+      },
+    } as Awaited<ReturnType<typeof postWorldBuildAgentTurn>>));
+    const transcript = screen.getByRole("region", {name: "World conversation transcript"});
+    const timing = JSON.parse(transcript.getAttribute("data-build-reply-timing") ?? "{}");
+    expect(timing.visibleUpdates).toBe(2);
+    expect(timing.sendToContextMs).toBeGreaterThanOrEqual(0);
+    expect(timing.contextToFirstVisibleMs).toBeGreaterThanOrEqual(0);
+    expect(timing.sendToTerminalMs).toBeGreaterThan(timing.sendToContextMs + timing.contextToFirstVisibleMs);
+    expect(screen.queryByText("A lantern lights the path")).not.toBeInTheDocument();
+  });
+
   it("shows recovery only after an active Build request becomes uncertain, including after remount", async () => {
     let reject!: (reason: Error) => void;
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_resolve, rejectRequest) => { reject = rejectRequest; }));
