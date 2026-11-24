@@ -482,6 +482,20 @@ pin check and confirms capture uses its frozen snapshot. The shared-environment
 suite passed 41 tests. These checks do not authenticate authorship or establish
 a complete capture environment.
 
+Cases 23–24 exercised the frozen `dev-placement` request, primary page and
+dialogue on the ordinary Build/APP owner fixture using scripted anchored/read
+votes and an in-memory Core. Case 23 reached a proposal but the inherited test
+incorrectly indexed the seeded prior turn as the current turn. After correcting
+that test lookup, case 24 reached and checked the proposal and failed its zero
+retrieval budget: one related catalog discovery and four materialization calls
+across two pages. Both failures and derived source are retained under
+`http-owner/session/case-23` and `case-24`. The existing owner fixture's related
+pages differ from the frozen `harbour` inventory, prior dialogue used synthetic
+Plan provenance, and provider votes/output were scripted. This is a bounded
+negative-path diagnostic, not a qualified fixture, model rate, real Core or
+deployed result. The test's later explicit page save simulates author action;
+the owner assertions check the unchanged page before that action.
+
 Offline reporting now exposes available terminal status and separate
 discovery/materialization attempt and exception counts even when other
 required capture artifacts are missing. Such reports stay unproven and count
