@@ -21,7 +21,7 @@ from .related_page_probe import observe_related_page_owners
 _lock = Lock()
 
 
-def capture(manifest, output, *, clone_app=False, fixtures=None):
+def capture(manifest, output, *, expected_manifest_sha256=None, clone_app=False, fixtures=None):
     """Delegate ordinary capture with partial per-turn observation.
 
     Optional fixtures are evaluator-side only and never enter a product request.
@@ -29,11 +29,15 @@ def capture(manifest, output, *, clone_app=False, fixtures=None):
     """
     if clone_app:
         raise ValueError("Use the already owned workstream App clone; per-capture cloning is disabled")
+    if (not isinstance(expected_manifest_sha256, str) or len(expected_manifest_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in expected_manifest_sha256)):
+        raise ValueError("A frozen manifest SHA-256 is required")
     if not _lock.acquire(blocking=False):
         raise RuntimeError("Negative-retrieval capture must be serial")
     try:
-        manifest_digest = sha256(Path(manifest).read_bytes()).hexdigest()
-        spec, _ = workflow.load_manifest(manifest, expected_sha256=manifest_digest)
+        if sha256(Path(manifest).read_bytes()).hexdigest() != expected_manifest_sha256:
+            raise ValueError("Manifest differs from the frozen SHA-256")
+        spec, _ = workflow.load_manifest(manifest, expected_sha256=expected_manifest_sha256)
         if spec.get("conversation_mode") != "build_sequence":
             raise ValueError("Negative-retrieval probe requires ordinary Build sequence capture")
         if fixtures is not None:
@@ -128,6 +132,6 @@ def capture(manifest, output, *, clone_app=False, fixtures=None):
 
         with patch.object(workflow, "capture_case", observed_case):
             return workflow.capture(manifest, output, clone_app=False,
-                                    cohort_manifest_sha256=manifest_digest)
+                                    cohort_manifest_sha256=expected_manifest_sha256)
     finally:
         _lock.release()

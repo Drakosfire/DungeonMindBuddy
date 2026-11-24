@@ -1,4 +1,7 @@
 from evals.negative_retrieval.assessment import assess
+from hashlib import sha256
+
+MANIFEST_PIN = sha256(b"{}").hexdigest()
 
 
 def _test_manifest(tmp_path):
@@ -292,7 +295,7 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     monkeypatch.setattr(workflow, "load_manifest", lambda *args, **kwargs: ({"conversation_mode": "build_sequence"}, tmp_path))
     with pytest.raises(RuntimeError, match="observed failure"):
-        capture(_test_manifest(tmp_path), tmp_path / "case1")
+        capture(_test_manifest(tmp_path), tmp_path / "case1", expected_manifest_sha256=MANIFEST_PIN)
     evidence = json.loads((tmp_path / "case1" / "related-page-probe.json").read_text())
     assert evidence["coverage"] == "partial"
     assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "raised"}]
@@ -499,7 +502,7 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
         return workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output)
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     out = tmp_path / "success"
-    assert module.capture(_test_manifest(tmp_path), out, fixtures={"case1": fixture}) == "done"
+    assert module.capture(_test_manifest(tmp_path), out, fixtures={"case1": fixture}, expected_manifest_sha256=MANIFEST_PIN) == "done"
     assert seen == ["fixture", "turn", "fixture"]
     probe = json.loads((out / "related-page-probe.json").read_text())
     assert probe["records"] == [{"owner": "related_catalog_discovery", "state": "returned"}]
@@ -510,7 +513,7 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
         raise ValueError("wrong synthetic sources")
     monkeypatch.setattr(module, "inspect_related_pages", mismatch)
     with pytest.raises(ValueError, match="wrong synthetic sources"):
-        module.capture(_test_manifest(tmp_path), tmp_path / "failure", fixtures={"case1": fixture})
+        module.capture(_test_manifest(tmp_path), tmp_path / "failure", fixtures={"case1": fixture}, expected_manifest_sha256=MANIFEST_PIN)
     assert seen == []
     assert json.loads((tmp_path / "failure" / "fixture-sources.json").read_text())["status"] == "preflight_failed"
 
@@ -548,11 +551,11 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch):
     monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs: workflow.capture_case(
         Client(), "w", {"primary_work": {"object_id": "page"}}, case, output,
         expected_conversation_id=None))
-    assert module.capture(_test_manifest(tmp_path), tmp_path / "ok", fixtures={"seeded": fixture}) == "done"
+    assert module.capture(_test_manifest(tmp_path), tmp_path / "ok", fixtures={"seeded": fixture}, expected_manifest_sha256=MANIFEST_PIN) == "done"
     assert dispatched == ["c"]
     history["turns"][0]["assistant_text"] = "Different."
     with pytest.raises(ValueError, match="differs"):
-        module.capture(_test_manifest(tmp_path), tmp_path / "bad", fixtures={"seeded": fixture})
+        module.capture(_test_manifest(tmp_path), tmp_path / "bad", fixtures={"seeded": fixture}, expected_manifest_sha256=MANIFEST_PIN)
     assert dispatched == ["c"]
     history["turns"][0]["assistant_text"] = "A star."
     calls = []
@@ -563,7 +566,7 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch):
         return Response()
     monkeypatch.setattr(Client, "get", changed_get)
     with pytest.raises(ValueError, match="differs"):
-        module.capture(_test_manifest(tmp_path), tmp_path / "race", fixtures={"seeded": fixture})
+        module.capture(_test_manifest(tmp_path), tmp_path / "race", fixtures={"seeded": fixture}, expected_manifest_sha256=MANIFEST_PIN)
     assert len(calls) == 2 and dispatched == ["c"]
 
 
@@ -611,7 +614,7 @@ def test_postflight_failure_is_retained_and_stops_capture(tmp_path, monkeypatch)
     monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kw:
                         workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output))
     with pytest.raises(ValueError, match="source changed"):
-        module.capture(_test_manifest(tmp_path), tmp_path / "case", fixtures={"case1": fixture})
+        module.capture(_test_manifest(tmp_path), tmp_path / "case", fixtures={"case1": fixture}, expected_manifest_sha256=MANIFEST_PIN)
     evidence = json.loads((tmp_path / "case" / "fixture-sources.json").read_text())
     assert evidence["status"] == "postflight_failed" and evidence["before"] == []
 
@@ -648,6 +651,19 @@ def test_capture_refuses_per_run_clones_before_touching_manifest(tmp_path):
     with pytest.raises(ValueError, match="per-capture cloning"):
         capture(tmp_path / "missing", tmp_path / "output", clone_app=True)
     assert not (tmp_path / "output").exists()
+
+
+def test_capture_requires_independently_pinned_manifest_before_dispatch(tmp_path, monkeypatch):
+    import pytest
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+
+    manifest = _test_manifest(tmp_path)
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: pytest.fail("unbound manifest reached runner"))
+    for digest in (None, "0" * 64, "A" * 64):
+        with pytest.raises(ValueError, match="manifest|Manifest"):
+            capture(manifest, tmp_path / "out", expected_manifest_sha256=digest)
+    assert not (tmp_path / "out").exists()
 
 
 def test_seeder_rejects_unowned_shapes_before_database_access(monkeypatch):
@@ -710,7 +726,7 @@ def test_capture_delegates_to_read_only_core_cohort_path(tmp_path, monkeypatch):
         calls.append(options)
         return "captured"
     monkeypatch.setattr(workflow, "_capture", underlying)
-    assert capture(manifest_path, tmp_path / "out") == "captured"
+    assert capture(manifest_path, tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN) == "captured"
     assert len(calls) == 1 and calls[0]["cohort_member"] is True
     assert calls[0]["context_only"] is False and calls[0]["writer_transport"] is False
 

@@ -86,7 +86,10 @@ Build sequence capture, preserving its runtime, source, provider, and database
 preflight. It records the partial probe separately for each turn, including a
 failure before a response, and restores the patched owner functions. The wrapper
 is a process-global diagnostic: use an isolated serial process and the existing
-owned database procedure. Optional evaluator-side fixtures are checked against
+owned database procedure. The caller must pass the independently frozen
+`expected_manifest_sha256`; a missing or mismatched digest is rejected before
+dispatch. This pin does not by itself establish independent authorship or
+fixture provenance. Optional evaluator-side fixtures are checked against
 the exact related-page catalog and saved bodies before and after each turn;
 those preflight reads occur outside the product-turn probe and are never sent
 as grading instructions. Catalog pointers must belong to the requested World,

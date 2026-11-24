@@ -457,3 +457,11 @@ writer-off boundary and performs Core inventories; it is not a drop-in full
 Build response cohort under this lane's no-full-scan policy. The eval wrapper's
 single owned-clone capture remains separate. No live capture, policy exception,
 Core write or exact-source qualification follows from this integration.
+
+The evaluator wrapper now requires the caller's frozen manifest SHA-256 and
+rejects a missing, malformed or mismatched pin before invoking the ordinary
+runner. Previously it hashed the file it had just received, which detected a
+later change but did not bind capture to an independently frozen manifest.
+The focused diagnostic suite passed 38 tests in the shared environment. The
+digest alone does not establish independent case authorship, fixture
+provenance, a synthetic Core binding or exact-head qualification.
