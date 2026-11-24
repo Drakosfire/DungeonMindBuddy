@@ -210,3 +210,28 @@ legacy validation ordering and review-kind drift refusal only, not full Turn
 decode, SQL readback or historical replay. No admission bypass is introduced.
 The temporary tests/test_build_related_pages.py addition is removed; its earlier
 lease addition is superseded. Existing native-history evidence remains separate.
+
+Serving re-anchor: live source86b0465f76724f275f927e995408b15e535f4ecc
+(#4618), image664babc0bb5d6e61707739b19fc0aac594b6b78dc4c39ecdfcc9d9e17972a232,
+was independently observed healthy. Preserve its six support-registration files
+byte-exact by merging that deployed predecessor into this same writer PR. This
+is serial serving adoption, not a new capability or lease over those files.
+Requalify integrated source and images; never activate earlier931-based images
+over the deployed86b work. Production has not received APP0209 from this lane.
+
+Exacta036 predecessor evidence:80 offline owner-unit PASS with database access
+blocked;63 ordinary HTTP/SDK PASS450.84sec; isolated hosted frontend plus official
+validation PASS; independent cumulative SOURCE PASS and actual final controller/
+V3 writer full-request privacy audit PASS. Provider-freecase38 preserves eleven
+notes exactly with current request last. Case40 seeds eleven genuinely captured
+acknowledgments via provider-free ordinary receipts, then sends ONE real current
+controller and ONE real V3 writer request. Both physical requests equal the
+independently audited case38 JSON before network; one-shot transport guards hold.
+It saved/reopened one page, unchanged workpad, identical repeat receipt and zero
+source acquisition:4955.69ms draft/38.30ms save+reopen. Independent semantic
+assessment is pending. This does not qualify the eleven legacy writer roles for
+live use or prove a fresh current controller's behavior on those seeded notes.
+The exacta036 APP0209 image f2ccc936ce09fb699acb4bb30a93f21b13fa69e6715d0be963a36815bfcaa1c1
+was built with existing guest settings and correct reader head, but is superseded
+for serving by the86b integration. Compatible209 recovery, fresh production
+backup/rehearsal and signed-in app acceptance remain mandatory.
