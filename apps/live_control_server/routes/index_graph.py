@@ -22,7 +22,8 @@ from application_state.index_graph.sessions import (
     IndexGraphSessionError,
     create_session,
     csrf_token,
-    local_profile,
+    graph_cookie_name,
+    hosted_guest_graph_enabled,
     lookup_session,
     read_cookie_credential,
     request_session,
@@ -225,7 +226,14 @@ async def start_or_resume_session(request: Request) -> Response:
                     "Session bootstrap does not accept a request body.",
                     400,
                 )
-        _origin, _host, cookie_name = local_profile()
+        return await run_in_threadpool(_start_or_resume_session, request)
+    except HTTPException as exc:
+        return _http_exception(exc)
+
+
+def _start_or_resume_session(request: Request) -> Response:
+    try:
+        cookie_name = graph_cookie_name()
         cookies = request.headers.getlist("cookie")
         if len(cookies) > 1:
             raise IndexGraphSessionError(
@@ -251,7 +259,7 @@ async def start_or_resume_session(request: Request) -> Response:
                 credential,
                 max_age=int(SESSION_TTL.total_seconds()),
                 path=COOKIE_PATH,
-                secure=False,
+                secure=hosted_guest_graph_enabled(),
                 httponly=True,
                 samesite="strict",
             )
@@ -265,6 +273,45 @@ async def start_or_resume_session(request: Request) -> Response:
 @router.get("/graph")
 def get_graph(request: Request) -> Response:
     return _with_service(request, unsafe=False, action=lambda service: service.graph())
+
+
+@router.get("/nodes/{node_id}/sources")
+def get_node_sources(node_id: str, request: Request) -> Response:
+    if len(node_id) > 256:
+        return _error("invalid_request", "The graph node is unavailable.", 400)
+    return _with_service(request, unsafe=False, action=lambda service: service.node_sources(node_id))
+
+
+@router.post("/reset")
+async def reset_graph(request: Request) -> Response:
+    try:
+        require_index_graph_boundary(request, unsafe=True)
+        _require_no_query(request)
+        _reject_body_size(request)
+        if request.headers.getlist("transfer-encoding"):
+            return _error("invalid_request", "Reset does not accept a request body.", 400)
+        async for chunk in request.stream():
+            if chunk:
+                return _error("invalid_request", "Reset does not accept a request body.", 400)
+        return await run_in_threadpool(_reset_graph_session, request)
+    except HTTPException as exc:
+        return _http_exception(exc)
+
+
+def _reset_graph_session(request: Request) -> Response:
+    try:
+        credential, _session = _resolve_session(request, unsafe=True)
+        new_credential, session = create_session(replace_credential=credential)
+        response = JSONResponse({"csrf_token": csrf_token(new_credential, session.session_id)},
+                                headers={"Cache-Control": "no-store"})
+        response.set_cookie(graph_cookie_name(), new_credential, max_age=int(SESSION_TTL.total_seconds()),
+                            path=COOKIE_PATH, secure=hosted_guest_graph_enabled(), httponly=True,
+                            samesite="strict")
+        return response
+    except HTTPException as exc:
+        return _http_exception(exc)
+    except IndexGraphSessionError as exc:
+        return _error(exc.code, str(exc), exc.status)
 
 
 @router.get("/operations/{operation_id}")
