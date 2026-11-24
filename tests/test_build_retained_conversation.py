@@ -213,13 +213,14 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
             original_init(writer, *args, **kwargs)
             writers.append(writer)
         monkeypatch.setattr(PlanJevWriter, '__init__', track_writer)
+    policy_mutations = (['omit_citation_policy', 'change_citation_policy'] if legacy
+        else ['inject_citation_policy', 'change_citation_policy'] if discussion
+        else ['omit_page_destination', 'inject_citation_policy'])
     tampered = []
     def checked_authorize(owner, world, conversation, turn_id, **values):
         from apps.live_control_server.services.agent_turn_service import _json_node_count
         prior = owner.inspect_turn(world_id=world, turn_id=turn_id)
         if retained.admission(prior.graph_context_execution) is not None:
-            policy_mutations = (['omit_citation_policy', 'change_citation_policy'] if discussion or legacy
-                else ['omit_page_destination', 'inject_citation_policy'])
             mutations = ['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role'] + policy_mutations
             if discussion:
                 mutations.append('discussion_only_format')
@@ -310,8 +311,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
             type(turn.graph_context_execution).model_validate(raw)
     assert len(fenced) == 2
     assert tampered == (['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role']
-                        + (['omit_citation_policy', 'change_citation_policy'] if discussion or legacy
-                           else ['omit_page_destination', 'inject_citation_policy'])
+                        + policy_mutations
                         + (['discussion_only_format'] if discussion else []))
     assert len(value.history) == turn_count
     assert value.history[0].turn_id == original.turn_id

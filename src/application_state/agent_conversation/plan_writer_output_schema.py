@@ -254,7 +254,7 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
     return mixed
 
 
-def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2, execution=None, generic_reply_limits=False, lore_outcome=False):
+def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2, execution=None, generic_reply_limits=False, lore_outcome=False, semantic_reply=False):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
     if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}:
         raise ValueError('Unknown native writer output format version')
@@ -276,6 +276,12 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         assertion_rows=frame['native_assertions']['assertions'] if frame['native_assertions'] is not None else ())
     from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
     from .build_primary_context import NATIVE_WORK_SCHEMA as BUILD_WORK_SCHEMA
+    if semantic_reply:
+        from .native_build_work_view import semantic_reply_eligible
+        if (not build_local or rules.lookups or lore_outcome or not generic_reply_limits
+                or execution is None or work_frame.get('schema') != BUILD_WORK_SCHEMA
+                or format_version not in {2, 7} or not semantic_reply_eligible(work_frame, execution)):
+            raise ValueError('Semantic reply requires ordinary Build without Rules or variants')
     if work_frame.get('schema') == PLAN_WORK_SCHEMA:
         variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
         related = work_frame.get('related_authored_pages', {}).get('pages', [])
@@ -293,15 +299,21 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
         variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
     elif work_frame.get('schema') == BUILD_WORK_SCHEMA:
         from .build_draft_answer import native_variants
-        variants.extend(native_variants(work_frame,prose,local=build_local))
+        variants.extend(native_variants(work_frame,prose,local=build_local,
+            supplied_source_references=semantic_reply))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
     from .native_build_work_view import (SOURCE_ANSWER_POLICY, SOURCE_ANSWER_FORMAT,
         LORE_LIMITATION_POLICY, LORE_LIMITATION_FORMAT)
     source_answer_policy = work_frame.get('build_work', {}).get('source_answer_policy')
+    if semantic_reply:
+        from .native_build_work_view import source_backed_discussion, lore_page_reply
+        source_answer_policy = SOURCE_ANSWER_POLICY if source_backed_discussion(work_frame, execution) else None
     if source_answer_policy not in (None, SOURCE_ANSWER_POLICY):
         raise ValueError('Unknown Build source answer policy')
     lore_limitation_policy = LORE_LIMITATION_POLICY if lore_outcome else work_frame.get('build_work', {}).get('lore_limitation_policy')
+    if semantic_reply:
+        lore_limitation_policy = LORE_LIMITATION_POLICY if lore_page_reply(work_frame, execution) else None
     if lore_limitation_policy not in (None, LORE_LIMITATION_POLICY):
         raise ValueError('Unknown lore review limitation policy')
     if lore_limitation_policy and (work_frame.get('schema') != BUILD_WORK_SCHEMA
@@ -508,7 +520,12 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     from .native_plan_work_view import SOURCE_REFERENCE_FORMAT, SOURCE_REFERENCE_POLICY
     plan_references = work_frame.get('schema') == PLAN_WORK_SCHEMA and work_frame.get('citation_policy') == SOURCE_REFERENCE_POLICY
     from .lore_page_review import LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT
-    if work_frame.get('build_work', {}).get('lore_page_destination') == {'request': 'current_author_request'}:
+    if semantic_reply:
+        from .native_build_work_view import BUILD_REPLY_FORMAT
+        del schema['properties']['schema']
+        schema['required'].remove('schema')
+        format_name = BUILD_REPLY_FORMAT
+    elif work_frame.get('build_work', {}).get('lore_page_destination') == {'request': 'current_author_request'}:
         if not lore_limitation_policy or not generic_reply_limits:
             raise ValueError('Request reference requires the current lore reply contract')
         format_name = LORE_OUTCOME_FORMAT if lore_outcome else LORE_REQUEST_FORMAT
@@ -531,11 +548,11 @@ def offered_generic_limits(format):
     independent questions/actions and ambiguous Rules wrappers are not current
     generic replies. No evidence or action authority comes from this selection.
     """
-    from .native_build_work_view import SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT
+    from .native_build_work_view import SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT, BUILD_REPLY_FORMAT
     from .native_plan_work_view import SOURCE_REFERENCE_FORMAT
     from .lore_page_review import LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT
     names = {f'surface_native_evidence_selectors_v{v}' for v in range(1, 12)} | {LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT,
-        SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT, SOURCE_REFERENCE_FORMAT}
+        SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT, SOURCE_REFERENCE_FORMAT, BUILD_REPLY_FORMAT}
     if (not isinstance(format, dict) or set(format) != {'type', 'name', 'strict', 'schema'}
             or format['type'] != 'json_schema' or format['strict'] is not True or format['name'] not in names):
         return False
@@ -566,13 +583,15 @@ def offered_generic_limits(format):
         return False
     required = schema.get('required')
     outcome = format['name'] == LORE_OUTCOME_FORMAT
-    mandatory = {'answer_segments', 'limitations', 'collaboration'} if outcome else {'schema', 'answer_segments', 'limitations'}
+    semantic_reply = format['name'] == BUILD_REPLY_FORMAT
+    mandatory = ({'answer_segments', 'limitations', 'collaboration'} if outcome else
+                 {'answer_segments', 'limitations'} if semantic_reply else {'schema', 'answer_segments', 'limitations'})
     return (isinstance(props, dict)
         and mandatory <= set(props)
         and set(props) <= {'schema', 'answer_segments', 'limitations', 'collaboration', 'statblock_variant'}
         and schema.get('type') == 'object' and schema.get('additionalProperties') is False
         and isinstance(required, list) and len(required) == len(props) and set(required) == set(props)
-        and ('schema' not in props if outcome else literal(props['schema'], ASSERTION_POLICY))
+        and ('schema' not in props if outcome or semantic_reply else literal(props['schema'], ASSERTION_POLICY))
         and isinstance(props['answer_segments'], dict) and props['answer_segments'].get('type') == 'array'
         and isinstance(props['limitations'], dict) and props['limitations'].get('type') == 'array'
         and isinstance(props['limitations'].get('items'), dict)

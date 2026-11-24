@@ -1,18 +1,22 @@
 # DOGFOOD: carry the request-bound writer onto current serving
 
-Current settlement: implementation #4612 MERGED at
-f2645348438b7322d41062e1cc5e213aa45ad36f; tree identical to independently reviewed
-b149d20e2ae7ca5c8cde5bea7e3a9dc292040952. Bounded merge qualification:80 units,
-63 HTTP/SDK, hosted+validate, full actual final-request audit, real final-turn
-semantic PASS (3877ms/39ms,11 frozen acknowledgment seeds), and installed candidate
-209 image read-only12-turn/page parity. Full frontend remains104 failures versus
-exact86b103; Recap differential causally reproduced on both sources and retained
-red. Actual production is last observed86b/207, not209. Compatible209 recovery
-PR4559 consumes this contract; fresh production history/rehearsal/operator and
-signed-in app acceptance remain pending. The historical assignment/checkpoints
-below explain source evolution and do not supersede this settlement.
+SETTLED predecessor: PR4612 merged at
+f2645348438b7322d41062e1cc5e213aa45ad36f, tree-equivalent to reviewed source
+b149d20e2ae7ca5c8cde5bea7e3a9dc292040952. That source was activated as image
+38915cd91295dd0bd562693db5d807bdec2bc488cbd6cec5adfe066ba6f675d5,
+healthy with physical and installed APP0209. Compatible recovery is image
+ba5ff4fed8d38f137397735dc8ee88c1a8b9bf81d92e249344e55511df64695a;
+the APP0207 predecessor must not restart on209. The actual final drained archive
+was restored and checked on the same owned App before activation (case55).
+Signed-in Memory Ferry creation/save/reopen passed, workpad unchanged and no
+native acquisition; backend reply latency was8.927s. Existing Maelthor citations
+also reopened. Full legacy frontend diagnostic remains RED. Operational evidence:
+Projects/.codex/buddy-check.retained-80c.MPEaXT/ops-209/final-journal.json and
+signed-in-acceptance/acceptance-receipt.json. Remaining ordinary reply cleanup is
+owned by HANDOFF-DOGFOOD-build-reply-contract.md; source-free routing remains a
+separate successor. This settlement supersedes historical status below.
 
-ACTIVE. Alan authorized reviewed concrete-progress merges, deployment and live
+Historical assignment: Alan authorized reviewed concrete-progress merges, deployment and live
 acceptance. DOGFOOD owns this serial serving adoption in the existing isolated
 `dogfood-lore-review/DungeonMindBuddy` checkout, branch
 `codex/dogfood-lore-serving-208-931`, base

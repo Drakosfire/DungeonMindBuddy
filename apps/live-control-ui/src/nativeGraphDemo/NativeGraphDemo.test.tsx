@@ -624,6 +624,26 @@ describe("NativeGraphDemo", () => {
     expect(await navbar.findByText("Review ready · partial read")).toBeInTheDocument();
   });
 
+  it.each([false, true])("shows the loaded empty graph's available action (readOnly=%s)", async (readOnly) => {
+    const pending = deferred<NativeGraph>();
+    const api = makeApi({ readGraph: vi.fn().mockReturnValue(pending.promise) });
+    renderEmbeddedDemo({ api, readOnly, mode: "managed", worldTitle: "Empty World", stateScopeId: "managed:empty" });
+    expect(screen.getByText("Opening the DungeonMind graph…")).toBeVisible();
+    expect(screen.queryByText(/This World has no objects yet/)).not.toBeInTheDocument();
+
+    await act(async () => pending.resolve({ ...graph, nodes: [], edges: [] }));
+    expect(screen.getByText(readOnly
+      ? "This World has no objects yet. Use the World picker to choose another World."
+      : "This World has no objects yet. Add an object to begin.")).toBeVisible();
+
+    if (readOnly) {
+      fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
+      expect(screen.queryByRole("button", { name: "Add object" })).not.toBeInTheDocument();
+    } else {
+      expect(graphAction("Add object")).toBeEnabled();
+    }
+  });
+
   it("hides authoring in the Tool menu when the hosted read-only boundary is active", async () => {
     const api = makeApi();
     const user = userEvent.setup();

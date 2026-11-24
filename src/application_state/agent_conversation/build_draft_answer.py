@@ -297,7 +297,7 @@ def normalize_native_segment(row, *, draft_record, saved_sections, related_pages
     raise ValueError('Unknown native Build work segment')
 
 
-def native_variants(frame, prose, *, local=False):
+def native_variants(frame, prose, *, local=False, supplied_source_references=False):
     """Finite Build work choices from the one physically included work frame."""
     from .plan_writer_output_schema import _object, _literal, _array, _enum
     from uuid import UUID
@@ -327,7 +327,7 @@ def native_variants(frame, prose, *, local=False):
         variants.append(_object({'kind':_literal('related_page_claim'),'text':prose,
             'read_id':_enum(select(row['read_id']) for row in related),
             'supporting_quotes':_array(prose,nonempty=True)}))
-    if frame.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1':
+    if supplied_source_references or frame.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1':
         for variant in variants:
             properties = variant['properties']
             if properties['kind'].get('const') in {'saved_source_claim', 'related_page_claim'}:

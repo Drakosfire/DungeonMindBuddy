@@ -1,86 +1,57 @@
-# DOGFOOD: compatible APP0209 forward recovery
+# DOGFOOD: compatible APP0210 forward recovery
 
-ACTIVE operational artifact, authorized by Alan's deployment/recovery goal.
-Exact parent: merged PR4612 f2645348438b7322d41062e1cc5e213aa45ad36f,
-whose tree equals reviewed b149d20e2ae7ca5c8cde5bea7e3a9dc292040952.
-Reuse the existing dogfood-lore-review/DungeonMindBuddy checkout and existing
-PR4559 branch codex/dogfood-writer-forward-recovery-0207 (legacy branch name,
-not its schema contract). Topology is serial dependent operational artifact;
-this alternative must NEVER merge into serving/candidate/main. Its parent is
-merged, and no preparation prerequisite remains. Both images, rehearsal and
-operator review must qualify before production migration/activation.
+ACTIVE operational artifact under Alan's deployment/recovery authorization.
+Prepare against exact product candidate3013b7f3a5bca1adceba726711e2b1fba80223de,
+PR4630, based on serving83c968186. The product PR is not yet merged or qualified;
+that blocks activation, not bounded recovery preparation. Preserve subsequent
+serving changes before delivery. Reuse the existing dogfood-lore-review checkout,
+branch codex/dogfood-writer-forward-recovery-0207, existing NON-MERGE PR4559.
+This serial dependent image artifact must NEVER merge into candidate/serving/main.
+No new product capability or second implementation lane is authorized here.
 
-One outcome: a separately pinned image reads candidate APP0209 writes, preserving
-V3 lore_page_response, meaningful draft-or-context-question outcomes, frozen V2
-requests/readers, current-request reference, full retained context, citations,
-source choice, generic limitations and all access/identity checks. Restore ONLY
-medium effort for conversation-to-page writing and uncached default native
-source-context preparation, using the same provider/model. No prompt, serializer,
-menu, migration, frontend, source acquisition, approval or data-restore changes.
-Old207/208 readers are ineligible after209 writes. Slower medium effort is a
-fallback, not evidence for the preferred fast path.
+One outcome: an independently pinned recovery image reads APP0210 requests and
+ordinary semantic Build replies, retaining all current and historical citation,
+request, World/principal, full-context, authorization and confirmation checks.
+Inherit the exact candidate reader/producer contract and migration. Relative to
+that candidate, restore only medium reasoning for conversation-to-page writing
+and uncached default native source-context preparation, using the same model and
+provider. All other runtime/frontend behavior stays byte-identical to its parent.
+No routing, acquisition, retry, limits, menu, policy bypass or data-restore change.
 
-Exclusive runtime writes: apps/live_control_server/services/plan_jev_writer.py
-only effort selection; apps/live_control_server/integrations/dungeonmind/
-native_corpus_source.py only default repository/cache selection. Owning tests:
-tests/test_build_retained_conversation.py, tests/test_surface_native_build_ordinary.py,
-tests/test_native_corpus_source_access.py. Preserve fresh access, withdrawal,
-latest revision, cross-World and wrong-role controls; no deleted/xfail tests.
-Run retained-context controls against the actual producing ABI. If an older
-fixture assumes V2 metadata on current V3, adapt its fixture/assertions without
-putting host metadata back into the model or weakening tampering refusal.
-A runtime defect outside this profile is a stop/split signal, not permission to
-hide a product fix solely in the non-merge recovery artifact.
+Exclusive inherited write set: the exact PR4630 delta, including its reader fence
+and owning tests. Recovery-only runtime writes: plan_jev_writer.py effort selection
+and integrations/dungeonmind/native_corpus_source.py default repository/cache
+selection. Recovery-specific test changes are limited to their effort assertions
+in test_surface_native_build_ordinary.py and test_build_retained_conversation.py,
+and test_native_corpus_source_access.py's default-repository expectations. Keep
+current/frozen tampering controls intact. Documentation lease: this brief plus
+truthful predecessor settlement in the inherited DOGFOOD serving/source-free briefs.
+A runtime defect beyond this profile returns to the product PR, never a hidden
+fix only on the recovery artifact.
 
-Documentation lease: this handoff and truthful backward-looking settlement of
-HANDOFF-DOGFOOD-lore-serving-208.md and HANDOFF-DOGFOOD-source-free-build-routing.md.
-Record merged4612 and observed live predecessor; do not activate the source-free
-successor or claim deployment/app acceptance. Preserve all six deployed4618 paths
-byte-exact from86b0465f76724f275f927e995408b15e535f4ecc. CI4598 remains independent.
+Critique: existing APP0209 images cannot read new producing requests. Fence their
+startup after210 writes; never restore over new writes or restart207/208/209 readers.
+Recovery must preserve the same semantic input boundary and source aliases, not
+reintroduce old model-visible metadata. Candidate and recovery need independent
+installed-image reader/history and ordinary HTTP/SDK evidence, including old V2,
+current lore V3, semantic ordinary replies and the original Maelthor claim/source.
+Run exact-source offline, owning backend and hosted frontend/validate checks;
+inspect the cumulative parent-to-recovery diff and obtain independent review.
+Fresh production backup/rehearsal and sealed source/image/config/schema CAS gates
+remain required before activation. Do not reuse old209 cutover receipts as210 proof.
 
-Candidate evidence: reviewed b14980 units,63 HTTP/SDK, exact hosted+validate PASS;
-one real final controller/writer on eleven genuine frozen acknowledgments made
-one page in3877ms, save/reopen39ms, no acquisition, unchanged workpad, identical
-repeat and independent semantic PASS. Do not claim fresh controller quality for
-those seeded notes or provider clearance for legacy/non-V3 writer roles. Image
-sha256:38915cd91295dd0bd562693db5d807bdec2bc488cbd6cec5adfe066ba6f675d5
-has sourceb149, installed209, correct guest settings/non-root user; its read-only
-installed reader decoded12 mixed V2/V3 turns and the exact saved live-output page
-with unchanged row hashes, no HTTP and verified worker-container removal.
+Resources: same retained App benchmark_run_e27fc178267a4d7cbc90bf173dd3ecfe,
+OID210452/cluster7711451860937605159, evaluator buddy-retrieval-projects-4560,
+port33351; no new clone or per-case databases. Reuse shared read-only Core when
+needed. Product case57 currently owns the App serial run; do not start a recovery
+run until its workers/connections close and the owner admits the reviewed worker.
+Evidence remains beneath Projects/.codex/buddy-check.retained-80c.MPEaXT.
+Release only after acceptance/abandonment and exact owned-clone closure/teardown.
 
-Full diagnostics remain RED: candidate104 and exact86b parent103 failures;102
-common IDs/101 normalized identical details, one known clipped DOM suffix. The
-two candidate-only Recap failures were causally reproduced on both unchanged
-components with normal deferred response timing and recovery after release.
-This is an inherited Recap lifecycle hazard, not a green broad-release contract;
-the parent-only Build navigation failure is not retired. Retain all evidence.
-
-Qualification: exact-source owning access and eight/sixty-turn retention tests,
-V2/V3 output/metadata/citation tampering controls and ordinary page readback;
-locked exact-source hosted frontend verification and official validate. Preserve
-the completed full diagnostic with byte-equivalence/independent scope review.
-Use the SAME retained App clone serially, existing read-only Core, no extra clone
-or full inventory scans. Build exact-source image with existing guest
-review1/page1/homeb4fe79bc settings; prove current candidate-written records/pages
-and historical production records read under both installed209 images. Perform
-fresh production backup/restore/migration rehearsal and sealed operator review
-before cutover. Recovery preserves forward writes; never restore over new writes
-or start old207/208 readers against209. Close all workers/connections before
-owned-clone teardown only after acceptance/abandonment.
-
-Live last verified:86b0465f76724f275f927e995408b15e535f4ecc / image
-664babc0bb5d6e61707739b19fc0aac594b6b78dc4c39ecdfcc9d9e17972a232, healthy.
-No209 activation or production lock is held by DOGFOOD. Re-anchor actual serving
-image/source/schema/config before rehearsal/cutover and use exact-state guards.
-Signed-in citation opening and page create/save/reopen/no-search acceptance
-remain outstanding; merged4612 is not completion of Alan's goal.
-
-Exact4389 source-access32 PASS with DB access blocked. The eight-turn retention
-probe failed in its test authorization hook before writer I/O: KeyError deleting
-V2 citation_policy from correctly version-free V3 work. Retain that result.
-Adapt current V3 tampering controls to omit its real page destination and inject
-forbidden old metadata, retain all dialogue/order/current-request/CAS checks, and
-add an explicit frozen V2 eight-turn control. Current V3 sixty-turn and ordinary
-discussion controls remain. No runtime/parser/prompt relaxation is involved.
-The shared retained-test fixture correction must travel into the next dependent
-serving implementation too; this operational artifact never merges into serving.
+Historical209 recovery e5c imageba5ff4fed8d38f137397735dc8ee88c1a8b9bf81d92e249344e55511df64695a
+was qualified and retained stopped; candidateb149 was activated successfully with
+actual final archive case55 and signed-in Memory Ferry save/reopen plus Maelthor
+citation acceptance. Production later advanced through disjoint serving changes.
+Re-anchor the current release before rollout. The full legacy frontend diagnostic
+remains RED; bounded checks do not establish broad release qualification. Source-
+free routing and overall writer/context cleanup remain unfinished.
