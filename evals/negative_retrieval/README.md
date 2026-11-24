@@ -234,5 +234,8 @@ native query, selected-read, authored-reference-read and context-reopen owners.
 It retains owner and outcome only, never query text or source bodies. The
 ordinary capture writes a separate partial probe artifact; the offline report
 summarizes it without upgrading acquisition coverage or a cohort rate. Other
-owners and previously captured call aliases can bypass these wrappers, so zero
+owners and other previously captured call aliases can bypass these wrappers, so zero
 records do not prove that Graph or source acquisition did not happen.
+The existing preimported `native_authored_references` reader alias is observed
+when it still points to the original owner; independently replaced aliases are
+left untouched.

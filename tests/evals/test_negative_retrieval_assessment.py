@@ -310,6 +310,21 @@ def test_native_graph_probe_records_direct_calls_and_restores_after_error(monkey
             summarize_records(malformed)
 
 
+def test_native_graph_probe_observes_preimported_authored_reader(monkeypatch):
+    from apps.live_control_server.services import native_authored_references, native_graph_reads
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
+
+    def reader(*args):
+        return "read"
+
+    monkeypatch.setattr(native_graph_reads, "read_authored_reference", reader)
+    monkeypatch.setattr(native_authored_references, "read_authored_reference", reader)
+    with observe_native_graph_owners() as records:
+        assert native_authored_references.read_authored_reference("private") == "read"
+    assert records == [{"owner": "native_graph_authored_reference_read", "state": "returned"}]
+    assert native_authored_references.read_authored_reference is reader
+
+
 def test_empty_catalog_discovery_is_not_a_zero_acquisition_pass():
     from evals.negative_retrieval.related_page_probe import catalog_discovery_count
 

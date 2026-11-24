@@ -6,6 +6,7 @@ previously captured call aliases may bypass these wrappers.
 """
 from contextlib import ExitStack, contextmanager
 from functools import wraps
+import sys
 from threading import Lock
 from unittest.mock import patch
 
@@ -61,8 +62,15 @@ def observe_native_graph_owners():
             return wrapped
 
         with ExitStack() as stack:
+            authored = sys.modules.get("apps.live_control_server.services.native_authored_references")
+            authored_reader = getattr(authored, "read_authored_reference", None)
+            original_reader = native_graph_reads.read_authored_reference
             for name, owner in _OWNERS.items():
                 stack.enter_context(patch.object(native_graph_reads, name, watch(owner, getattr(native_graph_reads, name))))
+            # This module imports the reader at module load; preserve its alias
+            # when already loaded and avoid replacing a separately patched owner.
+            if authored is not None and authored_reader is original_reader:
+                stack.enter_context(patch.object(authored, "read_authored_reference", native_graph_reads.read_authored_reference))
             yield records
     finally:
         _lock.release()

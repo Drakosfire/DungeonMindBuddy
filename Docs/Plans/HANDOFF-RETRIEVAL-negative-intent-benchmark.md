@@ -63,6 +63,17 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+The process-local native probe now also covers the preimported authored-reference
+reader when that alias still points to the original owner; other acquisition
+paths remain unobserved. A provider-free predecessor-source diagnostic used the
+existing synthetic App clone and in-memory Core to prepare a query and read a
+selected statement with its expected support. Case 62 passed and recorded both
+calls; its binding was a synthetic test binding, not the managed product binding.
+Case 61 failed at the resumed owner's ledger guard before database access and is
+retained. Evidence is under `Projects/.codex/buddy-check.negative-inline.SsurDn/`
+`http-owner/session/case-61` and `case-62`. This does not qualify a cohort or
+establish complete acquisition coverage.
+
 Re-anchor: merged main `6edfc8270ca0da36b8061f70699c710f8edaa00e`
 into this eval lane. The focused evaluator suite passed 44 tests using the
 pinned dependency sources and the CI inventory passed in the merged working
