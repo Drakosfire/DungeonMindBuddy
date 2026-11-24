@@ -89,6 +89,18 @@ predecessor-source evidence, not a shared-Core or live-model qualification.
 The worker, derived test and log are retained under `http-owner/session/case-33`
 and `http-owner`; no provider or shared Core was used.
 
+Case 34 extended case 33 through the actual native `prepare_query` owner with
+the real managed binding resolver and the same in-memory repository. After a
+separate real App owner-access check, an explicitly constructed GM principal
+produced a query pinned to the same managed World, native World, binding version
+and current head; opening the admitted page through that query's pinned source
+context returned the exact body and digest. A constructed player-role principal
+was rejected (1 test). The diagnostic configures only the isolated root and
+in-memory repository; it does not patch binding or access results. Worker,
+derived test and log are retained under `http-owner/session/case-34` and
+`http-owner`. This does not exercise HTTP authentication, integrated App access
+inside a Build turn, a live provider, shared Core, current head or UI.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a
