@@ -28,7 +28,15 @@ def inspect_related_pages(request, fixture):
             or {p.get("title") for p in offered} != set(by_title)):
         raise ValueError("Related-page catalog differs from the frozen fixture")
     results = []
+    documents = set()
     for pointer in offered:
+        document_id = pointer.get("document_id")
+        if (pointer.get("world_id") != request.owner_scope.world_id
+                or not isinstance(document_id, str) or not document_id
+                or document_id == request.primary_work.object_id or document_id in documents
+                or type(pointer.get("registry_revision")) is not int or pointer["registry_revision"] < 1):
+            raise ValueError("Related-page catalog identity differs from the requested World")
+        documents.add(document_id)
         actual = build_related_pages.materialize(pointer)
         row = by_title[pointer["title"]]
         body_hash = sha256(row["body"].encode("utf-8")).hexdigest()

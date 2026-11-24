@@ -89,7 +89,9 @@ is a process-global diagnostic: use an isolated serial process and the existing
 owned database procedure. Optional evaluator-side fixtures are checked against
 the exact related-page catalog and saved bodies before and after each turn;
 those preflight reads occur outside the product-turn probe and are never sent
-as grading instructions. A mismatch stops dispatch or invalidates the run. The
+as grading instructions. Catalog pointers must belong to the requested World,
+be distinct from the primary page and each other, and have valid revisions
+before materialization. A mismatch stops dispatch or invalidates the run. The
 first case may reuse an already seeded synthetic active conversation if its
 complete saved dialogue matches the fixture. The wrapper also checks the
 ordinary runner's own pre-dispatch history read, and retained-history binding

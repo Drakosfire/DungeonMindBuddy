@@ -357,3 +357,12 @@ The rate summarizer treats reports with either verification field missing as
 unknown, and also treats unrecognized or missing format tags as unknown. The
 focused test removes each field and the tag to exercise these cases. The tags
 are format discrimination, not authentication of manually edited artifacts.
+
+The related-page preflight now checks each catalog pointer against the requested
+World, rejects the primary page and duplicate identities, and requires a valid
+revision before materialization. Previously it compared a pointer to its
+materialized body without itself establishing the pointer's World. A focused
+test rejects foreign, primary and invalid-revision pointers before the
+materialization call; all 37 focused tests passed in the shared environment.
+The real Build catalog already scopes discovery; this is evaluator-side
+defense and does not establish a current-head owning-boundary run.

@@ -438,6 +438,7 @@ def test_related_page_fixture_preflight_rejects_extra_changed_and_duplicate_sour
     import copy
     import hashlib
     import pytest
+    from types import SimpleNamespace
     from apps.live_control_server.services import build_related_pages
     from evals.negative_retrieval.fixture_sources import inspect_related_pages
 
@@ -445,21 +446,28 @@ def test_related_page_fixture_preflight_rejects_extra_changed_and_duplicate_sour
     pointer = {"world_id": "w", "document_id": "id", "registry_revision": 1, "title": "Ledger"}
     actual = {**pointer, "markdown": body, "content_sha256": hashlib.sha256(body.encode()).hexdigest()}
     fixture = {"related_pages": [{"label": "ledger", "title": "Ledger", "body": body}]}
+    request = SimpleNamespace(owner_scope=SimpleNamespace(world_id="w"),
+                              primary_work=SimpleNamespace(object_id="primary"))
     monkeypatch.setattr(build_related_pages, "discover", lambda _: [pointer])
     monkeypatch.setattr(build_related_pages, "materialize", lambda _: actual)
-    assert inspect_related_pages(object(), fixture) == [{"label": "ledger", "title": "Ledger", "world_id": "w", "document_id": "id",
+    assert inspect_related_pages(request, fixture) == [{"label": "ledger", "title": "Ledger", "world_id": "w", "document_id": "id",
         "registry_revision": 1, "content_sha256": actual["content_sha256"]}]
     changed = copy.deepcopy(fixture)
     changed["related_pages"][0]["body"] = "One copper piece."
     with pytest.raises(ValueError):
-        inspect_related_pages(object(), changed)
+        inspect_related_pages(request, changed)
     changed = copy.deepcopy(fixture)
     changed["related_pages"].append(copy.deepcopy(changed["related_pages"][0]))
     with pytest.raises(ValueError):
-        inspect_related_pages(object(), changed)
+        inspect_related_pages(request, changed)
     monkeypatch.setattr(build_related_pages, "discover", lambda _: [pointer, {**pointer, "title": "Extra"}])
     with pytest.raises(ValueError):
-        inspect_related_pages(object(), fixture)
+        inspect_related_pages(request, fixture)
+    for changes in ({"world_id": "other"}, {"document_id": "primary"}, {"registry_revision": 0}):
+        monkeypatch.setattr(build_related_pages, "discover", lambda _, changes=changes: [{**pointer, **changes}])
+        monkeypatch.setattr(build_related_pages, "materialize", lambda _: pytest.fail("foreign page materialized"))
+        with pytest.raises(ValueError, match="catalog identity"):
+            inspect_related_pages(request, fixture)
 
 
 def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_path, monkeypatch):
