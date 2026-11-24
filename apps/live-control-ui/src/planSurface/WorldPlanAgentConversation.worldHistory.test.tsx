@@ -1001,6 +1001,7 @@ function deferred<T>() {
 }
 
 interface ConversationTestProps {
+  buildMode?:Parameters<typeof WorldPlanAgentConversation>[0]["buildMode"];
   playMode?:Parameters<typeof WorldPlanAgentConversation>[0]["playMode"];
   documentId?: string;
   revision?: number;
@@ -1037,6 +1038,7 @@ function conversationElement(props: ConversationTestProps = {}) {
       worldId={worldId}
       worldName="Test World"
       playMode={props.playMode}
+      buildMode={props.buildMode}
       documentId={props.documentId ?? documentId}
       surfaceInstanceId={surfaceInstanceId}
       revision={revision}
@@ -1316,7 +1318,7 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse, inspect
     schema: page.schema === 'dmb_agent_conversation_history_v4' ? page.schema : 'dmb_agent_conversation_history_v3',
     turns: page.turns.map(turn => ({ ...turn, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '00000000-0000-4000-8000-000000000099' }))
 } as WorldAgentConversationHistoryResponse);
-  const messages = (page: WorldAgentConversationHistoryResponse) => { const wire = liveHistory(page); return { schema: "dmb_active_conversation_messages_v4" as const, world_id: wire.world_id, conversation_state: wire.conversation_state, conversation_id: wire.conversation_id, active_conversation_id: wire.active_conversation_id, pointer_revision: wire.pointer_revision, next_before_sequence: wire.next_before_sequence ?? null, messages: wire.turns.map(turn => ({ turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text, assistant_text: turn.assistant_text, citation_preview: null, reply_object: null, authored_references: turn.authored_references??null, revision: 1, idempotency_key: "idempotency_key" in turn ? turn.idempotency_key : "", provenance: turn.provenance })) }; };
+  const messages = (page: WorldAgentConversationHistoryResponse): Awaited<ReturnType<typeof conversationLibraryApi.readActiveConversationMessages>> => { const wire = liveHistory(page); return { schema: "dmb_active_conversation_messages_v4" as const, world_id: wire.world_id, conversation_state: wire.conversation_state, conversation_id: wire.conversation_id, active_conversation_id: wire.active_conversation_id, pointer_revision: wire.pointer_revision, next_before_sequence: wire.next_before_sequence ?? null, messages: wire.turns.map(turn => ({ turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text, assistant_text: turn.assistant_text, citation_preview: null, reply_object: null, authored_references: turn.authored_references??null, revision: 1, idempotency_key: "idempotency_key" in turn ? turn.idempotency_key : "", provenance: turn.provenance })) }; };
   const getMessages = vi.spyOn(conversationLibraryApi, 'readActiveConversationMessages').mockImplementation(async (_world, before, signal) => {
     historyCalls.push({ limit: 50, beforeSequence: before, signal });
     const page = liveHistory(before !== undefined ? (olderHandler ? await olderHandler() : olderPage ?? currentHistory) : currentHistory);
@@ -1470,6 +1472,64 @@ const cardEditScope: Partial<ConversationTestProps> = {
 };
 
 describe("World Plan conversation consumer", () => {
+
+  it("reopens lightweight saved Build questions with edited answers and no full hydration", async () => {
+    const conversationId="11111111-1111-4111-8111-111111111111";
+    const turnId="22222222-2222-4222-8222-222222222222";
+    const row=makeTurn(1,turnId,"Ask me about the festival.","Two questions are ready for review.","build");
+    const api=setupApi(history(conversationId,1,[row]),false);
+    const page=api.messages(history(conversationId,1,[row]));
+    page.messages[0]!.reply_object={kind:'questions',questions:[{text:'Where should the festival take place?'},{text:'What mood should it have?'}],
+      source:{world_id:worldId,conversation_id:conversationId,turn_id:turnId,document_id:'other-work',surface_id:'build'}};
+    api.getMessages.mockResolvedValue(page);
+    const create=vi.spyOn(liveApi,'createWorkspaceDocument');
+    const post=vi.spyOn(liveApi,'postWorldBuildAgentTurn');
+    const props:ConversationTestProps={buildMode:{savedSource:{worldId,documentId:'other-work',revision:2,
+      contentSha256,surfaceInstanceId:'build-instance',title:'The Memory Ferry',dirty:false}}};
+    let view=render(conversationElement(props));
+    await waitForConversationReady(false);
+    expect(await screen.findByText('Two questions are ready for review.')).toBeInTheDocument();
+    expect(api.getHistory).not.toHaveBeenCalled();
+    fireEvent.change(await screen.findByLabelText('Question 1'),{target:{value:'Where exactly should the festival take place?'}});
+    fireEvent.change(screen.getByLabelText('Answer 1'),
+      {target:{value:'In a hillside orchard overlooking a quiet bay.'}});
+    fireEvent.change(screen.getByLabelText('Answer 2'),{target:{value:'Warm and wistful; keep it unnamed.'}});
+    view.unmount();
+    view=render(conversationElement(props));
+    await waitForConversationReady(false);
+    expect(await screen.findByLabelText('Question 1')).toHaveValue('Where exactly should the festival take place?');
+    expect(screen.getByLabelText('Answer 1')).toHaveValue('In a hillside orchard overlooking a quiet bay.');
+    expect(screen.getByLabelText('Answer 2')).toHaveValue('Warm and wistful; keep it unnamed.');
+    fireEvent.click(screen.getByRole('button',{name:'Add to message'}));
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My answers to your clarifying questions:\n\nQuestion: Where exactly should the festival take place?\nMy answer: In a hillside orchard overlooking a quiet bay.\n\nQuestion: What mood should it have?\nMy answer: Warm and wistful; keep it unnamed.');
+    expect(api.getHistory).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();expect(create).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+
+  it.each(['world_id', 'conversation_id', 'turn_id', 'document_id', 'surface_id'] as const)(
+    "does not reopen saved Build questions with a foreign %s", async (field) => {
+      const conversationId = '11111111-1111-4111-8111-111111111111';
+      const turnId = '22222222-2222-4222-8222-222222222222';
+      const row = makeTurn(1, turnId, 'Ask me about the festival.', 'Two questions are ready for review.', 'build');
+      const api = setupApi(history(conversationId, 1, [row]), false);
+      const page = api.messages(history(conversationId, 1, [row]));
+      page.messages[0]!.reply_object = {
+        kind: 'questions', questions: [{text: 'Where should the festival take place?'}],
+        source: {world_id: worldId, conversation_id: conversationId, turn_id: turnId,
+          document_id: 'other-work', surface_id: 'build', [field]: field === 'surface_id' ? 'plan' : 'foreign'},
+      };
+      api.getMessages.mockResolvedValue(page);
+      render(conversationElement({buildMode: {savedSource: {worldId, documentId: 'other-work', revision: 2,
+        contentSha256, surfaceInstanceId: 'build-instance', title: 'The Memory Ferry', dirty: false}}}));
+      await waitForConversationReady(false);
+      expect(await screen.findByText('Two questions are ready for review.')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Question 1')).not.toBeInTheDocument();
+      expect(api.getHistory).not.toHaveBeenCalled();
+    },
+  );
+
 
   it.each(["authenticated", "local_operator"] as const)(
     "loads legacy Plan action projections only for the local operator (%s)",
