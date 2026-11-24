@@ -478,6 +478,19 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     assert result["checks"]["catalog_budget"] is False
     assert result["checks"]["inline_questions"] is None
     assert len(result["artifact_sha256"]) == len(artifacts)
+    native_path = tmp_path / "native-graph-probe.json"
+    for owner, state, expected in (
+        ("native_graph_selected_read", "returned", False),
+        ("native_graph_authored_reference_read", "raised", False),
+        ("native_graph_selected_read", "entered", False),
+        ("native_graph_query", "returned", None),
+    ):
+        native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
+            "coverage": "partial", "case_id": "case1", "status": "observed",
+            "records": [{"owner": owner, "state": state}]}))
+        observed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+        assert observed["checks"]["unexpected_retrieval"] is expected
+        assert observed["status"] == "unproven"
 
 
 def test_fixture_binding_checks_owner_receipt_page_and_complete_dialogue(monkeypatch):

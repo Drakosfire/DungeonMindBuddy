@@ -236,6 +236,10 @@ ordinary capture writes a separate partial probe artifact; the offline report
 summarizes it without upgrading acquisition coverage or a cohort rate. Other
 owners and other previously captured call aliases can bypass these wrappers, so zero
 records do not prove that Graph or source acquisition did not happen.
+An observed selected or authored Graph read attempt is scored as an unmapped
+acquisition, which proves a violation for a case allowing no reads; it cannot
+establish which required source was read. Query preparation alone is not scored
+as a source read.
 The existing preimported `native_authored_references` reader alias is observed
 when it still points to the original owner; independently replaced aliases are
 left untouched.

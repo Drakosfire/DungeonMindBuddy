@@ -7,6 +7,7 @@ from .assessment import REPORT_SCHEMA, assess, rubric_sha256
 from .capture_observation import _body, observe
 from .related_page_probe import acquisition_labels, catalog_discovery_count
 from .native_graph_probe import summarize_records
+from .trace_observation import UNKNOWN
 
 
 def verify_fixture_pin(fixture, record, expected_fixture_sha256, fixture_set):
@@ -98,6 +99,14 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     observed = observe(rows["request"], rows["history-after"], rows["context-trace"], rows["answer-http"],
                        related_labels=related_labels)
     observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document)
+    # The native probe cannot identify a source. A selected or authored read
+    # attempt nevertheless proves acquisition for a source-free case; it must
+    # not be silently omitted from the assessment. Query preparation alone is
+    # not evidence that a source was read.
+    if native_probe is not None:
+        for owner in ("native_graph_selected_read", "native_graph_authored_reference_read"):
+            counts = native_probe["counts"][owner]
+            observed["reads"].extend([UNKNOWN] * sum(counts.values()))
     observed["catalog_discoveries"] = catalog_discovery_count(probe.get("records"))
     observed["catalog_journal_complete"] = None
     grade = assess(rubric, observed)
