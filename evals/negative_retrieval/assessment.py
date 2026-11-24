@@ -73,6 +73,14 @@ def assess(case, observation):
     }
     if required:
         checks["required_support"] = observation.get("required_support")
+    # An interrupted turn can show a retry/error without producing a typed
+    # outcome. Preserve that independent UI observation without inventing one.
+    if outcome != "clarification" and observation.get("no_retry_error") is not None:
+        checks["no_retry_error"] = observation["no_retry_error"]
+    # When clarification is the only valid outcome, an observed missing inline
+    # component is meaningful even if the turn never produced a completion.
+    if outcome is None and set(case["outcomes"]) == {"clarification"} and observation.get("inline_questions") is not None:
+        checks["inline_questions"] = observation["inline_questions"]
     if outcome == "clarification":
         for field in ("question_addresses_gap", "question_answerable", "question_not_already_answered",
                       "question_no_false_premises", "inline_questions", "no_retry_error",

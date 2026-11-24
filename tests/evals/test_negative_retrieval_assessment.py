@@ -1,6 +1,8 @@
 from evals.negative_retrieval.assessment import assess
 from hashlib import sha256
 
+import pytest
+
 MANIFEST_PIN = sha256(b"{}").hexdigest()
 
 
@@ -40,6 +42,36 @@ def test_clarification_requires_full_delivery_and_continuation():
                   "saved_and_reopened", "answer_sent", "answer_continued", "answer_reopened"):
         assert assess(CASE, observation(**{field: False}))["status"] == "fail"
         assert assess(CASE, observation(**{field: None}))["status"] == "unproven"
+
+
+def test_interrupted_question_records_observed_ui_failure_without_inventing_outcome():
+    case = {**CASE, "outcomes": ["clarification"]}
+    result = assess(case, observation(outcome=None, completed_turn=False,
+                                      inline_questions=False, no_retry_error=False))
+    assert result["status"] == "fail"
+    assert result["checks"]["allowed_outcome"] is None
+    assert result["checks"]["inline_questions"] is False
+    assert result["checks"]["no_retry_error"] is False
+    unknown = assess(case, observation(outcome=None, completed_turn=None,
+                                       inline_questions=None, no_retry_error=None))
+    assert unknown["status"] == "unproven"
+    assert "inline_questions" not in unknown["checks"]
+    assert "no_retry_error" not in unknown["checks"]
+
+
+def test_unselected_question_does_not_penalize_a_valid_movable_proposal():
+    result = assess(CASE, observation(outcome="proposal", movable_proposal=True,
+                                      inline_questions=False, no_retry_error=True))
+    assert result["status"] == "pass"
+    assert "inline_questions" not in result["checks"]
+
+
+def test_observed_retry_error_fails_even_without_a_typed_outcome():
+    result = assess(CASE, observation(outcome=None, completed_turn=None, no_retry_error=False))
+    assert result["status"] == "fail"
+    assert result["checks"]["no_retry_error"] is False
+    with pytest.raises(ValueError, match="no_retry_error"):
+        assess(CASE, observation(outcome=None, no_retry_error="false"))
 
 
 def test_unwanted_reads_and_incomplete_journals():

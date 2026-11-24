@@ -24,7 +24,12 @@ answer submission, completion of the original task, and reopened answer are
 separate observations at the owning UI/runtime boundary. A dispatch or a
 scripted pending request does not establish continuation. Proposal mobility and the no-premature-mutation
 check likewise require actual boundary observations. A `False` is a demonstrated
-failure; missing evidence leaves a result unproven.
+failure; missing evidence leaves a result unproven. An observed retry/error is
+retained even if no typed outcome was produced. When the rubric permits only a
+clarification, an independently observed missing inline question is also retained
+for an interrupted turn; neither observation invents a successful clarification.
+A case allowing a movable proposal does not require an inline question for that
+proposal.
 
 The draft fixture files are development material: both splits were authored
 together and share structure, so `heldout-draft.json` is not independent held-out
