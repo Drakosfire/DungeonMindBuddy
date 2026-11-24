@@ -1844,8 +1844,8 @@ def update_graph_execution(
     return None if row is None else _turn_from_row(conn, row)
 
 
-def acknowledge_plan_opening_outcome(conn, turn, execution):
-    """Read back an ordinary Plan outcome without decoding an identical Turn."""
+def acknowledge_plan_opening_append(conn, turn, execution):
+    """Acknowledge an ordinary Plan opening append without decoding an identical Turn."""
     from .native_execution import _join_turn_fields, _join_turn_lifecycle
     from .rules_authority_reads import validate_base_composition_summary
 
@@ -1890,7 +1890,7 @@ def acknowledge_plan_opening_outcome(conn, turn, execution):
         if ack is None:
             return None
         if ack["revision"] != turn.revision + 1 or ack["exact"] is not True:
-            raise ApplicationStateIntegrityError("Plan outcome changed its acknowledged Turn")
+            raise ApplicationStateIntegrityError("Plan opening append changed its acknowledged Turn")
         # AFTER triggers run after the RETURNING projection. With the root lock
         # still held, verify that the acknowledged tuple is the actual final row.
         cur.execute(
@@ -1900,12 +1900,12 @@ def acknowledge_plan_opening_outcome(conn, turn, execution):
         )
         final = cur.fetchone()
     if final is None or final["exact"] is not True:
-        raise ApplicationStateIntegrityError("Plan outcome changed after SQL acknowledgement")
+        raise ApplicationStateIntegrityError("Plan opening append changed after SQL acknowledgement")
     validate_base_composition_summary(final["rules_summary"])
     refs = _turn_references(conn, turn.turn_id)
     provenance = turn.provenance
     if refs != (provenance.primary_work, list(provenance.supporting_work), provenance.selected_object):
-        raise ApplicationStateIntegrityError("Plan outcome changed its historical references")
+        raise ApplicationStateIntegrityError("Plan opening append changed its historical references")
     updated = turn.model_copy(update=dict(revision=ack["revision"], updated_at=ack["updated_at"],
                                           graph_context_execution=execution))
     _join_turn_fields(updated.graph_context_receipt, execution, updated.completion, updated.assistant_text)

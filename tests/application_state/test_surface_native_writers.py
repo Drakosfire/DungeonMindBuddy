@@ -709,7 +709,7 @@ def test_readonly_plan_writer_settles_checkpoint_with_rules_authorization(
 
 
 @pytest.mark.parametrize("drift", [None, "after", "before"])
-def test_compact_opening_outcome_acknowledges_the_final_locked_row(
+def test_compact_opening_append_acknowledges_the_final_locked_row(
     application_state_dsn, monkeypatch, drift,
 ):
     from application_state.agent_conversation import repository as repo
@@ -757,12 +757,12 @@ def test_compact_opening_outcome_acknowledges_the_final_locked_row(
 
             patch.setattr(repo, "_turn_from_row", repeated_decode)
             if drift:
-                with pytest.raises(ApplicationStateIntegrityError, match="Plan outcome changed"):
-                    repo.acknowledge_plan_opening_outcome(conn, locked, turn.graph_context_execution)
+                with pytest.raises(ApplicationStateIntegrityError, match="Plan opening append changed"):
+                    repo.acknowledge_plan_opening_append(conn, locked, turn.graph_context_execution)
                 conn.rollback()
             else:
-                acknowledged = repo.acknowledge_plan_opening_outcome(conn, locked, turn.graph_context_execution)
+                acknowledged = repo.acknowledge_plan_opening_append(conn, locked, turn.graph_context_execution)
                 assert acknowledged.revision == locked.revision + 1
-                assert repo.acknowledge_plan_opening_outcome(conn, locked, turn.graph_context_execution) is None
+                assert repo.acknowledge_plan_opening_append(conn, locked, turn.graph_context_execution) is None
     reopened = AgentConversationService().inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
     assert reopened == (turn if drift else acknowledged)

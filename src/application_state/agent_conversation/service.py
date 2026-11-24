@@ -2342,13 +2342,20 @@ class AgentConversationService:
 
                 if (
                     type(self) is AgentConversationService and type(turn) is Turn
-                    and turn.completion is None and type(event) is ProviderOutcomeEventV1
-                    and event.outcome in {"sdk_entered", "response_received"}
-                    and any(type(auth) in (NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1)
-                            and auth.provider_attempt_id == event.provider_attempt_id
-                            for auth in execution.events)
+                    and turn.completion is None
+                    and (
+                        type(event) in (NativePlanAuthorScopeAuthorizedV1,
+                                        NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeObservedV1)
+                        or (
+                            type(event) is ProviderOutcomeEventV1
+                            and event.outcome in {"sdk_entered", "response_received"}
+                            and any(type(auth) in (NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1)
+                                    and auth.provider_attempt_id == event.provider_attempt_id
+                                    for auth in execution.events)
+                        )
+                    )
                 ):
-                    updated = repo.acknowledge_plan_opening_outcome(conn, turn, updated_execution)
+                    updated = repo.acknowledge_plan_opening_append(conn, turn, updated_execution)
                 else:
                     updated = self._persist_execution_append(
                         conn, world_id=world_id, turn_id=turn_id,
