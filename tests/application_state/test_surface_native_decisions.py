@@ -155,6 +155,62 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
             expected_attempt=final.attempt, selection=step.selection, producer_proof=step.proof)
 
 
+def test_locked_plan_waiter_reconstructs_suffix_committed_while_waiting(application_state_dsn):
+    from concurrent.futures import ThreadPoolExecutor
+    from time import monotonic, sleep
+
+    import psycopg
+    from psycopg.types.json import Jsonb
+
+    from application_state.agent_conversation import repository as repo
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    turn = case.turn
+    execution = turn.graph_context_execution
+    event = execution.events[-1]
+    base = execution.model_dump(mode='json', by_alias=True)
+    base['events'].pop()
+
+    def read(waiter):
+        return repo.lock_turn(waiter, turn.world_id, turn.turn_id)
+
+    with ThreadPoolExecutor(max_workers=1) as worker:
+        with (
+            psycopg.connect(application_state_dsn) as writer,
+            psycopg.connect(application_state_dsn) as waiter,
+        ):
+            writer.execute(
+                'UPDATE agent.turn SET revision=revision+1, graph_context_execution=%s WHERE turn_id=%s',
+                (Jsonb(base), turn.turn_id),
+            )
+            writer.execute(
+                'INSERT INTO agent.plan_execution_checkpoint '
+                '(turn_id, revision, attempt, base_count, event_count) VALUES (%s,%s,%s,%s,%s)',
+                (turn.turn_id, turn.revision + 1, turn.attempt, event.sequence, event.sequence + 1),
+            )
+            writer.execute(
+                'INSERT INTO agent.plan_execution_event (turn_id, sequence, payload) VALUES (%s,%s,%s)',
+                (turn.turn_id, event.sequence, Jsonb(event.model_dump(mode='json', by_alias=True))),
+            )
+            waiting = worker.submit(read, waiter)
+            try:
+                deadline = monotonic() + 5
+                while monotonic() < deadline:
+                    blockers = writer.execute(
+                        'SELECT pg_blocking_pids(%s)', (waiter.info.backend_pid,),
+                    ).fetchone()[0]
+                    if writer.info.backend_pid in blockers:
+                        break
+                    sleep(0.01)
+                else:
+                    pytest.fail('Reader did not wait on the Plan root lock')
+            finally:
+                writer.commit()
+            locked = waiting.result(timeout=5)
+            assert locked.revision == turn.revision + 1
+            assert locked.graph_context_execution == execution
+
+
 @pytest.mark.parametrize('project_outcomes', [False, True])
 def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(
     application_state_dsn, project_outcomes, monkeypatch,
