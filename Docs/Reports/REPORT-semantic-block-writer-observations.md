@@ -888,3 +888,19 @@ The older protected-fixture attempts stopped at placement guidance or could
 not reconcile Save. This run verifies proposal, placement and persistence
 for one repetition on the current serving lineage. The remaining independent
 repetitions and the Plan P03 check remain open.
+
+### Hosted Build rewrite and callout controls on ab642ad0
+
+On November 23, 2026 (America/Denver), three synthetic turns completed in
+Buddy Cloud Pilot on `ab642ad0` through the OpenAI Responses writer with
+`gpt-6-luna`. Each request used a fresh conversation and the existing
+fixture's saved state as its baseline.
+
+| Case | Retained turn | Result after Save and reload |
+| --- | --- | --- |
+| B02, Artwork Rewrite | `293f2c6c-5c4a-4b93-971c-642351c1178d` | Replaced only the selected First sight body with the proposed two sentences. The Read Aloud kind and title, all 16 neighboring rendered blocks, the table, and Departure matched the baseline. The saved illustration loaded at 1,024 pixels. |
+| X02, Warning, Clean Arrival | `1d12e1b9-9d66-483f-becb-40ed8ba6358d` | The semantic Warning was saved directly after Arrival. Removing that one addition recovered all seven original rendered blocks in order. |
+| X02, Rules, Clean Arrival | `7ceb4349-3d1a-4083-a196-4330d4388be2` | The semantic Rules block was saved at the same paragraph boundary and contained only the supplied rule. Reload briefly showed a retained insertion check. **Check insertion** cleared the prompt with no change to the reopened blocks. The earlier Warning was retained once. |
+
+These are individual checks on reused fixtures. They do not fill the
+independent repetition matrix.
