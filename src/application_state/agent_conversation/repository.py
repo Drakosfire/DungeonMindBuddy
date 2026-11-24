@@ -406,10 +406,19 @@ def _persist_plan_writer_frontier(conn, turn, execution, session_image):
     if (after is None or dict(after[0]) != expected or after[1:] != before[1:]
             or not started <= ack["updated_at"] <= database_clock(conn)):
         raise ApplicationStateIntegrityError("Plan writer settlement changed its locked storage image")
-    current = lock_turn(conn, turn.world_id, turn.turn_id)
-    if current is None or current.graph_context_execution != execution:
-        raise ApplicationStateIntegrityError("Plan writer settlement did not reopen exactly")
-    return current
+    # The writer admission already ran the full prospective execution codec.
+    # The final locked image proves all other Turn fields and provenance stayed
+    # byte-identical, apart from the Postgres-acknowledged revision and clock.
+    from .native_execution import _join_turn_fields, _join_turn_lifecycle
+
+    settled = turn.model_copy(update={
+        "revision": ack["revision"], "updated_at": ack["updated_at"],
+        "graph_context_execution": execution,
+    })
+    _join_turn_fields(settled.graph_context_receipt, execution,
+                      settled.completion, settled.assistant_text)
+    _join_turn_lifecycle(settled)
+    return settled
 
 
 def _references_from_rows(rows):
