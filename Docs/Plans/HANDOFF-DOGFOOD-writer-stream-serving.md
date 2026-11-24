@@ -76,3 +76,15 @@ that run to b2 and retain explicit closure equality; run exact new frontend
 verification/builds and a current15d parent diagnostic. No new backend run is
 claimed merely because the UI/source-label commit changes. Never edit the active
 b2 checkout until its worker closes. All prior cutover packets remain retired.
+
+## Latest production UI carry
+
+Preserve serving source3a199bba73a69c45106f68f055ad63f2ac189dec, including
+correlated terminal timing and retiring provisional text when its conversation
+changes. Its delta from15d is only the existing conversation component and
+its integration tests. Backend execution, dependencies and fixtures remain
+byte-identical to frozen b2 qualification. The source labels differ; do not
+claim that backend run executed this UI carry. Run exact new frontend hosted
+and discovered qualification against exact3a parent; preserve legacy failures
+visibly RED. App latency uses sendToTerminalMs, not sendToCompleteMs. Refresh
+all image/source/container pins after qualification; no old packet is eligible.
