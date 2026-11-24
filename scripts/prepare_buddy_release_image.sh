@@ -14,10 +14,11 @@ if [[ "$checkout" != "$revision" || -n "$changes" ]]; then
   exit 1
 fi
 
+graph=${VITE_HOSTED_GUEST_GRAPH:-0}
 review=${VITE_GUEST_RELEASE_REVIEW:-0}
 page=${VITE_GUEST_RELEASE_PAGE:-0}
 public_id=${VITE_GUEST_HOME_PUBLIC_ID:-}
-if [[ ! "$review" =~ ^[01]$ || ! "$page" =~ ^[01]$ ]] || \
+if [[ ! "$graph" =~ ^[01]$ || ! "$review" =~ ^[01]$ || ! "$page" =~ ^[01]$ ]] || \
    [[ -n "$public_id" && ! "$public_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || \
    [[ -n "$public_id" && "$page" != 1 ]]; then
   printf '%s\n' 'Guest build flags must be 0 or 1; the optional public ID must be a canonical UUID and requires the guest page.' >&2
@@ -25,14 +26,16 @@ if [[ ! "$review" =~ ^[01]$ || ! "$page" =~ ^[01]$ ]] || \
 fi
 
 config="review=$review;page=$page;home=$public_id"
+if [[ "$graph" == 1 ]]; then config="$config;graph=1"; fi
 tag="dungeonmindbuddy:$revision"
-if [[ "$review" != 0 || "$page" != 0 || -n "$public_id" ]]; then
+if [[ "$graph" != 0 || "$review" != 0 || "$page" != 0 || -n "$public_id" ]]; then
   config_hash=$(printf '%s' "$config" | sha256sum | cut -c1-16)
   tag="$tag-guest-$config_hash"
 fi
 existing=$(docker image ls --filter "reference=$tag" --format '{{.Repository}}:{{.Tag}}')
 if [[ -z "$existing" ]]; then
   docker build --target api -f Dockerfile.production \
+    --build-arg "VITE_HOSTED_GUEST_GRAPH=$graph" \
     --build-arg "VITE_GUEST_RELEASE_REVIEW=$review" \
     --build-arg "VITE_GUEST_RELEASE_PAGE=$page" \
     --build-arg "VITE_GUEST_HOME_PUBLIC_ID=$public_id" \

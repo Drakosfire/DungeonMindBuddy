@@ -1,10 +1,12 @@
 # DOGFOOD: compatible APP0210 forward recovery
 
 ACTIVE operational artifact under Alan's deployment/recovery authorization.
-Prepare against exact product candidate38cdd508a46bb2b554e3610374112babac0d7f4c,
-PR4630, based on serving83c968186. The product PR is not yet merged or qualified;
-that blocks activation, not bounded recovery preparation. Preserve subsequent
-serving changes before delivery. Reuse the existing dogfood-lore-review checkout,
+Prepare against exact product candidate911c6bd60f091d7efa7861c340f77d465c21f400,
+PR4630, merged after the newly deployed guest-serving parent
+4f5355d8762bc5427187841386be3c1a984cb93c. Preserve that live guest Graph,
+Core6beb506ea3a03b34e27fb309cccf37393d01318e, and the exact live UI label
+review=0;page=0;home=;graph=1. Integrated qualification and cutover gates
+block activation, not this bounded recovery refresh. Reuse the existing dogfood-lore-review checkout,
 branch codex/dogfood-writer-forward-recovery-0207, existing NON-MERGE PR4559.
 This serial dependent image artifact must NEVER merge into candidate/serving/main.
 No new product capability or second implementation lane is authorized here.
@@ -15,7 +17,7 @@ request, World/principal, full-context, authorization and confirmation checks.
 Inherit the exact candidate reader/producer contract and migration. Relative to
 that candidate, restore only medium reasoning for conversation-to-page writing
 and uncached default native source-context preparation, using the same model and
-provider. All other runtime/frontend behavior stays byte-identical to its parent.
+provider. All other runtime/frontend behavior stays byte-identical to its exact merged parent.
 No routing, acquisition, retry, limits, menu, policy bypass or data-restore change.
 
 Exclusive inherited write set: the exact PR4630 delta, including its reader fence
@@ -47,8 +49,15 @@ the original rejection substring and the conversation-evidence alternative. Earl
 Resources: same retained App benchmark_run_e27fc178267a4d7cbc90bf173dd3ecfe,
 OID210452/cluster7711451860937605159, evaluator buddy-retrieval-projects-4560,
 port33351; no new clone or per-case databases. Reuse shared read-only Core when
-needed. Product case60 currently owns the App serial run; do not start a recovery
-run until its workers/connections close and the owner admits the reviewed worker.
+needed. Product merged-source qualification owns the App serial run; do not
+start a recovery run until its workers/connections close and the owner admits
+the reviewed worker. Current source38 case60 passed1640 cases; merged-source
+911 has a new Core dependency and must be qualified independently. Case61
+completed86 cases and failed its real-response replay at a too-strict local
+alias equality guard before normalization. Corrected case62 at911 passed actual
+Maelthor output normalization and exact citation/turn reopening under a bijection
+bound to identical supplied evidence; no new provider call. Those are bounded
+results, not qualification of this refreshed artifact.
 Evidence remains beneath Projects/.codex/buddy-check.retained-80c.MPEaXT.
 Release only after acceptance/abandonment and exact owned-clone closure/teardown.
 
@@ -59,3 +68,12 @@ citation acceptance. Production later advanced through disjoint serving changes.
 Re-anchor the current release before rollout. The full legacy frontend diagnostic
 remains RED; bounded checks do not establish broad release qualification. Source-
 free routing and overall writer/context cleanup remain unfinished.
+
+Refresh boundary: source38's current writer code is byte-identical in911, but
+production advanced to guest overlay4f during the merge. The oldfc98 recovery
+and review/page-enabled image895 cannot recover that newly live guest feature;
+retain them as historical artifacts only. This refresh inherits911 before
+applying the same two declared profile differences. No new guest activation,
+Core migration, permission change or product capability is authorized here.
+The separate long60 V3 semantic failure remains HOLD on the preserved lore path
+and is not hidden by these protocol passes.

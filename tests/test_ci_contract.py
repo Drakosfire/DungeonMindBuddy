@@ -177,3 +177,86 @@ def test_ci_and_production_pin_the_same_uv_version():
     image_pin = re.findall(r"^FROM ghcr\.io/astral-sh/uv:(\d+\.\d+\.\d+)@sha256:[a-f0-9]{64} AS uv-tool$", dockerfile, re.M)
     assert len(ci_pin) == len(image_pin) == 1
     assert ci_pin == image_pin, f"CI uv pin {ci_pin} differs from production {image_pin}"
+
+
+@pytest.mark.parametrize("codes,expected", [([0, 0], 0), ([7, 9], 7)])
+def test_serial_contracts_share_one_owner_and_run_remaining_suites(tmp_path, monkeypatch, codes, expected):
+    from contextlib import contextmanager
+    from scripts import ci_app_database as database
+    events = []
+    assignment = object()
+
+    @contextmanager
+    def owner():
+        events.append("owner-enter")
+        try:
+            yield assignment
+        except BaseException:
+            events.append("abandon")
+            raise
+        else:
+            events.append("accept")
+        finally:
+            events.append("owner-exit")
+
+    @contextmanager
+    def environment(actual):
+        assert actual is assignment
+        events.append("environment-enter")
+        yield
+        events.append("environment-exit")
+
+    catalog = {name: {"argv": ["{python}", "-m", "pytest"]} for name in ("one", "two")}
+    monkeypatch.setattr(ci, "contracts", lambda root: catalog)
+    monkeypatch.setattr(database, "app_workstream", owner)
+    monkeypatch.setattr(database, "assignment_environment", environment)
+    def execute(name, root, *, catalog):
+        events.append(name)
+        return codes[["one", "two"].index(name)]
+    monkeypatch.setattr(ci, "execute", execute)
+    assert ci.run_contracts(["one", "two"], tmp_path) == expected
+    assert events[:4] == ["owner-enter", "environment-enter", "one", "two"]
+    assert events[-2:] == (["abandon", "owner-exit"] if expected else ["accept", "owner-exit"])
+    assert events.count("owner-enter") == 1
+
+
+def test_worker_waits_for_descendants_before_owner_can_exit(tmp_path):
+    import sys
+    marker = tmp_path / "worker-closed"
+    child = "import time,pathlib; time.sleep(0.2); pathlib.Path('worker-closed').write_text('closed')"
+    parent = f"import subprocess,sys; subprocess.Popen([sys.executable, '-c', {child!r}])"
+    assert ci._run_worker([sys.executable, "-c", parent], tmp_path) == 0
+    assert marker.read_text() == "closed"
+
+
+def test_repeated_interrupts_do_not_escape_before_worker_closure(tmp_path, monkeypatch):
+    events = []
+    class Child:
+        pid = 76543
+        attempts = 0
+        def wait(self):
+            self.attempts += 1
+            events.append("wait")
+            if self.attempts <= 2:
+                raise KeyboardInterrupt
+            return 0
+    child = Child()
+    monkeypatch.setattr(ci.subprocess, "Popen", lambda *args, **kwargs: child)
+    monkeypatch.setattr(ci, "_group_live", lambda group: child.attempts <= 2)
+    monkeypatch.setattr(ci.os, "killpg", lambda group, sig: events.append((group, sig)))
+    with pytest.raises(KeyboardInterrupt):
+        ci._run_worker(["probe"], tmp_path)
+    assert child.attempts == 3
+    assert len([event for event in events if isinstance(event, tuple)]) == 2
+
+
+def test_direct_script_entry_reaches_owner_guard_without_pythonpath():
+    import sys
+    env = {key: value for key, value in os.environ.items()
+           if key not in {"PYTHONPATH", "DMB_CI_APP_OWNER_FILE", "DMB_CI_APP_DATABASE_URL"}}
+    env["GITHUB_ACTIONS"] = "false"
+    result = subprocess.run([sys.executable, "scripts/ci_contract.py", "run", "auth-app"],
+                            cwd=ci.ROOT, env=env, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "Assign a retained CI App owner" in result.stderr
+    assert "ModuleNotFoundError" not in result.stderr

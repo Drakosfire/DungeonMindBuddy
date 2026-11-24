@@ -38,7 +38,7 @@ export function BuddyHome() {
           <h1 id="buddy-home-title">Your world,<br />ready for the table.</h1>
           <p className="buddy-home__intro">Keep your campaign sources, session prep, and stories connected.</p>
           <div className="buddy-home__entry">
-            {signedOut ? <><a className="buddy-home__primary" href={dungeonMindLoginHref(`${window.location.pathname}${window.location.search}${window.location.hash}`)}>Sign in with DungeonMind <span aria-hidden="true">→</span></a><p>Use your existing DungeonMind account.</p></>
+            {signedOut ? <>{import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1" && <a className="buddy-home__primary" href="/graph" onClick={interceptPrimaryNavigationClick}>Explore Sizzek World <span aria-hidden="true">→</span></a>}<a className="buddy-home__primary" href={dungeonMindLoginHref(`${window.location.pathname}${window.location.search}${window.location.hash}`)}>Sign in with DungeonMind <span aria-hidden="true">→</span></a><p>Use your existing DungeonMind account.</p></>
               : world.kind === "managed" ? world.graphStatus === "provisioning"
                 ? <><a className="buddy-home__primary" href={worldScopedSurfaceHref("/build", world.worldId)} onClick={interceptPrimaryNavigationClick}>Open in Build <span aria-hidden="true">→</span></a><p>Start with a source in {world.name}. Your graph isn’t ready yet.</p></>
                 : <><a className="buddy-home__primary" href={worldScopedSurfaceHref("/graph", world.worldId)} onClick={interceptPrimaryNavigationClick}>Open your World <span aria-hidden="true">→</span></a><p>Continue in {world.name}.</p></>

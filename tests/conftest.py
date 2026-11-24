@@ -16,7 +16,7 @@ from apps.live_control_server.config import SESSION_DIR_ENV
 from bootstrap_env import load_dungeonmindbuddy_dotenv
 from tests.application_state.isolate_dsn import needs_disposable_application_state
 
-pytest_plugins = ["tests.application_state.conftest"]
+pytest_plugins = ["tests.application_state.database_fixture"]
 
 
 @pytest.fixture(scope="session", autouse=True)
