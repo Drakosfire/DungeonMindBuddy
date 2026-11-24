@@ -1,6 +1,6 @@
 # ONBOARD: Sizzek in Buddy's Graph workspace
 
-Status: ACTIVE. The owner corrected the onboarding direction: the signed-out
+Status: MERGED on main via PR #4579 (`42a524ade2e48c8a1a8c354b0b56d86f48b99a72`); serving adoption is tracked in `HANDOFF-ONBOARD-guest-product-graph-serving.md`. The owner corrected the onboarding direction: the signed-out
 demo must lead visitors through Buddy's actual surfaces, not a separate landing
 experience. This first serial slice opens the published Sizzek copy in the real
 Graph workspace at `/graph`. Base is the fetched `origin/main` and branch is
