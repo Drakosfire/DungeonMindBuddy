@@ -173,6 +173,19 @@ new attempt remain in `replay-attempt6.log` and `replay-attempt7.log`. Neither
 establishes an inline result; this is synthetic scripted-provider predecessor
 evidence, not a live browser/server session or current-head qualification.
 
+The matching-payload replay subsequently acquired the shared frontend lock and
+passed (1 test, 325 filtered): the mounted component rendered the captured typed
+question and saved answer, accepted an edited answer into the composer, and
+showed no retry prompt. The replayed component file SHA-256 was
+`b002f5a3fa484ef3e6dfb05beccb06ef85a0ef1c42473f635f589987664a223e`,
+matching the benchmark checkout; the log is `replay-attempt9.log` in the
+isolated replay directory. The exact case 44 HTTP responses were replayed via
+mocked transport with their matching detailed history. This was a mounted
+component diagnostic with Node 21.6.2 and copied matching-lock dependencies;
+it did not send the edited answer to the server, exercise a browser or live
+provider, or satisfy Node 22 exact-source or deployed qualification. The prior
+empty-history failure and lock timeouts remain retained.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a
