@@ -634,9 +634,8 @@ def _resolver_digest(work_options):
 
 MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
-LORE_OUTCOME_MENU_DIGEST = MENU_DIGEST
 _MENU_CONTRACTS = MappingProxyType({
-    MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST, frozenset({"lore_outcomes"})),
     digest(question(guidance=_PRE_LORE_OUTCOME_GUIDANCE, work_options=_PRE_LORE_OUTCOME_WORK)):
         (_PRE_LORE_OUTCOME_GUIDANCE, _PRE_LORE_OUTCOME_WORK, _resolver_digest(_PRE_LORE_OUTCOME_WORK)),
     digest(question(guidance=_PRE_REQUEST_REFERENCE_GUIDANCE, work_options=_PRE_REQUEST_REFERENCE_WORK)):
@@ -653,6 +652,12 @@ _MENU_CONTRACTS = MappingProxyType({
         for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
     },
 })
+
+
+def menu_offers_lore_outcomes(menu):
+    """Host-only features belong to the captured menu, never the live default."""
+    contract = _MENU_CONTRACTS.get(menu)
+    return contract is not None and len(contract) == 4 and 'lore_outcomes' in contract[3]
 
 
 def _menu_work(menu):
@@ -967,7 +972,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             or decision.get("state", {}).get("requested_work_policy") != POLICY
             or decision.get("state", {}).get("user_question") != user_text)
         or event.requested_work != label
-        or event.intent_family != WORK[label].family
+        or event.intent_family != _menu_work(menu)[label].family
         or event.menu_sha256 != menu
         or event.resolver_sha256 != resolver
         or event.capability_sha256 != capability

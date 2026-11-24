@@ -160,3 +160,21 @@ Authorized coordination artifact: HANDOFF-DOGFOOD-source-free-build-routing.md i
 included in this write lease as the explicitly requested pinned BLOCKED successor
 and ownership/runtime review. It grants no other lane's driver or Core write lease.
 The CI entry split was separately published on CI4598 at8bfb1d9488c1d8783c57c4c9b3b9e7296e6940f8.
+
+
+Frozen-menu audit: V3 eligibility is now a host-only feature on each existing
+_MENU_CONTRACTS entry, not equality with whichever menu happens to be current.
+Historical selection-family validation uses that captured menu's Work record,
+not mutable current WORK. No separate provenance authority or model marker is
+introduced. Regressions change the current menu and family metadata, reopen the
+original V3 turn unchanged, admit a successor with the retained feature and reject
+its downgrade; original V2 menu remains V2. Preserve this feature metadata when
+future source-free work freezes or extends menus.
+
+Exact167 case30 retained44 passes and15 failures:14 new test assertions wrongly
+assumed every fixture admitted retained conversation; actual current request was
+correctly in the evidence frame when there was no history. The remaining fixture
+supplied a bodyless draft that the new contract intentionally rejects. Correct
+those fixtures without weakening the contract, preserving explicit V2 bodyless
+compatibility and a meaningful V3 body in the context-preservation test. No
+unchanged rerun is treated as qualification, and all original failures remain.

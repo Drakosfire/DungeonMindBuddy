@@ -59,13 +59,13 @@ def lore_request_reference_eligible(host, execution):
 
 
 def lore_outcome_eligible(host, execution):
-    from .build_intentional_response import LORE_OUTCOME_MENU_DIGEST
+    from .build_intentional_response import menu_offers_lore_outcomes
     from .types import BuildRequestedWorkResolutionV1
     if not lore_page_reply(host, execution):
         return False
     choice, = [event for event in execution.events
                if isinstance(event, BuildRequestedWorkResolutionV1)]
-    return (choice.menu_sha256 == LORE_OUTCOME_MENU_DIGEST
+    return (menu_offers_lore_outcomes(choice.menu_sha256)
             and choice.requested_work in {'review_lore_page', 'review_lore_page_from_conversation'})
 
 
