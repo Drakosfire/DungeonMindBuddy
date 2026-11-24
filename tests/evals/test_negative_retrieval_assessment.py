@@ -114,13 +114,18 @@ def test_saved_trace_projection_is_a_lower_bound_and_ignores_reuse():
 
 
 def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
-    from evals.negative_retrieval.assessment import summarize
+    from evals.negative_retrieval.assessment import REPORT_SCHEMA, summarize
 
     positive = {"max_catalog_discoveries": 1, "required_reads": ["archive"], "allowed_reads": ["archive"], "outcomes": ["answer"]}
     cases = {"n1": CASE, "n2": CASE, "p1": positive}
     results = {"n1": assess(CASE, observation(reads=["other"], journal_complete=False)),
                "n2": assess(CASE, observation(reads=[], journal_complete=False)),
                "p1": assess(positive, observation(outcome="answer", journal_complete=False))}
+    unbound = summarize(cases, results)
+    assert unbound["unnecessary_retrieval"]["failures"] == 0
+    assert unbound["unnecessary_retrieval"]["unknown"] == 2
+    results = {key: {**result, "schema": REPORT_SCHEMA, "fixture_context_verified": True,
+                     "capture_environment_verified": True} for key, result in results.items()}
     rates = summarize(cases, results)
     assert rates["unnecessary_retrieval"] == {"cases": 2, "failures": 1, "unknown": 1,
                                                 "minimum_rate": .5, "maximum_rate": 1.0}
@@ -136,6 +141,11 @@ def test_rates_do_not_count_unbound_or_unverified_capture_observations():
     cases = {"negative": CASE, "positive": positive, "missing": CASE}
     negative = assess(CASE, observation(reads=["unrelated"]))
     missing_read = assess(positive, observation(outcome="answer", required_support=True))
+    raw_rates = summarize({"negative": CASE, "positive": positive},
+                          {"negative": negative, "positive": missing_read})
+    assert raw_rates["unnecessary_retrieval"]["unknown"] == 1
+    assert raw_rates["missed_required_reads"]["unknown"] == 1
+    assert raw_rates["missed_required_reads"]["failures"] == 0
     results = {
         "negative": {**negative, "schema": REPORT_SCHEMA, "fixture_context_verified": None, "capture_environment_verified": True},
         "positive": {**missing_read, "schema": REPORT_SCHEMA, "fixture_context_verified": True, "capture_environment_verified": None},

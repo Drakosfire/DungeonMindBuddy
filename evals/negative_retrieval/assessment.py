@@ -93,13 +93,10 @@ def summarize(cases, results):
     def bounds(rows, key):
         def eligible(case_id):
             result = results[case_id]
-            # Reports have explicit binding fields; a raw assessor result does
-            # not. A violation on an unbound capture is evidence to investigate,
-            # not a measured outcome for this frozen cohort.
+            # A raw assessor result has no capture binding and cannot contribute
+            # to a cohort rate, even if it contains an observed violation.
             if not isinstance(result.get("checks"), dict):
                 return False
-            if result.get("schema") == ASSESSMENT_SCHEMA:
-                return True
             return (result.get("schema") == REPORT_SCHEMA
                     and result.get("fixture_context_verified") is True
                     and result.get("capture_environment_verified") is True)

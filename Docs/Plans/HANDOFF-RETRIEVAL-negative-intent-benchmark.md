@@ -52,6 +52,12 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+Rate integrity: raw assessor results are now always unknown in cohort rate
+summaries, even when they show a violation. Only report-schema results with
+both fixture context and capture environment verified can contribute; a
+violation observed on an unbound capture remains diagnostic evidence. This
+closes a path that could previously count raw results without those bindings.
+
 Re-anchor checkpoint: this lane merged main `7a1a6bfb35347d8b79f8e05074ef023416db9328`
 after the Build rich-paste receipt and Plan Turn changes. The focused evaluator
 suite passed 43 tests in the shared Python environment. The CI inventory still
