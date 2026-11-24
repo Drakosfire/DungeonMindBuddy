@@ -8,8 +8,8 @@ import {WorldPlanAgentAnswer} from "./WorldPlanAgentAnswer";
 
 type Composition = {text:string;ranges:{domain:string;base_segment_index:number|null;text_start:number;text_end:number}[]};
 /** Same visible authority and exact passage selector in Plan, Play and Rules compositions. */
-export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,buildSourceBasis,nativeScope}:{
-  nativeScope?:import("../../api/nativeGraphInspection").InspectionPin;completion:SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;buildSourceBasis?:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'];
+export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,buildSourceBasis,nativeScope,citationsOnly=false}:{
+  citationsOnly?:boolean;nativeScope?:import("../../api/nativeGraphInspection").InspectionPin;completion:SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;buildSourceBasis?:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'];
 }) {
   // Number visible citations across this answer, independent of transport indexes.
   let nextNumber=0;
@@ -50,6 +50,11 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
     </section>;
   };
   const chars=composition ? Array.from(composition.text) : [];
+  if (citationsOnly) {
+    const segments = completion.answer_segments.flatMap((segment, index) =>
+      choicesBySegment[index]?.length ? [renderSegment(segment, index, index)] : []);
+    return segments.length ? <section aria-label="Cited in the reply"><h4>Cited in the reply</h4>{segments}</section> : null;
+  }
   return <div aria-label="Evidence-grounded answer">{composition ? composition.ranges.map((r,i)=>
     r.domain === 'base' && r.base_segment_index !== null
       ? renderSegment(completion.answer_segments[r.base_segment_index]!,r.base_segment_index,i)
