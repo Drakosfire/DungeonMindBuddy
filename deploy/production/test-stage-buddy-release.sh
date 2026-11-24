@@ -75,7 +75,17 @@ if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run >"$scratch/stdout" 2>"$s
 grep -F 'registry image does not match' "$scratch/stderr"
 if run invalid-mode >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Invalid mode accepted' >&2; exit 1; fi
 grep -F 'invalid staging mode' "$scratch/stderr"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Missing baseline accepted' >&2; exit 1; fi
+grep -F 'missing guest Graph baseline policy' "$scratch/stderr"
+printf 'guest_graph_space=space:test\nguest_graph_revision=rev:test\n' > "$scratch/guest-graph.conf"
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph
+grep -Fx 'guest_graph_enabled=1' "$record"
+grep -Fx 'guest_graph_space=space:test' "$record"
+grep -Fx 'guest_graph_revision=rev:test' "$record"
+printf 'guest_graph_space=space:changed\nguest_graph_revision=rev:test\n' > "$scratch/guest-graph.conf"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Retargeted baseline accepted' >&2; exit 1; fi
+grep -F 'existing release policy differs' "$scratch/stderr"
+printf 'guest_graph_space=space:test\nguest_graph_revision=rev:test\n' > "$scratch/guest-graph.conf"
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph
 if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT=wrong run guest-graph-serving >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Wrong serving parent accepted' >&2; exit 1; fi
 grep -F 'registry image does not match' "$scratch/stderr"

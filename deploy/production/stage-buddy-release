@@ -45,10 +45,27 @@ for dir in "$config_dir" "$config_dir/releases"; do
   trusted "$dir"
 done
 
+# The selected baseline is operator-owned policy, not a request parameter.
+# Freeze it in the immutable release record so later edits cannot retarget it.
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then
+  guest_policy="$config_dir/guest-graph.conf"
+  [[ -f "$guest_policy" ]] || fail "missing guest Graph baseline policy"
+  trusted "$guest_policy"
+  unset guest_graph_space guest_graph_revision
+  # shellcheck source=/dev/null
+  source "$guest_policy"
+  [[ "${guest_graph_space:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid guest Graph space"
+  [[ "${guest_graph_revision:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid guest Graph revision"
+fi
+
 tmp=$(mktemp "$config_dir/releases/.stage.XXXXXX")
 trap 'rm -f -- "$tmp"' EXIT
 printf 'candidate_tag=%s\ncandidate_id=%s\nrollback_tag=%s\nrollback_id=%s\nrollback_revision=%s\nregistry_digest=%s\n' \
   "$candidate_tag" "$candidate_id" "$rollback_tag" "$rollback_id" "$rollback_revision" "$digest" > "$tmp"
+if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving ]]; then
+  printf 'guest_graph_enabled=1\nguest_graph_space=%s\nguest_graph_revision=%s\n' \
+    "$guest_graph_space" "$guest_graph_revision" >> "$tmp"
+fi
 if [[ -e "$record" || -L "$record" ]]; then
   [[ -f "$record" ]] || fail "release policy is not a regular file"
   trusted "$record"

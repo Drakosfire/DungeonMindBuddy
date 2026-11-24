@@ -111,6 +111,8 @@ sudo /usr/local/sbin/stage-buddy-release \
   "$rollback_revision" "$rollback_image_id"
 ```
 
+Before staging either guest mode, install a root-owned, root-only `/etc/buddy-deploy/guest-graph.conf` containing the authorized baseline as shell assignments `guest_graph_space=<space>` and `guest_graph_revision=<revision>`. Use the exact approved identifiers; the helper validates and freezes them in the release record. Changing them cannot retarget an existing staged release. Do not include credentials.
+
 For a main-line guest Graph image, append the literal `guest-graph` argument to
 the stage command after installing the reviewed guest-capable stage helper.
 For a guest Graph serving overlay, append `guest-graph-serving` instead. That
@@ -121,7 +123,7 @@ five-argument mode continues to accept only the default build.
 The command pulls by registry digest, verifies the candidate and rollback
 identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`
 under the deployment lock. Confirm the resulting `BUDDY_STAGED` receipt.
-Release records contain these literal fields:
+Guest records also contain the enabled switch and the two validated baseline identifiers. The activator supplies and verifies them for the candidate only; rollback uses the existing base Compose policy. Release records contain these literal fields:
 
 ```bash
 candidate_tag=dungeonmindbuddy:<full-candidate-sha>
