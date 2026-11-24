@@ -140,7 +140,7 @@ describe("BuildIngestToolbar", () => {
       await user.click(screen.getByText("Extraction", { exact: true }));
       expect(menu.open).toBe(true);
       await user.selectOptions(screen.getByLabelText("Extraction approach"), "gazetteer");
-      expect(await screen.findByTestId("build-native-source-status")).toHaveTextContent("pending");
+      expect(await screen.findByTestId("build-native-source-status")).toHaveTextContent("It isn’t ready to use as evidence in World reviews yet.");
       await user.click(screen.getByText("Extraction", { exact: true }));
       expect(menu.open).toBe(false);
       await user.click(screen.getByText("Extraction", { exact: true }));
@@ -158,16 +158,16 @@ describe("BuildIngestToolbar", () => {
     const user = userEvent.setup();
     render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
     expect(await screen.findByTestId("build-native-source-status")).toHaveTextContent(
-      "Source saved; native World admission pending",
+      "Source saved. It isn’t ready to use as evidence in World reviews yet.",
     );
-    await user.click(screen.getByTestId("build-native-source-retry"));
+    await user.click(screen.getByRole("button", { name: "Retry source preparation" }));
     await waitFor(() => {
       expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(
         DOC_ID,
         2,
         "b".repeat(64),
       );
-      expect(screen.getByTestId("build-native-source-status")).toHaveTextContent("admitted");
+      expect(screen.getByTestId("build-native-source-status")).toHaveTextContent("Source saved and ready to use as evidence in World reviews.");
     });
   });
 
