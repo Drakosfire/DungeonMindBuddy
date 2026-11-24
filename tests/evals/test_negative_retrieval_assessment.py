@@ -611,3 +611,25 @@ def test_probe_records_materialization_identity_without_source_content(monkeypat
         assert build_related_pages.materialize({"document_id": "doc"})["markdown"] == "private fixture body"
     assert records == [{"owner": "related_page_materialization", "state": "returned", "document_id": "doc"}]
     assert "private fixture body" not in str(records)
+
+
+def test_http_witness_generator_guards_owner_fixture_and_requires_typed_questions(tmp_path):
+    from pathlib import Path
+    import pytest
+    from evals.negative_retrieval.build_http_witness import generate
+
+    root = Path(__file__).resolve().parents[2]
+    source = root / "tests/test_surface_native_build_ordinary.py"
+    output = tmp_path / "derived.py"
+    generate(source, output)
+    result = output.read_text()
+    assert result.count("def test_negative_retrieval_ambiguous_placement_http_witness") == 1
+    assert 'completion["collaboration"]["kind"] == "questions"' in result
+    assert 'response.status_code == 200' in result
+    assert 'related_page_materialization' in result
+    broken = tmp_path / "broken.py"
+    broken.write_text(source.read_text().replace('if contextual in {"ambiguous", "missing", "different"}:', 'if contextual == "ambiguous":'))
+    with pytest.raises(ValueError):
+        generate(broken, output)
+    with pytest.raises(ValueError):
+        generate(source, source)

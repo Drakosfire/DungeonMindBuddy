@@ -128,3 +128,14 @@ is not copied into the projection or sent to another model. In the supplied
 failure, the one captured unvalidated opening selected `anchored`, with six
 read and thirteen skip votes; the trace separately recorded six related-page
 reads. Those observations do not establish why the later acquisition failed.
+
+`build_http_witness.generate` derives an evaluator-only red/green witness from
+`tests/test_surface_native_build_ordinary.py`. Its ambiguous-placement case
+requires a completed typed question, no related-page materialization, no
+proposal, and unchanged primary page through the ordinary HTTP/APP route. The
+owner fixture injects synthetic controller votes and an in-memory native
+repository; it cannot prove actual model behavior or deployed UI. Do not run
+its default `application_state_dsn` fixture: that fixture creates multiple
+physical databases and is paused under the current benchmark resource policy.
+A reviewed owner-bound fixture override using the one workstream App clone is
+still required before this witness can run. It has not been run yet.
