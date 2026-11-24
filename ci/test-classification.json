@@ -678,6 +678,7 @@
       "tests/test_hosted_artwork_nonblocking.py",
       "tests/test_hosted_auth.py",
       "tests/test_hosted_auth_login.py",
+      "tests/test_hosted_index_graph_boundary.py",
       "tests/test_hosted_native_graph_access.py",
       "tests/test_index_graph.py",
       "tests/test_index_graph_storage.py",
