@@ -65,6 +65,22 @@ def generate(source, output, fixture_path, *, expected_fixture_sha256):
                  "        text = frozen_fixture['page']\n")
     replace_once("            assert history.json()['turns'][0]['knowledge_context']['completion']==context['completion']\n",
                  "            assert next(row for row in history.json()['turns'] if row['turn_id']==str(turn.turn_id))['knowledge_context']['completion']==context['completion']\n")
+    replace_once("        assert context['completion']['action_id']==str(record.action_id)\n", """        assert context['completion']['action_id']==str(record.action_id)
+        from application_state.build_proposal.review import BuildProposalReviewService, BuildReviewCommand
+        review_service = BuildProposalReviewService()
+        opened = review_service.execute(world, record.action_id, BuildReviewCommand(operation='open', expected_revision=0))
+        moved = review_service.execute(world, record.action_id, BuildReviewCommand(
+            operation='move', expected_revision=opened.revision, placement_caret=opened.placement_caret + 3))
+        assert review_service.get(world, record.action_id) == moved
+        assert moved.placement_caret == opened.placement_caret + 3
+        prepared = review_service.execute(world, record.action_id, BuildReviewCommand(
+            operation='prepare', expected_revision=moved.revision, apply_id=uuid4(),
+            after_editor_sha256='a' * 64, after_draft_sha256='b' * 64))
+        assert prepared.apply.placement_caret == moved.placement_caret
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        FROZEN_STATE['moved'] = True
+        print('negative_retrieval_frozen_proposal_moved_unchanged_page: true')
+""")
     replace_once('title="Optional lore", kind="worldbuilding_source", source_domain="worldbuilding",',
                  'title=frozen_fixture["related_pages"][0]["title"], kind="worldbuilding_source", source_domain="worldbuilding",')
     replace_once('save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")',
@@ -99,6 +115,7 @@ def test_negative_retrieval_frozen_placement_http(lane, tmp_path, monkeypatch):
     from evals.negative_retrieval.fixture_sources import inspect_related_pages
     after = inspect_related_pages(FROZEN_STATE['request'], fixture)
     assert after == FROZEN_STATE['before']
+    assert FROZEN_STATE.get('moved') is True
     print('negative_retrieval_frozen_inventory_after: verified')
     print('negative_retrieval_frozen_placement_probe:', records)
     assert not records, 'Frozen placement case has a zero discovery and materialization budget'

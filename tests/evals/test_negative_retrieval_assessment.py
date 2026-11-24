@@ -504,6 +504,7 @@ def test_frozen_placement_generator_pins_input_and_owner_anchors(tmp_path):
     compile(content, str(output), "exec")
     assert "test_negative_retrieval_frozen_placement_http" in content
     assert "negative_retrieval_frozen_inventory_before: verified" in content
+    assert "negative_retrieval_frozen_proposal_moved_unchanged_page: true" in content
     assert "zero discovery and materialization budget" in content
     with pytest.raises(ValueError, match="new file"):
         generate(source, output, fixture, expected_fixture_sha256=digest)

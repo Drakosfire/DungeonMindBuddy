@@ -518,6 +518,17 @@ pin and exact test anchors; the focused evaluator suite passed 43 tests in the
 shared environment. This remains predecessor-source, synthetic-provider and
 in-memory Core evidence; it does not qualify a real-model rate or deployment.
 
+Cases 29–30 extended the generated frozen placement witness to move the actual
+proposal through the App review owner. Case 30 also checked that apply
+preparation retained the moved caret and that the primary page remained
+unchanged before the subsequent simulated author save. Those assertions passed;
+the test remained red on the expected one discovery and two materializations.
+Workers, generated tests and logs are retained under `http-owner/session/case-29`
+and `case-30`. Controller and writer were scripted, Core was in memory, and
+product source was the predecessor SHA. This is not a UI move, actual apply at
+the moved caret, live-model rate or current-head qualification. The focused
+shared-environment suite passed 43 tests.
+
 Cases 27–28 exercised the existing proposal-move App owner control. Case 27
 stopped during setup because its legacy fixture assumed an empty `elderwyld`
 conversation, while the retained clone already had state. Case 28 adapted the
