@@ -74,3 +74,13 @@ No209 activation or production lock is held by DOGFOOD. Re-anchor actual serving
 image/source/schema/config before rehearsal/cutover and use exact-state guards.
 Signed-in citation opening and page create/save/reopen/no-search acceptance
 remain outstanding; merged4612 is not completion of Alan's goal.
+
+Exact4389 source-access32 PASS with DB access blocked. The eight-turn retention
+probe failed in its test authorization hook before writer I/O: KeyError deleting
+V2 citation_policy from correctly version-free V3 work. Retain that result.
+Adapt current V3 tampering controls to omit its real page destination and inject
+forbidden old metadata, retain all dialogue/order/current-request/CAS checks, and
+add an explicit frozen V2 eight-turn control. Current V3 sixty-turn and ordinary
+discussion controls remain. No runtime/parser/prompt relaxation is involved.
+The shared retained-test fixture correction must travel into the next dependent
+serving implementation too; this operational artifact never merges into serving.
