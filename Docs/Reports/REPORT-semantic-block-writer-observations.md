@@ -946,3 +946,30 @@ call with `gpt-6-luna`. Two eligible read-aloud blocks were present in the
 adopted scene. The named diagnostic verifies selection by title. The
 generic request still needs an explicit expectation for scenes with
 multiple eligible passages.
+
+### Hosted Play scene edit and Pilot Graph publication on ab642ad0
+
+On November 23, 2026 (America/Denver), PL01 passed in the fresh Pilot
+Run adopted from the P01 Plan. **Propose scene edit** produced two
+distinct blocks, Read Aloud and GM Note. The current scene matched its
+baseline during review. Apply and reload retained both additions.
+Excluding their rendered lines recovered the original scene lines in
+order. The retained proposal `5a64dfe2-7ffd-4596-9f30-470283fde8a4`
+records the observed writer `gpt-6-luna`. The session edition advanced
+from 0 to 1. Read-only comparison confirmed the parent Plan still matched
+its pinned revision 2 and digest, and the Departure text matched exactly.
+The new GM cue was present in the session edition and absent from the
+parent Plan.
+
+G01 remains blocked at fixture preparation. The Pilot Graph showed zero
+objects. A new Sealed Tower extraction
+(`81f6ecbd-6b7c-580c-9b9a-9ad6987a43d3`) classified it as a Location and
+showed its quote. Publication still offered no selectable supporting
+excerpt. A read-only check opened the exact admitted source span at the
+current head and found one matching evidence reference with role
+`context`. The extraction publication picker requires `support`.
+The manual authoring path retained an earlier signed profile transition.
+Retrying that exact confirmation returned HTTP 409. The UI retained the
+original operation and kept fresh authoring unavailable. This observation
+does not identify the exact rejection code or establish the earlier
+submission's outcome. No candidate reached Graph publication.
