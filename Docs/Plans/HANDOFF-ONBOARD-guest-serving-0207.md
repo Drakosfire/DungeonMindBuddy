@@ -20,4 +20,4 @@ Image parent 414890b2 includes the root-controlled staging and activation path f
 
 Scope checkpoint: the owner authorized delivery and the one-App database rule. The serving base predates that runner, so its original test fixture creates per-case databases and cannot qualify this overlay. Carry the minimum coherent reviewed runner/test adaptation from #4598, with no product runtime or schema changes. Review the Graph delta separately from the test-adapter delta; verify guest-release and auth-app on one owned App clone, exact frontend, and independent review. The source and image release remain stacked behind #4598, #4604 and #4605.
 
-Predecessor settlement: #4598 merged to main at `5543038f28418145482cc566c724472c562cc786` and #4604 at `c10b1fc29e832f77049e342c59a8c6144a70d47f`. The image-release parent remains open and this serving overlay has not yet merged or deployed.
+Predecessor settlement: #4598 merged to main at `5543038f28418145482cc566c724472c562cc786` and #4604 at `c10b1fc29e832f77049e342c59a8c6144a70d47f`. #4605 merged to main at `7b60098b1164706d24f1d5afbdeb37b3f422c021`. This serving overlay has not yet merged or deployed.
