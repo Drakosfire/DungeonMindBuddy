@@ -140,5 +140,14 @@ physical databases and is paused under the current benchmark resource policy.
 The generated witness imports an evaluator fixture that refuses anything but
 a live, exact-source workstream owner and its pinned App clone. That fixture
 performs a read-only identity check and never creates or drops a database; its
-owner/worker integration still needs review and a real owned run. The witness
-has not been run yet.
+owner/worker integration still needs review. Three provider-free runs on the
+same owned clone failed the typed-question expectation with HTTP 409
+`build_contextual_placement_unresolved`. The latter two checked that the page
+was unchanged and no proposal existed before asserting the response; the
+instrumented run observed one catalog discovery and four materialization calls
+over two related pages. Case 3 additionally retained the serialized synthetic
+controller input before its mock transport. The pinned source, owner ledger,
+derived witnesses and failed logs are recorded in the
+`HANDOFF-RETRIEVAL-negative-intent-benchmark.md` provider-free baseline.
+These runs are predecessor-source diagnostic evidence, not a live-model cohort,
+current-head qualification or deployed UI evidence.
