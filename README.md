@@ -103,6 +103,7 @@ the browser sign-in and sign-out smoke.
 | Work on the UI | [Frontend guide](apps/live-control-ui/README.md) |
 | Run tests for a change | [Verification standard](AGENTS.md#review-and-verification) and [frontend commands](apps/live-control-ui/README.md#commands) |
 | Run an experiment or inspect evidence | [Lab and evaluation guide](evals/README.md) |
+| See what Buddy can do and how workflow decisions are tested | [Agent action catalog](evals/plan-authoring-benchmark.md#action-catalog) · [Workflow decision benchmark](evals/plan-authoring-benchmark.md#workflow-decision-benchmark) |
 
 The product runs from `apps/` and `src/`. Versioned contracts live in
 `schemas/`, and verification lives in `tests/` and `ci/`. DungeonMind owns
