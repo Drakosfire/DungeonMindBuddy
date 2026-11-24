@@ -31,21 +31,36 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
     paths = {name: directory / (name + ".json") for name in names}
-    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin"):
+    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal"):
         paths[name] = directory / (name + ".json")
     present = {name: path for name, path in paths.items() if path.is_file()}
     hashes = {name: sha256(path.read_bytes()).hexdigest() for name, path in present.items()}
+    rows = {name: json.loads(path.read_text()) for name, path in present.items()}
+    probe = rows.get("related-page-probe")
+    partial_probe = None
+    if "related-page-probe" in rows:
+        if (not isinstance(probe, dict) or probe.get("schema") != "dmb_negative_retrieval_related_page_probe_v1"
+                or probe.get("coverage") != "partial" or probe.get("case_id") != fixture["id"]):
+            raise ValueError("Related-page probe belongs to another case")
+        records = probe.get("records")
+        partial_probe = {"catalog_discoveries": catalog_discovery_count(records),
+                         "materialization_attempts": len(acquisition_labels(records)),
+                         "raised_discoveries": sum(row["state"] == "raised" and row["owner"] == "related_catalog_discovery"
+                                                   for row in records),
+                         "raised_materializations": sum(row["state"] == "raised" and row["owner"] == "related_page_materialization"
+                                                        for row in records)}
+    terminal = rows.get("terminal")
+    if "terminal" in rows:
+        if (not isinstance(terminal, dict) or terminal.get("status") not in {"observed", "outcome_unknown"}
+                or (terminal.get("error_type") is not None and not isinstance(terminal["error_type"], str))):
+            raise ValueError("Invalid capture terminal record")
+        terminal = {"status": terminal["status"], "error_type": terminal.get("error_type")}
     missing = [name for name in names if name not in present]
     if missing:
         return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "status": "unproven", "missing_artifacts": missing,
-                "artifact_sha256": hashes}
-    rows = {name: json.loads(path.read_text()) for name, path in present.items()}
+                "artifact_sha256": hashes, "partial_probe": partial_probe, "capture_terminal": terminal}
     if rows["request"].get("message") != fixture["request"]:
         raise ValueError("Capture request differs from the fixture")
-    probe = rows["related-page-probe"]
-    if (probe.get("schema") != "dmb_negative_retrieval_related_page_probe_v1"
-            or probe.get("coverage") != "partial" or probe.get("case_id") != fixture["id"]):
-        raise ValueError("Related-page probe belongs to another case")
     from .fixture_sources import related_trace_labels, verify_related_record
     related_bound = None
     binding_error = None
@@ -92,6 +107,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "related_context_verified": related_bound, "fixture_context_verified": fixture_bound,
             "fixture_pin_verified": pin_bound,
             "capture_environment_verified": None,
+            "capture_terminal": terminal, "partial_probe": partial_probe,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,
             "http_status": observed["http_status"], "terminal_status": observed["terminal_status"],

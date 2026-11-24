@@ -324,6 +324,31 @@ def test_offline_report_keeps_missing_and_positive_retrieval_evidence_honest(tmp
         raise AssertionError("unbound probe accepted")
 
 
+def test_partial_capture_retains_probe_failure_without_claiming_a_rate(tmp_path):
+    import json
+    import pytest
+    from evals.negative_retrieval.assessment import summarize
+    from evals.negative_retrieval.report import report_case
+
+    fixture = {"id": "case1", "request": "Use that."}
+    probe = {"schema": "dmb_negative_retrieval_related_page_probe_v1", "case_id": "case1",
+             "coverage": "partial", "records": [
+                 {"owner": "related_catalog_discovery", "state": "returned"},
+                 {"owner": "related_page_materialization", "state": "raised"}]}
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    (tmp_path / "terminal.json").write_text(json.dumps({"status": "outcome_unknown", "error_type": "RuntimeError"}))
+    report = report_case(tmp_path, fixture, CASE)
+    assert report["status"] == "unproven" and "answer-http" in report["missing_artifacts"]
+    assert report["partial_probe"] == {"catalog_discoveries": 1, "materialization_attempts": 1,
+                                       "raised_discoveries": 0, "raised_materializations": 1}
+    assert report["capture_terminal"] == {"status": "outcome_unknown", "error_type": "RuntimeError"}
+    assert summarize({"case1": CASE}, {"case1": report})["unnecessary_retrieval"]["unknown"] == 1
+    probe["case_id"] = "other"
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    with pytest.raises(ValueError, match="probe"):
+        report_case(tmp_path, fixture, CASE)
+
+
 def test_fixture_pin_binds_case_and_caller_supplied_set_digest():
     import copy
     import pytest

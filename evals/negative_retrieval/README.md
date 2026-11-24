@@ -141,7 +141,10 @@ case pin. A missing or mismatched input leaves fixture context unverified.
 Missing files are unproven. This
 initial report intentionally has no authority to promote manual judgments or a
 partial journal to complete. It records observed zero-budget violations and
-separately reports whether the saved primary context and related-source fixture
+retains available terminal status and separate discovery/materialization
+attempt and exception counts even if required artifacts are missing; those
+partial observations cannot qualify a cohort rate. It separately reports
+whether the saved primary context and related-source fixture
 were bound. Related-page trace and probe identities map to fixture labels only
 through the validated stable pre/post inventory; unmapped material remains
 unknown for positive controls. It leaves the case unproven because the capture environment and

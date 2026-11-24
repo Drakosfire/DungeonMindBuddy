@@ -481,3 +481,11 @@ the fixture. A focused regression also mutates the caller's fixture after the
 pin check and confirms capture uses its frozen snapshot. The shared-environment
 suite passed 41 tests. These checks do not authenticate authorship or establish
 a complete capture environment.
+
+Offline reporting now exposes available terminal status and separate
+discovery/materialization attempt and exception counts even when other
+required capture artifacts are missing. Such reports stay unproven and count
+as unknown in cohort rates. A focused regression covers a raised
+materialization and rejects a probe from another case; 42 tests passed in the
+shared Python environment. This is evaluator diagnostic coverage, not an
+attribution of the original trace's undisclosed exception.
