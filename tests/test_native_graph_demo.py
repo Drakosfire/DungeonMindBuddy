@@ -54,7 +54,18 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         self.assertTrue(any("Mara" in item["text"] for item in sources))
         self.assertTrue(all("claim" in item and len(item["qualification"].split(" · ")) >= 4 for item in sources))
         prepared = visitor.prepare(self._create_request(graph, name="Guest creation"))
-        visitor.confirm(prepared["operation_id"])
+        created = visitor.confirm(prepared["operation_id"])
+        changed = created["graph"]
+        connection_id = self._operation_id()
+        link = visitor.prepare({
+            "operation_id": connection_id, "expected_revision_id": changed["revision_id"],
+            "kind": "connect", "source_id": created["created_node_id"],
+            "target_id": mara, "predicate": "knows",
+        })
+        self.assertEqual(link["status"], "prepared")
+        linked = visitor.confirm(connection_id)["graph"]
+        self.assertTrue(any(edge["source_id"] == created["created_node_id"] and edge["target_id"] == mara
+                            for edge in linked["edges"]))
         visitor.close()
         reopened = NativeGraphDemoService(
             self.repository, state, storage_label="test-memory", allocation_id="visitor:one",
