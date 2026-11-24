@@ -55,6 +55,8 @@ def disposable_benchmark_database(admin_dsn, template):
                         raise RuntimeError("Clone identity changed before teardown")
                     cleanup.execute("SET lock_timeout = '5s'")
                     cleanup.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+                    if _identity(cleanup, name) is not None:
+                        raise RuntimeError("Clone is still present after teardown")
             except Exception as cleanup_error:
                 detail = f"Benchmark database {name} teardown failed: {type(cleanup_error).__name__}"
                 if failure is None:
