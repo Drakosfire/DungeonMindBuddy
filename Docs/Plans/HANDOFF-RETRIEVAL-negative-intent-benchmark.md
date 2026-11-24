@@ -115,6 +115,20 @@ scripted, Core was memory-backed and product source was predecessor `d008072`.
 The preflight access check is separate from the HTTP path; this does not prove
 hosted authentication, a live-model decision, current-head behavior or UI.
 
+Cases 36–37 extended the prior scripted saved-question and answer witness with
+the real synthetic App binding and source-identity resolvers against memory
+Core. Case 36 failed because the diagnostic incorrectly expected a lifecycle
+field in the library projection; that failed log is retained. Case 37 used the
+saved-turn owner for status and passed: the local-operator HTTP question result
+was typed and saved, a follow-up answer returned HTTP 200 and saved a completed
+turn, the question and answer remained in library readback after archival, and
+the page remained unchanged (1 test). Owner access was checked separately before
+dispatch. Workers, generated tests and logs remain under `http-owner` and
+`http-owner/session/case-36` and `case-37`. Controller and writer were scripted,
+product source was predecessor `d008072`, and the question arose from a
+reviewed-step fixture. This does not establish completion of the original task,
+hosted authentication, live-model quality, current-head behavior or inline UI.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a
