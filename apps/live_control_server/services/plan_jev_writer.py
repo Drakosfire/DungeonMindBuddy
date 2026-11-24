@@ -87,7 +87,7 @@ class CapturedWriterProvider(OpenAITextProvider):
     our text-only messages, rather than encoding an entire transcript as prose.
     No installed dependency is patched and no SDK response is reconstructed.
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, sdk_event_observer=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.actual_response = None
         self._selected_reply = None
@@ -95,8 +95,13 @@ class CapturedWriterProvider(OpenAITextProvider):
         async def capture(**options):
             self.actual_response = None
             self._selected_reply = None
-            self.actual_response = await original(**options)
-            return self.actual_response
+            response = await original(**options)
+            if options.get("stream") is True and sdk_event_observer is not None:
+                from .build_reply_writer import ObservedSdkStream
+
+                return ObservedSdkStream(response, sdk_event_observer)
+            self.actual_response = response
+            return response
         self._client.responses.create = capture
 
     def _result_from_response(self, response):
@@ -418,6 +423,14 @@ class PlanJevWriter:
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
+        # Mixed Rules may reorder segments at completion. Only the ordered
+        # top-level answer schema has an unambiguous live prose projection.
+        from .build_construction_stream import reply_sink
+
+        self._reply_sink = (
+            reply_sink.get() if task in ("build_discussion", "scoped_discussion")
+            and "answer_segments" in self.output_format["schema"].get("properties", {}) else None
+        )
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
         from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
@@ -534,7 +547,8 @@ class PlanJevWriter:
         from application_state.agent_conversation.native_writer import output_request_fields
         expected = {'model': self.model, 'input': self.messages, 'instructions': self.instructions,
             **output_request_fields(self.output_reserve), 'text': {'format': self.output_format},
-            'tools': [], 'stream': False, 'reasoning': {'effort': self.reasoning_effort}, 'service_tier': 'fast'}
+            'tools': [], 'stream': self._reply_sink is not None,
+            'reasoning': {'effort': self.reasoning_effort}, 'service_tier': 'fast'}
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
@@ -686,6 +700,10 @@ class PlanJevWriter:
             async def record(event): return self.record(event)
             options = {'dispatch_gate':TextDispatchGate(authorize,record),'transport':transport}
             if api_key is not None: options['api_key'] = api_key
+            if self._reply_sink is not None:
+                from .build_reply_writer import BuildAnswerObserver
+
+                options["sdk_event_observer"] = BuildAnswerObserver(self._reply_sink)
             provider = PlanWriterProvider(**options)
             client = GenerationClient(text_providers={'openai':provider})
         started = perf_counter()
@@ -693,13 +711,20 @@ class PlanJevWriter:
         try:
             if observer is not None and trace is not None:
                 preparation_started = monotonic()
-            result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
+            request = TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
                 temperature=None,reasoning_effort=self.reasoning_effort,max_output_tokens=self.output_reserve or None,
                 json_schema=self.output_format['schema'],schema_name=self.output_format['name'],
                 # Passage review can take longer than the default writer deadline.
                 deadline_ms=120_000 if self.output_format['name'] in VARIANT_PASSAGE_FORMATS else None,
-                max_conformance_retries=0,max_transport_retries=0))
+                max_conformance_retries=0,max_transport_retries=0)
+            if self._reply_sink is None:
+                result = await client.generate_structured(request)
+            else:
+                from .build_reply_writer import generate_build_reply
+
+                self._reply_sink(None)
+                result = await generate_build_reply(client, request)
             self.observe(result.observation,status='ok')
             if self.call is not None and provider.actual_response is not None:
                 self.call['response_service_tier'] = provider.actual_response.service_tier
