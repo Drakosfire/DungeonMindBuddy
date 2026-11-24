@@ -92,3 +92,10 @@ owning-boundary evidence. Unvalidated opening votes are retained separately
 from observed reads; in the supplied trace the controller reported anchored
 context and six read votes, and six related-page reads were observed. The raw
 response's validation status is not upgraded by this observation.
+
+CI inventory checkpoint: `python3 scripts/ci_contract.py inventory` reports
+`tests/evals/test_negative_retrieval_assessment.py` as unclassified (no stale
+or duplicate entries). Keep the test under normal discovery and keep this gate
+red until the CI classification owner releases or explicitly splits the
+`ci/test-classification.json` lease. Do not move or suppress the test to make
+inventory pass. This lane has not edited that shared manifest.
