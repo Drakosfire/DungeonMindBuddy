@@ -52,6 +52,17 @@ _EDITOR_FOCUS_GUIDANCE = {
         'A request to discuss or draft in chat does not grant an edit.'
     ),
 }
+_CARET_INTENT_GUIDANCE = (
+    "The open Plan has a text caret. First determine the requested work from the "
+    "user's words. A request to explain, recount, trace or discuss existing "
+    "events or evidence is discussion. A caret supplies a location only after "
+    "the user asks to add writing to the open Plan. For that edit, when no "
+    "existing page location is stated, choose the unstated insertion location "
+    "and no section constraint. Keep every explicit location, including a section "
+    "qualifying an existing paragraph. A name used only as the subject of new "
+    "writing does not locate the edit. A stated but unclear page location "
+    "remains unresolved. A request to draft in chat does not grant an edit."
+)
 _SELECTION_REFERENCE_GUIDANCE = (
     ' A direct request to rewrite or revise this can refer to the current selection '
     'without saying “selected text.” Choose the selection rewrite when “this” '
@@ -75,6 +86,7 @@ class NativePlanAuthorScopeInputV1(Strict):
     selection_reference_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
     editor_focus: AuthorEditorFocus | None = Field(default=None, exclude_if=lambda value: value is None)
+    caret_guidance_version: Literal['v2'] | None = Field(default=None, exclude_if=lambda value: value is None)
     requested_operation: Literal['discuss', 'write_current_page'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
@@ -296,7 +308,9 @@ def _include_editor_focus(state, request):
             or explicit_direction_options(request.question, allow_plain_prose=True)
             or explicit_scope_conflict(request.question, UnscopedLocation())):
         return
-    state['current_editor_focus'] = _EDITOR_FOCUS_GUIDANCE[request.editor_focus]
+    state['current_editor_focus'] = (_CARET_INTENT_GUIDANCE
+        if request.editor_focus == 'caret' and request.caret_guidance_version == 'v2'
+        else _EDITOR_FOCUS_GUIDANCE[request.editor_focus])
 
 
 def _author_scope_offers(request):

@@ -657,6 +657,9 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
         expected = {'current_request', 'dialogue', 'scope_hypotheses', 'current_editor_focus'}
         focus = wire['state']['current_editor_focus']
         assert ('selected existing text' if selected else 'has a text caret') in focus
+        if not selected:
+            assert "First determine the requested work" in focus
+        assert "caret_guidance_version" not in request.content.decode()
         if selected:
             assert capture.selected_text not in request.content.decode()
         assert capture.document_id not in request.content.decode()
@@ -2339,3 +2342,33 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
     else:
         assert selection.target_resolution == ("ambiguous" if outcome == "ambiguous" else "unresolved")
         assert response.plan_proposal is None and action is None
+
+
+def test_caret_guidance_version_preserves_historical_scope_wire():
+    from application_state.agent_conversation.native_plan_opening import (
+        NativePlanAuthorScopeInputV1, prepare_author_scope_decision, validate_author_scope_wire,
+    )
+
+    historical = NativePlanAuthorScopeInputV1(
+        question="Trace what the party learned.", dialogue=(), max_span_attempts=2048,
+        quote_context=False, assess_page_edit=True, editor_focus="caret", implicit_caret_version="v1",
+    )
+    assert "caret_guidance_version" not in historical.model_dump()
+    current = historical.model_copy(update={"caret_guidance_version": "v2"})
+    old_request = prepare_author_scope_decision(historical)
+    new_request = prepare_author_scope_decision(current)
+    assert "When the author asks to add writing" in old_request.state["current_editor_focus"]
+    assert "First determine the requested work" in new_request.state["current_editor_focus"]
+    assert old_request.questions == new_request.questions
+    assert {key: value for key, value in old_request.state.items() if key != "current_editor_focus"} == {
+        key: value for key, value in new_request.state.items() if key != "current_editor_focus"
+    }
+    old_wire = json.dumps({
+        "model": old_request.model,
+        "state": old_request.state,
+        "questions": {q.name: {"type": "choice", "instructions": q.question,
+                                "criteria": q.option_descriptions} for q in old_request.questions},
+    }).encode()
+    validate_author_scope_wire(historical, old_wire)
+    with pytest.raises(ValueError, match="reconstructed local choices"):
+        validate_author_scope_wire(current, old_wire)
