@@ -15,6 +15,8 @@ clarification delivery. Expected write lease: this handoff, new files under
 `tests/evals/test_negative_retrieval*.py`. Do not edit shared runners, runtime,
 frontend, dependency locks, or active owners' files in this slice. Existing
 AW10 is a related positive-context control, not evidence of this new case.
+The CI owner separately split the one classification entry documented below;
+that exception does not grant a broader shared-file lease.
 The protected behavioral invariant is that already sufficient context is not
 supplemented by unnecessary discovery or reads, while genuinely needed evidence
 is not suppressed. An actionable clarification or a safe movable proposal can
@@ -116,12 +118,13 @@ from observed reads; in the supplied trace the controller reported anchored
 context and six read votes, and six related-page reads were observed. The raw
 response's validation status is not upgraded by this observation.
 
-CI inventory checkpoint: `python3 scripts/ci_contract.py inventory` reports
-`tests/evals/test_negative_retrieval_assessment.py` as unclassified (no stale
-or duplicate entries). Keep the test under normal discovery and keep this gate
-red until the CI classification owner releases or explicitly splits the
-`ci/test-classification.json` lease. Do not move or suppress the test to make
-inventory pass. This lane has not edited that shared manifest.
+CI inventory ownership: the earlier inventory reported
+`tests/evals/test_negative_retrieval_assessment.py` as unclassified. The CI owner
+explicitly split that single entry to this lane in the pinned
+`HANDOFF-CI-one-app-workstream.md` at
+`8bfb1d9488c1d8783c57c4c9b3b9e7296e6940f8`; the entry is now in the existing
+qualification category. This does not transfer other manifest entries or depend
+on CI4598 merging. Keep normal test discovery and do not alter other selectors.
 
 Planned diagnostic runtime lease: one uniquely owned disposable App clone on the
 shared local benchmark server, reused serially for this workstream, plus the
