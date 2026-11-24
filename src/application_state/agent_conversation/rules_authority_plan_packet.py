@@ -383,7 +383,8 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
             retained_discussion = any(isinstance(event, BuildPriorBodyEvidenceAdmittedV3)
                                       for event in graph_execution.events)
             if ((not retained_discussion or allow_retained_format)
-                    and (not allow_retained_format or actual_format == "surface_native_evidence_selectors_v7")
+                    and (not allow_retained_format or actual_format == "surface_native_evidence_selectors_v7"
+                         or evidence.semantic_reply and not retained_discussion)
                     and any(is_anchored_discussion(event) for event in graph_execution.events)):
                 version = 7
         if isinstance(action, NativeBuildActionV1) and not allow_retained_format and not evidence.supplied_source_references:
@@ -407,13 +408,19 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
                 and lore_outcome_eligible(evidence.work_frame, graph_execution)
                 and not evidence.lore_outcome):
             raise ValueError('Current populated lore review requires a meaningful outcome')
+        from .native_build_work_view import semantic_reply_eligible
+        if (not allow_retained_format and not frame.lookups
+                and semantic_reply_eligible(evidence.work_frame, graph_execution)
+                and not evidence.semantic_reply):
+            raise ValueError('Current ordinary Build dispatch requires a semantic reply')
         from .native_execution import NativePlanActionV2, NativePlanActionV3
         if (type(action) in (NativePlanActionV2, NativePlanActionV3) and evidence.related_pages
                 and not allow_retained_format and not evidence.supplied_source_references):
             raise ValueError('Current Plan saved-page dispatch requires supplied source references')
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
             build_local=evidence.build_local,format_version=version,execution=graph_execution,
-            generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome)
+            generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome,
+            semantic_reply=evidence.semantic_reply)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs
