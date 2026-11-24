@@ -324,3 +324,13 @@ constructed in `surface_evidence_answer.py`; the v8 policy is owned in
 not proof of every live writer path. Do not strip values, weaken validation or
 change those shared runtime owners in this benchmark lease. The owning lane must
 review the final serialized request and host-side contract before live dispatch.
+
+Re-anchor after the wire finding: fetched Buddy main
+`55bf93989bb04e385ed93f5bdade4f4a21bb6890` still defines the v8 policy and
+the version-substituting instruction family. This is a source inspection, not
+a capture of that exact head. DOGFOOD #4573 remains open at
+`f713f4ae0429635bbe6f0603f1594d8c1c308d10`, with its new exact-head
+qualification pending and its source-free routing successor still serially
+blocked. The retained shared-Core capture manifest names the existing
+`elderwyld` World, not a verified synthetic World; copying its binding into
+the newly provisioned fixture would not establish authority or isolation.
