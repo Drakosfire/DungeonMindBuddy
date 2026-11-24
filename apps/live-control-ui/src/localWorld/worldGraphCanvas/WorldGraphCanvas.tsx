@@ -178,6 +178,7 @@ export interface WorldGraphCanvasProps {
   readonly controlsHost?: HTMLElement | null;
   readonly toolActions?: ReactNode;
   readonly viewportOverlay?: ReactNode;
+  readonly emptyGraphHint?: string;
   /** Shared bubble/legend palette; consumers may extend it without changing graph semantics. */
   readonly typeStyles?: GraphTypeStyleRegistry;
 }
@@ -463,6 +464,7 @@ export function WorldGraphCanvas({
   controlsHost = null,
   toolActions,
   viewportOverlay,
+  emptyGraphHint,
   typeStyles = DEFAULT_GRAPH_TYPE_STYLES,
 }: WorldGraphCanvasProps) {
   const [inspectedEdgeId, setInspectedEdgeId] = useState<string | null>(null);
@@ -1453,6 +1455,12 @@ export function WorldGraphCanvas({
         {!externalControls ? dragModeTools : null}
       </div>
   );
+  const graphIsEmpty = record.snapshot.objects.length === 0;
+  const emptyHint = emptyGraphHint ?? (
+    onCreateObject || (onCanvasCreateRequest && creationKinds?.length)
+      ? "Add an object to begin."
+      : "Choose another World to explore."
+  );
   const typeLegend = (<div className={`world-graph-canvas__legend${externalControls ? " world-graph-canvas__legend--overlay" : ""}`} role="list" aria-label="Object type colors">{legend.map((kind) => <span key={kind} role="listitem"><i aria-hidden="true" style={{ backgroundColor: graphTypeColor(kind, typeStyles) }} />{kind}</span>)}</div>);
   const viewOptions = (fullCorpus ? <>
         <label className="world-graph-canvas__visibility"><input type="checkbox" checked={showUnconnected}
@@ -1656,6 +1664,11 @@ export function WorldGraphCanvas({
           </g>
         </svg>
         {viewportOverlay}
+        {graphIsEmpty ? (
+          <p className="world-graph-canvas__empty" role="status">
+            This World has no objects yet. {emptyHint}
+          </p>
+        ) : null}
         {externalControls && fullCorpus ? typeLegend : null}
         {palette && paletteScreen && creationKinds?.length && typeof document !== "undefined" ? createPortal(
           <div ref={paletteRef} className="world-graph-canvas__palette" role="group" aria-label="Choose node type"
@@ -1682,7 +1695,7 @@ export function WorldGraphCanvas({
         {status || (projection.nodes.length || projection.omittedNodes
           ? showSummaryCounts ? `${projection.nodes.length}${projection.omittedNodes ? " displayed" : ""} objects · ${projection.edges.length}${projection.omittedEdges ? " displayed" : ""} relationships` : ""
           : projection.hiddenUnconnectedNodes ? `${projection.hiddenUnconnectedNodes} loaded objects without listed relationships are hidden.`
-          : "This World has no objects yet. Add an object to begin.")}
+          : "")}
       </div>
       {!externalControls ? diagnostics : null}
     </section>

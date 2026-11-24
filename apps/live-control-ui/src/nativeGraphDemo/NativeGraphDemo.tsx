@@ -1454,6 +1454,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
     : [];
 
+  const canCreateObject = !readOnly && creationKinds.length > 0;
+  const emptyGraphHint = canCreateObject ? "Add an object to begin."
+    : mode === "guest" ? "Return to Demo home or sign in to create a World."
+      : "Use the World picker to choose another World.";
+
   function handleCanvasCreateRequest(intent: { readonly kind: string; readonly position: { readonly x: number; readonly y: number } }) {
     if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, intent.kind as NativeObjectKind)
       || !Number.isFinite(intent.position.x) || !Number.isFinite(intent.position.y)) return;
@@ -1942,6 +1947,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 canvasId={embedded ? "loaded-native-graph-canvas" : undefined}
                 record={record}
                 onMoveObjects={saveLayout}
+                emptyGraphHint={emptyGraphHint}
                 {...(embedded ? {
                   nodeShape: "circle" as const,
                   externalControls: true,
@@ -1967,12 +1973,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                       <text key={key} x={point.x} y={point.y} fontSize={28}>{text}</text>)}
                   </g> : undefined,
                   toolActions: !readOnly ? <>
-                    <SurfaceContextAction disabled={!graph.capabilities.create || !graph.capabilities.object_kinds.length || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
+                    <SurfaceContextAction disabled={!canCreateObject || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
                     <SurfaceContextAction disabled={!canConnectGraph(graph) || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
                   </> : undefined,
                   projectionOptions: { fullCorpus: true, compactOverview: !chronologyLayout && compactOverview, maxNodes: 512, maxEdges: 1024, focusObjectId: chronologyLayout ? null : viewFocusId, revealObjectIds: chronologyLayout?.eventIds as LocalObjectId[] | undefined, neighborhoodDepth, ...(mode === "guest" ? { showUnconnected: true } : {}) },
                   creationKinds,
-                  onCanvasCreateRequest: !readOnly && graph.capabilities.create ? handleCanvasCreateRequest : undefined,
+                  onCanvasCreateRequest: canCreateObject ? handleCanvasCreateRequest : undefined,
                   onConnectRequest: !readOnly && canConnectGraph(graph) ? handleConnectRequest : undefined,
                   onSelectionChange: handleCanvasSelectionChange,
                   revealObjectId: createdNodeReveal?.worldId === graph.world_id ? createdNodeReveal.nodeId as LocalObjectId : null,
