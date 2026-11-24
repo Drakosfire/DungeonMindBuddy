@@ -1,3 +1,5 @@
+import { webcrypto } from "node:crypto";
+import * as evidence from "../../api/nativeRecapPublicationApi";
 import * as native from "../../api/nativeWorldbuildingPublicationApi";
 import {retainNativeWorldbuildingConfirmation} from "./worldbuildingPublicationRecovery";
 import { act, fireEvent, render, screen, waitFor, cleanup, within } from "@testing-library/react";
@@ -612,4 +614,64 @@ it("routes stale first-World eligibility on a populated head to native, not clas
   render(<GraphReviewWorldbuildingPublication review={review}/>);
   await screen.findByText("native-only context");expect(context).toHaveBeenCalledOnce();
   expect(screen.queryByText("First World review")).toBeNull();expect(api.getWorldbuildingCapabilities).not.toHaveBeenCalled();
+});
+
+it("registers only an exact Worldbuilding excerpt and recovers a lost acknowledgment on reopen", async () => {
+  const previousCrypto = globalThis.crypto;
+  vi.stubGlobal("crypto", webcrypto);
+  try {
+    const source = "Sealed Tower stands above the marsh. The lanterns are blue.";
+    const excerpt = "Sealed Tower stands above the marsh.";
+    const sha = await evidence.sha256(source);
+    const exactReview = {
+      ...review, worldState: "initialized" as const, firstWorldPublishEligible: false,
+      sourceProse: source, sourceRevisionId: "sha256:" + sha,
+    };
+    const context: Awaited<ReturnType<typeof native.getNativeWorldbuildingContext>> = {
+      prepareCoordinates: {
+        managed_world_id: "world-a", run_id: "run-a", expected_run_revision: 2,
+        candidate_sha256: "b".repeat(64), expected_parent_revision_id: "rev:1",
+        expected_source_authority_epoch: 3, workspace_document_id: "doc-a",
+        workspace_document_revision: 2,
+      },
+      nativeWorldId: "native-a", records: [], sourceSupport: [],
+      nativeSource: {
+        admission_id: "exact-admission", source_artifact_id: "exact-native-artifact",
+        source_revision_id: "exact-native-revision", body_sha256: sha,
+      },
+    };
+    const contextRead = vi.spyOn(native, "getNativeWorldbuildingContext").mockResolvedValue(context);
+    const register = vi.spyOn(evidence, "extendEvidence")
+      .mockRejectedValueOnce(new Error("Reply lost"))
+      .mockResolvedValue({ status: "committed" } as Awaited<ReturnType<typeof evidence.extendEvidence>>);
+    const view = render(<GraphReviewWorldbuildingPublication review={exactReview} />);
+    const input = await screen.findByLabelText("Exact witness text");
+    fireEvent.change(input, { target: { value: source } });
+    fireEvent.click(screen.getByRole("button", { name: "Extend exact support evidence" }));
+    expect(await screen.findByText(/whole-body interval is context evidence/)).toBeInTheDocument();
+    expect(register).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: excerpt } });
+    fireEvent.click(screen.getByRole("button", { name: "Extend exact support evidence" }));
+    expect(await screen.findByText("Reply lost")).toBeInTheDocument();
+    const retained = register.mock.calls[0][1];
+    expect(retained).toMatchObject({
+      managed_world_id: "world-a", original_admission_id: "exact-admission",
+      source_artifact_id: "exact-native-artifact", source_revision_id: "exact-native-revision",
+      expected_body_sha256: sha,
+      spans: [{ evidence_role: "support", start_byte: 0, end_byte: excerpt.length,
+        expected_slice_sha256: await evidence.sha256(excerpt) }],
+    });
+    view.unmount();
+    render(<GraphReviewWorldbuildingPublication review={exactReview} />);
+    contextRead.mockResolvedValue({
+      ...context,
+      sourceSupport: [{ evidence_ref_id: "support:tower", start_byte: 0, end_byte: excerpt.length, text: excerpt }],
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Retry exact support request" }));
+    await waitFor(() => expect(screen.getByRole("option", { name: excerpt })).toBeInTheDocument());
+    expect(register.mock.calls[1][1]).toEqual(retained);
+    expect(screen.getByRole("button", { name: "Prepare selected facts" })).toBeDisabled();
+  } finally {
+    vi.stubGlobal("crypto", previousCrypto);
+  }
 });

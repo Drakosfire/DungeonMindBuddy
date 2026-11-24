@@ -91,7 +91,7 @@ export async function readContext(s:Snapshot):Promise<Context>{
   for(const r of v.source_support){if(!record(r)||!text(r.evidence_ref_id)||evidence.has(r.evidence_ref_id)||!Number.isSafeInteger(r.start_byte)||!Number.isSafeInteger(r.end_byte)||Number(r.start_byte)<0||Number(r.end_byte)<=Number(r.start_byte)||Number(r.end_byte)>bytes.length||typeof r.text!=='string'||new TextDecoder('utf-8',{fatal:true}).decode(bytes.slice(Number(r.start_byte),Number(r.end_byte)))!==r.text)invalid();evidence.add(r.evidence_ref_id);}
   return clone(v) as unknown as Context;
 }
-export async function witnessFromLines(s:Snapshot,startLine:number,endLine:number,quote:string):Promise<Witness>{
+export async function witnessFromLines(s:Pick<Snapshot,"sourceMarkdown"|"sourceSha256">,startLine:number,endLine:number,quote:string):Promise<Witness>{
   if(await sha256(s.sourceMarkdown)!==s.sourceSha256||!positive(startLine)||!positive(endLine)||endLine<startLine||!quote)invalid('Select exact nonempty evidence from the frozen source.');
   const lines=s.sourceMarkdown.match(/[^\r\n\v\f\u0085\u2028\u2029]*(?:\r\n|[\r\n\v\f\u0085\u2028\u2029]|$)/gu)?.filter(x=>x!=='')??[];
   if(endLine>lines.length||lines.join('')!==s.sourceMarkdown)invalid('Frozen source line bounds are invalid.');
@@ -103,7 +103,7 @@ export async function witnessFromLines(s:Snapshot,startLine:number,endLine:numbe
   if(startByte===0&&endByte===new TextEncoder().encode(s.sourceMarkdown).length)invalid('The whole-body interval is context evidence. Explicitly choose a proper source subrange for support; it will not be trimmed or relabeled.');
   return {startByte,endByte,text:quote,sha256:await sha256(raw)};
 }
-export function buildExtension(s:Snapshot,c:Context,w:Witness,id:string,createdAt:string):Extension{
+export function buildExtension(s:Pick<Snapshot,"worldId"|"sourceSha256">,c:Pick<Context,"source_support"|"native_source"> & {prepare_coordinates:Pick<Coordinates,"expected_parent_revision_id"|"expected_source_authority_epoch">},w:Witness,id:string,createdAt:string):Extension{
   if(!text(id)||!Number.isFinite(Date.parse(createdAt))||!/(?:Z|[+-]\d\d:\d\d)$/.test(createdAt)||!digest(w.sha256)||w.startByte<0||w.endByte<=w.startByte)invalid();
   if(c.source_support.some(row=>row.start_byte===w.startByte&&row.end_byte===w.endByte))invalid('This exact support already exists. Select its actual evidence ID instead.');
   return {managed_world_id:s.worldId,extension_id:id,original_admission_id:c.native_source.admission_id,
@@ -112,7 +112,7 @@ export function buildExtension(s:Snapshot,c:Context,w:Witness,id:string,createdA
     expected_source_authority_epoch:c.prepare_coordinates.expected_source_authority_epoch,created_at:createdAt,
     spans:[{client_ref:'operator-selected-witness',evidence_role:'support',start_byte:w.startByte,end_byte:w.endByte,expected_slice_sha256:w.sha256}]};
 }
-export async function extendEvidence(s:Snapshot,request:Extension){
+export async function extendEvidence(s:Pick<Snapshot,"nativeWorldId">,request:Extension){
   const v=await post('/api/live/source-statements/extend-evidence',request),r=v.receipt;
   if(v.status!=='committed'||!record(r)||r.schema_version!=='dm_native_source_evidence_extension_receipt_v1'
     ||r.extension_id!==request.extension_id||r.original_admission_id!==request.original_admission_id

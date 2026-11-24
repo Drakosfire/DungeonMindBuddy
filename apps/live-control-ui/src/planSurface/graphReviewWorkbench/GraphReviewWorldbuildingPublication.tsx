@@ -1,3 +1,4 @@
+import { WorldbuildingSupportEvidence } from "./WorldbuildingSupportEvidence";
 import {getNativeWorldbuildingContext, prepareNativeWorldbuilding, type NativeWorldbuildingConfirmation} from "../../api/nativeWorldbuildingPublicationApi";
 import {submitNativeWorldbuildingConfirmation} from "./worldbuildingPublicationRecovery";
 import {CandidateReviewSemantics} from './CandidateReviewSemantics';
@@ -442,6 +443,15 @@ function NativePublication({review, managedWorldId, isCurrent, onConfirmInFlight
           {fields && Object.entries(fields).filter(([field]) => ["label", "node_type", "description"].includes(field))
             .map(([field, value]) => <option key={field} value={field}>{field}: {String(value)}</option>)}
         </select></label>
+        <WorldbuildingSupportEvidence context={context} sourceProse={review.sourceProse}
+          sourceSha256={review.sourceRevisionId.slice(7)} isCurrent={() => isCurrent?.() !== false}
+          onBusy={value => onConfirmInFlightChange?.(value)} onCommitted={async () => {
+            const next = await getNativeWorldbuildingContext({
+              managed_world_id: managedWorldId, run_id: review.runId,
+              source_artifact_id: review.sourceArtifactId, source_sha256: review.sourceRevisionId.slice(7),
+            });
+            if (isCurrent?.() !== false) setContext(next);
+          }} />
         <label>Supporting excerpt<select value={selection.support} onChange={event =>
           updateSelection({ support: event.target.value})}>
           <option value="">Choose exact source evidence</option>
