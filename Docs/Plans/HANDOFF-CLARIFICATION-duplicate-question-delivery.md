@@ -47,3 +47,26 @@ The isolated app uses ports 38951/38952 and disposable App and Core databases
 on 33393/33394. Its runtime ledger is in the lane's `runtime/LANE.md`; it does
 not share operator World data. Vite owns the global frontend verification lock
 while running and must stop before the frontend verifier.
+
+## Local working-tree evidence
+
+The synthetic native completion test reproduced the captured provider answer's
+`ValueError: Question duplicated outside its inline object`. With this change,
+78 focused native-collaboration and related-page tests pass, including exact
+replay, preservation of nonidentical discussion and a related-source claim,
+and rejection of an identical evidence-bearing claim. These are working-tree
+diagnostics, not exact-commit qualification.
+
+In the task-owned app, retrying the original fabricated lamp request produced
+an editable inline question. Its answer was added to a message and submitted;
+the next turn generated a visible incomplete page suggestion, then failed at
+writer dispatch. The saved page was unchanged after a browser reload. On that
+reload, the successful clarification displayed only `Open Details to inspect
+this reply`, while the submitted answer remained in the transcript. Thus the
+continuation and cold-reopen goals are **not** established by this slice.
+
+A broader working-tree diagnostic (native collaboration, intentional response,
+and mixed Rules) reported 141 passing, two `SimpleNamespace` fixture failures
+and seven missing owned App database fixture errors. It did not use the required
+retained CI App owner and is not qualifying evidence; those failures have not
+been established as inherited. No deployed or full benchmark claim is made.
