@@ -114,7 +114,7 @@ def test_saved_trace_projection_is_a_lower_bound_and_ignores_reuse():
 
 
 def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
-    from evals.negative_retrieval.assessment import REPORT_SCHEMA, summarize
+    from evals.negative_retrieval.assessment import REPORT_SCHEMA, rubric_sha256, summarize
 
     positive = {"max_catalog_discoveries": 1, "required_reads": ["archive"], "allowed_reads": ["archive"], "outcomes": ["answer"]}
     cases = {"n1": CASE, "n2": CASE, "p1": positive}
@@ -124,7 +124,8 @@ def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
     unbound = summarize(cases, results)
     assert unbound["unnecessary_retrieval"]["failures"] == 0
     assert unbound["unnecessary_retrieval"]["unknown"] == 2
-    results = {key: {**result, "schema": REPORT_SCHEMA, "fixture_context_verified": True,
+    results = {key: {**result, "schema": REPORT_SCHEMA, "case_id": key,
+                     "rubric_sha256": rubric_sha256(cases[key]), "fixture_context_verified": True,
                      "capture_environment_verified": True} for key, result in results.items()}
     rates = summarize(cases, results)
     assert rates["unnecessary_retrieval"] == {"cases": 2, "failures": 1, "unknown": 1,
@@ -134,7 +135,7 @@ def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
 
 
 def test_rates_do_not_count_unbound_or_unverified_capture_observations():
-    from evals.negative_retrieval.assessment import REPORT_SCHEMA, summarize
+    from evals.negative_retrieval.assessment import REPORT_SCHEMA, rubric_sha256, summarize
 
     positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
                 "allowed_reads": ["ledger"], "outcomes": ["answer"]}
@@ -147,8 +148,8 @@ def test_rates_do_not_count_unbound_or_unverified_capture_observations():
     assert raw_rates["missed_required_reads"]["unknown"] == 1
     assert raw_rates["missed_required_reads"]["failures"] == 0
     results = {
-        "negative": {**negative, "schema": REPORT_SCHEMA, "fixture_context_verified": None, "capture_environment_verified": True},
-        "positive": {**missing_read, "schema": REPORT_SCHEMA, "fixture_context_verified": True, "capture_environment_verified": None},
+        "negative": {**negative, "schema": REPORT_SCHEMA, "case_id": "negative", "rubric_sha256": rubric_sha256(CASE), "fixture_context_verified": None, "capture_environment_verified": True},
+        "positive": {**missing_read, "schema": REPORT_SCHEMA, "case_id": "positive", "rubric_sha256": rubric_sha256(positive), "fixture_context_verified": True, "capture_environment_verified": None},
         "missing": {"status": "unproven", "missing_artifacts": ["request"]},
     }
     rates = summarize(cases, results)
@@ -161,6 +162,11 @@ def test_rates_do_not_count_unbound_or_unverified_capture_observations():
     rates = summarize(cases, results)
     assert rates["unnecessary_retrieval"]["failures"] == 1
     assert rates["missed_required_reads"]["failures"] == 1
+    results["negative"]["case_id"] = "other"
+    assert summarize(cases, results)["unnecessary_retrieval"]["failures"] == 0
+    results["negative"]["case_id"] = "negative"
+    changed_cases = {**cases, "negative": {**CASE, "max_catalog_discoveries": CASE["max_catalog_discoveries"] + 1}}
+    assert summarize(changed_cases, results)["unnecessary_retrieval"]["failures"] == 0
     del results["negative"]["capture_environment_verified"]
     assert summarize(cases, results)["unnecessary_retrieval"]["failures"] == 0
     del results["negative"]["fixture_context_verified"]
@@ -337,7 +343,7 @@ def test_offline_report_keeps_missing_and_positive_retrieval_evidence_honest(tmp
 def test_partial_capture_retains_probe_failure_without_claiming_a_rate(tmp_path):
     import json
     import pytest
-    from evals.negative_retrieval.assessment import summarize
+    from evals.negative_retrieval.assessment import rubric_sha256, summarize
     from evals.negative_retrieval.report import report_case
 
     fixture = {"id": "case1", "request": "Use that."}
@@ -348,6 +354,7 @@ def test_partial_capture_retains_probe_failure_without_claiming_a_rate(tmp_path)
     (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
     (tmp_path / "terminal.json").write_text(json.dumps({"status": "outcome_unknown", "error_type": "RuntimeError"}))
     report = report_case(tmp_path, fixture, CASE)
+    assert report["case_id"] == "case1" and report["rubric_sha256"] == rubric_sha256(CASE)
     assert report["status"] == "unproven" and "answer-http" in report["missing_artifacts"]
     assert report["partial_probe"] == {"catalog_discoveries": 1, "materialization_attempts": 1,
                                        "raised_discoveries": 0, "raised_materializations": 1}

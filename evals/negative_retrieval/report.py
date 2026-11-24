@@ -3,7 +3,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 
-from .assessment import REPORT_SCHEMA, assess
+from .assessment import REPORT_SCHEMA, assess, rubric_sha256
 from .capture_observation import _body, observe
 from .related_page_probe import acquisition_labels, catalog_discovery_count
 
@@ -57,7 +57,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         terminal = {"status": terminal["status"], "error_type": terminal.get("error_type")}
     missing = [name for name in names if name not in present]
     if missing:
-        return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "status": "unproven", "missing_artifacts": missing,
+        return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
+                "status": "unproven", "missing_artifacts": missing,
                 "artifact_sha256": hashes, "partial_probe": partial_probe, "capture_terminal": terminal}
     if rows["request"].get("message") != fixture["request"]:
         raise ValueError("Capture request differs from the fixture")
@@ -102,7 +103,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
     fixture_bound = True if primary_bound and related_bound and pin_bound else None
-    return {**grade, "schema": REPORT_SCHEMA, "case_id": fixture["id"], "status": "unproven",
+    return {**grade, "schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
+            "status": "unproven",
             "observation_status": grade["status"], "primary_context_verified": primary_bound,
             "related_context_verified": related_bound, "fixture_context_verified": fixture_bound,
             "fixture_pin_verified": pin_bound,

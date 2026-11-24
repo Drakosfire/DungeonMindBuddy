@@ -5,9 +5,17 @@ caller must supply independently reviewed judgments and complete journals.
 """
 
 from .trace_observation import UNKNOWN
+from hashlib import sha256
+import json
 
 ASSESSMENT_SCHEMA = "dmb_negative_retrieval_assessment_v1"
 REPORT_SCHEMA = "dmb_negative_retrieval_report_v1"
+
+
+def rubric_sha256(rubric):
+    """Bind a report to the exact expected case outcome and budgets."""
+    return sha256(json.dumps(rubric, sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
 
 
 def assess(case, observation):
@@ -98,6 +106,8 @@ def summarize(cases, results):
             if not isinstance(result.get("checks"), dict):
                 return False
             return (result.get("schema") == REPORT_SCHEMA
+                    and result.get("case_id") == case_id
+                    and result.get("rubric_sha256") == rubric_sha256(cases[case_id])
                     and result.get("fixture_context_verified") is True
                     and result.get("capture_environment_verified") is True)
 

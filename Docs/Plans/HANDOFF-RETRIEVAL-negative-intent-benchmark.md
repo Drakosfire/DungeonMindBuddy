@@ -57,6 +57,10 @@ summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a
 violation observed on an unbound capture remains diagnostic evidence. This
 closes a path that could previously count raw results without those bindings.
+Reports also record a canonical digest of the scored rubric, and aggregation
+requires both the expected case ID and rubric digest to match. This prevents
+accidental reuse under another case or changed expectations; it does not prove
+independent authorship or turn caller-supplied verification flags into evidence.
 
 Re-anchor checkpoint: this lane merged main `7a1a6bfb35347d8b79f8e05074ef023416db9328`
 after the Build rich-paste receipt and Plan Turn changes. The focused evaluator
