@@ -48,6 +48,13 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+Re-anchor checkpoint: this lane merged main `7a1a6bfb35347d8b79f8e05074ef023416db9328`
+after the Build rich-paste receipt and Plan Turn changes. The focused evaluator
+suite passed 43 tests in the shared Python environment. The CI inventory still
+reports the evaluator test as unclassified; its shared manifest remains under
+the CI lane's lease. This is not locked-environment or current-head runtime
+qualification, and the predecessor-source observations below remain unchanged.
+
 Primary context binding now checks the complete prior conversation, clean page,
 and the product-validated source receipt/provenance join. A read-only smoke on
 an existing ordinary capture passed using a fixture reconstructed from that
