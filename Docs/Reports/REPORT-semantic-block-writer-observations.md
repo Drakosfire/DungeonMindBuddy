@@ -994,6 +994,31 @@ and table. The private reminder was absent from the new Read Aloud.
 The first arm passed placement and persistence and failed immediate
 acknowledgment. The cold-editor control passed all three checks.
 Buddy #4606 fixes the receipt digest mismatch in a deterministic
-regression. Immediate acknowledgment in a fresh mounted rich-paste
-run still needs hosted verification after its serving carry, #4608,
-is activated.
+regression. Its serving carry, #4608, is verified in the follow-up
+below.
+
+### Hosted mounted Build Save and single-passage Play on 931ce3e1
+
+On November 23, 2026 (America/Denver), hosted Buddy served the reviewed
+Save fix with App schema `20261123_0207` and the existing guest settings.
+Both checks used synthetic Buddy Cloud Pilot content.
+
+- **B01.** On document `650a1761-a7c3-40f0-a835-ea9df4b290fb`, pasted the
+  same baseline, let it commit, and sent the original prompt at the end of
+  Arrival without reloading the editor. Review offered Read Aloud: Arrival
+  followed by GM Note. Save cleared review and reached Saved without an
+  insertion warning or receipt recovery. Cold reopen preserved both blocks
+  in order, exactly one GM Note, and all other rendered content including
+  First sight and the table. The private instruction was absent from the
+  spoken passage.
+- **PL02.** Adopted the saved P01 Plan version 2 into fresh Play session
+  `708fcb43-7f1d-481a-b8cd-3e5e8caf0d69`. Removed only First sight from the
+  session copy and reopened revision 1. With Boardwalk as the only Read
+  Aloud in Arrival, a fresh conversation quoted that passage in response
+  to the exact PL02 prompt. It omitted the Tower GM Note and staged no
+  scene edit. Reopening recovered the expected Markdown byte for byte,
+  including the scene and choice markers, Departure, and the table. The
+  parent Plan still contained its two Read Aloud blocks and GM Note.
+
+The earlier two-passage result remains part of the record. This Play
+rerun measures retrieval of an unambiguous passage from the saved copy.
