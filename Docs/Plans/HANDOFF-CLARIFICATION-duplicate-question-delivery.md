@@ -35,6 +35,13 @@ No shared routing, schema, migration, frontend, model, deployment, or provider
 configuration edits. Open PRs #4642 (routing), #4584 (benchmark), and #3867
 (placement) were checked for these implementation paths.
 
+The routing owner explicitly split the overlapping native-completion lease at
+`be54f7b2471f18bf19d7dd2dba68f6424ba562f3`: this slice owns the existing
+duplicate-question normalization and question-only helpers; routing retains
+only its new pending/source-free dispatch and codec helpers. The split requires
+independent retained-reader and replay verification and does not grant merge or
+deployment authority.
+
 Prove exact captured output and replay at the native completion boundary,
 including the controls above, then exercise ordinary synthetic Build delivery
 and answer continuation with the existing inline component. Retain the live
