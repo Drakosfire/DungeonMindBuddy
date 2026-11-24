@@ -154,6 +154,7 @@ class NativeWriterEvidence:
     typed_source_answer: bool = False
     lore_page_limitations: bool = False
     lore_request_reference: bool = False
+    lore_outcome: bool = False
     generic_limitations: bool = False
     semantic_evidence: bool = False
     variant_format: bool = False
@@ -465,8 +466,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         raise ValueError('Unknown lore review limitation policy')
     lore_page_limitations = lore_limitation_policy == LORE_LIMITATION_POLICY
     format_name = body.get("text", {}).get("format", {}).get("name")
-    from .lore_page_review import LORE_REQUEST_FORMAT
-    lore_request_reference = format_name == LORE_REQUEST_FORMAT
+    from .lore_page_review import LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT
+    lore_outcome = format_name == LORE_OUTCOME_FORMAT
+    lore_request_reference = format_name in {LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT}
     variant_passage_review = format_name in VARIANT_PASSAGE_FORMATS
     variant_edits = format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS}
     variant_format = variant_edits or format_name == VARIANT_WRITER_FORMAT
@@ -475,7 +477,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         bind_lore_page="lore_page_destination" in work_frame["build_work"],
         supplied_source_references=supplied_source_references,
         typed_source_answer=typed_source_answer, lore_page_limitations=lore_page_limitations,
-        lore_request_reference=lore_request_reference) if build_local
+        lore_request_reference=lore_request_reference, lore_outcome=lore_outcome) if build_local
         else play_work_view(expected_work) if play_local
         else prose_work if prose_work is not None
         else plan_work_view(expected_work,prefix,supplied_source_references=plan_source_references) if authored_local else expected_work)
@@ -488,7 +490,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             bind_lore_page="lore_page_destination" in work_frame["build_work"], retained_raw_markdown=True,
             supplied_source_references=supplied_source_references,
             typed_source_answer=typed_source_answer, lore_page_limitations=lore_page_limitations,
-            lore_request_reference=lore_request_reference,
+            lore_request_reference=lore_request_reference, lore_outcome=lore_outcome,
         )
         if t.canonical_sha256(work_frame) != t.canonical_sha256(retained_work):
             raise ValueError('Native writer changed or omitted its exact surface work')
@@ -537,7 +539,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         authored_local=authored_local,build_local=build_local,
         supplied_source_references=supplied_source_references,typed_source_answer=typed_source_answer,
         lore_page_limitations=lore_page_limitations,generic_limitations=generic_reply_limits,
-        lore_request_reference=lore_request_reference,
+        lore_request_reference=lore_request_reference, lore_outcome=lore_outcome,
         semantic_evidence=semantic_evidence,
         variant_format=variant_format,variant_edits=variant_edits,
         variant_visible_reply=format_name in {VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS},

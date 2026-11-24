@@ -421,7 +421,7 @@ class PlanJevWriter:
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                     supplied_source_references=True,
-                    typed_source_answer=True, lore_page_limitations=True, lore_request_reference=True,
+                    typed_source_answer=True, lore_page_limitations=True, lore_request_reference=True, lore_outcome=True,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
@@ -559,6 +559,12 @@ class PlanJevWriter:
                     if 'request' in destination else explicit_blank_lore_page(destination['instruction']))
                 if not blank:
                     instructions += "\n" + LORE_PROPOSAL_GUIDANCE
+                if self.provider_work['build_work'].get('lore_reply_contract') is not None:
+                    instructions += ('\nFor this populated page task, collaboration must be the lore_page draft '
+                        'with its body in answer_segments, or needs_context with a specific question '
+                        'and an empty answer_segments array. Null collaboration and bare limitations '
+                        'do not fulfill this work. Do not choose needs_context merely because supplied '
+                        'authored premises are not played facts or contain declared open questions.')
                 work = self.provider_work["build_work"]["requested_work"]
                 if work["requested_work"] == "review_lore_page_from_conversation":
                     instructions += (

@@ -410,3 +410,51 @@ def test_request_review_normalizes_proposal_formatting_without_changing_legacy_r
     with pytest.raises(ValueError):
         ProposedLorePageReference.model_validate({'kind':'lore_page',
             'destination':{'request':'current_author_request','title':'Ferry'},'open_questions':[' \n ']})
+
+
+
+def test_v2_proposed_page_schema_remains_frozen():
+    from application_state.agent_conversation.lore_page_review import ProposedLorePageReference
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    # Captured from exact1e28 before the V3 contract; descriptions are wire syntax too.
+    assert canonical_sha256(ProposedLorePageReference.model_json_schema()) == '65b56dca1ce7d80d7102679617d9903472b02d6ee548a135c930fb78e32d586c'
+
+
+@pytest.mark.parametrize('text', ['What subject should the page describe?', '  Which  premise\n should I use?  '])
+def test_meaningful_lore_question_projects_its_supplied_text_without_a_page(text):
+    from application_state.agent_conversation.lore_page_review import project_lore_outcome
+    raw = {'answer_segments': [], 'limitations': [],
+           'collaboration': {'kind': 'needs_context', 'question': text}}
+    result = project_lore_outcome(raw)
+    assert result['collaboration'] is None
+    assert result['answer_segments'] == [{'kind': 'discussion', 'text': ' '.join(text.split())}]
+    assert raw['answer_segments'] == []
+    assert raw['collaboration']['kind'] == 'needs_context'
+
+
+@pytest.mark.parametrize('mutation', ['null', 'bare_limit', 'bodyless', 'discussion_draft',
+    'mixed_question', 'blank_question', 'forged_question', 'missing_question'])
+def test_meaningful_lore_outcomes_refuse_empty_and_mixed_results(mutation):
+    from application_state.agent_conversation.lore_page_review import project_lore_outcome
+    row = {'kind': 'proposal', 'label': 'invented_idea', 'text': 'Authored proposal: a bronze moth carries memories.'}
+    raw = {'answer_segments': [row], 'limitations': [],
+        'collaboration': {'kind': 'lore_page', 'destination': {'request': 'current_author_request', 'title': 'Memory Ferry'}}}
+    if mutation in {'null', 'bare_limit'}:
+        raw['collaboration'] = None
+    if mutation in {'bare_limit', 'bodyless'}:
+        raw['answer_segments'] = []
+        raw['limitations'] = ['missing_requested_details']
+    if mutation == 'discussion_draft':
+        raw['answer_segments'] = [{'kind': 'discussion', 'text': 'Ready when you are.'}]
+    if mutation.endswith('question'):
+        raw['collaboration'] = {'kind': 'needs_context', 'question': 'Which subject should I use?'}
+        if mutation != 'mixed_question':
+            raw['answer_segments'] = []
+        if mutation == 'blank_question':
+            raw['collaboration']['question'] = ' \n '
+        if mutation == 'forged_question':
+            raw['collaboration']['destination'] = 'prior_author_request'
+        if mutation == 'missing_question':
+            del raw['collaboration']['question']
+    with pytest.raises(ValueError):
+        project_lore_outcome(raw)

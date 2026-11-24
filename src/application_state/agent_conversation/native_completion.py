@@ -435,6 +435,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     if (not isinstance(candidate,dict) or set(candidate) != keys
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
+    if evidence.lore_outcome:
+        from .lore_page_review import project_lore_outcome
+        candidate = project_lore_outcome(candidate)
     if evidence.variant_visible_reply and not candidate['answer_segments']:
         raise ValueError('Native variant completion requires a visible reply')
     if evidence.variant_format:

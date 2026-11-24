@@ -604,6 +604,25 @@ proposes one title for the author's explicit review before any page is saved.
 """
 
 
+_PRE_LORE_OUTCOME_WORK = WORK
+_PRE_LORE_OUTCOME_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **WORK,
+    "review_lore_page": Work("create", "Prepare a populated standalone page draft NOW from new research.", review="lore_page"),
+    "review_lore_page_from_conversation": Work("create", "Prepare a populated standalone page draft NOW from the preceding discussion.", review="lore_page"),
+})
+GUIDANCE = GUIDANCE + """
+Resolve the deliverable requested in the CURRENT author turn, not an eventual
+page mentioned in notes or older turns. Choose discuss for acknowledgment,
+brainstorming or deferred notes when the author says not to draft yet. Preserve
+continuing constraints and approval requirements. Only choose a populated lore
+review when the current turn asks to prepare or revise that draft now. An
+approval to save an existing reviewed draft is not a request for a new draft.
+Choose clarify_creation when the current intended destination remains ambiguous;
+quoted examples, negations and alternatives do not themselves request creation.
+"""
+
+
 def _resolver_digest(work_options):
     return digest({
         "policy": POLICY,
@@ -615,8 +634,11 @@ def _resolver_digest(work_options):
 
 MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
+LORE_OUTCOME_MENU_DIGEST = MENU_DIGEST
 _MENU_CONTRACTS = MappingProxyType({
     MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    digest(question(guidance=_PRE_LORE_OUTCOME_GUIDANCE, work_options=_PRE_LORE_OUTCOME_WORK)):
+        (_PRE_LORE_OUTCOME_GUIDANCE, _PRE_LORE_OUTCOME_WORK, _resolver_digest(_PRE_LORE_OUTCOME_WORK)),
     digest(question(guidance=_PRE_REQUEST_REFERENCE_GUIDANCE, work_options=_PRE_REQUEST_REFERENCE_WORK)):
         (_PRE_REQUEST_REFERENCE_GUIDANCE, _PRE_REQUEST_REFERENCE_WORK, _resolver_digest(_PRE_REQUEST_REFERENCE_WORK)),
     digest(question(guidance=_PRE_CONVERSATION_LORE_GUIDANCE, work_options=_PRE_CONVERSATION_LORE_WORK)):

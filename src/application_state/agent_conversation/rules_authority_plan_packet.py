@@ -402,6 +402,11 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
                 and lore_request_reference_eligible(evidence.work_frame, graph_execution)
                 and not evidence.lore_request_reference):
             raise ValueError('Current lore review requires its captured-request reference')
+        from .native_build_work_view import lore_outcome_eligible
+        if (isinstance(action, NativeBuildActionV1) and not allow_retained_format
+                and lore_outcome_eligible(evidence.work_frame, graph_execution)
+                and not evidence.lore_outcome):
+            raise ValueError('Current populated lore review requires a meaningful outcome')
         from .native_execution import NativePlanActionV2, NativePlanActionV3
         if (type(action) in (NativePlanActionV2, NativePlanActionV3) and evidence.related_pages
                 and not allow_retained_format and not evidence.supplied_source_references):

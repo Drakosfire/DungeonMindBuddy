@@ -136,6 +136,8 @@ class ProposedLorePage(Closed):
 
 
 LORE_REQUEST_FORMAT = "surface_native_lore_request_reference_v2"
+LORE_OUTCOME_FORMAT = "surface_native_lore_request_reference_v3"
+LORE_OUTCOME_POLICY = "draft_or_context_question_v3"
 
 
 class LorePageRequestReference(Closed):
@@ -174,3 +176,32 @@ class ProposedLorePageReference(ProposedLorePage):
             return value
         return tuple(" ".join(question.split()) if isinstance(question, str) else question
                      for question in value)
+
+
+class LoreContextQuestion(Closed):
+    """Ask for essential missing context instead of claiming the page is ready."""
+    kind: Literal["needs_context"]
+    question: str = Field(min_length=1, max_length=1000,
+        description="Ask the specific question needed to draft. Supplied authored premises and unresolved open questions do not require played-event evidence.")
+
+    @field_validator("question", mode="before")
+    @classmethod
+    def normalize_question_formatting(cls, value):
+        return " ".join(value.split()) if isinstance(value, str) else value
+
+
+def project_lore_outcome(candidate):
+    """Project the exact typed V3 outcome; V2 normalization never calls this."""
+    result = candidate.get("collaboration")
+    rows = candidate.get("answer_segments")
+    if isinstance(result, dict) and result.get("kind") == "needs_context":
+        question = LoreContextQuestion.model_validate(result)
+        if rows != []:
+            raise ValueError("A context question cannot carry a page draft")
+        return {**candidate, "collaboration": None,
+            "answer_segments": [{"kind": "discussion", "text": question.question}]}
+    if result is None or not rows or any(
+            not isinstance(row, dict) or row.get("kind") not in {"proposal", "native_body_claim"}
+            for row in rows):
+        raise ValueError("A populated lore outcome requires a draft or a specific context question")
+    return candidate

@@ -354,6 +354,19 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                         variant for variant in items["anyOf"]
                         if variant["properties"]["kind"].get("const") in {"native_body_claim", "proposal"}
                     ]
+            outcome_policy = work_frame.get('build_work', {}).get('lore_reply_contract')
+            if outcome_policy is not None:
+                from .lore_page_review import LORE_OUTCOME_POLICY, LoreContextQuestion
+                if outcome_policy != LORE_OUTCOME_POLICY or not request_reference:
+                    raise ValueError('Unknown or unbound lore outcome policy')
+                if work_frame['response_contract']['requested_work'] not in {'review_lore_page', 'review_lore_page_from_conversation'}:
+                    raise ValueError('Lore outcome requires populated page work')
+                page = review['anyOf'][0]
+                page['description'] = 'Prepare the requested standalone draft now from supplied material; it is reviewed before saving. Use needs_context only when essential context is truly missing.'
+                review = {'anyOf': [page, LoreContextQuestion.model_json_schema()]}
+                items = base['properties']['answer_segments']['items']
+                items['anyOf'] = [variant for variant in items['anyOf']
+                    if variant['properties']['kind'].get('const') in {'native_body_claim', 'proposal'}]
             base['properties']['collaboration']=review
             base['required'].append('collaboration')
             if definitions:
@@ -493,11 +506,11 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     from generationengine.utils.schema_utils import make_schema_strict
     from .native_plan_work_view import SOURCE_REFERENCE_FORMAT, SOURCE_REFERENCE_POLICY
     plan_references = work_frame.get('schema') == PLAN_WORK_SCHEMA and work_frame.get('citation_policy') == SOURCE_REFERENCE_POLICY
-    from .lore_page_review import LORE_REQUEST_FORMAT
+    from .lore_page_review import LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT
     if work_frame.get('build_work', {}).get('lore_page_destination') == {'request': 'current_author_request'}:
         if not lore_limitation_policy or not generic_reply_limits:
             raise ValueError('Request reference requires the current lore reply contract')
-        format_name = LORE_REQUEST_FORMAT
+        format_name = LORE_OUTCOME_FORMAT if work_frame.get("build_work", {}).get("lore_reply_contract") is not None else LORE_REQUEST_FORMAT
     elif lore_limitation_policy:
         format_name = LORE_LIMITATION_FORMAT
     elif source_answer_policy:
@@ -519,8 +532,8 @@ def offered_generic_limits(format):
     """
     from .native_build_work_view import SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT
     from .native_plan_work_view import SOURCE_REFERENCE_FORMAT
-    from .lore_page_review import LORE_REQUEST_FORMAT
-    names = {f'surface_native_evidence_selectors_v{v}' for v in range(1, 12)} | {LORE_REQUEST_FORMAT,
+    from .lore_page_review import LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT
+    names = {f'surface_native_evidence_selectors_v{v}' for v in range(1, 12)} | {LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT,
         SOURCE_ANSWER_FORMAT, LORE_LIMITATION_FORMAT, SOURCE_REFERENCE_FORMAT}
     if (not isinstance(format, dict) or set(format) != {'type', 'name', 'strict', 'schema'}
             or format['type'] != 'json_schema' or format['strict'] is not True or format['name'] not in names):

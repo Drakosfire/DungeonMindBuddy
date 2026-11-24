@@ -58,6 +58,17 @@ def lore_request_reference_eligible(host, execution):
             or 'review_blank_lore_page' in _menu_work(choice.menu_sha256))
 
 
+def lore_outcome_eligible(host, execution):
+    from .build_intentional_response import LORE_OUTCOME_MENU_DIGEST
+    from .types import BuildRequestedWorkResolutionV1
+    if not lore_page_reply(host, execution):
+        return False
+    choice, = [event for event in execution.events
+               if isinstance(event, BuildRequestedWorkResolutionV1)]
+    return (choice.menu_sha256 == LORE_OUTCOME_MENU_DIGEST
+            and choice.requested_work in {'review_lore_page', 'review_lore_page_from_conversation'})
+
+
 def selection_aliases(host):
     """One deterministic local domain from the complete prewriter work catalog."""
     identities = [str(UUID(row['read_id'])) for row in host['artifact_under_edit']['sections']]
@@ -132,7 +143,7 @@ def variant_output_version(work_frame):
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
                    variant_passage_review=False, bind_lore_page=False,
                    retained_raw_markdown=False, supplied_source_references=False,
-                   typed_source_answer=False, lore_page_limitations=False, lore_request_reference=False):
+                   typed_source_answer=False, lore_page_limitations=False, lore_request_reference=False, lore_outcome=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     from .model_markdown import project_model_markdown, project_retained_source_markdown
 
@@ -191,6 +202,11 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
             for row in contract['available_followups']]
         if lore_request_reference and lore_request_reference_eligible(host, execution):
             work['lore_page_destination'] = {'request': 'current_author_request'}
+        if lore_outcome and lore_outcome_eligible(host, execution):
+            from .lore_page_review import LORE_OUTCOME_POLICY
+            if work.get('lore_page_destination') != {'request': 'current_author_request'}:
+                raise ValueError('Lore outcome requires its captured request reference')
+            work['lore_reply_contract'] = LORE_OUTCOME_POLICY
         if bind_lore_page and 'lore_page_destination' not in work and contract['requested_work'] in ('review_lore_page', 'review_lore_page_from_conversation') and not contract['barrier']:
             from .lore_page_review import explicit_lore_page_witness
 
