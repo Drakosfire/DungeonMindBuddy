@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from functools import wraps
 from threading import Lock
 from unittest.mock import patch
+from uuid import UUID
 
 _lock = Lock()
 
@@ -25,6 +26,11 @@ def observe_related_page_owners():
             @wraps(function)
             def wrapped(*args, **kwargs):
                 row = {"owner": name, "state": "entered"}
+                if name == "related_page_materialization" and args:
+                    pointer = args[0]
+                    identity = pointer.get("document_id") if isinstance(pointer, dict) else getattr(pointer, "document_id", None)
+                    if isinstance(identity, (str, UUID)) and str(identity):
+                        row["document_id"] = str(identity)
                 with record_lock:
                     records.append(row)
                 try:
@@ -45,10 +51,10 @@ def observe_related_page_owners():
         _lock.release()
 
 
-def acquisition_labels(records):
-    """Treat even an empty or failed discovery as an acquisition attempt.
+def acquisition_labels(records, *, label_by_document=None):
+    """Project observed page-materialization attempts as unmapped reads.
 
-    Labels are deliberately unmapped. Materialization may be witnessed again
+    Document identity is host-side evidence, never model input. Materialization may be witnessed again
     in the trace; the case-level violation remains the same. No absence claim
     follows from this partial probe.
     """
@@ -60,4 +66,12 @@ def acquisition_labels(records):
         for row in records
     ):
         raise ValueError("Malformed related-page probe evidence")
-    return [UNKNOWN for _ in records]
+    labels = label_by_document or {}
+    return [labels.get(row.get("document_id"), UNKNOWN) for row in records
+            if row["owner"] == "related_page_materialization"]
+
+
+def catalog_discovery_count(records):
+    """Count observed catalog attempts, including empty and failed attempts."""
+    acquisition_labels(records)  # Validate the complete record shape first.
+    return sum(row["owner"] == "related_catalog_discovery" for row in records)

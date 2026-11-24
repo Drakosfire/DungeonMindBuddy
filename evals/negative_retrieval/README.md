@@ -4,7 +4,8 @@ This is an assessment core, not an ordinary-turn runner. A pass from synthetic
 observations validates only the assessor. It does not prove model behavior,
 complete trace capture, question quality, browser delivery, or deployment.
 
-The caller supplies case-private expected source labels and allowed outcomes,
+The caller supplies case-private expected source labels, allowed outcomes and
+an explicit maximum number of related-page catalog discovery attempts,
 and independently observed results. `reads` must include all new discovery and
 materialization activity in the turn, normalized to fixture-local source labels;
 loading already retained dialogue or citation records is not a new read. A
@@ -59,9 +60,11 @@ as a pass or use model output as an independent semantic review.
 `related_page_probe.observe_related_page_owners()` instruments the actual
 related-page discovery and materialization functions in a serial isolated
 process. It records entry even when an operation fails or a catalog is empty,
-restores the functions on exit, and keeps arguments and source contents out of
-its records. Combine its `acquisition_labels` with trace observations; this is
-still a partial journal. The probe is process-global while installed: do not run
+restores the functions on exit, and records only host-side document identity
+for materialization (never the source body or model-facing metadata). `catalog_discovery_count` scores catalog attempts separately
+from `acquisition_labels`, which projects materialization attempts. Both are
+partial observations, including failed attempts; a count within budget does
+not establish absence of unobserved work. The probe is process-global while installed: do not run
 it against a shared service, concurrent evaluator, or live World. A focused
 synthetic test confirmed that the real Build budget path invokes catalog
 discovery before a controller decision; its registry was stubbed, so this is
@@ -90,7 +93,9 @@ the private rubric without calling a model. Missing files are unproven. This
 initial report intentionally has no authority to promote manual judgments or a
 partial journal to complete. It records observed zero-budget violations and
 separately reports whether the saved primary context and related-source fixture
-were bound. It leaves the case unproven because the capture environment and
+were bound. Related-page trace and probe identities map to fixture labels only
+through the validated stable pre/post inventory; unmapped material remains
+unknown for positive controls. It leaves the case unproven because the capture environment and
 other required boundaries are not yet independently verified.
 
 `fixture_binding.verify_fixture` checks the complete ordered prior dialogue and

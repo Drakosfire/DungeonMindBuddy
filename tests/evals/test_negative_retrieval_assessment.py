@@ -8,7 +8,8 @@ def _test_manifest(tmp_path):
 
 
 def observation(**overrides):
-    return dict({"reads": [], "journal_complete": True, "outcome": "clarification",
+    return dict({"reads": [], "journal_complete": True, "catalog_discoveries": 0,
+                 "catalog_journal_complete": True, "outcome": "clarification",
                  "completed_turn": True, "no_premature_mutation": True,
                  "semantic_quality": True, "question_addresses_gap": True, "question_answerable": True,
                  "question_not_already_answered": True, "question_no_false_premises": True,
@@ -16,7 +17,7 @@ def observation(**overrides):
                  "answer_sent": True, "answer_continued": True, "answer_reopened": True}, **overrides)
 
 
-CASE = {"required_reads": [], "allowed_reads": [], "outcomes": ["clarification", "proposal"]}
+CASE = {"max_catalog_discoveries": 0, "required_reads": [], "allowed_reads": [], "outcomes": ["clarification", "proposal"]}
 
 
 def test_clarification_requires_full_delivery_and_continuation():
@@ -35,7 +36,7 @@ def test_unwanted_reads_and_incomplete_journals():
 
 
 def test_positive_control_requires_evidence_not_merely_activity():
-    case = {"required_reads": ["archive"], "allowed_reads": ["archive"], "outcomes": ["answer"]}
+    case = {"max_catalog_discoveries": 1, "required_reads": ["archive"], "allowed_reads": ["archive"], "outcomes": ["answer"]}
     assert assess(case, observation(outcome="answer"))["missing_reads"] == ["archive"]
     assert assess(case, observation(outcome="answer", reads=["archive"], required_support=True))["status"] == "pass"
     assert assess(case, observation(outcome="answer", reads=["archive"]))["status"] == "unproven"
@@ -94,7 +95,7 @@ def test_saved_trace_projection_is_a_lower_bound_and_ignores_reuse():
 def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
     from evals.negative_retrieval.assessment import summarize
 
-    positive = {"required_reads": ["archive"], "allowed_reads": ["archive"], "outcomes": ["answer"]}
+    positive = {"max_catalog_discoveries": 1, "required_reads": ["archive"], "allowed_reads": ["archive"], "outcomes": ["answer"]}
     cases = {"n1": CASE, "n2": CASE, "p1": positive}
     results = {"n1": assess(CASE, observation(reads=["other"], journal_complete=False)),
                "n2": assess(CASE, observation(reads=[], journal_complete=False)),
@@ -109,7 +110,7 @@ def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
 def test_unmapped_acquisition_fails_zero_budget_but_is_unknown_for_positive_control():
     from evals.negative_retrieval.trace_observation import UNKNOWN
 
-    positive = {"required_reads": ["ledger"], "allowed_reads": ["ledger"], "outcomes": ["answer"]}
+    positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"], "allowed_reads": ["ledger"], "outcomes": ["answer"]}
     negative = assess(CASE, observation(reads=[UNKNOWN]))
     unclear = assess(positive, observation(reads=[UNKNOWN], outcome="answer", required_support=True))
     assert negative["checks"]["unexpected_retrieval"] is False
@@ -159,7 +160,7 @@ def test_unmapped_label_cannot_be_whitelisted():
     from evals.negative_retrieval.trace_observation import UNKNOWN
 
     try:
-        assess({"required_reads": [], "allowed_reads": [UNKNOWN], "outcomes": ["answer"]}, observation())
+        assess({"max_catalog_discoveries": 0, "required_reads": [], "allowed_reads": [UNKNOWN], "outcomes": ["answer"]}, observation())
     except ValueError:
         pass
     else:
@@ -211,11 +212,11 @@ def test_build_budget_discovers_related_catalog_before_any_decision(monkeypatch)
 
 
 def test_empty_catalog_discovery_is_not_a_zero_acquisition_pass():
-    from evals.negative_retrieval.related_page_probe import acquisition_labels
+    from evals.negative_retrieval.related_page_probe import catalog_discovery_count
 
     evidence = [{"owner": "related_catalog_discovery", "state": "returned"}]
-    result = assess(CASE, observation(reads=acquisition_labels(evidence), journal_complete=False))
-    assert result["checks"]["unexpected_retrieval"] is False
+    result = assess(CASE, observation(catalog_discoveries=catalog_discovery_count(evidence), journal_complete=False))
+    assert result["checks"]["catalog_budget"] is False
     assert result["status"] == "fail"
 
 
@@ -302,7 +303,7 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     assert result["observation_status"] == "fail"
     assert result["fixture_context_verified"] is None
     assert result["primary_context_verified"] is None
-    assert result["checks"]["unexpected_retrieval"] is False
+    assert result["checks"]["catalog_budget"] is False
     assert result["checks"]["inline_questions"] is None
     assert len(result["artifact_sha256"]) == len(artifacts)
 
@@ -572,3 +573,41 @@ def test_controller_votes_are_projected_as_unvalidated_not_reads():
     assert result["providers"] == [{"provider": "example", "model": "model"}]
     assert observed_acquisitions(trace)["observed"] == []
     assert "private untrusted text" not in json.dumps(result)
+
+
+def test_catalog_budget_is_separate_from_page_reads_and_preserves_unknowns():
+    case = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
+            "allowed_reads": ["ledger"], "outcomes": ["answer"]}
+    good = observation(outcome="answer", reads=["ledger"], catalog_discoveries=1, required_support=True)
+    assert assess(case, good)["status"] == "pass"
+    assert assess(case, {**good, "catalog_discoveries": 2})["checks"]["catalog_budget"] is False
+    assert assess(case, {**good, "catalog_journal_complete": None})["checks"]["catalog_budget"] is None
+    assert assess(case, {**good, "catalog_discoveries": 2, "catalog_journal_complete": False})["status"] == "fail"
+
+
+def test_source_mapping_uses_verified_inventory_and_exact_trace_item():
+    from uuid import uuid4
+    from evals.negative_retrieval.fixture_sources import related_trace_labels
+    from evals.negative_retrieval.related_page_probe import acquisition_labels
+    from evals.negative_retrieval.trace_observation import UNKNOWN
+
+    item = f"Ledger · saved revision 4 · {uuid4()}"
+    record = {"before": [{"title": "Ledger", "registry_revision": 4, "label": "ledger", "document_id": "doc"}]}
+    trace = {"attempts": [{"observations": [{"kind": "context_decision", "action": "retrieved",
+              "policy_version": "selected_exact_related_authored_pages_v1",
+              "item_ids": [item, "Ledger · saved revision 4 · invalid", "Unknown"]}]}]}
+    assert related_trace_labels(trace, record) == {item: "ledger"}
+    records = [{"owner": "related_page_materialization", "state": "returned", "document_id": "doc"},
+               {"owner": "related_page_materialization", "state": "raised", "document_id": "other"}]
+    assert acquisition_labels(records, label_by_document={"doc": "ledger"}) == ["ledger", UNKNOWN]
+
+
+def test_probe_records_materialization_identity_without_source_content(monkeypatch):
+    from apps.live_control_server.services import build_related_pages
+    from evals.negative_retrieval.related_page_probe import observe_related_page_owners
+
+    monkeypatch.setattr(build_related_pages, "materialize", lambda pointer: {"markdown": "private fixture body"})
+    with observe_related_page_owners() as records:
+        assert build_related_pages.materialize({"document_id": "doc"})["markdown"] == "private fixture body"
+    assert records == [{"owner": "related_page_materialization", "state": "returned", "document_id": "doc"}]
+    assert "private fixture body" not in str(records)

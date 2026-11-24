@@ -14,6 +14,9 @@ def assess(case, observation):
         if (not isinstance(rows, list) or any(not isinstance(row, str) or not row.strip() for row in rows)
                 or len(rows) != len(set(rows))):
             raise ValueError(f"{field} must contain unique nonblank labels")
+    catalog_budget = case["max_catalog_discoveries"]
+    if type(catalog_budget) is not int or catalog_budget < 0:
+        raise ValueError("max_catalog_discoveries must be a nonnegative integer")
     required = set(case["required_reads"])
     allowed = set(case["allowed_reads"])
     if UNKNOWN in allowed:
@@ -28,6 +31,12 @@ def assess(case, observation):
     complete = observation.get("journal_complete")
     if complete is not None and type(complete) is not bool:
         raise ValueError("journal_complete must be boolean or null")
+    catalog_count = observation.get("catalog_discoveries")
+    catalog_complete = observation.get("catalog_journal_complete")
+    if catalog_count is not None and (type(catalog_count) is not int or catalog_count < 0):
+        raise ValueError("catalog_discoveries must be a nonnegative integer or null")
+    if catalog_complete is not None and type(catalog_complete) is not bool:
+        raise ValueError("catalog_journal_complete must be boolean or null")
     # Incomplete journals can prove an unwanted read, but cannot prove absence.
     unknown_labels = reads is not None and UNKNOWN in reads
     unexpected = None if reads is None else sorted(set(reads) - allowed - {UNKNOWN})
@@ -37,6 +46,8 @@ def assess(case, observation):
                else sorted(required - set(reads)))
     outcome = observation.get("outcome")
     checks = {
+        "catalog_budget": (False if catalog_count is not None and catalog_count > catalog_budget
+                           else True if catalog_count is not None and catalog_complete is True else None),
         "unexpected_retrieval": (False if unexpected else True if unexpected is not None and complete is True
                                  and not unknown_labels else None),
         "required_evidence": None if missing is None else not missing,
@@ -73,7 +84,14 @@ def summarize(cases, results):
         raise ValueError("Each case must have exactly one assessment")
 
     def bounds(rows, key):
-        values = [results[case_id]["checks"][key] for case_id in rows]
+        if key == "negative_retrieval":
+            values = []
+            for case_id in rows:
+                checks = results[case_id]["checks"]
+                pair = (checks["unexpected_retrieval"], checks["catalog_budget"])
+                values.append(False if False in pair else True if pair == (True, True) else None)
+        else:
+            values = [results[case_id]["checks"][key] for case_id in rows]
         failures = sum(value is False for value in values)
         unknown = sum(value is None for value in values)
         total = len(values)
@@ -83,5 +101,5 @@ def summarize(cases, results):
 
     negative = [key for key, case in cases.items() if not case["allowed_reads"]]
     positive = [key for key, case in cases.items() if case["required_reads"]]
-    return {"unnecessary_retrieval": bounds(negative, "unexpected_retrieval"),
+    return {"unnecessary_retrieval": bounds(negative, "negative_retrieval"),
             "missed_required_reads": bounds(positive, "required_evidence")}

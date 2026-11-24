@@ -4,11 +4,11 @@ import json
 from pathlib import Path
 
 from .assessment import assess
-from .capture_observation import observe
-from .related_page_probe import acquisition_labels
+from .capture_observation import _body, observe
+from .related_page_probe import acquisition_labels, catalog_discovery_count
 
 
-def report_case(directory, fixture, rubric, *, related_labels=None, source_labels=None):
+def report_case(directory, fixture, rubric):
     """Report only what the bound capture proves; never infer semantic grades."""
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
@@ -28,15 +28,30 @@ def report_case(directory, fixture, rubric, *, related_labels=None, source_label
     if (probe.get("schema") != "dmb_negative_retrieval_related_page_probe_v1"
             or probe.get("coverage") != "partial" or probe.get("case_id") != fixture["id"]):
         raise ValueError("Related-page probe belongs to another case")
+    from .fixture_sources import related_trace_labels, verify_related_record
+    related_bound = None
+    binding_error = None
+    related_labels = {}
+    label_by_document = {}
+    if "fixture-sources" in rows:
+        try:
+            verify_related_record(rows["request"], fixture, rows["fixture-sources"])
+            related_bound = True
+            inventory = rows["fixture-sources"]["before"]
+            related_labels = related_trace_labels(_body(rows["context-trace"]), rows["fixture-sources"])
+            label_by_document = {row["document_id"]: row["label"] for row in inventory}
+        except (ValueError, KeyError, TypeError) as exc:
+            binding_error = type(exc).__name__
     observed = observe(rows["request"], rows["history-after"], rows["context-trace"], rows["answer-http"],
-                       related_labels=related_labels, source_labels=source_labels)
-    observed["reads"] += acquisition_labels(probe.get("records"))
+                       related_labels=related_labels)
+    observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document)
+    observed["catalog_discoveries"] = catalog_discovery_count(probe.get("records"))
+    observed["catalog_journal_complete"] = None
     grade = assess(rubric, observed)
     # Use the history belonging to the request, not a previous active conversation.
     # A failed/missing binding is unqualified, even if a violation was observed.
     from .fixture_binding import verify_fixture
     primary_bound = None
-    binding_error = None
     for name in ("fresh-history", "history-before"):
         if name not in rows:
             continue
@@ -44,14 +59,6 @@ def report_case(directory, fixture, rubric, *, related_labels=None, source_label
             verify_fixture(fixture, rows["request"], rows[name], rows["history-after"])
             primary_bound = True
             break
-        except (ValueError, KeyError, TypeError) as exc:
-            binding_error = type(exc).__name__
-    from .fixture_sources import verify_related_record
-    related_bound = None
-    if "fixture-sources" in rows:
-        try:
-            verify_related_record(rows["request"], fixture, rows["fixture-sources"])
-            related_bound = True
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
     fixture_bound = True if primary_bound and related_bound else None

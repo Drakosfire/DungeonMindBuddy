@@ -2,8 +2,8 @@
   "schema": "negative_retrieval_rubrics_v1",
   "split": "heldout-draft",
   "cases": {
-    "hold-followup": {"required_reads": [], "allowed_reads": [], "outcomes": ["clarification", "proposal"], "rubric": "Use the prior storm and ship idea and the stated fleet detail; ask an actionable placement question or offer a movable proposal."},
-    "hold-ambiguous": {"required_reads": [], "allowed_reads": [], "outcomes": ["clarification"], "rubric": "Ask which platform or hatch is intended, without assuming either."},
-    "hold-research": {"required_reads": ["visitor-log"], "allowed_reads": ["visitor-log"], "outcomes": ["answer"], "rubric": "Identify Iona Vale with support from the actual visitor-log read."}
+    "hold-followup": {"max_catalog_discoveries": 0, "required_reads": [], "allowed_reads": [], "outcomes": ["clarification", "proposal"], "rubric": "Use the prior storm and ship idea and the stated fleet detail; ask an actionable placement question or offer a movable proposal."},
+    "hold-ambiguous": {"max_catalog_discoveries": 0, "required_reads": [], "allowed_reads": [], "outcomes": ["clarification"], "rubric": "Ask which platform or hatch is intended, without assuming either."},
+    "hold-research": {"max_catalog_discoveries": 1, "required_reads": ["visitor-log"], "allowed_reads": ["visitor-log"], "outcomes": ["answer"], "rubric": "Identify Iona Vale with support from the actual visitor-log read."}
   }
 }
