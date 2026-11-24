@@ -601,6 +601,31 @@ def test_seeder_rejects_unowned_shapes_before_database_access(monkeypatch):
             world="negative-seed-" + "a" * 32, template={}, snapshot={})
 
 
+def test_seeder_refuses_forged_saved_page_before_conversation(monkeypatch):
+    from hashlib import sha256
+    from types import SimpleNamespace
+    import pytest
+    from apps.live_control_server.services import workspace_document_registry
+    from application_state import agent_conversation
+    from evals.negative_retrieval import seed_dialogue as module
+
+    world = "negative-seed-" + "a" * 32
+    page, digest = "# Fixture", sha256(b"# Fixture").hexdigest()
+    fixture = {"page": page, "history": []}
+    template = {"primary_work": {"object_id": "page", "expected_revision": 1,
+                                  "expected_content_sha256": digest}}
+    snapshot = {"world_id": world, "document_id": "page", "registry_revision": 1,
+                "draft_markdown": page, "content_sha256": digest, "draft_sha256": digest}
+    saved = SimpleNamespace(record=SimpleNamespace(world_id=world, kind="worldbuilding_source",
+        status="active", revision=1), loaded_revision=1, markdown="different",
+        committed_markdown="different", content_sha256=digest, committed_content_sha256=digest)
+    monkeypatch.setattr(module, "checked_owned_dsn", lambda: "verified")
+    monkeypatch.setattr(workspace_document_registry, "get_workspace_document_snapshot", lambda *a: saved)
+    monkeypatch.setattr(agent_conversation, "AgentConversationService", lambda: pytest.fail("conversation owner reached"))
+    with pytest.raises(ValueError, match="Persisted synthetic page"):
+        module.seed_dialogue(fixture, world=world, template=template, snapshot=snapshot)
+
+
 def test_capture_delegates_to_read_only_core_cohort_path(tmp_path, monkeypatch):
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval.capture import capture

@@ -94,9 +94,9 @@ before invoking it; Plan and the context-only writer stop are not supported.
 
 `seed_dialogue.seed_dialogue` seeds frozen synthetic user/assistant pairs via
 the conversation owner after checking the exact App-clone lease, a fresh
-`negative-seed-<uuid>` World, and the supplied pinned page snapshot. The
-caller must provision and independently verify that page and the World before
-calling it; checking the supplied snapshot does not prove it was persisted.
+`negative-seed-<uuid>` World, and the supplied pinned page snapshot against
+the persisted page owner. The caller must provision the synthetic World and
+page before calling it.
 It refuses an existing conversation and does not reset or retry a partial seed.
 The owner-bound predecessor-source diagnostic round-tripped the development
 placement dialogue with Build provenance; it did not exercise full capture.

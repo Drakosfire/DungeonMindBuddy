@@ -265,3 +265,13 @@ Both diagnostics and pinned candidate code remain under `http-owner/session`;
 the product source is the predecessor SHA. The focused assessment suite also
 passed 33 tests in the shared environment, including invalid-world and malformed
 history refusals before database access. Exact-head qualification remains open.
+
+Cases 11–14 exercised an actual synthetic page created and saved by the page
+owner, then bound to the frozen Build dialogue. The helper now reads the
+persisted owner snapshot and refuses mismatched saved content before creating a
+conversation. Case 14 proved both the forged-snapshot refusal and successful
+page/dialogue round trip (1 test passed); case 13's generated test had a string
+escaping SyntaxError during collection and is retained. The focused suite
+passed 34 tests in the shared environment. These diagnostics use the predecessor
+product source and do not establish an ordinary benchmark turn or exact-head
+qualification. The caller still owns safe page/World provisioning.

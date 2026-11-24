@@ -36,6 +36,19 @@ def seed_dialogue(fixture, *, world, template, snapshot):
         raise ValueError("Synthetic history must contain complete nonblank dialogue pairs")
     verify_preflight_snapshot(fixture, template, world, snapshot)
     checked_owned_dsn()
+    from pathlib import Path
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+
+    page = template["primary_work"]
+    saved = get_workspace_document_snapshot(Path("."), page["object_id"])
+    if (saved.record.world_id != world or saved.record.kind != "worldbuilding_source"
+            or saved.record.status != "active" or saved.record.revision != page["expected_revision"]
+            or saved.loaded_revision != page["expected_revision"]
+            or saved.markdown != fixture["page"] or saved.committed_markdown != fixture["page"]
+            or saved.content_sha256 != page["expected_content_sha256"]
+            or saved.committed_content_sha256 != page["expected_content_sha256"]
+            or ("visibility" in snapshot and saved.record.visibility_state != snapshot["visibility"])):
+        raise ValueError("Persisted synthetic page differs from the frozen snapshot")
     service = AgentConversationService()
     pointer = service.get_world_pointer(world)
     if pointer.revision != 0 or pointer.active_conversation_id is not None:
@@ -43,7 +56,6 @@ def seed_dialogue(fixture, *, world, template, snapshot):
     conversation = service.new_conversation(ConversationCommand(
         world_id=world, command_id=uuid4(), expected_pointer_revision=0,
         expected_active_conversation_id=None))
-    page = template["primary_work"]
     provenance = TurnProvenance(
         world_id=world, surface_resolution="resolved", surface_id="build",
         surface_instance_id=page["object_id"],
