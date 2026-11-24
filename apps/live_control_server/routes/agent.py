@@ -2499,7 +2499,8 @@ def post_agent_turn(body: AgentTurnRequest, request: Request):
         if getattr(body.primary_work, "kind", None) != "build":
             raise HTTPException(422, detail="Construction streaming requires Build work")
         from apps.live_control_server.services.build_construction_stream import turn_stream
-        return turn_stream(lambda: _execute_agent_turn(body, request), body.turn_id)
+        return turn_stream(lambda: _execute_agent_turn(body, request), body.turn_id,
+                           include_reply=request.headers.get("x-buddy-reply-stream") == "1")
     return _execute_agent_turn(body, request)
 
 

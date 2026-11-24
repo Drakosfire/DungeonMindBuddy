@@ -2814,11 +2814,14 @@ export async function postWorldPlayAgentTurn(
 }
 
 export async function postWorldBuildAgentTurn(request: import("./types").WorldBuildAgentTurnRequestV1,
-  onProgress:(progress:BuildObjectConstructionProgress)=>void=()=>undefined): Promise<WorldPlanAgentTurnResponse> {
+  onProgress:(progress:BuildObjectConstructionProgress)=>void=()=>undefined,
+  onReply?:(event:import("./buildConstructionStream").BuildReplyEvent)=>void): Promise<WorldPlanAgentTurnResponse> {
   try{
     return await apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn",
-      {method:"POST",body:JSON.stringify(request),headers:{Accept:"text/event-stream"}},
-      (response,assertCurrent)=>readBuildConstructionStream(response,request,onProgress,assertCurrent));
+      {method:"POST",body:JSON.stringify(request),headers: {
+        Accept:"text/event-stream", ...(onReply ? {"X-Buddy-Reply-Stream": "1"} : {}),
+      }},
+      (response,assertCurrent)=>readBuildConstructionStream(response,request,onProgress,assertCurrent,onReply));
   }catch(reason){
     if(reason instanceof ConstructionStreamError){
       const detail=reason.detail as {message?:unknown;code?:unknown}|null;

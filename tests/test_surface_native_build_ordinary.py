@@ -3513,6 +3513,87 @@ def test_deferred_build_display_keeps_admission_and_exact_native_citations(lane,
         assert membership["assertions"]
 
 
+@pytest.mark.parametrize("output,accepted", [
+    ("typed_gap_format", True), ("foreign_source_alias", False), ("regenerated_quote", False),
+])
+def test_streamed_build_reply_preserves_finite_citation_admission(lane, tmp_path, monkeypatch, output, accepted):
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+
+    original_init = BuildJevHarness.__init__
+    preview_text = 'The saved lore proposes the local node wants "freedom" — a proposal.'
+    frames = []
+
+    def streaming_writer(self, *args, **kwargs):
+        transport = kwargs['writer_transport']
+        original_send = transport.handle_async_request
+
+        async def send(request):
+            assert json.loads(request.content)['stream'] is True
+            response = await original_send(request)
+            payload = response.json()
+            final = payload['output'][0]
+            final['phase'] = 'final_answer'
+            candidate = json.loads(final['content'][0]['text'])
+            if accepted:
+                candidate['answer_segments'][0]['text'] = preview_text
+            raw = json.dumps(candidate, ensure_ascii=True)
+            final['content'][0]['text'] = raw
+            transport.actual_output = raw
+
+            class Events(httpx.AsyncByteStream):
+                async def __aiter__(self):
+                    events = [('response.output_item.added', dict(output_index=0,
+                        item={**final, 'status': 'in_progress', 'content': []}))]
+                    events.extend(('response.output_text.delta', dict(item_id=final['id'],
+                        output_index=0, content_index=0, delta=raw[start:start + 7]))
+                        for start in range(0, len(raw), 7))
+                    events.append(('response.completed', dict(response=payload)))
+                    for index, (kind, fields) in enumerate(events):
+                        yield ('data: ' + json.dumps(dict(type=kind, sequence_number=index, **fields))
+                            + '\n\n').encode()
+
+            return httpx.Response(200, request=request,
+                headers={'content-type': 'text/event-stream'}, stream=Events())
+
+        transport.handle_async_request = send
+        return original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(BuildJevHarness, '__init__', streaming_writer)
+
+    def dispatch(client, world, body):
+        response = client.post('/api/live/agent/turn', json=body,
+            headers={'accept': 'text/event-stream', 'x-buddy-reply-stream': '1'})
+        assert response.status_code == 200
+        frames.extend(json.loads(line[6:]) for line in response.text.splitlines() if line.startswith('data: '))
+        assert len([frame for frame in frames if frame['kind'] in {'result', 'error'}]) == 1
+        terminal = frames[-1]
+        if terminal['kind'] == 'result':
+            return httpx.Response(200, json=terminal['response'])
+        assert terminal['kind'] == 'error'
+        return httpx.Response(terminal['status'], json={'detail': terminal['detail']})
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='source_lookup', read_optional_page=True,
+        source_answer_output=output, dispatch=dispatch,
+        message='What does the saved lore establish about the local node’s alliance?')
+    assert len(case.writer.calls) == 1
+    if not accepted:
+        assert case.response.status_code == 503
+        assert case.turn.completion is None
+        assert frames[-1]['kind'] == 'error'
+        return
+    assert case.response.status_code == 200, case.response.text
+    assert any(frame['kind'] == 'reply_context_ready' for frame in frames)
+    assert ''.join(frame['text'] for frame in frames if frame['kind'] == 'reply_text') == preview_text
+    assert case.turn.completion.answer_segments[0].text == preview_text
+    claim = case.turn.completion.answer_segments[0]
+    opened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages/{claim.read_id}')
+    assert opened.status_code == 200
+    assert opened.json()['markdown'] == 'The local node is proposed to want freedom.'
+    assert AgentConversationService().inspect_turn(world_id=case.world,
+        turn_id=case.turn.turn_id).completion == case.turn.completion
+
+
 @pytest.mark.parametrize('output', ['typed', 'uncited', 'empty', 'gap', 'typed_gap_format', 'gap_format'])
 def test_source_lookup_discussion_requires_bound_claims_without_forcing_a_fact(lane, tmp_path, monkeypatch, output):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,

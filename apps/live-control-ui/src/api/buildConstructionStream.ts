@@ -33,13 +33,38 @@ function normalized(value:unknown):unknown{
 }
 const stable=(value:unknown):string=>JSON.stringify(normalized(value));
 
+export type BuildReplyEvent = {kind: "context_ready"} | {kind: "text"; sequence: number; text: string};
+
 /** One POST, one terminal. Missing transport output is uncertainty, never a retry. */
 export async function readBuildConstructionStream(response:Response, request:WorldBuildAgentTurnRequestV1,
-  onProgress:(progress:BuildObjectConstructionProgress)=>void, assertCurrent:()=>void=()=>undefined):Promise<WorldPlanAgentTurnResponse> {
+  onProgress:(progress:BuildObjectConstructionProgress)=>void, assertCurrent:()=>void=()=>undefined,
+  onReply?:(event:BuildReplyEvent)=>void):Promise<WorldPlanAgentTurnResponse> {
   if(!response.headers.get('content-type')?.startsWith('text/event-stream')||!response.body)
     throw new Error('The reply stream is unavailable. Check the saved request.');
   const reader=response.body.getReader();const decoder=new TextDecoder('utf-8',{fatal:true});
   let buffer='';let sequence=0;let identity:string|null=null;
+  let replyReady = false;
+  let replySequence = 0;
+  let replyLength = 0;
+  let replyInvalid = false;
+
+  function reply(event: Record<string, unknown>) {
+    if (!onReply || replyInvalid) return;
+    if (event.kind === "reply_context_ready") {
+      if (replyReady) return;
+      replyReady = true;
+      try { onReply({kind: "context_ready"}); } catch { /* Observation only. */ }
+      return;
+    }
+    if (!replyReady || event.sequence !== replySequence + 1 || typeof event.text !== "string"
+      || !event.text || replyLength + event.text.length > 262144) {
+      replyInvalid = true;
+      return;
+    }
+    replySequence += 1;
+    replyLength += event.text.length;
+    try { onReply({kind: "text", sequence: replySequence, text: event.text}); } catch { /* Observation only. */ }
+  }
   const capability=request.build_write_capability;
   let expectedBasis:string|null=null;
   try{if(capability)expectedBasis=stable(capability.basis);}catch{/* An invalid preview basis cannot discard the saved command result. */}
@@ -99,6 +124,7 @@ export async function readBuildConstructionStream(response:Response, request:Wor
         if(event.schema!=='dmb_build_turn_stream_v1'||event.client_turn_id!==request.turn_id)
           throw new Error('The reply stream belongs to another request. Check its saved outcome.');
         if(event.kind==='construction'){progress(event.progress);continue;}
+        if(event.kind==='reply_context_ready'||event.kind==='reply_text'){reply(event);continue;}
         if(event.kind==='error'&&Number.isSafeInteger(event.status))throw new ConstructionStreamError(event.status as number,event.detail);
         if(event.kind==='result'&&event.response&&typeof event.response==='object')return event.response as WorldPlanAgentTurnResponse;
         throw new Error('The reply stream was invalid. Check the saved request.');
