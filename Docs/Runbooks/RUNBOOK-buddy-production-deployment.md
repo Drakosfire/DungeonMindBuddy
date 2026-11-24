@@ -638,36 +638,32 @@ the procedure. After restarting, verify the serving image ID, approved
 persistent mount, loopback binding, and readiness. Record the result with the
 release evidence.
 
-### Retire superseded release images
+### Retain hosted Buddy releases
 
-After the rollback window closes, the release operator inventories Buddy tags
-and records Docker disk use before and after removing any approved retired tag.
-Docker reports shared layers separately, so use the observed change in disk use
-when recording recovered space.
-
-```bash
-docker image ls dungeonmindbuddy --no-trunc
-docker system df -v
-```
-
-Compare the inventory with the serving and rollback image IDs in the release
-records. Retain both images and their release-scoped configuration. For each
-approved retired tag, run the retirement command in the deployment Docker
-context with no concurrent release changes. Use the verified image IDs and run
-it first without `--apply` to see the candidate and its stopped containers.
+For routine image-only updates on the established hosted Buddy stack, use the
+reviewed [hosted rollout script](../../scripts/rollout_hosted_buddy.sh) from the
+candidate's release directory after building the candidate image and rehearsing
+any required migrations through their owning procedures.
 
 ```bash
-read -r -p 'Retired Buddy image tag: ' retired_tag
-read -r -p 'Serving image ID: ' serving_id
-read -r -p 'Rollback image ID: ' rollback_id
-python3 scripts/retire_buddy_release.py --project "$buddy_project" \
-  --retired-tag "$retired_tag" --serving-image "$serving_id" \
-  --rollback-image "$rollback_id"
+bash scripts/rollout_hosted_buddy.sh "$prior_release" "$candidate_release"
 ```
 
-After verifying the candidate, repeat with `--apply`. The command removes only
-the named release tag and stopped containers from the matching Buddy service.
-Repeat it to verify that the retired tag is gone. Record the before and after
-Docker disk use and available RAM. Shared image layers may remain in use.
-Build cache retention belongs to the operator of the builder. Use a dedicated
-Buddy builder or coordinate retention with the owners of a shared builder.
+This entry point serializes rollout and cleanup. It checks that the previous
+image is healthy, verifies both image identities, and checks the candidate's
+schema and effective Compose configuration. If the candidate fails readiness,
+the script restores the prior image and skips cleanup. Once the candidate is
+healthy and the public readiness check passes, the script retains both verified
+images and retires older Buddy tags that have no container references. Newer
+staged images are preserved.
+
+The cleanup preserves Compose overrides, rollout records, active and rollback
+release copies, service mounts, and volumes. It removes superseded source copies
+from the generated Buddy release layout and prunes stale non-shared BuildKit
+records with Buddy-specific descriptions. The cleanup command defaults to a
+preview when invoked directly. A cleanup failure is reported separately from a
+successful rollout.
+
+For releases outside this hosted layout, use the existing
+[one-release retirement command](../../scripts/retire_buddy_release.py) with
+recorded serving and rollback image IDs.
