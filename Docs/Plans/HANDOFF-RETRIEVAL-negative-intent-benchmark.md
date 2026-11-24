@@ -230,3 +230,16 @@ the conversation ID and confirms the runner is stopped before dispatch; all
 32 focused tests passed. This closes that observed check gap, not the interval
 after the runner's read: retained-history binding remains necessary to detect
 intervening turns, and an owning-boundary run remains outstanding.
+
+Case 7 exercised the candidate wrapper against an actual saved conversation
+read through the ordinary HTTP endpoint, backed by the owner-bound App clone.
+It matched the complete saved dialogue on preflight and on the runner-side
+read (1 test passed). The worker and derived test are retained under
+`http-owner` and `session/case-7`; the candidate wrapper was loaded by its
+pinned file hash `c8680ac5df49809e076e2ee2593823f81dc4427d89a4021e1fbdbdff82c546af`
+against predecessor product source `d00807237abff7a190960cef85796a7faa4c8166`.
+The fixture was reconstructed from that same saved turn, page/source preflight
+and final benchmark dispatch were stubbed, and the prior turn used synthetic
+providers. This verifies the real history endpoint's shape and wrapper
+handoff only; it is not a frozen independent case, full capture or current-head
+qualification.
