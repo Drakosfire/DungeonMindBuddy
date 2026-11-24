@@ -6,44 +6,95 @@ existing capture owner; this wrapper never modifies its request or response.
 """
 from pathlib import Path
 from threading import Lock
+from types import SimpleNamespace
 from unittest.mock import patch
+import sys
 
 from evals.buddy_benchmark.artifacts import immutable_save
 from evals.buddy_benchmark import workflow
 
+from .fixture_binding import verify_preflight_history, verify_preflight_snapshot
+from .fixture_sources import inspect_related_pages
 from .related_page_probe import observe_related_page_owners
 
 _lock = Lock()
 
 
-def capture(manifest, output, *, clone_app=False):
-    """Delegate ordinary capture with a partial, per-turn related-page probe."""
+def capture(manifest, output, *, clone_app=False, fixtures=None):
+    """Delegate ordinary capture with partial per-turn observation.
+
+    Optional fixtures are evaluator-side only and never enter a product request.
+    Their exact related-page inventory is read before and after each turn.
+    """
     if not _lock.acquire(blocking=False):
         raise RuntimeError("Negative-retrieval capture must be serial")
     try:
         spec, _ = workflow.load_manifest(manifest)
         if spec.get("conversation_mode") != "build_sequence":
             raise ValueError("Negative-retrieval probe requires ordinary Build sequence capture")
+        if fixtures is not None:
+            if not isinstance(fixtures, dict) or set(fixtures) != {case["id"] for case in spec["cases"]}:
+                raise ValueError("Fixture cases must match the ordinary capture manifest")
+            for case in spec["cases"]:
+                if fixtures[case["id"]]["request"] != case["question"]:
+                    raise ValueError("Fixture request differs from ordinary capture")
         original = workflow.capture_case
 
         def observed_case(client, world, template, case, directory, **kwargs):
-            failure = None
-            with observe_related_page_owners() as records:
+            fixture = None if fixtures is None else fixtures[case["id"]]
+            before = None
+            if fixture is not None:
+                work = template["primary_work"]
+                preflight_request = SimpleNamespace(owner_scope=SimpleNamespace(world_id=world),
+                                                     primary_work=SimpleNamespace(object_id=work["object_id"]))
                 try:
-                    return original(client, world, template, case, directory, **kwargs)
-                except BaseException as exc:
-                    failure = exc
+                    verify_preflight_snapshot(fixture, template, world, kwargs.get("build_editor_snapshot"))
+                    conversation = kwargs.get("expected_conversation_id")
+                    if conversation is None:
+                        if fixture["history"]:
+                            raise ValueError("A fresh conversation cannot contain a prior fixture prefix")
+                    else:
+                        response = client.get("/api/live/agent/worlds/" + world + "/conversation")
+                        if response.status_code != 200:
+                            raise ValueError("Preflight history read failed")
+                        verify_preflight_history(fixture, response.json(), world, conversation)
+                    before = inspect_related_pages(preflight_request, fixture)
+                except Exception as exc:
+                    immutable_save(Path(directory), "fixture-sources", {
+                        "schema": "dmb_negative_retrieval_fixture_sources_v1", "case_id": case["id"],
+                        "status": "preflight_failed", "error_type": type(exc).__name__,
+                    })
                     raise
-                finally:
-                    try:
-                        immutable_save(Path(directory), "related-page-probe", {
-                            "schema": "dmb_negative_retrieval_related_page_probe_v1",
-                            "coverage": "partial", "case_id": case["id"], "records": records,
-                        })
-                    except Exception as exc:
-                        if failure is None:
+            records = []
+            try:
+                with observe_related_page_owners() as records:
+                    return original(client, world, template, case, directory, **kwargs)
+            finally:
+                failure = sys.exc_info()[1]
+                try:
+                    immutable_save(Path(directory), "related-page-probe", {
+                        "schema": "dmb_negative_retrieval_related_page_probe_v1",
+                        "coverage": "partial", "case_id": case["id"], "records": records,
+                    })
+                    if fixture is not None:
+                        try:
+                            after = inspect_related_pages(preflight_request, fixture)
+                        except Exception as exc:
+                            immutable_save(Path(directory), "fixture-sources", {
+                                "schema": "dmb_negative_retrieval_fixture_sources_v1", "case_id": case["id"],
+                                "status": "postflight_failed", "before": before, "error_type": type(exc).__name__,
+                            })
                             raise
-                        failure.add_note(f"Related-page probe retention failed: {type(exc).__name__}")
+                        immutable_save(Path(directory), "fixture-sources", {
+                            "schema": "dmb_negative_retrieval_fixture_sources_v1", "case_id": case["id"],
+                            "status": "stable" if before == after else "changed", "before": before, "after": after,
+                        })
+                        if before != after:
+                            raise ValueError("Related-page fixture changed during capture")
+                except Exception as exc:
+                    if failure is None:
+                        raise
+                    failure.add_note(f"Probe or fixture retention failed: {type(exc).__name__}")
 
         with patch.object(workflow, "capture_case", observed_case):
             return workflow.capture(manifest, output, clone_app=clone_app)

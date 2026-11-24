@@ -290,6 +290,227 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     assert result["status"] == "unproven"
     assert result["observation_status"] == "fail"
     assert result["fixture_context_verified"] is None
+    assert result["primary_context_verified"] is None
     assert result["checks"]["unexpected_retrieval"] is False
     assert result["checks"]["inline_questions"] is None
     assert len(result["artifact_sha256"]) == len(artifacts)
+
+
+def test_fixture_binding_checks_owner_receipt_page_and_complete_dialogue(monkeypatch):
+    import copy
+    import hashlib
+    import json
+    import pytest
+    from types import SimpleNamespace
+    from uuid import NAMESPACE_URL, uuid5
+    from apps.live_control_server.models.agent_turn import AgentSurfaceNativeContextResponseV1
+    from application_state.agent_conversation import native_context, types
+    from evals.negative_retrieval.fixture_binding import verify_fixture
+
+    def envelope(body):
+        raw = json.dumps(body).encode()
+        return {"http_status": 200, "body": body, "raw_body_hex": raw.hex(),
+                "raw_body_sha256": hashlib.sha256(raw).hexdigest()}
+    page = "# A page\nA fact."
+    digest = hashlib.sha256(page.encode()).hexdigest()
+    snap = {"world_id": "world", "document_id": "page", "registry_revision": 1,
+            "visibility": "internal", "content_sha256": digest, "draft_sha256": digest, "draft_markdown": page}
+    request = {"turn_id": "turn", "message": "Use that.", "owner_scope": {"world_id": "world"},
+               "surface": {"surface_id": "build", "instance_id": "page"},
+               "primary_work": {"object_id": "page", "expected_revision": 1, "expected_content_sha256": digest},
+               "build_draft_context": {"conversation_id": "chat", "expected_pointer_revision": 2, "snapshot": snap}}
+    prior = {"world_id": "world", "conversation_id": "chat", "active_conversation_id": "chat",
+             "pointer_revision": 2, "next_before_sequence": None,
+             "turns": [{"turn_id": "old", "sequence": 1, "lifecycle_status": "completed", "user_text": "Idea?", "assistant_text": "A star."}]}
+    turn = {"turn_id": "new", "sequence": 2, "idempotency_key": str(uuid5(NAMESPACE_URL, "dmb-agent-turn:world:turn")), "user_text": "Use that.",
+            "provenance": {"world_id": "world", "surface_id": "build", "surface_instance_id": "page"},
+            "knowledge_context": {"synthetic": True}}
+    after = {"world_id": "world", "conversation_id": "chat", "active_conversation_id": "chat", "pointer_revision": 2,
+             "next_before_sequence": None, "turns": [copy.deepcopy(prior["turns"][0]), turn]}
+    fixture = {"request": "Use that.", "page": page,
+               "history": [{"role": "user", "content": "Idea?"}, {"role": "assistant", "content": "A star."}]}
+    basis = SimpleNamespace(**{k: snap[k] for k in ("world_id", "document_id", "registry_revision", "visibility", "content_sha256")})
+    context = SimpleNamespace(receipt=SimpleNamespace(work_context=SimpleNamespace(surface_id="build", source_basis=basis)))
+    monkeypatch.setattr(AgentSurfaceNativeContextResponseV1, "model_validate", lambda *a, **k: context)
+    monkeypatch.setattr(types.TurnProvenance, "model_validate", lambda *a, **k: object())
+    monkeypatch.setattr(native_context, "validate_work_context", lambda *a, **k: None)
+    assert verify_fixture(fixture, request, envelope(prior), envelope(after)) is True
+    for mutate in (lambda p: p.update(next_before_sequence=1),
+                   lambda p: p["turns"][0].update(assistant_text="Different."),
+                   lambda p: p.update(pointer_revision=3)):
+        changed = copy.deepcopy(prior)
+        mutate(changed)
+        with pytest.raises(ValueError):
+            verify_fixture(fixture, request, envelope(changed), envelope(after))
+    changed_after = copy.deepcopy(after)
+    changed_after["turns"][0]["assistant_text"] = "Changed after capture."
+    with pytest.raises(ValueError):
+        verify_fixture(fixture, request, envelope(prior), envelope(changed_after))
+    changed_request = copy.deepcopy(request)
+    changed_request["build_draft_context"]["snapshot"]["draft_markdown"] = "Different page"
+    with pytest.raises(ValueError):
+        verify_fixture(fixture, changed_request, envelope(prior), envelope(after))
+    basis.content_sha256 = "0" * 64
+    with pytest.raises(ValueError):
+        verify_fixture(fixture, request, envelope(prior), envelope(after))
+
+
+def test_ui_witness_generator_requires_exact_owner_fixture(tmp_path):
+    from pathlib import Path
+    import pytest
+    from evals.negative_retrieval.build_inline_witness import generate
+
+    root = Path(__file__).resolve().parents[2]
+    source = root / "apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx"
+    derived = tmp_path / "derived.test.tsx"
+    generate(source, derived)
+    content = derived.read_text()
+    assert content.count("negative retrieval Build inline question answer and send witness") == 1
+    assert "postWorldBuildAgentTurn" in content and "The harbour shop." in content
+    broken = tmp_path / "broken.test.tsx"
+    broken.write_text(source.read_text().replace("rehydrates an intentional object-only clarification inline without a filler reply", "renamed"))
+    with pytest.raises(ValueError):
+        generate(broken, derived)
+
+
+def test_related_page_fixture_preflight_rejects_extra_changed_and_duplicate_sources(monkeypatch):
+    import copy
+    import hashlib
+    import pytest
+    from apps.live_control_server.services import build_related_pages
+    from evals.negative_retrieval.fixture_sources import inspect_related_pages
+
+    body = "Two copper pieces."
+    pointer = {"world_id": "w", "document_id": "id", "registry_revision": 1, "title": "Ledger"}
+    actual = {**pointer, "markdown": body, "content_sha256": hashlib.sha256(body.encode()).hexdigest()}
+    fixture = {"related_pages": [{"label": "ledger", "title": "Ledger", "body": body}]}
+    monkeypatch.setattr(build_related_pages, "discover", lambda _: [pointer])
+    monkeypatch.setattr(build_related_pages, "materialize", lambda _: actual)
+    assert inspect_related_pages(object(), fixture) == [{"label": "ledger", "title": "Ledger", "world_id": "w", "document_id": "id",
+        "registry_revision": 1, "content_sha256": actual["content_sha256"]}]
+    changed = copy.deepcopy(fixture)
+    changed["related_pages"][0]["body"] = "One copper piece."
+    with pytest.raises(ValueError):
+        inspect_related_pages(object(), changed)
+    changed = copy.deepcopy(fixture)
+    changed["related_pages"].append(copy.deepcopy(changed["related_pages"][0]))
+    with pytest.raises(ValueError):
+        inspect_related_pages(object(), changed)
+    monkeypatch.setattr(build_related_pages, "discover", lambda _: [pointer, {**pointer, "title": "Extra"}])
+    with pytest.raises(ValueError):
+        inspect_related_pages(object(), fixture)
+
+
+def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_path, monkeypatch):
+    import json
+    import pytest
+    from apps.live_control_server.services import build_related_pages
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+
+    case = {"id": "case1", "question": "Use it."}
+    fixture = {"request": "Use it.", "history": [], "related_pages": []}
+    spec = {"conversation_mode": "build_sequence", "cases": [case]}
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: (spec, tmp_path))
+    seen = []
+    monkeypatch.setattr(module, "verify_preflight_snapshot", lambda *a: True)
+    monkeypatch.setattr(module, "inspect_related_pages", lambda *a: seen.append("fixture") or [])
+    monkeypatch.setattr(build_related_pages, "discover", lambda _: [])
+    def ordinary_case(client, world, template, current, directory, **kwargs):
+        assert not directory.exists()
+        seen.append("turn")
+        build_related_pages.discover(None)
+        return "done"
+    monkeypatch.setattr(workflow, "capture_case", ordinary_case)
+    def ordinary_capture(manifest, output, **kwargs):
+        return workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output)
+    monkeypatch.setattr(workflow, "capture", ordinary_capture)
+    out = tmp_path / "success"
+    assert module.capture("manifest", out, fixtures={"case1": fixture}) == "done"
+    assert seen == ["fixture", "turn", "fixture"]
+    probe = json.loads((out / "related-page-probe.json").read_text())
+    assert probe["records"] == [{"owner": "related_catalog_discovery", "state": "returned"}]
+    sources = json.loads((out / "fixture-sources.json").read_text())
+    assert sources["status"] == "stable"
+    seen.clear()
+    def mismatch(*args):
+        raise ValueError("wrong synthetic sources")
+    monkeypatch.setattr(module, "inspect_related_pages", mismatch)
+    with pytest.raises(ValueError, match="wrong synthetic sources"):
+        module.capture("manifest", tmp_path / "failure", fixtures={"case1": fixture})
+    assert seen == []
+    assert json.loads((tmp_path / "failure" / "fixture-sources.json").read_text())["status"] == "preflight_failed"
+
+
+def test_fixture_source_record_rejects_world_and_content_mismatches():
+    import copy
+    import hashlib
+    import pytest
+    from evals.negative_retrieval.fixture_sources import verify_related_record
+
+    body = "Known ledger."
+    fixture = {"id": "case1", "related_pages": [{"label": "ledger", "title": "Ledger", "body": body}]}
+    request = {"owner_scope": {"world_id": "w"}, "primary_work": {"object_id": "page"}}
+    row = {"label": "ledger", "title": "Ledger", "world_id": "w", "document_id": "id", "registry_revision": 1,
+           "content_sha256": hashlib.sha256(body.encode()).hexdigest()}
+    record = {"schema": "dmb_negative_retrieval_fixture_sources_v1", "case_id": "case1",
+              "status": "stable", "before": [row], "after": [copy.deepcopy(row)]}
+    assert verify_related_record(request, fixture, record)
+    for change in (lambda x: x["after"][0].update(content_sha256="0" * 64),
+                   lambda x: x.update(case_id="other"),
+                   lambda x: x["before"][0].update(world_id="other")):
+        bad = copy.deepcopy(record)
+        change(bad)
+        with pytest.raises(ValueError):
+            verify_related_record(request, fixture, bad)
+
+
+def test_postflight_failure_is_retained_and_stops_capture(tmp_path, monkeypatch):
+    import json
+    import pytest
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+
+    case = {"id": "case1", "question": "Use it."}
+    fixture = {"request": "Use it.", "history": [], "related_pages": []}
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: ({"conversation_mode": "build_sequence", "cases": [case]}, tmp_path))
+    monkeypatch.setattr(module, "verify_preflight_snapshot", lambda *a: True)
+    checks = iter([[], ValueError("source changed")])
+    def inspect(*args):
+        result = next(checks)
+        if isinstance(result, Exception):
+            raise result
+        return result
+    monkeypatch.setattr(module, "inspect_related_pages", inspect)
+    monkeypatch.setattr(workflow, "capture_case", lambda *a, **kw: "completed")
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kw:
+                        workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output))
+    with pytest.raises(ValueError, match="source changed"):
+        module.capture("manifest", tmp_path / "case", fixtures={"case1": fixture})
+    evidence = json.loads((tmp_path / "case" / "fixture-sources.json").read_text())
+    assert evidence["status"] == "postflight_failed" and evidence["before"] == []
+
+
+def test_preflight_requires_exact_snapshot_and_complete_prior_history():
+    import hashlib
+    import pytest
+    from evals.negative_retrieval.fixture_binding import verify_preflight_snapshot, verify_preflight_history
+
+    page = "# Page"
+    digest = hashlib.sha256(page.encode()).hexdigest()
+    fixture = {"page": page, "history": [{"role": "user", "content": "Idea?"},
+                                          {"role": "assistant", "content": "A star."}]}
+    template = {"primary_work": {"object_id": "page", "expected_revision": 1, "expected_content_sha256": digest}}
+    snapshot = {"world_id": "w", "document_id": "page", "registry_revision": 1, "draft_markdown": page,
+                "content_sha256": digest, "draft_sha256": digest}
+    assert verify_preflight_snapshot(fixture, template, "w", snapshot)
+    with pytest.raises(ValueError):
+        verify_preflight_snapshot({**fixture, "page": "changed"}, template, "w", snapshot)
+    history = {"world_id": "w", "conversation_id": "c", "active_conversation_id": "c",
+               "next_before_sequence": None, "turns": [{"turn_id": "old", "sequence": 1, "lifecycle_status": "completed",
+                                                         "user_text": "Idea?", "assistant_text": "A star."}]}
+    assert verify_preflight_history(fixture, history, "w", "c")
+    with pytest.raises(ValueError):
+        verify_preflight_history(fixture, {**history, "next_before_sequence": 1}, "w", "c")
+    with pytest.raises(ValueError):
+        verify_preflight_history(fixture, history, "w", "other")

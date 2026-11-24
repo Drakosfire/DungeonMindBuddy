@@ -68,16 +68,41 @@ Build sequence capture, preserving its runtime, source, provider, and database
 preflight. It records the partial probe separately for each turn, including a
 failure before a response, and restores the patched owner functions. The wrapper
 is a process-global diagnostic: use an isolated serial process and the existing
-owned database procedure. It does not seed a fixture, establish database
-capacity, authorize a provider or deployment, or provide the missing complete
-acquisition journal. Read the ordinary benchmark manifest and policy before
+owned database procedure. Optional evaluator-side fixtures are checked against
+the exact related-page catalog and saved bodies before and after each turn;
+those preflight reads occur outside the product-turn probe and are never sent
+as grading instructions. A mismatch stops dispatch or invalidates the run. The
+wrapper does not seed a fixture, establish database capacity, authorize a
+provider or deployment, or provide the missing complete acquisition journal. Read the ordinary benchmark manifest and policy before
 invoking it; the wrapper does not support Plan or the context-only writer stop.
 
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
 the private rubric without calling a model. Missing files are unproven. This
 initial report intentionally has no authority to promote manual judgments or a
-partial journal to complete. It records observed zero-budget violations, but
-leaves the case unproven until an independent verifier binds the frozen page and
-conversation prefix; matching the final request alone is insufficient. It
-cannot establish a passing end-to-end case by itself.
+partial journal to complete. It records observed zero-budget violations and
+separately reports whether the saved primary context and related-source fixture
+were bound. It leaves the case unproven because the capture environment and
+other required boundaries are not yet independently verified.
+
+`fixture_binding.verify_fixture` checks the complete ordered prior dialogue and
+clean page against the captured request, then validates the current turn's
+native context receipt and joins it to the turn provenance through the product
+owner. It rejects pagination, changed history, intervening turns, and page or
+receipt mismatches. This proves primary context only; related-page inventory,
+prior citations, and the capture environment still need independent binding.
+An existing ordinary captured turn passed this verifier read-only; its fixture
+was constructed from that same capture and is an adapter smoke, not a frozen
+benchmark or model-quality result.
+
+`build_inline_witness.generate` derives a single test from the current mounted
+conversation owner fixture using guarded anchors. In a disposable UI copy it
+rendered saved typed Build questions, retained an edited answer across remount,
+added it to the composer, and sent the answer to a scripted pending Build
+transport. Diagnostic run: 1 passed, 324 filtered, Node 21.6.2, copied locked
+package dependencies, frontend lock held. Evidence and the initial matcher-only
+failure are retained at `Projects/.codex/buddy-check.negative-inline.SsurDn`.
+The mocked transport does not prove server completion, durable reopen of the
+answer, no mutation in the server, actual model behavior, browser layout, or
+deployment. Node 21 is not the repository's required Node 22 exact-source
+qualification; this is diagnostic evidence only.

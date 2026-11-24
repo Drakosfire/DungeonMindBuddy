@@ -44,3 +44,32 @@ from scripted assessment. Retain exact pins, complete traces and failures.
 At qualification use repository-mandated exact-SHA boundary checks. The final
 goal additionally requires held-out cases, user-facing inline continuation and
 reopen, and deployed smoke evidence; this brief does not claim those achieved.
+
+## Diagnostic checkpoint
+
+Primary context binding now checks the complete prior conversation, clean page,
+and the product-validated source receipt/provenance join. A read-only smoke on
+an existing ordinary capture passed using a fixture reconstructed from that
+same capture; it is not independent benchmark qualification. The optional
+related-page preflight checks the exact fixture inventory and source bodies
+before and after a turn without adding them to the controller request. The
+ordinary fixture still needs isolated provisioning and complete acquisition
+coverage before it can qualify a cohort.
+
+A derived mounted-UI witness on source `203dd55cbf3e19661b9e14ab02a33459e08b5119`
+rendered a saved typed Build question, retained an edited answer on remount,
+added it to the composer, and sent it to a scripted pending Build transport.
+One test passed with 324 filtered using Node 21.6.2 and copied dependencies under
+the frontend lock. The nonqualifying evidence and two test-harness failures
+(matcher usage and wrong working directory) are retained at
+`Projects/.codex/buddy-check.negative-inline.SsurDn`. Server completion,
+durable continuation, actual model behavior, Node 22 exact-source checks, and
+deployment remain unproven.
+
+The preflight now rejects a missing or mismatched pinned page and prior
+conversation before dispatch, and checks related-page inventory before and
+after the turn. An intermediate focused test run had two failures because its
+mock capture tests did not supply the newly required snapshot; the tests were
+updated to isolate that mock and separate snapshot/history rejection checks
+were added. The next focused run passed 23 tests. These are working-tree
+checks, not exact-source qualification.
