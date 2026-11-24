@@ -107,6 +107,33 @@ def test_rates_bound_unknown_evidence_without_hiding_observed_failures():
     assert rates["missed_required_reads"]["maximum_rate"] == 1.0
 
 
+def test_rates_do_not_count_unbound_or_unverified_capture_observations():
+    from evals.negative_retrieval.assessment import summarize
+
+    positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
+                "allowed_reads": ["ledger"], "outcomes": ["answer"]}
+    cases = {"negative": CASE, "positive": positive, "missing": CASE}
+    negative = assess(CASE, observation(reads=["unrelated"]))
+    missing_read = assess(positive, observation(outcome="answer", required_support=True))
+    results = {
+        "negative": {**negative, "fixture_context_verified": None, "capture_environment_verified": True},
+        "positive": {**missing_read, "fixture_context_verified": True, "capture_environment_verified": None},
+        "missing": {"status": "unproven", "missing_artifacts": ["request"]},
+    }
+    rates = summarize(cases, results)
+    assert rates["unnecessary_retrieval"] == {"cases": 2, "failures": 0, "unknown": 2,
+                                               "minimum_rate": 0.0, "maximum_rate": 1.0}
+    assert rates["missed_required_reads"] == {"cases": 1, "failures": 0, "unknown": 1,
+                                               "minimum_rate": 0.0, "maximum_rate": 1.0}
+    results["negative"]["fixture_context_verified"] = True
+    results["positive"]["capture_environment_verified"] = True
+    rates = summarize(cases, results)
+    assert rates["unnecessary_retrieval"]["failures"] == 1
+    assert rates["missed_required_reads"]["failures"] == 1
+    del results["negative"]["capture_environment_verified"]
+    assert summarize(cases, results)["unnecessary_retrieval"]["failures"] == 0
+
+
 def test_unmapped_acquisition_fails_zero_budget_but_is_unknown_for_positive_control():
     from evals.negative_retrieval.trace_observation import UNKNOWN
 

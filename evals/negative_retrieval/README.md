@@ -55,7 +55,12 @@ benchmark's rubric were not established, so it is not a benchmark pass.
 
 `summarize` reports minimum and maximum possible false-positive and missed-read
 rates when a journal or source mapping is incomplete. It does not count unknown
-as a pass or use model output as an independent semantic review.
+as a pass or use model output as an independent semantic review. For offline
+reports, it also requires both fixture-context and capture-environment
+verification before counting an observed failure or success in a cohort rate;
+unbound, unverified and missing-artifact reports remain unknown. Raw observed
+violations remain visible for investigation. The current report cannot verify
+its capture environment and therefore cannot by itself qualify a rate.
 
 `related_page_probe.observe_related_page_owners()` instruments the actual
 related-page discovery and materialization functions in a serial isolated

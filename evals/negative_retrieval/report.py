@@ -65,6 +65,7 @@ def report_case(directory, fixture, rubric):
     return {"case_id": fixture["id"], **grade, "status": "unproven",
             "observation_status": grade["status"], "primary_context_verified": primary_bound,
             "related_context_verified": related_bound, "fixture_context_verified": fixture_bound,
+            "capture_environment_verified": None,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,
             "http_status": observed["http_status"], "terminal_status": observed["terminal_status"],

@@ -84,14 +84,27 @@ def summarize(cases, results):
         raise ValueError("Each case must have exactly one assessment")
 
     def bounds(rows, key):
+        def eligible(case_id):
+            result = results[case_id]
+            # Reports have explicit binding fields; a raw assessor result does
+            # not. A violation on an unbound capture is evidence to investigate,
+            # not a measured outcome for this frozen cohort.
+            fields = ("fixture_context_verified", "capture_environment_verified")
+            return (isinstance(result.get("checks"), dict)
+                    and (not any(field in result for field in fields)
+                         or all(result.get(field) is True for field in fields)))
+
         if key == "negative_retrieval":
             values = []
             for case_id in rows:
+                if not eligible(case_id):
+                    values.append(None)
+                    continue
                 checks = results[case_id]["checks"]
                 pair = (checks["unexpected_retrieval"], checks["catalog_budget"])
                 values.append(False if False in pair else True if pair == (True, True) else None)
         else:
-            values = [results[case_id]["checks"][key] for case_id in rows]
+            values = [results[case_id]["checks"][key] if eligible(case_id) else None for case_id in rows]
         failures = sum(value is False for value in values)
         unknown = sum(value is None for value in values)
         total = len(values)

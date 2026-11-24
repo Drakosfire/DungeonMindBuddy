@@ -334,3 +334,12 @@ qualification pending and its source-free routing successor still serially
 blocked. The retained shared-Core capture manifest names the existing
 `elderwyld` World, not a verified synthetic World; copying its binding into
 the newly provisioned fixture would not establish authority or isolation.
+
+The rate summarizer now treats offline reports as unknown unless both fixture
+context and capture environment are independently verified. Previously it
+could count a raw observed violation from a report whose overall status was
+unproven, making a cohort rate look more certain than its fixture binding.
+Missing-artifact reports also contribute unknown rather than causing a crash.
+The raw failure remains visible in the report. Focused diagnostic: 36 tests
+passed in the shared Python environment; the report still cannot itself attest
+the capture environment, and exact-head qualification remains outstanding.
