@@ -677,6 +677,12 @@ def test_readonly_plan_writer_settles_checkpoint_with_rules_authorization(
                 with pytest.raises(RuntimeError, match=failure):
                     session.execute(PlanSessionCommand.WRITER, **fields)
         else:
+            from application_state.agent_conversation import repository
+
+            def unexpected_reopen(*args, **kwargs):
+                pytest.fail("Writer settlement decoded the Turn again")
+
+            patch.setattr(repository, "lock_turn", unexpected_reopen)
             updated, fresh = session.execute(PlanSessionCommand.WRITER, **fields)
             assert fresh
     with pytest.raises(ApplicationStateConflictError, match="sealed"):
