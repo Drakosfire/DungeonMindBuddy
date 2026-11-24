@@ -3,7 +3,6 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from importlib import import_module
 import json
-from uuid import uuid4
 
 from alembic import command
 import psycopg
@@ -83,24 +82,15 @@ def test_native_direct_sql_still_rejects_invalid_rows(lane, tmp_path, monkeypatc
 
 
 @pytest.fixture
-def predecessor_database(monkeypatch):
-    from uuid import uuid4
+def predecessor_database(monkeypatch, application_state_dsn, application_state_database):
     from alembic import command
     from application_state.cli import alembic_config
     from application_state.config import APPLICATION_STATE_DSN_ENV
-    from tests.application_state.conftest import (
-        _admin_dsn, _create_database, _drop_database, _replace_database,
-    )
-    name = 'dungeonbuddy_app_state_test_' + uuid4().hex[:12]
-    admin = _admin_dsn()
-    _create_database(admin, name)
-    try:
-        dsn = _replace_database(admin, name)
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as dsn:
         monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
         command.upgrade(alembic_config(), '20261108_0138')
         yield dsn
-    finally:
-        _drop_database(admin, name)
 
 
 def _definitions(conn):
@@ -175,16 +165,12 @@ def test_mid_ddl_failure_rolls_back_all_constraints(predecessor_database):
 
 
 def test_update_comparison_preserves_row_and_reports_cost(
-    lane, tmp_path, monkeypatch, application_state_dsn, predecessor_database, record_property,
+    lane, tmp_path, monkeypatch, application_state_dsn, application_state_database, record_property,
 ):
     import json
     from alembic import command
     from application_state import cli
     from application_state.config import APPLICATION_STATE_DSN_ENV
-    with psycopg.connect(predecessor_database) as conn:
-        old = _definitions(conn)
-    # This historical experiment qualifies migration139, not later owners.
-    command.upgrade(cli.alembic_config(), '20261108_0139')
     with monkeypatch.context() as patch:
         patch.setenv(APPLICATION_STATE_DSN_ENV, application_state_dsn)
         _fresh_case(lane, tmp_path, patch, None, True, False, False)
@@ -203,55 +189,67 @@ def test_update_comparison_preserves_row_and_reports_cost(
                 (turn[identity],),
             ).fetchone()[0]
             parents.append((table, row, identity))
-    with psycopg.connect(predecessor_database) as destination:
-        assert destination.execute(
-            'SELECT version_num FROM application_state.schema_migrations',
-        ).fetchone() == ('20261108_0139',)
-        assert destination.execute(
-            "SELECT to_regclass('content.page_presentation')",
-        ).fetchone() == (None,)
-        for table, row, identity in [*parents, ('turn', turn, 'turn_id')]:
-            columns = [record[0] for record in destination.execute(
-                'SELECT column_name FROM information_schema.columns '
-                "WHERE table_schema='agent' AND table_name=%s "
-                'ORDER BY ordinal_position', (table,),
-            ).fetchall()]
-            represented = {column: row[column] for column in columns}
-            destination.execute(sql.SQL(
-                'INSERT INTO agent.{table} ({columns}) '
-                'SELECT {columns} FROM jsonb_populate_record(NULL::agent.{table}, %s)',
-            ).format(table=sql.Identifier(table),
-                columns=sql.SQL(',').join(map(sql.Identifier, columns))),
-                (Jsonb(represented),),
-            )
-            assert destination.execute(sql.SQL(
-                'SELECT to_jsonb(r) FROM agent.{table} r WHERE {identity}=%s',
-            ).format(table=sql.Identifier(table), identity=sql.Identifier(identity)),
-                (row[identity],),
-            ).fetchone()[0] == represented
-    measurements = []
-    with psycopg.connect(predecessor_database) as conn:
-        current = _definitions(conn)
-        assert current['agent_turn_lifecycle_check'] == old['agent_turn_lifecycle_check']
-        turn_id = conn.execute('SELECT turn_id FROM agent.turn WHERE world_id=%s ORDER BY accepted_at DESC LIMIT 1',
-            (lane.world.world_id,)).fetchone()[0]
-        row = conn.execute('SELECT to_jsonb(t) FROM agent.turn t WHERE turn_id=%s', (turn_id,)).fetchone()[0]
-        owner = import_module('application_state.migrations.versions.20261108_0139_native_storage_owner')
-        # Fixed alternating order; DDL/validation is outside UPDATE measurements.
-        for arm, definitions in [('old', old), ('single_owner', current), ('single_owner', current), ('old', old)]:
-            for name in owner._DUPLICATES:
-                conn.execute(f'ALTER TABLE agent.turn DROP CONSTRAINT "{name}"')
-                conn.execute(f'ALTER TABLE agent.turn ADD CONSTRAINT "{name}" CHECK ({definitions[name]})')
-            with conn.transaction(force_rollback=True):
-                plan = conn.execute('EXPLAIN (ANALYZE,FORMAT JSON,BUFFERS) UPDATE agent.turn '
-                    'SET graph_context_execution=graph_context_execution WHERE turn_id=%s', (turn_id,)).fetchone()[0][0]
-                measurements.append({'arm': arm, 'planning_ms': plan['Planning Time'], 'execution_ms': plan['Execution Time']})
-            assert conn.execute('SELECT to_jsonb(t) FROM agent.turn t WHERE turn_id=%s', (turn_id,)).fetchone()[0] == row
-        for name in owner._DUPLICATES:
-            conn.execute(f'ALTER TABLE agent.turn DROP CONSTRAINT "{name}"')
-            conn.execute(f'ALTER TABLE agent.turn ADD CONSTRAINT "{name}" CHECK ({current[name]})')
-        assert _definitions(conn) == current
-    record_property('native_storage_update_timing', json.dumps(measurements))
+    # A single owned database cannot hold current and historical states at once.
+    # Capture current rows above, then restore the historical phase serially.
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as predecessor_database:
+        assert predecessor_database == application_state_dsn
+        with monkeypatch.context() as historical_env:
+            historical_env.setenv(APPLICATION_STATE_DSN_ENV, predecessor_database)
+            command.upgrade(cli.alembic_config(), '20261108_0138')
+            with psycopg.connect(predecessor_database) as conn:
+                old = _definitions(conn)
+            # This historical experiment qualifies migration139, not later owners.
+            command.upgrade(cli.alembic_config(), '20261108_0139')
+            with psycopg.connect(predecessor_database) as destination:
+                assert destination.execute(
+                    'SELECT version_num FROM application_state.schema_migrations',
+                ).fetchone() == ('20261108_0139',)
+                assert destination.execute(
+                    "SELECT to_regclass('content.page_presentation')",
+                ).fetchone() == (None,)
+                for table, row, identity in [*parents, ('turn', turn, 'turn_id')]:
+                    columns = [record[0] for record in destination.execute(
+                        'SELECT column_name FROM information_schema.columns '
+                        "WHERE table_schema='agent' AND table_name=%s "
+                        'ORDER BY ordinal_position', (table,),
+                    ).fetchall()]
+                    represented = {column: row[column] for column in columns}
+                    destination.execute(sql.SQL(
+                        'INSERT INTO agent.{table} ({columns}) '
+                        'SELECT {columns} FROM jsonb_populate_record(NULL::agent.{table}, %s)',
+                    ).format(table=sql.Identifier(table),
+                        columns=sql.SQL(',').join(map(sql.Identifier, columns))),
+                        (Jsonb(represented),),
+                    )
+                    assert destination.execute(sql.SQL(
+                        'SELECT to_jsonb(r) FROM agent.{table} r WHERE {identity}=%s',
+                    ).format(table=sql.Identifier(table), identity=sql.Identifier(identity)),
+                        (row[identity],),
+                    ).fetchone()[0] == represented
+            measurements = []
+            with psycopg.connect(predecessor_database) as conn:
+                current = _definitions(conn)
+                assert current['agent_turn_lifecycle_check'] == old['agent_turn_lifecycle_check']
+                turn_id = conn.execute('SELECT turn_id FROM agent.turn WHERE world_id=%s ORDER BY accepted_at DESC LIMIT 1',
+                    (lane.world.world_id,)).fetchone()[0]
+                row = conn.execute('SELECT to_jsonb(t) FROM agent.turn t WHERE turn_id=%s', (turn_id,)).fetchone()[0]
+                owner = import_module('application_state.migrations.versions.20261108_0139_native_storage_owner')
+                # Fixed alternating order; DDL/validation is outside UPDATE measurements.
+                for arm, definitions in [('old', old), ('single_owner', current), ('single_owner', current), ('old', old)]:
+                    for name in owner._DUPLICATES:
+                        conn.execute(f'ALTER TABLE agent.turn DROP CONSTRAINT "{name}"')
+                        conn.execute(f'ALTER TABLE agent.turn ADD CONSTRAINT "{name}" CHECK ({definitions[name]})')
+                    with conn.transaction(force_rollback=True):
+                        plan = conn.execute('EXPLAIN (ANALYZE,FORMAT JSON,BUFFERS) UPDATE agent.turn '
+                            'SET graph_context_execution=graph_context_execution WHERE turn_id=%s', (turn_id,)).fetchone()[0][0]
+                        measurements.append({'arm': arm, 'planning_ms': plan['Planning Time'], 'execution_ms': plan['Execution Time']})
+                    assert conn.execute('SELECT to_jsonb(t) FROM agent.turn t WHERE turn_id=%s', (turn_id,)).fetchone()[0] == row
+                for name in owner._DUPLICATES:
+                    conn.execute(f'ALTER TABLE agent.turn DROP CONSTRAINT "{name}"')
+                    conn.execute(f'ALTER TABLE agent.turn ADD CONSTRAINT "{name}" CHECK ({current[name]})')
+                assert _definitions(conn) == current
+            record_property('native_storage_update_timing', json.dumps(measurements))
 
 
 # Materialized JSON owner: current migration qualification.
@@ -265,18 +263,12 @@ def _definition(conn):
 
 
 @pytest.fixture
-def storage_predecessor(monkeypatch):
-    from tests.application_state.conftest import _admin_dsn, _create_database, _drop_database, _replace_database
-    admin = _admin_dsn()
-    name = 'dungeonbuddy_app_state_test_' + uuid4().hex[:12]
-    _create_database(admin, name)
-    try:
-        dsn = _replace_database(admin, name)
+def storage_predecessor(monkeypatch, application_state_dsn, application_state_database):
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as dsn:
         monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
         command.upgrade(cli.alembic_config(), '20261108_0141')
         yield dsn
-    finally:
-        _drop_database(admin, name)
 
 
 def _bind(value, kind):

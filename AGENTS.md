@@ -153,8 +153,12 @@ in for exact-current-source verification.
 
 Run affected backend contracts locally in an isolated exact-SHA checkout using
 `scripts/ci_contract.py run <contract>` and the owning locked Python environment.
-Database contracts require uniquely owned disposable databases and existing
-session-template/per-test-clone isolation; never operator/live data or providers.
+Database contracts use one explicitly owned disposable App clone per workstream,
+reused across serial cases and retries. Prepare/reset fixture state between cases;
+close workers and connections before final exact-clone teardown after acceptance
+or abandonment. Use the existing read-only Core snapshot where required. Never
+use operator/live data or providers, allocate per-case App clones, or run full
+contents scans merely to inventory an exclusively owned benchmark database.
 Retain SHA, commands, versions, isolation/cleanup and all exit/failure evidence.
 Auth/principal/CAS/rollback/history and graph draft-loss protections remain required
 when affected. Independent exact-head review and user/process merge authority

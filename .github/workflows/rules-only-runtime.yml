@@ -42,20 +42,28 @@ jobs:
         env:
           POSTGRES_USER: dungeonmind
           POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_DB: postgres
+          POSTGRES_DB: dungeonbuddy_app_state_test_seed
         ports: ['54329:5432']
         options: >-
           --health-cmd "pg_isready -U dungeonmind -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
+      DMB_CI_APP_TEMPLATE_DATABASE: dungeonbuddy_app_state_test_seed
+      DMB_CI_WORKSTREAM_ROOT: ${{ runner.temp }}/buddy-ci-app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-toolchain
       - uses: ./.github/actions/install-locked-python
+
+      - name: Install matching PostgreSQL clients
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
       - name: Full owning regression and lint
         run: |
-          uv run --locked pytest -q tests/test_rules_only_parent.py --durations=10
+          uv run --locked python scripts/ci_contract.py run rules-only-runtime
           uv run --locked ruff check apps/live_control_server/services/rules_only_runtime.py tests/test_rules_only_parent.py

@@ -12,7 +12,6 @@ from uuid import uuid4
 import psycopg
 import pytest
 from PIL import Image
-from psycopg import sql
 
 from application_state import media
 from application_state.authority import (
@@ -20,7 +19,6 @@ from application_state.authority import (
     compute_fingerprint,
     restore_authority,
 )
-from application_state.cli import upgrade_to_head
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateIntegrityError,
@@ -29,28 +27,10 @@ from application_state.errors import (
 )
 
 
-@pytest.fixture(scope="module")
-def database():
-    admin = "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres"
-    name = "buddy_media_test_" + uuid4().hex[:12]
-    dsn = admin.rsplit("/", 1)[0] + "/" + name
-    previous = os.environ.get("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL")
-    with psycopg.connect(admin, autocommit=True) as conn:
-        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-    try:
-        upgrade_to_head(dsn=dsn)
-        yield dsn
-    finally:
-        if previous is None:
-            os.environ.pop("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", None)
-        else:
-            os.environ["DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL"] = previous
-        with psycopg.connect(admin, autocommit=True) as conn:
-            conn.execute(
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=%s",
-                (name,),
-            )
-            conn.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+@pytest.fixture
+def database(application_state_dsn):
+    return application_state_dsn
+
 
 
 def png():
@@ -208,7 +188,7 @@ def test_validation_rejects_nonimages_before_persistence(database):
         media.stage_image(png(), "", {}, dsn=database)
 
 
-def test_real_backup_restore_keeps_candidate_and_storage_receipt(database, tmp_path):
+def test_real_backup_restore_keeps_candidate_and_storage_receipt(database, application_state_database, tmp_path):
     row = media.stage_image(
         png(), "restore-owner", {"prompt": "Keep original"}, dsn=database
     )
@@ -218,29 +198,17 @@ def test_real_backup_restore_keeps_candidate_and_storage_receipt(database, tmp_p
     )
     dump = tmp_path / "media.dump"
     backup_authority(source_dsn=database, out_path=dump)
-    name = "buddy_media_restore_" + uuid4().hex[:12]
-    target = database.rsplit("/", 1)[0] + "/" + name
-    admin = database.rsplit("/", 1)[0] + "/postgres"
-    with psycopg.connect(admin, autocommit=True) as conn:
-        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-    try:
-        restore_authority(
+    expected = compute_fingerprint(database)
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as target:
+        report = restore_authority(
             target_dsn=target,
             backup_path=dump,
-            expect_fingerprint=compute_fingerprint(database),
+            expect_fingerprint=expected,
         )
+        assert report.ready and not report.mismatches
         assert media.get_asset(row["asset_id"], "restore-owner", dsn=target) == ready
-        assert (
-            media.read_staged_bytes(row["asset_id"], "restore-owner", dsn=target)
-            == png()
-        )
-    finally:
-        with psycopg.connect(admin, autocommit=True) as conn:
-            conn.execute(
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=%s",
-                (name,),
-            )
-            conn.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+        assert media.read_staged_bytes(row["asset_id"], "restore-owner", dsn=target) == png()
 
 
 def test_known_rejection_can_retry_same_bytes_but_unknown_cannot(database):

@@ -1,18 +1,13 @@
 """Real APP persistence with synthetic Cloudflare transport; no paid generation."""
 import asyncio
 import io
-import os
-from uuid import uuid4
 
 import httpx
-import psycopg
 import pytest
 from fastapi import HTTPException
 from PIL import Image
-from psycopg import sql
 
 from application_state import media
-from application_state.cli import upgrade_to_head
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from apps.live_control_server.services import media_storage
 
@@ -22,20 +17,10 @@ def anyio_backend():
     return 'asyncio'
 
 
-@pytest.fixture(scope='module')
-def database():
-    admin = os.environ.get('DMB_APPLICATION_STATE_TEST_DATABASE_URL', 'postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres')
-    name = 'buddy_media_storage_' + uuid4().hex[:12]
-    dsn = admin.rsplit('/', 1)[0] + '/' + name
-    with psycopg.connect(admin, autocommit=True) as conn:
-        conn.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
-    try:
-        upgrade_to_head(dsn=dsn)
-        yield dsn
-    finally:
-        with psycopg.connect(admin, autocommit=True) as conn:
-            conn.execute('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=%s', (name,))
-            conn.execute(sql.SQL('DROP DATABASE {}').format(sql.Identifier(name)))
+@pytest.fixture
+def database(application_state_dsn):
+    return application_state_dsn
+
 
 
 @pytest.fixture

@@ -2,7 +2,6 @@
 
 from importlib import import_module
 import json
-from uuid import uuid4
 
 from alembic import command
 import psycopg
@@ -223,26 +222,13 @@ def test_shared_reader_fence_preserves_rows_and_refuses_old_reader_and_downgrade
 
 
 @pytest.fixture
-def predecessor_dsn(monkeypatch):
+def predecessor_dsn(monkeypatch, application_state_dsn, application_state_database):
     from application_state.config import APPLICATION_STATE_DSN_ENV
-    from tests.application_state.conftest import (
-        _admin_dsn,
-        _replace_database,
-        _create_database,
-        _drop_database,
-    )
-
-    admin = _admin_dsn()
-    name = "dungeonbuddy_app_state_test_" + uuid4().hex[:12]
-    _create_database(admin, name)
-    dsn = _replace_database(admin, name)
-    monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
-    try:
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as dsn:
+        monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
         command.upgrade(alembic_config(), "20261031_0102")
         yield dsn
-    finally:
-        monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
-        _drop_database(admin, name)
 
 
 def test_upgrade_retains_historical_row_and_closed_predicates_exactly(

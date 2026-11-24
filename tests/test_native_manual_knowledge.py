@@ -283,13 +283,16 @@ def prepare_packet(c, *, kind="npc", mode="object"):
     return request, response.json()["plan"]
 
 
-def rows_snapshot(dsn):
+def rows_snapshot(dsn, *, core_only=False):
     import psycopg
     from psycopg import sql
 
     with psycopg.connect(dsn) as conn:
         tables = conn.execute(
-            "SELECT schemaname,tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1,2"
+            "SELECT schemaname,tablename FROM pg_tables "
+            "WHERE schemaname NOT IN ('pg_catalog','information_schema') "
+            "AND (schemaname = 'dungeonmind') = %s ORDER BY 1,2",
+            (core_only,),
         ).fetchall()
         return {
             (s, t): sorted(
@@ -306,7 +309,7 @@ def rows_snapshot(dsn):
 
 def snapshot(c):
     if c.database is not None:
-        return rows_snapshot(c.database._database_url)
+        return rows_snapshot(c.database._database_url, core_only=True)
     return deepcopy(
         {k: v for k, v in c.repo.__dict__.items() if k != "_lock" and not callable(v)}
     )

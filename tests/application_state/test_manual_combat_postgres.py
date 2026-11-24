@@ -195,22 +195,18 @@ def test_oversized_template_profile_refuses_atomically(scene_case):
             assert conn.execute('SELECT count(*) FROM '+table).fetchone()[0]==0
 
 
-def test_serial_0160_through_0166_rehearsal_preserves_legacy_row(application_state_dsn, monkeypatch):
-    #0162 is forward-only. Rehearse forward on a fresh uniquely owned database;
-    #never rewrite migration history or downgrade through that compatibility fence.
+def test_serial_0160_through_0166_rehearsal_preserves_legacy_row(
+    application_state_dsn, application_state_database, monkeypatch,
+):
     import json
     from pathlib import Path
-    from uuid import uuid4
     from alembic import command
     from application_state.cli import alembic_config
     from application_state.config import APPLICATION_STATE_DSN_ENV
     from application_state.combat_encounters import repository
     from application_state.combat_encounters.types import CombatEncounterRecord
-    from tests.application_state.conftest import _admin_dsn,_replace_database,_create_database,_drop_database
-    admin=_admin_dsn();name='dungeonbuddy_app_state_test_'+uuid4().hex[:12]
-    _create_database(admin,name)
-    try:
-        dsn=_replace_database(admin,name)
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as dsn:
         with monkeypatch.context() as patch:
             patch.setenv(APPLICATION_STATE_DSN_ENV,dsn)
             config=alembic_config();command.upgrade(config,'20261117_0160')
@@ -231,20 +227,18 @@ def test_serial_0160_through_0166_rehearsal_preserves_legacy_row(application_sta
                 migrated = repository.get_encounter(
                     conn, world_id=legacy.world_id, encounter_id=legacy.encounter_id)
             assert migrated == legacy
-            # Exercise the public reader on its real current schema, using the
-            # actual migrated record. Never spoof the historical schema guard.
-            with psycopg.connect(application_state_dsn) as conn:
-                repository.insert_encounter(conn, migrated)
-            with monkeypatch.context() as current:
-                current.setenv(APPLICATION_STATE_DSN_ENV, application_state_dsn)
-                assert get_encounter(world_id=legacy.world_id,encounter_id=legacy.encounter_id)==legacy
             with pytest.raises(RuntimeError,match='forward recovery'):
                 command.downgrade(config,'20261118_0165')
             assert stored()==before
             with psycopg.connect(dsn) as conn:
                 assert conn.execute('SELECT version_num FROM application_state.schema_migrations').fetchone()[0]=='20261118_0166'
-    finally:
-        _drop_database(admin,name)
+    # Exercise the public reader on its real current schema, using the
+    # actual migrated record. Never spoof the historical schema guard.
+    with psycopg.connect(application_state_dsn) as conn:
+        repository.insert_encounter(conn, migrated)
+    with monkeypatch.context() as current:
+        current.setenv(APPLICATION_STATE_DSN_ENV, application_state_dsn)
+        assert get_encounter(world_id=legacy.world_id,encounter_id=legacy.encounter_id)==legacy
 
 
 @pytest.mark.parametrize('pacing',['ordered','side','spotlight'])

@@ -688,37 +688,15 @@ def test_check_head_does_not_migrate(application_state_dsn: str) -> None:
 
 
 def test_behind_head_fails_closed_without_mutating_schema(
-    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn, application_state_database, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tests.application_state.conftest import (
-        _admin_dsn,
-        _create_database,
-        _drop_database,
-        _replace_database,
-    )
-
-    admin = _admin_dsn()
-    import uuid
-
-    name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
-    try:
-        _create_database(admin, name)
-    except Exception as exc:
-        pytest.fail(
-            "AS1 owning-boundary tests require real disposable PostgreSQL; "
-            f"could not create {name}: {exc}"
-        )
-    dsn = _replace_database(admin, name)
-    monkeypatch.setenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", dsn)
-    try:
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as dsn:
+        monkeypatch.setenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", dsn)
         before = _schema_fingerprint(dsn)
         with pytest.raises(ApplicationStateMigrationError):
             assert_at_head(dsn=dsn)
-        assert _schema_fingerprint(dsn) == before
-        assert before == ((), (), False)
-    finally:
-        monkeypatch.delenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", raising=False)
-        _drop_database(admin, name)
+        assert _schema_fingerprint(dsn) == before == ((), (), False)
 
 
 def _measure_prepare_commit_load(
