@@ -862,3 +862,29 @@ outcomes. The per-route repetition target in the
 Build and Plan, including a clean P03 run and the remaining prose, Warning and
 Rules repetitions. The Play scene edit used the existing explicit proposal
 mode. The evidence does not score implicit scene edits from default Play chat.
+
+### Hosted Build prose insertion after #4581
+
+On November 23, 2026 (America/Denver), B03 passed in Buddy Cloud Pilot on
+serving revision `ab642ad0`. This release contains Build
+[#4581](https://github.com/Drakosfire/DungeonMindBuddy/pull/4581) and the
+subsequent guest Graph delivery. The completed synthetic turn
+`b6d8465c-8c76-41f5-9a6d-7a3a67af189e` started after the serving container's
+recorded startup.
+
+The test placed the caret at the end of the Arrival paragraph on the
+saved **Protected Arrival** page and sent the exact B03 request in a fresh
+conversation. The retained trace records Jev 1.14.0 decisions and an OpenAI
+Responses writer call to `gpt-6-luna`. It also records
+`controller_finished_with_gaps` before the writer call. The turn completed
+and the suggestion preview offered two ordinary paragraphs at that boundary.
+Save acknowledged the proposal. After a full reload, the two paragraphs
+were the next two editor blocks after Arrival. Removing those additions
+from the rendered-block comparison recovered all 18 original blocks in
+order, including the callouts, Departure text and table. Scrolling the
+reopened page loaded the saved 1,024-pixel illustration.
+
+The older protected-fixture attempts stopped at placement guidance or could
+not reconcile Save. This run verifies proposal, placement and persistence
+for one repetition on the current serving lineage. The remaining independent
+repetitions and the Plan P03 check remain open.
