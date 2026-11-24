@@ -89,7 +89,9 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
             : nativeSource.status?.state === "admitted"
               ? "Source saved and ready to use as evidence in World reviews."
               : nativeSource.status?.state === "pending"
-                ? "Source saved. It isn’t ready to use as evidence in World reviews yet."
+                ? nativeSource.status.code === "native_admission_pending"
+                  ? "Source saved. It isn’t ready to use as evidence in World reviews yet."
+                  : "Source saved. Buddy couldn’t check whether it’s ready for World reviews."
                 : "Couldn’t check whether the source is ready for World reviews."}
         </p>
         <div className="build-ingest-toolbar-actions">

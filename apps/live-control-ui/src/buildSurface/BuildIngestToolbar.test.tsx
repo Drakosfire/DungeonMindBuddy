@@ -171,6 +171,15 @@ describe("BuildIngestToolbar", () => {
     });
   });
 
+  it("keeps the retry available when saved source readiness cannot be verified", async () => {
+    vi.mocked(liveApi.getNativeWorldSourceAdmissionStatus).mockResolvedValue({
+      ...nativeSourceStatus(), code: "authority_unavailable",
+    });
+    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
+    expect(await screen.findByText("Source saved. Buddy couldn’t check whether it’s ready for World reviews.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Retry source preparation" })).toBeEnabled();
+  });
+
   it("disables extract until a committed clean source is available", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       snapshot(DOC_ID, 1, "sha-1", "draft"),
