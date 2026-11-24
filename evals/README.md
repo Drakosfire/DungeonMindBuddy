@@ -1,10 +1,25 @@
 # Lab and evaluation
 
-- [Agent action catalog](plan-authoring-benchmark.md#action-catalog) and [workflow decision benchmark](plan-authoring-benchmark.md#workflow-decision-benchmark) — proven actions, requested actions, and when Buddy should use them.
-- [Right Action at the Right Time coverage matrix](right-action-coverage.md) — three tiers per action, with retrieval and no-action contrasts.
-- [Adventure-to-follow-up benchmark](adventure-to-follow-up-benchmark.md) — adventure intake, Plan, Play, combat, and cited recap continuity.
 This directory holds experiments, regression fixtures, and evaluation evidence.
 Start with the suite that owns the question you are testing.
+
+## Actions and workflow coverage
+
+- [Agent action catalog](plan-authoring-benchmark.md#action-catalog): the
+  canonical inventory of ordinary Agent choices, operator actions and requested
+  capabilities, with the strongest verified boundary and remaining proof.
+- [Workflow decision benchmark](plan-authoring-benchmark.md#workflow-decision-benchmark):
+  cases for deciding when to discuss, retrieve, propose, or refrain from acting,
+  including destination and side-effect checks.
+- [Right Action at the Right Time coverage matrix](right-action-coverage.md):
+  fixture specifications for direct, contrast and multi-step workflow cases.
+- [Adventure-to-follow-up benchmark](adventure-to-follow-up-benchmark.md):
+  the joined intake, Plan, Play, Combat, recap and cited follow-up journey.
+
+An inventory entry or fixture is not itself a passing end-to-end result. Read its
+evidence and open boundaries; component or scripted proof does not establish an
+ordinary live workflow. The [ordinary benchmark workflow](../Docs/Guides/ordinary-benchmark-workflow.md)
+explains capture, offline reporting and independent assessment.
 
 | Question | Entry point |
 | --- | --- |

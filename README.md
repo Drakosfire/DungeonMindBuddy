@@ -7,6 +7,11 @@ can build with, plan around, and use at the table.
 - **Plan** uses campaign context to prepare the next session.
 - **Play** brings prepared material into the live session.
 - **World Graph** lets you inspect what Buddy knows and trace it to its sources.
+- **Combat** helps run encounters with turns, tracked combatants, and sheets.
+
+Buddy also brings together document authoring, World-owned artwork, and Agent
+conversation. In supported workflows, the Agent can use relevant context and
+propose an edit for review; availability and evidence vary by action.
 
 For example, start with a synthetic recap saying that the party found a sealed
 door beneath the mill. Review the door and its source in Build, then bring the
@@ -25,6 +30,23 @@ shared inference execution. The public dungeonmind.net product has its own
 frontend and web API. These are separate boundaries, even when components run
 in the same local environment. Start with the
 [documentation map](Docs/README.md) for the contracts and operational guides.
+
+## Actions and benchmarks
+
+The [action catalog](evals/plan-authoring-benchmark.md#action-catalog) is the
+canonical inventory of Agent choices, operator actions, evidence, and requested
+capabilities. It distinguishes ordinary turns from component evidence and
+unfinished work.
+
+The [workflow decision benchmark](evals/plan-authoring-benchmark.md#workflow-decision-benchmark)
+tests whether Buddy chooses the right action and avoids unwanted side effects.
+The [coverage matrix](evals/right-action-coverage.md) specifies direct,
+contrast, and multi-step cases. The
+[adventure-to-follow-up benchmark](evals/adventure-to-follow-up-benchmark.md)
+describes the joined journey from source intake through Plan, Play, Combat,
+recap, and follow-up. These are specifications and recorded evidence, not a
+claim that every action or end-to-end journey has passed. Start with the
+[lab guide](evals/README.md) for runners, evidence and safety boundaries.
 
 ## Run locally
 
@@ -103,7 +125,8 @@ the browser sign-in and sign-out smoke.
 | Work on the UI | [Frontend guide](apps/live-control-ui/README.md) |
 | Run tests for a change | [Verification standard](AGENTS.md#review-and-verification) and [frontend commands](apps/live-control-ui/README.md#commands) |
 | Run an experiment or inspect evidence | [Lab and evaluation guide](evals/README.md) |
-| See what Buddy can do and how workflow decisions are tested | [Agent action catalog](evals/plan-authoring-benchmark.md#action-catalog) · [Workflow decision benchmark](evals/plan-authoring-benchmark.md#workflow-decision-benchmark) |
+| Explore the product surfaces | [Product surface guide](Docs/Guides/GUIDE-surface-contributor-map.md) |
+| Find actions and benchmark coverage | [Action catalog](evals/plan-authoring-benchmark.md#action-catalog) · [Coverage matrix](evals/right-action-coverage.md) · [Adventure benchmark](evals/adventure-to-follow-up-benchmark.md) |
 
 The product runs from `apps/` and `src/`. Versioned contracts live in
 `schemas/`, and verification lives in `tests/` and `ci/`. DungeonMind owns
