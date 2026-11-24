@@ -196,6 +196,23 @@ The optional manifest field browser_capture.settled_pane waits for a quiet
 pane before timing Send. Leave it false for immediate Send after the
 controls are ready. Leave off --detailed-trace for the coarse comparison arm.
 
+### One App clone per benchmark workstream
+
+For a browser cohort, pin the same shared App template in every member and
+run `capture-context-cohort --browser-cohort --clone-app --workers 1` with
+the usual manifest and output arguments. The App DSN names the template.
+The coordinator records the owned clone and manifest in `owned-app.json`,
+upgrades that clone to the checked-out App migration head once, and runs
+each case serially in a fresh worker. The browser starts a new conversation
+for each case. The runner does not scan the owned App database. It verifies
+the shared read-only Core inventory once before and once after the cohort.
+Writer request bytes, citations, timings and individual results are retained.
+
+All workers close before the ownership helper drops the exact clone and
+verifies removal. If execution is interrupted, check the recorded clone
+identity and teardown before allocating another. The coordinator does
+not modify the shared App template or Core snapshot.
+
 ### Parallel retrieval captures
 
 Use `python -m evals.buddy_benchmark.workflow capture-context-cohort --manifest

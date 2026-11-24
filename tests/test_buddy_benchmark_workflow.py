@@ -1345,9 +1345,9 @@ def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
     with pytest.raises(ValueError, match="bundle differs"):
         browser_inputs(manifest, tmp_path)
 
-@pytest.mark.parametrize("browser", [False, True])
+@pytest.mark.parametrize("browser, clone_app", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("changed, missing_capture", [(False, False), (True, False), (False, True)])
-def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, changed, missing_capture, browser):
+def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app):
     from concurrent.futures import Future
     from evals.buddy_benchmark import cohort_capture as cohort
 
@@ -1357,7 +1357,8 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
                   system_identifier="42", inventory=pin)
     members = []
     for number in [1, 2]:
-        app = dict(native, database=f"app{number}", oid=str(number))
+        app = dict(native, database="app", oid="1") if clone_app else dict(
+            native, database=f"app{number}", oid=str(number))
         members.append(put(tmp_path / f"member{number}.json", {
             "schema": "dmb_ordinary_benchmark_v1",
             "cases": [{"id": f"case{number}", "question": f"Question {number}?"}],
@@ -1373,21 +1374,51 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
     monkeypatch.setattr(cohort, "require_read_only_core", lambda *_: None)
 
     events = []
+    from contextlib import contextmanager
+    from application_state import cli
+    from evals.buddy_benchmark import disposable_database
+
+    owned_app = {**app, "database": "benchmark_run_owned", "oid": "25"}
+
+    @contextmanager
+    def own(admin_dsn, template):
+        assert admin_dsn.endswith("/postgres")
+        assert template == app
+        events.append("clone")
+        try:
+            yield owned_app
+        finally:
+            events.append("drop")
+
+    def upgrade():
+        assert clone_app
+        assert cohort.os.environ[cohort.APP_DSN].endswith("/benchmark_run_owned")
+        events.append("upgrade")
+
+    monkeypatch.setattr(disposable_database, "disposable_benchmark_database", own)
+    monkeypatch.setattr(cli, "upgrade_to_head", upgrade)
+
     def inventory(*_, **__):
         events.append("scan")
         return {} if changed and events.count("scan") == 2 else before
 
     class Executor:
         def __init__(self, **options):
-            assert options["max_workers"] == 2 and options["max_tasks_per_child"] == 1
+            assert options["max_workers"] == (1 if clone_app else 2)
+            assert options["max_tasks_per_child"] == 1
 
         def __enter__(self):
             return self
 
         def __exit__(self, *_):
+            if clone_app:
+                events.append("workers closed")
             return False
 
         def submit(self, member, manifest, output, app_dsn, manifest_sha256, **options):
+            if clone_app:
+                assert options.pop("shared_app") == owned_app
+                assert app_dsn.endswith("/benchmark_run_owned")
             assert options == ({"browser_case": output.name, "detailed_trace": True} if browser else {})
             assert member is cohort._capture_member
             assert sha256(manifest.read_bytes()).hexdigest() == manifest_sha256
@@ -1405,15 +1436,22 @@ def test_cohort_inventory_brackets_parallel_members(tmp_path, monkeypatch, chang
     out = tmp_path / "result"
     if changed:
         with pytest.raises(ValueError, match="changed during cohort"):
-            cohort.capture_cohort(manifest["path"], out, workers=2, browser=browser, detailed_trace=browser)
+            cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
+                                  detailed_trace=browser, clone_app=clone_app)
     elif missing_capture:
         with pytest.raises(RuntimeError, match="cohort members failed"):
-            cohort.capture_cohort(manifest["path"], out, workers=2, browser=browser, detailed_trace=browser)
+            cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
+                                  detailed_trace=browser, clone_app=clone_app)
         outcomes = json.loads((out / "members.json").read_text())
         assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing"}}
     else:
-        cohort.capture_cohort(manifest["path"], out, workers=2, browser=browser, detailed_trace=browser)
-    assert events == ["scan", "case1", "case2", "scan"]
+        cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
+                                  detailed_trace=browser, clone_app=clone_app)
+    if clone_app:
+        assert events == ["scan", "clone", "upgrade", "case1", "case2", "workers closed", "drop", "scan"]
+        assert json.loads((out / "owned-app.json").read_text())["database"] == owned_app
+    else:
+        assert events == ["scan", "case1", "case2", "scan"]
 
 
 def test_cohort_core_rejects_a_writable_login(monkeypatch):
