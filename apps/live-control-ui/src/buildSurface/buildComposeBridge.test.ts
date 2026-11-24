@@ -149,19 +149,17 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
   const hasCallouts = mode !== 'plain';
   const fragment = hasCallouts
    ? '> [!READ-ALOUD] Crossing\n> A second lantern lights up.\n\n> [!GM-NOTE] Wait\n> Keep the gate closed.'
-   : 'Bring a second lantern.';
+   : 'Bring a second lantern.\n\nCheck the supports before dusk.';
   expect(captured.basis.caret).toBe(caret);
   expect(caret).not.toBe(proof.from);
-  if (hasCallouts) {
-   await expect(bridge.prepareProposal(captured, fragment + '\n\n## Unexpected heading'))
-    .rejects.toThrow('must add prose or semantic callouts');
-  }
+  await expect(bridge.prepareProposal(captured, fragment + '\n\n## Unexpected heading'))
+   .rejects.toThrow('must add prose or semantic callouts');
   const prepared = await bridge.prepareProposal(captured,fragment);
   expect(editor.getJSON()).toEqual(originalDoc);
   const index = editor.state.doc.resolve(proof.from).index(0);
   bridge.applyPrepared(prepared);
   const after = editor.getJSON().content!;
-  expect([...after.slice(0, index), ...after.slice(index + (hasCallouts ? 2 : 1))]).toEqual(originalDoc.content);
+  expect([...after.slice(0, index), ...after.slice(index + 2)]).toEqual(originalDoc.content);
   if (hasCallouts) {
    expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 2);
    const trailing = after.slice(index, index + 2);
@@ -174,8 +172,15 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
    const saved = tiptapJsonToSemanticMarkdown(flattenPresentation(editor.getJSON()));
    expect(saved).toContain(fragment);
   } else {
-   expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 1);
-   expect(after[index]).toMatchObject({type:'paragraph',content:[{text:'Bring a second lantern.'}]});
+   expect(after.slice(index, index + 2)).toMatchObject([
+    {type:'paragraph',content:[{text:'Bring a second lantern.'}]},
+    {type:'paragraph',content:[{text:'Check the supports before dusk.'}]},
+   ]);
+   const saved = tiptapJsonToSemanticMarkdown(editor.getJSON());
+   expect(saved).toContain('The gate is locked.\n\n' + fragment + '\n\n## Rumours');
+   const reopened = markdownToTiptapDoc(saved);
+   expect(reopened.diagnostics).toEqual([]);
+   expect(tiptapJsonToSemanticMarkdown(reopened.doc)).toBe(saved);
   }
   expect(changed).toHaveBeenCalledOnce();
   editor.commands.undo();
