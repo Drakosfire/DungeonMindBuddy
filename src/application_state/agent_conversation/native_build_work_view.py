@@ -202,11 +202,14 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
             for row in contract['available_followups']]
         if lore_request_reference and lore_request_reference_eligible(host, execution):
             work['lore_page_destination'] = {'request': 'current_author_request'}
-        if lore_outcome and lore_outcome_eligible(host, execution):
-            from .lore_page_review import LORE_OUTCOME_POLICY
-            if work.get('lore_page_destination') != {'request': 'current_author_request'}:
-                raise ValueError('Lore outcome requires its captured request reference')
-            work['lore_reply_contract'] = LORE_OUTCOME_POLICY
+        if lore_outcome:
+            if (not lore_outcome_eligible(host, execution)
+                    or work.get('lore_page_destination') != {'request': 'current_author_request'}
+                    or not supplied_source_references or not lore_page_limitations):
+                raise ValueError('Lore outcome requires its admitted populated request and host policies')
+            # The producing format/admission owns these flags; models receive task context.
+            del work['citation_policy']
+            del work['lore_limitation_policy']
         if bind_lore_page and 'lore_page_destination' not in work and contract['requested_work'] in ('review_lore_page', 'review_lore_page_from_conversation') and not contract['barrier']:
             from .lore_page_review import explicit_lore_page_witness
 

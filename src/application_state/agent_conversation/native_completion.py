@@ -427,6 +427,10 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     from .plan_jev_decision import connected_page_review_enabled
     plan_review=connected_page_review_enabled(execution)
     review_enabled=plan_review or execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
+    if evidence.lore_outcome:
+        if not isinstance(candidate, dict) or 'schema' in candidate:
+            raise ValueError('Lore outcome must not echo host serializer metadata')
+        candidate = {'schema': evidence.frame['answer_policy'], **candidate}
     keys={'schema','answer_segments','limitations'} | ({'collaboration'} if review_enabled else set())
     if not evidence.generic_limitations:
         keys.add('requested_detail_gaps')

@@ -413,7 +413,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
             raise ValueError('Current Plan saved-page dispatch requires supplied source references')
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
             build_local=evidence.build_local,format_version=version,execution=graph_execution,
-            generic_reply_limits=evidence.generic_limitations)
+            generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

@@ -254,7 +254,7 @@ def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented
     return mixed
 
 
-def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2, execution=None, generic_reply_limits=False):
+def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2, execution=None, generic_reply_limits=False, lore_outcome=False):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
     if type(format_version) is not int or format_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}:
         raise ValueError('Unknown native writer output format version')
@@ -301,7 +301,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     source_answer_policy = work_frame.get('build_work', {}).get('source_answer_policy')
     if source_answer_policy not in (None, SOURCE_ANSWER_POLICY):
         raise ValueError('Unknown Build source answer policy')
-    lore_limitation_policy = work_frame.get('build_work', {}).get('lore_limitation_policy')
+    lore_limitation_policy = LORE_LIMITATION_POLICY if lore_outcome else work_frame.get('build_work', {}).get('lore_limitation_policy')
     if lore_limitation_policy not in (None, LORE_LIMITATION_POLICY):
         raise ValueError('Unknown lore review limitation policy')
     if lore_limitation_policy and (work_frame.get('schema') != BUILD_WORK_SCHEMA
@@ -354,13 +354,14 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
                         variant for variant in items["anyOf"]
                         if variant["properties"]["kind"].get("const") in {"native_body_claim", "proposal"}
                     ]
-            outcome_policy = work_frame.get('build_work', {}).get('lore_reply_contract')
-            if outcome_policy is not None:
-                from .lore_page_review import LORE_OUTCOME_POLICY, LoreContextQuestion
-                if outcome_policy != LORE_OUTCOME_POLICY or not request_reference:
-                    raise ValueError('Unknown or unbound lore outcome policy')
+            if lore_outcome:
+                from .lore_page_review import LoreContextQuestion
+                if not request_reference:
+                    raise ValueError('Lore outcome requires its captured request reference')
                 if work_frame['response_contract']['requested_work'] not in {'review_lore_page', 'review_lore_page_from_conversation'}:
                     raise ValueError('Lore outcome requires populated page work')
+                del base['properties']['schema']
+                base['required'].remove('schema')
                 page = review['anyOf'][0]
                 page['description'] = 'Prepare the requested standalone draft now from supplied material; it is reviewed before saving. Use needs_context only when essential context is truly missing.'
                 review = {'anyOf': [page, LoreContextQuestion.model_json_schema()]}
@@ -510,7 +511,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False, format_
     if work_frame.get('build_work', {}).get('lore_page_destination') == {'request': 'current_author_request'}:
         if not lore_limitation_policy or not generic_reply_limits:
             raise ValueError('Request reference requires the current lore reply contract')
-        format_name = LORE_OUTCOME_FORMAT if work_frame.get("build_work", {}).get("lore_reply_contract") is not None else LORE_REQUEST_FORMAT
+        format_name = LORE_OUTCOME_FORMAT if lore_outcome else LORE_REQUEST_FORMAT
     elif lore_limitation_policy:
         format_name = LORE_LIMITATION_FORMAT
     elif source_answer_policy:
@@ -564,12 +565,14 @@ def offered_generic_limits(format):
     elif 'base_output' in props or 'Base' in definitions:
         return False
     required = schema.get('required')
+    outcome = format['name'] == LORE_OUTCOME_FORMAT
+    mandatory = {'answer_segments', 'limitations', 'collaboration'} if outcome else {'schema', 'answer_segments', 'limitations'}
     return (isinstance(props, dict)
-        and {'schema', 'answer_segments', 'limitations'} <= set(props)
+        and mandatory <= set(props)
         and set(props) <= {'schema', 'answer_segments', 'limitations', 'collaboration', 'statblock_variant'}
         and schema.get('type') == 'object' and schema.get('additionalProperties') is False
         and isinstance(required, list) and len(required) == len(props) and set(required) == set(props)
-        and literal(props['schema'], ASSERTION_POLICY)
+        and ('schema' not in props if outcome else literal(props['schema'], ASSERTION_POLICY))
         and isinstance(props['answer_segments'], dict) and props['answer_segments'].get('type') == 'array'
         and isinstance(props['limitations'], dict) and props['limitations'].get('type') == 'array'
         and isinstance(props['limitations'].get('items'), dict)

@@ -888,7 +888,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     candidate['answer_segments'] = []
                     candidate['limitations'] = []
                     candidate['requested_detail_gaps'] = []
-                elif source_answer_output in {'lore_stale_gap', 'lore_valid_gap', 'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap'}:
+                elif source_answer_output in {'lore_stale_gap', 'lore_valid_gap', 'lore_malformed_gap', 'lore_empty_gap', 'lore_invalid_destination', 'lore_null_gap', 'lore_extra_schema'}:
                     candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea',
                         text='Proposed direction: The local node seeks freedom and values its simulated town life. Its deeper plans remain open.')]
                     candidate['limitations'] = ['missing_requested_details']
@@ -931,6 +931,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 base = candidate['base_output'] if candidate.get('kind') == 'rules_answer' else candidate
                 if base is not None and source_answer_output not in {'lore_malformed_gap', 'retired_gap_field'}:
                     base.pop('requested_detail_gaps', None)
+            output_base = body['text']['format']['schema'].get('$defs', {}).get('Base', body['text']['format']['schema'])
+            if 'schema' not in output_base['properties']:
+                base = candidate['base_output'] if candidate.get('kind') == 'rules_answer' else candidate
+                if base is not None and source_answer_output != 'lore_extra_schema':
+                    base.pop('schema', None)
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -3587,7 +3592,7 @@ def test_lore_page_review_uses_generic_limits_without_optional_phrase(lane, tmp_
         source_answer_output=output,
         message='Create a page for Glass Regent. Use the context we discussed; keep the unresolved motive open; do not search again.')
     request = json.loads(case.writer.calls[0].content)
-    assert request['text']['format']['name'] == 'surface_native_lore_request_reference_v3'
+    assert request['text']['format']['name'] == 'lore_page_response'
     from application_state.agent_conversation.retained_conversation import current_request_message
     assert request['input'][-1] == current_request_message(case.turn.graph_context_execution)
     assert ('The latest author request determines whether to prepare a page now.'
@@ -3757,7 +3762,7 @@ def test_background_scope_guidance_reaches_actual_sdk_and_respects_the_offered_c
         assert all(row.kind == 'discussion' for row in case.turn.completion.answer_segments)
 
 
-@pytest.mark.parametrize('mutation', ['prior_request', 'hybrid', 'legacy_destination', 'legacy_format', 'legacy_outcome', 'outcome_old_menu'])
+@pytest.mark.parametrize('mutation', ['prior_request', 'hybrid', 'legacy_destination', 'legacy_format', 'legacy_outcome', 'outcome_old_menu', 'extra_policy'])
 def test_lore_request_reference_rejects_downgrades_before_writer_io(lane, tmp_path, monkeypatch, mutation):
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
     from application_state.agent_conversation.native_build_work_view import semantic_frame
@@ -3767,16 +3772,13 @@ def test_lore_request_reference_rejects_downgrades_before_writer_io(lane, tmp_pa
     def forge(self, *args, **kwargs):
         original(self, *args, **kwargs)
         if mutation in {'legacy_outcome', 'outcome_old_menu'}:
-            from application_state.agent_conversation.lore_page_review import LORE_OUTCOME_POLICY
             wire = semantic_frame(self.work_frame, self.adapter.turn.graph_context_execution,
                 bind_lore_page=True, supplied_source_references=True, typed_source_answer=True,
                 lore_page_limitations=True, lore_request_reference=True)
-            if mutation == 'outcome_old_menu':
-                wire['build_work']['lore_reply_contract'] = LORE_OUTCOME_POLICY
             self.provider_work = wire
             from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
             self.output_format = native_output_format(self.frame, model_rules_frame(self.rules.frame()),
-                self.work_frame | wire, build_local=True, generic_reply_limits=True)
+                self.work_frame | wire, build_local=True, generic_reply_limits=True, lore_outcome=mutation == 'outcome_old_menu')
         if mutation == 'legacy_format':
             old = semantic_frame(self.work_frame, self.adapter.turn.graph_context_execution,
                 bind_lore_page=True, supplied_source_references=True, typed_source_answer=True,
@@ -3799,6 +3801,8 @@ def test_lore_request_reference_rejects_downgrades_before_writer_io(lane, tmp_pa
                 destination['request'] = 'prior_author_request'
             elif mutation == 'hybrid':
                 destination['instruction'] = 'Create a page for Glass Regent.'
+            elif mutation == 'extra_policy':
+                frame['build_work']['citation_policy'] = 'supplied_source_references_v1'
             elif mutation == 'legacy_destination':
                 frame['build_work']['lore_page_destination'] = {'instruction': 'Create a page for Glass Regent.', 'title': 'Glass Regent'}
             else:
@@ -3892,14 +3896,14 @@ def test_blank_lore_warning_stays_outside_the_empty_confirmed_page(lane, tmp_pat
     assert repeated.status_code==200 and repeated.json()==receipt
 
 
-@pytest.mark.parametrize('output', ['lore_context_question', 'lore_context_mixed', 'lore_empty_gap'])
+@pytest.mark.parametrize('output', ['lore_context_question', 'lore_context_mixed', 'lore_empty_gap', 'lore_extra_schema'])
 def test_current_lore_outcome_question_is_visible_without_creating_a_page(lane, tmp_path, monkeypatch, output):
     from application_state.content import pages
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work='review_lore_page_from_conversation', source_need='anchored',
         source_answer_output=output, message='Prepare the separate page when its subject and premise are clear. Ask for essential missing context; do not invent it.')
     request = json.loads(case.writer.calls[0].content)
-    assert request['text']['format']['name'] == 'surface_native_lore_request_reference_v3'
+    assert request['text']['format']['name'] == 'lore_page_response'
     assert request['input'][-1]['role'] == 'user'
     if output != 'lore_context_question':
         assert case.response.status_code == 503
@@ -3931,3 +3935,29 @@ def test_old_lore_admission_keeps_its_v2_request_and_page_readback(lane, tmp_pat
     from application_state.agent_conversation import AgentConversationService
     reopened = AgentConversationService().inspect_turn(world_id=case.world, turn_id=case.turn.turn_id)
     assert reopened.completion == case.turn.completion
+
+
+
+def test_current_lore_sdk_omits_host_metadata_but_preserves_authored_words(lane, tmp_path, monkeypatch):
+    message = 'Create a page for Glass Regent from our discussion. Preserve the authored phrase citation_policy as a fictional motto; do not search.'
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='review_lore_page_from_conversation', source_need='anchored',
+        source_answer_output='lore_valid_gap', message=message)
+    assert case.response.status_code == 200, case.response.text
+    request = json.loads(case.writer.calls[0].content)
+    assert request['text']['format']['name'] == 'lore_page_response'
+    schema = request['text']['format']['schema']
+    assert 'schema' not in schema['properties']
+    work = next(json.loads(row['content'])['build_work'] for row in request['input']
+        if 'build_work' in json.loads(row['content']))
+    assert not {'citation_policy', 'lore_limitation_policy', 'lore_reply_contract'} & set(work)
+    assert work['lore_page_destination'] == {'request': 'current_author_request'}
+    assert request['tools'] == []
+    assert all(value not in request['instructions'] + json.dumps(schema) for value in (
+        'dmb_surface_evidence_answer_v8', 'supplied_source_references_v1',
+        'validated_lore_review_generic_gaps_v1', 'draft_or_context_question_v3'))
+    evidence = next(json.loads(row['content']) for row in request['input']
+        if 'user_question' in json.loads(row['content']))
+    assert evidence['user_question'] == message
+    assert 'citation_policy' in evidence['user_question']
+    assert case.turn.completion.collaboration.destination.title == 'Glass Regent'

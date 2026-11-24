@@ -136,8 +136,7 @@ class ProposedLorePage(Closed):
 
 
 LORE_REQUEST_FORMAT = "surface_native_lore_request_reference_v2"
-LORE_OUTCOME_FORMAT = "surface_native_lore_request_reference_v3"
-LORE_OUTCOME_POLICY = "draft_or_context_question_v3"
+LORE_OUTCOME_FORMAT = "lore_page_response"
 
 
 class LorePageRequestReference(Closed):

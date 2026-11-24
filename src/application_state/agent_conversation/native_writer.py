@@ -451,11 +451,15 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     from .native_build_work_view import is_semantic_frame as semantic_build, semantic_frame as build_work_view
     from .native_build_work_view import VARIANT_CARRIED_CONDITION_FORMAT, VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_WRITER_FORMAT, VARIANT_PASSAGE_FORMATS, VARIANT_TRIGGER_RETENTION_FORMAT, VARIANT_PASSAGE_WITNESS_FORMAT
     build_local = semantic_build(work_frame)
+    format_name = body.get("text", {}).get("format", {}).get("name")
+    from .lore_page_review import LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT
+    lore_outcome = format_name == LORE_OUTCOME_FORMAT
+    lore_request_reference = format_name in {LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT}
     citation_policy = (work_frame.get('citation_policy') if type(prefix.policy.action) in (NativePlanActionV2, NativePlanActionV3)
                        else work_frame.get('build_work', {}).get('citation_policy'))
     if citation_policy not in (None, 'supplied_source_references_v1'):
         raise ValueError('Unknown Build citation policy')
-    supplied_source_references = citation_policy == 'supplied_source_references_v1'
+    supplied_source_references = lore_outcome or citation_policy == 'supplied_source_references_v1'
     from .native_build_work_view import SOURCE_ANSWER_POLICY, LORE_LIMITATION_POLICY
     source_answer_policy = work_frame.get('build_work', {}).get('source_answer_policy')
     if source_answer_policy not in (None, SOURCE_ANSWER_POLICY):
@@ -464,11 +468,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     lore_limitation_policy = work_frame.get('build_work', {}).get('lore_limitation_policy')
     if lore_limitation_policy not in (None, LORE_LIMITATION_POLICY):
         raise ValueError('Unknown lore review limitation policy')
-    lore_page_limitations = lore_limitation_policy == LORE_LIMITATION_POLICY
-    format_name = body.get("text", {}).get("format", {}).get("name")
-    from .lore_page_review import LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT
-    lore_outcome = format_name == LORE_OUTCOME_FORMAT
-    lore_request_reference = format_name in {LORE_REQUEST_FORMAT, LORE_OUTCOME_FORMAT}
+    lore_page_limitations = lore_outcome or lore_limitation_policy == LORE_LIMITATION_POLICY
     variant_passage_review = format_name in VARIANT_PASSAGE_FORMATS
     variant_edits = format_name in {VARIANT_EDITS_FORMAT, VARIANT_VISIBLE_REPLY_FORMAT, VARIANT_WITNESS_FORMAT, VARIANT_CARRIED_CONDITION_FORMAT, *VARIANT_PASSAGE_FORMATS}
     variant_format = variant_edits or format_name == VARIANT_WRITER_FORMAT

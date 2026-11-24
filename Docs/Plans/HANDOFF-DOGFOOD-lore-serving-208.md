@@ -132,3 +132,25 @@ one page, unchanged workpad and latency. Keep every observed failure. Current
 exact source/frontend/backend/history/image evidence, independent review,
 compatible recovery and production rehearsal precede delivery. No deployment is
 qualified by the predecessor208 images. Keep the same owned App for serial tests.
+
+
+Prompt-boundary correction within this same new contract: the actual predecessor
+writer emitted serializer/policy versions in instructions, a schema echo and
+Build work. The ecosystem policy (DungeonOverMind guide SHA
+c1927a36e1d6cf0b58a5cb5fe87f4f518743167c) forbids these model-visible values.
+For the new outcome ABI, use semantic transport name lore_page_response, omit
+the model-echoed schema field, derive host flags from the verified producing
+format AND captured eligible menu, and reconstruct the exact version-free work
+projection. The host supplies its known serializer only after refusing model
+metadata/extra fields. Keep the semantic evidence, source aliases and all host
+bindings. Only a known host-authored instruction variant changes; never scrub
+user/source prose. The previous V2 input/output bytes remain historical codecs.
+No policy-name/version marker is emitted for V3. Audit the full actual serialized
+call (instructions, all frames, schema, dialogue, nested fields and tools) before
+live dispatch; field removal alone is not proof. Non-V3 writer roles retain known
+older model-visible versions and are not qualified by this bounded cleanup.
+For the exact frozen long-chat replay, eleven genuinely captured acknowledgments
+may be seeded through provider-free ordinary receipts, followed by a real current
+controller/V3 writer request. Label that accurately; independently test current
+controller acknowledgment/deferral/approval/ambiguous intent instead of claiming
+seeded assistant text proves fresh writer behavior. No additional database needed.
