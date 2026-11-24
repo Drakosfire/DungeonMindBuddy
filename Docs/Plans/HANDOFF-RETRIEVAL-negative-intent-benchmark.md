@@ -413,6 +413,15 @@ and matching copied lockfile dependencies were used under the frontend lock;
 this is not the required Node 22 exact-source verification, actual server
 continuation, live-model behavior or deployed smoke.
 
+The follow-up explicitly opened the saved question's Details after remount.
+The first changed test hit its 5-second overall timeout; one retry timed out
+waiting for the shared frontend lock and did not execute Vitest. With a
+15-second test timeout and the lock acquired, the assertion still failed to
+find `Question 1`. `derived-explicit-details.test.tsx`, `explicit-details.log`
+and `explicit-details-final.log` are retained in the same evidence directory.
+The test uses synthetic history and transport, so this remains an unresolved
+diagnostic rather than proof of a product regression; no UI owner files changed.
+
 Buddy main `93d94e9de081c1ba55daf530348a63cfacdfa124` merged the serial
 cohort App-clone runner #4583. This benchmark branch still needs integration
 against the updated runner and an authorized synthetic Core binding; that merge
