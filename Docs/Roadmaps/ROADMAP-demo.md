@@ -25,6 +25,24 @@ printf '%s  %s\n' '7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e6
 This pin identifies human-normalized Markdown. Production PDF parsing requires
 its own evidence.
 
+## Next product goal — stream Buddy’s reply text
+
+Selected on 2026-11-24. Start with an ordinary Ask from Build on signed-in hosted
+Buddy. Show answer text as it arrives, with progress updates displayed
+separately. Stream only user-facing answer text. The saved reply and citations
+remain authoritative after completion and reload.
+
+The goal is complete when a hosted browser check in Buddy Cloud Pilot shows at
+least two visible text updates before completion. Record time from Send to
+context ready, first visible text, and completion. Verify that reload shows one
+saved reply with its citations, and that a disconnect, failed turn, or switch to
+another conversation or World leaves partial text out of completed history.
+Check keyboard focus and coherent screen-reader announcements.
+
+[Issue #3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838) owns
+implementation scope and acceptance. Use small, independently reviewed PRs and
+record hosted verification against the deployed revision.
+
 ## Current operator sequence
 
 Current priority: audit/freeze diverse real-corpus gold before further prompt/schema/model experiments. PR1823 exact-edge dedup and PR1824 generated-identity beat input are delivered. One unchanged ingestion sample improves actor associations but retains semantic errors; no Graph-quality pass. Q10 final-answer consumer adoption is an independent provider-free delivery repair, not a new model experiment.
