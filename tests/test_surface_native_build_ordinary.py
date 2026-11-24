@@ -725,7 +725,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert "statblock_variant" in body["text"]["format"]["schema"]["properties"], (work["requested_work"], [list(row) for row in work["saved_statblocks"]])
                 assert work["saved_statblocks"] == [expected]
                 assert locator.revision_id not in req.content.decode()
-            if work.get('citation_policy') == 'supplied_source_references_v1':
+            if (work.get('citation_policy') == 'supplied_source_references_v1'
+                    or body['text']['format']['name'] == 'lore_page_response'):
                 assert 'supporting_quotes containing' not in body['instructions']
                 if work['saved_sections'] or work.get('related_pages'):
                     assert 'Do not return supporting_quotes' in body['instructions']
@@ -760,7 +761,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
                     content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
-                answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,**({} if work.get('citation_policy') == 'supplied_source_references_v1' else {'supporting_quotes':[source_text(r) for r in sections]}))] if saved else []),
+                answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,**({} if work.get('citation_policy') == 'supplied_source_references_v1' or body['text']['format']['name'] == 'lore_page_response' else {'supporting_quotes':[source_text(r) for r in sections]}))] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
             if image_move == "other_discussion":
                 candidate["answer_segments"] = [
@@ -3661,7 +3662,7 @@ def test_lore_review_recomputed_packet_cannot_forge_limitation_policy(lane, tmp_
     monkeypatch.setattr(PlanJevWriter, '__init__', forge)
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work='discuss' if mutation.startswith('ineligible_') else 'review_lore_page',
-        source_need='anchored', source_answer_output='creative' if mutation.startswith('ineligible_') else 'lore_stale_gap',
+        source_need='anchored', lore_legacy_menu=True, source_answer_output='creative' if mutation.startswith('ineligible_') else 'lore_stale_gap',
         message='Let us explore this premise without searching.' if mutation == 'ineligible_work' else 'Create a page for Glass Regent.')
     assert case.response.status_code == 503
     assert not case.writer.calls

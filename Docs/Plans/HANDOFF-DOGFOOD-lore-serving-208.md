@@ -94,7 +94,7 @@ Freeze the previous menu/guidance/resolver mapping for historical reconstruction
 Only the new menu's unblocked populated review choices acquire the V3 outcome
 policy; blank mode and old admissions retain their existing captured contracts.
 
-The new format surface_native_lore_request_reference_v3 retains current-request
+The new V3 outcome ABI (semantic transport name lore_page_response) retains current-request
 reference/title/evidence selectors. collaboration is either the page proposal or
 an explicit needs_context object with one nonblank question. A draft needs real
 body segments; needs_context has no draft segments and projects that exact
@@ -154,3 +154,9 @@ may be seeded through provider-free ordinary receipts, followed by a real curren
 controller/V3 writer request. Label that accurately; independently test current
 controller acknowledgment/deferral/approval/ambiguous intent instead of claiming
 seeded assistant text proves fresh writer behavior. No additional database needed.
+
+
+Authorized coordination artifact: HANDOFF-DOGFOOD-source-free-build-routing.md is
+included in this write lease as the explicitly requested pinned BLOCKED successor
+and ownership/runtime review. It grants no other lane's driver or Core write lease.
+The CI entry split was separately published on CI4598 at8bfb1d9488c1d8783c57c4c9b3b9e7296e6940f8.
