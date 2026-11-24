@@ -155,3 +155,46 @@ def test_guest_graph_release_rejects_older_source_and_accepts_complete_contract(
     assert subprocess.run(["bash", str(script), str(tmp_path)], capture_output=True).returncode == 0
     (tmp_path / "apps/live_control_server/services/hosted_auth.py").write_text("")
     assert subprocess.run(["bash", str(script), str(tmp_path)], capture_output=True).returncode != 0
+
+
+def test_serving_source_requires_exact_merged_pr_tip_and_parent(monkeypatch):
+    import importlib.util
+    import json
+    script = SCRIPT.parent / "verify_buddy_serving_release.py"
+    spec = importlib.util.spec_from_file_location("verify_buddy_serving_release", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    revision, parent, branch = "a" * 40, "b" * 40, "codex/serving-release"
+    metadata = {"merged": True, "merge_commit_sha": revision, "base": {"ref": branch}}
+    calls = []
+    monkeypatch.setenv("GH_TOKEN", "not-a-real-token")
+    def output(command, **kwargs):
+        calls.append(command)
+        if command[0] == "gh":
+            return json.dumps(metadata)
+        if command[-1].endswith("^1"):
+            return parent + "\n"
+        return revision + "\n"
+    monkeypatch.setattr(module.subprocess, "check_output", output)
+    monkeypatch.setattr(module.subprocess, "run", lambda command, **kwargs: calls.append(command))
+    module.verify(revision=revision, parent=parent, pr="4607", branch=branch, repository="Drakosfire/DungeonMindBuddy")
+    assert any(command[:2] == ["git", "fetch"] for command in calls)
+    for bad in ({**metadata, "merged": False}, {**metadata, "merge_commit_sha": "c" * 40}, {**metadata, "base": {"ref": "codex/other"}}):
+        with pytest.raises(ValueError):
+            module.validate_pr(bad, revision=revision, branch=branch)
+    with pytest.raises(ValueError):
+        module.verify(revision=revision, parent=parent, pr="4607", branch="main", repository="Drakosfire/DungeonMindBuddy")
+    with pytest.raises(ValueError):
+        module.verify(revision=revision, parent=parent, pr="4607", branch=branch, repository="Other/Repo")
+    metadata["merged"] = True
+    with pytest.raises(ValueError):
+        module.verify(revision=revision, parent="c" * 40, pr="4607", branch=branch, repository="Drakosfire/DungeonMindBuddy")
+    def old_tip(command, **kwargs):
+        if command[0] == "gh":
+            return json.dumps(metadata)
+        if command[-1].endswith("^1"):
+            return parent + "\n"
+        return "d" * 40 + "\n"
+    monkeypatch.setattr(module.subprocess, "check_output", old_tip)
+    with pytest.raises(ValueError):
+        module.verify(revision=revision, parent=parent, pr="4607", branch=branch, repository="Drakosfire/DungeonMindBuddy")

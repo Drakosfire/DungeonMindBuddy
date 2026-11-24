@@ -89,6 +89,16 @@ candidate_image_id=$(docker buildx imagetools inspect --raw "$registry_ref" |
 registry_digest=${registry_ref##*@}
 ```
 
+For a guest Graph serving overlay, first merge its reviewed PR into the exact
+serving branch. Set the protected `buddy-image-release` environment variable
+`BUDDY_SERVING_RELEASE_BRANCH` to that branch. Dispatch the publisher from
+`main` with `hosted_guest_graph=true`, the merged PR number in `serving_pr`,
+its merge SHA in `revision`, and the currently serving source SHA in
+`serving_parent`. The publisher verifies the PR is merged to that configured
+branch, its merge is the current branch tip, and its first parent is the
+specified serving SHA. It labels the resulting image with that parent. Keep
+the serving and rollback image pins unchanged until staging and activation.
+
 Set `registry_digest` to the `sha256:…` portion of that registry reference.
 Verify the candidate's compatibility with the current schema and data.
 Record the currently serving healthy image as the compatible rollback.
@@ -101,10 +111,12 @@ sudo /usr/local/sbin/stage-buddy-release \
   "$rollback_revision" "$rollback_image_id"
 ```
 
-For a guest Graph image, append the literal `guest-graph` argument to the stage
-command after installing the reviewed guest-capable stage helper; the default
-five-argument mode continues to accept only the default build. The command
-verifies the corresponding image label.
+For a main-line guest Graph image, append the literal `guest-graph` argument to
+the stage command after installing the reviewed guest-capable stage helper.
+For a guest Graph serving overlay, append `guest-graph-serving` instead. That
+mode requires the candidate's serving-parent label to equal the rollback source
+SHA; ordinary guest mode rejects a labeled serving image. The default
+five-argument mode continues to accept only the default build.
 
 The command pulls by registry digest, verifies the candidate and rollback
 identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`

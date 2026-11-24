@@ -28,7 +28,11 @@ case "$*" in
   "pull --platform linux/amd64 ghcr.io/drakosfire/dungeonmindbuddy@$digest")
     ;;
   "image inspect "*"@$digest")
-    printf '%s %s linux/amd64 %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}" ;;
+    if [[ "$*" == *org.dungeonmindbuddy.serving-parent* ]]; then
+      printf '%s %s linux/amd64 %s %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}" "${TEST_SERVING_PARENT-<no value>}"
+    else
+      printf '%s %s linux/amd64 %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}"
+    fi ;;
   "image ls "*)
     if [[ -e "$TEST_ROOT/tag" ]]; then printf 'dungeonmindbuddy:%s\n' "$revision"; fi ;;
   "image tag ghcr.io/drakosfire/dungeonmindbuddy@$digest dungeonmindbuddy:$revision")
@@ -73,4 +77,9 @@ if run invalid-mode >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Invalid m
 grep -F 'invalid staging mode' "$scratch/stderr"
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' run guest-graph
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT=wrong run guest-graph-serving >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Wrong serving parent accepted' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT="$rollback" run guest-graph-serving
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1' TEST_SERVING_PARENT="$rollback" run guest-graph >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Serving image accepted without parent verification' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
 printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'
