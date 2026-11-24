@@ -964,6 +964,8 @@
   background: color-mix(in srgb, var(--ui-background-surface, #202a33) 72%, transparent);
 }
 
+.world-plan-agent-conversation__streamed-text { white-space: pre-wrap; }
+
 .world-plan-agent-conversation__message--assistant > *:last-child {
   min-inline-size: 0;
   font-size: 0.95rem;
