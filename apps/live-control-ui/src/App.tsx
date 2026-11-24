@@ -61,10 +61,11 @@ function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
 function HomeOrWorld({ locationSnapshot }: { locationSnapshot: string }) {
   const auth = useHostedAuthStatus();
   const publicId = guestHomeId();
-  if (auth.status === "signed_out" && publicId && isGuestHomeLocation(locationSnapshot)) {
+  const interactiveGuest = import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1";
+  if (!interactiveGuest && auth.status === "signed_out" && publicId && isGuestHomeLocation(locationSnapshot)) {
     return <GuestReleasePage publicId={publicId} home />;
   }
-  if (auth.status === "signed_out" && publicId && locationSnapshot === "/graph") {
+  if (!interactiveGuest && auth.status === "signed_out" && publicId && locationSnapshot === "/graph") {
     return <GuestProductGraph publicId={publicId} />;
   }
   return <SelectedWorldProvider locationSnapshot={locationSnapshot}>

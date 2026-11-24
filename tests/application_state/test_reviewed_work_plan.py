@@ -554,17 +554,16 @@ def test_scope_upgrade_preserves_payloads_and_fences_previous_reader(case, appli
 
 
 @pytest.mark.parametrize('base,target',[('20261026_0075','20261026_0076'),('20261026_0076','20261026_0077')])
-def test_versioned_writer_upgrade_preserves_all_rows_and_fences_old_reader(monkeypatch,base,target):
+def test_versioned_writer_upgrade_preserves_all_rows_and_fences_old_reader(
+    monkeypatch, base, target, application_state_dsn, application_state_database,
+):
     import psycopg
     from alembic import command
     from application_state import cli
     from application_state.config import APPLICATION_STATE_DSN_ENV
     from application_state.errors import ApplicationStateMigrationError
-    from tests.application_state.conftest import _admin_dsn,_replace_database,_create_database,_drop_database
-    admin=_admin_dsn();name='dungeonbuddy_app_state_test_'+uuid4().hex[:12]
-    dsn=_replace_database(admin,name)
-    _create_database(admin,name)
-    try:
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as dsn:
         monkeypatch.setenv(APPLICATION_STATE_DSN_ENV,dsn)
         command.upgrade(cli.alembic_config(),base)
         with monkeypatch.context() as old_reader:
@@ -588,4 +587,3 @@ def test_versioned_writer_upgrade_preserves_all_rows_and_fences_old_reader(monke
         with pytest.raises(ApplicationStateMigrationError):service.get_conversation('world-one',cid)
         with pytest.raises(ApplicationStateMigrationError):
             w.continue_step('world-one',cid,source.turn_id,w.Continue(expected_revision=plan['revision'],step_id=steps[0].step_id,command_id=uuid4()))
-    finally:_drop_database(admin,name)

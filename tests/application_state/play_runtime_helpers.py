@@ -13,7 +13,6 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from urllib.parse import urlparse, urlunparse
 
 from apps.live_control_server.services.play_run_registry import (
     PlayRunProgress,
@@ -570,69 +569,50 @@ print(
 """
 
 
-def measure_file_backed_baseline_latency() -> dict[str, float]:
+def measure_file_backed_baseline_latency(prepared) -> dict[str, float]:
     """Time AS2 file-backed Start+seal and CAS at the exact predecessor SHA."""
-    import psycopg
-    from psycopg import sql
-
-    from application_state.config import APPLICATION_STATE_DSN_ENV, TEST_ADMIN_DSN_ENV
-    from application_state.naming import assert_safe_application_state_database_name
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from tests.application_state.conftest import empty_app_state
 
     repo = Path(__file__).resolve().parents[2]
     worktree = Path(tempfile.gettempdir()) / f"as3-as2-baseline-{uuid.uuid4().hex}"
-    admin = os.environ.get(TEST_ADMIN_DSN_ENV, "").strip() or (
-        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres"
-    )
-    db_name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
-    parsed = urlparse(admin)
-    dsn = urlunparse(parsed._replace(path=f"/{db_name}"))
-    created_db = False
+    dsn = prepared.dsn
     added_worktree = False
-    try:
-        subprocess.check_call(
-            ["git", "worktree", "add", "--detach", str(worktree), AS2_FILE_BACKED_BASE_SHA],
-            cwd=repo,
-        )
-        added_worktree = True
-        assert_safe_application_state_database_name(db_name)
-        with psycopg.connect(admin, autocommit=True) as conn:
-            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
-        created_db = True
-        env = {
-            **os.environ,
-            APPLICATION_STATE_DSN_ENV: dsn,
-            "PYTHONPATH": os.pathsep.join((str(worktree / "src"), str(worktree))),
-        }
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-c",
-                "from application_state.cli import upgrade_to_head; upgrade_to_head()",
-            ],
-            cwd=worktree,
-            env=env,
-        )
-        output = subprocess.check_output(
-            [sys.executable, "-c", _BASELINE_LATENCY_SCRIPT],
-            cwd=worktree,
-            env=env,
-            text=True,
-        )
-        payload = json.loads(output.strip().splitlines()[-1])
-        return {key: float(value) for key, value in payload.items()}
-    finally:
-        if created_db:
-            with psycopg.connect(admin, autocommit=True) as conn:
-                conn.execute(
-                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",
-                    (db_name,),
-                )
-                conn.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
-        if added_worktree:
-            subprocess.call(
-                ["git", "worktree", "remove", "--force", str(worktree)],
+    with empty_app_state(prepared):
+        try:
+            subprocess.check_call(
+                ["git", "worktree", "add", "--detach", str(worktree), AS2_FILE_BACKED_BASE_SHA],
                 cwd=repo,
             )
+            added_worktree = True
+            env = {
+                **os.environ,
+                APPLICATION_STATE_DSN_ENV: dsn,
+                "PYTHONPATH": os.pathsep.join((str(worktree / "src"), str(worktree))),
+            }
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-c",
+                    "from application_state.cli import upgrade_to_head; upgrade_to_head()",
+                ],
+                cwd=worktree,
+                env=env,
+            )
+            output = subprocess.check_output(
+                [sys.executable, "-c", _BASELINE_LATENCY_SCRIPT],
+                cwd=worktree,
+                env=env,
+                text=True,
+            )
+            payload = json.loads(output.strip().splitlines()[-1])
+            return {key: float(value) for key, value in payload.items()}
+        finally:
+            if added_worktree:
+                subprocess.call(
+                    ["git", "worktree", "remove", "--force", str(worktree)],
+                    cwd=repo,
+                )
 
 
 AS3_FILE_BACKED_ACTIVE_RUN_SHA = "9c946cd8c24effccec8d06cfc1cb5e310c9edc5e"
@@ -751,66 +731,47 @@ print(json.dumps({
 """
 
 
-def measure_file_backed_active_run_latency() -> dict[str, float]:
+def measure_file_backed_active_run_latency(prepared) -> dict[str, float]:
     """Time AS3 file-backed active GET/PUT at the merged AS3 SHA."""
-    import psycopg
-    from psycopg import sql
-
-    from application_state.config import APPLICATION_STATE_DSN_ENV, TEST_ADMIN_DSN_ENV
-    from application_state.naming import assert_safe_application_state_database_name
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from tests.application_state.conftest import empty_app_state
 
     repo = Path(__file__).resolve().parents[2]
     worktree = Path(tempfile.gettempdir()) / f"as4-as3-baseline-{uuid.uuid4().hex}"
-    admin = os.environ.get(TEST_ADMIN_DSN_ENV, "").strip() or (
-        "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres"
-    )
-    db_name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
-    parsed = urlparse(admin)
-    dsn = urlunparse(parsed._replace(path=f"/{db_name}"))
-    created_db = False
+    dsn = prepared.dsn
     added_worktree = False
-    try:
-        subprocess.check_call(
-            ["git", "worktree", "add", "--detach", str(worktree), AS3_FILE_BACKED_ACTIVE_RUN_SHA],
-            cwd=repo,
-        )
-        added_worktree = True
-        assert_safe_application_state_database_name(db_name)
-        with psycopg.connect(admin, autocommit=True) as conn:
-            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
-        created_db = True
-        env = {
-            **os.environ,
-            APPLICATION_STATE_DSN_ENV: dsn,
-            "PYTHONPATH": os.pathsep.join((str(worktree / "src"), str(worktree))),
-        }
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-c",
-                "from application_state.cli import upgrade_to_head; upgrade_to_head()",
-            ],
-            cwd=worktree,
-            env=env,
-        )
-        output = subprocess.check_output(
-            [sys.executable, "-c", _ACTIVE_RUN_BASELINE_SCRIPT],
-            cwd=worktree,
-            env=env,
-            text=True,
-        )
-        payload = json.loads(output.strip().splitlines()[-1])
-        return {key: float(value) for key, value in payload.items()}
-    finally:
-        if created_db:
-            with psycopg.connect(admin, autocommit=True) as conn:
-                conn.execute(
-                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",
-                    (db_name,),
-                )
-                conn.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
-        if added_worktree:
-            subprocess.call(
-                ["git", "worktree", "remove", "--force", str(worktree)],
+    with empty_app_state(prepared):
+        try:
+            subprocess.check_call(
+                ["git", "worktree", "add", "--detach", str(worktree), AS3_FILE_BACKED_ACTIVE_RUN_SHA],
                 cwd=repo,
             )
+            added_worktree = True
+            env = {
+                **os.environ,
+                APPLICATION_STATE_DSN_ENV: dsn,
+                "PYTHONPATH": os.pathsep.join((str(worktree / "src"), str(worktree))),
+            }
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-c",
+                    "from application_state.cli import upgrade_to_head; upgrade_to_head()",
+                ],
+                cwd=worktree,
+                env=env,
+            )
+            output = subprocess.check_output(
+                [sys.executable, "-c", _ACTIVE_RUN_BASELINE_SCRIPT],
+                cwd=worktree,
+                env=env,
+                text=True,
+            )
+            payload = json.loads(output.strip().splitlines()[-1])
+            return {key: float(value) for key, value in payload.items()}
+        finally:
+            if added_worktree:
+                subprocess.call(
+                    ["git", "worktree", "remove", "--force", str(worktree)],
+                    cwd=repo,
+                )

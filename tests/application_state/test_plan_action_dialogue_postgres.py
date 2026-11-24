@@ -23,8 +23,10 @@ from application_state.cli import _current_and_head, alembic_config
 
 
 @pytest.fixture
-def application_state_dsn(monkeypatch):
-    yield from consultation_tests.application_state_dsn.__wrapped__(monkeypatch)
+def application_state_dsn(application_state_dsn):
+    from tests.application_state import test_plan_action_consultation as cases
+    cases.action_worlds.__wrapped__(application_state_dsn)
+    yield application_state_dsn
 
 
 def _basis(revision: int = 4, digest: str = "a" * 64) -> PlanActionBasis:

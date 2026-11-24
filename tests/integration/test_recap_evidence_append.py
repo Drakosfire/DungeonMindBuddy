@@ -45,11 +45,13 @@ def _component_bytes(root, run, component):
 
 
 @pytest.fixture
-def disposable_append_app(application_state_dsn):
-    from psycopg.conninfo import conninfo_to_dict
-    name = conninfo_to_dict(application_state_dsn)["dbname"]
-    assert name.startswith("dungeonbuddy_app_state_test_")
-    yield name
+def disposable_append_app(application_state_dsn, application_state_database):
+    from scripts.ci_app_database import verify_assignment
+
+    assignment = application_state_database.assignment
+    assert application_state_dsn == assignment.dsn
+    verify_assignment(assignment)
+    yield assignment.locator["database"]
 
 
 def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_app, monkeypatch, tmp_path):

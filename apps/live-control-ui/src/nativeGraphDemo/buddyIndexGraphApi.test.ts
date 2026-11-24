@@ -18,6 +18,23 @@ function jsonResponse(value: unknown, status = 200): Response {
 }
 
 describe("Buddy index graph API", () => {
+  it("rotates the session token when the guest resets", async () => {
+    const calls: Array<{ path: string; init?: RequestInit }> = [];
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      calls.push({ path, init });
+      if (path.endsWith("/session")) return jsonResponse({ csrf_token: "before" });
+      if (path.endsWith("/reset")) return jsonResponse({ csrf_token: "after" });
+      if (path.endsWith("/prepare")) return jsonResponse({ status: "prepared", operation_id: "op-1", parent_revision_id: "revision-1", review: { summary: "Create Mira." } });
+      return jsonResponse(graph);
+    });
+    const api = createBuddyIndexGraphApi({ fetcher });
+    await api.readGraph();
+    await api.reset();
+    await api.prepare({ operation_id: "op-1", expected_revision_id: "revision-1", kind: "create_object", name: "Mira", object_kind: "person" });
+    expect(new Headers(calls.find(({ path }) => path.endsWith("/reset"))?.init?.headers).get("X-DMB-Index-Graph-CSRF")).toBe("before");
+    expect(new Headers(calls.find(({ path }) => path.endsWith("/prepare"))?.init?.headers).get("X-DMB-Index-Graph-CSRF")).toBe("after");
+  });
   it("bootstraps one same-origin session, then uses the scoped routes and mutation CSRF header", async () => {
     const calls: Array<{ path: string; init?: RequestInit }> = [];
     const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
