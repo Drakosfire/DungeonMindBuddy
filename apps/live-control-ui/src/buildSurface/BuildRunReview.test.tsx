@@ -58,7 +58,7 @@ it('reads one exact run, shows frozen revision, and reuses owner decisions witho
   const prepare=vi.spyOn(nativePublication,'prepareNativeWorldbuilding').mockRejectedValue(new Error('Prepared operation deliberately stopped in test'));
   const confirm=vi.spyOn(nativePublication,'confirmNativeWorldbuilding');
   render(<BuildRunReview {...props()}/>);
-  expect(await screen.findByRole('group',{name:'Review provisional GM facts'})).toBeEnabled();
+  expect(await screen.findByRole('group',{name:'Review GM facts'})).toBeEnabled();
   expect(extract.getExactRunReviewPackage).toHaveBeenCalledExactlyOnceWith('run-a');
   expect(context).toHaveBeenCalledExactlyOnceWith({managed_world_id:'world-a',run_id:'run-a',source_artifact_id:'source-a',source_sha256:hash});
   expect(screen.getByText(/editor has newer changes/)).toHaveTextContent('Edge');
