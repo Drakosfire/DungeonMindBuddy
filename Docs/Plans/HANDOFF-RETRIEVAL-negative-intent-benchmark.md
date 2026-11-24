@@ -157,3 +157,19 @@ point, rather than capacity or accounting policy. A field inventory alone is
 not a complete prompt-boundary audit: inspect actual values, nested inputs and
 host bindings against the ecosystem policy before any provider dispatch. This
 synthetic capture does not qualify the current head or establish model quality.
+
+Case 3 controller-input review, limited to this synthetic request: the outer
+`model` is the provider transport selector; `questions` contains fixed choice
+names, task instructions and answer options. `state.user_question` is the
+synthetic author request. `state.interaction` contains the offered operations,
+synthetic current-page title and passage, heading aliases, selected-reference
+display label, related-page titles, page-target kind, empty dialogue history,
+working-draft availability and insertion-matching instructions. No database
+keys, receipts, hashes, execution identifiers, accounting limits or telemetry
+were observed in those serialized values. The labels are request-local choices,
+not authorization. This manual review covers only the captured controller call;
+it does not verify other producers, later calls, nested tool results, alias
+resolution or host-side authorization and must not be used as a blanket
+provider-dispatch approval. The related-page questions were still offered in
+this anchored synthetic case, and the synthetic read votes led to the observed
+materializations; the capture does not show how a live model would vote.
