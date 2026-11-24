@@ -5,6 +5,7 @@ fixture. All runtime, provider, source and database preflight remains with the
 existing capture owner; this wrapper never modifies its request or response.
 """
 from pathlib import Path
+from hashlib import sha256
 from threading import Lock
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -26,10 +27,13 @@ def capture(manifest, output, *, clone_app=False, fixtures=None):
     Optional fixtures are evaluator-side only and never enter a product request.
     Their exact related-page inventory is read before and after each turn.
     """
+    if clone_app:
+        raise ValueError("Use the already owned workstream App clone; per-capture cloning is disabled")
     if not _lock.acquire(blocking=False):
         raise RuntimeError("Negative-retrieval capture must be serial")
     try:
-        spec, _ = workflow.load_manifest(manifest)
+        manifest_digest = sha256(Path(manifest).read_bytes()).hexdigest()
+        spec, _ = workflow.load_manifest(manifest, expected_sha256=manifest_digest)
         if spec.get("conversation_mode") != "build_sequence":
             raise ValueError("Negative-retrieval probe requires ordinary Build sequence capture")
         if fixtures is not None:
@@ -97,6 +101,7 @@ def capture(manifest, output, *, clone_app=False, fixtures=None):
                     failure.add_note(f"Probe or fixture retention failed: {type(exc).__name__}")
 
         with patch.object(workflow, "capture_case", observed_case):
-            return workflow.capture(manifest, output, clone_app=clone_app)
+            return workflow.capture(manifest, output, clone_app=False,
+                                    cohort_manifest_sha256=manifest_digest)
     finally:
         _lock.release()

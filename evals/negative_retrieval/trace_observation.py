@@ -48,3 +48,63 @@ def observed_acquisitions(trace, *, related_labels=None, source_labels=None):
         # Even complete trace capture does not observe every discovery owner.
         "journal_complete": None,
     }
+
+
+def controller_observations(trace):
+    """Project unvalidated opening votes and provider identity, not host authority.
+
+    The raw provider snapshot is explicitly unvalidated. Related-page vote
+    counts describe proposed selection, never prove accepted votes or reads.
+    Only fixed host-defined labels are projected; arbitrary model text stays in
+    the original capture and is not introduced into another model request.
+    """
+    import json
+
+    # Reuse structural checks; this does not assert the trace is exhaustive.
+    observed_acquisitions(trace)
+    allowed = {
+        "source_need": {"anchored", "source_lookup", "uncertain"},
+        "paragraph_work": {"discuss", "explicit_page_body", "explicit_page_end", "place_paragraph", "unsupported_or_unclear"},
+        "paragraph_relation": {"after", "before", "unresolved"},
+        "paragraph_scope": {"named", "unresolved", "unscoped"},
+        "requested_work": {"build_encounter", "change_mechanics", "clarify_creation", "clarify_request", "discuss",
+                           "draft_in_conversation", "other_creation", "place_map_coordinates", "plan", "prepare_image",
+                           "publish_relationships", "review_connected_page", "review_lore_page", "review_lore_page_from_conversation",
+                           "review_relationship", "review_variant_approval", "save_page", "write_current_page"},
+    }
+    providers, snapshots = set(), []
+    for event in trace["observations"]:
+        if event.get("kind") == "provider_call":
+            provider, model = event.get("provider"), event.get("model")
+            if isinstance(provider, str) and isinstance(model, str):
+                providers.add((provider, model))
+        if (event.get("kind") != "context_snapshot" or event.get("snapshot_kind") != "provider_response"
+                or event.get("stage") != "after"):
+            continue
+        for item in event.get("materials", []):
+            if not isinstance(item, dict) or not str(item.get("item_id", "")).startswith("unvalidated-controller-decision:"):
+                continue
+            try:
+                response = json.loads(item["text"])
+                answers = response["answers"]
+                if not isinstance(answers, dict):
+                    raise ValueError("invalid answer map")
+            except (KeyError, TypeError, ValueError):
+                snapshots.append({"sequence": event["sequence"], "validation": "unvalidated", "parse_status": "invalid"})
+                continue
+            selections = {}
+            for name, choices in allowed.items():
+                if name in answers:
+                    answer = answers[name]
+                    value = answer.get("selected") if isinstance(answer, dict) else None
+                    selections[name] = value if isinstance(value, str) and value in choices else "other_or_invalid"
+            votes = {"read": 0, "skip": 0, "other_or_invalid": 0}
+            for key, answer in answers.items():
+                if not isinstance(key, str) or not key.startswith("related_page_") or not key[len("related_page_"):].isdigit():
+                    continue
+                value = answer.get("selected") if isinstance(answer, dict) else None
+                votes[value if value in ("read", "skip") else "other_or_invalid"] += 1
+            snapshots.append({"sequence": event["sequence"], "validation": "unvalidated", "parse_status": "parsed",
+                              "selections": selections, "related_page_votes": votes})
+    return {"providers": [{"provider": provider, "model": model} for provider, model in sorted(providers)],
+            "controller_snapshots": snapshots}

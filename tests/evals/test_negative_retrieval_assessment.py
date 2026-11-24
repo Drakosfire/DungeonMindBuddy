@@ -1,11 +1,19 @@
 from evals.negative_retrieval.assessment import assess
 
 
+def _test_manifest(tmp_path):
+    path = tmp_path / "capture-manifest-input.json"
+    path.write_text("{}")
+    return path
+
+
 def observation(**overrides):
     return dict({"reads": [], "journal_complete": True, "outcome": "clarification",
                  "completed_turn": True, "no_premature_mutation": True,
-                 "semantic_quality": True, "inline_questions": True,
-                 "saved_and_reopened": True, "answer_continued": True}, **overrides)
+                 "semantic_quality": True, "question_addresses_gap": True, "question_answerable": True,
+                 "question_not_already_answered": True, "question_no_false_premises": True,
+                 "inline_questions": True, "no_retry_error": True, "saved_and_reopened": True,
+                 "answer_sent": True, "answer_continued": True, "answer_reopened": True}, **overrides)
 
 
 CASE = {"required_reads": [], "allowed_reads": [], "outcomes": ["clarification", "proposal"]}
@@ -13,7 +21,9 @@ CASE = {"required_reads": [], "allowed_reads": [], "outcomes": ["clarification",
 
 def test_clarification_requires_full_delivery_and_continuation():
     assert assess(CASE, observation())["status"] == "pass"
-    for field in ("inline_questions", "saved_and_reopened", "answer_continued"):
+    for field in ("question_addresses_gap", "question_answerable", "question_not_already_answered",
+                  "question_no_false_premises", "inline_questions", "no_retry_error",
+                  "saved_and_reopened", "answer_sent", "answer_continued", "answer_reopened"):
         assert assess(CASE, observation(**{field: False}))["status"] == "fail"
         assert assess(CASE, observation(**{field: None}))["status"] == "unproven"
 
@@ -227,11 +237,12 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     monkeypatch.setattr(workflow, "capture_case", fail_case)
     original_case = workflow.capture_case
     def ordinary_capture(manifest, output, **kwargs):
+        assert kwargs["clone_app"] is False and len(kwargs["cohort_manifest_sha256"]) == 64
         return workflow.capture_case(None, "world", {}, {"id": "case1"}, output)
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     monkeypatch.setattr(workflow, "load_manifest", lambda *args, **kwargs: ({"conversation_mode": "build_sequence"}, tmp_path))
     with pytest.raises(RuntimeError, match="observed failure"):
-        capture("manifest.json", tmp_path / "case1")
+        capture(_test_manifest(tmp_path), tmp_path / "case1")
     evidence = json.loads((tmp_path / "case1" / "related-page-probe.json").read_text())
     assert evidence["coverage"] == "partial"
     assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "raised"}]
@@ -426,7 +437,7 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
         return workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output)
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     out = tmp_path / "success"
-    assert module.capture("manifest", out, fixtures={"case1": fixture}) == "done"
+    assert module.capture(_test_manifest(tmp_path), out, fixtures={"case1": fixture}) == "done"
     assert seen == ["fixture", "turn", "fixture"]
     probe = json.loads((out / "related-page-probe.json").read_text())
     assert probe["records"] == [{"owner": "related_catalog_discovery", "state": "returned"}]
@@ -437,7 +448,7 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
         raise ValueError("wrong synthetic sources")
     monkeypatch.setattr(module, "inspect_related_pages", mismatch)
     with pytest.raises(ValueError, match="wrong synthetic sources"):
-        module.capture("manifest", tmp_path / "failure", fixtures={"case1": fixture})
+        module.capture(_test_manifest(tmp_path), tmp_path / "failure", fixtures={"case1": fixture})
     assert seen == []
     assert json.loads((tmp_path / "failure" / "fixture-sources.json").read_text())["status"] == "preflight_failed"
 
@@ -486,7 +497,7 @@ def test_postflight_failure_is_retained_and_stops_capture(tmp_path, monkeypatch)
     monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kw:
                         workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output))
     with pytest.raises(ValueError, match="source changed"):
-        module.capture("manifest", tmp_path / "case", fixtures={"case1": fixture})
+        module.capture(_test_manifest(tmp_path), tmp_path / "case", fixtures={"case1": fixture})
     evidence = json.loads((tmp_path / "case" / "fixture-sources.json").read_text())
     assert evidence["status"] == "postflight_failed" and evidence["before"] == []
 
@@ -514,3 +525,50 @@ def test_preflight_requires_exact_snapshot_and_complete_prior_history():
         verify_preflight_history(fixture, {**history, "next_before_sequence": 1}, "w", "c")
     with pytest.raises(ValueError):
         verify_preflight_history(fixture, history, "w", "other")
+
+
+def test_capture_refuses_per_run_clones_before_touching_manifest(tmp_path):
+    import pytest
+    from evals.negative_retrieval.capture import capture
+
+    with pytest.raises(ValueError, match="per-capture cloning"):
+        capture(tmp_path / "missing", tmp_path / "output", clone_app=True)
+    assert not (tmp_path / "output").exists()
+
+
+def test_capture_delegates_to_read_only_core_cohort_path(tmp_path, monkeypatch):
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+
+    manifest_path = _test_manifest(tmp_path)
+    monkeypatch.setattr(workflow, "load_manifest", lambda *args, **kwargs: ({"conversation_mode": "build_sequence"}, tmp_path))
+    calls = []
+    def underlying(manifest, base, output, **options):
+        calls.append(options)
+        return "captured"
+    monkeypatch.setattr(workflow, "_capture", underlying)
+    assert capture(manifest_path, tmp_path / "out") == "captured"
+    assert len(calls) == 1 and calls[0]["cohort_member"] is True
+    assert calls[0]["context_only"] is False and calls[0]["writer_transport"] is False
+
+
+def test_controller_votes_are_projected_as_unvalidated_not_reads():
+    import json
+    from evals.negative_retrieval.trace_observation import controller_observations, observed_acquisitions
+
+    response = {"answers": {"source_need": {"selected": "anchored"},
+                            "related_page_0": {"selected": "read"},
+                            "related_page_1": {"selected": "skip"},
+                            "requested_work": {"selected": "private untrusted text"}}}
+    trace = {"schema": "dmb_turn_context_trace_v1", "observations": [
+        {"sequence": 0, "kind": "provider_call", "provider": "example", "model": "model"},
+        {"sequence": 1, "kind": "context_snapshot", "snapshot_kind": "provider_response", "stage": "after",
+         "materials": [{"item_id": "unvalidated-controller-decision:example", "text": json.dumps(response)}]}]}
+    result = controller_observations(trace)
+    snapshot = result["controller_snapshots"][0]
+    assert snapshot["validation"] == "unvalidated"
+    assert snapshot["selections"] == {"source_need": "anchored", "requested_work": "other_or_invalid"}
+    assert snapshot["related_page_votes"] == {"read": 1, "skip": 1, "other_or_invalid": 0}
+    assert result["providers"] == [{"provider": "example", "model": "model"}]
+    assert observed_acquisitions(trace)["observed"] == []
+    assert "private untrusted text" not in json.dumps(result)

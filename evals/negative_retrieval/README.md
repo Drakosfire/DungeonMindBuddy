@@ -14,8 +14,12 @@ journal can prove an unexpected read but cannot prove no read occurred. Required
 labels need source-specific proof and semantic assessment of the actual support;
 a count alone is insufficient. `semantic_quality` is an independent judgment
 against the case's private rubric, never an exact-string test. For clarification,
-inline rendering, saved reopen, and answer continuation must each be observed at
-the owning UI/runtime boundary. Proposal mobility and the no-premature-mutation
+relevance to the unresolved decision, answerability, non-repetition of supplied
+information, and absence of false premises are separate semantic judgments. The
+actual inline component, absence of retry/error presentation, question reopen,
+answer submission, completion of the original task, and reopened answer are
+separate observations at the owning UI/runtime boundary. A dispatch or a
+scripted pending request does not establish continuation. Proposal mobility and the no-premature-mutation
 check likewise require actual boundary observations. A `False` is a demonstrated
 failure; missing evidence leaves a result unproven.
 
@@ -63,7 +67,7 @@ synthetic test confirmed that the real Build budget path invokes catalog
 discovery before a controller decision; its registry was stubbed, so this is
 not a model-quality or full-turn result.
 
-`capture.capture(manifest, output, clone_app=...)` wraps the existing ordinary
+`capture.capture(manifest, output)` wraps the existing ordinary
 Build sequence capture, preserving its runtime, source, provider, and database
 preflight. It records the partial probe separately for each turn, including a
 failure before a response, and restores the patched owner functions. The wrapper
@@ -72,9 +76,13 @@ owned database procedure. Optional evaluator-side fixtures are checked against
 the exact related-page catalog and saved bodies before and after each turn;
 those preflight reads occur outside the product-turn probe and are never sent
 as grading instructions. A mismatch stops dispatch or invalidates the run. The
-wrapper does not seed a fixture, establish database capacity, authorize a
-provider or deployment, or provide the missing complete acquisition journal. Read the ordinary benchmark manifest and policy before
-invoking it; the wrapper does not support Plan or the context-only writer stop.
+wrapper refuses per-capture App cloning and selects the existing pinned cohort
+path, which enforces a dedicated read-only Core login and avoids full Core
+inventory scans. The executor must provide its already owned workstream App
+clone and prove ownership, capacity, reset and teardown separately. The wrapper
+does not seed a fixture, authorize a provider or deployment, or provide a
+complete acquisition journal. Read the ordinary benchmark manifest and policy
+before invoking it; Plan and the context-only writer stop are not supported.
 
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
@@ -106,3 +114,12 @@ The mocked transport does not prove server completion, durable reopen of the
 answer, no mutation in the server, actual model behavior, browser layout, or
 deployment. Node 21 is not the repository's required Node 22 exact-source
 qualification; this is diagnostic evidence only.
+
+`controller_observations` projects only fixed choice labels and related-page vote
+counts from captured *unvalidated* provider decisions, alongside provider/model
+names. These are observations of model output, not proof of accepted decisions
+or materialized reads; the latter are reported separately. Arbitrary model text
+is not copied into the projection or sent to another model. In the supplied
+failure, the one captured unvalidated opening selected `anchored`, with six
+read and thirteen skip votes; the trace separately recorded six related-page
+reads. Those observations do not establish why the later acquisition failed.

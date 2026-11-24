@@ -2,7 +2,7 @@
 
 Status: ACTIVE — user authorized the benchmark goal in this conversation. This
 brief assigns the first serial, eval-only slice to `codex/negative-retrieval-benchmark`,
-based on `origin/main` 42a524ade2e48c8a1a8c354b0b56d86f48b99a72 (fast-forwarded from c9732a4c3 after non-overlap check). Checkout:
+based on `origin/main` c3a2ae6032b0f16fc19d21be14759a0a8607782b (rebased from 42a524ade after checking the shared native-writer change). Checkout:
 `/home/drakosfire/Projects/.codex/793a/DungeonMindBuddy`. No service, port,
 database, model, provider or production state is allocated by this slice.
 
@@ -73,3 +73,22 @@ mock capture tests did not supply the newly required snapshot; the tests were
 updated to isolate that mock and separate snapshot/history rejection checks
 were added. The next focused run passed 23 tests. These are working-tree
 checks, not exact-source qualification.
+
+Re-anchor: base `c3a2ae6032b0f16fc19d21be14759a0a8607782b` contains a
+non-overlapping shared native-writer optimization; previous exact-head results
+remain predecessor evidence. The current benchmark resource policy uses one
+owned App clone per workstream, serial resets and retries, a read-only shared
+Core and no full inventory scans. The wrapper now refuses per-capture clones
+and delegates through the pinned cohort path that enforces read-only Core and
+skips Core table-content inventories. Owner lifecycle, capacity and cleanup
+remain executor prerequisites; no database has been allocated by this lane.
+
+The clarification scorer now separates an answerable question that addresses
+the actual gap from one that repeats supplied information or adds false
+premises. Inline rendering, absence of retry/error presentation, question
+reopen, answer submission, completed continuation and answer reopen each have
+separate evidence checks. These checks remain unproven without their actual
+owning-boundary evidence. Unvalidated opening votes are retained separately
+from observed reads; in the supplied trace the controller reported anchored
+context and six read votes, and six related-page reads were observed. The raw
+response's validation status is not upgraded by this observation.

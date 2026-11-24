@@ -49,7 +49,9 @@ def assess(case, observation):
     if required:
         checks["required_support"] = observation.get("required_support")
     if outcome == "clarification":
-        for field in ("inline_questions", "saved_and_reopened", "answer_continued"):
+        for field in ("question_addresses_gap", "question_answerable", "question_not_already_answered",
+                      "question_no_false_premises", "inline_questions", "no_retry_error",
+                      "saved_and_reopened", "answer_sent", "answer_continued", "answer_reopened"):
             checks[field] = observation.get(field)
     if outcome == "proposal":
         checks["movable_proposal"] = observation.get("movable_proposal")

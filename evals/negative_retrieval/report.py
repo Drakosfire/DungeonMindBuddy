@@ -63,6 +63,7 @@ def report_case(directory, fixture, rubric, *, related_labels=None, source_label
             "http_status": observed["http_status"], "terminal_status": observed["terminal_status"],
             "trace_capture_status": observed["trace_capture_status"],
             "trace_acquisitions": observed["observed_acquisitions"],
+            "decision_observations": observed["decision_observations"],
             "related_page_probe": probe["records"],
             "limits": ["Probe and trace are a partial acquisition journal.",
                        "Capture environment and prior citations are not independently verified here.",
