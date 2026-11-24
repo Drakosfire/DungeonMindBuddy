@@ -84,10 +84,12 @@ def test_hosted_snapshot_world_binding_preserves_source_and_guest_graph(
     finally:
         source_service.close()
     monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "production")
-    monkeypatch.setenv("DMB_AUTH_MODE", "hosted")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
     monkeypatch.setenv("DMB_HOSTED_GUEST_GRAPH_ENABLED", "1")
     monkeypatch.setenv("DMB_GUEST_GRAPH_SOURCE_SPACE", source["world_id"])
     monkeypatch.setenv("DMB_GUEST_GRAPH_SOURCE_REVISION", source["revision_id"])
+    from application_state.index_graph.sessions import hosted_guest_graph_enabled
+    assert hosted_guest_graph_enabled()
     _, session = create_session()
     bound = index_graph.ensure_guest_managed_world(session)
     with index_graph.open_index_graph_service(session) as guest:
