@@ -1,9 +1,6 @@
 # ONBOARD: hosted Sizzek Graph session
 
-Status: ACTIVE. The owner authorized signed-out use of the complete Sizzek
-World, including normal Graph edits, and authorized Bugbot review, merge and
-deployment. This slice connects the existing Graph to a server-owned isolated
-copy; it does not complete the broader Build, Plan, Play and Buddy objective.
+Status: MERGED into main by #4604 at `c10b1fc29e832f77049e342c59a8c6144a70d47f`. This slice connects the existing Graph to a server-owned isolated copy; it does not complete the broader Build, Plan, Play and Buddy objective. The owner authorized signed-out use of the complete Sizzek World, review, merge and deployment.
 
 Topology: DungeonMind PR #299 merged at
 `6beb506ea3a03b34e27fb309cccf37393d01318e`; this slice consumes that merged
