@@ -308,6 +308,21 @@ LORE_PROPOSAL_GUIDANCE = (
 )
 
 
+CONVERSATION_LORE_REQUEST_GUIDANCE = (
+    "The latest author request determines whether to prepare a page now. Earlier requests to "
+    "acknowledge notes or wait before drafting apply to those earlier replies, not a later "
+    "explicit page request. Preserve continuing constraints and approval requirements, along "
+    "with setting details and corrections; do not treat a current acknowledgment-only request "
+    "as permission to draft. When the latest request asks for a populated page and supplied "
+    "authored context supports one, return the lore_page collaboration and draft. Unresolved "
+    "details belong in its open questions and do not make supplied premises unusable. Missing "
+    "played-event evidence does not prevent a draft from clearly attributed authored context. "
+    "If essential context really is missing, leave collaboration null and ask the specific "
+    "question needed to continue in a discussion segment; do not return only generic limitation "
+    "codes. Do not search, introduce new ideas or change the workpad to fill a gap."
+)
+
+
 PLAN_SOURCE_REFERENCE_RESPONSE = (
     'Saved authored pages describe authored material, not played truth. Use related_page_claim '
     'with the supplied local read_id. Buddy binds that exact supplied page to the citation. '
@@ -568,6 +583,8 @@ class PlanJevWriter:
                         'to draft accurately, leave the proposal empty and surface the specific gap for '
                         'the author. '
                     )
+                    if destination == {'request': 'current_author_request'}:
+                        instructions += '\n' + CONVERSATION_LORE_REQUEST_GUIDANCE
             if self.shared:
                 fragment_scope = self.work_frame.get('focused_edit_target', {}).get('fragment_scope')
                 if fragment_scope is not None:

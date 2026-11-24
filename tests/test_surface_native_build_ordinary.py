@@ -895,10 +895,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                         candidate['collaboration'] = None
                     if source_answer_output == 'lore_invalid_destination':
                         candidate['collaboration']['destination']['request'] = 'prior_author_request'
-                elif source_answer_output in {'lore_ack', 'lore_uncited_body'}:
+                elif source_answer_output in {'lore_ack', 'lore_clarify', 'lore_uncited_body'}:
                     candidate['answer_segments'] = [dict(kind='discussion', text='Understood. I will keep the workpad unchanged and create nothing yet.')]
-                    if source_answer_output == 'lore_ack':
+                    if source_answer_output in {'lore_ack', 'lore_clarify'}:
                         candidate['collaboration'] = None
+                    if source_answer_output == 'lore_clarify':
+                        candidate['answer_segments'][0]['text'] = 'Which subject and premise should the page describe?'
                 elif source_answer_output == 'blank_warning':
                     candidate['limitations'] = ['missing_requested_details']
                 elif source_answer_output in {'blank_body', 'blank_questions'}:
@@ -3575,6 +3577,10 @@ def test_lore_page_review_uses_generic_limits_without_optional_phrase(lane, tmp_
         message='Create a page for Glass Regent. Use the context we discussed; keep the unresolved motive open; do not search again.')
     request = json.loads(case.writer.calls[0].content)
     assert request['text']['format']['name'] == 'surface_native_lore_request_reference_v2'
+    from application_state.agent_conversation.retained_conversation import current_request_message
+    assert request['input'][-1] == current_request_message(case.turn.graph_context_execution)
+    assert ('The latest author request determines whether to prepare a page now.'
+        in request['instructions']) == (work == 'review_lore_page_from_conversation')
     if output in {'lore_malformed_gap', 'lore_invalid_destination'}:
         assert case.response.status_code == 503
         assert case.turn.completion is None
@@ -3809,7 +3815,7 @@ def test_admitted_blank_page_refuses_populated_writer_reply(lane, tmp_path, monk
     assert case.turn.completion is None
 
 
-@pytest.mark.parametrize('output', ['lore_ack', 'lore_uncited_body'])
+@pytest.mark.parametrize('output', ['lore_ack', 'lore_clarify', 'lore_uncited_body'])
 def test_lore_reference_allows_ordinary_ack_only_outside_a_page_draft(lane, tmp_path, monkeypatch, output):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work='review_lore_page_from_conversation', source_need='anchored', source_answer_output=output,
@@ -3828,7 +3834,11 @@ def test_lore_reference_allows_ordinary_ack_only_outside_a_page_draft(lane, tmp_
         assert case.turn.completion.collaboration is None
         segment,=case.turn.completion.answer_segments
         assert segment.kind=='discussion'
-        assert 'Understood' in segment.text
+        assert ('Which subject and premise' if output == 'lore_clarify' else 'Understood') in segment.text
+        request = json.loads(case.writer.calls[0].content)
+        from application_state.agent_conversation.retained_conversation import current_request_message
+        assert request['input'][-1] == current_request_message(case.turn.graph_context_execution)
+        assert 'do not treat a current acknowledgment-only request as permission to draft' in request['instructions']
 
 
 

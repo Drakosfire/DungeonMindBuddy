@@ -58,3 +58,22 @@ Preserve all live guest/runtime settings and source CAS/shared lock. Activate on
 the reviewed pair. Retry the saved request in the signed-in app, save/reopen and
 inspect citations and zero new search. The overall goal remains active until
 production acceptance and the bounded source-free routing successor are complete.
+
+
+Integrated replay checkpoint: exact3c418 case24 received every frozen note and the
+final page request but the actual writer returned zero segments, generic missing
+details and null collaboration. The host accepted a limitations-only completion;
+no new search occurred. This is not a formatting rejection. The failed trace is
+retained; c227's earlier success does not qualify this source or resolve variability.
+
+DOGFOOD adopts a bounded revision within this same writer-delivery slice: current
+dispatch guidance in plan_jev_writer.py must distinguish earlier acknowledge/wait
+requests from the latest page request, keep continuing facts/constraints, draft
+from supplied authored context despite unresolved details, and ask a specific
+question when material really is missing. The existing path lease covers this
+writer file and owning tests. No schema/format/parser/normalizer/history change,
+new model/provider call, automatic retry, acquisition bypass or new capability.
+Preserve V2 producing requests and all historical reads unchanged. The accepted
+source/API/frontend/history/image evidence for3c418 remains predecessor evidence;
+qualify the amended exact source, including repeated actual12 semantic checks.
+This checkpoint revises the existing handoff; source-free routing remains separate.
