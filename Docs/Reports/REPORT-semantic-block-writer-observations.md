@@ -926,3 +926,23 @@ order, including both scene markers, the choice and option markers,
 Departure prose and the table. No retrieval footer was found. These are
 three passes for the exercised Cards writer route. They do not exercise
 the historical writer response that duplicated a whole replacement body.
+
+### Hosted Plan document edits and Play adoption on ab642ad0
+
+On November 23, 2026 (America/Denver), two fresh synthetic Plans and one
+fresh Play session in Buddy Cloud Pilot exercised the document writer
+and adopted scene on `ab642ad0`.
+
+| Case | Retained turn | Observed result |
+| --- | --- | --- |
+| P01, ordinary Plan Document Send | `e5626769-2feb-400a-9536-d3049f84f373` | Save and reload placed a separate Read Aloud and GM Note immediately after the Arrival paragraph. The spoken passage omitted the private instruction. Removing the new blocks recovered all original nonblank Markdown lines and playable markers. |
+| P02, selected First sight body | `2bf61211-28b9-4eea-b7d8-4837dcfaf4d9` | The proposal displayed the same titled Read Aloud wrapper. Save and reload retained one original wrapper with the new body. All other nonblank Markdown lines and playable markers matched. |
+| PL02, exact generic chat request | `ac937d42-fa3b-4d4e-afad-10f46c3bc6e7` | Play adopted both P01 blocks. The reply quoted the earlier First sight block. It omitted the private cue and opened no edit proposal. Reload preserved the scene. This missed the newly authored passage expected by the case. |
+| PL02, named diagnostic in the same Run | `82eadd78-873a-4132-b1b3-9dd3b6081456` | Asking for the Boardwalk read-aloud returned the exact new passage. It omitted the private cue, opened no edit proposal, and left the scene unchanged. |
+
+The Plan proposals used the OpenAI Responses writer with `gpt-6-luna`.
+Both Play requests recorded a Jev 1.14.0 decision and an OpenAI Responses
+call with `gpt-6-luna`. Two eligible read-aloud blocks were present in the
+adopted scene. The named diagnostic verifies selection by title. The
+generic request still needs an explicit expectation for scenes with
+multiple eligible passages.
