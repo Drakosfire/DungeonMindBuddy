@@ -1,91 +1,182 @@
 # DOGFOOD: source-free Build outcomes
 
-BLOCKED successor; no implementation write lease or runtime allocation is granted
-by this document. Alan's writer/context cleanup authorizes the outcome. His
-explicit coordination with DOGFOOD in Restore clarifying questions authorizes
-this pinned ownership/dependency reconciliation and runtime review. DOGFOOD owns
-the routing correction; RETRIEVAL4584 owns its independent negative benchmark.
+ACTIVE bounded implementation assignment; not a merge or release qualification.
+Alan's writer/context cleanup and request to deploy the remaining gaps authorize
+this outcome. DOGFOOD authors/adopts the design and owns implementation. The
+independent reviewer accepted proposal 008ffd837d98ec1896662b71b20d135b93b4c43a79814594f3c8139864229528
+with the retained-evidence clarification incorporated below.
 
-Predecessor PR4612 merged at f2645348438b7322d41062e1cc5e213aa45ad36f;
-reviewed sourceb149d20e2ae7ca5c8cde5bea7e3a9dc292040952 was deployed
-as image38915cd91295dd0bd562693db5d807bdec2bc488cbd6cec5adfe066ba6f675d5,
-healthy APP0209, with signed-in page save/reopen and historical citation acceptance.
-Production subsequently advanced to healthy386bdf657c6e0874c170a10693b44fd62383b49b,
-image520719178a71ce00eb716c7ee05468e304f8fafe3afa7cefe7c262b05a13a3b1;
-writer and migration paths remain unchanged. Latest serving83c968186 is preserved
-in the ordinary-reply successor. These observations are not its activation proof.
-That prerequisite is satisfied. Ordinary Build reply metadata cleanup is now the
-serial predecessor HANDOFF-DOGFOOD-build-reply-contract.md. This routing successor
-remains BLOCKED as a design/write-lease contract: cover the entire Send path,
-including configured_budget's eager catalog and BuildJevDriver's catalog use;
-finalize the exact function split before ACTIVE adoption. Distinguish BuildJevDriver
-from PR4580's leased PlanJevDriver. Do not silently suppress necessary lookup.
-No production lock or new activation is held by this routing brief.
+Parent/order: serial successor to merged product PR4630 at
+911c6bd60f091d7efa7861c340f77d465c21f400. Branch
+codex/dogfood-source-free-911c, base codex/dogfood-serving-911c-base at that SHA.
+Checkout: /home/drakosfire/Projects/.codex/dogfood-ci-one-app/DungeonMindBuddy,
+reused only after its prior CI branch was clean, merged, and unused by processes;
+that old branch remains preserved. The primary release and recovery checkouts
+remain frozen for live qualification. PR4559 is a NON-MERGE operational recovery
+artifact, not a second product implementation slice. No unmerged behavioral
+parent is required. The current release's deployment is not an implementation
+start gate. Exact function split and isolated checkout gates are now satisfied.
 
-One outcome: typed blank-page and genuinely clarifying/source-free Build work
-must not eagerly discover/materialize references or native content merely because
-a generic source vote says uncertain/source_lookup. Keep already supplied context
-and author constraints, preserve genuinely required lookup work, and preserve the
-existing authority/principal/source-binding, request and confirmation checks.
-No regex intent classifier, relabeling as discussion/variant approval, generic
-acquisition bypass, host-invented answer or fallback retrieval pipeline.
+Delivery: one independently reviewable routing capability. New pending receipt,
+atomic admission/settlement, terminal/writer handling, old-reader fence, owning
+tests and handoff belong together: splitting would permit a producer without its
+reader or validation owner. No source-free success claim follows from this design.
 
-Expected bounded implementation surface, to be finalized after source inspection:
-Build work/scope classification; Build harness acquisition decisions and related
-page acquisition; shared driver terminal/source-free predicates; native pending
-query/materialization/terminal validation; direct source-vote, ordinary HTTP and
-live outcome tests; this brief and truthful predecessor settlement. The shared
-Plan driver is an ownership hotspot, not silently allocated here.
+Lease reconciliation, freshly fetched: Plan experiment PR4580 head96850de8431a3807b373410ae28bbd26ffdcdadf
+retains PlanJevDriver._expansion_review_candidates/prepare and
+tests/test_corpus_source_navigation.py. Retrieval benchmark PR4584 head56211d2d30495a4f71ff11fe9dabed83465cdd6b,
+ordinary capture PR4632 head554bf6c34180993705f15f228177a23434f58e61,
+guest bridge PR4638 headc1a2fcad0f4c3f61ad226c97bd265aadfac852f1 and selected-passage
+connection PR4561 head23fc40809887dcd496555dd58c78a42ff1a4be5d retain their own
+bounded writes. The function split below avoids those writes. No Core write,
+model/provider change or permission to message other owners is inferred.
 
-Lease reconciliation: open PR4580 at96850de8431a3807b373410ae28bbd26ffdcdadf
-owns its Plan Jev expansion-excerpt experiment in
-apps/live_control_server/services/plan_jev_driver.py: module helper
-_expansion_review_candidates and its examined-candidate projection in prepare.
-Its companion test is tests/test_corpus_source_navigation.py. Do not edit or
-replace that experiment. This successor must either prove the complete invariant
-without editing those leased paths, obtain an explicit bounded function split
-from that owner, or serialize after its lease is released. A separate checkout
-or nonconflicting Git patch is not that authorization. Record the selected method
-and exact owner/ref before activating any shared-driver write lease. No extra
-permissions to message third-party owners or change their branches are inferred.
+Resources: offline implementation uses this checkout only, no server/port or new
+database. DOGFOOD's sole retained App benchmark_run_e27fc178267a4d7cbc90bf173dd3ecfe,
+OID210452, cluster7711451860937605159, evaluator buddy-retrieval-projects-4560/33351,
+remains exclusively reserved for the active release/recovery sequence. Later
+routing SQL cases must wait for that sequence's workers/connections to close and
+reuse it serially under the same recorded workstream ownership; no second clone.
+Shared benchmark_shared_core stays read-only and other owners' databases remain
+untouched. Evidence/output belongs in a verified external Projects task directory.
 
-RETRIEVAL4584 can independently add only
-ci/test-classification.json's tests/evals/test_negative_retrieval_assessment.py
-entry to qualification under CI4598's explicit split at
-8bfb1d9488c1d8783c57c4c9b3b9e7296e6940f8, handoff
-HANDOFF-CI-one-app-workstream.md. It need not wait for CI4598 to merge. This grants
-no other manifest, runtime, provider, merge or deployment authority.
+Qualification ownership: DOGFOOD owns full-Send instrumentation and actual
+signed-in Build browser continuation/reopen/author-action acceptance. RETRIEVAL4584
+owns its benchmark/scorer; this lease does not change those files. Independent
+holdout author remains unassigned; the exposed runtime reviewer is not a naive
+author. Core integrity qualification requires its owning contract; head/epoch
+metadata alone is not whole-database parity. These are later qualification gates,
+not blanket blockers on offline implementation. Preserve UNKNOWN and failures.
 
-Runtime qualification review: an in-memory Core plus scripted providers is a
-synthetic App/HTTP witness, not an authorized real Core binding or model-quality
-rate. Do not copy elderwyld's binding into an unrelated synthetic World, write
-shared Core, or claim that a successful seeder established current-principal and
-source readback. A qualified fixture needs a deliberate owner/World/principal
-binding, exact native profile/source revisions and actual authorized readback,
-using the existing read-only Core where appropriate. Inspect the real fixture
-and provenance before qualification; a schema tag is not binding evidence.
-The model-visible dmb_surface_evidence_answer_v8 tag is implementation metadata,
-not domain context, under the ecosystem prompt policy. #4612's bounded new writer
-ABI is being corrected to keep those host fields outside actual model input;
-legacy/non-V3 live roles are not qualified by that cleanup. Review final
-serialized requests, all nested state and the host tampering controls before
-real providers. No provider dispatch approval is created by this brief.
+## Proven preparation path
 
-Validation after ACTIVE adoption: positive required-evidence retrieval controls;
-anchored/uncertain/source_lookup votes for typed blank and clarification work;
-quoted, negated, multiple-destination, acknowledgment, deferral and approval
-cases; complete discovery/materialization journals (including attempts/errors);
-visible specific clarification or permitted inert proposal; zero page mutation
-before author action; saved-turn reopen, edited answer continuation and answer
-reopen; actual supplied sources/citations and all full-context facts; exact-SHA
-owning backend/frontend checks; independent semantic and source review. Keep
-failures and unknown rates visibly unproven. An event count alone cannot replace
-physical-read instrumentation or qualification of necessary evidence.
+BuildJevHarness.configured_budget discovers related pages before the first vote;
+it also sets collaboration/connected-page/quote/relationship capabilities there.
+BuildJevDriver._init_native offers page decisions from that eager catalog.
+Agent turn startup calls prepare_native_source_context before pending_build_query.
+Core6beb open_native_text_source_access_context calls get_revision_for_native_read,
+loads/parses a verified revision on cache miss, and opens a source view. This does
+not itself open source bodies, but it can read complete revision/catalog content.
+A pending Graph query alone therefore does not prove zero acquisition. Physical
+owner instrumentation must distinguish binding/head metadata, revision/catalog,
+source bodies, Graph queries, related pages and retained App history, including
+failed attempts. Cache warmth must not decide whether the invariant is true.
 
-Resources: no new allocation here. DOGFOOD's retained App is
-benchmark_run_e27fc178267a4d7cbc90bf173dd3ecfe,OID210452,cluster7711451860937605159,
-evaluator buddy-retrieval-projects-4560/33351; it remains reserved for the existing
-writer workstream. RETRIEVAL owns its separately recorded clone; do not borrow or
-remove it. Each workstream uses one App serially and the existing read-only Core,
-without per-case clones or full contents scans merely for inventory. A later
-activation must record its exact owner/manifest/output paths and release rule.
+## Adopted invariant and contract
+
+Use a distinct Build-only pending authority/receipt codec, rather than changing
+V1 receipt meaning. Pending state records Buddy-authorized managed World/current principal scope,
+existing binding identity (or its absence), and only the requested revision or
+observed head pointer (or absence) through existing public metadata owners.
+It establishes neither revision existence, verified content, Core readability
+nor a grant to the principal. Blank and clarifying work must also succeed when
+Core binding/head is absent. It grants no source evidence, catalog, completeness
+or verified body claim. Do not manufacture NativeCorpusAuthorityV1 with unverified domain,
+profile or epoch fields. No Core SQL or proof-cache internals in Buddy.
+
+Populated work already fully supported by retained App evidence also need not
+settle a new Core authority. Capturing history itself must not trigger fresh
+native verification or catalog loading.
+
+For ordinary fresh Build without explicit authored references, compile the first
+semantic work decision from the current utterance, full retained dialogue,
+captured current-page/editor context and available author capabilities. Do not
+load related-page or native-source catalogs for this decision. Keep policy flags
+and their host capability commitments independently of catalog discovery.
+An operation offered does not imply that supporting evidence exists.
+Model-visible state uses meaningful task context and local selection aliases;
+receipts, policy versions, hashes and execution bindings remain host-only.
+
+A valid typed blank-page or genuine clarify_request/clarify_creation result is
+source-free despite a generic uncertain/source_lookup vote. Do not overwrite the
+vote or relabel the task. Require one exact work decision and a dedicated current
+admission/terminal path, no acquired evidence events, and matching writer grammar.
+A factual discussion or populated proposal that requires evidence must transition
+once to full existing source preparation, recheck the captured request/conversation pointer, binding identity and current
+principal access, then verify the exact requested/observed revision through the
+existing full preparation owner. Admit exactly one complete authority atomically;
+retry/interruption cannot replace the observed scope or manufacture a successful
+settlement. If no pointer was observed, do not substitute a later newly available
+World/head as if it were captured. Then use the existing acquisition/quote/citation owners. Necessary
+lookup, Rules work and explicitly selected authored references retain their
+positive path. No regex classifier, fallback source owner, or generic bypass.
+
+Existing already-read context remains available in full through retained App
+owners, preserving exact citation origins and all correction/proposal/uncertainty
+status. A current read must never be fabricated from a historical citation.
+Pending state cannot authorize citation reopening. Historical citations retain
+their own provenance and current access-check owner. For typed questions and
+blank pages, the writer cannot turn unsupplied facts into
+source claims or infer that missing source acquisition establishes absence.
+
+## Exact split for the implementation lease
+
+New Build-only codec/helper module owns pending authority, one-way settlement and
+source-free terminal eligibility. Existing shared files may delegate to it only
+under the distinct Build receipt/action/menu discriminator:
+- agent_turn_service: fresh governed Build startup preparation and the adapter's
+  deferred-source settlement closure; preserve all non-Build branches.
+- build_jev_harness: configured_budget, execute, _native_completion.
+- build_jev_driver: BuildJevDriver._init_native and first work-result admission;
+  separate later catalog decision, with exact request reconstruction.
+- build_intentional_response: new frozen current work/source-free semantics;
+  retain every existing menu/resolver codec unchanged.
+- native_context/types: new discriminator registration and Build-only coherence;
+  do not broaden V1 receipt interpretation.
+- native_execution: distinct Build pending/settled prefix validation and binding.
+- native_corpus: distinct current source-free admission route, no changes to old
+  prior_conversation_work semantics.
+- native_writer/native_completion/writer_evidence_selection: matching current
+  receipt/admission projections and terminals, preserving historical codecs.
+- owning append/service event registration and the next serving-line reader fence
+  migration, if new persisted records require it. Reserve serving-line 20261124_0211_build_source_free_pending.py after rechecking
+  that no concurrent serving-line migration owns that revision.
+- focused new routing and HTTP/retained-state tests, plus existing required lookup,
+  principal/CAS/rollback/history regressions and this handoff settlement.
+
+Do not edit PlanJevDriver, its expansion helper/projection, navigation test, or
+PR4580's lease. Do not edit #4584 benchmark/scorer, #4632 capture workflow or
+#4638 guest session bridge. Read-only Core owner review may qualify proof semantics;
+this proposal grants no Core implementation or write authority. If existing Core
+metadata APIs cannot establish the declared pin without content reads, return the
+missing contract to DungeonOverMind/Core ownership before implementing that part.
+
+## Gates and failure cases
+
+Start prerequisite satisfied: independent review accepted the weaker observed-pointer
+semantics and this Build-only split. Current remote/main and the relevant open
+PR refs were inspected; no checked ref contains serving-line migration 0211.
+Reserve that fence for this protocol. Additional files or migration collisions
+require a new owner checkpoint; do not broaden shared native semantics silently.
+
+After ACTIVE: provider-free full-Send physical-read spies for blank and clarification
+under anchored/uncertain/source_lookup votes, with cold/warm preparation, malformed
+and tied decisions; factual required-evidence controls must still acquire/use exact
+sources. Test quoted/negated instructions, approvals, multiple destinations, deferred
+work, formatted question/answer continuation, reopen, full-history reuse and zero
+page mutation before author action. Qualify exact-source backend/frontend, then
+independently authored holdout and blinded semantic cases, actual signed-in Build
+browser continuation and deployed acceptance. Independent author and Core capture
+integrity are later qualification owners, not blanket permission gates for offline
+implementation. Do not claim a diverse long-chat success rate from repetitive
+synthetic sixty-turn fixtures or the narrow Maelthor replay.
+
+## Exclusive bounded implementation write lease
+
+New src/application_state/agent_conversation/build_source_free.py owns the new
+codec/state and route predicates; new tests/test_build_source_free_routing.py owns
+focused physical-read, authority and HTTP/continuation regressions. Existing:
+apps/live_control_server/services/{agent_turn_service,build_jev_harness,build_jev_driver,native_graph_reads}.py;
+apps/live_control_server/integrations/dungeonmind/native_corpus_source.py only a
+new metadata-observation helper delegating public metadata owners, not the selected
+passage resolver leased by #4561;
+src/application_state/agent_conversation/{build_intentional_response,native_context,native_execution,native_corpus,native_writer,native_completion,writer_evidence_selection,retained_conversation,service,types}.py;
+src/application_state/migrations/versions/20261124_0211_build_source_free_pending.py;
+Docs/Plans/HANDOFF-DOGFOOD-source-free-build-routing.md.
+Only Build-discriminated new-codec registration/delegation in shared validators
+and service admission is allocated; old receipt/action/Plan/Play semantics remain
+byte-identical or have exact unchanged-codec reconstruction tests. Changing more
+files, any historical codec semantics, a Core public contract, a model/provider,
+Plan routing, frontend UX, benchmark qualification code or a shared registry/lockfile
+is a stop/split signal. The split is adopted here after independent design-readiness review. Any expansion
+requires a bounded owner checkpoint before editing.
