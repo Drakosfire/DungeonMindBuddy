@@ -115,6 +115,22 @@ scripted, Core was memory-backed and product source was predecessor `d008072`.
 The preflight access check is separate from the HTTP path; this does not prove
 hosted authentication, a live-model decision, current-head behavior or UI.
 
+Cases 45–46 exercised the frozen `dev-ambiguous` replacement request and page
+through the ordinary HTTP owner with the actual synthetic App binding and no
+authored Graph reference in the request. The controller was scripted to
+`clarify_request` and skip the unrelated related page; the scripted writer asked
+which of North or South was intended. Case 45's fake transport incorrectly
+assumed a one-line draft and produced a 503; that fixture failure is retained.
+Case 46 corrected its multiline and source-free assertions. The endpoint returned
+HTTP 200 and the active-messages endpoint contained the typed saved question;
+the primary page and pre/post related inventory were unchanged. The zero
+retrieval budget failed on one catalog discovery and no materializations.
+The workers, derived tests and logs remain under `http-owner` and
+`http-owner/session/case-45` and `case-46`. This is predecessor `d008072`,
+synthetic memory-Core, local-operator and scripted-provider evidence. It does
+not establish a model's intent choice, independent semantic judgment, inline UI,
+answer continuation, exhaustive acquisition coverage or current-head behavior.
+
 Cases 36–37 extended the prior scripted saved-question and answer witness with
 the real synthetic App binding and source-identity resolvers against memory
 Core. Case 36 failed because the diagnostic incorrectly expected a lifecycle
