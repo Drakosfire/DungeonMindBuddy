@@ -199,3 +199,17 @@ witness, not a model decision or an answer-quality judgment: the controller
 and writer are scripted, Core is in memory, and the source is the predecessor
 SHA. A separately bound ordinary fixture and independent semantic assessment
 are still required for the positive benchmark rate.
+
+Case 6 extended that same synthetic positive witness to inspect the actual
+serialized writer request: the toll-bearing related-page text appeared in it,
+as well as in the persisted read event. The test passed (1 test), with the
+worker and derived witness retained under `http-owner` and `session/case-6`.
+The writer transport was mocked, so this does not establish a correct answer,
+live provider behavior or a full prompt-boundary audit.
+
+Execution constraint: ordinary `build_sequence` capture carries one pinned
+page and conversation across its cases. The development fixtures specify
+different pages and dialogue histories; a single such sequence cannot bind
+them as independent cases. Provision and verify a separate case fixture and
+capture for each, then aggregate the independently bound reports. Do not
+combine their scores merely because their requests ran in one conversation.
