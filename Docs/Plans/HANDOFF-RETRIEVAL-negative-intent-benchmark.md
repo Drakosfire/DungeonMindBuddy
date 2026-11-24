@@ -111,3 +111,12 @@ exact removal. This extends only this benchmark's runtime allocation, not its
 source write lease or merge/deployment authority. Prepare and inspect the owner,
 worker and their inputs before allocation. A provider-free HTTP witness must
 use the owner-bound fixture, never the repository's raw multi-clone fixture.
+
+Before allocating the HTTP witness clone, the ordinary test collected only after
+staging the repository's exact pinned Core, GenerationEngine and WorldKeeper
+sources; the shared Python environment had older installed revisions. The
+shared App template reports schema `20261122_0189`, while this exact Buddy source
+requires `20261123_0195`. A diagnostic worker must first verify its owned clone
+identity, then migrate only that clone with the repository migration owner;
+the template and read-only Core remain untouched. The initial import/collection
+failure and corrected collection are retained in the task's `http-owner` evidence.

@@ -51,9 +51,8 @@ def validate_lease(ledger, *, head, git_status, pgid, owner_start_ticks):
     return clone
 
 
-@pytest.fixture
-def application_state_dsn(monkeypatch):
-    """Use the manager-owned App clone without invoking raw CREATE DATABASE."""
+def checked_owned_dsn():
+    """Return a verified owner-bound DSN without creating or modifying a database."""
     import psycopg
     from psycopg.conninfo import conninfo_to_dict
     from application_state.config import APPLICATION_STATE_DSN_ENV
@@ -76,5 +75,14 @@ def application_state_dsn(monkeypatch):
             (SELECT system_identifier::text FROM pg_control_system())""").fetchone()
     if actual != (clone["database"], str(clone["oid"]), str(clone["system_identifier"])):
         raise ValueError("Owned App clone identity changed")
+    return dsn
+
+
+@pytest.fixture
+def application_state_dsn(monkeypatch):
+    """Use the manager-owned App clone without invoking raw CREATE DATABASE."""
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+
+    dsn = checked_owned_dsn()
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
     return dsn
