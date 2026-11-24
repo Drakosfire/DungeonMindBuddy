@@ -179,3 +179,5 @@ merge/deployment authorization or a dependency on CI4598's merge. Any comma
 needed for the entry is included; unrelated formatting and selector changes
 are excluded. DOGFOOD will preserve this entry when reconciling CI4598 with
 the benchmark's merged main. All other CI paths/entries remain leased here.
+
+The owner explicitly assigned the runner migration-test defect to the Sizzek lane. The current-to-historical comparison now captures the current App row and its parent rows before entering the same-database historical phase; it then restores current state through the existing owned fixture. This is a bounded transfer of `tests/application_state/test_native_storage_owner_migration.py` for that test and this handoff, with no shared database or runtime write. Exact-head SQL and independent review remain required.
