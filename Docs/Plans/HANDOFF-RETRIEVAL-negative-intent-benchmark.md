@@ -297,3 +297,16 @@ authorized synthetic Core binding compatible with the shared read-only Core
 policy is still required; do not write to that Core or fake a binding as a
 qualification shortcut. This is predecessor-source evidence, not a live-model
 turn. Resolve this dependency with its owning lane before dispatch.
+
+Case 17 retained the exact serialized synthetic writer request before its mock
+transport, extending the required-source witness. The request includes the
+toll-bearing source text; its three input messages contain projected Build work,
+Rules context and native evidence, and it has no tool definitions. A targeted
+inspection of nested identifier/hash/capacity/telemetry field names found only
+`house_ruleset_id: null`. The owner-only wire SHA-256 is
+`42e6818de88499478c974f9b9f5904c2a91cd534caf86abd04d95e89b7202c27`, with the
+worker, derived test and log retained under `http-owner/session/case-17` and
+`http-owner`. One diagnostic test passed with synthetic controller and writer
+transports. This targeted inspection is not a complete boundary audit: the
+instruction text, all values, alternative calls and host binding checks still
+need review before live dispatch; no provider was contacted.
