@@ -217,3 +217,8 @@ apply preparation while the page remained unchanged. It is not a live-model
 cohort, independent held-out evaluation, or exact-head qualification. The
 owner fixture's later page save simulates author action; the owner asserts the
 page was unchanged before that action.
+The optional `related_page_vote` parameter selects a scripted `read` (default)
+or `skip` vote without changing the related-page fixture. On the same
+predecessor source, the skip control still discovered the catalog but recorded
+no materializations. This comparison diagnoses the host path under scripted
+votes; it does not measure a model's decisions.

@@ -529,6 +529,17 @@ product source was the predecessor SHA. This is not a UI move, actual apply at
 the moved caret, live-model rate or current-head qualification. The focused
 shared-environment suite passed 43 tests.
 
+Case 31 repeated case 30's frozen inventory, scripted anchored controller,
+proposal move and apply preparation with the related-page vote changed from
+`read` to `skip`. Pre/post inventory and unchanged-page checks passed. The
+zero-retrieval assertion remained red: the probe recorded one catalog
+discovery and no materializations, versus one discovery and two
+materializations with the read vote. The worker, derived test and failure log
+are retained under `http-owner/session/case-31` and `http-owner`. This isolates
+eager discovery in this scripted predecessor-source scenario; it does not
+establish a live model's vote, a cohort rate, current-head behavior or deployed
+UI behavior. The focused shared-environment evaluator suite passed 43 tests.
+
 Cases 27–28 exercised the existing proposal-move App owner control. Case 27
 stopped during setup because its legacy fixture assumed an empty `elderwyld`
 conversation, while the retained clone already had state. Case 28 adapted the

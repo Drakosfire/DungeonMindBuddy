@@ -506,6 +506,14 @@ def test_frozen_placement_generator_pins_input_and_owner_anchors(tmp_path):
     assert "negative_retrieval_frozen_inventory_before: verified" in content
     assert "negative_retrieval_frozen_proposal_moved_unchanged_page: true" in content
     assert "zero discovery and materialization budget" in content
+    skip_output = tmp_path / "skip.py"
+    generate(source, skip_output, fixture, expected_fixture_sha256=digest, related_page_vote="skip")
+    skip_content = skip_output.read_text()
+    compile(skip_content, str(skip_output), "exec")
+    assert 'else "skip" if read_optional_page and name.startswith("related_page_")' in skip_content
+    assert 'title=frozen_fixture["related_pages"][0]["title"]' in skip_content
+    with pytest.raises(ValueError, match="vote"):
+        generate(source, tmp_path / "bad-vote.py", fixture, expected_fixture_sha256=digest, related_page_vote=[])
     with pytest.raises(ValueError, match="new file"):
         generate(source, output, fixture, expected_fixture_sha256=digest)
     with pytest.raises(ValueError, match="pin"):

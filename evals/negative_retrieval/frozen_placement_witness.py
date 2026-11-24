@@ -9,10 +9,12 @@ import json
 from pathlib import Path
 
 
-def generate(source, output, fixture_path, *, expected_fixture_sha256):
+def generate(source, output, fixture_path, *, expected_fixture_sha256, related_page_vote="read"):
     source, output, fixture_path = map(Path, (source, output, fixture_path))
     if source.resolve() == output.resolve() or output.exists():
         raise ValueError("Witness must be a new file separate from its owner")
+    if not isinstance(related_page_vote, str) or related_page_vote not in {"read", "skip"}:
+        raise ValueError("Related-page vote must be read or skip")
     raw = fixture_path.read_bytes()
     if (not isinstance(expected_fixture_sha256, str) or len(expected_fixture_sha256) != 64
             or sha256(raw).hexdigest() != expected_fixture_sha256):
@@ -85,6 +87,9 @@ def generate(source, output, fixture_path, *, expected_fixture_sha256):
                  'title=frozen_fixture["related_pages"][0]["title"], kind="worldbuilding_source", source_domain="worldbuilding",')
     replace_once('save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")',
                  'save_page(tmp_path, optional_page.document_id, frozen_fixture["related_pages"][0]["body"])')
+    if related_page_vote == "skip":
+        replace_once('else "read" if read_optional_page and name.startswith("related_page_")',
+                     'else "skip" if read_optional_page and name.startswith("related_page_")')
     replace_once('    class Decisions(httpx2.AsyncBaseTransport):\n', """    from apps.live_control_server.services.workspace_document_registry import list_workspace_documents, update_workspace_document_metadata
     from apps.live_control_server.services import build_related_pages
     from evals.negative_retrieval.fixture_sources import inspect_related_pages
