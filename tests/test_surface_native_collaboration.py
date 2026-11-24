@@ -120,7 +120,7 @@ def test_actual_sdk_mixed_rules_schema_keeps_review_and_existing_definitions(kin
     assert result.assistant_text and not result.graph_used
 
 
-@pytest.mark.parametrize('mutation',['wrong_kind','missing','null','duplicate_question','plan_without_contract',
+@pytest.mark.parametrize('mutation',['wrong_kind','missing','null','plan_without_contract',
     'unselected_read','draft_quote','wrong_quote','ambiguous_quote','model_metadata','capability_absent','empty_total'])
 def test_typed_review_cannot_substitute_kind_capability_capture_or_saved_support(mutation):
     kind='plan' if mutation=='plan_without_contract' else 'connected_page' if mutation in {
@@ -134,8 +134,6 @@ def test_typed_review_cannot_substitute_kind_capability_capture_or_saved_support
         raw.pop('collaboration')
     elif mutation=='null':
         raw['collaboration']=None
-    elif mutation=='duplicate_question':
-        raw['answer_segments']=[dict(kind='discussion',text=raw['collaboration']['questions'][0]['text'])]
     elif mutation=='unselected_read':
         raw['collaboration']['read_id']=str(uuid4())
     elif mutation=='draft_quote':
@@ -151,6 +149,72 @@ def test_typed_review_cannot_substitute_kind_capability_capture_or_saved_support
         raw['collaboration']=None
     stored,auth,proof,_=produce(context,record,work,candidate=raw)
     with pytest.raises(ValueError):
+        normalize_output(context,stored,auth,**proof)
+
+
+def test_duplicate_discussion_question_is_delivered_once_and_replays():
+    context,record,work=case('questions')
+    frame=model_work_frame(context,record,**work)
+    raw=output(frame,'questions')
+    question=raw['collaboration']['questions'][0]['text']
+    raw['answer_segments']=[dict(kind='discussion',text='Let us decide.'),
+        dict(kind='discussion',text=f' {question} ')]
+    stored,auth,proof,_=produce(context,record,work,candidate=raw)
+    completion=normalize_output(context,stored,auth,**proof)
+    assert [segment.text for segment in completion.answer_segments]==['Let us decide.']
+    assert completion.collaboration.questions[0].text==question
+    assert verify_completion(completion,context,stored,auth,**proof)==completion
+
+
+def test_duplicate_question_only_keeps_typed_collaboration():
+    context,record,work=case('questions')
+    frame=model_work_frame(context,record,**work)
+    raw=output(frame,'questions')
+    raw['answer_segments']=[dict(kind='discussion',text=raw['collaboration']['questions'][0]['text'])]
+    stored,auth,proof,_=produce(context,record,work,candidate=raw)
+    completion=normalize_output(context,stored,auth,**proof)
+    assert completion.answer_segments==[]
+    assert completion.collaboration.questions[0].text==raw['collaboration']['questions'][0]['text']
+    assert verify_completion(completion,context,stored,auth,**proof)==completion
+
+
+def test_nonidentical_discussion_is_not_removed():
+    context,record,work=case('questions')
+    frame=model_work_frame(context,record,**work)
+    raw=output(frame,'questions')
+    text=raw['collaboration']['questions'][0]['text'] + ' Consider both options.'
+    raw['answer_segments']=[dict(kind='discussion',text=text)]
+    stored,auth,proof,_=produce(context,record,work,candidate=raw)
+    completion=normalize_output(context,stored,auth,**proof)
+    assert [segment.text for segment in completion.answer_segments]==[text]
+    assert verify_completion(completion,context,stored,auth,**proof)==completion
+
+
+def test_duplicate_question_does_not_displace_related_source_claim():
+    context,record,work=case('questions',with_related=True)
+    frame=model_work_frame(context,record,**work)
+    raw=output(frame,'questions')
+    page=frame['related_authored_pages']['pages'][0]
+    raw['answer_segments']=[dict(kind='discussion',text=raw['collaboration']['questions'][0]['text']),
+        dict(kind='related_page_claim',text='The neighbouring page mentions a lamp repair.',
+            read_id=page['read_id'],supporting_quotes=['A copper lamp awaits repair. 🌸'])]
+    stored,auth,proof,_=produce(context,record,work,candidate=raw)
+    completion=normalize_output(context,stored,auth,**proof)
+    assert len(completion.answer_segments)==1
+    assert completion.answer_segments[0].kind=='related_page_claim'
+    assert verify_completion(completion,context,stored,auth,**proof)==completion
+
+
+def test_question_text_in_source_claim_is_not_silently_removed():
+    context,record,work=case('questions',with_related=True)
+    frame=model_work_frame(context,record,**work)
+    raw=output(frame,'questions')
+    page=frame['related_authored_pages']['pages'][0]
+    raw['answer_segments']=[dict(kind='related_page_claim',
+        text=raw['collaboration']['questions'][0]['text'], read_id=page['read_id'],
+        supporting_quotes=['A copper lamp awaits repair. 🌸'])]
+    stored,auth,proof,_=produce(context,record,work,candidate=raw)
+    with pytest.raises(ValueError,match='Question duplicated outside its inline object'):
         normalize_output(context,stored,auth,**proof)
 
 

@@ -10,6 +10,7 @@ assessment local.
 | Action | Strongest verified boundary | Remaining proof |
 | --- | --- | --- |
 | Resolve an ambiguous Build paragraph placement | [Ordinary Build HTTP regression](../tests/test_surface_native_build_ordinary.py) covers the saved question and an inert proposal after the workbook submits the answer with the original request. | Verify the serving build in Chrome, including unchanged editor and saved page before acceptance. |
+| Ask and resume clarifying questions in conversation | Clarification is an existing intent and inline conversation response. Retained [conversation-first cases](conversation_first/cases.py) cover asking first, staying off the page, and proceeding after the user answers. The [duplicate-question delivery slice](../Docs/Plans/HANDOFF-CLARIFICATION-duplicate-question-delivery.md) verifies native completion replay; a synthetic local app retry rendered the question and accepted its answer, but the subsequent suggestion failed to complete. | Qualify reopen and continuation with ordinary-turn evidence. An unanswered preference calls for a question, with no retrieval or page proposal. Keep the request and the user's answer bound to the same workflow. |
 
 ## Plan authoring and conversation-only cohort
 
