@@ -5,8 +5,8 @@ and adapt its isolation contract. DOGFOOD owns implementation and independent
 review; the existing overall writer/context goal remains incomplete.
 
 Branch codex/ci-one-app-workstream, isolated checkout
-Projects/.codex/dogfood-ci-one-app/DungeonMindBuddy, base current main
-55bf93989bb04e385ed93f5bdade4f4a21bb6890. Initial diagnostics used the
+Projects/.codex/dogfood-ci-one-app/DungeonMindBuddy, pinned base
+f5538e832756ccb58d2a14b1e96c824682b1da48. Initial diagnostics used the
 older c3a2ae6032b0f16fc19d21be14759a0a8607782b base; the rebase preserves
 main’s lifecycle guard changes and is not qualified by those diagnostics.
 Current open PRs/leases inspected:
@@ -59,7 +59,7 @@ media/authority integration fixtures, tests/test_runtime_preflight.py and Play h
 which also allocate extra App databases, must use the same serial state owner.
 Separately opted-in writable Core integration fixtures are not App clones and
 are not launched or changed by this App workstream; shared Core stays read-only.
-scripts/ci_contract.py and its owning tests; ci/contracts.json only two new
+scripts/ci_contract.py and its owning tests, including tests/test_ownership_ci_partition.py; ci/contracts.json only two new
 aliases for the unchanged existing short Rules/import commands; the four existing PostgreSQL CI
 workflow job/setup bodies; test classification only for directly added guards;
 AGENTS.md's backend isolation wording, development verification guide, this
@@ -107,3 +107,49 @@ OID 210452, cluster 7711451860937605159, evaluator
 buddy-retrieval-projects-4560 / 33351. It remains owned by the existing DOGFOOD
 broker for serial retries and writer qualification. Release only after accepted
 or abandoned results, worker/connection closure and verified exact removal.
+
+
+At exact head 188c124cbb619ac1fb4409bab678b9bcbce82b47, 50 fixture/runner guards
+passed and the edition restore passed three serial repetitions. Hosted-contract
+frontend verification and official evidence validation passed at that SHA.
+Independent SOURCE PASS covered the cumulative change. The parent 55bf product
+and byte-identical parent dialogue test functions reproduced both 0194 refusals
+under the explicitly documented new one-clone adapter; this is bounded inherited
+failure evidence, not original physical-clone fixture or full-parent CI proof.
+
+The seven-contract case-12 attempt was abandoned after independently reproducing
+one coupled workflow guard still requiring four separate commands. That guard
+now retains selector completeness and partition assertions while checking one
+aggregate command. The attempt also retained a low-score image test failure;
+its classification remains unresolved. No incomplete run is a passing contract.
+The external outer wrapper used subprocess.run and killed its CI parent on
+KeyboardInterrupt before the escaped pytest group closed. The App stayed retained
+and no new run started. The exact pytest group was pinned by PID/start time,
+checkout, selectors and the retained log handle, interrupted gracefully, then
+verified absent with zero connections on the pinned App. External descendant
+closure evidence corrects the broker's insufficient group-only closure status.
+The wrapper must wait through interrupts before further aggregate execution.
+
+The abandoned attempt also exposed a real reset integration defect: a product
+World-store test keeps Path.open patched through fixture teardown. Ownership
+receipts and pristine snapshot hashing now use a captured io.open binding, and a
+real fixture regression keeps that product guard active through teardown. The
+product test still forbids its own file reads; no domain assertion is relaxed.
+
+The replacement aggregate transport now invokes the repository CI CLI main()
+in the broker-owned process, using its reviewed worker interruption barrier.
+There is no outer subprocess.run parent-kill path. A real zero-database process
+probe passed with two interrupts and a group leader already gone while its
+member finished cleanup; all observed workers closed. Evidence:
+buddy-check.retained-80c.MPEaXT/ci-inline-probe-1795485869169477297/receipt.json.
+The proposed extra external waiter was retired after source review identified
+missing leader-gone and exceptional closure paths; it was never used on a DB.
+Current additional fixture regression raises the fixture cases from 28 to 29;
+qualification of these amendments remains pending.
+
+A subsequent remote re-anchor at f5538e832756ccb58d2a14b1e96c824682b1da48
+preserves the newly merged cohort lifecycle, helper post-drop absence check,
+Build save guard and Plan driver work. The implementation rebases without
+leased-path overlap. Earlier 188c evidence remains exact to that predecessor;
+it does not qualify the rebased source. Current database instructions were
+reread before further benchmark work; the already owned App stays retained.

@@ -307,3 +307,13 @@ def test_managed_job_refuses_existing_receipt_before_database_io(tmp_path, monke
     with pytest.raises(RuntimeError, match="existing CI workstream receipt"):
         with database.app_workstream():
             pytest.fail("Replaced retained owner")
+
+
+def test_fixture_io_survives_product_path_open_guard(application_state_dsn,
+                                                    application_state_database, monkeypatch):
+    from pathlib import Path
+    # Product tests deliberately reject all Path.open calls. Their patch remains
+    # active during fixture teardown, which must restore its private snapshot.
+    monkeypatch.setattr(Path, "open", lambda *a, **k: pytest.fail("Product path hook reached fixture IO"))
+    assert database.snapshot_digest(application_state_database.snapshot) == application_state_database.snapshot_sha256
+    database.verify_assignment(application_state_database.assignment, idle=True)

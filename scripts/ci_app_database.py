@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from hashlib import sha256
 import json
+from io import open as _OPEN
 import os
 from pathlib import Path
 import subprocess
@@ -64,7 +65,8 @@ def _identity(connection, name: str):
 
 def verify_assignment(assignment: AppAssignment, *, idle: bool = False) -> None:
     pin = assignment.locator
-    record = json.loads(assignment.receipt.read_text())
+    with _OPEN(assignment.receipt, encoding="utf-8") as stream:
+        record = json.load(stream)
     if (record.get("database") != pin or record.get("cleanup_complete")
             or not record.get("owner")
             or not str(record.get("role", "")).startswith("per-run App")):
@@ -101,7 +103,8 @@ def verify_assignment(assignment: AppAssignment, *, idle: bool = False) -> None:
 
 def existing_assignment() -> AppAssignment:
     receipt = Path(os.environ[OWNER_ENV]).resolve()
-    record = json.loads(receipt.read_text())
+    with _OPEN(receipt, encoding="utf-8") as stream:
+        record = json.load(stream)
     if (not record.get("owner") or record.get("cleanup_complete")
             or not str(record.get("role", "")).startswith("per-run App")):
         raise ValueError("CI needs a current explicitly owned App workstream")
@@ -259,4 +262,5 @@ def postgres_client(command: str, assignment: AppAssignment, arguments: list[str
 
 
 def snapshot_digest(path: Path) -> str:
-    return sha256(path.read_bytes()).hexdigest()
+    with _OPEN(path, "rb") as stream:
+        return sha256(stream.read()).hexdigest()
