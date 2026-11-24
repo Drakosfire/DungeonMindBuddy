@@ -11,6 +11,14 @@ SOURCE_ANSWER_POLICY = 'typed_supplied_source_answer_v1'
 SOURCE_ANSWER_FORMAT = 'surface_native_build_source_answer_v1'
 LORE_LIMITATION_POLICY = 'validated_lore_review_generic_gaps_v1'
 LORE_LIMITATION_FORMAT = 'surface_native_lore_review_limitations_v1'
+BUILD_REPLY_FORMAT = 'build_reply'
+
+
+def semantic_reply_eligible(host, execution):
+    """Ordinary Build only; Rules eligibility is checked by its existing owner."""
+    from .native_execution import NativeBuildActionV1
+    return (type(getattr(execution.policy, 'action', None)) is NativeBuildActionV1
+            and not variant_sources(host) and not lore_outcome_eligible(host, execution))
 
 
 def source_backed_discussion(host, execution):
@@ -143,7 +151,8 @@ def variant_output_version(work_frame):
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
                    variant_passage_review=False, bind_lore_page=False,
                    retained_raw_markdown=False, supplied_source_references=False,
-                   typed_source_answer=False, lore_page_limitations=False, lore_request_reference=False, lore_outcome=False):
+                   typed_source_answer=False, lore_page_limitations=False, lore_request_reference=False, lore_outcome=False,
+                   semantic_reply=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     from .model_markdown import project_model_markdown, project_retained_source_markdown
 
@@ -300,6 +309,13 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
     references = model_reference_choices(execution)
     if references is not None:
         work['selected_references'] = references
+    if semantic_reply:
+        if (not semantic_reply_eligible(host, execution) or not supplied_source_references
+                or not typed_source_answer or not lore_page_limitations or not lore_request_reference):
+            raise ValueError('Semantic Build reply requires its captured work and host policies')
+        # Exact producing format selects these host checks, never model-returned flags.
+        for key in ('citation_policy', 'source_answer_policy', 'lore_limitation_policy'):
+            work.pop(key, None)
     return {'build_work': work}
 
 

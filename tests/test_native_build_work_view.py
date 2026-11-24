@@ -32,6 +32,37 @@ def test_local_source_and_draft_selectors_preserve_exact_single_body():
     assert 'snapshot_sha256' not in wire and 'host-policy' not in wire
 
 
+def test_semantic_reply_keeps_domain_text_and_aliases_without_policy_flags(monkeypatch):
+    from application_state.agent_conversation import native_build_work_view as view
+    host, execution = example()
+    host['working_draft_context']['draft_markdown'] = 'Our fictional motto is citation_policy.'
+    monkeypatch.setattr(view, 'semantic_reply_eligible', lambda *_: True)
+    result = semantic_frame(host, execution, supplied_source_references=True,
+        typed_source_answer=True, lore_page_limitations=True,
+        lore_request_reference=True, semantic_reply=True)['build_work']
+    assert result['current_draft']['markdown'] == 'Our fictional motto is citation_policy.'
+    assert result['current_draft']['selection'] == 'draft0'
+    assert not {'citation_policy', 'source_answer_policy', 'lore_limitation_policy'} & set(result)
+    # The frozen producer still reconstructs its original host-policy projection.
+    old = semantic_frame(host, execution, supplied_source_references=True)['build_work']
+    assert old['citation_policy'] == 'supplied_source_references_v1'
+
+
+def test_semantic_reply_cannot_drop_its_host_evidence_contract(monkeypatch):
+    from application_state.agent_conversation import native_build_work_view as view
+    host, execution = example()
+    monkeypatch.setattr(view, 'semantic_reply_eligible', lambda *_: True)
+    flags = dict(supplied_source_references=True, typed_source_answer=True,
+        lore_page_limitations=True, lore_request_reference=True, semantic_reply=True)
+    for field in ('supplied_source_references', 'typed_source_answer',
+                  'lore_page_limitations', 'lore_request_reference'):
+        with pytest.raises(ValueError, match='captured work and host policies'):
+            semantic_frame(host, execution, **(flags | {field: False}))
+    monkeypatch.setattr(view, 'semantic_reply_eligible', lambda *_: False)
+    with pytest.raises(ValueError, match='captured work and host policies'):
+        semantic_frame(host, execution, **flags)
+
+
 def test_only_selector_slots_are_resolved_and_foreign_choices_refused():
     host, _ = example()
     identity = host['artifact_under_edit']['sections'][0]['read_id']
