@@ -129,6 +129,20 @@ product source was predecessor `d008072`, and the question arose from a
 reviewed-step fixture. This does not establish completion of the original task,
 hosted authentication, live-model quality, current-head behavior or inline UI.
 
+Cases 38–40 extended the same real-binding question witness to a follow-up
+message containing the answer plus an explicit request to propose the lamp
+detail. Case 38 failed before dispatch because its test attempted to reuse a
+write capability absent from the base request. Cases 39–40 used a fresh
+capability from the existing draft and passed. In case 40 the completed HTTP
+turn created a proposal, the review owner moved it, apply preparation retained
+the moved position, the page remained unchanged, and question and answer were
+available after archival (1 test). Failed and passing workers, generated tests
+and logs remain under `http-owner` and `http-owner/session/case-38` through
+`case-40`. Routing and writer outputs were scripted, the follow-up explicitly
+requested the proposal, and product source was predecessor `d008072`. This
+demonstrates continuation plumbing, not independent model intent, actual apply,
+hosted authentication, current-head qualification or inline UI behavior.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a
