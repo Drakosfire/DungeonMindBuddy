@@ -6626,6 +6626,15 @@ export function WorldPlanAgentConversation({
       ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
     const completion = graphContextForTurn(turn)?.completion;
     const descriptor = savedMessage?.reply_object;
+    const savedQuestions = isBuild && visible && !historicalAttempt
+      && descriptor?.kind === 'questions' && turn.lifecycle_status === 'completed'
+      && turn.provenance.surface_id === 'build' && turn.provenance.surface_resolution === 'resolved'
+      && turn.provenance.primary_work.resolution === 'resolved' && turn.provenance.primary_work.kind === 'build'
+      && history?.conversation_id && history.active_conversation_id === history.conversation_id
+      && descriptor.source.world_id === verifiedWorldId
+      && descriptor.source.conversation_id === history.conversation_id
+      && descriptor.source.turn_id === turn.turn_id && descriptor.source.surface_id === 'build'
+      && descriptor.source.document_id === turn.provenance.primary_work.object_id ? descriptor : null;
     const scopedLoreReview = Boolean(isBuild && playMode===null && visible
       && verifiedWorldId && buildMode?.savedSource?.worldId===verifiedWorldId
       && buildMode.savedSource.documentId===turn.provenance.primary_work.object_id);
@@ -6699,6 +6708,12 @@ export function WorldPlanAgentConversation({
           {savedStatblockLinks}
           {draftEditor}
           {variantApproval}
+          {savedQuestions && verifiedWorldId && history?.conversation_id && <ConversationWorkbook
+            key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
+            collaboration={{kind:'questions',questions:savedQuestions.questions}}
+            source={turn.assistant_text ?? ''} worldId={verifiedWorldId}
+            conversationId={history.conversation_id} turnId={turn.turn_id} disabled={composerBusy}
+            onAdd={text=>{retireComposerReferenceSubmission();composerEditGenerationRef.current+=1;setComposerMessage(current=>current.trim()?`${current}\n\n${text}`:text);}} />}
           {!historicalAttempt && (isBuild || !isReadOnly) && !turn.assistant_text
             && ['failed','interrupted'].includes(turn.lifecycle_status)
             && (isBuild ? turn.provenance.surface_id === 'build'

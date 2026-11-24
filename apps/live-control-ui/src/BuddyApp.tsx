@@ -15,6 +15,7 @@ import {
   useSelectedWorldAdmission,
   useSelectedWorld,
 } from "./selectedWorld/SelectedWorldContext";
+import { worldScopedSurfaceHref } from "./selectedWorld/worldSelectionNavigation";
 import { WorldSelector } from "./selectedWorld/WorldSelector";
 import { GuestReleaseDrawer } from "./guestRelease/GuestReleaseDrawer";
 
@@ -83,7 +84,8 @@ function BuddyGraphPage({
   let explorer: ReactNode;
   if (managedWorldId && selectedWorld.kind === "managed") {
     explorer = <ManagedWorldGraph key={stateScopeId}
-      worldTitle={selectedWorld.name} stateScopeId={stateScopeId} />;
+      worldTitle={selectedWorld.name} stateScopeId={stateScopeId}
+      openBuildHref={worldScopedSurfaceHref("/build", managedWorldId)} />;
   } else if (auth.status === "local_operator") {
     explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
   } else if (auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1") {
