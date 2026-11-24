@@ -525,6 +525,8 @@ def test_production_graph_preview_prefix_mounts_only_scoped_build_extraction(
     prefix = "/api/live/graph-preview"
     expected = {
         ("POST", f"{prefix}/extraction-runs"): resolve_hosted_build_extraction,
+        ("POST", f"{prefix}/build-recap-launches"): resolve_hosted_build_extraction,
+        ("GET", f"{prefix}/build-recap-launches/{{request_id}}"): resolve_hosted_build_recap_recovery,
         ("POST", f"{prefix}/build-worldbuilding-launches"): resolve_hosted_build_extraction,
         ("GET", f"{prefix}/build-worldbuilding-launches/{{request_id}}"): resolve_hosted_build_recap_recovery,
         ("GET", f"{prefix}/extraction-runs/{{run_id}}"): resolve_hosted_exact_extraction_read,
