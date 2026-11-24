@@ -162,3 +162,20 @@ still refuse reset. Real SQL predicate regressions cover that distinction withou
 changing maintenance settings or terminating maintenance. The remaining aggregate
 was interrupted through the corrected in-process barrier; all pytest workers
 closed, App caller connections were zero, and maintenance was left untouched.
+
+
+## Explicit classification-entry split for RETRIEVAL4584
+
+Alan explicitly authorized coordination with DOGFOOD in Restore clarifying
+questions (thread01a20ad7-33a2-7ea2-98e1-2f2b9feb250f, human turn
+01a20bba-4c88-7d41-ba63-06d256c34cb1: "Yes coordinate with DOGFOOD").
+DOGFOOD, this CI lane's owner, releases only the ci/test-classification.json
+entry for tests/evals/test_negative_retrieval_assessment.py to the
+RETRIEVAL negative-intent benchmark owner in PR4584, branch
+codex/negative-retrieval-benchmark. That owner may add that exact path to the
+existing qualification category, retaining normal discovery and the other
+entries unchanged. This is an entry-level split, not a whole-file transfer,
+merge/deployment authorization or a dependency on CI4598's merge. Any comma
+needed for the entry is included; unrelated formatting and selector changes
+are excluded. DOGFOOD will preserve this entry when reconciling CI4598 with
+the benchmark's merged main. All other CI paths/entries remain leased here.
