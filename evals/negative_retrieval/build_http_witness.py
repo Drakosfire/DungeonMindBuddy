@@ -35,6 +35,8 @@ def generate(source, output):
 '''
     test = '''
 
+from evals.negative_retrieval.owned_db_fixture import application_state_dsn
+
 def test_negative_retrieval_ambiguous_placement_http_witness(lane, tmp_path, monkeypatch):
     """Real HTTP/APP route; synthetic votes and native repository, not model quality."""
     from evals.negative_retrieval.related_page_probe import observe_related_page_owners

@@ -633,3 +633,34 @@ def test_http_witness_generator_guards_owner_fixture_and_requires_typed_question
         generate(broken, output)
     with pytest.raises(ValueError):
         generate(source, source)
+
+
+def test_owned_http_fixture_rejects_foreign_or_stale_clone_and_worker():
+    import copy
+    import pytest
+    from evals.negative_retrieval.owned_db_fixture import validate_lease, OWNER, DERIVED_TEST
+
+    clone = {"database": "benchmark_run_" + "a" * 32, "host": "127.0.0.1", "port": 33351,
+             "oid": "42", "system_identifier": "123"}
+    ledger = {"owner": OWNER, "cleanup_complete": False, "stage": "running", "source_sha": "head",
+              "pid": 12, "owner_start_ticks": "42", "database": clone, "current_run": "/run/1",
+              "runs": [{"process_group": 34, "workers_closed": False, "exit_code": None, "path": "/run/1"}]}
+    def validate(value, **kwargs):
+        return validate_lease(value, head=kwargs.get("head", "head"),
+                              git_status=kwargs.get("git_status", f"?? {DERIVED_TEST}\n"),
+                              pgid=kwargs.get("pgid", 34), owner_start_ticks=kwargs.get("ticks", "42"))
+    assert validate(ledger) == clone
+    for changes in ({"owner": "other"}, {"stage": "awaiting_review"}, {"cleanup_complete": True},
+                    {"source_sha": "other"}, {"owner_start_ticks": "stale"}):
+        bad = copy.deepcopy(ledger)
+        bad.update(changes)
+        with pytest.raises(ValueError):
+            validate(bad)
+    with pytest.raises(ValueError):
+        validate(ledger, pgid=35)
+    with pytest.raises(ValueError):
+        validate(ledger, git_status=" M src/important.py\n")
+    bad = copy.deepcopy(ledger)
+    bad["database"]["database"] = "operator_database"
+    with pytest.raises(ValueError):
+        validate(bad)

@@ -99,3 +99,15 @@ or duplicate entries). Keep the test under normal discovery and keep this gate
 red until the CI classification owner releases or explicitly splits the
 `ci/test-classification.json` lease. Do not move or suppress the test to make
 inventory pass. This lane has not edited that shared manifest.
+
+Planned diagnostic runtime lease: one uniquely owned disposable App clone on the
+shared local benchmark server, reused serially for this workstream, plus the
+existing read-only shared Core snapshot. No other lane's clone may be used or
+removed. Check capacity across both shared benchmark servers immediately before
+allocation; pin the template, cluster, clone OID, exact source and owner/worker
+process identities. Retain the clone for review, retries and follow-up; close
+workers and connections before explicit acceptance/abandonment and verify its
+exact removal. This extends only this benchmark's runtime allocation, not its
+source write lease or merge/deployment authority. Prepare and inspect the owner,
+worker and their inputs before allocation. A provider-free HTTP witness must
+use the owner-bound fixture, never the repository's raw multi-clone fixture.

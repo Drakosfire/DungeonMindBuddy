@@ -137,5 +137,8 @@ owner fixture injects synthetic controller votes and an in-memory native
 repository; it cannot prove actual model behavior or deployed UI. Do not run
 its default `application_state_dsn` fixture: that fixture creates multiple
 physical databases and is paused under the current benchmark resource policy.
-A reviewed owner-bound fixture override using the one workstream App clone is
-still required before this witness can run. It has not been run yet.
+The generated witness imports an evaluator fixture that refuses anything but
+a live, exact-source workstream owner and its pinned App clone. That fixture
+performs a read-only identity check and never creates or drops a database; its
+owner/worker integration still needs review and a real owned run. The witness
+has not been run yet.
