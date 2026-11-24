@@ -63,6 +63,13 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+Question recognition now validates the typed question object and requires the
+saved completion to match the HTTP response. Provider-free predecessor HTTP
+case 74 confirmed this on the frozen ambiguous case. The witness observed the
+question but also catalog discovery, so the zero-discovery budget remains red;
+it is not a qualified benchmark pass. Evidence is retained under `Projects/`
+`.codex/buddy-check.negative-inline.SsurDn/http-owner/session/case-74`.
+
 The observer now recognizes a validated non-object-only native Build answer
 whose response and saved completion agree. Required support and semantic quality
 remain separate unknowns. Provider-free predecessor case 73 exercised the frozen

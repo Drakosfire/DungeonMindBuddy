@@ -64,11 +64,14 @@ def observe(request, history_envelope, trace_envelope, answer_envelope, *, relat
     completed = http_ok and status == "completed" and attempt.get("terminal_status") == "completed"
     completion = (turn.get("knowledge_context") or {}).get("completion") or {}
     collaboration = completion.get("collaboration") or {}
-    questions = collaboration.get("questions")
-    typed_questions = (completed and collaboration.get("kind") == "questions"
-                       and isinstance(questions, list) and bool(questions)
-                       and all(isinstance(q, dict) and isinstance(q.get("text"), str)
-                               and q["text"].strip() for q in questions))
+    typed_questions = False
+    if completed and isinstance(collaboration, dict) and collaboration.get("kind") == "questions":
+        from application_state.agent_conversation.collaboration import ProposedQuestions
+        try:
+            ProposedQuestions.model_validate(collaboration)
+            typed_questions = ((answer.get("knowledge_context") or {}).get("completion") == completion)
+        except (ValueError, TypeError):
+            pass
     typed_proposal = False
     if completed and completion.get("schema") == "dmb_build_authoring_completion_v1":
         from application_state.agent_conversation.types import BuildAuthoringCompletionV1

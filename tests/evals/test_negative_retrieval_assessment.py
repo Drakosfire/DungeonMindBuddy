@@ -230,10 +230,17 @@ def test_ordinary_capture_requires_exact_bound_saved_question():
     attempt = {"schema": "dmb_turn_context_trace_v1", "world_id": "world", "conversation_id": "conversation",
                "turn_id": "saved-turn", "terminal_status": "completed", "capture_status": "complete", "observations": []}
     trace = {"world_id": "world", "turn_id": "saved-turn", "attempts": [attempt]}
-    answer = {"turn_id": "client-turn", "client_thread_id": "client-thread"}
+    answer = {"turn_id": "client-turn", "client_thread_id": "client-thread",
+              "knowledge_context": {"completion": turn["knowledge_context"]["completion"]}}
     result = observe(request, envelope(history), envelope(trace), envelope(answer))
     assert result["outcome"] == "clarification" and result["completed_turn"]
     assert result["journal_complete"] is None
+    answer["knowledge_context"] = {"completion": {}}
+    assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
+    invalid = {"collaboration": {"kind": "questions", "questions": [{"text": "Which one?", "extra": "invalid"}]}}
+    turn["knowledge_context"]["completion"] = invalid
+    answer["knowledge_context"] = {"completion": invalid}
+    assert observe(request, envelope(history), envelope(trace), envelope(answer))["outcome"] is None
     from application_state.agent_conversation.types import BuildAuthoringCompletionV1, BUILD_PROPOSAL_READY_TEXT
     from uuid import uuid4
     proposal = BuildAuthoringCompletionV1(context_receipt_sha256="a" * 64,
@@ -526,7 +533,8 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     probe = {"schema": "dmb_negative_retrieval_related_page_probe_v1", "coverage": "partial", "case_id": "case1",
              "records": [{"owner": "related_catalog_discovery", "state": "returned"}]}
     artifacts = {"request": request, "history-after": envelope(history), "context-trace": envelope(trace),
-                 "answer-http": envelope({"turn_id": "turn", "client_thread_id": "thread"}), "related-page-probe": probe}
+                 "answer-http": envelope({"turn_id": "turn", "client_thread_id": "thread",
+                                          "knowledge_context": turn["knowledge_context"]}), "related-page-probe": probe}
     for name, value in artifacts.items():
         (tmp_path / f"{name}.json").write_text(json.dumps(value))
     result = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
