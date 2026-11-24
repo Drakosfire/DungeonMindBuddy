@@ -6,6 +6,7 @@ This queue holds the maintenance items explicitly transferred out of the root pr
 
 | Candidate | Component owner | Evidence and next check |
 | --- | --- | --- |
+| Fix the hosted Build Recap HTTP 405 | Buddy Build extraction | [Draft #4613](https://github.com/Drakosfire/DungeonMindBuddy/pull/4613) moves the existing Build Recap launch and saved-run recovery routes from the developer-only preview router to the production Build extraction router. After review and deployment, verify that a signed-in member can launch and reopen the same saved run in their World, another World is denied, and developer preview routes stay unavailable. |
 | Give retained PDF shortcuts a browser storage lifecycle | Buddy Build frontend | [#3380](https://github.com/Drakosfire/DungeonMindBuddy/pull/3380) shipped removal and passed 19 focused tests. In a synthetic Chrome run with 50 selected-World shortcuts and 200 reads per scenario, scans averaged 0.034, 0.104 and 0.518 ms across 100, 1,000 and 5,000 storage keys. A simulated World-scoped lookup averaged about 0.01 ms and serialized 50 entries in 9,991 ASCII bytes. Revisit indexing when representative profiles show a user-visible preview delay or report quota pressure. Any storage change must preserve legacy shortcuts and cross-tab updates and verify World isolation. |
 
 ### Operational follow-ups
