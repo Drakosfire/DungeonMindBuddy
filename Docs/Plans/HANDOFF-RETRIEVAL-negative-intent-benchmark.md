@@ -275,3 +275,15 @@ escaping SyntaxError during collection and is retained. The focused suite
 passed 34 tests in the shared environment. These diagnostics use the predecessor
 product source and do not establish an ordinary benchmark turn or exact-head
 qualification. The caller still owns safe page/World provisioning.
+
+Case 15 exercised the new eval-owned `provision_fixture` and guarded seeder
+together against the owned clone. It created a fresh synthetic World, saved
+and verified the frozen primary page and the `harbour` related page through
+their owners, and round-tripped the frozen dialogue (1 test passed). The
+fixture and candidate source hashes, derived test and owner logs are retained in
+`http-owner/session/case-15`; the related-page root was configured to the
+isolated test directory. The product source remains the predecessor SHA, and
+the test did not construct a full ordinary capture or contact a model. The
+focused suite passed 35 tests in the shared environment, including duplicate
+source rejection before database access. Exact-head and CI classification
+requirements remain open.

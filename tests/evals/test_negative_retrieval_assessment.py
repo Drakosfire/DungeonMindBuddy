@@ -601,6 +601,18 @@ def test_seeder_rejects_unowned_shapes_before_database_access(monkeypatch):
             world="negative-seed-" + "a" * 32, template={}, snapshot={})
 
 
+def test_provisioner_rejects_duplicate_sources_before_database_access(tmp_path, monkeypatch):
+    import pytest
+    from evals.negative_retrieval import provision_fixture as module
+
+    monkeypatch.setattr(module, "checked_owned_dsn", lambda: pytest.fail("database guard reached"))
+    fixture = {"page": "# Page", "related_pages": [
+        {"label": "one", "title": "Same", "body": "One."},
+        {"label": "two", "title": "Same", "body": "Two."}]}
+    with pytest.raises(ValueError, match="unique"):
+        module.provision_fixture(fixture, root=tmp_path)
+
+
 def test_seeder_refuses_forged_saved_page_before_conversation(monkeypatch):
     from hashlib import sha256
     from types import SimpleNamespace

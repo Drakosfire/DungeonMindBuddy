@@ -101,6 +101,14 @@ It refuses an existing conversation and does not reset or retry a partial seed.
 The owner-bound predecessor-source diagnostic round-tripped the development
 placement dialogue with Build provenance; it did not exercise full capture.
 
+`provision_fixture.provision_fixture` creates a uniquely named synthetic World
+and its primary and related pages after verifying the workstream App lease. It
+checks saved page bytes and related-page inventory through the owning services;
+the caller supplies an isolated existing root and must configure the related-page
+service to use that same root. Partial failures are retained, never reset or
+retried automatically. The helper does not dispatch a model, construct a full
+capture manifest or establish complete acquisition coverage.
+
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
 the private rubric without calling a model. Missing files are unproven. This
