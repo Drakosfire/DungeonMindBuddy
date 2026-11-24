@@ -480,6 +480,7 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "inspect_related_pages", lambda *a: [])
     dispatched = []
     def ordinary_case(client, world, template, current, directory, **kwargs):
+        client.get("/api/live/agent/worlds/w/conversation")
         dispatched.append(kwargs["expected_conversation_id"])
         return "done"
     monkeypatch.setattr(workflow, "capture_case", ordinary_case)
@@ -492,6 +493,17 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="differs"):
         module.capture(_test_manifest(tmp_path), tmp_path / "bad", fixtures={"seeded": fixture})
     assert dispatched == ["c"]
+    history["turns"][0]["assistant_text"] = "A star."
+    calls = []
+    def changed_get(self, route):
+        calls.append(route)
+        if len(calls) == 2:
+            history["turns"][0]["assistant_text"] = "Changed after preflight."
+        return Response()
+    monkeypatch.setattr(Client, "get", changed_get)
+    with pytest.raises(ValueError, match="differs"):
+        module.capture(_test_manifest(tmp_path), tmp_path / "race", fixtures={"seeded": fixture})
+    assert len(calls) == 2 and dispatched == ["c"]
 
 
 def test_fixture_source_record_rejects_world_and_content_mismatches():

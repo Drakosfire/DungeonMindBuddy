@@ -47,6 +47,7 @@ def capture(manifest, output, *, clone_app=False, fixtures=None):
         def observed_case(client, world, template, case, directory, **kwargs):
             fixture = None if fixtures is None else fixtures[case["id"]]
             before = None
+            checked_client = client
             if fixture is not None:
                 work = template["primary_work"]
                 preflight_request = SimpleNamespace(owner_scope=SimpleNamespace(world_id=world),
@@ -65,6 +66,28 @@ def capture(manifest, output, *, clone_app=False, fixtures=None):
                                 raise ValueError("A seeded fixture requires an active conversation")
                             kwargs["expected_conversation_id"] = conversation
                         verify_preflight_history(fixture, history, world, conversation)
+                        # Recheck the runner's own history read, not just this
+                        # earlier preflight. The conversation ID can remain
+                        # unchanged while another turn alters its prefix.
+                        class CheckedHistoryClient:
+                            def __init__(self, wrapped):
+                                self.wrapped = wrapped
+                                self.pending = True
+
+                            def __getattr__(self, name):
+                                return getattr(self.wrapped, name)
+
+                            def get(self, route, *args, **options):
+                                response = self.wrapped.get(route, *args, **options)
+                                if self.pending:
+                                    if (route != "/api/live/agent/worlds/" + world + "/conversation"
+                                            or response.status_code != 200):
+                                        raise ValueError("Runner history read could not be verified")
+                                    verify_preflight_history(fixture, response.json(), world, conversation)
+                                    self.pending = False
+                                return response
+
+                        checked_client = CheckedHistoryClient(client)
                     before = inspect_related_pages(preflight_request, fixture)
                 except Exception as exc:
                     immutable_save(Path(directory), "fixture-sources", {
@@ -75,7 +98,7 @@ def capture(manifest, output, *, clone_app=False, fixtures=None):
             records = []
             try:
                 with observe_related_page_owners() as records:
-                    return original(client, world, template, case, directory, **kwargs)
+                    return original(checked_client, world, template, case, directory, **kwargs)
             finally:
                 failure = sys.exc_info()[1]
                 try:

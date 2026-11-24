@@ -223,3 +223,10 @@ dispatch. This does not provision the synthetic histories, prevent concurrent
 turns, or substitute for an owning-boundary run; a changed retained prefix must
 invalidate the result. The focused run used the existing shared Python
 environment and is not exact-source qualification.
+
+The wrapper now also validates the ordinary runner's own pre-dispatch history
+read. A diagnostic test changes the prefix after initial preflight while keeping
+the conversation ID and confirms the runner is stopped before dispatch; all
+32 focused tests passed. This closes that observed check gap, not the interval
+after the runner's read: retained-history binding remains necessary to detect
+intervening turns, and an owning-boundary run remains outstanding.
