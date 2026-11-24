@@ -36,6 +36,8 @@ This is a document reconciliation anchor, not fresh acceptance of every retained
 [ROADMAP-demo.md](Docs/Roadmaps/ROADMAP-demo.md) is the sole Buddy product
 sequencing owner. It records the delivered local authoring/Play baseline,
 remaining acceptance and candidates currently under operator discussion.
+The next product goal is [streaming Buddy’s reply text](Docs/Roadmaps/ROADMAP-demo.md#next-product-goal--stream-buddys-reply-text),
+tracked in [#3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838).
 The old demo-ready roadmap and 2026-09-08 dispatch snapshot are historical.
 Do not infer a current blocker or READY assignment from them.
 
