@@ -6,16 +6,15 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from uuid import UUID
-from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
 from apps.live_control_server.models.saved_recap_runs import SavedRecapRunsResponse, SavedRecapSourceResponse
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
-from apps.live_control_server.routes.build_extraction import get_extraction_run_build_context, router as build_extraction_router
+from apps.live_control_server.routes.build_extraction import router as build_extraction_router
 from apps.live_control_server.models.historical_recap_projection import (
     HistoricalRecapWorldProjectionResponse,
 )
-from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm, native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestLatestRunResponse,
     GraphIngestRunRegistryError,
@@ -452,56 +451,6 @@ def get_recap_graph_presentation(
     except (GraphPreviewSurfaceError, RecapArtifactRegistryError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")
-
-
-@router.post("/build-recap-launches")
-def post_build_recap_launch(request: Request, body: BuildRecapLaunchRequest) -> dict[str, Any]:
-    from apps.live_control_server.services import hosted_auth
-    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-    from apps.live_control_server.services.build_recap_launch import launch_build_recap
-    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
-
-    hosted = hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
-    if hosted:
-        if request.query_params:
-            raise HTTPException(status_code=403, detail="Unexpected recap launch query")
-        require_hosted_build_native_source(request, body.managed_world_id)
-    else:
-        enforce_native_graph_gm(request)
-    def authorize() -> None:
-        require_hosted_build_native_source(request, body.managed_world_id)
-
-    try:
-        run = launch_build_recap(repo_root(), body, authorize=authorize if hosted else None)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
-    context = get_extraction_run_build_context(run.run_id)
-    if hosted:
-        require_hosted_build_native_source(request, body.managed_world_id)
-    return context
-
-
-@router.get("/build-recap-launches/{request_id}")
-def get_build_recap_launch(request: Request, request_id: UUID, document_id: UUID, managed_world_id: str) -> dict[str, Any]:
-    from apps.live_control_server.services import hosted_auth
-    from apps.live_control_server.services.hosted_native_graph_access import require_hosted_build_native_source
-    from apps.live_control_server.services.build_recap_launch import recover_build_recap_launch
-
-    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
-        enforce_native_graph_gm(request)
-    else:
-        require_hosted_build_native_source(request, managed_world_id)
-    try:
-        run = recover_build_recap_launch(repo_root(),request_id=request_id,document_id=document_id,managed_world_id=managed_world_id)
-    except Exception as exc:
-        raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
-    context = get_extraction_run_build_context(run.run_id)
-    if context["document_id"] != str(document_id):
-        raise HTTPException(status_code=409, detail="Saved recap launch does not match this document")
-    require_hosted_build_native_source(request, managed_world_id)
-    return context
 
 
 @router.get("/extraction-runs/{run_id}/usage")

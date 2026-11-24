@@ -636,6 +636,9 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
             policy='auto_plan_world', graph_source='reviewed_native_graph')
     plan_adapter.request = plan_adapter.request.model_copy(update=request_fields)
     capture, turn = _claim_contextual_scope_turn(plan_adapter, selected=selected)
+    if provider_case in {'disagreeing_recheck', 'capture_rewrite_recheck'}:
+        plan_adapter.fence.begin_plan_opening()
+        assert plan_adapter.fence.renewer._session is not None
     dispatch = PlanJevDispatch.author_scope(plan_adapter)
     requests = []
     if provider_case == 'substituted_observation':
@@ -734,6 +737,7 @@ def test_source_blind_sdk_records_only_its_actual_native_scope_observation(
             asyncio.run(opening.run(transport=httpx2.MockTransport(no_opening), api_key='synthetic-not-secret'))
         denied = plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0]
         assert denied.graph_context_execution.events[-1] == second.selection_event
+        assert plan_adapter.fence.renewer._session is None
         review = PlanJevDispatch.author_scope(plan_adapter, review_scope=(events[-1], second.selection_event))
 
         async def adjudicate(request):

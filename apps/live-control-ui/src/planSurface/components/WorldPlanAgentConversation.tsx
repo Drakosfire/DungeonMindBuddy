@@ -6722,6 +6722,14 @@ export function WorldPlanAgentConversation({
     const citedAnswer=!pageProposalAcknowledgment&&!rulesContextForTurn(turn)&&verifiedWorldId&&turn.assistant_text&&citedCompletion
       ? <SourceCitedAnswer answer={turn.assistant_text} completion={citedCompletion} worldId={verifiedWorldId} turnId={turn.turn_id}
           saved={buildCitedContext ? {targets:buildCitedContext.saved_source_sections??[],basis:buildCitedContext.receipt.source_basis,sourceName:buildCitedContext.saved_source_name??null} : undefined}/> : null;
+    const hasSurfaceEvidence = !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === 'dmb_surface_native_completion_v1' || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"||graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v7")))));
+    const renderSurfaceEvidence = (citationsOnly = false) => <SurfaceEvidenceAnswer citationsOnly={citationsOnly} completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion|import("../../api/types").SurfaceNativeCompletionV1} buildSourceBasis={buildSource??undefined} nativeScope={(() => {
+                  const receipt = graphContextForTurn(turn)?.receipt;
+                  if (!receipt || !("native_query" in receipt) || !("authority" in receipt.native_query)) return undefined;
+                  const {managed_world_id, native_world_id, binding_version, revision_id, scope_mode, campaign_id} = receipt.native_query.authority;
+                  return {managed_world_id, native_world_id, binding_version, revision_id, scope_mode, campaign_id};
+                })()}
+                worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:replyText,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>;
     const failed = turn.lifecycle_status !== "interrupted" && (isHistoryTurnFailureConfirmed(turn.turn_id)
       || isWorldHistoryTurnFailed(turn.turn_id) || turn.lifecycle_status === "failed");
     const interrupted = turn.lifecycle_status === "interrupted";
@@ -6761,14 +6769,8 @@ export function WorldPlanAgentConversation({
               </header>}
             </div>
             {reviewedDraftReply ? reviewedDraftReply : pageSuggestion ? pageSuggestion.element : turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
-              worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === 'dmb_surface_native_completion_v1' || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"||graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v7")))))
-              ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion|import("../../api/types").SurfaceNativeCompletionV1} buildSourceBasis={buildSource??undefined} nativeScope={(() => {
-                  const receipt = graphContextForTurn(turn)?.receipt;
-                  if (!receipt || !("native_query" in receipt) || !("authority" in receipt.native_query)) return undefined;
-                  const {managed_world_id, native_world_id, binding_version, revision_id, scope_mode, campaign_id} = receipt.native_query.authority;
-                  return {managed_world_id, native_world_id, binding_version, revision_id, scope_mode, campaign_id};
-                })()}
-                worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:replyText,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
+              worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : hasSurfaceEvidence
+              ? renderSurfaceEvidence()
               : citedAnswer ?? <WorldPlanAgentAnswer
               answer={pageProposalAcknowledgment ? "Open the suggestion’s original page to review it." : replyText}
               inlineCitations={inlineSourceCitations(turn)}
@@ -6873,6 +6875,8 @@ export function WorldPlanAgentConversation({
         ) : null}
         <div className="world-plan-agent-conversation__turn-debug">
           {renderReplyDetails(turn, true, <>
+            {openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] && hasSurfaceEvidence
+              && turn.lifecycle_status === "completed" && renderSurfaceEvidence(true)}
             <div className="world-plan-agent-conversation__reply-heading">
               {turn.lifecycle_status === "completed" && sourcedCompletion
                 && replySourceLabel(sourcedCompletion.answer_context_status, turn.provenance.surface_id) ? (
@@ -6903,15 +6907,18 @@ export function WorldPlanAgentConversation({
             </details> : null}
             {pendingRetryTurnId === turn.turn_id && !historicalAttempt && (uncertainPlayNoticeRef.current || uncertainPlanNoticeRef.current)
               ? <p>{uncertainPlayNoticeRef.current?.message ?? uncertainPlanNoticeRef.current?.message}</p> : null}
-            <p className="world-plan-agent-conversation__context">
-              Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
-            </p>
+            <details>
+              <summary>Saved turn information</summary>
+              <p className="world-plan-agent-conversation__context">
+                Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
+              </p>
+              {renderGraphContextHistory(turn)}
+            </details>
             {deliveryDiagnostic ? <p className="world-plan-agent-conversation__context">Delivery · {deliveryDiagnostic}</p> : null}
             {targetReceipt ? (
               <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
             ) : null}
             {renderSourceActions(turn)}
-            {renderGraphContextHistory(turn)}
           </>)}
         </div>
       </article>

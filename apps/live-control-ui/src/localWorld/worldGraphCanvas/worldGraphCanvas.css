@@ -61,6 +61,16 @@
 }
 
 .world-graph-canvas__viewport { position: relative; height: clamp(360px, 62vh, 720px); overflow: hidden; border: 1px solid #d8ceb8; border-radius: 10px; background: #f8f4eb; }
+.world-graph-canvas__empty {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline: 16px;
+  transform: translateY(-50%);
+  margin: 0;
+  color: var(--graph-ink);
+  text-align: center;
+  pointer-events: none;
+}
 .world-graph-canvas__svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
 .world-graph-canvas__svg.is-panning { cursor: grabbing; }
 .world-graph-canvas__view-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

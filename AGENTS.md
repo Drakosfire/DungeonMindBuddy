@@ -190,6 +190,28 @@ Handoffs use `HANDOFF-<FLOW>-<short-slug>.md`; PR titles use `<FLOW>: <capabilit
 FLOW names the owning workstream, not a fixed enum. PR numbers are transport
 metadata, not naming authority. Git history is the default archive.
 
+## Agent action catalog
+
+The [Buddy action catalog](evals/plan-authoring-benchmark.md#action-catalog)
+is the canonical inventory of actions Buddy can choose, actions the operator
+can complete through Buddy, and requested capabilities. Other READMEs,
+handoffs and benchmark documents link to this inventory.
+
+Before changing an action, its routing, or its review, confirmation or
+recovery boundary, check the catalog. The owning lane must update the
+affected entry in the same PR when an action is added, changed, removed,
+or its evidence status changes. Record the surface and action owner, the
+strongest verified boundary and its evidence link, and any remaining gap.
+Distinguish ordinary agent turns, operator actions, component tests, and
+requested behavior. A shipped route or passing component test alone does
+not establish ordinary workflow proof.
+
+When a change affects which action Buddy should choose or when it may act,
+use the [benchmark catalog](evals/README.md) to identify the owning suite
+and update its coverage in the same PR. Follow that suite’s fixture,
+scoring, and verification requirements. Apply the state-settlement rule
+above when new evidence arrives after merge.
+
 ## Efficient investigation
 
 Use focused symbol/route search and small context packs when available; otherwise

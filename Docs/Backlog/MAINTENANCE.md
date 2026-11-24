@@ -44,6 +44,10 @@ The shipped demolition and verification record is [pinned here](https://github.c
 - **Corpus and adopted World evidence:** preserve exact bytes, provenance and replay proof. [#3579](https://github.com/Drakosfire/DungeonMindBuddy/issues/3579) records verified recovery and retirement of one checkout duplicate; it does not authorize changes to other evidence.
 - **Legacy import CI:** retain until the contract retires or replacement coverage proves parity, idempotence and rollback.
 
+## Resolved dispositions — 2026-11-24
+
+- **Hosted Build Recap HTTP 405:** [#4613](https://github.com/Drakosfire/DungeonMindBuddy/pull/4613) mounted launch and recovery on the production Build extraction router. On [serving release #4624](https://github.com/Drakosfire/DungeonMindBuddy/pull/4624) at `6bb6241a`, a signed-in Buddy Cloud Pilot launch reached reviewable and **Check saved extraction** reopened the same run after reload. The server recorded one launch and HTTP 200 recovery. The ungranted World and developer preview route returned HTTP 403.
+
 ## Resolved dispositions — 2026-11-18
 
 - [#3529](https://github.com/Drakosfire/DungeonMindBuddy/issues/3529) and [#3582](https://github.com/Drakosfire/DungeonMindBuddy/issues/3582): the regrader and Hermes spike installer are retained as documented tooling; retirement is not being pursued.

@@ -1022,3 +1022,28 @@ Both checks used synthetic Buddy Cloud Pilot content.
 
 The earlier two-passage result remains part of the record. This Play
 rerun measures retrieval of an unambiguous passage from the saved copy.
+
+### Hosted G01 selected-object Graph control
+
+On November 23, 2026 (America/Denver), hosted revision `86b0465f`
+reopened the original Buddy Cloud Pilot Worldbuilding extraction
+`81f6ecbd-6b7c-580c-9b9a-9ad6987a43d3`. The operator registered a
+proper subrange of the saved source as support on its existing native
+admission. The separate publication review selected only the Sealed
+Tower label and Location type, and confirmation returned the verified
+publication status. No Recap facts or additional objects were published.
+
+A cold Graph open loaded one object. Find selected Sealed Tower
+(`ent:47fad54152f55ecb7402124bd15cb30d`) and opened Location details.
+The selected-object surface offered no conversation composer, so the
+G01 prompt was ineligible for submission. The projected revision before
+selection and the authoritative Pilot head after selection were both
+`rev:10f15e353e78e8c698267905f40a3a9b`. This passes G01's defined
+no-composer control. The prior empty Graph and rejected profile review
+remain historical evidence.
+
+The mounted Build B01, Plan document and card-body, and Play scene-edit
+round trips are recorded above, alongside the single-passage PL02,
+Ingest source preservation, Home eligibility and Combat no-write
+controls. The shared writer guidance and deterministic controls remain
+linked from the benchmark suite.

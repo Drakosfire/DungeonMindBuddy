@@ -66,6 +66,7 @@ from application_state.agent_conversation.types import (
 )
 from application_state.errors import (
     ApplicationStateConflictError,
+    ApplicationStateValidationError,
     ApplicationStateError,
 )
 
@@ -1713,6 +1714,17 @@ class _ClaimFence:
             return (self.renewer._error is None and session is not None
                     and session.matches_verified_execution(receipt, execution))
 
+    def begin_plan_opening(self):
+        from application_state.agent_conversation.native_plan_session import NativePlanSession, eligible_opening
+
+        with self.renewer._lock:
+            if (type(self.service) is AgentConversationService and self.renewer._error is None
+                    and self.renewer._session is None and eligible_opening(self.renewer._turn)):
+                self.renewer._session = NativePlanSession(
+                    self.renewer._turn, opening=True,
+                    measure=self.trace.measure_host_work if self.trace is not None else None,
+                )
+
     def plan_execution_checkpoint(self):
         from application_state.agent_conversation.native_plan_session import PlanExecutionCheckpoint
 
@@ -1789,6 +1801,13 @@ class _ClaimFence:
                         from application_state.agent_conversation.native_plan_session import PlanSessionCommand
                         updated, fresh = self.renewer._session.execute(PlanSessionCommand(method_name),
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                        if (method_name == "record_plan_requested_work_selection"
+                                and self.renewer._session.opening):
+                            # The append is already durable. Materialize its exact
+                            # prefix before giving authoring or clarification back
+                            # to the ordinary Turn owner.
+                            updated = self.renewer._session.finish()
+                            self.renewer._session = None
                         self.renewer._turn = updated
                         return updated, fresh
                 else:
@@ -1808,6 +1827,24 @@ class _ClaimFence:
                     session_owned = True
                     self.renewer._session = NativePlanSession(updated,
                         measure=self.trace.measure_host_work if self.trace is not None else None)
+            except ApplicationStateValidationError as exc:
+                session = self.renewer._session
+                if session is not None and session.opening:
+                    try:
+                        self.renewer._turn = session.finish()
+                        self.renewer._session = None
+                    except BaseException as settlement_error:
+                        self.renewer._session = None
+                        self.renewer._error = settlement_error
+                        self.renewer._stop.set()
+                        raise settlement_error from exc
+                elif session_owned:
+                    if session is not None:
+                        session.abort()
+                    self.renewer._session = None
+                    self.renewer._error = exc
+                    self.renewer._stop.set()
+                raise
             except BaseException as exc:
                 if session_owned:
                     if self.renewer._session is not None:
