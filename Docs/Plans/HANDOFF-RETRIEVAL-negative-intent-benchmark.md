@@ -3,8 +3,9 @@
 Status: ACTIVE — user authorized the benchmark goal in this conversation. This
 brief assigns the first serial, eval-only slice to `codex/negative-retrieval-benchmark`,
 based on `origin/main` c3a2ae6032b0f16fc19d21be14759a0a8607782b (rebased from 42a524ade after checking the shared native-writer change). Checkout:
-`/home/drakosfire/Projects/.codex/793a/DungeonMindBuddy`. No service, port,
-database, model, provider or production state is allocated by this slice.
+`/home/drakosfire/Projects/.codex/793a/DungeonMindBuddy`. The diagnostic
+owner now holds one disposable App clone on loopback port 33351; the existing
+Core snapshot is read-only. No model, provider, or production state was used.
 
 ## Outcome and lease
 
@@ -120,3 +121,27 @@ requires `20261123_0195`. A diagnostic worker must first verify its owned clone
 identity, then migrate only that clone with the repository migration owner;
 the template and read-only Core remain untouched. The initial import/collection
 failure and corrected collection are retained in the task's `http-owner` evidence.
+
+
+## Provider-free HTTP baseline
+
+Owner ledger: `Projects/.codex/buddy-check.negative-inline.SsurDn/http-owner/session/owner.json`.
+It owns exactly `benchmark_run_8c2a3c2ca7a6475ba97789e2bb319658`, OID 220491
+on the shared local cluster; source `d00807237abff7a190960cef85796a7faa4c8166`.
+The owner is retained for review and serial follow-up. The checked-out source,
+worker hashes, capacity evidence, exact pinned dependency sources, preflight
+collection failure and corrected collection are retained alongside the ledger.
+The clone alone migrated 0189 to 0195. The shared Core uses its dedicated
+read-only login; no model or external provider was called.
+
+Case 1 exercised the ordinary Build/APP HTTP route with synthetic controller
+votes and an in-memory Core. It failed its required typed-question outcome:
+HTTP 409 `build_contextual_placement_unresolved`, after one related-page catalog
+discovery and four physical materialization calls covering two pages. Case 2
+repeated the scenario on the same clone with safety assertions moved before the
+status check: the primary page was unchanged and zero proposals existed, then
+the same 409 failed the acceptance assertion. Both failed logs and derived test
+hashes remain in `session/case-1` and `session/case-2`. They prove the bounded
+HTTP failure and safety checks, not model quality, deployed UI or a full
+negative-retrieval rate. Do not rerun unchanged. The source-free routing owner
+and the inline successful-completion path remain separate required work.

@@ -626,6 +626,8 @@ def test_http_witness_generator_guards_owner_fixture_and_requires_typed_question
     assert result.count("def test_negative_retrieval_ambiguous_placement_http_witness") == 1
     assert 'completion["collaboration"]["kind"] == "questions"' in result
     assert 'response.status_code == 200' in result
+    safety = result.index('negative_retrieval_no_proposal_and_unchanged_page: true')
+    assert safety < result.index('assert response.status_code == 200', safety)
     assert 'related_page_materialization' in result
     broken = tmp_path / "broken.py"
     broken.write_text(source.read_text().replace('if contextual in {"ambiguous", "missing", "different"}:', 'if contextual == "ambiguous":'))

@@ -22,6 +22,10 @@ def generate(source, output):
     replacement = '''    if contextual in {"ambiguous", "missing", "different"}:
         from application_state.build_proposal.service import BuildProposalService
 
+        # Safety checks must run even when baseline delivery is an error.
+        assert BuildProposalService().list(world, cap.conversation_id) == []
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        print("negative_retrieval_no_proposal_and_unchanged_page: true")
         # A required clarification is a completed typed reply, not a 409.
         assert response.status_code == 200, response.text
         payload = response.json()
@@ -29,8 +33,6 @@ def generate(source, output):
         assert completion["collaboration"]["kind"] == "questions"
         questions = completion["collaboration"]["questions"]
         assert questions and all(isinstance(row["text"], str) and row["text"].strip() for row in questions)
-        assert BuildProposalService().list(world, cap.conversation_id) == []
-        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
 '''
     test = '''
