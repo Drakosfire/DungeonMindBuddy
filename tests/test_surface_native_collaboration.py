@@ -178,6 +178,30 @@ def test_duplicate_question_only_keeps_typed_collaboration():
     assert verify_completion(completion,context,stored,auth,**proof)==completion
 
 
+def test_duplicate_question_survives_retained_completion_reader():
+    context,record,work=case('questions')
+    raw=output(model_work_frame(context,record,**work),'questions')
+    raw['answer_segments']=[dict(kind='discussion',text=raw['collaboration']['questions'][0]['text'])]
+    stored,auth,proof,_=produce(context,record,work,candidate=raw)
+    completion=normalize_output(context,stored,auth,**proof)
+    # Exercise the same decoded receipt, execution and completion used by the
+    # retained-turn reader; replay must still use the original provider bytes.
+    decoded_context=type(context).model_validate_json(context.model_dump_json(by_alias=True))
+    decoded_execution=type(stored).model_validate_json(stored.model_dump_json(by_alias=True))
+    decoded_completion=type(completion).model_validate_json(completion.model_dump_json(by_alias=True))
+    t.validate_execution_completion(decoded_completion,decoded_context,decoded_execution,auth.provider_attempt_id,{})
+    assert verify_completion(decoded_completion,decoded_context,decoded_execution,auth,**proof)==completion
+    binding=t.CompletionBindingEventV1(kind='completion_binding',event_id=uuid4(),sequence=len(stored.events),
+        provider_attempt_id=auth.provider_attempt_id,completion_sha256=t.canonical_sha256(completion),claim_graph_event_ids={})
+    bound=execution(context.context_receipt_sha256,stored.policy,[*stored.events,binding])
+    decoded_bound=type(bound).model_validate_json(bound.model_dump_json(by_alias=True))
+    t.validate_turn_graph_fields(provenance=work['provenance'],
+        submitted_intent_fingerprint_v2=t.submitted_turn_intent_fingerprint_v2(bound.policy.action.intent),
+        graph_context_receipt=decoded_context,graph_context_execution=decoded_bound,
+        completion=decoded_completion,assistant_text='')
+    assert verify_completion(decoded_completion,decoded_context,decoded_bound,auth,**proof)==completion
+
+
 def test_duplicate_questions_cannot_bypass_answer_segment_limit():
     context,record,work=case('questions')
     frame=model_work_frame(context,record,**work)
