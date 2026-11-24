@@ -589,6 +589,18 @@ def test_capture_refuses_per_run_clones_before_touching_manifest(tmp_path):
     assert not (tmp_path / "output").exists()
 
 
+def test_seeder_rejects_unowned_shapes_before_database_access(monkeypatch):
+    import pytest
+    from evals.negative_retrieval import seed_dialogue as module
+
+    monkeypatch.setattr(module, "checked_owned_dsn", lambda: pytest.fail("database guard reached"))
+    with pytest.raises(ValueError, match="synthetic World"):
+        module.seed_dialogue({"history": []}, world="real-world", template={}, snapshot={})
+    with pytest.raises(ValueError, match="complete nonblank"):
+        module.seed_dialogue({"history": [{"role": "user", "content": "Idea"}]},
+            world="negative-seed-" + "a" * 32, template={}, snapshot={})
+
+
 def test_capture_delegates_to_read_only_core_cohort_path(tmp_path, monkeypatch):
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval.capture import capture

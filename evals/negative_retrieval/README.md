@@ -92,6 +92,15 @@ does not seed a fixture, authorize a provider or deployment, or provide a
 complete acquisition journal. Read the ordinary benchmark manifest and policy
 before invoking it; Plan and the context-only writer stop are not supported.
 
+`seed_dialogue.seed_dialogue` seeds frozen synthetic user/assistant pairs via
+the conversation owner after checking the exact App-clone lease, a fresh
+`negative-seed-<uuid>` World, and the supplied pinned page snapshot. The
+caller must provision and independently verify that page and the World before
+calling it; checking the supplied snapshot does not prove it was persisted.
+It refuses an existing conversation and does not reset or retry a partial seed.
+The owner-bound predecessor-source diagnostic round-tripped the development
+placement dialogue with Build provenance; it did not exercise full capture.
+
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
 the private rubric without calling a model. Missing files are unproven. This

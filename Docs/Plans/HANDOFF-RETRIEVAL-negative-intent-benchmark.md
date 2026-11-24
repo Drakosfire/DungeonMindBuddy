@@ -255,3 +255,13 @@ the worker and derived test are retained under `http-owner` and
 provenance, not a complete Build case: page provisioning, a reusable guarded
 seeder, the ordinary HTTP capture and the post-capture binding remain open.
 The runtime source is the predecessor SHA, not the current benchmark head.
+
+Cases 9 and 10 advanced that proof to Build provenance and the new guarded
+`seed_dialogue` helper. Against the owner-bound clone, the helper round-tripped
+the frozen development dialogue and rejected a second seed in the same World
+(1 test passed). It checks the owner lease, a fresh synthetic World and the
+supplied snapshot, but does not provision or verify the actual saved page.
+Both diagnostics and pinned candidate code remain under `http-owner/session`;
+the product source is the predecessor SHA. The focused assessment suite also
+passed 33 tests in the shared environment, including invalid-world and malformed
+history refusals before database access. Exact-head qualification remains open.
