@@ -20,7 +20,7 @@ describes is implemented or deployed.
 | Determine whether a handoff or evidence is current | [Handoff and evidence navigation](Guides/GUIDE-handoff-and-evidence-navigation.md) |
 | Find Agent actions and their evidence | [Canonical action catalog](../evals/plan-authoring-benchmark.md#action-catalog) |
 | Understand decision and end-to-end benchmark coverage | [Workflow decision benchmark](../evals/plan-authoring-benchmark.md#workflow-decision-benchmark), [coverage matrix](../evals/right-action-coverage.md), and [adventure-to-follow-up benchmark](../evals/adventure-to-follow-up-benchmark.md) |
-| Find experiments, fixtures, or evaluation evidence | [Lab and evaluation guide](../evals/README.md) |
+| Find proposed ingestion and statblock reviews | [Worldbuilding ingestion refinement](Backlog/IDEA-worldbuilding-ingestion-refinement.md) and [statblock dogfood review](Backlog/IDEA-statblock-dogfood-review.md) |\n| Find experiments, fixtures, or evaluation evidence | [Lab and evaluation guide](../evals/README.md) |
 | Find the accepted ingestion baseline and historical retrieval evidence | [Baseline and retrieval history report](Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md) |
 | Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md), [manual Actions cutover](Runbooks/RUNBOOK-buddy-actions-cutover.md), and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
 
