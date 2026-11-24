@@ -53,7 +53,7 @@ export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
       return {
         sequence: step.sequence, frame: 'Candidate pruning', revision_pin: '',
         request: { operation: 'search', query_text: '', seed_node_ids: [] },
-        pruning: { reason: 'JEV excluded this candidate during relevance selection', total: step.total, ids: nodes.map(node => node.node_id) },
+        pruning: { reason: 'The trace records an exclusion without an individual reason', total: step.total, ids: nodes.map(node => node.node_id) },
         result: {
           outcome: 'enough', graph_revision: '', coverage_status: 'complete', projection_status: 'complete',
           nodes, relationship_ids: [], claim_ids: [], evidence_ref_ids: [],
@@ -230,13 +230,12 @@ function keepStepVisible(pane: HTMLElement | null) {
 type ReplayIdentity = RetrievalStep['result']['nodes'][number]
 const emptyIdentities: ReadonlyMap<string, ReplayIdentity> = new Map()
 
-const Trail = memo(function Trail({ layout, active, wide, select, resolve, pruned, reveal, inspect, inspectedId }: {
+const Trail = memo(function Trail({ layout, active, wide, resolve, pruned, reveal, inspect, inspectedId }: {
   layout: ReturnType<typeof layoutTrail>
   active: number
   wide: boolean
-  select: (position: number) => void
   resolve: (node: ReplayIdentity, position: number) => ReplayIdentity
-  pruned?: readonly string[]
+  pruned: ReadonlySet<string>
   reveal: boolean
   inspect: (id: string, trigger: SVGGElement) => void
   inspectedId: string | null
@@ -263,14 +262,13 @@ const Trail = memo(function Trail({ layout, active, wide, select, resolve, prune
         const presentation = resolve(node, current ? active : position)
         const name = displayNodeName(presentation)
         if (reveal && position > active) return null
-        const state = pruned?.includes(node.node_id) ? 'pruned' : current ? 'current' : position < active ? 'visited' : 'upcoming'
+        const state = pruned.has(node.node_id) ? 'pruned' : current ? 'current' : position < active ? 'visited' : 'upcoming'
         const selectVisit = (trigger: SVGGElement) => {
           inspect(node.node_id, trigger)
-          if (!current) select(visits.find(visit => visit > active) ?? visits.at(-1)!)
         }
         return <g key={node.node_id} transform={`translate(${x} ${y})`}
           data-visit={state} data-inspected={inspectedId === node.node_id || undefined} role="button" tabIndex={wide || current ? 0 : -1}
-          aria-label={name} aria-pressed={current}
+          aria-label={name} aria-description={state === 'pruned' ? 'Excluded' : state === 'current' ? 'In this step' : state === 'visited' ? 'Visited earlier' : 'Appears in a later step'} aria-pressed={current}
           aria-haspopup="dialog" onClick={event => selectVisit(event.currentTarget)} onKeyDown={event => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault()
@@ -484,6 +482,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       return [{ assertionId, read, position }]
     }))
     .slice(0, 3)
+  const prunedIds = new Set(steps.slice(0, index + 1).flatMap(item => item.pruning?.ids ?? []))
   const inspectedPruning = inspectedVisits.filter(position =>
     inspectedId !== null && steps[position].pruning?.ids.includes(inspectedId))
   const { nodes: recordedNodes, relationship_ids, relationships = [], total_counts, projection_status } = step.result
@@ -506,10 +505,20 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       {passages.length === 0 && <p>No matching source excerpt was captured for this lookup.</p>}
     </>
   }
+  const readableStep = (item: RetrievalStep, position: number) => {
+    if (item.hop) {
+      const label = labelForStep(position)
+      return `${label(item.hop.from_node_id) ?? 'Unnamed object'} → ${label(item.hop.to_node_id) ?? 'Unnamed object'}`
+    }
+    if (item.pruning) return `Exclude ${item.pruning.total} ${item.pruning.total === 1 ? 'candidate' : 'candidates'}`
+    if (item.native) return item.writerEvidence ? 'Read Graph evidence for the answer writer' : 'Read Graph evidence'
+    if (item.request.operation === 'search' && item.request.query_text.trim()) return `Search for “${item.request.query_text.trim()}”`
+    return stepLabel(item)
+  }
   const replay = (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
       <div data-wide={spacious}>
-        <Trail layout={rows} active={index} wide={spacious} select={select} resolve={resolve} pruned={step.pruning?.ids} inspect={inspect} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
+        <Trail layout={rows} active={index} wide={spacious} resolve={resolve} pruned={prunedIds} inspect={inspect} inspectedId={inspectedId} reveal={steps.some(item => item.hop || item.pruning)} />
       </div>
       <div className="buddy-retrieval-replay__controls">
         <button type="button" aria-label="Play" title="Play" disabled={playing || steps.length < 2} onClick={() => {
@@ -526,9 +535,22 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <span role="status">Step {index + 1} of {steps.length}</span>
       </div>
       {wide && trace && trace.writer_evidence_sequences == null && !steps.some(item => item.writerEvidence) && <p>Writer evidence was unavailable for this attempt.</p>}
-      <p className="buddy-retrieval-replay__caption">
-        {nodes.length === 1 ? displayNodeName(nodes[0]) : nodes.length ? `${nodes.length} objects` : stepLabel(step)}
+      <p className="buddy-retrieval-replay__caption">{readableStep(step, index)}</p>
+      <p className="buddy-retrieval-replay__legend">
+        <strong>Current step</strong> · Faded: visited · Dashed: excluded
       </p>
+      <details>
+        <summary>How playback works</summary>
+        <p>Playback advances at a steady pace. Recorded arrows show discovery hops in their saved order. The replay groups discovery before other activity when the capture does not establish a shared sequence.</p>
+      </details>
+      <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
+        {steps.map((item, position) => (
+          <li key={stepKey(item)} data-replay-active={position === index ? true : undefined}>
+            <button type="button" aria-current={position === index ? 'step' : undefined}
+              onClick={() => select(position)}>{readableStep(item, position)}</button>
+          </li>
+        ))}
+      </ol>
       {showNodeDialog && inspected && inspectedNode && <dialog ref={nodeDialog}
         className="buddy-retrieval-replay__node-details" aria-label="Replay node details"
         onCancel={event => { event.preventDefault(); event.stopPropagation(); dismissNode() }}
@@ -578,14 +600,14 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       {step.pruning && <details>
         <summary>Pruned {step.pruning.total} {step.pruning.total === 1 ? 'candidate' : 'candidates'}</summary>
         <p>{step.pruning.reason}.</p>
-        <ul>{nodes.map(node => <li key={node.node_id}>{displayNodeName(node) === 'Unnamed object' ? <code>{node.node_id}</code> : displayNodeName(node)}</li>)}</ul>
+        <ul>{nodes.map(node => <li key={node.node_id}>{displayNodeName(node)}</li>)}</ul>
         {step.pruning.total > nodes.length && <p>Some pruned candidates were outside the trace sample.</p>}
       </details>}
       {wide && trace && !steps.some(item => item.hop || item.result.neighborhood_replay) && <p>Directed traversal was unavailable for this attempt.</p>}
       {wide && trace && trace.retrieval_exclusion_steps == null && !steps.some(item => item.result.neighborhood_replay) && <p>Pruning decisions were unavailable for this attempt.</p>}
-      {spacious && <button type="button" aria-expanded={showDetails}
-        onClick={() => setShowDetails(value => !value)}>{showDetails ? 'Hide replay details' : 'Show replay details'}</button>}
-      {spacious && showDetails && <div className="buddy-retrieval-replay__workspace">
+      <button type="button" aria-expanded={showDetails}
+        onClick={() => setShowDetails(value => !value)}>{showDetails ? 'Hide replay details' : 'Show replay details'}</button>
+      {showDetails && <div className="buddy-retrieval-replay__workspace">
         <section aria-label="Recorded lookup results">
           <h5>{stepLabel(step)}</h5>
           {(showsLookupResult(step) && (step.native ? step.writerEvidence : writerObservations.has(step.sequence))) && <p><strong>Evidence sent to the answer writer</strong></p>}
@@ -611,13 +633,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
             <RecordedAssertions key={stepKey(step)} trace={trace} labelFor={labelForStep(index)} step={step} />}
           {renderStepEvidence(step)}
         </section>
-        <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
-          {steps.map((item, position) => (
-            <li key={stepKey(item)} data-replay-active={position === index ? true : undefined}><button type="button" aria-current={position === index ? 'step' : undefined}
-              onClick={() => select(position)}>{stepLabel(item)}{showsLookupResult(item) && ` · ${item.result.outcome}`}
-              {(showsLookupResult(item) && (item.native ? item.writerEvidence : writerObservations.has(item.sequence))) && <strong> · Writer evidence</strong>}</button></li>
-          ))}
-        </ol>
+
       </div>}
     </section>
   )
