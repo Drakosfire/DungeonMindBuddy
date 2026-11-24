@@ -362,7 +362,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
                  if isinstance(message, dict) and isinstance(message.get('content'), str)
                  and message['content'].startswith(PLAN_EVIDENCE_HEADING)]
         if prose:
-            prose_host = model_frame(receipt, prefix, passages_only=True)
+            # model_work_frame above checked this exact receipt and prefix.
+            prose_host = _model_frame_from_validated_prefix(receipt, prefix, passages_only=True)
             prose_frame = semantic_frame(prose_host)
             from .native_plan_work_view import compact_editor_prose, semantic_frame as plan_work_view
             prose_work = plan_work_view(expected_work, prefix)
