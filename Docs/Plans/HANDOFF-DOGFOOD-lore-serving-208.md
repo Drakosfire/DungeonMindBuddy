@@ -178,3 +178,14 @@ supplied a bodyless draft that the new contract intentionally rejects. Correct
 those fixtures without weakening the contract, preserving explicit V2 bodyless
 compatibility and a meaningful V3 body in the context-preservation test. No
 unchanged rerun is treated as qualification, and all original failures remain.
+
+
+Review-kind invariant: the existing frozen-menu owner now derives each work
+label's review kind from all frozen contracts and current metadata, requiring
+agreement before schema/review validation. A future different review needs a
+new label or captured-review plumbing, not silent reinterpretation. The regression
+changes review kind as well as family and requires explicit refusal, while
+ordinary successor/current-family changes preserve old V3 output. Case31 retained
+17 passes and two test setup errors from republishing one Core fixture identity;
+use a fresh in-memory World for its second serial call on the SAME App, without
+new database allocation or relaxing identity collision checks.

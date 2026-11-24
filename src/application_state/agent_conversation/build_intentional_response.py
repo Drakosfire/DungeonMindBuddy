@@ -660,6 +660,17 @@ def menu_offers_lore_outcomes(menu):
     return contract is not None and len(contract) == 4 and 'lore_outcomes' in contract[3]
 
 
+def review_kind(label):
+    """Review meaning is stable for a work label across frozen menu contracts."""
+    kinds = {contract[1][label].review for contract in _MENU_CONTRACTS.values()
+             if label in contract[1]}
+    if label in WORK:
+        kinds.add(WORK[label].review)
+    if len(kinds) != 1:
+        raise ValueError('Known Build work changed its frozen review kind')
+    return next(iter(kinds))
+
+
 def _menu_work(menu):
     return _MENU_CONTRACTS[menu][1]
 
@@ -1113,7 +1124,7 @@ def validate_collaboration(collaboration, segments, contract, *, primary_rows, o
     """Proposed work through existing quote owners; grants no execution authority."""
     from .collaboration import saved_excerpt, ProposedQuestions, ProposedConnectedPage
     from .relationship_review import ProposedRelationship, validate_quote
-    review=WORK[contract['requested_work']].review if not contract['barrier'] else None
+    review=review_kind(contract['requested_work']) if not contract['barrier'] else None
     if collaboration is not None:
         if collaboration.kind != review:
             raise ValueError("Typed object differs from the resolved supported work")
@@ -1162,7 +1173,7 @@ def native_review_schema(frame, *, local=False, request_reference=False):
         definitions['ProposedQuestions']=schema
         return {'anyOf':[{'$ref':'#/$defs/ProposedQuestions'},{'type':'null'}]},definitions
     contract=frame['response_contract']
-    kind=WORK[contract['requested_work']].review if not contract['barrier'] else None
+    kind=review_kind(contract['requested_work']) if not contract['barrier'] else None
     model={'questions':ProposedQuestions,'plan':ProposedPlanV3,
         'connected_page':ProposedConnectedPage,'relationship':ProposedRelationship,
         'lore_page':ProposedLorePage}.get(kind)

@@ -3978,7 +3978,7 @@ def test_current_lore_sdk_omits_host_metadata_but_preserves_authored_words(lane,
     assert case.turn.completion.collaboration.destination.title == 'Glass Regent'
 
 
-@pytest.mark.parametrize('downgrade', [False, True])
+@pytest.mark.parametrize('downgrade', [False, True, 'review_kind_drift'])
 def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, tmp_path, monkeypatch, downgrade):
     from dataclasses import replace
     from types import MappingProxyType
@@ -4001,6 +4001,8 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
     # A later producer's metadata cannot reinterpret the captured selection.
     work['review_lore_page_from_conversation'] = replace(work['review_lore_page_from_conversation'],
         family='discuss', meaning='Prepare the requested page now under successor guidance.')
+    if downgrade == 'review_kind_drift':
+        work['review_lore_page_from_conversation'] = replace(work['review_lore_page_from_conversation'], review='questions')
     work = MappingProxyType(work)
     guidance = intent.GUIDANCE + '\nSuccessor menu: preserve the meaningful page outcome.'
     menu = intent.digest(intent.question(guidance=guidance, work_options=work))
@@ -4014,6 +4016,20 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
     instructions = intent.decision_instructions
     monkeypatch.setattr(intent, 'decision_instructions', lambda menu_digest=menu: instructions(menu_digest))
     assert intent.menu_offers_lore_outcomes(old_menu) and intent.menu_offers_lore_outcomes(menu)
+    if downgrade == 'review_kind_drift':
+        with pytest.raises(ValueError, match='frozen review kind'):
+            intent.review_kind('review_lore_page_from_conversation')
+        from application_state.errors import ApplicationStateIntegrityError
+        with pytest.raises((ValueError, ApplicationStateIntegrityError)) as refused:
+            AgentConversationService().inspect_turn(world_id=first.world, turn_id=first.turn.turn_id)
+        errors = []
+        error = refused.value
+        while error is not None:
+            errors.append(str(error))
+            error = error.__cause__
+        assert any('frozen review kind' in message for message in errors)
+        first.client.close()
+        return
     reopened = AgentConversationService().inspect_turn(world_id=first.world, turn_id=first.turn.turn_id)
     assert reopened.completion == first.turn.completion
     first.client.close()
@@ -4034,7 +4050,11 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
             self.output_format = native_output_format(self.frame, model_rules_frame(self.rules.frame()),
                 self.work_frame | wire, build_local=True, generic_reply_limits=True)
         monkeypatch.setattr(PlanJevWriter, '__init__', older_reply)
-    second = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+    from tests.test_source_statements import make_lane
+    # A new in-memory World avoids republishing the same fixture contribution;
+    # both serial calls still use the same owned physical App database.
+    second_lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    second = _fresh_case(second_lane, tmp_path, monkeypatch, None, True, False, False,
         requested_work='review_lore_page_from_conversation', source_need='anchored',
         source_answer_output='lore_valid_gap', message='Prepare the separate Glass Regent page now.')
     if downgrade:
