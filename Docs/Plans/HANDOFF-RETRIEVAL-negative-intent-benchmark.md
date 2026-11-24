@@ -131,6 +131,21 @@ synthetic memory-Core, local-operator and scripted-provider evidence. It does
 not establish a model's intent choice, independent semantic judgment, inline UI,
 answer continuation, exhaustive acquisition coverage or current-head behavior.
 
+Cases 47–49 submitted the direct answer `North.` to that frozen ambiguous
+exchange. Case 47 failed in an inherited fake-transport assertion that required
+Graph evidence for discussion; it is a test-fixture failure, not a product
+failure. Cases 48–49 corrected that assertion. In case 49 both question and
+answer returned HTTP 200, were saved and remained in library readback after
+archival, and the page stayed unchanged. Each turn recorded one catalog
+discovery and no materializations; the original zero-retrieval assertion
+remained red. No proposal was created. The follow-up controller was explicitly
+scripted to `discuss`, so this is not evidence that a live model would fail to
+complete the replacement; completion of the original task remains unproven.
+Workers, generated tests and logs are retained under `http-owner` and
+`http-owner/session/case-47` through `case-49`. This remains predecessor-source,
+synthetic memory-Core and local-operator evidence, without inline UI or live
+provider qualification.
+
 Cases 36–37 extended the prior scripted saved-question and answer witness with
 the real synthetic App binding and source-identity resolvers against memory
 Core. Case 36 failed because the diagnostic incorrectly expected a lifecycle
