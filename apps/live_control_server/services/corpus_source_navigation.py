@@ -602,18 +602,27 @@ class NativeBodyNavigation:
             return self._scoped_offers(rows, search)
         plan = getattr(getattr(turn.graph_context_receipt, "work_context", None), "surface_id", None) == "plan"
 
-        def opened(catalog, start, end, *, section_vote=False):
-            return any((known.source.artifact.source_artifact_id, known.source.revision.source_revision_id,
-                            known.source.revision.content_sha256) == (catalog.source.artifact.source_artifact_id,
-                            catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
-                and read.excerpt.section.byte_start <= start and read.excerpt.section.byte_end >= end
-                and not (section_vote and plan
-                         and read.excerpt.selector_policy == 'native_full_document_v1')
-                for read, known in acquired)
+        acquired_by_source = {}
+        for read, catalog in acquired:
+            source = catalog.source
+            revision = source.revision
+            identity = (source.artifact.source_artifact_id, revision.source_revision_id,
+                        revision.content_sha256)
+            acquired_by_source.setdefault(identity, []).append(read.excerpt)
+
+        def opened(identity, start, end, *, section_vote=False):
+            return any(excerpt.section.byte_start <= start and excerpt.section.byte_end >= end
+                       and not (section_vote and plan
+                                and excerpt.selector_policy == 'native_full_document_v1')
+                       for excerpt in acquired_by_source.get(identity, ()))
         hits = {(row.catalog_sha256, row.section_id): row.matched_terms for row in search.matches}
         direct_pairs = {pair for pair, _, _ in direct.values()}
         for catalog in search.catalogs:
             name = self._source_name(catalog)
+            source = catalog.source
+            revision = source.revision
+            pair = (source.artifact.source_artifact_id, revision.source_revision_id)
+            identity = (*pair, revision.content_sha256)
             matched = [row for row in catalog.sections if (catalog.catalog_sha256, row.section_id) in hits]
             for section in matched:
                 # A degenerate one-section document offers only its explicit
@@ -621,7 +630,7 @@ class NativeBodyNavigation:
                 if section.byte_start == 0 and section.byte_end == catalog.body_bytes:
                     continue
                 handle = native_body_handle(catalog.catalog_sha256, section.section_id)
-                if handle not in attempted and not opened(catalog, section.byte_start, section.byte_end, section_vote=True):
+                if handle not in attempted and not opened(identity, section.byte_start, section.byte_end, section_vote=True):
                     label = section.label
                     if plan:
                         label += f" · lines {section.line_start}–{section.line_end}"
@@ -629,8 +638,7 @@ class NativeBodyNavigation:
                         label=name + " · " + label + " · matched terms: " + ", ".join(hits[(catalog.catalog_sha256, section.section_id)]),
                         kind="Exact source section"))
             handle = native_full_document_handle(catalog.catalog_sha256)
-            pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
-            if pair not in direct_pairs and matched and handle not in attempted and not opened(catalog, 0, catalog.body_bytes):
+            if pair not in direct_pairs and matched and handle not in attempted and not opened(identity, 0, catalog.body_bytes):
                 terms = sorted({term for section in matched
                                 for term in hits[(catalog.catalog_sha256, section.section_id)]})
                 rows.append(RetrievalCandidate(handle=handle,
