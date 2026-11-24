@@ -57,8 +57,7 @@ reviewed_work_plan, manual_combat_postgres, application_state_authority,
 native_storage_owner_migration, local_play_bootstrap, plan_action_consultation and its four fixture consumers); the existing App-only
 media/authority integration fixtures, tests/test_runtime_preflight.py and Play historical timing helpers/callers,
 which also allocate extra App databases, must use the same serial state owner.
-Separately opted-in writable Core integration fixtures are not App clones and
-are not launched or changed by this App workstream; shared Core stays read-only.
+The native Core SQL fixture integrated by #4616 uses the same owned App database with a separate synthetic Core schema; it does not touch the shared read-only Core or production data. This proves colocated SQL behavior, not physical separation of App and Core authorities.
 scripts/ci_contract.py and its owning tests, including tests/test_ownership_ci_partition.py; ci/contracts.json only two new
 aliases for the unchanged existing short Rules/import commands; the four existing PostgreSQL CI
 workflow job/setup bodies; test classification only for directly added guards;
@@ -183,3 +182,5 @@ the benchmark's merged main. All other CI paths/entries remain leased here.
 The owner explicitly assigned the runner migration-test defect to the Sizzek lane. The current-to-historical comparison now captures the current App row and its parent rows before entering the same-database historical phase; it then restores current state through the existing owned fixture. This is a bounded transfer of `tests/application_state/test_native_storage_owner_migration.py` for that test and this handoff, with no shared database or runtime write. Exact-head SQL and independent review remain required.
 
 Scope checkpoint: the owner authorized Sizzek delivery and repair of this runner lane. The automatic local-verifier guard imports the runner but its deliberately minimal environment lacks psycopg, so add the pinned locked driver to `.github/workflows/local-verifier.yml` and verify that lightweight guard. This is a CI dependency fix within the same runner slice; it does not alter runtime, database ownership, or workflow triggers.
+
+Stack settlement: #4616 was integrated into this runner branch at `cddb90215a6a398b9ff261e2fa3a0fd56861032e` before the combined PR reaches main. The prior parent-first order was revised because the parent fixture could not run its Core SQL contract without violating the one-clone rule. Review the combined owner lifecycle, serial App/Core resets, migration/recovery protections and CI setup; verify the final head before merging #4598 to main.
