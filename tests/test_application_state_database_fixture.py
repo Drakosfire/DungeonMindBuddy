@@ -317,3 +317,36 @@ def test_fixture_io_survives_product_path_open_guard(application_state_dsn,
     monkeypatch.setattr(Path, "open", lambda *a, **k: pytest.fail("Product path hook reached fixture IO"))
     assert database.snapshot_digest(application_state_database.snapshot) == application_state_database.snapshot_sha256
     database.verify_assignment(application_state_database.assignment, idle=True)
+
+
+@pytest.mark.parametrize("backend_type", ["autovacuum worker", "client backend", "parallel worker", None])
+def test_idle_check_ignores_only_autovacuum_in_real_sql(application_state_database,
+                                                      monkeypatch, backend_type):
+    assignment = application_state_database.assignment
+    original = database._CONNECT
+    # Evaluate the ownership predicate on PostgreSQL itself, without starting a
+    # maintenance worker, changing settings, or creating another database.
+    class Connection:
+        def __init__(self, connection): self.connection = connection
+        def __enter__(self):
+            self.connection.__enter__()
+            return self
+        def __exit__(self, *args): return self.connection.__exit__(*args)
+        def execute(self, query, parameters=None):
+            if "pg_stat_activity" in query:
+                query = (
+                    "WITH pg_stat_activity(datname,pid,backend_type,state,application_name) AS "
+                    "(VALUES (%s::text,111,'autovacuum worker'::text,'active'::text,''::text),"
+                    "(%s::text,222,%s::text,'active'::text,''::text)) " + query
+                )
+                parameters = (assignment.locator["database"], assignment.locator["database"],
+                              backend_type, *parameters)
+            return self.connection.execute(query, parameters)
+    monkeypatch.setattr(database, "_CONNECT", lambda *a, **k: Connection(original(*a, **k)))
+    ticks = iter([0, 10])
+    monkeypatch.setattr(database, "_MONOTONIC", lambda: next(ticks))
+    if backend_type == "autovacuum worker":
+        database.verify_assignment(assignment, idle=True)
+    else:
+        with pytest.raises(RuntimeError, match="workers/connections must close"):
+            database.verify_assignment(assignment, idle=True)

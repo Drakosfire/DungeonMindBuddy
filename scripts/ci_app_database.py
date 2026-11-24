@@ -30,6 +30,8 @@ ADMIN_ENV = "DMB_APPLICATION_STATE_TEST_DATABASE_URL"
 ROOT_ENV = "DMB_CI_WORKSTREAM_ROOT"
 _CONNECT = psycopg.connect
 _RUN = subprocess.run
+_MONOTONIC = time.monotonic
+_SLEEP = time.sleep
 
 
 @dataclass(frozen=True)
@@ -86,19 +88,22 @@ def verify_assignment(assignment: AppAssignment, *, idle: bool = False) -> None:
         if idle:
             # A closed libpq socket can remain visible briefly while PostgreSQL
             # finishes its rollback. Wait only for natural closure; never cancel
-            # or terminate a connection to make a reset succeed.
-            deadline = time.monotonic() + 5
+            # or terminate a connection to make a reset succeed. PostgreSQL
+            # autovacuum is maintenance, not an application connection; leave
+            # its lock/lifecycle handling to PostgreSQL. Unknown actors still block.
+            deadline = _MONOTONIC() + 5
             while connection.execute(
-                "SELECT count(*) FROM pg_stat_activity WHERE datname=%s", (pin["database"],),
+                "SELECT count(*) FROM pg_stat_activity WHERE datname=%s AND backend_type IS DISTINCT FROM 'autovacuum worker'", (pin["database"],),
             ).fetchone()[0]:
-                if time.monotonic() >= deadline:
+                if _MONOTONIC() >= deadline:
                     remaining = connection.execute(
-                        "SELECT pid,backend_type,state,application_name FROM pg_stat_activity WHERE datname=%s",
+                        "SELECT pid,backend_type,state,application_name FROM pg_stat_activity WHERE datname=%s "
+                        "AND backend_type IS DISTINCT FROM 'autovacuum worker'",
                         (pin["database"],),
                     ).fetchall()
                     raise RuntimeError("CI App workers/connections must close before fixture reset; "
                                        f"remaining backend metadata: {remaining!r}")
-                time.sleep(0.02)
+                _SLEEP(0.02)
 
 
 def existing_assignment() -> AppAssignment:

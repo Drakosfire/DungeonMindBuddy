@@ -13,14 +13,14 @@ Current open PRs/leases inspected:
 RETRIEVAL4583 owns benchmark cohort work, not these CI fixture/runner paths;
 2302 is report-only. Do not edit their benchmark lifecycle/allocator paths.
 
-Delivery is serial: this CI contract PR to main, then its bounded CI-only
-serving adoption against the then-current serving source, then rebase and
-qualify writer PR4573 on that predecessor. The serving adoption may need the
-already merged disposable helper as an explicit dependency because that serving
-line predates it. Do not silently adopt unrelated main runtime changes. The
-writer PR remains draft; its source/benchmark evidence is preserved and no
-unqualified merge or deployment is implied. The existing DOGFOOD App clone is
-reused for serial diagnostics; no second local App clone is allocated.
+CI implementation remains one serial PR. It is independent of writer PR4573:
+there is no writer runtime dependency on this migration, and completing all CI
+work is not a writer merge gate. Writer verification may consume a clearly
+pinned external one-clone adapter before this PR merges. The earlier proposed
+CI-only serving adoption is unnecessary and is withdrawn. CI and writer source
+leases remain separate; all database verification shares the retained App and
+runs serially. Writer qualification takes priority to unblock dependent lanes.
+No new App clone or unqualified product deployment is implied.
 
 Outcome: one workstream owner allocates the App clone once from an explicit
 local template, or adopts an explicitly assigned existing owner receipt. All
@@ -153,3 +153,12 @@ Build save guard and Plan driver work. The implementation rebases without
 leased-path overlap. Earlier 188c evidence remains exact to that predecessor;
 it does not qualify the rebased source. Current database instructions were
 reread before further benchmark work; the already owned App stays retained.
+
+The case-15 world suite completed with 520 passes, one inherited malformed image
+fixture failure, two skips and two reset errors. Both reset errors identified
+PostgreSQL autovacuum workers, not open application clients. The owning check
+now ignores only autovacuum; clients, parallel workers and unknown backend types
+still refuse reset. Real SQL predicate regressions cover that distinction without
+changing maintenance settings or terminating maintenance. The remaining aggregate
+was interrupted through the corrected in-process barrier; all pytest workers
+closed, App caller connections were zero, and maintenance was left untouched.
