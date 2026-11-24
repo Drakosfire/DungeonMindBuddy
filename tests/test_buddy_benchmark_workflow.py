@@ -662,6 +662,8 @@ def test_relative_capture_output_qualifies_absolute_owned_paths(tmp_path, monkey
         def __exit__(self, *args):
             return False
         def execute(self, query):
+            if "transaction_read_only" in query:
+                return SimpleNamespace(fetchone=lambda: ("on", True))
             return SimpleNamespace(fetchone=lambda: (self.database, "1", "2"))
     monkeypatch.setattr(psycopg, "connect", lambda dsn, **kw: Connection(dsn.rsplit("/", 1)[1]))
     package = ModuleType("apps.live_control_server")
@@ -1482,8 +1484,8 @@ def test_cohort_member_verifies_exact_manifest_bytes_before_startup(tmp_path):
     assert not (tmp_path / "out").exists()
 
 
-@pytest.mark.parametrize("capture_fails", [False, True])
-def test_capture_owns_disposable_app_scope(tmp_path, monkeypatch, capture_fails):
+@pytest.mark.parametrize("failure", [None, "migration", "capture"])
+def test_capture_owns_disposable_app_scope(tmp_path, monkeypatch, failure):
     from contextlib import contextmanager
 
     from evals.buddy_benchmark import disposable_database
@@ -1513,17 +1515,26 @@ def test_capture_owns_disposable_app_scope(tmp_path, monkeypatch, capture_fails)
     def capture(pinned, *_args, **_options):
         assert pinned["isolation"] == {"app": clone, "native": native}
         assert w.os.environ[env].endswith("/benchmark_run_fixture")
-        if capture_fails:
+        if failure == "capture":
             raise RuntimeError("capture fixture failed")
 
+    from application_state import cli
+
+    def upgrade():
+        assert w.os.environ[env].endswith("/benchmark_run_fixture")
+        events.append("migrated")
+        if failure == "migration":
+            raise RuntimeError("migration fixture failed")
+
     monkeypatch.setattr(disposable_database, "disposable_benchmark_database", owned)
+    monkeypatch.setattr(cli, "upgrade_to_head", upgrade)
     monkeypatch.setattr(w, "_capture", capture)
-    if capture_fails:
-        with pytest.raises(RuntimeError, match="capture fixture failed"):
+    if failure:
+        with pytest.raises(RuntimeError, match=f"{failure} fixture failed"):
             w.capture("unused", tmp_path, context_only=True, clone_app=True)
     else:
         w.capture("unused", tmp_path, context_only=True, clone_app=True)
-    assert events == ["created", "dropped"]
+    assert events == ["created", "migrated", "dropped"]
     assert w.os.environ[env] == source
 
 
@@ -1541,3 +1552,10 @@ def test_browser_scratch_uses_explicit_directory_on_evidence_filesystem(tmp_path
     monkeypatch.setenv("DMB_BENCHMARK_BROWSER_TMPDIR", "relative")
     with pytest.raises(ValueError, match="existing absolute directory"):
         browser_scratch_directory(output)
+
+
+def test_full_response_capture_cli_passes_clone_request(monkeypatch):
+    calls = []
+    monkeypatch.setattr(w, "capture", lambda *args, **kwargs: calls.append((args, kwargs)))
+    w.main(["capture", "--manifest", "pinned.json", "--output", "isolated", "--clone-app"])
+    assert calls == [(("pinned.json", "isolated"), {"clone_app": True})]
