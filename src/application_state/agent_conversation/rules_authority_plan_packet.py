@@ -397,13 +397,23 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
                 and lore_page_reply(evidence.work_frame, graph_execution)
                 and not evidence.lore_page_limitations):
             raise ValueError('Current lore review requires its limitation policy')
+        from .native_build_work_view import lore_request_reference_eligible
+        if (isinstance(action, NativeBuildActionV1) and not allow_retained_format
+                and lore_request_reference_eligible(evidence.work_frame, graph_execution)
+                and not evidence.lore_request_reference):
+            raise ValueError('Current lore review requires its captured-request reference')
+        from .native_build_work_view import lore_outcome_eligible
+        if (isinstance(action, NativeBuildActionV1) and not allow_retained_format
+                and lore_outcome_eligible(evidence.work_frame, graph_execution)
+                and not evidence.lore_outcome):
+            raise ValueError('Current populated lore review requires a meaningful outcome')
         from .native_execution import NativePlanActionV2, NativePlanActionV3
         if (type(action) in (NativePlanActionV2, NativePlanActionV3) and evidence.related_pages
                 and not allow_retained_format and not evidence.supplied_source_references):
             raise ValueError('Current Plan saved-page dispatch requires supplied source references')
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
             build_local=evidence.build_local,format_version=version,execution=graph_execution,
-            generic_reply_limits=evidence.generic_limitations)
+            generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

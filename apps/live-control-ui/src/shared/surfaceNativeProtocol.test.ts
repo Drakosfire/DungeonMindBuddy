@@ -290,6 +290,16 @@ it('accepts an inert Build lore draft and rejects a writer-owned duplicate body'
   expect(isSurfaceNativeCompletion(
     {...answer, collaboration: {...draft, markdown: 'Uncited prose'}}, receipt,
   )).toBe(false);
+  const destination = {request: 'current_author_request', title: 'The Memory Ferry — Échos'};
+  expect(isSurfaceNativeCompletion({...answer, collaboration: {...draft, destination}}, receipt)).toBe(true);
+  for (const invalid of [
+    {...destination, request: 'prior_author_request'},
+    {...destination, instruction: 'Create a page'},
+    {...destination, title: 'Title\nInjected'},
+  ]) {
+    expect(isSurfaceNativeCompletion({...answer, collaboration: {...draft, destination: invalid}}, receipt)).toBe(false);
+  }
+
 });
 
 

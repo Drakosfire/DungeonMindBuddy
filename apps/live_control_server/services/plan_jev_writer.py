@@ -308,6 +308,30 @@ LORE_PROPOSAL_GUIDANCE = (
 )
 
 
+CONVERSATION_LORE_REQUEST_GUIDANCE = (
+    "The latest author request determines whether to prepare a page now. Earlier requests to "
+    "acknowledge notes or wait before drafting apply to those earlier replies, not a later "
+    "explicit page request. Preserve continuing constraints and approval requirements, along "
+    "with setting details and corrections; do not treat a current acknowledgment-only request "
+    "as permission to draft. When the latest request asks for a populated page and supplied "
+    "authored context supports one, return the lore_page collaboration and draft. Unresolved "
+    "details belong in its open questions and do not make supplied premises unusable. Missing "
+    "played-event evidence does not prevent a draft from clearly attributed authored context. "
+    "If essential context really is missing, leave collaboration null and ask the specific "
+    "question needed to continue in a discussion segment; do not return only generic limitation "
+    "codes. Do not search, introduce new ideas or change the workpad to fill a gap."
+)
+
+
+CONVERSATION_LORE_OUTCOME_GUIDANCE = CONVERSATION_LORE_REQUEST_GUIDANCE.replace(
+    "If essential context really is missing, leave collaboration null and ask the specific "
+    "question needed to continue in a discussion segment; do not return only generic limitation "
+    "codes.",
+    "If essential context really is missing, return needs_context with the specific "
+    "question needed to continue and an empty answer_segments array; do not return null "
+    "collaboration, a bodyless draft or only generic limitation codes.",
+)
+
 PLAN_SOURCE_REFERENCE_RESPONSE = (
     'Saved authored pages describe authored material, not played truth. Use related_page_claim '
     'with the supplied local read_id. Buddy binds that exact supplied page to the citation. '
@@ -349,6 +373,7 @@ SUPPLIED_SOURCE_RESPONSE = ('\nFor saved_source_claim select the supplied local 
 
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules, *, dialogue=()):
+        self.lore_outcome = False
         self.adapter, self.proof, self.rules = adapter, proof, rules
         self.failure_stage = 'prepare'
         native_budget = getattr(adapter.fence.turn.graph_context_execution.policy,'writer_context_budget',None)
@@ -402,16 +427,18 @@ class PlanJevWriter:
                                     for event in turn.graph_context_execution.events)
                         and any(is_anchored_discussion(event) for event in turn.graph_context_execution.events)):
                     format_version = 7
+                from application_state.agent_conversation.native_build_work_view import lore_outcome_eligible
+                self.lore_outcome = lore_outcome_eligible(self.work_frame, turn.graph_context_execution)
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                     supplied_source_references=True,
-                    typed_source_answer=True, lore_page_limitations=True,
+                    typed_source_answer=True, lore_page_limitations=True, lore_request_reference=True, lore_outcome=self.lore_outcome,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
-                format_version=format_version, execution=turn.graph_context_execution, generic_reply_limits=True)
+                format_version=format_version, execution=turn.graph_context_execution, generic_reply_limits=True, lore_outcome=self.lore_outcome)
             from application_state.agent_conversation.plan_writer_output_schema import offered_generic_limits
             self.generic_reply_limits = offered_generic_limits(self.output_format)
             # Discussion ends with current evidence rather than prior assistant
@@ -464,7 +491,7 @@ class PlanJevWriter:
             ] + self.messages
         self.prompt_components = None
         related_page_response = (SUPPLIED_SOURCE_RESPONSE
-            if self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1'
+            if self.shared and (self.lore_outcome or self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1')
             else PLAN_SOURCE_REFERENCE_RESPONSE if self.shared and self.provider_work.get('citation_policy') == 'supplied_source_references_v1'
             else RELATED_PAGE_RESPONSE)
         task = (_conversation_response_task(adapter._broker_execution())
@@ -517,6 +544,15 @@ class PlanJevWriter:
                 from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
                 from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY, GENERIC_BODY_INSTRUCTIONS
                 native_body_instructions = GENERIC_BODY_INSTRUCTIONS if self.generic_reply_limits else BODY_INSTRUCTIONS
+                if self.lore_outcome:
+                    # An explicit variant of host-authored instructions, never a scrub of source/user text.
+                    prefix = f'Current answer policy: {BODY_POLICY}.\nReturn only {{"schema":"{BODY_POLICY}",'
+                    if not native_body_instructions.startswith(prefix):
+                        raise ValueError('Lore instructions lack their known host-authored prefix')
+                    native_body_instructions = 'Return only {' + native_body_instructions[len(prefix):]
+                    native_body_instructions = native_body_instructions.replace(
+                        'If no requested fact is supported, return answer_segments:[] with the applicable\nlimitations.',
+                        'If essential context is missing, ask the specific needs_context question with no draft segments.')
                 instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + native_body_instructions.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
                 from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
                 if SCOPE_KEY in self.work_frame:
@@ -540,8 +576,20 @@ class PlanJevWriter:
             if destination is not None:
                 from application_state.agent_conversation.lore_page_review import explicit_blank_lore_page
 
-                if not explicit_blank_lore_page(destination["instruction"]):
+                blank = (self.provider_work['build_work']['requested_work']['requested_work'] == 'review_blank_lore_page'
+                    if 'request' in destination else explicit_blank_lore_page(destination['instruction']))
+                if not blank:
                     instructions += "\n" + LORE_PROPOSAL_GUIDANCE
+                if self.lore_outcome:
+                    instructions += ('\nFor this populated page task, collaboration must be the lore_page draft '
+                        'with its body in answer_segments, or needs_context with a specific question '
+                        'and an empty answer_segments array. Null collaboration and bare limitations '
+                        'do not fulfill this work. Do not choose needs_context merely because supplied '
+                        'authored premises are not played facts or contain declared open questions. '
+                        'Apply operational instructions as constraints on drafting: keep acknowledgment, '
+                        'search, save and workpad directions out of the page body unless the author '
+                        'explicitly requests those instructions as page content. Preserve in-world '
+                        'constraints as lore when they describe the setting itself.')
                 work = self.provider_work["build_work"]["requested_work"]
                 if work["requested_work"] == "review_lore_page_from_conversation":
                     instructions += (
@@ -562,10 +610,16 @@ class PlanJevWriter:
                         'open_questions, retain material unresolved identities, motives and relationships, '
                         'including relationships named in a proposal. Retain the alternatives already '
                         'discussed. Before returning, compare the draft with relevant earlier context and '
-                        'later additions so neither is silently dropped. If there is too little material '
-                        'to draft accurately, leave the proposal empty and surface the specific gap for '
-                        'the author. '
+                        'later additions so neither is silently dropped. '
+                        + ('If there is too little material to draft accurately, return needs_context '
+                           'with the specific essential question and no draft segments. '
+                           if self.lore_outcome else
+                           'If there is too little material to draft accurately, leave the proposal empty '
+                           'and surface the specific gap for the author. ')
                     )
+                    if destination == {'request': 'current_author_request'}:
+                        instructions += '\n' + (CONVERSATION_LORE_OUTCOME_GUIDANCE
+                            if self.lore_outcome else CONVERSATION_LORE_REQUEST_GUIDANCE)
             if self.shared:
                 fragment_scope = self.work_frame.get('focused_edit_target', {}).get('fragment_scope')
                 if fragment_scope is not None:
@@ -576,7 +630,7 @@ class PlanJevWriter:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
 
                 self.instructions += "\n" + VARIANT_BASE.text
-        if (self.shared and self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1'
+        if (self.shared and (self.lore_outcome or self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1')
                 and (self.work_frame['artifact_under_edit']['sections']
                      or self.work_frame.get('related_authored_pages', {}).get('pages'))):
             self.instructions += SUPPLIED_SOURCE_RESPONSE
@@ -589,7 +643,8 @@ class PlanJevWriter:
         if self.generic_reply_limits:
             self.instructions += ('\nRepresent reply-level evidence limitations with the supplied codes. '
                 'Do not return requested_detail_gaps or reproduce phrases from any user question. '
-                'A limitation may stand alone when the supplied evidence cannot support a useful fact.')
+                + ('For page work, explain essential missing context with the specific needs_context question.'
+                   if self.lore_outcome else 'A limitation may stand alone when the supplied evidence cannot support a useful fact.'))
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '

@@ -1245,7 +1245,7 @@ export interface SurfaceNativeContextReceiptV1 {
 }
 export interface ConversationLorePageDraft {
   kind: 'lore_page';
-  destination: {instruction: string; title: string};
+  destination: {instruction: string; title: string} | {request: 'current_author_request'; title: string};
   open_questions?: string[];
 }
 export interface PlanEncounterAttachmentPreview {
