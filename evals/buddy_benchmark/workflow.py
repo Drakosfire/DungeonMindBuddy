@@ -499,6 +499,9 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
     with disposable_benchmark_database(url._replace(path="/postgres").geturl(), app) as clone:
         manifest["isolation"]["app"] = clone
         with patch.dict(os.environ, {env: url._replace(path="/" + clone["database"]).geturl()}):
+            from application_state.cli import upgrade_to_head
+
+            upgrade_to_head()
             return _capture(manifest, base, output, **options)
 
 
