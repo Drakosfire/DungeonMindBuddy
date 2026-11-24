@@ -422,6 +422,19 @@ and `explicit-details-final.log` are retained in the same evidence directory.
 The test uses synthetic history and transport, so this remains an unresolved
 diagnostic rather than proof of a product regression; no UI owner files changed.
 
+The next diagnostic disabled the test helper's automatic Details-click
+observer and explicitly opened the saved question's Details on both mounts.
+It passed twice (one test, 324 filtered in each run): the scripted completed
+reply, saved question and submitted answer appeared after remount. The changed
+witness and logs are retained as `derived-manual-inspection.test.tsx`,
+`manual-inspection-after-lock.log` and `manual-inspection-repeat.log` in the
+same evidence directory. An earlier attempt did not start because the shared
+frontend lock was held by another exact-source verifier. This outcome is
+consistent with a test-helper interaction contributing to the inconsistency,
+but does not prove its cause. Transport and saved history were simulated;
+Node 21 and copied dependencies remain diagnostic only. It does not establish
+real-server continuation, task completion, exact-head UI or deployed behavior.
+
 Buddy main `93d94e9de081c1ba55daf530348a63cfacdfa124` merged the serial
 cohort App-clone runner #4583. This benchmark branch still needs integration
 against the updated runner and an authorized synthetic Core binding; that merge
