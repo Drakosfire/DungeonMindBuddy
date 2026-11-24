@@ -5,14 +5,15 @@ review, concrete-progress merges and deployment. DOGFOOD owns this serial
 successor to merged #4557. The goal remains incomplete: the actual app rejected
 a valid twelve-turn synthesis after the APP0207 rollout.
 
-Re-anchored base: verified running sourcea23847ff03d5b49525119d47ab927882c445e136,
-image78188c101c77e54e81755d6d1bda1c8913583ef40b756826cc0a604a4a525d77,
+Re-anchored base: verified running sourceab642ad03293919e27db9a305538e643f9362bf0,
+image1ecde778bd0023e3b9de4d15afb2c70b48008cbc670824775b97d2971b5d02ff,
 APP207/Core0024. This preserves the deployed Winter and guest-label successors
 #4564/#4567 as well as #4557. Branch codex/dogfood-lore-request-references in the
-existing isolated checkout; PR4573 is serial. Retarget it to the pinned a238 base
-before cumulative review. Remote main7047ea5ad and the mobile serving successor were inspected.
-The a238 serving parent includes mobile graph/navigation changes; all seven
-upstream changed paths are disjoint from this writer slice. Preserve other owners' Plan-performance and mobile guest work;
+existing isolated checkout; PR4573 is serial. Retarget it to the pinned ab642 base
+before cumulative review. Remote main42a524ade and the mobile serving successor were inspected.
+The ab642 serving parent includes released guest Graph navigation and Build
+proposal changes. All fifteen changed paths since a238 are disjoint from this
+writer slice; preserve them and requalify their integrated behavior. Preserve other owners' Plan-performance and mobile guest work;
 do not absorb it. Re-anchor the actual serving parent again before delivery.
 No runtime/deployment reservation is held during implementation. The original
 79d4/image419 adoption is historical evidence, not the current cutover parent.
@@ -154,10 +155,23 @@ Database qualification checkpoint: obey the shared five-database budget (one
 App template, one read-only Core, three disposable App slots). Current-main
 disposable_benchmark_database must own each custom replay clone around its
 entire run, with workers/connections closed before exit; ordinary capture uses
-capture-context --clone-app. No DOGFOOD database is retained. The repository
+capture-context --clone-app. The previous accepted replay clone was removed. One current workstream clone
+is intentionally retained for serial qualification and retries. The repository
 tests/application_state/conftest.py still creates session templates and test
 clones with raw CREATE DATABASE, so those fixtures are paused, not run as a
 hidden exception. Adaptation must preserve exact-source qualification and
 owned isolation without changing shared fixture policy inside this slice.
-Previous a961 hosted/unit/codec evidence and independent source review are
-retained as predecessor evidence; the a238 rebase needs new exact-head proof.
+Previous a961 and022f qualification evidence is retained as predecessor
+evidence; the ab642 rebase needs new exact-head proof.
+
+Latest benchmark process from Alan: allocate one App clone per workstream,
+reuse it for serial cases/retries/follow-up, reset fixtures only inside that
+owned clone, close workers/connections before explicit acceptance/abandonment
+teardown, and verify exact removal. Do not run full inventory scans. Retain the
+read-only shared Core snapshot. This supersedes per-case clone/full-scan steps
+in earlier benchmark plans; it does not silently mark missing CI checks green.
+The exact022f live12, historical194-Turn and built-image proofs are retained
+predecessor evidence after the ab642 rebase. The existing workstream clone is
+retained; new cases must pin the new head explicitly. Named CI includes tests
+whose purpose is physical-clone isolation; the question about whether Alan
+intends this benchmark rule to change that CI contract remains unanswered.
