@@ -32,7 +32,10 @@ def test_native_predicate_has_one_storage_owner(application_state_dsn):
             "SELECT pg_get_functiondef(guard), obj_description(guard, 'pg_proc') "
             "FROM (SELECT 'agent.validate_turn_graph_write()'::regprocedure AS guard) AS graph_guard"
         ).fetchone()
-        for name, expression in json.loads(saved).items():
+        definitions = json.loads(saved)
+        assert definitions["lifecycle"] in installed
+        rows["agent_turn_lifecycle_check"] = definitions["lifecycle"]
+        for name, expression in definitions["graph"].items():
             assert expression in installed
             rows[name] = expression
         owner = import_module('application_state.migrations.versions.20261101_0103_shared_native_turns')
