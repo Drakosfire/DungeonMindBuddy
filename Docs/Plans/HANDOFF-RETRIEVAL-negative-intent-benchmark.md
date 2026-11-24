@@ -287,3 +287,13 @@ the test did not construct a full ordinary capture or contact a model. The
 focused suite passed 35 tests in the shared environment, including duplicate
 source rejection before database access. Exact-head and CI classification
 requirements remain open.
+
+Case 16 checked the fresh World's real native-binding resolver after fixture
+provisioning. It returned `native_graph_binding_missing`, while the page and
+dialogue setup still passed (1 diagnostic test). The test and worker are
+retained under `http-owner/session/case-16` and `http-owner`. A synthetic App
+World alone is therefore not an ordinary Build capture fixture. A reviewed,
+authorized synthetic Core binding compatible with the shared read-only Core
+policy is still required; do not write to that Core or fake a binding as a
+qualification shortcut. This is predecessor-source evidence, not a live-model
+turn. Resolve this dependency with its owning lane before dispatch.

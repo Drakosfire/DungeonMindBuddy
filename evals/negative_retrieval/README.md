@@ -107,7 +107,11 @@ checks saved page bytes and related-page inventory through the owning services;
 the caller supplies an isolated existing root and must configure the related-page
 service to use that same root. Partial failures are retained, never reset or
 retried automatically. The helper does not dispatch a model, construct a full
-capture manifest or establish complete acquisition coverage.
+capture manifest or establish complete acquisition coverage. It does not
+provision or activate a native Graph binding: the resulting World fails the
+ordinary binding resolver with `native_graph_binding_missing`. A separately
+authorized and verified synthetic Core binding is required before a real Build
+capture; do not write to the shared read-only Core to supply one.
 
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
