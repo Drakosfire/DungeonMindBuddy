@@ -18,7 +18,7 @@ from threading import RLock
 
 from pydantic import BaseModel, TypeAdapter
 
-from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
+from application_state.errors import ApplicationStateValidationError, ApplicationStateConflictError, ApplicationStateIntegrityError
 from application_state.unit_of_work import unit_of_work
 from . import repository as repo
 from .native_execution import (
@@ -36,6 +36,8 @@ class PlanSessionCommand(str, Enum):
     CONTROLLER = 'authorize_plan_jev_provider'
     OUTCOME = 'record_provider_outcome'
     SELECTION = 'record_plan_jev_retrieval_selection'
+    OPENING_SELECTION = 'record_plan_requested_work_selection'
+    SCOPE_OBSERVATION = 'record_plan_author_scope_observation'
     BATCH_CONCLUSION = 'conclude_native_read_batch'
     RECORD_GRANT = 'authorize_native_read'
     RECORD_OBSERVATION = 'observe_native_read'
@@ -52,6 +54,13 @@ class PlanSessionCommand(str, Enum):
     AUTHORED_OBSERVATION = 'observe_native_authored_reference'
     AUTHORED_SOURCE = 'observe_native_authored_source'
     RELATED_PAGE = 'record_build_related_pages'
+
+
+_OPENING_COMMANDS = frozenset({
+    PlanSessionCommand.CONTROLLER, PlanSessionCommand.OUTCOME,
+    PlanSessionCommand.REQUEST_SEARCH_GRANT, PlanSessionCommand.BODY_SEARCH_OBSERVATION,
+    PlanSessionCommand.SCOPE_OBSERVATION, PlanSessionCommand.OPENING_SELECTION,
+})
 
 
 _EVENT = TypeAdapter(SurfaceNativeEvent)
@@ -77,6 +86,24 @@ def eligible(turn):
         and turn.status == 'running'
         and len(choices) == 1 and type(choices[0]) in NATIVE_PLAN_WORK_SELECTION_TYPES
         and choices[0].requested_work in {'discuss', 'clarify'})
+
+
+def eligible_opening(turn):
+    from .authored_graph_references import native_references
+    from .native_context import NativePlanRequestAdmissionV1
+    from .native_corpus import NativeBodySearchObservedV1, NativePlanRequestSearchAuthorizedV1
+
+    execution = turn.graph_context_execution
+    if (type(execution) is not SurfaceNativeExecutionV1
+            or type(execution.policy.action) is not NativePlanActionV3
+            or type(turn.graph_context_receipt.assembled_input) is not NativePlanRequestAdmissionV1
+            or turn.status != "running"
+            or tuple(type(event) for event in execution.events) not in (
+                (), (NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1),
+            )):
+        return False
+    references = native_references(execution)
+    return references is None or not references.references
 
 
 class _SessionAdmission(AgentConversationService):
@@ -188,7 +215,9 @@ class PlanProviderCheckpoint:
 class NativePlanSession:
     """One nonescaping materialization, serialized with the runtime claim fence."""
 
-    def __init__(self, expected, *, measure=None):
+    def __init__(self, expected, *, measure=None, opening=False):
+        self.opening = opening
+        accepts = eligible_opening if opening else eligible
         self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
         self._record_prefix = _OwnedRecordPrefix()
@@ -198,7 +227,7 @@ class NativePlanSession:
         with unit_of_work(_ready_dsn()) as conn:
             image = repo._lock_plan_session_image(conn, expected.world_id, expected.turn_id)
             current = repo.lock_turn(conn, expected.world_id, expected.turn_id)
-            if (current is None or not eligible(current)
+            if (current is None or not accepts(current)
                     or (current.conversation_id, current.revision, current.attempt)
                     != (expected.conversation_id, expected.revision, expected.attempt)
                     or current.claim_expires_at is None
@@ -316,6 +345,16 @@ class NativePlanSession:
                 self._enter()
                 if type(command) is not PlanSessionCommand:
                     raise ApplicationStateIntegrityError('Session requires a closed native command')
+                if self.opening:
+                    if command not in _OPENING_COMMANDS:
+                        raise ApplicationStateConflictError("Plan opening cannot execute this command")
+                    if command is PlanSessionCommand.CONTROLLER:
+                        from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
+
+                        if type(fields.get("authorization")) not in (
+                            NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1,
+                        ):
+                            raise ApplicationStateConflictError("Plan opening requires its scope or opening decision")
                 turn = self._committed
                 if (expected_revision, expected_attempt) != (turn.revision, turn.attempt):
                     raise ApplicationStateConflictError('Session command crossed its claim fence')
@@ -353,6 +392,8 @@ class NativePlanSession:
                     if self._pending is None or updated is not self._pending[0]:
                         raise ApplicationStateIntegrityError('Session append has no committed successor')
                     self._committed, self._image = self._pending
+                    if command is PlanSessionCommand.OPENING_SELECTION and eligible(updated):
+                        self.opening = False
                 elif updated is not self._committed or self._pending is not None:
                     raise ApplicationStateIntegrityError('Session replay changed its committed generation')
                 self._pending = None
@@ -373,6 +414,10 @@ class NativePlanSession:
                         committed.turn_id, committed.revision, committed.attempt,
                         lambda: deepcopy(committed)), fresh
                 return deepcopy(self._committed), fresh
+            except ApplicationStateValidationError:
+                if not self.opening:
+                    self._seal()
+                raise
             except BaseException:
                 self._seal()
                 raise
