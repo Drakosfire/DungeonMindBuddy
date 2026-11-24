@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import ipaddress
+import os
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -21,9 +22,12 @@ from apps.live_control_server.services.agent_graph_local_session import _origin_
 from apps.live_control_server.services.hosted_auth import (
     LOCAL_ENVIRONMENTS,
     LOCAL_MODE,
+    HOSTED_MODE,
+    PRODUCTION_ENVIRONMENT,
     auth_mode,
     deployment_environment,
     require_local_unproxied_loopback,
+    trusted_frontend_origins,
 )
 from apps.live_control_server.services.trusted_cookie_origin import (
     require_cookie_write_origin,
@@ -43,6 +47,16 @@ _FORWARDED_HEADERS = (
     "x-forwarded-proto",
     "x-real-ip",
 )
+HOSTED_COOKIE = "__Secure-dmb-guest-graph"
+
+
+def hosted_guest_graph_enabled() -> bool:
+    return (deployment_environment() == PRODUCTION_ENVIRONMENT and auth_mode() == HOSTED_MODE
+            and os.environ.get("DMB_HOSTED_GUEST_GRAPH_ENABLED") == "1")
+
+
+def graph_cookie_name() -> str:
+    return HOSTED_COOKIE if hosted_guest_graph_enabled() else local_profile()[2]
 
 
 @dataclass(frozen=True)
@@ -85,6 +99,19 @@ def local_profile() -> tuple[str, str, str]:
 
 def require_index_graph_boundary(request: Request, *, unsafe: bool) -> None:
     """Require the local Buddy profile even when another global route is hosted."""
+    if hosted_guest_graph_enabled():
+        origins = trusted_frontend_origins()
+        fetch_sites = request.headers.getlist("sec-fetch-site")
+        if not origins or len(fetch_sites) != 1 or fetch_sites[0] != "same-origin":
+            raise HTTPException(403, detail={"code": "index_graph_origin_rejected"})
+        if unsafe:
+            require_cookie_write_origin(request, trusted_origins=origins)
+        elif request.headers.getlist("origin"):
+            values = request.headers.getlist("origin")
+            if len(values) != 1:
+                raise HTTPException(403, detail={"code": "index_graph_origin_rejected"})
+            require_cookie_write_origin(_OriginRequest(request, values[0]), trusted_origins=origins)
+        return
     if deployment_environment() not in LOCAL_ENVIRONMENTS or auth_mode() != LOCAL_MODE:
         raise HTTPException(
             status_code=404,
@@ -147,7 +174,7 @@ def _credential_hash(credential: str) -> bytes:
 
 
 def csrf_token(credential: str, session_id: str) -> str:
-    _origin, _host, cookie_name = local_profile()
+    cookie_name = graph_cookie_name()
     payload = f"dmb-index-graph-v1\0{cookie_name}\0{session_id}".encode("ascii")
     return hmac.new(credential.encode("ascii"), payload, hashlib.sha256).hexdigest()
 
@@ -183,7 +210,7 @@ def read_cookie_credential(request: Request, cookie_name: str) -> str | None:
     return credential
 
 
-def create_session() -> tuple[str, IndexGraphSession]:
+def create_session(*, replace_credential: str | None = None) -> tuple[str, IndexGraphSession]:
     credential = secrets.token_urlsafe(32)
     session_id = str(uuid4())
     allocation_id = f"buddy-index-graph:{uuid4().hex}"
@@ -195,6 +222,14 @@ def create_session() -> tuple[str, IndexGraphSession]:
             connection.execute(
                 "SELECT pg_advisory_xact_lock(%s, %s)", _SESSION_ADVISORY_LOCK
             )
+            if replace_credential is not None:
+                replaced = connection.execute(
+                    "UPDATE application_state.index_graph_sessions SET expires_at = %s "
+                    "WHERE credential_hash = %s AND expires_at > %s RETURNING session_id",
+                    (now, _credential_hash(replace_credential), now),
+                ).fetchone()
+                if replaced is None:
+                    raise IndexGraphSessionError("session_expired", "The guest session has expired.")
             counts = connection.execute(
                 "SELECT count(*) FILTER (WHERE expires_at > clock_timestamp()) AS active, "
                 "count(*) AS total FROM application_state.index_graph_sessions"
@@ -281,7 +316,7 @@ def lookup_session(credential: str) -> IndexGraphSession:
 
 
 def request_session(request: Request, *, unsafe: bool) -> tuple[str, IndexGraphSession]:
-    _origin, _host, cookie_name = local_profile()
+    cookie_name = graph_cookie_name()
     credential = read_cookie_credential(request, cookie_name)
     if credential is None:
         raise IndexGraphSessionError(

@@ -1,7 +1,7 @@
 import "./statblocks/render/statblockCampaignTheme.css";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { createBuddyIndexGraphApi } from "./nativeGraphDemo/buddyIndexGraphApi";
+import { createBuddyIndexGraphApi, type GuestSource } from "./nativeGraphDemo/buddyIndexGraphApi";
 import { AppChrome } from "./chrome/AppChrome";
 import {
   appRouteFromLocationSnapshot,
@@ -47,6 +47,19 @@ function BuddyLandingPage() {
   );
 }
 
+function GuestNodeSources({ nodeId, read }: { readonly nodeId: string; readonly read: (id: string) => Promise<readonly GuestSource[]> }) {
+  const [sources, setSources] = useState<readonly GuestSource[] | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setSources(null);
+    setError(false);
+    void read(nodeId).then(value => { if (active) setSources(value); }).catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [nodeId, read]);
+  return <section aria-label="Node sources"><h3>Sources</h3>{error ? <p role="alert">Sources are unavailable.</p> : sources === null ? <p>Opening sources…</p> : sources.length === 0 ? <p>No source excerpts are linked to this node.</p> : sources.map((source, index) => <details key={index}><summary>{source.role === "context" ? "Context" : "Source evidence"}: {source.claim}</summary><p>{source.qualification}</p><blockquote>{source.text}</blockquote></details>)}</section>;
+}
+
 function BuddyGraphPage({
   localOnlyNavigation = false,
   locationSnapshot,
@@ -62,6 +75,9 @@ function BuddyGraphPage({
     ? JSON.stringify(["hosted", auth.subject, managedWorldId])
     : `managed:${managedWorldId}`;
   const playgroundApi = useMemo(() => createBuddyIndexGraphApi(), []);
+  const [guestGeneration, setGuestGeneration] = useState(0);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
   const [legacyWorldsOpen, setLegacyWorldsOpen] = useState(false);
 
   let explorer: ReactNode;
@@ -70,6 +86,19 @@ function BuddyGraphPage({
       worldTitle={selectedWorld.name} stateScopeId={stateScopeId} />;
   } else if (auth.status === "local_operator") {
     explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
+  } else if (auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1") {
+    explorer = <>
+      <div><button type="button" disabled={resetting} onClick={() => {
+        if (!window.confirm("Reset your Sizzek World changes?")) return;
+        setResetting(true);
+        setResetError("");
+        void playgroundApi.reset().then(() => setGuestGeneration(value => value + 1))
+          .catch(() => setResetError("The reset outcome could not be confirmed. Refresh to reopen your session."))
+          .finally(() => setResetting(false));
+      }}>Reset guest World</button>{resetError && <span role="alert">{resetError}</span>}</div>
+      {resetting ? <p role="status">Resetting your World…</p> :
+        <NativeGraphDemo key={guestGeneration} api={playgroundApi} embedded mode="playground" worldTitle="Sizzek World" renderGuestNodeDetails={id => <GuestNodeSources key={id} nodeId={id} read={playgroundApi.readSources} />} />}
+    </>;
   } else if (auth.status === "signed_out") {
     explorer = <main className="app-status" aria-labelledby="buddy-playground-title">
       <p className="module-muted">BUDDY · PLAYGROUND</p>

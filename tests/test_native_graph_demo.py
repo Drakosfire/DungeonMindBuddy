@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import sqlite3
+import copy
 import tempfile
 import unittest
 import uuid
+from datetime import UTC, datetime
 from unittest import mock
 from dungeonmind.domain.errors import (
     PersistenceUnavailableError,
@@ -34,6 +36,171 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
 
     def _operation_id(self) -> str:
         return str(uuid.uuid4())
+
+    def test_snapshot_session_copies_seed_and_retains_its_binding(self) -> None:
+        source = self.service.graph()
+        snapshot = (source["world_id"], source["revision_id"], datetime.now(UTC))
+        state = self.state_dir / "visitor"
+        visitor = NativeGraphDemoService(
+            self.repository, state, storage_label="test-memory",
+            allocation_id="visitor:one", source_snapshot=snapshot,
+        )
+        graph = visitor.graph()
+        self.assertNotEqual(graph["world_id"], source["world_id"])
+        self.assertEqual({n["name"] for n in graph["nodes"]},
+                         {n["name"] for n in source["nodes"]})
+        mara = next(n["id"] for n in graph["nodes"] if n["name"] == "Mara")
+        sources = visitor.node_sources(mara)["sources"]
+        self.assertTrue(any("Mara" in item["text"] for item in sources))
+        self.assertTrue(all("claim" in item and len(item["qualification"].split(" · ")) >= 4 for item in sources))
+        prepared = visitor.prepare(self._create_request(graph, name="Guest creation"))
+        created = visitor.confirm(prepared["operation_id"])
+        changed = created["graph"]
+        connection_id = self._operation_id()
+        link = visitor.prepare({
+            "operation_id": connection_id, "expected_revision_id": changed["revision_id"],
+            "kind": "connect", "source_id": created["created_node_id"],
+            "target_id": mara, "predicate": "knows",
+        })
+        self.assertEqual(link["status"], "prepared")
+        linked = visitor.confirm(connection_id)["graph"]
+        self.assertTrue(any(edge["source_id"] == created["created_node_id"] and edge["target_id"] == mara
+                            for edge in linked["edges"]))
+        visitor.close()
+        reopened = NativeGraphDemoService(
+            self.repository, state, storage_label="test-memory", allocation_id="visitor:one",
+            source_snapshot=(source["world_id"], source["revision_id"], datetime.now(UTC)),
+        )
+        try:
+            self.assertIn("Guest creation", {n["name"] for n in reopened.graph()["nodes"]})
+            self.assertNotIn("Guest creation", {n["name"] for n in self.service.graph()["nodes"]})
+        finally:
+            reopened.close()
+
+    def test_snapshot_uses_source_world_manual_profile(self) -> None:
+        from graph_memory.vnext.domain_runtime import dungeonbuddy_dnd5e_manual_profile
+
+        self.service._profile = dungeonbuddy_dnd5e_manual_profile()
+        source = self.service.graph()
+        visitor = NativeGraphDemoService(
+            self.repository, self.state_dir / "manual-profile", storage_label="test-memory",
+            allocation_id="visitor:manual-profile",
+            source_snapshot=(source["world_id"], source["revision_id"], datetime.now(UTC)),
+        )
+        try:
+            copied = visitor.graph()
+            self.assertEqual(visitor._profile.profile_revision, "4")
+            prepared = visitor.prepare(self._create_request(copied, name="Guest manual"))
+            changed = visitor.confirm(prepared["operation_id"])["graph"]
+            self.assertTrue(any(node["name"] == "Guest manual" for node in changed["nodes"]))
+            self.assertFalse(any(node["name"] == "Guest manual" for node in self.service.graph()["nodes"]))
+        finally:
+            visitor.close()
+
+    def test_snapshot_copy_recovers_after_lost_response(self) -> None:
+        from apps.live_control_server.native_graph_demo import service as graph_service
+
+        source = self.service.graph()
+        snapshot = (source["world_id"], source["revision_id"], datetime.now(UTC))
+        state = self.state_dir / "visitor-recovery"
+        visitor = NativeGraphDemoService(
+            self.repository, state, storage_label="test-memory",
+            allocation_id="visitor:recovery", source_snapshot=snapshot,
+        )
+        actual_copy = graph_service.copy_native_world
+
+        def lose_response(**kwargs):
+            actual_copy(**kwargs)
+            raise PersistenceUnavailableError("response lost")
+
+        try:
+            with mock.patch.object(graph_service, "copy_native_world", side_effect=lose_response):
+                with self.assertRaises(DemoError):
+                    visitor.graph()
+            recovered = visitor.graph()
+            self.assertNotEqual(recovered["world_id"], source["world_id"])
+            self.assertEqual(len(recovered["nodes"]), len(source["nodes"]))
+            self.assertEqual(self.service.graph()["revision_id"], source["revision_id"])
+        finally:
+            visitor.close()
+
+    def test_node_sources_reuses_shared_evidence_and_bounds_response(self) -> None:
+        from apps.live_control_server.native_graph_demo import service as graph_service
+
+        graph = self.service.graph()
+        mara = self._id(graph, "Mara")
+        actual = graph_service.open_admitted_native_text
+        with mock.patch.object(graph_service, "open_admitted_native_text", wraps=actual) as reader:
+            sources = self.service.node_sources(mara)["sources"]
+        evidence_ids = [call.args[1] for call in reader.call_args_list]
+        self.assertEqual(len(evidence_ids), len(set(evidence_ids)))
+        self.assertGreaterEqual(len(sources), len(evidence_ids))
+
+        def huge(context, ref):
+            result = actual(context, ref)
+            return result.model_copy(update={"body_text": "a" * 1_048_576,
+                                              "span_start_byte": 0,
+                                              "span_end_byte": 1_048_576})
+        with mock.patch.object(graph_service, "open_admitted_native_text", side_effect=huge):
+            with self.assertRaises(DemoError) as rejected:
+                self.service.node_sources(mara)
+        self.assertEqual(rejected.exception.code, "source_limit_reached")
+
+    def test_snapshot_supports_more_than_the_local_playground_limit(self) -> None:
+        from dungeonmind.application.vnext.publication import _publish_validated_command
+        from dungeonmind.application.vnext.world_copy import _command
+
+        source = self.service.graph()
+        stored = self.repository.get_revision(source["world_id"], source["revision_id"])
+        payload = copy.deepcopy(stored.graph_payload)
+        template = next(item for item in payload["assertions"] if item["predicate"] == "dnd5e:name")
+        for index in range(67):
+            entity_id = f"entity:guest-fixture-{index}"
+            payload["entities"].append({"entity_id": entity_id})
+            assertion = copy.deepcopy(template)
+            assertion["assertion_id"] = f"assertion:guest-fixture-{index}"
+            assertion["subject_entity_id"] = entity_id
+            assertion["value"]["value"] = f"Person {index}"
+            payload["assertions"].append(assertion)
+        now = datetime.now(UTC)
+        published = _publish_validated_command(
+            _command(source["world_id"], stored, payload, "fixture:large", now),
+            publication_id="fixture:large", repository=self.repository,
+        )
+        visitor = NativeGraphDemoService(
+            self.repository, self.state_dir / "large", storage_label="test-memory",
+            allocation_id="visitor:large", source_snapshot=(source["world_id"], published.published_revision_id, now),
+        )
+        try:
+            graph = visitor.graph()
+            self.assertEqual(len(graph["nodes"]), 70)
+            self.assertEqual(visitor.prepare(self._create_request(graph, name="Guest added"))["status"], "prepared")
+        finally:
+            visitor.close()
+
+    def test_snapshot_rejects_unnamed_node_before_allocation(self) -> None:
+        from dungeonmind.application.vnext.publication import _publish_validated_command
+        from dungeonmind.application.vnext.world_copy import _command
+
+        source = self.service.graph()
+        stored = self.repository.get_revision(source["world_id"], source["revision_id"])
+        payload = copy.deepcopy(stored.graph_payload)
+        payload["entities"].append({"entity_id": "entity:unnamed"})
+        now = datetime.now(UTC)
+        published = _publish_validated_command(
+            _command(source["world_id"], stored, payload, "fixture:unnamed", now),
+            publication_id="fixture:unnamed", repository=self.repository,
+        )
+        visitor = NativeGraphDemoService(
+            self.repository, self.state_dir / "unnamed", storage_label="test-memory",
+            allocation_id="visitor:unnamed", source_snapshot=(source["world_id"], published.published_revision_id, now),
+        )
+        try:
+            with self.assertRaises(DemoError):
+                visitor.graph()
+            self.assertIsNone(self.repository.get_space_provisioning_receipt("native-world-copy:visitor:unnamed"))
+        finally:
+            visitor.close()
 
     def _create_request(
         self, graph: dict[str, Any], *, name: str = "Ivo", kind: str = "person"

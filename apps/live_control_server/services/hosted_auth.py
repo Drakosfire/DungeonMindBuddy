@@ -70,6 +70,9 @@ _GUEST_UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 _GUEST_READ_PATH = re.compile(
     rf"/api/live/guest-releases/{_GUEST_UUID}(?:/releases/{_GUEST_UUID}/assets/{_GUEST_UUID})?"
 )
+_GUEST_GRAPH_PATH = re.compile(
+    rf"/api/live/index-graph/(?:session|graph|prepare|confirm|reset|operations/{_GUEST_UUID}|nodes/[^/]{{1,256}}/sources)"
+)
 
 
 def deployment_environment(environ: Mapping[str, str] | None = None) -> str:
@@ -564,6 +567,19 @@ def install_hosted_request_boundary(
             except HTTPException:
                 return JSONResponse(status_code=400, content={"detail": {"code": "invalid_guest_request"}},
                                     headers={"Cache-Control": "no-store"})
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            return response
+
+        # The route enforces its own secure cookie, origin and CSRF checks.
+        if (os.environ.get("DMB_HOSTED_GUEST_GRAPH_ENABLED") == "1"
+                and _GUEST_GRAPH_PATH.fullmatch(request.url.path)
+                and ((request.method == "GET" and (request.url.path.endswith("/graph")
+                                                   or "/operations/" in request.url.path
+                                                   or request.url.path.endswith("/sources")))
+                     or (request.method == "POST" and request.url.path.rsplit("/", 1)[-1]
+                         in {"session", "prepare", "confirm", "reset"}))):
             response = await call_next(request)
             response.headers["Cache-Control"] = "no-store"
             response.headers["X-Content-Type-Options"] = "nosniff"

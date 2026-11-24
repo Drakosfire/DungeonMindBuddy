@@ -398,10 +398,10 @@ function NativeGraphDemoContext({
   const status = loading && !graph ? "Opening graph…"
     : !graph ? "Graph unavailable"
       : hasPendingOperation ? pendingStatus === "prepared" ? "Review ready" : pendingStatus === "preparing" ? "Preparing review" : pendingStatus === "checking" ? "Checking review" : "Review needs attention"
-        : mode === "guest" ? "Shared copy · read-only" : completeness?.status === "partial" ? "Partial native read" : "Saved to DungeonMind";
+        : mode === "guest" ? "Shared copy · read-only" : mode === "playground" && worldTitle ? "Guest session" : completeness?.status === "partial" ? "Partial native read" : "Saved to DungeonMind";
   const identity = mode === "guest" ? `Demo · ${worldTitle?.trim() || "Shared World"}` : mode === "managed"
     ? `World · ${worldTitle?.trim() || "Selected World"}`
-    : "Buddy playground · private graph";
+    : worldTitle ? `World · ${worldTitle.trim()}` : "Buddy playground · private graph";
   const content = useMemo(() => (
     <SurfaceContextModule className="native-demo-context">
       <div className="native-demo-context__row" ref={controlsRowRef} onKeyDown={(event) => {
@@ -1614,7 +1614,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   if (loading && !graph) {
     return <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
       {embeddedContext}
-      <h1 className={embedded ? "native-demo-sr-only" : undefined}>{embedded ? mode !== "playground" ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground" : ""}</h1>
+      <h1 className={embedded ? "native-demo-sr-only" : undefined}>{embedded ? mode !== "playground" || worldTitle ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground" : ""}</h1>
       <div className="native-demo-loading" role="status">Opening the DungeonMind graph…</div>
     </main>;
   }
@@ -1624,7 +1624,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
         {embeddedContext}
         <section className="native-demo-error-card" aria-labelledby="native-demo-title">
-          <p className="native-demo-kicker">{embedded ? mode !== "playground" ? `BUDDY · ${worldTitle?.trim() || "SHARED WORLD"}` : "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
+          <p className="native-demo-kicker">{embedded ? mode !== "playground" || worldTitle ? `BUDDY · ${worldTitle?.trim() || "SHARED WORLD"}` : "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
           <h1 id="native-demo-title">The graph is not available yet</h1>
           <p role="alert">{notice?.text ?? (embedded ? mode === "managed" ? `Buddy could not open ${worldTitle?.trim() || "the selected World"} right now.` : "Buddy could not open the private playground right now." : "The isolated DungeonMind service has not returned a graph.")}</p>
           {mode !== "managed" || stateScopeId ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
@@ -1785,10 +1785,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const infoPanel = mode === "guest" ? <section className="native-demo-limits-card"><h2>Shared demo graph</h2><p>This is a read-only released copy. Moving points changes only this view and resets when you leave.</p><p><a className="native-demo-button native-demo-button--light" href="/">Return to the demo for temporary additions and the saved scene</a></p></section> : (
     <section className="native-demo-limits-card" aria-labelledby="native-demo-limits-title">
       <p className="native-demo-eyebrow">ABOUT THIS GRAPH</p>
-      <h2 id="native-demo-limits-title">{mode === "managed" ? worldTitle?.trim() || "Selected World" : "A small, scoped playground"}</h2>
+      <h2 id="native-demo-limits-title">{worldTitle?.trim() || (mode === "managed" ? "Selected World" : "A small, scoped playground")}</h2>
       <p className="native-demo-copy">{mode === "managed"
         ? "This is the selected World graph from DungeonMind. Semantic edits stay behind the native review and confirmation flow."
-        : "This private synthetic graph is backed by DungeonMind. It does not edit or publish your account Worlds."}</p>
+        : worldTitle ? "Your changes are private to this guest session and do not change the shared World." : "This private synthetic graph is backed by DungeonMind. It does not edit or publish your account Worlds."}</p>
       <p className="native-demo-limit-detail">The arrangement is saved in this browser only.</p>
       <ul>
         <li className={graph.capabilities.create ? "is-available" : "is-unavailable"}>{graph.capabilities.create ? `Create ${graph.capabilities.object_kinds.map((kind) => kind.replace(/[_-]+/g, " ")).join(", ") || "supported native objects"}` : "Object creation is read-only here"}</li>
@@ -1855,12 +1855,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       handleCanvasSelectionChange(nodeId as LocalObjectId);
       requestCameraFocus(nodeId);
     }}
-  />{mode === "guest" ? renderGuestNodeDetails?.(selectedNode.id, (nodeId) => {
+  />{renderGuestNodeDetails?.(selectedNode.id, (nodeId) => {
     if (pendingOperation || !nodesById.has(nodeId)) return;
     focusInspectorRef.current = true;
     handleCanvasSelectionChange(nodeId as LocalObjectId);
     requestCameraFocus(nodeId);
-  }) : null}</> : null;
+  })}</> : null;
 
 
   return (
@@ -1881,7 +1881,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         }
       }}>
       {embeddedContext}
-      {embedded ? <h1 className="native-demo-sr-only">{mode !== "playground" ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground"}</h1> : null}
+      {embedded ? <h1 className="native-demo-sr-only">{mode !== "playground" || worldTitle ? `${worldTitle?.trim() || "Shared World"} graph` : "Buddy graph playground"}</h1> : null}
       <div className={`native-demo-layout${embedded ? " native-demo-layout--embedded" : ""}`}>
         {!embedded ? <header className="native-demo-header">
           <div className="native-demo-brand-mark" aria-hidden="true"><span>{embedded ? "B" : "DM"}</span></div>

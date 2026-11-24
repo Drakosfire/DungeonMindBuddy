@@ -35,7 +35,9 @@ function buddyPath(nativePath: string): string | null {
  * browser session scoped by the server to this synthetic graph, never the
  * selected managed World. The common client still validates every native DTO.
  */
-export function createBuddyIndexGraphApi(options: { readonly fetcher?: FetchLike } = {}): NativeGraphDemoApi {
+export interface GuestSource { readonly text: string; readonly role: string; readonly claim: string; readonly qualification: string }
+
+export function createBuddyIndexGraphApi(options: { readonly fetcher?: FetchLike } = {}): NativeGraphDemoApi & { reset: () => Promise<void>; readSources: (id: string) => Promise<readonly GuestSource[]> } {
   const fetcher = options.fetcher ?? ((input, init) => globalThis.fetch(input, init));
   let csrfToken: string | null = null;
   let bootstrapInFlight: Promise<string | Response> | null = null;
@@ -90,5 +92,35 @@ export function createBuddyIndexGraphApi(options: { readonly fetcher?: FetchLike
     return response;
   };
 
-  return createNativeGraphDemoApi({ transport });
+  async function reset(): Promise<void> {
+    const session = await bootstrap();
+    if (typeof session !== "string") throw new Error("Could not open the guest session.");
+    const response = await fetcher(`${INDEX_GRAPH_API}/reset`, {
+      method: "POST", headers: { [CSRF_HEADER]: session }, cache: "no-store",
+      credentials: "same-origin", redirect: "error",
+    });
+    if (!response.ok) throw new Error("Could not reset the guest World.");
+    const body: unknown = await response.json();
+    if (!record(body) || typeof body.csrf_token !== "string" || !body.csrf_token.trim()) {
+      csrfToken = null;
+      throw new Error("Could not verify the reset guest session.");
+    }
+    csrfToken = body.csrf_token;
+  }
+
+  async function readSources(id: string): Promise<readonly GuestSource[]> {
+    const session = await bootstrap();
+    if (typeof session !== "string") throw new Error("Could not open the guest session.");
+    const response = await fetcher(`${INDEX_GRAPH_API}/nodes/${encodeURIComponent(id)}/sources`, {
+      cache: "no-store", credentials: "same-origin", redirect: "error",
+    });
+    if (!response.ok) throw new Error("Could not open the sources.");
+    const body: unknown = await response.json();
+    if (!record(body) || !Array.isArray(body.sources) || !body.sources.every(
+      (source: unknown) => record(source) && typeof source.text === "string" && typeof source.role === "string" && typeof source.claim === "string" && typeof source.qualification === "string",
+    )) throw new Error("Could not verify the sources.");
+    return body.sources;
+  }
+
+  return Object.assign(createNativeGraphDemoApi({ transport }), { reset, readSources });
 }
