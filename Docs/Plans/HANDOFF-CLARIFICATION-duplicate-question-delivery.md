@@ -57,6 +57,12 @@ replay, preservation of nonidentical discussion and a related-source claim,
 and rejection of an identical evidence-bearing claim. These are working-tree
 diagnostics, not exact-commit qualification.
 
+Subsequent review found the first implementation could accept 129 duplicated
+raw discussion rows after reducing them to zero, bypassing the completion's
+128-segment bound. The repair now checks that limit before filtering. The
+expanded focused diagnostic passed 79 tests and scoped Ruff; evidence recorded
+against the earlier commit does not qualify the revised head.
+
 In the task-owned app, retrying the original fabricated lamp request produced
 an editable inline question. Its answer was added to a message and submitted;
 the next turn generated a visible incomplete page suggestion, then failed at

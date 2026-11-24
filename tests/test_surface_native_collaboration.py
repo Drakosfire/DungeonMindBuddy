@@ -178,6 +178,17 @@ def test_duplicate_question_only_keeps_typed_collaboration():
     assert verify_completion(completion,context,stored,auth,**proof)==completion
 
 
+def test_duplicate_questions_cannot_bypass_answer_segment_limit():
+    context,record,work=case('questions')
+    frame=model_work_frame(context,record,**work)
+    raw=output(frame,'questions')
+    raw['answer_segments']=[dict(kind='discussion',text=raw['collaboration']['questions'][0]['text'])
+        for _ in range(129)]
+    stored,auth,proof,_=produce(context,record,work,candidate=raw)
+    with pytest.raises(ValueError,match='answer segment limit'):
+        normalize_output(context,stored,auth,**proof)
+
+
 def test_nonidentical_discussion_is_not_removed():
     context,record,work=case('questions')
     frame=model_work_frame(context,record,**work)
