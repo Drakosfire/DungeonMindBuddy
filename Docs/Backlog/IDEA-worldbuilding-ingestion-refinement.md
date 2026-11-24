@@ -23,6 +23,18 @@ Consider together:
   [#1147](https://github.com/Drakosfire/DungeonMindBuddy/pull/1147) and
   [#1149](https://github.com/Drakosfire/DungeonMindBuddy/pull/1149) before
   proposing a repair; do not assume the old behavior is missing.
+- Identity review: check whether article-prefixed name variants are surfaced
+  without automatic merges and whether a reviewed observation can bind to an
+  exact existing location. Reconcile historical [#1853](https://github.com/Drakosfire/DungeonMindBuddy/pull/1853)
+  and [#1855](https://github.com/Drakosfire/DungeonMindBuddy/pull/1855) with
+  current identity and admission owners.
+- Ingest usability: dogfood independent per-session source drafts, including an
+  intentional empty draft and stale-response protection ([#2081](https://github.com/Drakosfire/DungeonMindBuddy/pull/2081)).
+  Check truthful elapsed-time and waiting feedback against the existing
+  [activity proposal #4333](https://github.com/Drakosfire/DungeonMindBuddy/pull/4333)
+  and historical [#2082](https://github.com/Drakosfire/DungeonMindBuddy/pull/2082);
+  do not invent progress the backend cannot observe.
+
 - Failure observability: check existing safe provider and worker failure
   diagnostics against the concern in [#1146](https://github.com/Drakosfire/DungeonMindBuddy/pull/1146).
   Add work only for a demonstrated gap, without exposing raw provider bodies,
