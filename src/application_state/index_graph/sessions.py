@@ -224,7 +224,7 @@ def read_cookie_credential(request: Request, cookie_name: str) -> str | None:
 
 
 def bootstrap_cookie_credential(request: Request) -> tuple[str | None, bool]:
-    """Read the World cookie, or migrate the old Graph-only cookie once.
+    """Read the active cookie and reconcile the Graph-only rollback cookie.
 
     A conflicting pair is never resolved by guessing which credential is
     authoritative. Only the Graph bootstrap endpoint invokes this fallback.
@@ -235,7 +235,7 @@ def bootstrap_cookie_credential(request: Request) -> tuple[str | None, bool]:
     legacy = read_cookie_credential(request, HOSTED_COOKIE)
     if credential is not None and legacy is not None and credential != legacy:
         raise IndexGraphSessionError("session_cookie_invalid", "The guest session cookie is ambiguous.")
-    return credential or legacy, legacy is not None
+    return credential or legacy, credential is None or legacy is None
 
 
 def create_session(*, replace_credential: str | None = None) -> tuple[str, IndexGraphSession]:

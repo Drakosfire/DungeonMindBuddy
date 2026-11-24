@@ -241,7 +241,7 @@ def _start_or_resume_session(request: Request) -> Response:
             )
         # A supplied unknown or expired credential is never silently replaced
         # with a new graph.
-        credential, legacy_cookie = bootstrap_cookie_credential(request)
+        credential, reconcile_cookies = bootstrap_cookie_credential(request)
         if credential is None:
             credential, session = create_session()
             created = True
@@ -253,7 +253,7 @@ def _start_or_resume_session(request: Request) -> Response:
             "notice": SESSION_NOTICE,
         }
         response = JSONResponse(payload, headers={"Cache-Control": "no-store"})
-        if created or legacy_cookie:
+        if created or reconcile_cookies:
             response.set_cookie(
                 cookie_name,
                 credential,
@@ -263,8 +263,9 @@ def _start_or_resume_session(request: Request) -> Response:
                 httponly=True,
                 samesite="strict",
             )
-        if legacy_cookie:
-            response.delete_cookie(HOSTED_COOKIE, path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
+        if hosted_guest_world_enabled() and (created or reconcile_cookies):
+            response.set_cookie(HOSTED_COOKIE, credential, max_age=int(SESSION_TTL.total_seconds()),
+                                path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
         return response
     except HTTPException as exc:
         return _http_exception(exc)
@@ -349,6 +350,9 @@ def _reset_graph_session(request: Request) -> Response:
         response.set_cookie(graph_cookie_name(), new_credential, max_age=int(SESSION_TTL.total_seconds()),
                             path=graph_cookie_path(), secure=hosted_guest_graph_enabled(), httponly=True,
                             samesite="strict")
+        if hosted_guest_world_enabled():
+            response.set_cookie(HOSTED_COOKIE, new_credential, max_age=int(SESSION_TTL.total_seconds()),
+                                path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
         return response
     except HTTPException as exc:
         return _http_exception(exc)

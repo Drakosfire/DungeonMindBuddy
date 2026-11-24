@@ -543,4 +543,9 @@ def test_hosted_guest_world_bootstrap_is_session_bound_and_resettable(
     replacement = first.post("/api/live/index-graph/world", headers={"X-DMB-Index-Graph-CSRF": reset.json()["csrf_token"]})
     assert replacement.status_code == 200
     assert replacement.json()["world_id"] not in {first_world.json()["world_id"], second_world.json()["world_id"]}
+    replacement_graph = first.get("/api/live/index-graph/graph").json()["world_id"]
+    monkeypatch.setenv("DMB_HOSTED_GUEST_BUILD_ENABLED", "0")
+    resumed = first.post("/api/live/index-graph/session")
+    assert resumed.status_code == 200
+    assert first.get("/api/live/index-graph/graph").json()["world_id"] == replacement_graph
     assert repository.get_head(source_graph["world_id"]).head_revision_id == source_graph["revision_id"]

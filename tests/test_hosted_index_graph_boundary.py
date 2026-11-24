@@ -105,7 +105,7 @@ def test_guest_world_cookie_migration_resumes_existing_graph(hosted, monkeypatch
     assert response.status_code == 200
     cookies = response.headers.getlist("set-cookie")
     assert any(cookie.startswith(f"{sessions.HOSTED_WORLD_COOKIE}=old-credential;") and "Path=/api/live;" in cookie and "HttpOnly" in cookie and "Secure" in cookie for cookie in cookies)
-    assert any(cookie.startswith(f"{HOSTED_COOKIE}=") and "Path=/api/live/index-graph;" in cookie and "Max-Age=0" in cookie for cookie in cookies)
+    assert any(cookie.startswith(f"{HOSTED_COOKIE}=old-credential;") and "Path=/api/live/index-graph;" in cookie and "Max-Age=0" not in cookie for cookie in cookies)
 
 
 def test_guest_world_cookie_migration_rejects_conflicting_credentials(hosted, monkeypatch):
