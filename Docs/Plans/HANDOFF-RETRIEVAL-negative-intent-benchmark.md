@@ -63,6 +63,14 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+Re-anchor: merged main `6edfc8270ca0da36b8061f70699c710f8edaa00e`
+into this eval lane. The focused evaluator suite passed 44 tests using the
+pinned dependency sources and the CI inventory passed in the merged working
+tree. These are not the repository's exact-source hosted verifier, and the
+runtime and UI observations below remain tied to their stated predecessor
+sources. The merged main's action-catalog policy applies to subsequent
+product-action changes; this slice continues to own evaluation only.
+
 Native Graph observation is now a separate partial, process-local capture
 artifact. It records direct calls and outcomes for native query, selected read,
 authored-reference read and context reopen, without retaining arguments or
