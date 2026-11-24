@@ -81,6 +81,12 @@ _TURN_COLS = (
     + ", answer_composition_kind, "
     + _rules_summary_select("agent.turn")
 )
+# Running Plan execution must use a fresh statement after the root lock.
+_TURN_LOCK_COLS = _TURN_COLS.replace(
+    "graph_context_execution, play_context_receipt",
+    "CASE WHEN surface_id = 'plan' AND status = 'running' THEN NULL "
+    "ELSE graph_context_execution END AS graph_context_execution, play_context_receipt",
+)
 # The inline base and ordered suffix must share the SELECT snapshot.
 _TURN_READ_COLS = _TURN_COLS.replace(
     "graph_context_execution, play_context_receipt",
@@ -1057,7 +1063,7 @@ def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnRead
 def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnReadModel | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"SELECT {_TURN_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s FOR UPDATE",
+            f"SELECT {_TURN_LOCK_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s FOR UPDATE",
             (world_id, turn_id),
         )
         row = cur.fetchone()
