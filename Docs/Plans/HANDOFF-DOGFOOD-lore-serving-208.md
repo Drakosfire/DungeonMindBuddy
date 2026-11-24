@@ -235,3 +235,13 @@ The exacta036 APP0209 image f2ccc936ce09fb699acb4bb30a93f21b13fa69e6715d0be963a3
 was built with existing guest settings and correct reader head, but is superseded
 for serving by the86b integration. Compatible209 recovery, fresh production
 backup/rehearsal and signed-in app acceptance remain mandatory.
+
+Case40 independent semantic PASS: early setting facts, tentative memory price,
+amber correction, ledger, authored attribution and all open issues survive; no
+invented entities/mechanics/played facts. Review identified one editorial residual:
+operational no-search/save/workpad constraints were copied into the page prose.
+Within this same current V3 writer scope, direct the writer to APPLY operational
+constraints without copying them into lore unless explicitly requested as content;
+preserve actual in-world constraints. This is prompt guidance, not host filtering
+or formatting rejection, and V2 instructions remain unchanged. Re-audit actual
+requests and assess a new live final outcome on integrated serving source.

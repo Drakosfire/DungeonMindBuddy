@@ -585,7 +585,11 @@ class PlanJevWriter:
                         'with its body in answer_segments, or needs_context with a specific question '
                         'and an empty answer_segments array. Null collaboration and bare limitations '
                         'do not fulfill this work. Do not choose needs_context merely because supplied '
-                        'authored premises are not played facts or contain declared open questions.')
+                        'authored premises are not played facts or contain declared open questions. '
+                        'Apply operational instructions as constraints on drafting: keep acknowledgment, '
+                        'search, save and workpad directions out of the page body unless the author '
+                        'explicitly requests those instructions as page content. Preserve in-world '
+                        'constraints as lore when they describe the setting itself.')
                 work = self.provider_work["build_work"]["requested_work"]
                 if work["requested_work"] == "review_lore_page_from_conversation":
                     instructions += (
