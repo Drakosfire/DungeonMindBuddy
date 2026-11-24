@@ -35,11 +35,8 @@ def test_workflow_retains_every_original_selector_once_except_partitioned_module
     assert actual == expected
     assert len(commands) == 4
     assert all("scripts.ownership_ci_partition" in c for c in commands)
-    aggregate = "world-and-content ingestion-and-review query-and-answer saved-page-readers"
-    assert set(aggregate.split()) == set(partition.SUITES)
-    assert f"run: uv run --locked python scripts/ci_contract.py run {aggregate}" in workflow
-    assert "matrix:" not in workflow
     for suite in partition.SUITES:
+        assert f"run: uv run --locked python scripts/ci_contract.py run {suite}" in workflow
         assert f"--ownership-suite={suite}" in contracts()[suite]["argv"]
     for suite in set(partition.BUCKET_OWNERS):
         assert partition.MODULE in contracts()[suite]["argv"]
