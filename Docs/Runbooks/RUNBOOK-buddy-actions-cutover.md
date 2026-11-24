@@ -95,9 +95,11 @@ serving branch. Set the protected `buddy-image-release` environment variable
 `main` with `hosted_guest_graph=true`, the merged PR number in `serving_pr`,
 its merge SHA in `revision`, and the currently serving source SHA in
 `serving_parent`. The publisher verifies the PR is merged to that configured
-branch, its merge is the current branch tip, and its first parent is the
-specified serving SHA. It labels the resulting image with that parent. Keep
-the serving and rollback image pins unchanged until staging and activation.
+branch and its merge is the current branch tip. The specified live serving
+SHA must either be its first parent or an ancestor of that parent with an
+identical Git tree. The image label records the exact specified live SHA, which
+must also match the rollback source used in staging. Keep the serving and
+rollback image pins unchanged until staging and activation.
 
 Set `registry_digest` to the `sha256:…` portion of that registry reference.
 Verify the candidate's compatibility with the current schema and data.
