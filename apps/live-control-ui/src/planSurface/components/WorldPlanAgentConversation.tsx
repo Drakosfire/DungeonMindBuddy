@@ -6876,7 +6876,7 @@ export function WorldPlanAgentConversation({
         <div className="world-plan-agent-conversation__turn-debug">
           {renderReplyDetails(turn, true, <>
             {openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] && hasSurfaceEvidence
-              && turn.lifecycle_status === "completed" && renderSurfaceEvidence(true)}
+              && turn.lifecycle_status === "completed" && <ReplyCitationDisclosure render={() => renderSurfaceEvidence(true)} />}
             <div className="world-plan-agent-conversation__reply-heading">
               {turn.lifecycle_status === "completed" && sourcedCompletion
                 && replySourceLabel(sourcedCompletion.answer_context_status, turn.provenance.surface_id) ? (
@@ -7685,4 +7685,13 @@ export function WorldPlanAgentConversation({
     </section>,
     askSlot.hostElement,
   );
+}
+
+
+function ReplyCitationDisclosure({ render }: { render: () => React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return <details onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary>Cited in the reply</summary>
+    {open && render()}
+  </details>;
 }

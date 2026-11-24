@@ -258,7 +258,7 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
         {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
           <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
       </div></li>)}</ol></details>
-  const traceHeader = <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
+  const traceHeader = <header><div><h4>{failed ? 'Reply error report' : replyDetails ? 'Capture information' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
       {!replyDetails && copy}
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
   return <section className="buddy-context-trace" aria-label="Buddy context trace">

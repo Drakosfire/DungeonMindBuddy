@@ -53,7 +53,7 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
   if (citationsOnly) {
     const segments = completion.answer_segments.flatMap((segment, index) =>
       choicesBySegment[index]?.length ? [renderSegment(segment, index, index)] : []);
-    return segments.length ? <section aria-label="Cited in the reply"><h4>Cited in the reply</h4>{segments}</section> : null;
+    return segments.length ? <section aria-label="Cited in the reply">{segments}</section> : null;
   }
   return <div aria-label="Evidence-grounded answer">{composition ? composition.ranges.map((r,i)=>
     r.domain === 'base' && r.base_segment_index !== null
