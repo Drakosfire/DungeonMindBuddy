@@ -148,16 +148,17 @@ was constructed from that same capture and is an adapter smoke, not a frozen
 benchmark or model-quality result.
 
 `build_inline_witness.generate` derives a single test from the current mounted
-conversation owner fixture using guarded anchors. In a disposable UI copy it
-rendered saved typed Build questions, retained an edited answer across remount,
-added it to the composer, and sent the answer to a scripted pending Build
-transport. Diagnostic run: 1 passed, 324 filtered, Node 21.6.2, copied locked
-package dependencies, frontend lock held. Evidence and the initial matcher-only
-failure are retained at `Projects/.codex/buddy-check.negative-inline.SsurDn`.
-The mocked transport does not prove server completion, durable reopen of the
-answer, no mutation in the server, actual model behavior, browser layout, or
-deployment. Node 21 is not the repository's required Node 22 exact-source
-qualification; this is diagnostic evidence only.
+conversation owner fixture using guarded anchors. The current witness renders
+saved typed Build questions, submits an answer to a scripted completed transport,
+and remounts with simulated saved question, answer and reply. It disables the
+owner test's automatic Details-click observer and opens Details explicitly.
+The generated test is byte-identical to the retained witness that passed twice
+(1 passed, 324 filtered), using Node 21.6.2, copied locked dependencies and the
+frontend lock. Evidence and prior inconsistent runs are retained at
+`Projects/.codex/buddy-check.inline-continuation.666msV`. Scripted transport and
+history do not prove server completion, durable persistence, no mutation,
+actual model behavior, browser layout or deployment. Node 21 is not the
+repository's required Node 22 exact-source qualification.
 
 `controller_observations` projects only fixed choice labels and related-page vote
 counts from captured *unvalidated* provider decisions, alongside provider/model

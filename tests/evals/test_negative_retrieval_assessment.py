@@ -428,6 +428,10 @@ def test_ui_witness_generator_requires_exact_owner_fixture(tmp_path):
     content = derived.read_text()
     assert content.count("negative retrieval Build inline question answer and send witness") == 1
     assert "postWorldBuildAgentTurn" in content and "The harbour shop." in content
+    assert "setupApi(savedHistory, false)" in content
+    assert "const savedQuestion = await screen.findByText" in content
+    assert "The harbour shop is ready for review." in content
+    assert "Retry this saved request" in content
     broken = tmp_path / "broken.test.tsx"
     broken.write_text(source.read_text().replace("rehydrates an intentional object-only clarification inline without a filler reply", "renamed"))
     with pytest.raises(ValueError):
