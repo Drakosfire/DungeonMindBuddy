@@ -14,18 +14,18 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from application_state.errors import ApplicationStateUnavailableError
+from application_state.errors import ApplicationStateError, ApplicationStateUnavailableError
 from application_state.index_graph.sessions import (
-    COOKIE_PATH,
+    COOKIE_PATH, HOSTED_COOKIE,
+    bootstrap_cookie_credential, graph_cookie_path,
     SESSION_TTL,
     IndexGraphSession,
     IndexGraphSessionError,
     create_session,
     csrf_token,
     graph_cookie_name,
-    hosted_guest_graph_enabled,
+    hosted_guest_graph_enabled, hosted_guest_world_enabled,
     lookup_session,
-    read_cookie_credential,
     request_session,
     require_index_graph_boundary,
 )
@@ -241,7 +241,7 @@ def _start_or_resume_session(request: Request) -> Response:
             )
         # A supplied unknown or expired credential is never silently replaced
         # with a new graph.
-        credential = read_cookie_credential(request, cookie_name)
+        credential, reconcile_cookies = bootstrap_cookie_credential(request)
         if credential is None:
             credential, session = create_session()
             created = True
@@ -253,21 +253,64 @@ def _start_or_resume_session(request: Request) -> Response:
             "notice": SESSION_NOTICE,
         }
         response = JSONResponse(payload, headers={"Cache-Control": "no-store"})
-        if created:
+        if created or reconcile_cookies:
             response.set_cookie(
                 cookie_name,
                 credential,
                 max_age=int(SESSION_TTL.total_seconds()),
-                path=COOKIE_PATH,
+                path=graph_cookie_path(),
                 secure=hosted_guest_graph_enabled(),
                 httponly=True,
                 samesite="strict",
             )
+        if hosted_guest_world_enabled() and (created or reconcile_cookies):
+            response.set_cookie(HOSTED_COOKIE, credential, max_age=int(SESSION_TTL.total_seconds()),
+                                path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
         return response
     except HTTPException as exc:
         return _http_exception(exc)
     except IndexGraphSessionError as exc:
         return _error(exc.code, str(exc), exc.status)
+
+
+@router.post("/world")
+async def get_guest_world(request: Request) -> Response:
+    """Return only the managed World derived from this active guest session."""
+    try:
+        _reject_body_size(request)
+        if request.headers.getlist("transfer-encoding"):
+            return _error("invalid_request", "Guest World bootstrap does not accept a body.", 400)
+        async for chunk in request.stream():
+            if chunk:
+                return _error("invalid_request", "Guest World bootstrap does not accept a body.", 400)
+        return await run_in_threadpool(_get_guest_world, request)
+    except HTTPException as exc:
+        return _http_exception(exc)
+
+
+def _get_guest_world(request: Request) -> Response:
+    if not hosted_guest_world_enabled():
+        return _error("guest_world_unavailable", "The guest World is unavailable.", 404)
+    try:
+        _credential, session = _resolve_session(request, unsafe=True)
+        from apps.live_control_server.services.index_graph import ensure_guest_managed_world
+        world = ensure_guest_managed_world(session)
+        _current_credential, current = _resolve_session(request, unsafe=True)
+        if current != session:
+            raise IndexGraphSessionError("session_expired", "The guest session has changed.")
+        return JSONResponse({"world_id": world.record.world_id, "name": world.record.name},
+                            headers={"Cache-Control": "no-store"})
+    except HTTPException as exc:
+        return _http_exception(exc)
+    except IndexGraphSessionError as exc:
+        return _error(exc.code, str(exc), exc.status)
+    except DemoError as exc:
+        return _error(exc.code, str(exc), exc.status)
+    except (ApplicationStateUnavailableError, IndexGraphStoreUnavailable, psycopg.Error,
+            PersistenceUnavailableError, PersistenceIntegrityError, OSError, TypeError, ValueError):
+        return _error("guest_world_unavailable", "The guest World could not be verified.", 503)
+    except ApplicationStateError:
+        return _error("guest_world_unavailable", "The guest World could not be verified.", 409)
 
 
 @router.get("/graph")
@@ -305,8 +348,11 @@ def _reset_graph_session(request: Request) -> Response:
         response = JSONResponse({"csrf_token": csrf_token(new_credential, session.session_id)},
                                 headers={"Cache-Control": "no-store"})
         response.set_cookie(graph_cookie_name(), new_credential, max_age=int(SESSION_TTL.total_seconds()),
-                            path=COOKIE_PATH, secure=hosted_guest_graph_enabled(), httponly=True,
+                            path=graph_cookie_path(), secure=hosted_guest_graph_enabled(), httponly=True,
                             samesite="strict")
+        if hosted_guest_world_enabled():
+            response.set_cookie(HOSTED_COOKIE, new_credential, max_age=int(SESSION_TTL.total_seconds()),
+                                path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
         return response
     except HTTPException as exc:
         return _http_exception(exc)
