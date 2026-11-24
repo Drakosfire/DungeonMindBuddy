@@ -187,3 +187,15 @@ separately. The optional page is not established as necessary evidence for
 this draft, so this is not a genuine required-evidence positive control or a
 model-quality rate. It uses the same predecessor source and mocked provider and
 in-memory Core as the earlier cases; it does not qualify the current head.
+
+Case 5 used the same ordinary HTTP owner with a synthetic draft request that
+explicitly asks for a bridge toll from `Optional lore`; the related page held
+the toll. With scripted `source_lookup` and read votes, one persisted
+related-page read event matched that title and exact toll-bearing text, and the
+probe observed four materialization attempts. The owning test passed (1 test).
+The worker and derived source are retained under `http-owner` and
+`http-owner/session/case-5` respectively. This is a required-source path
+witness, not a model decision or an answer-quality judgment: the controller
+and writer are scripted, Core is in memory, and the source is the predecessor
+SHA. A separately bound ordinary fixture and independent semantic assessment
+are still required for the positive benchmark rate.
