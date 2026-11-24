@@ -7,6 +7,10 @@ assessment local.
 
 ## Action catalog
 
+This is Buddy’s canonical action inventory. Follow the
+[maintenance rule](../AGENTS.md#agent-action-catalog) when action availability,
+workflow behavior, or verification evidence changes.
+
 An **ordinary turn** uses Buddy’s product intent and provider routes in an
 isolated or hosted setting. Record which setting and turn were observed.
 **Component evidence** covers isolated owners, scripted rehearsals, or
