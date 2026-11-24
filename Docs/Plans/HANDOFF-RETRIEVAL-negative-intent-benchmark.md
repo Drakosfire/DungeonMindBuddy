@@ -243,3 +243,15 @@ and final benchmark dispatch were stubbed, and the prior turn used synthetic
 providers. This verifies the real history endpoint's shape and wrapper
 handoff only; it is not a frozen independent case, full capture or current-head
 qualification.
+
+Case 8 used the existing conversation owner and its test submission helpers to
+create a fresh synthetic World in the same App clone, accept and complete the
+exact frozen `dev-placement` dialogue without contacting a provider, and read
+the same user/assistant pair through `list_build_dialogue` (1 test passed).
+The development fixture bytes were pinned by SHA-256
+`ee990d0006d07913a0c17e3973fe2987158925134bbf2df7b0cb981b7889c9bf`;
+the worker and derived test are retained under `http-owner` and
+`session/case-8`. This was a seeding proof using the existing test's Plan
+provenance, not a complete Build case: page provisioning, a reusable guarded
+seeder, the ordinary HTTP capture and the post-capture binding remain open.
+The runtime source is the predecessor SHA, not the current benchmark head.
