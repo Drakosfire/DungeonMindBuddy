@@ -30,6 +30,33 @@ stage supplies evidence only for that stage.
 | Prepare map, reference objects, and scene-aware NPC art | The Conks prototype provides design evidence for linked map markers and scene references. Saved variant portrait binding has separate product evidence. | Excerpt or generate a map with navigable location nodes, support editable Items and rollable Tables, and surface art automatically for an NPC identity in the current scene. |
 | Run a prepared scene, load Combat, record notes, and carry forward played history | Isolated controls exercised loaded Guardian mechanics, a combat round, a resource change, scene notes, and cited Event readback. | Prove the joined flow with PCs and saved mechanics, a departure from the Plan, reviewed recap publication, and a cited fresh follow-up. |
 
+### Additional shipped action and operator boundaries
+
+This audit compared the mounted server route inventory, Build and Plan work
+choices, merged handoffs, and retained reports against the existing PA/AW
+cases. Product owner actions include explicit buttons and confirmations.
+Their availability does not establish that the model can select or execute
+them on an ordinary conversational turn.
+
+| Capability | Verified boundary | Decision checkpoint to qualify |
+| --- | --- | --- |
+| Look up public Rules and cite them with World evidence | Native Plan Rules tool accepted on local Buddy. Rules authority and World evidence have separate owners. [Plan Rules evidence](../Docs/Plans/HANDOFF-RULES-native-plan-host.md) | Use Rules for a mechanics question, World sources for campaign history, and both when requested. Verify citation ownership and no Rules call for a lore-only control. |
+| Create a connected page from a saved origin | Saved-origin review owner, UI and readback were delivered. [Connected-page evidence](../Docs/Plans/HANDOFF-PLAN-connected-page-review.md) | Contrast standalone page, connected Location page, and current-page edit. Verify destination, exact origin link, confirmation and independent reopen. |
+| Review and publish relationships or manual World knowledge | Build's relationship review and native confirmation, hosted owner publication, and exact Worldbuilding support review have shipped. [Relationship confirmation](https://github.com/Drakosfire/DungeonMindBuddy/pull/3322) · [Exact support review](https://github.com/Drakosfire/DungeonMindBuddy/pull/4614) | Contrast suggesting a relationship, reviewing an exact edge, and explicitly confirming the publication. Missing support or ambiguous endpoints must hold the mutation. |
+| Review and continue a multi-step work plan | The ordinary continuation rehearsal saved edited selected and deferred steps, reloaded them, and ran only the explicitly continued discussion step. [Continuation evidence](../Docs/Plans/HANDOFF-MIND-work-plan-continuation-copy.md) | Select one step while leaving another deferred, interrupt after acceptance, and recover without starting the deferred step or repeating a durable action. |
+| Add Choices and Options to a Plan | Ordinary Conks authoring, Save and reload preserved the surrounding saved content. The later Start Session control was blocked in that rehearsal. [Choice evidence](../Docs/Plans/HANDOFF-PLAN-choice-body-boundary.md) | Use an option for a branching outcome and prose for ordinary scene detail. Confirm that pre-existing prose stays in its original scene. |
+| Review an edit to the current Play session copy | Rendered acceptance delivered reviewed session-scene proposals on ordinary local Buddy. [Play edit evidence](../Docs/Plans/HANDOFF-PLAY-session-edit-proposals.md) | Contrast discussion, a requested session-local edit, and a request to revise long-term Plan prep. Bind the edit to the active Run and scene and preserve the original Plan. |
+| Open a prepared table and record a roll | A source-to-Plan-to-Run rehearsal recorded an explicitly entered value and preserved the same outcome, Scene and note after reload and restart. [Recorded roll evidence](../Docs/Plans/HANDOFF-PLAY-prepared-table-implementation.md) | Opening or discussing the table has no roll effect. An explicit recorded value resolves once against the active table, even on retry. Editable source-backed Graph tables remain a separate requested capability. |
+| Prepare and preview a saved encounter, start Combat, and persist state | Saved encounter preparation and Plan preview are shipped. Old Bath House qualified exact mechanics and portrait handoff, a parley path that left Combat unstarted, explicit Combat start, and durable HP edits. [Preparation](https://github.com/Drakosfire/DungeonMindBuddy/pull/4316) · [Old Bath House evidence](../Docs/Benchmarks/BASELINE-old-bath-house.md) | Distinguish encounter prose, preparing an exact roster, previewing it, and starting Combat. Carry exact saved revisions and protect the prepared encounter from changes to the running copy. |
+| Recover a saved request or lost acknowledgement | Build has recovery for a lost page commit response. Worldbuilding has timed-out extraction recovery. [Page recovery](https://github.com/Drakosfire/DungeonMindBuddy/pull/4407) · [Worldbuilding recovery](https://github.com/Drakosfire/DungeonMindBuddy/pull/4548) | Distinguish an unsent draft, unknown outcome, and a committed action whose acknowledgement was lost. Use the existing receipt before offering to run a mutation again. |
+
+The Build decision contract recognizes direct mechanics changes, encounter
+construction, map-coordinate placement, page Save, and relationship
+publication while listing those work choices as unavailable for direct
+dispatch. Use this as a negative benchmark surface. A relevant suggestion
+or operator handoff can be appropriate. A reported direct execution requires
+evidence from the owning operator path. [Build decision contract](../src/application_state/agent_conversation/build_intentional_response.py)
+
 The [adventure-to-follow-up benchmark](adventure-to-follow-up-benchmark.md)
 owns the Conks and Sheep journey acceptance and its evidence. The original AW
 and PA cases below retain their fixture and execution requirements.
@@ -71,6 +98,8 @@ mutations, receipts, and reopen results. Score independently:
    fixture without proving the blocked mutation.
 4. **Efficiency** — report new reads, repeated opens, provider calls, tokens,
    time, and operator interventions when observed. Record unknown values.
+
+Use the decision checkpoints in the additional capability table as a second cohort after the retained PA/AW controls. Pin and qualify each fixture before use.
 
 A workflow passes when every required checkpoint passes choice, safety, and
 fulfillment. Report checkpoint totals and the first failing step. Use the
