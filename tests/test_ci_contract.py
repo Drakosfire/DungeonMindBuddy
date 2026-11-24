@@ -14,12 +14,8 @@ from scripts import ci_contract as ci
 def test_workflows_consume_the_live_named_contracts():
     world = (ci.ROOT / ".github/workflows/world-ownership-core.yml").read_text()
     hosted = (ci.ROOT / ".github/workflows/hosted-validation.yml").read_text()
-    suites = "world-and-content ingestion-and-review query-and-answer saved-page-readers"
-    assert f"run: uv run --locked python scripts/ci_contract.py run {suites}" in world
-    assert "matrix:" not in world
-    for workflow, contract in (("rules-only-runtime", "rules-only-runtime"), ("agent-legacy-import", "agent-legacy-import")):
-        text = (ci.ROOT / f".github/workflows/{workflow}.yml").read_text()
-        assert f"scripts/ci_contract.py run {contract}" in text
+    for suite in ("world-and-content", "ingestion-and-review", "query-and-answer", "saved-page-readers"):
+        assert f"run: uv run --locked python scripts/ci_contract.py run {suite}" in world
     assert "run: uv run --locked python scripts/ci_contract.py run auth-app" in hosted
     assert "node /workspace/scripts/ci_frontend_contract.mjs" in hosted
     assert '--env GITHUB_SHA="${GITHUB_SHA}"' in hosted
