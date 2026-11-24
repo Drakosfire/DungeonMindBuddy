@@ -160,7 +160,7 @@ class BuildReplyProjection:
         if self._string == "key":
             self._key.append(value)
         if self._string == "answer":
-            prefix = "\n\n" if self._new_segment and self._has_text else ""
+            prefix = "\n" if self._new_segment and self._has_text else ""
             self._new_segment = False
             self._has_text = True
             return end, prefix + value

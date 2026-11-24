@@ -21,7 +21,7 @@ def test_incremental_prose_is_limited_to_exact_answer_string_paths(chunk_size):
         update for start in range(0, len(payload), chunk_size)
         if (update := projection.feed(payload[start:start + chunk_size])) is not None
     ]
-    answer = text + "\n\nThe end."
+    answer = text + "\nThe end."
     assert len(updates) >= 2
     assert "".join(updates) == answer
     assert not projection.invalid
