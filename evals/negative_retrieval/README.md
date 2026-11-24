@@ -79,7 +79,12 @@ owned database procedure. Optional evaluator-side fixtures are checked against
 the exact related-page catalog and saved bodies before and after each turn;
 those preflight reads occur outside the product-turn probe and are never sent
 as grading instructions. A mismatch stops dispatch or invalidates the run. The
-wrapper refuses per-capture App cloning and selects the existing pinned cohort
+first case may reuse an already seeded synthetic active conversation if its
+complete saved dialogue matches the fixture. The ordinary runner checks that
+the active conversation has not changed; retained-history binding checks the
+actual prior dialogue after capture. The wrapper does not seed the conversation,
+and concurrent history changes must invalidate the binding. The wrapper refuses
+per-capture App cloning and selects the existing pinned cohort
 path, which enforces a dedicated read-only Core login and avoids full Core
 inventory scans. The executor must provide its already owned workstream App
 clone and prove ownership, capacity, reset and teardown separately. The wrapper

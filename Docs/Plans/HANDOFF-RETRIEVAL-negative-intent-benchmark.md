@@ -213,3 +213,13 @@ different pages and dialogue histories; a single such sequence cannot bind
 them as independent cases. Provision and verify a separate case fixture and
 capture for each, then aggregate the independently bound reports. Do not
 combine their scores merely because their requests ran in one conversation.
+
+The evaluator wrapper can now reuse a preseeded active conversation for the
+first case only after checking its complete dialogue against the fixture. The
+ordinary runner checks the active conversation again, and the offline binding
+still checks retained prior history. A focused diagnostic run passed 32 tests,
+including acceptance of an exact prefix and refusal of a mismatch before
+dispatch. This does not provision the synthetic histories, prevent concurrent
+turns, or substitute for an owning-boundary run; a changed retained prefix must
+invalidate the result. The focused run used the existing shared Python
+environment and is not exact-source qualification.

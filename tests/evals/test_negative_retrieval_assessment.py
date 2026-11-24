@@ -454,6 +454,46 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
     assert json.loads((tmp_path / "failure" / "fixture-sources.json").read_text())["status"] == "preflight_failed"
 
 
+def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch):
+    import pytest
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+
+    case = {"id": "seeded", "question": "Use that idea."}
+    fixture = {"request": case["question"], "history": [
+        {"role": "user", "content": "An idea?"}, {"role": "assistant", "content": "A star."}],
+        "related_pages": []}
+    history = {"world_id": "w", "conversation_id": "c", "active_conversation_id": "c",
+               "next_before_sequence": None, "turns": [{"turn_id": "t", "sequence": 1,
+               "lifecycle_status": "completed", "user_text": "An idea?", "assistant_text": "A star."}]}
+    class Response:
+        status_code = 200
+        def json(self):
+            return history
+    class Client:
+        def get(self, route):
+            assert route == "/api/live/agent/worlds/w/conversation"
+            return Response()
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: (
+        {"conversation_mode": "build_sequence", "cases": [case]}, tmp_path))
+    monkeypatch.setattr(module, "verify_preflight_snapshot", lambda *a: True)
+    monkeypatch.setattr(module, "inspect_related_pages", lambda *a: [])
+    dispatched = []
+    def ordinary_case(client, world, template, current, directory, **kwargs):
+        dispatched.append(kwargs["expected_conversation_id"])
+        return "done"
+    monkeypatch.setattr(workflow, "capture_case", ordinary_case)
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs: workflow.capture_case(
+        Client(), "w", {"primary_work": {"object_id": "page"}}, case, output,
+        expected_conversation_id=None))
+    assert module.capture(_test_manifest(tmp_path), tmp_path / "ok", fixtures={"seeded": fixture}) == "done"
+    assert dispatched == ["c"]
+    history["turns"][0]["assistant_text"] = "Different."
+    with pytest.raises(ValueError, match="differs"):
+        module.capture(_test_manifest(tmp_path), tmp_path / "bad", fixtures={"seeded": fixture})
+    assert dispatched == ["c"]
+
+
 def test_fixture_source_record_rejects_world_and_content_mismatches():
     import copy
     import hashlib

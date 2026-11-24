@@ -54,14 +54,17 @@ def capture(manifest, output, *, clone_app=False, fixtures=None):
                 try:
                     verify_preflight_snapshot(fixture, template, world, kwargs.get("build_editor_snapshot"))
                     conversation = kwargs.get("expected_conversation_id")
-                    if conversation is None:
-                        if fixture["history"]:
-                            raise ValueError("A fresh conversation cannot contain a prior fixture prefix")
-                    else:
+                    if conversation is not None or fixture["history"]:
                         response = client.get("/api/live/agent/worlds/" + world + "/conversation")
                         if response.status_code != 200:
                             raise ValueError("Preflight history read failed")
-                        verify_preflight_history(fixture, response.json(), world, conversation)
+                        history = response.json()
+                        if conversation is None:
+                            conversation = history.get("active_conversation_id")
+                            if not isinstance(conversation, str) or not conversation:
+                                raise ValueError("A seeded fixture requires an active conversation")
+                            kwargs["expected_conversation_id"] = conversation
+                        verify_preflight_history(fixture, history, world, conversation)
                     before = inspect_related_pages(preflight_request, fixture)
                 except Exception as exc:
                     immutable_save(Path(directory), "fixture-sources", {
