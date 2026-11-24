@@ -324,6 +324,26 @@ def test_offline_report_keeps_missing_and_positive_retrieval_evidence_honest(tmp
         raise AssertionError("unbound probe accepted")
 
 
+def test_fixture_pin_binds_case_and_caller_supplied_set_digest():
+    import copy
+    import pytest
+    from evals.negative_retrieval.capture import fixture_sha256
+    from evals.negative_retrieval.report import verify_fixture_pin
+
+    fixture = {"id": "case1", "request": "Use that.", "page": "# Page", "history": [], "related_pages": []}
+    fixtures = {"case1": fixture}
+    pin = fixture_sha256(fixtures)
+    record = {"schema": "dmb_negative_retrieval_fixture_pin_v1", "case_id": "case1",
+              "fixture_set_sha256": pin, "case_sha256": fixture_sha256(fixtures)}
+    assert verify_fixture_pin(fixture, record, pin)
+    changed = copy.deepcopy(fixture)
+    changed["page"] = "# Changed"
+    for case, proof, expected in ((changed, record, pin), (fixture, record, None),
+                                  (fixture, record, "0" * 64), (fixture, {**record, "case_id": "other"}, pin)):
+        with pytest.raises(ValueError, match="Fixture pin"):
+            verify_fixture_pin(case, proof, expected)
+
+
 def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(tmp_path):
     import hashlib
     import json
@@ -502,18 +522,23 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
         return workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output)
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     out = tmp_path / "success"
-    assert module.capture(_test_manifest(tmp_path), out, fixtures={"case1": fixture}, expected_manifest_sha256=MANIFEST_PIN) == "done"
+    fixture_set = {"case1": fixture}
+    fixture_pin = module.fixture_sha256(fixture_set)
+    assert module.capture(_test_manifest(tmp_path), out, fixtures=fixture_set, expected_manifest_sha256=MANIFEST_PIN,
+                          expected_fixture_sha256=fixture_pin) == "done"
     assert seen == ["fixture", "turn", "fixture"]
     probe = json.loads((out / "related-page-probe.json").read_text())
     assert probe["records"] == [{"owner": "related_catalog_discovery", "state": "returned"}]
     sources = json.loads((out / "fixture-sources.json").read_text())
     assert sources["status"] == "stable"
+    assert json.loads((out / "fixture-pin.json").read_text())["fixture_set_sha256"] == fixture_pin
     seen.clear()
     def mismatch(*args):
         raise ValueError("wrong synthetic sources")
     monkeypatch.setattr(module, "inspect_related_pages", mismatch)
     with pytest.raises(ValueError, match="wrong synthetic sources"):
-        module.capture(_test_manifest(tmp_path), tmp_path / "failure", fixtures={"case1": fixture}, expected_manifest_sha256=MANIFEST_PIN)
+        module.capture(_test_manifest(tmp_path), tmp_path / "failure", fixtures=fixture_set,
+                       expected_manifest_sha256=MANIFEST_PIN, expected_fixture_sha256=fixture_pin)
     assert seen == []
     assert json.loads((tmp_path / "failure" / "fixture-sources.json").read_text())["status"] == "preflight_failed"
 
@@ -551,11 +576,15 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch):
     monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs: workflow.capture_case(
         Client(), "w", {"primary_work": {"object_id": "page"}}, case, output,
         expected_conversation_id=None))
-    assert module.capture(_test_manifest(tmp_path), tmp_path / "ok", fixtures={"seeded": fixture}, expected_manifest_sha256=MANIFEST_PIN) == "done"
+    fixture_set = {"seeded": fixture}
+    fixture_pin = module.fixture_sha256(fixture_set)
+    assert module.capture(_test_manifest(tmp_path), tmp_path / "ok", fixtures=fixture_set,
+                          expected_manifest_sha256=MANIFEST_PIN, expected_fixture_sha256=fixture_pin) == "done"
     assert dispatched == ["c"]
     history["turns"][0]["assistant_text"] = "Different."
     with pytest.raises(ValueError, match="differs"):
-        module.capture(_test_manifest(tmp_path), tmp_path / "bad", fixtures={"seeded": fixture}, expected_manifest_sha256=MANIFEST_PIN)
+        module.capture(_test_manifest(tmp_path), tmp_path / "bad", fixtures=fixture_set,
+                       expected_manifest_sha256=MANIFEST_PIN, expected_fixture_sha256=fixture_pin)
     assert dispatched == ["c"]
     history["turns"][0]["assistant_text"] = "A star."
     calls = []
@@ -566,7 +595,8 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch):
         return Response()
     monkeypatch.setattr(Client, "get", changed_get)
     with pytest.raises(ValueError, match="differs"):
-        module.capture(_test_manifest(tmp_path), tmp_path / "race", fixtures={"seeded": fixture}, expected_manifest_sha256=MANIFEST_PIN)
+        module.capture(_test_manifest(tmp_path), tmp_path / "race", fixtures=fixture_set,
+                       expected_manifest_sha256=MANIFEST_PIN, expected_fixture_sha256=fixture_pin)
     assert len(calls) == 2 and dispatched == ["c"]
 
 
@@ -614,7 +644,9 @@ def test_postflight_failure_is_retained_and_stops_capture(tmp_path, monkeypatch)
     monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kw:
                         workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output))
     with pytest.raises(ValueError, match="source changed"):
-        module.capture(_test_manifest(tmp_path), tmp_path / "case", fixtures={"case1": fixture}, expected_manifest_sha256=MANIFEST_PIN)
+        module.capture(_test_manifest(tmp_path), tmp_path / "case", fixtures={"case1": fixture},
+                       expected_manifest_sha256=MANIFEST_PIN,
+                       expected_fixture_sha256=module.fixture_sha256({"case1": fixture}))
     evidence = json.loads((tmp_path / "case" / "fixture-sources.json").read_text())
     assert evidence["status"] == "postflight_failed" and evidence["before"] == []
 
@@ -663,6 +695,26 @@ def test_capture_requires_independently_pinned_manifest_before_dispatch(tmp_path
     for digest in (None, "0" * 64, "A" * 64):
         with pytest.raises(ValueError, match="manifest|Manifest"):
             capture(manifest, tmp_path / "out", expected_manifest_sha256=digest)
+    assert not (tmp_path / "out").exists()
+
+
+def test_capture_rejects_changed_or_unpinned_fixture_before_dispatch(tmp_path, monkeypatch):
+    import pytest
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+
+    manifest = _test_manifest(tmp_path)
+    fixtures = {"case": {"request": "Use that.", "history": [], "page": "# Page", "related_pages": []}}
+    pin = module.fixture_sha256(fixtures)
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: pytest.fail("fixture reached runner"))
+    for supplied_pin in (None, "0" * 64):
+        with pytest.raises(ValueError, match="Fixture set"):
+            module.capture(manifest, tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN,
+                           fixtures=fixtures, expected_fixture_sha256=supplied_pin)
+    fixtures["case"]["page"] = "# Changed"
+    with pytest.raises(ValueError, match="Fixture set"):
+        module.capture(manifest, tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN,
+                       fixtures=fixtures, expected_fixture_sha256=pin)
     assert not (tmp_path / "out").exists()
 
 

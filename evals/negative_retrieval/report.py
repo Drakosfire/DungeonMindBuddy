@@ -8,12 +8,27 @@ from .capture_observation import _body, observe
 from .related_page_probe import acquisition_labels, catalog_discovery_count
 
 
-def report_case(directory, fixture, rubric):
+def verify_fixture_pin(fixture, record, expected_fixture_sha256):
+    """Check the retained case pin against an independently supplied set pin."""
+    from .capture import fixture_sha256
+
+    if (not isinstance(expected_fixture_sha256, str) or len(expected_fixture_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in expected_fixture_sha256)
+            or not isinstance(record, dict)
+            or record.get("schema") != "dmb_negative_retrieval_fixture_pin_v1"
+            or record.get("case_id") != fixture.get("id")
+            or record.get("fixture_set_sha256") != expected_fixture_sha256
+            or record.get("case_sha256") != fixture_sha256({fixture["id"]: fixture})):
+        raise ValueError("Fixture pin does not bind this case to the frozen set")
+    return True
+
+
+def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None):
     """Report only what the bound capture proves; never infer semantic grades."""
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
     paths = {name: directory / (name + ".json") for name in names}
-    for name in ("history-before", "fresh-history", "fixture-sources"):
+    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin"):
         paths[name] = directory / (name + ".json")
     present = {name: path for name, path in paths.items() if path.is_file()}
     hashes = {name: sha256(path.read_bytes()).hexdigest() for name, path in present.items()}
@@ -33,6 +48,13 @@ def report_case(directory, fixture, rubric):
     binding_error = None
     related_labels = {}
     label_by_document = {}
+    pin_bound = None
+    if "fixture-pin" in rows:
+        try:
+            verify_fixture_pin(fixture, rows["fixture-pin"], expected_fixture_sha256)
+            pin_bound = True
+        except (ValueError, KeyError, TypeError) as exc:
+            binding_error = type(exc).__name__
     if "fixture-sources" in rows:
         try:
             verify_related_record(rows["request"], fixture, rows["fixture-sources"])
@@ -61,10 +83,11 @@ def report_case(directory, fixture, rubric):
             break
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
-    fixture_bound = True if primary_bound and related_bound else None
+    fixture_bound = True if primary_bound and related_bound and pin_bound else None
     return {**grade, "schema": REPORT_SCHEMA, "case_id": fixture["id"], "status": "unproven",
             "observation_status": grade["status"], "primary_context_verified": primary_bound,
             "related_context_verified": related_bound, "fixture_context_verified": fixture_bound,
+            "fixture_pin_verified": pin_bound,
             "capture_environment_verified": None,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,

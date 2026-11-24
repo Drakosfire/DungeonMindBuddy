@@ -9,6 +9,7 @@ from hashlib import sha256
 from threading import Lock
 from types import SimpleNamespace
 from unittest.mock import patch
+import json
 import sys
 
 from evals.buddy_benchmark.artifacts import immutable_save
@@ -21,7 +22,23 @@ from .related_page_probe import observe_related_page_owners
 _lock = Lock()
 
 
-def capture(manifest, output, *, expected_manifest_sha256=None, clone_app=False, fixtures=None):
+def _fixture_bytes(fixtures):
+    if not isinstance(fixtures, dict):
+        raise ValueError("Fixture set must be an object")
+    try:
+        return json.dumps(fixtures, sort_keys=True, separators=(",", ":"),
+                          ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Fixture set must be canonical JSON") from exc
+
+
+def fixture_sha256(fixtures):
+    """Hash a canonical evaluator-only fixture set, never a model input."""
+    return sha256(_fixture_bytes(fixtures)).hexdigest()
+
+
+def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture_sha256=None,
+            clone_app=False, fixtures=None):
     """Delegate ordinary capture with partial per-turn observation.
 
     Optional fixtures are evaluator-side only and never enter a product request.
@@ -32,6 +49,16 @@ def capture(manifest, output, *, expected_manifest_sha256=None, clone_app=False,
     if (not isinstance(expected_manifest_sha256, str) or len(expected_manifest_sha256) != 64
             or any(c not in "0123456789abcdef" for c in expected_manifest_sha256)):
         raise ValueError("A frozen manifest SHA-256 is required")
+    if fixtures is not None:
+        frozen_fixtures = _fixture_bytes(fixtures)
+        if (not isinstance(expected_fixture_sha256, str) or len(expected_fixture_sha256) != 64
+                or any(c not in "0123456789abcdef" for c in expected_fixture_sha256)
+                or sha256(frozen_fixtures).hexdigest() != expected_fixture_sha256):
+            raise ValueError("Fixture set differs from its frozen SHA-256")
+        # A caller cannot mutate nested fixture data after it has been pinned.
+        fixtures = json.loads(frozen_fixtures)
+    elif expected_fixture_sha256 is not None:
+        raise ValueError("Fixture pin requires a fixture set")
     if not _lock.acquire(blocking=False):
         raise RuntimeError("Negative-retrieval capture must be serial")
     try:
@@ -111,6 +138,11 @@ def capture(manifest, output, *, expected_manifest_sha256=None, clone_app=False,
                         "coverage": "partial", "case_id": case["id"], "records": records,
                     })
                     if fixture is not None:
+                        immutable_save(Path(directory), "fixture-pin", {
+                            "schema": "dmb_negative_retrieval_fixture_pin_v1", "case_id": case["id"],
+                            "fixture_set_sha256": expected_fixture_sha256,
+                            "case_sha256": fixture_sha256({case["id"]: fixture}),
+                        })
                         try:
                             after = inspect_related_pages(preflight_request, fixture)
                         except Exception as exc:

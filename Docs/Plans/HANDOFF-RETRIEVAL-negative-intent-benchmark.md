@@ -465,3 +465,11 @@ later change but did not bind capture to an independently frozen manifest.
 The focused diagnostic suite passed 38 tests in the shared environment. The
 digest alone does not establish independent case authorship, fixture
 provenance, a synthetic Core binding or exact-head qualification.
+
+Capture now also requires a separately frozen canonical fixture-set digest when
+fixtures are supplied, snapshots the checked JSON inputs, and retains the set
+and case digests host-side. Offline reporting verifies the case pin against a
+caller-supplied set digest before marking fixture context verified. Missing or
+mismatched pins remain unproven. This does not authenticate the pin's author or
+prove independent held-out authorship. The focused suite passed 40 tests in the
+shared environment; no live capture or exact-source qualification is implied.

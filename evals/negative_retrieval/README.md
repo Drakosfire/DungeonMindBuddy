@@ -91,6 +91,9 @@ owned database procedure. The caller must pass the independently frozen
 dispatch. This pin does not by itself establish independent authorship or
 fixture provenance. Optional evaluator-side fixtures are checked against
 the exact related-page catalog and saved bodies before and after each turn;
+when supplied, the caller must also pass `expected_fixture_sha256`, computed
+from the frozen mapping with `fixture_sha256`. Capture snapshots the canonical
+JSON inputs and retains the set and case digests outside model-visible input.
 those preflight reads occur outside the product-turn probe and are never sent
 as grading instructions. Catalog pointers must belong to the requested World,
 be distinct from the primary page and each other, and have valid revisions
@@ -131,7 +134,9 @@ capture; do not write to the shared read-only Core to supply one.
 
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
-the private rubric without calling a model. Missing files are unproven. This
+the private rubric without calling a model. Supply the independently frozen
+fixture-set digest as `expected_fixture_sha256`; a missing or mismatched retained
+case pin leaves fixture context unverified. Missing files are unproven. This
 initial report intentionally has no authority to promote manual judgments or a
 partial journal to complete. It records observed zero-budget violations and
 separately reports whether the saved primary context and related-source fixture
