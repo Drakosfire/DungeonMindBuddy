@@ -123,9 +123,9 @@ def test_legacy_admission_does_not_change_historical_dialogue_codec():
 from tests.test_native_plan_assertions import lane as lane
 
 
-@pytest.mark.parametrize('turn_count,discussion', [(8, False), (60, False), (8, True)])
+@pytest.mark.parametrize('turn_count,discussion,legacy', [(8, False, False), (60, False, False), (8, True, False), (8, False, True)])
 def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_editor_or_new_search(
-        lane, tmp_path, monkeypatch, turn_count, discussion):
+        lane, tmp_path, monkeypatch, turn_count, discussion, legacy):
     from tests.test_surface_native_build_ordinary import _fresh_case
     from application_state.agent_conversation.native_corpus import acquired_body_reads
     from application_state.agent_conversation.service import AgentConversationService
@@ -137,7 +137,8 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, True, False,
         native_body='irrelevant',
         requested_work=lambda message: ('discuss' if discussion else 'review_lore_page_from_conversation') if message == synthesis else 'discuss',
-        source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup')
+        source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup',
+        lore_legacy_menu=legacy)
     original = case.turn
     # The initial explicit source selection supplied the early read. Follow-ups
     # request reuse, not another author-selected source acquisition.
@@ -212,20 +213,29 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
             original_init(writer, *args, **kwargs)
             writers.append(writer)
         monkeypatch.setattr(PlanJevWriter, '__init__', track_writer)
+    policy_mutations = (['omit_citation_policy', 'change_citation_policy'] if legacy
+        else ['inject_citation_policy', 'change_citation_policy'] if discussion
+        else ['omit_page_destination', 'inject_citation_policy'])
     tampered = []
     def checked_authorize(owner, world, conversation, turn_id, **values):
         from apps.live_control_server.services.agent_turn_service import _json_node_count
         prior = owner.inspect_turn(world_id=world, turn_id=turn_id)
         if retained.admission(prior.graph_context_execution) is not None:
-            mutations = ['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role', 'omit_citation_policy', 'change_citation_policy']
+            mutations = ['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role'] + policy_mutations
             if discussion:
                 mutations.append('discussion_only_format')
             for mutation in mutations:
                 request = json.loads(values['prepared_request_json'])
-                if mutation in {'omit_citation_policy', 'change_citation_policy'}:
+                if mutation in {'omit_citation_policy', 'change_citation_policy', 'omit_page_destination', 'inject_citation_policy'}:
                     frame = json.loads(request['input'][0]['content'])
                     if mutation == 'omit_citation_policy':
                         del frame['build_work']['citation_policy']
+                    elif mutation == 'omit_page_destination':
+                        assert 'citation_policy' not in frame['build_work']
+                        del frame['build_work']['lore_page_destination']
+                    elif mutation == 'inject_citation_policy':
+                        assert 'citation_policy' not in frame['build_work']
+                        frame['build_work']['citation_policy'] = 'supplied_source_references_v1'
                     else:
                         frame['build_work']['citation_policy'] = 'unverified_sources'
                     request['input'][0]['content'] = json.dumps(frame)
@@ -300,7 +310,8 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         with pytest.raises(ValueError, match='unique producing Build work decision'):
             type(turn.graph_context_execution).model_validate(raw)
     assert len(fenced) == 2
-    assert tampered == (['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role', 'omit_citation_policy', 'change_citation_policy']
+    assert tampered == (['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role']
+                        + policy_mutations
                         + (['discussion_only_format'] if discussion else []))
     assert len(value.history) == turn_count
     assert value.history[0].turn_id == original.turn_id
@@ -313,6 +324,8 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     assert len(case.writer.calls) == before + 1
     request = json.loads(case.writer.calls[-1].content)
     assert request['reasoning']['effort'] == ('low' if discussion else 'none')
+    if not discussion:
+        assert request['text']['format']['name'] == ('surface_native_lore_request_reference_v2' if legacy else 'lore_page_response')
     assert request['input'][-1] == retained.current_request_message(turn.graph_context_execution)
     if discussion:
         assert request['text']['format']['name'] != 'surface_native_evidence_selectors_v7'

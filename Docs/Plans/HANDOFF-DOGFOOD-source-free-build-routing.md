@@ -7,9 +7,13 @@ this pinned ownership/dependency reconciliation and runtime review. DOGFOOD owns
 the routing correction; RETRIEVAL4584 owns its independent negative benchmark.
 
 Predecessor PR4612 merged at f2645348438b7322d41062e1cc5e213aa45ad36f;
-reviewed sourceb149d20e2ae7ca5c8cde5bea7e3a9dc292040952 is actually deployed
+reviewed sourceb149d20e2ae7ca5c8cde5bea7e3a9dc292040952 was deployed
 as image38915cd91295dd0bd562693db5d807bdec2bc488cbd6cec5adfe066ba6f675d5,
 healthy APP0209, with signed-in page save/reopen and historical citation acceptance.
+Production subsequently advanced to healthy386bdf657c6e0874c170a10693b44fd62383b49b,
+image520719178a71ce00eb716c7ee05468e304f8fafe3afa7cefe7c262b05a13a3b1;
+writer and migration paths remain unchanged. Latest serving83c968186 is preserved
+in the ordinary-reply successor. These observations are not its activation proof.
 That prerequisite is satisfied. Ordinary Build reply metadata cleanup is now the
 serial predecessor HANDOFF-DOGFOOD-build-reply-contract.md. This routing successor
 remains BLOCKED as a design/write-lease contract: cover the entire Send path,

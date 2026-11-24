@@ -2,7 +2,9 @@
 
 ACTIVE bounded assignment. Alan authorized completing writer/context cleanup,
 reviewed merges and deployment. DOGFOOD owns this serial successor to merged
-PR4612, base f2645348438b7322d41062e1cc5e213aa45ad36f on the serving branch,
+PR4612, now based on serving83c968186 after preserving the deployed386bdf657
+Recap recovery and empty-graph guidance changes (ten disjoint files). Original
+base was f2645348438b7322d41062e1cc5e213aa45ad36f on the serving branch,
 in dogfood-build-reply-contract/DungeonMindBuddy, branch
 codex/dogfood-build-reply-contract. No implementation prerequisite remains.
 
@@ -19,7 +21,8 @@ plan_writer_output_schema.py, native_writer.py, native_completion.py and
 rules_authority_plan_packet.py under src/application_state/agent_conversation;
 apps/live_control_server/services/plan_jev_writer.py (ordinary Build branches only);
 the APP0210 reader-fence migration; tests/test_native_build_work_view.py and
-tests/test_surface_native_build_ordinary.py; truthful predecessor settlement in
+tests/test_surface_native_build_ordinary.py and tests/test_build_retained_conversation.py;
+truthful predecessor settlement in
 HANDOFF-DOGFOOD-lore-serving-208.md and
 HANDOFF-DOGFOOD-source-free-build-routing.md. The recovery handoff exists only on
 the frozen recovery branch and is not copied into serving. PR3729 owns intentional-response
@@ -51,8 +54,31 @@ the serving branch's per-case clone fixtures. Close all workers/connections befo
 exact-clone teardown after acceptance/abandonment. Evidence stays beneath
 Projects/.codex/buddy-check.retained-80c.MPEaXT. No runtime ports are allocated.
 
-Predecessor is actually deployed: image38915cd91295, sourceb149d20e2ae7,
-APP0209, healthy; signed-in Memory Ferry page creation/save/reopen passed in
+Predecessor deployment: image38915cd91295, sourceb149d20e2ae7,
+APP0209; signed-in Memory Ferry page creation/save/reopen passed in
 8.927 seconds of backend reply latency, workpad unchanged, no native acquisition,
 and Maelthor historical citations reopened. Full legacy frontend diagnostic remains
 RED. Those bounded observations do not complete the remaining cleanup/routing goal.
+
+Qualification checkpoint71e:115 offline checks passed without SQL/network;
+case56 completed80 HTTP/SDK cases and failed three retained-conversation cases
+because their helper unconditionally deleted citation_policy. The serving helper
+also lacked current populated-lore coverage already corrected on the recovery
+artifact. DOGFOOD extends the required-test lease above to adopt current/frozen
+lore cases, preserve serving's none reasoning setting, and test injected policy
+tags for current semantic discussion. Three sparse variant unit stubs also need
+the explicit false presentation flags. No runtime scope expansion. Full modified
+unit diagnostics outside the sandbox produced38 passes/three stale-stub failures;
+the earlier sandbox run stalled and is not passing evidence.
+
+Production advanced independently to healthy386bdf657c6e0874c170a10693b44fd62383b49b,
+image520719178a71ce00eb716c7ee05468e304f8fafe3afa7cefe7c262b05a13a3b1.
+Its writer and migration paths are unchanged from the prior release. Latest
+serving83c968186 is integrated; re-anchor again before review/activation. Historical
+trace evidence was read without production writes: original source0 resolves to
+the exact supplied Maelthor page, and all three regenerated quotes fail literal
+matching while the rejected claim is independently supported. The private
+original-binding-receipt.json and source fixture stay in evidence-build-reply-71e;
+no trace identities or hashes belong in model input. An external ordinary HTTP
+replay must check the same claim under a newly assigned alias and exact citation
+reopening. Its obsolete-field negative is not the original quote-validation path.

@@ -232,7 +232,7 @@ def test_variant_field_must_match_the_producing_writer_format(variant_format, of
     from application_state.agent_conversation.native_completion import normalize_candidate
 
     execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(surface_id="play")))
-    evidence = SimpleNamespace(generic_limitations=False, variant_format=variant_format, frame={"answer_policy": "fixture"})
+    evidence = SimpleNamespace(lore_outcome=False, semantic_reply=False, generic_limitations=False, variant_format=variant_format, frame={"answer_policy": "fixture"})
     candidate = {
         "schema": "fixture", "answer_segments": [], "limitations": [], "requested_detail_gaps": [],
     }
@@ -299,6 +299,7 @@ def test_variant_format_with_visible_reply_rejects_empty_segments_at_completion(
     monkeypatch.setattr(build_intentional_response, "native_review_enabled", lambda _: True)
     execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(surface_id="build")))
     evidence = SimpleNamespace(
+        lore_outcome=False, semantic_reply=False,
         generic_limitations=False, variant_format=True, variant_visible_reply=True, frame={"answer_policy": "fixture"},
         work_frame={},
     )
