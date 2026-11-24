@@ -215,7 +215,14 @@ function ProposalFixture() {
 function NewerPendingFixture() {
   const state = useWorldAgentConversationState();
   return <><button type="button" onClick={() => state?.setPendingTurn({ surface: "plan", turnId: "newer-client-request" })}>Seed newer pending request</button>
-    <button type="button" onClick={() => state?.setHistoryRefreshNonce(value => value + 1)}>Refresh shared history fixture</button></>;
+    <button type="button" onClick={() => state?.setHistoryRefreshNonce(value => value + 1)}>Refresh shared history fixture</button>
+    <button type="button" onClick={() => {
+      const conversationId = "22222222-2222-4222-8222-222222222222";
+      state?.setHistory(current => current ? {...current, turns: [], conversation_id: conversationId,
+        active_conversation_id: conversationId, pointer_revision: current.pointer_revision + 1} : current);
+    }}>Switch same World conversation fixture</button>
+    <button type="button" onClick={() => state?.setHistory(current => current
+      ? {...history(), pointer_revision: current.pointer_revision + 1} : current)}>Restore original conversation fixture</button></>;
 }
 function SceneEditorFixture({ content, allowed, onUnsubmitted }: { content: PlayRunContent; allowed: boolean; onUnsubmitted: (v: boolean) => void }) {
   const [accepted, setAccepted] = useState(content);
@@ -1338,7 +1345,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }
   });
 
-  it.each(["disconnect", "World switch"])("clears a visible Build reply preview after %s", async (ending) => {
+  it.each(["disconnect", "World switch", "conversation switch"])("clears a visible Build reply preview after %s", async (ending) => {
     let reject!: (reason: Error) => void;
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
     const {container} = render(<Harness initial="build" />);
@@ -1363,11 +1370,57 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(input).toHaveFocus();
 
     if (ending === "World switch") fireEvent.click(screen.getByRole("button", {name: "Switch World"}));
-    else await act(async () => reject(new Error("Lost connection")));
+    else if (ending === "conversation switch") {
+      fireEvent.click(screen.getByRole("button", {name: "Switch same World conversation fixture"}));
+      expect(container.ownerDocument.querySelector("[data-build-reply-preview]")).toBeNull();
+      fireEvent.click(screen.getByRole("button", {name: "Restore original conversation fixture"}));
+      expect(container.ownerDocument.querySelector("[data-build-reply-preview]")).toBeNull();
+    } else await act(async () => reject(new Error("Lost connection")));
     await waitFor(() => expect(container.ownerDocument.querySelector("[data-build-reply-preview]")).toBeNull());
     await act(async () => observe({kind: "text", sequence: 3, text: "Late text"}));
     expect(screen.queryByText(/Late text/)).not.toBeInTheDocument();
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it("records visible reply timing when the correlated terminal arrives before history hydration", async () => {
+    let resolve!: (response: Awaited<ReturnType<typeof postWorldBuildAgentTurn>>) => void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(done => { resolve = done; }));
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    const input = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, {target: {value: "Describe Mirathorn"}});
+    fireEvent.click(screen.getByRole("button", {name: "Send message"}));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const [request, , observe] = vi.mocked(postWorldBuildAgentTurn).mock.calls[0]!;
+    await act(async () => {
+      observe!({kind: "context_ready"});
+      observe!({kind: "text", sequence: 1, text: "A lantern"});
+    });
+    await waitFor(() => expect(performance.getEntriesByName("buddy-build-reply:visible")).toHaveLength(1));
+    await act(async () => {
+      observe!({kind: "text", sequence: 2, text: " lights the path"});
+    });
+    await waitFor(() => expect(performance.getEntriesByName("buddy-build-reply:visible")).toHaveLength(2));
+
+    // Use the actual Build response envelope and leave history unchanged.
+    const wire = nativeBuildWire.response;
+    await act(async () => resolve({
+      ...wire, turn_id: request.turn_id, client_thread_id: request.client_thread_id,
+      surface: {...wire.surface, instance_id: request.surface.instance_id},
+      owner_scope: {...wire.owner_scope, owner_id: request.owner_scope.world_id},
+      conversation: {
+        ...wire.conversation, turn_id: request.turn_id, client_thread_id: request.client_thread_id,
+        conversation_id: history([]).conversation_id,
+      },
+    } as Awaited<ReturnType<typeof postWorldBuildAgentTurn>>));
+    const transcript = screen.getByRole("region", {name: "World conversation transcript"});
+    const timing = JSON.parse(transcript.getAttribute("data-build-reply-timing") ?? "{}");
+    expect(timing.visibleUpdates).toBe(2);
+    expect(timing.sendToContextMs).toBeGreaterThanOrEqual(0);
+    expect(timing.contextToFirstVisibleMs).toBeGreaterThanOrEqual(0);
+    expect(timing.sendToTerminalMs).toBeGreaterThan(timing.sendToContextMs + timing.contextToFirstVisibleMs);
+    expect(screen.queryByText("A lantern lights the path")).not.toBeInTheDocument();
   });
 
   it("shows recovery only after an active Build request becomes uncertain, including after remount", async () => {
