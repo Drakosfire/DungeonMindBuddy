@@ -183,6 +183,7 @@ if INTERRUPT_RECEIPT=1 run; then exit 1; fi
 grep -Fx "BUDDY_LIVE $candidate $candidate_id" "$scratch/receipt"
 printf 'candidate_tag=dungeonmindbuddy:%s\ncandidate_id=%s\nrollback_tag=dungeonmindbuddy:%s\nrollback_id=%s\nrollback_revision=%s\n' \
   "$staged" "$staged_id" "$rollback" "$rollback_id" "$rollback" > "$scratch/releases/$staged.conf"
+printf 'guest_graph_enabled=1\nguest_graph_space=space:test\nguest_graph_revision=rev:test\n' >> "$scratch/releases/$staged.conf"
 printf 'dungeonmindbuddy:%s %s\n' \
   "$candidate" "$candidate_id" "$rollback" "$rollback_id" \
   "$referenced" "$referenced_id" "$staged_alias" "$staged_id" \

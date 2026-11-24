@@ -128,6 +128,10 @@ retain_images() {
           [[ "$value" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ ]] || return 1 ;;
         rollback_revision)
           [[ "$value" =~ ^[0-9a-f]{40}$ ]] || return 1 ;;
+        guest_graph_enabled)
+          [[ "$value" == 1 ]] || return 1 ;;
+        guest_graph_space|guest_graph_revision)
+          [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || return 1 ;;
         *) return 1 ;;
       esac
       [[ ! "${pins[$key]+yes}" ]] || return 1
