@@ -54,6 +54,22 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+Case 32 tested the runtime owner's proposed synthetic memory-Core path on the
+retained owned App clone and predecessor product source `d00807237abff7a190960cef85796a7faa4c8166`.
+The frozen placement fixture first reproduced the missing-binding refusal. The
+test assigned an owner to its fresh synthetic App World, checked the real access
+owner allowed that principal and denied an unrelated principal, initialized an
+in-memory Core with the same World ID, and used `bind_native_graph` to validate
+and persist its exact native head. Both actual managed binding and source identity
+resolvers returned that same World and binding version; native head revision
+readback and prior-dialogue seeding passed (1 test). The owner did not patch the
+binding or access return values. Worker, derived test and log are retained under
+`http-owner/session/case-32` and `http-owner`. This is synthetic memory-Core,
+provider-free predecessor evidence: it does not prove an ordinary Build request,
+source readback, current-head or shared-Core behavior, model quality, or UI.
+The owner separately confirmed the schema-version prompt leak; live provider
+dispatch on the predecessor remains held pending final serialized-request audit.
+
 Rate integrity: raw assessor results are now always unknown in cohort rate
 summaries, even when they show a violation. Only report-schema results with
 both fixture context and capture environment verified can contribute; a

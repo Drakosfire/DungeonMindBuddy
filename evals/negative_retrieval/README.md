@@ -128,9 +128,13 @@ service to use that same root. Partial failures are retained, never reset or
 retried automatically. The helper does not dispatch a model, construct a full
 capture manifest or establish complete acquisition coverage. It does not
 provision or activate a native Graph binding: the resulting World fails the
-ordinary binding resolver with `native_graph_binding_missing`. A separately
-authorized and verified synthetic Core binding is required before a real Build
-capture; do not write to the shared read-only Core to supply one.
+ordinary binding resolver with `native_graph_binding_missing`. A provider-free
+diagnostic subsequently bound the same synthetic World to its own in-memory
+Core through the App binding owner, then checked the real binding, identity and
+principal access owners. This does not yet exercise an ordinary Build turn or
+establish live-model or shared-Core qualification. A separately verified
+binding and prompt-boundary audit are required for a real capture; do not write
+to the shared read-only Core to supply one.
 
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
