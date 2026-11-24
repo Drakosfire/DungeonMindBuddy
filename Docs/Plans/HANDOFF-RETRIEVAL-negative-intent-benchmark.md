@@ -164,6 +164,19 @@ This is predecessor `d008072`, local-operator and scripted-provider evidence,
 not a live-model decision, independent semantic review, full acquisition
 journal, current-head qualification or cohort rate.
 
+Case 54 used the same frozen ledger question and real synthetic binding, but
+scripted the related-page vote to `skip` while keeping `source_lookup`. The
+HTTP turn completed with a scripted request to inspect the ledger rather than
+an invented toll. No related-page read event or materialization was observed,
+and the exact ledger body was absent from the writer input; one catalog
+discovery was observed (1 diagnostic test passed). Pre/post inventory and the
+primary page stayed unchanged. The worker, generated test and log are retained
+under `http-owner` and `http-owner/session/case-54`. The compared positive
+case 53 did read and include the ledger. Both use predecessor source, scripted
+providers and memory Core. The journal is partial, so the skip control cannot
+prove global absence of acquisition or contribute a qualified missed-evidence
+rate; it is not a live-model choice or independent semantic assessment.
+
 Cases 36–37 extended the prior scripted saved-question and answer witness with
 the real synthetic App binding and source-identity resolvers against memory
 Core. Case 36 failed because the diagnostic incorrectly expected a lifecycle
