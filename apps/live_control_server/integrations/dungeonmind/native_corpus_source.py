@@ -223,12 +223,19 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
         raise ValueError("Prepared native source authority differs from requested revision")
     # Include source-only admissions: an assertion supporter is not a condition
     # for source inspection. Unavailable pairs are not exposed as model labels.
-    pairs = {}
-    for evidence in access.parsed.evidence_by_id.values():
-        if (evidence.source_revision_id is not None
+    from dungeonmind.application import vnext as core
+    directory = getattr(core, "native_text_source_candidates", None)
+    candidates = directory(access) if directory is not None else None
+    if candidates is None:
+        candidates = (
+            evidence for evidence in access.parsed.evidence_by_id.values()
+            if (evidence.source_revision_id is not None
                 and evidence.source_span_ref_id is not None
-                and evidence.can_open_source and evidence.can_highlight_span):
-            pairs.setdefault((evidence.source_artifact_id, evidence.source_revision_id), []).append(evidence)
+                and evidence.can_open_source and evidence.can_highlight_span)
+        )
+    pairs = {}
+    for evidence in candidates:
+        pairs.setdefault((evidence.source_artifact_id, evidence.source_revision_id), []).append(evidence)
     from ...services.managed_world_graph_projection import resolve_managed_source_identity
 
     # Only the production catalog resolver uses the App connection.
