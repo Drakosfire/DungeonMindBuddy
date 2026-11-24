@@ -771,17 +771,14 @@ def test_exact_installed_package_not_checkout_overlay():
 
 
 @pytest.fixture
-def sql_repository(monkeypatch, record_property):
-    """Only a uniquely owned 32903 DB; migration scripts are never runtime imports."""
+def sql_repository(application_state_dsn, application_state_database, monkeypatch, record_property):
+    """Use the owned per-case App state for writable Core integration proof."""
     import json
     import os
     import subprocess
     from pathlib import Path
-    from uuid import uuid4
-
     import psycopg
-    from psycopg import sql
-    from psycopg.conninfo import conninfo_to_dict, make_conninfo
+    from psycopg.conninfo import conninfo_to_dict
     from alembic import command
     from alembic.config import Config
     from dungeonmind.infrastructure.postgres import (
@@ -789,15 +786,16 @@ def sql_repository(monkeypatch, record_property):
         PostgresNativeSourceEvidenceRepository,
     )
 
-    admin = os.environ.get("DMB_NATIVE_RECAP_TEST_ADMIN_DSN", "")
-    assert admin, (
-        "Owning SQL proof requires the isolated test service; no skip or live fallback"
-    )
-    params = conninfo_to_dict(admin)
-    assert (
-        params["host"] in {"localhost", "127.0.0.1", "::1"}
-        and params["port"] == "32903"
-    )
+    from scripts.ci_app_database import verify_assignment
+
+    assignment = application_state_database.assignment
+    assert application_state_dsn == assignment.dsn
+    verify_assignment(assignment)
+    params = conninfo_to_dict(application_state_dsn)
+    with psycopg.connect(application_state_dsn) as connection:
+        assert connection.execute("SELECT to_regnamespace('dungeonmind')").fetchone()[0] is None, (
+            "Core schema must be absent at the start of an isolated fixture case"
+        )
     core_root = Path(os.environ["DMB_NATIVE_RECAP_TEST_CORE_ROOT"]).resolve()
     migration = (
         core_root / "migrations/versions/0023_governed_native_source_publications.py"
@@ -812,11 +810,8 @@ def sql_repository(monkeypatch, record_property):
     migration_head = subprocess.check_output(
         ["git", "-C", str(core_root), "rev-parse", "HEAD"], text=True
     ).strip()
-    name = "v10_buddy_source_pub_" + uuid4().hex[:12]
-    with psycopg.connect(admin, autocommit=True) as conn:
-        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-    dsn = make_conninfo(admin, dbname=name)
-    # Alembic reads a URL; the repository consumes the same isolated database.
+    # Core and App use separate migration schemas in the same owned database.
+    # The application_state_dsn fixture restores its pristine snapshot on exit.
     from sqlalchemy import URL
 
     url = URL.create(
@@ -824,36 +819,30 @@ def sql_repository(monkeypatch, record_property):
         username=params.get("user"),
         password=params.get("password"),
         host=params["host"],
-        port=32903,
-        database=name,
+        port=int(params["port"]),
+        database=params["dbname"],
     ).render_as_string(hide_password=False)
     lifecycle = dict(
-        name=name,
-        port=32903,
-        created=True,
-        dropped=False,
+        database=assignment.locator["database"],
+        reset_by="application_state_dsn",
         installed_before=before,
         migration_head=migration_head,
         migration_sha256=migration_sha,
     )
     try:
-        monkeypatch.setenv("DUNGEONMIND_DATABASE_URL", url)
-        cfg = Config()
-        cfg.set_main_option("script_location", str(core_root / "migrations"))
-        command.upgrade(cfg, "head")
+        # The migration needs a URL, but product App requests must never see
+        # the synthetic colocated Core as their configured authority.
+        with monkeypatch.context() as migration_env:
+            migration_env.setenv("DUNGEONMIND_DATABASE_URL", url)
+            cfg = Config()
+            cfg.set_main_option("script_location", str(core_root / "migrations"))
+            command.upgrade(cfg, "head")
         assert installed_core_identity()["commit"] == before["commit"]
-        database = PostgresDatabase(dsn)
+        database = PostgresDatabase(application_state_dsn)
         yield PostgresNativeSourceEvidenceRepository(database), database
     finally:
-        # No forced termination: unresolved active use prevents cleanup and is retained as failure.
-        with psycopg.connect(admin, autocommit=True) as conn:
-            active = conn.execute(
-                "SELECT count(*) FROM pg_stat_activity WHERE datname=%s", (name,)
-            ).fetchone()[0]
-            lifecycle["connections_before_drop"] = active
-            assert active == 0, "Fixture database still in use; do not delete it"
-            conn.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
-            lifecycle["dropped"] = True
+        # The outer fixture checks for open connections and resets both schemas.
+        verify_assignment(assignment, idle=True)
         after = installed_core_identity()
         assert (
             after["commit"] == before["commit"]
