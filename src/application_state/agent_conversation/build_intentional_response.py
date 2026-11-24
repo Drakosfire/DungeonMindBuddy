@@ -415,6 +415,7 @@ def resolve(label, capabilities, *, work_options=None):
         "review_connected_page": {"discuss_request", "review_connected_page"},
         "review_lore_page": {"discuss_request", "review_lore_page"},
         "review_lore_page_from_conversation": {"discuss_request", "review_lore_page"},
+        "review_blank_lore_page": {"discuss_request", "review_lore_page"},
         "review_relationship": {"discuss_request", "review_relationship"},
         "publish_relationships": {"discuss_request", "review_relationship"},
         "save_page": {"discuss_request", "author_save_current_page"},
@@ -584,6 +585,44 @@ questions. Use review_lore_page for new research or a blank page.
 """
 
 
+_PRE_REQUEST_REFERENCE_WORK = WORK
+_PRE_REQUEST_REFERENCE_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **_PRE_REQUEST_REFERENCE_WORK,
+    "review_lore_page": Work("create", "Review a populated new standalone page, or continue its review.", review="lore_page"),
+    "review_blank_lore_page": Work("create", "Review an explicitly requested empty new standalone page, with no body or open questions.", review="lore_page"),
+})
+GUIDANCE = _PRE_REQUEST_REFERENCE_GUIDANCE.replace(
+    "questions. Use review_lore_page for new research or a blank page.",
+    "questions. Use review_lore_page for new research.") + """
+Choose review_blank_lore_page only for an explicit request for an empty page.
+Choose review_lore_page for populated material requiring new research and
+review_lore_page_from_conversation for material already discussed. A quoted
+example, negated request, or brainstorming suggestion does not request creation.
+If multiple destinations remain unresolved, choose clarify_creation. The writer
+proposes one title for the author's explicit review before any page is saved.
+"""
+
+
+_PRE_LORE_OUTCOME_WORK = WORK
+_PRE_LORE_OUTCOME_GUIDANCE = GUIDANCE
+WORK = MappingProxyType({
+    **WORK,
+    "review_lore_page": Work("create", "Prepare a populated standalone page draft NOW from new research.", review="lore_page"),
+    "review_lore_page_from_conversation": Work("create", "Prepare a populated standalone page draft NOW from the preceding discussion.", review="lore_page"),
+})
+GUIDANCE = GUIDANCE + """
+Resolve the deliverable requested in the CURRENT author turn, not an eventual
+page mentioned in notes or older turns. Choose discuss for acknowledgment,
+brainstorming or deferred notes when the author says not to draft yet. Preserve
+continuing constraints and approval requirements. Only choose a populated lore
+review when the current turn asks to prepare or revise that draft now. An
+approval to save an existing reviewed draft is not a request for a new draft.
+Choose clarify_creation when the current intended destination remains ambiguous;
+quoted examples, negations and alternatives do not themselves request creation.
+"""
+
+
 def _resolver_digest(work_options):
     return digest({
         "policy": POLICY,
@@ -596,7 +635,11 @@ def _resolver_digest(work_options):
 MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
 _MENU_CONTRACTS = MappingProxyType({
-    MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST, frozenset({"lore_outcomes"})),
+    digest(question(guidance=_PRE_LORE_OUTCOME_GUIDANCE, work_options=_PRE_LORE_OUTCOME_WORK)):
+        (_PRE_LORE_OUTCOME_GUIDANCE, _PRE_LORE_OUTCOME_WORK, _resolver_digest(_PRE_LORE_OUTCOME_WORK)),
+    digest(question(guidance=_PRE_REQUEST_REFERENCE_GUIDANCE, work_options=_PRE_REQUEST_REFERENCE_WORK)):
+        (_PRE_REQUEST_REFERENCE_GUIDANCE, _PRE_REQUEST_REFERENCE_WORK, _resolver_digest(_PRE_REQUEST_REFERENCE_WORK)),
     digest(question(guidance=_PRE_CONVERSATION_LORE_GUIDANCE, work_options=_PRE_CONVERSATION_LORE_WORK)):
         (_PRE_CONVERSATION_LORE_GUIDANCE, _PRE_CONVERSATION_LORE_WORK, _resolver_digest(_PRE_CONVERSATION_LORE_WORK)),
     digest(question(guidance=_PRE_LORE_PAGE_GUIDANCE, work_options=_PRE_LORE_PAGE_WORK)):
@@ -609,6 +652,23 @@ _MENU_CONTRACTS = MappingProxyType({
         for guidance in (_RETAINED_GUIDANCE, _IMAGE_DESTINATION_GUIDANCE, _PREVIOUS_GUIDANCE, _DESTINATION_GUIDANCE)
     },
 })
+
+
+def menu_offers_lore_outcomes(menu):
+    """Host-only features belong to the captured menu, never the live default."""
+    contract = _MENU_CONTRACTS.get(menu)
+    return contract is not None and len(contract) == 4 and 'lore_outcomes' in contract[3]
+
+
+def review_kind(label):
+    """Review meaning is stable for a work label across frozen menu contracts."""
+    kinds = {contract[1][label].review for contract in _MENU_CONTRACTS.values()
+             if label in contract[1]}
+    if label in WORK:
+        kinds.add(WORK[label].review)
+    if len(kinds) != 1:
+        raise ValueError('Known Build work changed its frozen review kind')
+    return next(iter(kinds))
 
 
 def _menu_work(menu):
@@ -923,7 +983,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             or decision.get("state", {}).get("requested_work_policy") != POLICY
             or decision.get("state", {}).get("user_question") != user_text)
         or event.requested_work != label
-        or event.intent_family != WORK[label].family
+        or event.intent_family != _menu_work(menu)[label].family
         or event.menu_sha256 != menu
         or event.resolver_sha256 != resolver
         or event.capability_sha256 != capability
@@ -1064,7 +1124,7 @@ def validate_collaboration(collaboration, segments, contract, *, primary_rows, o
     """Proposed work through existing quote owners; grants no execution authority."""
     from .collaboration import saved_excerpt, ProposedQuestions, ProposedConnectedPage
     from .relationship_review import ProposedRelationship, validate_quote
-    review=WORK[contract['requested_work']].review if not contract['barrier'] else None
+    review=review_kind(contract['requested_work']) if not contract['barrier'] else None
     if collaboration is not None:
         if collaboration.kind != review:
             raise ValueError("Typed object differs from the resolved supported work")
@@ -1097,7 +1157,7 @@ def native_origin_rows(frame):
     return selected_rows(frame.get('related_authored_pages',{}).get('pages',[]),primary,frame['source_basis'])
 
 
-def native_review_schema(frame, *, local=False):
+def native_review_schema(frame, *, local=False, request_reference=False):
     """Existing typed review model with only the actual producing selectors."""
     from .collaboration import ProposedQuestions, ProposedPlanV3, ProposedConnectedPage
     from .relationship_review import ProposedRelationship
@@ -1113,7 +1173,7 @@ def native_review_schema(frame, *, local=False):
         definitions['ProposedQuestions']=schema
         return {'anyOf':[{'$ref':'#/$defs/ProposedQuestions'},{'type':'null'}]},definitions
     contract=frame['response_contract']
-    kind=WORK[contract['requested_work']].review if not contract['barrier'] else None
+    kind=review_kind(contract['requested_work']) if not contract['barrier'] else None
     model={'questions':ProposedQuestions,'plan':ProposedPlanV3,
         'connected_page':ProposedConnectedPage,'relationship':ProposedRelationship,
         'lore_page':ProposedLorePage}.get(kind)
@@ -1121,6 +1181,9 @@ def native_review_schema(frame, *, local=False):
         return {'type':'null'},{}
     if kind=='plan' and not selection_packet(frame):
         raise ValueError('Plan review lacks its pre-writer selection contract')
+    if kind == 'lore_page' and request_reference:
+        from .lore_page_review import ProposedLorePageReference
+        model = ProposedLorePageReference
     schema=model.model_json_schema()
     definitions=schema.pop('$defs',{})
     if kind == "lore_page":
@@ -1140,14 +1203,15 @@ def native_review_schema(frame, *, local=False):
     return ({'anyOf':[schema,{'type':'null'}]} if kind not in {'questions','plan'} else schema),definitions
 
 
-def normalize_native_review(candidate, segments, frame, *, author_text):
+def normalize_native_review(candidate, segments, frame, *, author_text, request_reference=False):
     from pydantic import TypeAdapter
     from .relationship_review import RelationshipCollaborationV3
     from .build_draft_context import resolve_body_aliases
     from .collaboration import ProposedPlanV3
     from .plan_objective import selection_packet
     from .lore_page_review import ProposedLorePage
-    review=TypeAdapter(RelationshipCollaborationV3 | ProposedLorePage | None).validate_python(candidate)
+    from .lore_page_review import ProposedLorePageReference
+    review=TypeAdapter(RelationshipCollaborationV3 | ProposedLorePageReference | ProposedLorePage | None).validate_python(candidate)
     frame=resolve_body_aliases(frame)
     from .reviewed_action import SCOPE_KEY,ReviewedDiscussionScopeV1
     if SCOPE_KEY in frame:
@@ -1159,6 +1223,11 @@ def normalize_native_review(candidate, segments, frame, *, author_text):
     validate_collaboration(review,segments,frame['response_contract'],
         primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
     if isinstance(review, ProposedLorePage):
+        if isinstance(review, ProposedLorePageReference) != request_reference:
+            raise ValueError('Lore destination differs from its producing writer contract')
+        if frame['response_contract']['requested_work'] == 'review_blank_lore_page' and (
+                any(getattr(segment, 'kind', None) != 'limitation' for segment in segments) or review.open_questions):
+            raise ValueError('Blank lore-page request cannot carry a populated body')
         review.destination.bind(author_text, has_body=bool(segments or review.open_questions),
             conversational=frame["response_contract"]["requested_work"] == "review_lore_page_from_conversation")
     if isinstance(review,ProposedPlanV3) and not selection_packet(frame):
@@ -1289,7 +1358,7 @@ def validate_completion(completion, receipt, execution, attempt_id, graph_bindin
         raise ValueError("Intentional completion differs from its admitted operation")
     review = completion.collaboration
     allowed_review = (
-        WORK[choices[0].requested_work].review
+        review_kind(choices[0].requested_work)
         if isinstance(choices[0], t.BuildRequestedWorkResolutionV1)
         and not choices[0].resolution["barrier"]
         else None
@@ -1429,7 +1498,9 @@ def semantic_collaboration(card):
     if kind == "lore_page":
         from .lore_page_review import ProposedLorePage
 
-        draft = ProposedLorePage.model_validate(card)
+        from pydantic import TypeAdapter
+        from .lore_page_review import ProposedLorePageReference
+        draft = TypeAdapter(ProposedLorePageReference | ProposedLorePage).validate_python(card)
         return {"kind": kind, "title": draft.destination.title}
     fields = {
         "plan": {"kind", "objective", "steps"},

@@ -50,7 +50,7 @@ export interface NativeGraph {
   readonly graph_sha256: string;
   readonly nodes: readonly NativeGraphNode[];
   readonly edges: readonly NativeGraphEdge[];
-  readonly storage: "postgres";
+  readonly storage: "postgres" | "memory";
   readonly limitations: readonly string[];
   readonly capabilities: NativeGraphCapabilities;
   /** Optional for the original standalone and guest APIs. Managed reads report it. */

@@ -595,7 +595,8 @@
       "tests/test_native_evidence_presentation.py",
       "tests/test_ownership_ci_partition.py",
       "tests/test_response_prompt.py",
-      "tests/test_writer_assessment.py"
+      "tests/test_writer_assessment.py",
+      "tests/test_lore_page_review.py"
     ],
     "domain-integration": [
       "tests/test_guest_release_assertions.py",
@@ -1332,7 +1333,6 @@
       "tests/test_mirathorn_worldbuilding_query_gold_v1.py",
       "tests/test_model_policy_authority.py",
       "tests/test_native_answer_output.py",
-      "tests/test_lore_page_review.py",
       "tests/test_native_build_work_view.py",
       "tests/test_native_descriptor_consumer_contract.py",
       "tests/test_native_graph_input.py",

@@ -95,14 +95,21 @@ it('prepares one typed Graph reference at its exact boundary and refuses changed
  } finally { editor.destroy(); }
 });
 
-it.each(['plain','identity-only','composed','protected'] as const)('places an exact Build prose boundary on a %s page without moving its authority',async mode=>{
+it.each(['plain','identity-only','composed','protected','clean-arrival'] as const)('places an exact Build prose boundary on a %s page without moving its authority',async mode=>{
  const protectedBlocks = mode === 'protected' ? [
   '> [!READ-ALOUD] First sight\n> Three blue lanterns light the crossing.',
   '> [!GM-NOTE] Keep it sealed\n> Wait for the players to investigate.',
   '## Signal table\n\n| Signal | State |\n| --- | --- |\n| Blue lanterns | Lit |',
   mediaMarkdown(id, 'Saved boardwalk artwork'),
  ].join('\n\n') + '\n\n' : '';
- const markdown='## Arrival\n\nThe gate is locked.\n\n'+protectedBlocks+'## Rumours\n\nThe gate is locked.\n';
+ const markdown = mode === 'clean-arrival' ? [
+  '## Arrival',
+  '> [!READ-ALOUD] First sight\n> The road disappears into low gray mist.',
+  'The boardwalk begins beyond the marsh. It leads toward a sealed tower. Three blue lanterns glow among the reeds.',
+  '## Departure',
+  'The ferryman waits beside the red gate.',
+  '| Signal | State |\n| --- | --- |\n| Red gate | Closed |',
+ ].join('\n\n') + '\n' : '## Arrival\n\nThe gate is locked.\n\n' + protectedBlocks + '## Rumours\n\nThe gate is locked.\n';
  const original=markdownToTiptapDoc(markdown).doc;
  original.content?.forEach((node,index)=>{node.attrs={...node.attrs,pageBlockId:`existing-${index}`};});
  if (mode==='composed') {
@@ -112,14 +119,23 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
   ]});
  }
  const source=mode==='composed'?'Keep the map.\n\n'+markdown:markdown;
- const presentation=mode==='plain'||mode==='protected'?null:mode==='composed'
+ const presentation=mode==='plain'||mode==='protected'||mode==='clean-arrival'?null:mode==='composed'
   ?projectPresentation(original,source,original).presentation
   :{schema_version:'dmb_page_presentation_v1' as const,markdown_sha256:await testDigest(source),
     items:admittedPresentationBlocks(markdown).map(({node:_node,...binding},index)=>
       ({...binding,kind:'block' as const,id:`existing-${index}`}))};
+ const html = '<h2>Arrival</h2>'
+  + '<details data-md-callout="read-aloud" data-md-callout-label="First sight"><summary>Read Aloud: First sight</summary><div class="md-callout-body"><p>The road disappears into low gray mist.</p></div></details>'
+  + '<p>The boardwalk begins beyond the marsh. It leads toward a sealed tower. Three blue lanterns glow among the reeds.</p>'
+  + '<h2>Departure</h2><p>The ferryman waits beside the red gate.</p>'
+  + '<table><tbody><tr><th>Signal</th><th>State</th></tr><tr><td>Red gate</td><td>Closed</td></tr></tbody></table>';
  const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
-  content:presentation?hydratePresentation(source,presentation):markdownToTiptapDoc(source).doc});
+  content:mode==='clean-arrival'?'<p></p>':presentation?hydratePresentation(source,presentation):markdownToTiptapDoc(source).doc});
  try {
+  if (mode === 'clean-arrival') {
+   editor.view.pasteHTML(html, new Event('paste') as ClipboardEvent);
+   expect(editor.getJSON().content?.every(node => typeof node.attrs?.pageBlockId === 'string')).toBe(true);
+  }
   const state:BuildComposeEditorState={editor,worldId:'fixture-world',documentId:'fixture-page',revision:1,contentSha256:await testDigest(source),
    visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true,pagePresentation:presentation,savedMarkdown:source};
   const changed=vi.fn(),bridge=createBuildComposeBridge(()=>state,changed);
@@ -147,21 +163,22 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
   await expect(bridge.restore(basis,undefined,undefined,{...proof,from:proof.from-1,to:proof.to-1})).rejects.toThrow('offered');
   const captured=await bridge.restore(basis,undefined,undefined,proof);
   const hasCallouts = mode !== 'plain';
-  const fragment = hasCallouts
+  const fragment = mode === 'clean-arrival'
+  ? '> [!READ-ALOUD] Arrival\n> Beyond the marsh, a boardwalk leads toward a sealed tower. Three blue lanterns glow among the reeds.\n\n> [!GM-NOTE]\n> Wait for the players to choose whether to approach the tower.'
+  : hasCallouts
    ? '> [!READ-ALOUD] Crossing\n> A second lantern lights up.\n\n> [!GM-NOTE] Wait\n> Keep the gate closed.'
-   : 'Bring a second lantern.';
+   : 'Bring a second lantern.\n\nCheck the supports before dusk.';
   expect(captured.basis.caret).toBe(caret);
   expect(caret).not.toBe(proof.from);
-  if (hasCallouts) {
-   await expect(bridge.prepareProposal(captured, fragment + '\n\n## Unexpected heading'))
-    .rejects.toThrow('must add prose or semantic callouts');
-  }
+  await expect(bridge.prepareProposal(captured, fragment + '\n\n## Unexpected heading'))
+   .rejects.toThrow('must add prose or semantic callouts');
   const prepared = await bridge.prepareProposal(captured,fragment);
   expect(editor.getJSON()).toEqual(originalDoc);
   const index = editor.state.doc.resolve(proof.from).index(0);
   bridge.applyPrepared(prepared);
   const after = editor.getJSON().content!;
-  expect([...after.slice(0, index), ...after.slice(index + (hasCallouts ? 2 : 1))]).toEqual(originalDoc.content);
+  expect([...after.slice(0, index), ...after.slice(index + 2)]).toEqual(originalDoc.content);
+  expect(await testDigest(JSON.stringify(editor.getJSON()))).toBe(prepared.afterEditorSha256);
   if (hasCallouts) {
    expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 2);
    const trailing = after.slice(index, index + 2);
@@ -173,9 +190,23 @@ it.each(['plain','identity-only','composed','protected'] as const)('places an ex
    }
    const saved = tiptapJsonToSemanticMarkdown(flattenPresentation(editor.getJSON()));
    expect(saved).toContain(fragment);
+   if (mode === 'clean-arrival') {
+    const reopened = markdownToTiptapDoc(saved);
+    expect(reopened.diagnostics).toEqual([]);
+    expect(reopened.doc).toEqual(markdownToTiptapDoc(
+      markdown.replace('\n\n## Departure', '\n\n' + fragment + '\n\n## Departure'),
+    ).doc);
+   }
   } else {
-   expect(editor.getJSON().content).toHaveLength(originalDoc.content!.length + 1);
-   expect(after[index]).toMatchObject({type:'paragraph',content:[{text:'Bring a second lantern.'}]});
+   expect(after.slice(index, index + 2)).toMatchObject([
+    {type:'paragraph',content:[{text:'Bring a second lantern.'}]},
+    {type:'paragraph',content:[{text:'Check the supports before dusk.'}]},
+   ]);
+   const saved = tiptapJsonToSemanticMarkdown(editor.getJSON());
+   expect(saved).toContain('The gate is locked.\n\n' + fragment + '\n\n## Rumours');
+   const reopened = markdownToTiptapDoc(saved);
+   expect(reopened.diagnostics).toEqual([]);
+   expect(tiptapJsonToSemanticMarkdown(reopened.doc)).toBe(saved);
   }
   expect(changed).toHaveBeenCalledOnce();
   editor.commands.undo();

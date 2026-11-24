@@ -36,9 +36,37 @@ def lore_page_reply(host, execution):
     choices = [event for event in execution.events if isinstance(event, BuildRequestedWorkResolutionV1)]
     contract = host.get('response_contract', {})
     return (len(choices) == 1
-            and choices[0].requested_work in {'review_lore_page', 'review_lore_page_from_conversation'}
+            and choices[0].requested_work in {'review_lore_page', 'review_lore_page_from_conversation', 'review_blank_lore_page'}
             and contract.get('requested_work') == choices[0].requested_work
             and contract.get('barrier') is None and not variant_sources(host))
+
+
+def lore_request_reference_eligible(host, execution):
+    """Current populated/blank menu, or conversation work with fixed content mode.
+
+    Retrying an older conversation admission may use a fresh reference contract;
+    historical writer readback still reconstructs its captured format explicitly.
+    An older ambiguous blank/populated choice cannot acquire new semantics.
+    """
+    from .build_intentional_response import _menu_work
+    from .types import BuildRequestedWorkResolutionV1
+    if not lore_page_reply(host, execution):
+        return False
+    choice, = [event for event in execution.events
+               if isinstance(event, BuildRequestedWorkResolutionV1)]
+    return (choice.requested_work == 'review_lore_page_from_conversation'
+            or 'review_blank_lore_page' in _menu_work(choice.menu_sha256))
+
+
+def lore_outcome_eligible(host, execution):
+    from .build_intentional_response import menu_offers_lore_outcomes
+    from .types import BuildRequestedWorkResolutionV1
+    if not lore_page_reply(host, execution):
+        return False
+    choice, = [event for event in execution.events
+               if isinstance(event, BuildRequestedWorkResolutionV1)]
+    return (menu_offers_lore_outcomes(choice.menu_sha256)
+            and choice.requested_work in {'review_lore_page', 'review_lore_page_from_conversation'})
 
 
 def selection_aliases(host):
@@ -115,7 +143,7 @@ def variant_output_version(work_frame):
 def semantic_frame(host, execution, *, include_variant=False, variant_edits=False,
                    variant_passage_review=False, bind_lore_page=False,
                    retained_raw_markdown=False, supplied_source_references=False,
-                   typed_source_answer=False, lore_page_limitations=False):
+                   typed_source_answer=False, lore_page_limitations=False, lore_request_reference=False, lore_outcome=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA
     from .model_markdown import project_model_markdown, project_retained_source_markdown
 
@@ -172,7 +200,17 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
              'barrier_detail', 'capabilities')}
         work['requested_work']['available_followups'] = [row['description']
             for row in contract['available_followups']]
-        if bind_lore_page and contract['requested_work'] in ('review_lore_page', 'review_lore_page_from_conversation') and not contract['barrier']:
+        if lore_request_reference and lore_request_reference_eligible(host, execution):
+            work['lore_page_destination'] = {'request': 'current_author_request'}
+        if lore_outcome:
+            if (not lore_outcome_eligible(host, execution)
+                    or work.get('lore_page_destination') != {'request': 'current_author_request'}
+                    or not supplied_source_references or not lore_page_limitations):
+                raise ValueError('Lore outcome requires its admitted populated request and host policies')
+            # The producing format/admission owns these flags; models receive task context.
+            del work['citation_policy']
+            del work['lore_limitation_policy']
+        if bind_lore_page and 'lore_page_destination' not in work and contract['requested_work'] in ('review_lore_page', 'review_lore_page_from_conversation') and not contract['barrier']:
             from .lore_page_review import explicit_lore_page_witness
 
             try:

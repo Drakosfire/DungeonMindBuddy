@@ -143,5 +143,22 @@ export async function getNativeWorldbuildingContext(source: ReviewSource) {
         typeof row.end_byte !== "number" || !Number.isSafeInteger(row.end_byte) || row.end_byte <= row.start_byte)) {
     throw new LiveApiError("Invalid native Worldbuilding review inventory.", 0);
   }
-  return { prepareCoordinates, nativeWorldId: binding.native_world_id, records, sourceSupport };
+  const native = value.native_source;
+  let nativeSource;
+  if (native !== undefined) {
+    if (!record(native) || typeof native.admission_id !== "string" || !native.admission_id
+      || typeof native.source_artifact_id !== "string" || !native.source_artifact_id
+      || typeof native.source_revision_id !== "string" || !native.source_revision_id
+      || native.body_sha256 !== source.source_sha256) {
+      throw new LiveApiError("Invalid native Worldbuilding source admission.", 0);
+    }
+    nativeSource = {
+      admission_id: native.admission_id, source_artifact_id: native.source_artifact_id,
+      source_revision_id: native.source_revision_id, body_sha256: source.source_sha256,
+    };
+  }
+  return {
+    prepareCoordinates, nativeWorldId: binding.native_world_id, records, nativeSource,
+    sourceSupport: sourceSupport as Array<{ evidence_ref_id: string; start_byte: number; end_byte: number; text: string }>,
+  };
 }

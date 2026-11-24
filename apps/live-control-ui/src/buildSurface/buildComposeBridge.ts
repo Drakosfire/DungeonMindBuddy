@@ -162,10 +162,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       && (node.content ?? []).every(child => child.type === 'text' || child.type === 'hardBreak');
     const isCallout = (node: JSONContent) => node.type === 'callout'
       && Boolean(node.content?.length) && (node.content ?? []).every(isProse);
-    const singleParagraph = content.length === 1 && content[0].type === 'paragraph'
-      && (content[0].content ?? []).every(node => node.type === 'text');
-    const calloutFragment = content.some(isCallout) && content.every(node => isProse(node) || isCallout(node));
-    if (!singleParagraph && !calloutFragment)
+    if (content.length === 0 || !content.every(node => isProse(node) || isCallout(node)))
       throw new Error('This Build suggestion must add prose or semantic callouts at the offered root boundary.');
     return rootBoundaryTransaction(captured, content, 'page-prose');
   }
@@ -204,13 +201,19 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     if (after.content?.length !== before.length + inserted.length || before.some((node,i) =>
       JSON.stringify(node) !== JSON.stringify(after.content?.[i < index ? i : i + inserted.length])))
       throw new Error('The insertion would change an unrelated block.');
-    const body = tiptapJsonToSemanticMarkdown(flattenPresentation(after));
+    const flatAfter = flattenPresentation(after);
+    const body = tiptapJsonToSemanticMarkdown(flatAfter);
     const savedMarkdown = current?.savedMarkdown ?? captured.draftMarkdown;
     const projectedBefore = presentation ? hydratePresentation(savedMarkdown, presentation) : original;
     const projection = retainsIds ? projectPresentation(after, savedMarkdown, projectedBefore, presentation, retainPlain) : null;
     const reopened = projection?.presentation ? hydratePresentation(projection.markdown, projection.presentation) : markdownToTiptapDoc(body).doc;
-    if (semanticMarkdownSerializationDiagnostics(flattenPresentation(after)).length
-      || JSON.stringify(editor.schema.nodeFromJSON(reopened).toJSON()) !== JSON.stringify(after))
+    const reopenedJson = editor.schema.nodeFromJSON(reopened).toJSON() as JSONContent;
+    // Plain Markdown saves strip block IDs assigned by paste. The transaction
+    // above still checks every existing block, including its live editor ID.
+    const savedAfter = retainsIds ? after : flatAfter;
+    const savedReopened = retainsIds ? reopenedJson : flattenPresentation(reopenedJson);
+    if (semanticMarkdownSerializationDiagnostics(flatAfter).length
+      || JSON.stringify(savedReopened) !== JSON.stringify(savedAfter))
       throw new Error('Saving this insertion would change existing structure or block identities.');
     return {transaction, after, body, projection, savedMarkdown};
   }
