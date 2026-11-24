@@ -3,7 +3,6 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from importlib import import_module
 import json
-from uuid import uuid4
 
 from alembic import command
 import psycopg
@@ -83,24 +82,15 @@ def test_native_direct_sql_still_rejects_invalid_rows(lane, tmp_path, monkeypatc
 
 
 @pytest.fixture
-def predecessor_database(monkeypatch):
-    from uuid import uuid4
+def predecessor_database(monkeypatch, application_state_dsn, application_state_database):
     from alembic import command
     from application_state.cli import alembic_config
     from application_state.config import APPLICATION_STATE_DSN_ENV
-    from tests.application_state.conftest import (
-        _admin_dsn, _create_database, _drop_database, _replace_database,
-    )
-    name = 'dungeonbuddy_app_state_test_' + uuid4().hex[:12]
-    admin = _admin_dsn()
-    _create_database(admin, name)
-    try:
-        dsn = _replace_database(admin, name)
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as dsn:
         monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
         command.upgrade(alembic_config(), '20261108_0138')
         yield dsn
-    finally:
-        _drop_database(admin, name)
 
 
 def _definitions(conn):
@@ -265,18 +255,12 @@ def _definition(conn):
 
 
 @pytest.fixture
-def storage_predecessor(monkeypatch):
-    from tests.application_state.conftest import _admin_dsn, _create_database, _drop_database, _replace_database
-    admin = _admin_dsn()
-    name = 'dungeonbuddy_app_state_test_' + uuid4().hex[:12]
-    _create_database(admin, name)
-    try:
-        dsn = _replace_database(admin, name)
+def storage_predecessor(monkeypatch, application_state_dsn, application_state_database):
+    from tests.application_state.conftest import empty_app_state
+    with empty_app_state(application_state_database) as dsn:
         monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
         command.upgrade(cli.alembic_config(), '20261108_0141')
         yield dsn
-    finally:
-        _drop_database(admin, name)
 
 
 def _bind(value, kind):

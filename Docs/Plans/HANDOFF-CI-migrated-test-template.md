@@ -92,3 +92,13 @@ counted as a completed baseline. Both hosted auth/Docker workflows also passed.
 Private ci-template-* artifacts retain raw logs, phase data, source/attempt pins,
 coverage and queue/dependency timing. No billing/CPU or broad product-goal
 completion is inferred. No further CI change is active in this lane.
+
+
+## Authorized successor
+
+Alan subsequently required one App clone per workstream, explicitly including
+CI. The ACTIVE [one-App successor](HANDOFF-CI-one-app-workstream.md) replaces
+per-test physical clones with serial fixture states on a pinned owned clone.
+The measurements above remain historical evidence for the earlier implementation;
+they do not qualify the successor. Its implementation, review and exact-source
+verification remain recorded separately; no successor merge is claimed here.

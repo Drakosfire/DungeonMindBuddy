@@ -24,51 +24,15 @@ from application_state.authority import (
     restore_authority,
     verify_backup_digest,
 )
-from application_state.config import TEST_ADMIN_DSN_ENV
 from application_state.content.service import create_plan
 from application_state.errors import (
     ApplicationStateIntegrityError,
     ApplicationStateIsolationError,
     ApplicationStateMigrationError,
 )
-from application_state.naming import assert_safe_application_state_database_name
 from application_state.source.service import persist_source_markdown
 
-_DEFAULT_ADMIN_DSN = "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/postgres"
-
-
-def _admin_dsn() -> str:
-    import os
-
-    return os.environ.get(TEST_ADMIN_DSN_ENV, "").strip() or _DEFAULT_ADMIN_DSN
-
-
-def _replace_database(dsn: str, database: str) -> str:
-    from urllib.parse import urlparse, urlunparse
-
-    parsed = urlparse(dsn)
-    return urlunparse(parsed._replace(path=f"/{database}"))
-
-
-def _create_database(admin_dsn: str, name: str) -> None:
-    import psycopg
-    from psycopg import sql
-
-    assert_safe_application_state_database_name(name)
-    with psycopg.connect(admin_dsn, autocommit=True) as conn:
-        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-
-
-def _drop_database(admin_dsn: str, name: str) -> None:
-    import psycopg
-    from psycopg import sql
-
-    with psycopg.connect(admin_dsn, autocommit=True) as conn:
-        conn.execute(
-            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",
-            (name,),
-        )
-        conn.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(name)))
+from tests.application_state.conftest import empty_app_state
 
 
 def _fingerprint(domains: dict[str, tuple[int, str]], digest: str = "combined") -> ApplicationStateFingerprint:
@@ -230,19 +194,11 @@ def test_fingerprint_stable_across_repeated_computation_with_rows(
     assert first == second
 
 
-def test_fingerprint_requires_schema_at_head() -> None:
-    admin = _admin_dsn()
-    import uuid
-
-    name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
-    _create_database(admin, name)
-    dsn = _replace_database(admin, name)
-    try:
+def test_fingerprint_requires_schema_at_head(application_state_dsn, application_state_database) -> None:
+    with empty_app_state(application_state_database) as dsn:
         assert not database_has_app_state_schema(dsn)
         with pytest.raises(ApplicationStateMigrationError):
             compute_fingerprint(dsn)
-    finally:
-        _drop_database(admin, name)
 
 
 def test_database_has_app_state_schema(application_state_dsn: str) -> None:
@@ -425,16 +381,14 @@ def test_editions_and_receipts_participate_in_recovery_parity(application_state_
     )
 
 
-def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn, tmp_path):
-    """Rehearse public backup/restore with owned clones and pg clients on PATH."""
-    from uuid import uuid4
+def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn, application_state_database, tmp_path):
+    """Restore an offline backup into the same owned App database."""
     from tests.application_state.test_play_run_editions_postgres import (
         create_source_run,
         read,
         request_for,
         save,
     )
-    from tests.application_state.conftest import _create_database, _drop_database
 
     _, _, run = create_source_run()
     save(run.run.run_id, request_for(read(run.run.run_id)))
@@ -444,13 +398,9 @@ def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn, tm
     backup = authority.backup_authority(source_dsn=application_state_dsn, out_path=backup_path)
     assert backup.fingerprint.digest == expected.digest
     assert verify_backup_digest(backup_path) == backup.backup_sha256
-    name = "dungeonbuddy_app_state_test_" + uuid4().hex[:12]
-    target = _replace_database(application_state_dsn, name)
-    admin = _replace_database(application_state_dsn, "postgres")
-    _create_database(admin, name)
-    try:
+    with empty_app_state(application_state_database) as target:
         report = restore_authority(
-            source_dsn=application_state_dsn,
+            source_dsn=None,
             target_dsn=target,
             backup_path=backup_path,
         )
@@ -458,5 +408,3 @@ def test_real_dump_restore_retains_edition_fingerprint(application_state_dsn, tm
         restored = compute_fingerprint(target)
         assert compare_fingerprints(expected, restored) == []
         assert expected.digest == restored.digest
-    finally:
-        _drop_database(admin, name)

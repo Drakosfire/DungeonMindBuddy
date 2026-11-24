@@ -306,7 +306,7 @@ def test_create_replay_rejects_corrupt_stored_manifest(
 
 
 def test_play_runtime_latency_samples(
-    tmp_path: Path, application_state_dsn: str
+    tmp_path: Path, application_state_dsn: str, application_state_database
 ) -> None:
     snapshot = create_committed_runbook(tmp_path, name="latency")
     revision_n, sha = playable_of(snapshot)
@@ -340,7 +340,7 @@ def test_play_runtime_latency_samples(
         progress=gate_progress(),
     )
     cas_p50, cas_p95, cas_max = measure_ms(cas, samples=30)
-    baseline = measure_file_backed_baseline_latency()
+    baseline = measure_file_backed_baseline_latency(application_state_database)
     print(
         "AS3 latency hypothesis capture "
         f"baseline_file_b4d63daa "

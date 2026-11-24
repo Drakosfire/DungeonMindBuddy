@@ -370,6 +370,29 @@
           ]
         }
       ]
+    },
+    "rules-only-runtime": {
+      "cwd": ".",
+      "argv": [
+        "{python}",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_rules_only_parent.py",
+        "--durations=10"
+      ]
+    },
+    "agent-legacy-import": {
+      "cwd": ".",
+      "argv": [
+        "{python}",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_agent_legacy_import_intent.py",
+        "tests/application_state/test_agent_conversation_service.py::test_verified_legacy_import_is_bounded_exact_world_and_idempotent",
+        "tests/application_state/test_agent_conversation_service.py::test_failed_import_does_not_leave_partial_conversation_or_turns"
+      ]
     }
   }
 }
