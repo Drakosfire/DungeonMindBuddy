@@ -63,6 +63,29 @@ reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
 ## Diagnostic checkpoint
 
+Native Graph observation is now a separate partial, process-local capture
+artifact. It records direct calls and outcomes for native query, selected read,
+authored-reference read and context reopen, without retaining arguments or
+source bodies. Offline reports summarize the artifact without asserting a
+complete acquisition journal or affecting a cohort rate. Captured aliases and
+other Graph, corpus and lookup owners can bypass the wrappers.
+
+Case 55 exercised the candidate probe against the actual native query owner and
+a synthetic memory-Core binding (1 test passed). Cases 56–60 exercised it
+around a frozen placement HTTP witness on predecessor `d008072`. The initial
+case included a test-selected Graph reference; cases 57–60 removed that extra
+request reference. In case 60, the dispatch returned HTTP 200 with one proposal
+and an unchanged page, while the direct native query owner returned once. Its
+dispatch-scoped memory-Core counters recorded one head read, one revision read
+and three source-view opens; the response retained a pending native query with
+authority. The related-page probe separately recorded one catalog discovery
+and no materializations, leaving the zero-budget test red. These are scripted
+controller/writer, local-operator, synthetic memory-Core observations; they do
+not prove a completed Graph search, live-model decision, complete coverage,
+hosted authentication or current-head behavior. Workers, generated tests and
+logs remain under `http-owner` and `http-owner/session/case-55` through
+`case-60`.
+
 Case 32 tested the runtime owner's proposed synthetic memory-Core path on the
 retained owned App clone and predecessor product source `d00807237abff7a190960cef85796a7faa4c8166`.
 The frozen placement fixture first reproduced the missing-binding refusal. The

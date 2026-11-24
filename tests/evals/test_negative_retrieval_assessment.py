@@ -279,6 +279,37 @@ def test_build_budget_discovers_related_catalog_before_any_decision(monkeypatch)
     assert records == [{"owner": "related_catalog_discovery", "state": "returned"}]
 
 
+def test_native_graph_probe_records_direct_calls_and_restores_after_error(monkeypatch):
+    import pytest
+    from apps.live_control_server.services import native_graph_reads
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners, summarize_records
+
+    sentinel = object()
+    def query(*args, **kwargs):
+        return sentinel
+    def fail(*args, **kwargs):
+        raise ValueError("synthetic failure")
+    monkeypatch.setattr(native_graph_reads, "prepare_query", query)
+    monkeypatch.setattr(native_graph_reads, "read_selected", fail)
+    with observe_native_graph_owners() as records:
+        assert native_graph_reads.prepare_query("private input") is sentinel
+        with pytest.raises(ValueError, match="synthetic failure"):
+            native_graph_reads.read_selected("private input")
+        with pytest.raises(RuntimeError, match="serial process"):
+            with observe_native_graph_owners():
+                pass
+    assert records == [{"owner": "native_graph_query", "state": "returned"},
+                       {"owner": "native_graph_selected_read", "state": "raised"}]
+    assert native_graph_reads.prepare_query is query
+    assert native_graph_reads.read_selected is fail
+    assert summarize_records(records)["native_graph_query"]["returned"] == 1
+    for malformed in ([{"owner": "native_graph_query", "state": []}],
+                      [{"owner": "native_graph_query", "state": "returned", "text": "private"}],
+                      [{"owner": "unknown", "state": "returned"}]):
+        with pytest.raises(ValueError, match="Malformed"):
+            summarize_records(malformed)
+
+
 def test_empty_catalog_discovery_is_not_a_zero_acquisition_pass():
     from evals.negative_retrieval.related_page_probe import catalog_discovery_count
 
@@ -293,16 +324,18 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     import pytest
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval.capture import capture
-    from apps.live_control_server.services import build_related_pages
+    from apps.live_control_server.services import build_related_pages, native_graph_reads
 
     original_discover = build_related_pages.discover
     def fail_case(client, world, template, case, directory, **kwargs):
+        native_graph_reads.prepare_query("private question")
         build_related_pages.discover(None)
 
     def fail_discovery(request):
         raise RuntimeError("observed failure")
 
     monkeypatch.setattr(build_related_pages, "discover", fail_discovery)
+    monkeypatch.setattr(native_graph_reads, "prepare_query", lambda *_: None)
     monkeypatch.setattr(workflow, "capture_case", fail_case)
     original_case = workflow.capture_case
     def ordinary_capture(manifest, output, **kwargs):
@@ -315,6 +348,9 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     evidence = json.loads((tmp_path / "case1" / "related-page-probe.json").read_text())
     assert evidence["coverage"] == "partial"
     assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "raised"}]
+    native = json.loads((tmp_path / "case1" / "native-graph-probe.json").read_text())
+    assert native["status"] == "observed" and native["coverage"] == "partial"
+    assert native["records"] == [{"owner": "native_graph_query", "state": "returned"}]
     assert workflow.capture_case is original_case
     assert build_related_pages.discover is fail_discovery
     assert original_discover is not fail_discovery
@@ -353,9 +389,13 @@ def test_partial_capture_retains_probe_failure_without_claiming_a_rate(tmp_path)
                  {"owner": "related_page_materialization", "state": "raised"}]}
     (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
     (tmp_path / "terminal.json").write_text(json.dumps({"status": "outcome_unknown", "error_type": "RuntimeError"}))
+    (tmp_path / "native-graph-probe.json").write_text(json.dumps({
+        "schema": "dmb_negative_retrieval_native_graph_probe_v1", "coverage": "partial", "case_id": "case1",
+        "status": "observed", "records": [{"owner": "native_graph_query", "state": "raised"}]}))
     report = report_case(tmp_path, fixture, CASE)
     assert report["case_id"] == "case1" and report["rubric_sha256"] == rubric_sha256(CASE)
     assert report["status"] == "unproven" and "answer-http" in report["missing_artifacts"]
+    assert report["partial_native_graph_probe"]["counts"]["native_graph_query"]["raised"] == 1
     assert report["partial_probe"] == {"catalog_discoveries": 1, "materialization_attempts": 1,
                                        "raised_discoveries": 0, "raised_materializations": 1}
     assert report["capture_terminal"] == {"status": "outcome_unknown", "error_type": "RuntimeError"}

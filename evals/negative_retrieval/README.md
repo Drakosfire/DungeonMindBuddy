@@ -228,3 +228,11 @@ or `skip` vote without changing the related-page fixture. On the same
 predecessor source, the skip control still discovered the catalog but recorded
 no materializations. This comparison diagnoses the host path under scripted
 votes; it does not measure a model's decisions.
+
+`native_graph_probe.observe_native_graph_owners` records direct calls to the
+native query, selected-read, authored-reference-read and context-reopen owners.
+It retains owner and outcome only, never query text or source bodies. The
+ordinary capture writes a separate partial probe artifact; the offline report
+summarizes it without upgrading acquisition coverage or a cohort rate. Other
+owners and previously captured call aliases can bypass these wrappers, so zero
+records do not prove that Graph or source acquisition did not happen.

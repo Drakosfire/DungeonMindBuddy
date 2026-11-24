@@ -6,6 +6,7 @@ from pathlib import Path
 from .assessment import REPORT_SCHEMA, assess, rubric_sha256
 from .capture_observation import _body, observe
 from .related_page_probe import acquisition_labels, catalog_discovery_count
+from .native_graph_probe import summarize_records
 
 
 def verify_fixture_pin(fixture, record, expected_fixture_sha256, fixture_set):
@@ -31,11 +32,21 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
     paths = {name: directory / (name + ".json") for name in names}
-    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal"):
+    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe"):
         paths[name] = directory / (name + ".json")
     present = {name: path for name, path in paths.items() if path.is_file()}
     hashes = {name: sha256(path.read_bytes()).hexdigest() for name, path in present.items()}
     rows = {name: json.loads(path.read_text()) for name, path in present.items()}
+    native_probe = None
+    if "native-graph-probe" in rows:
+        value = rows["native-graph-probe"]
+        if (not isinstance(value, dict) or value.get("schema") != "dmb_negative_retrieval_native_graph_probe_v1"
+                or value.get("coverage") != "partial" or value.get("case_id") != fixture["id"]
+                or not isinstance(value.get("status"), str)
+                or value.get("status") not in {"observed", "not_started"}
+                or (value.get("status") == "not_started" and value.get("records") != [])):
+            raise ValueError("Native Graph probe is malformed or belongs to another case")
+        native_probe = {"status": value["status"], "counts": summarize_records(value.get("records"))}
     probe = rows.get("related-page-probe")
     partial_probe = None
     if "related-page-probe" in rows:
@@ -59,7 +70,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     if missing:
         return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
                 "status": "unproven", "missing_artifacts": missing,
-                "artifact_sha256": hashes, "partial_probe": partial_probe, "capture_terminal": terminal}
+                "artifact_sha256": hashes, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe,
+                "capture_terminal": terminal}
     if rows["request"].get("message") != fixture["request"]:
         raise ValueError("Capture request differs from the fixture")
     from .fixture_sources import related_trace_labels, verify_related_record
@@ -109,7 +121,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "related_context_verified": related_bound, "fixture_context_verified": fixture_bound,
             "fixture_pin_verified": pin_bound,
             "capture_environment_verified": None,
-            "capture_terminal": terminal, "partial_probe": partial_probe,
+            "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,
             "http_status": observed["http_status"], "terminal_status": observed["terminal_status"],

@@ -18,6 +18,7 @@ from evals.buddy_benchmark import workflow
 from .fixture_binding import verify_preflight_history, verify_preflight_snapshot
 from .fixture_sources import inspect_related_pages
 from .related_page_probe import observe_related_page_owners
+from .native_graph_probe import observe_native_graph_owners
 
 _lock = Lock()
 
@@ -127,15 +128,23 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     })
                     raise
             records = []
+            native_records = None
             try:
                 with observe_related_page_owners() as records:
-                    return original(checked_client, world, template, case, directory, **kwargs)
+                    with observe_native_graph_owners() as native_records:
+                        return original(checked_client, world, template, case, directory, **kwargs)
             finally:
                 failure = sys.exc_info()[1]
                 try:
                     immutable_save(Path(directory), "related-page-probe", {
                         "schema": "dmb_negative_retrieval_related_page_probe_v1",
                         "coverage": "partial", "case_id": case["id"], "records": records,
+                    })
+                    immutable_save(Path(directory), "native-graph-probe", {
+                        "schema": "dmb_negative_retrieval_native_graph_probe_v1",
+                        "coverage": "partial", "case_id": case["id"],
+                        "status": "observed" if native_records is not None else "not_started",
+                        "records": native_records if native_records is not None else [],
                     })
                     if fixture is not None:
                         immutable_save(Path(directory), "fixture-pin", {
