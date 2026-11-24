@@ -181,3 +181,5 @@ are excluded. DOGFOOD will preserve this entry when reconciling CI4598 with
 the benchmark's merged main. All other CI paths/entries remain leased here.
 
 The owner explicitly assigned the runner migration-test defect to the Sizzek lane. The current-to-historical comparison now captures the current App row and its parent rows before entering the same-database historical phase; it then restores current state through the existing owned fixture. This is a bounded transfer of `tests/application_state/test_native_storage_owner_migration.py` for that test and this handoff, with no shared database or runtime write. Exact-head SQL and independent review remain required.
+
+Scope checkpoint: the owner authorized Sizzek delivery and repair of this runner lane. The automatic local-verifier guard imports the runner but its deliberately minimal environment lacks psycopg, so add the pinned locked driver to `.github/workflows/local-verifier.yml` and verify that lightweight guard. This is a CI dependency fix within the same runner slice; it does not alter runtime, database ownership, or workflow triggers.
