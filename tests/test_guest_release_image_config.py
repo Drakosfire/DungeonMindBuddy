@@ -316,3 +316,24 @@ def test_guest_build_release_requires_both_ui_and_server_boundary(tmp_path):
     assert subprocess.run(["bash", str(script), str(tmp_path), "1"], capture_output=True).returncode != 0
     assert subprocess.run(["bash", str(script), str(tmp_path), "0"], capture_output=True).returncode == 0
     assert subprocess.run(["bash", str(script), str(tmp_path), "invalid"], capture_output=True).returncode != 0
+
+
+def test_publisher_binds_guest_play_and_media():
+    workflow = (SCRIPT.parents[1] / ".github/workflows/publish-buddy-image.yml").read_text()
+    assert '[[ "$GUEST_PLAY" == 0 || "$GUEST_PLAN" == 1 ]]' in workflow
+    assert '[[ "$GUEST_MEDIA" == 0 || "$GUEST_BUILD" == 1 ]]' in workflow
+    for feature in ("PLAY", "MEDIA"):
+        assert f'VITE_HOSTED_GUEST_{feature}="$GUEST_{feature}"' in workflow
+        assert f'hosted_guest_{feature.lower()}:' in workflow
+        assert f'guest_config="$guest_config;{feature.lower()}=1"' in workflow
+
+
+def test_play_media_verifier_checks_dependencies_and_source():
+    root = SCRIPT.parents[1]
+    script = SCRIPT.parent / "verify_guest_graph_release.sh"
+    def run(build, plan, play, media):
+        return subprocess.run(["bash", str(script), str(root), build, plan, play, media], capture_output=True).returncode
+    assert run("1", "1", "1", "1") == 0
+    assert run("1", "0", "1", "0") != 0
+    assert run("0", "0", "0", "1") != 0
+    assert run("1", "1", "invalid", "0") != 0
