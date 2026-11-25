@@ -89,6 +89,27 @@ it('fails closed for an incoming mismatched document and only admits a fresh own
  fireEvent.click(screen.getByRole('button',{name:'Retry selection'}));await screen.findByTestId('plan-page');
  expect(screen.getByTestId('world-controller')).not.toBe(node);expect(screen.getByTestId('world-controller')).toHaveAttribute('data-document','wrong');
 });
+it('retains the hidden conversation through a same-World document read failure and retry',async()=>{
+ await start();const node=screen.getByTestId('world-controller');
+ fireEvent.change(screen.getByRole('textbox',{name:'Unsent World draft'}),{target:{value:'Keep even without storage'}});
+ vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('storage unavailable');});
+ vi.mocked(api.getWorkspaceDocumentAny).mockRejectedValueOnce(new Error('temporary page failure'));
+ navigate('/plan?world=A&documentId=doc-next');await screen.findByRole('alert');
+ expect(screen.getByTestId('world-controller')).toBe(node);expect(node).not.toBeVisible();
+ expect(screen.queryByTestId('plan-page')).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Use current Plan bridge'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Retry selection'}));await screen.findByTestId('plan-page');
+ expect(screen.getByTestId('world-controller')).toBe(node);
+ expect(screen.getByRole('textbox',{name:'Unsent World draft'})).toHaveValue('Keep even without storage');
+});
+it('retires the conversation when a failed page read is followed by failed World verification',async()=>{
+ await start();const node=screen.getByTestId('world-controller');
+ vi.mocked(api.getWorkspaceDocumentAny).mockRejectedValueOnce(new Error('page unavailable'));
+ vi.mocked(api.listWorldContainers).mockRejectedValueOnce(new Error('World unavailable'));
+ navigate('/plan?world=A&documentId=doc-next');await screen.findByRole('alert');
+ expect(node).not.toBeInTheDocument();expect(screen.queryByTestId('world-controller')).not.toBeInTheDocument();
+ expect(screen.queryByTestId('plan-page')).not.toBeInTheDocument();
+});
 it.each(['resolve','reject'] as const)('ignores an abandoned document %s after returning to the accepted selector',async settlement=>{
  await start();const node=screen.getByTestId('world-controller');const gate=deferred<Awaited<ReturnType<typeof api.getWorkspaceDocumentAny>>>();vi.mocked(api.getWorkspaceDocumentAny).mockReturnValueOnce(gate.promise);
  navigate('/plan?world=A&documentId=abandoned');navigate('/plan?world=A&documentId=doc-A');await screen.findByTestId('plan-page');
@@ -140,6 +161,17 @@ it.each([null,'longmont-c2'])('admits a Page by its exact owning World with camp
  window.history.replaceState({},'','/build?world=A&documentId=page');render(<App/>);
  await screen.findByTestId('build-page');expect(screen.queryByRole('alert')).not.toBeInTheDocument();
  navigate('/build?world=B&documentId=page');await screen.findByRole('alert');expect(screen.queryByTestId('build-page')).not.toBeInTheDocument();
+});
+
+it('keeps the world conversation and unsent draft when navigating between Build pages', async () => {
+ await start();
+ const controller=screen.getByTestId('world-controller');
+ fireEvent.change(screen.getByRole('textbox',{name:'Unsent World draft'}),{target:{value:'Keep this thought'}});
+ vi.mocked(api.getWorkspaceDocumentAny).mockImplementation(async id=>({...record(id),schema_version:'dmb_workspace_document_record_v1',kind:'worldbuilding_source',campaign_id:null,world_id:'A'} as never));
+ navigate('/build?world=A&documentId=page');await screen.findByTestId('build-page');
+ navigate('/build?world=A&documentId=page-two');await screen.findByTestId('build-page');
+ expect(screen.getByTestId('world-controller')).toBe(controller);
+ expect(screen.getByRole('textbox',{name:'Unsent World draft'})).toHaveValue('Keep this thought');
 });
 
 it("loads the catalog for the picker and again for World admission", async () => {

@@ -7,6 +7,8 @@ import {ConversationLorePageConfirmation} from './ConversationLorePageConfirmati
 vi.mock('../../api/liveApi', () => ({authenticatedApiFetch: vi.fn()}));
 
 it('saves only on explicit confirmation and submits the displayed digest', async () => {
+  window.history.replaceState({}, '', '/build?world=fixture-world&documentId=original');
+  const selectDocument = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
   const digest = 'a'.repeat(64);
   const completion: SurfaceNativeCompletionV1 = {
     schema: 'dmb_surface_native_completion_v1',
@@ -35,7 +37,7 @@ it('saves only on explicit confirmation and submits the displayed digest', async
   } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
   render(<ConversationLorePageConfirmation
     worldId="fixture-world" conversationId="fixture-conversation" turnId="fixture-turn"
-    completion={completion} digest={async () => digest} disabled={false}
+    completion={completion} digest={async () => digest} disabled={false} selectDocument={selectDocument}
   />);
   expect(screen.getByRole("region", {name: "Open questions"})).toHaveTextContent("Why did Rowan leave?");
   expect(api).not.toHaveBeenCalled();
@@ -52,4 +54,12 @@ it('saves only on explicit confirmation and submits the displayed digest', async
       conversation_id: 'fixture-conversation', turn_id: 'fixture-turn', review_sha256: digest,
     })}),
   );
+  const link = screen.getByRole('link', {name: 'Open saved page'});
+  fireEvent.click(link);
+  expect(selectDocument).toHaveBeenCalledWith('saved-page');
+  expect(await screen.findByRole('alert')).toHaveTextContent('current page and conversation are retained');
+  expect(window.location.search).toContain('documentId=original');
+  fireEvent.click(link);
+  expect(selectDocument).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole('link', {name: 'Open saved page'})).toBeInTheDocument();
 });
