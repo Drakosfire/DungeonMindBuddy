@@ -193,7 +193,9 @@ def _resolution(
     )
 
 
-def render_agent_surface_context(context: AgentSurfaceContext | None) -> str | None:
+def render_agent_surface_context(
+    context: AgentSurfaceContext | None, *, include_edition_revision: bool = True
+) -> str | None:
     """Render bounded server-resolved surface/owner/work context, or None when absent."""
     if context is None:
         return None
@@ -215,7 +217,7 @@ def render_agent_surface_context(context: AgentSurfaceContext | None) -> str | N
             render_agent_play_surface_context,
         )
 
-        block = render_agent_play_surface_context(context)
+        block = render_agent_play_surface_context(context, include_edition_revision=include_edition_revision)
     elif context.surface_id == "plan":
         block = _render_plan_surface_context(context)
     else:

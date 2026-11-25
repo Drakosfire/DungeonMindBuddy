@@ -1999,11 +1999,39 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     assert first.get(missing_proposal, params={'world_id': world}).status_code == 404
     assert second.get(missing_proposal, params={'world_id': world}).status_code == 403
     assert first.get(proposals_path, params=[('world_id', world), ('world_id', world)]).status_code in (400, 403)
-    assert first.post(f'{proposals_path}/11111111-1111-4111-8111-111111111111', params={'world_id': world}, headers=headers, json={}).status_code == 401
+    proposal_path = f'{proposals_path}/11111111-1111-4111-8111-111111111111'
+    assert first.post(proposal_path, params={'world_id': world}, headers=headers, json={}).status_code == 422
     content_path = f'{run_path}/content'
     content = first.get(content_path, params={'world_id': world})
     assert content.status_code == 200, content.text
     body = content.json()
+    from types import SimpleNamespace
+    from apps.live_control_server.services import play_scene_edit_proposal as writer, guest_build_access
+    calls = []
+    class Generator:
+        async def generate_structured(self, request):
+            calls.append(request)
+            scene = json.loads(request.user_prompt)['scene_body']
+            return SimpleNamespace(parsed={'replacement_markdown': scene + '\nA guest cue.\n', 'summary': 'Add a cue.',
+                'assumptions': [], 'cannot_complete_reason': None},
+                observation=SimpleNamespace(response_model='test', resolved_model='test', latency_ms=1))
+    monkeypatch.setattr(writer.GenerationClient, 'from_env', lambda: Generator())
+    monkeypatch.setattr(writer, 'load_dungeonmindbuddy_dotenv', lambda: None)
+    monkeypatch.setattr(writer, 'load_buddy_model_policy', lambda **kw: {'actions': {'structured_generation': 'writer'}, 'models': {'writer': 'test'}})
+    proposal_body = {'run_revision': created.json()['run']['run_revision'], 'scene_id': 'scene:contract',
+        'content_basis': {'edition_revision': body['edition_revision'], 'edition_revision_id': body['edition_revision_id'],
+                          'content_sha256': body['content_sha256']}, 'instruction': 'Add a cue.'}
+    assert first.post(proposal_path, params={'world_id': world}, json=proposal_body).status_code == 403
+    assert second.post(proposal_path, params={'world_id': world}, headers={'X-DMB-Index-Graph-CSRF': other_token}, json=proposal_body).status_code == 403
+    proposal = first.post(proposal_path, params={'world_id': world}, headers=headers, json=proposal_body)
+    assert proposal.status_code == 200 and proposal.json()['status'] == 'ready', proposal.text
+    assert 'A guest cue.' in proposal.json()['result']['candidate_markdown']
+    assert first.get(content_path, params={'world_id': world}).json()['markdown'] == body['markdown']
+    assert first.post(proposal_path, params={'world_id': world}, headers=headers, json=proposal_body).json() == proposal.json()
+    assert len(calls) == 1
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_SCENE_PROPOSALS', 1)
+    limited = first.post(f'{proposals_path}/22222222-2222-4222-8222-222222222222', params={'world_id': world}, headers=headers, json=proposal_body)
+    assert limited.status_code == 409 and len(calls) == 1
     command = str(UUID('11111111-1111-4111-8111-111111111111'))
     command_path = f'{content_path}/commands/{command}'
     edit = {'schema_version': 'dmb_world_play_run_content_commit_v1', 'expected_origin': body['origin'],
@@ -2102,6 +2130,17 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     limited = first.put(other_command, params={'world_id': world}, headers=headers, json=next_edit)
     assert limited.status_code == 409 and 'limit' in limited.text
     monkeypatch.setattr(guest_build_access, 'MAX_GUEST_PLAY_EDITS', 256)
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_SCENE_PROPOSALS', 16)
+    inference_entered, release_inference = Event(), Event()
+    class DelayedGenerator(Generator):
+        async def generate_structured(self, request):
+            inference_entered.set()
+            if not release_inference.wait(20): raise RuntimeError('guest inference race timed out')
+            return await super().generate_structured(request)
+    monkeypatch.setattr(writer.GenerationClient, 'from_env', lambda: DelayedGenerator())
+    pending_body = {**proposal_body, 'run_revision': first.get(run_path, params={'world_id': world}).json()['run_revision'],
+        'content_basis': {'edition_revision': current['edition_revision'], 'edition_revision_id': current['edition_revision_id'],
+                          'content_sha256': current['content_sha256']}}
     entered, release = Event(), Event()
     original_capacity = guest_build_access.guest_play_edit_capacity
     def hold_capacity(request, conn, scoped_world, content_bytes, replay):
@@ -2110,7 +2149,10 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
             entered.set()
             if not release.wait(15): raise RuntimeError('guest Play edit race timed out')
     monkeypatch.setattr(guest_build_access, 'guest_play_edit_capacity', hold_capacity)
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        pending_proposal = pool.submit(first.post, f'{proposals_path}/33333333-3333-4333-8333-333333333333',
+            params={'world_id': world}, headers=headers, json=pending_body)
+        assert inference_entered.wait(15)
         pending = pool.submit(first.put, other_command, params={'world_id': world}, headers=headers, json=next_edit)
         try:
             assert entered.wait(15)
@@ -2130,6 +2172,17 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
             release.set()
         assert pending.result(timeout=15).status_code in (200, 401, 403)
         assert resetting.result(timeout=15).status_code == 200
+        release_inference.set()
+        assert pending_proposal.result(timeout=15).status_code in (401, 403, 409)
+    from application_state.engine import connect
+    with connect(application_state_dsn) as observer:
+        rows = observer.execute('SELECT status FROM play.scene_edit_proposal WHERE world_id = %s AND proposal_id = %s',
+                                (world, '33333333-3333-4333-8333-333333333333')).fetchall()
+        assert rows in ([], [('pending',)])
+    from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
+    cleanup_expired_guest_conversation(str(UUID(world.removeprefix('guest-'))))
+    with connect(application_state_dsn) as observer:
+        assert observer.execute('SELECT count(*) FROM play.scene_edit_proposal WHERE world_id = %s', (world,)).fetchone()[0] == 0
     assert first.get(content_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(review_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(proposals_path, params={'world_id': world}).status_code in (401, 403)

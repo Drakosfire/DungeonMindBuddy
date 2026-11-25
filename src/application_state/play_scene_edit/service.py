@@ -49,7 +49,8 @@ def _fingerprint(request: dict, receipt: PlayRunTurnContextReceiptV2) -> str:
 class PlaySceneEditProposalService:
     def reserve(self, *, world_id: str, run_id: UUID, proposal_id: UUID, request: dict,
                 context_receipt: PlayRunTurnContextReceiptV2,
-                authorize_world: Callable[[], object] | None = None) -> tuple[SceneEditProposalRecord, bool]:
+                authorize_world: Callable[[], object] | None = None,
+                authorize_transaction: Callable[[object, bool], None] | None = None) -> tuple[SceneEditProposalRecord, bool]:
         world = _world(world_id)
         if context_receipt.world_id != world or context_receipt.run_id != str(run_id):
             raise ApplicationStateValidationError("context receipt World/Run does not match reservation")
@@ -62,6 +63,8 @@ class PlaySceneEditProposalService:
         except (TypeError, ValueError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
         with unit_of_work(_ready_dsn()) as conn:
+            if authorize_transaction is not None:
+                authorize_transaction(conn, False)
             run = conn.execute("SELECT world_id, run_revision, playable_work_object_id, playable_revision_n, playable_work_revision_id, playable_content_sha256, lifecycle_status FROM play.run WHERE run_id=%s FOR UPDATE", (run_id,)).fetchone()
             if run is None or run[0] != world:
                 raise ApplicationStateNotFoundError("Play Run is unavailable in this World")
@@ -108,12 +111,15 @@ class PlaySceneEditProposalService:
                 raise ApplicationStateConflictError("saved Play edition changed before proposal reservation")
             if authorize_world is not None:
                 authorize_world()
+            if authorize_transaction is not None:
+                authorize_transaction(conn, True)
             conn.execute("INSERT INTO play.scene_edit_proposal(world_id,run_id,proposal_id,request_sha256,request,context_receipt,status,result,failure_code,created_at,updated_at) VALUES(%s,%s,%s,%s,%s,%s,'pending',NULL,NULL,%s,%s)",
                 (world, run_id, proposal_id, fingerprint, Jsonb(request), Jsonb(context_receipt.model_dump(mode="json", by_alias=True)), now, now))
             return candidate, True
 
     def finish(self, *, world_id: str, run_id: UUID, proposal_id: UUID, result: dict | None,
-               failure_code: str | None) -> SceneEditProposalRecord:
+               failure_code: str | None,
+               authorize_transaction: Callable[[object, bool], None] | None = None) -> SceneEditProposalRecord:
         world = _world(world_id)
         if (result is None) == (failure_code is None):
             raise ApplicationStateValidationError("provide exactly one result or failure_code")
@@ -130,6 +136,8 @@ class PlaySceneEditProposalService:
                 raise ApplicationStateValidationError(str(exc)) from exc
             status = "failed"
         with unit_of_work(_ready_dsn()) as conn:
+            if authorize_transaction is not None:
+                authorize_transaction(conn, False)
             row = conn.execute(f"SELECT {_SELECT_COLUMNS} FROM play.scene_edit_proposal WHERE world_id=%s AND run_id=%s AND proposal_id=%s FOR UPDATE", (world, run_id, proposal_id)).fetchone()
             if row is None:
                 raise ApplicationStateNotFoundError("Play scene edit proposal not found")

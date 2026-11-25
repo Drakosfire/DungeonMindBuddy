@@ -38,8 +38,9 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
   const playReview = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && (
     method === "GET" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/review$/.test(pathname)
     || method === "PUT" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/review\/commands\/[0-9a-f-]{36}$/.test(pathname));
-  const playProposals = import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === "1" && method === "GET"
-    && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/proposals(?:\/[0-9a-f-]{36})?$/.test(pathname);
+  const playProposals = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === "1"
+    && (method === "GET" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/proposals(?:\/[0-9a-f-]{36})?$/.test(pathname)
+      || method === "POST" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/proposals\/[0-9a-f-]{36}$/.test(pathname));
   const combat = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
     (pathname === "/api/live/combat/encounters" || /^\/api\/live\/combat\/encounters\/[0-9a-f-]{36}$/.test(pathname)) &&
     ((method === "GET") || (method === "POST" && pathname === "/api/live/combat/encounters") ||
@@ -64,6 +65,7 @@ export function guestBuildCsrf(path: string, method: string): string | null {
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && guestBuildRequestEpoch(path, method) !== null && pathname.startsWith("/api/live/combat/encounters")) return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && method === "PUT" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/commands\/[0-9a-f-]{36}$/.test(pathname)) return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && method === "PUT" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/review\/commands\/[0-9a-f-]{36}$/.test(pathname)) return active.csrf;
+  if (import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === "1" && method === "POST" && guestBuildRequestEpoch(path, method) !== null && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/proposals\/[0-9a-f-]{36}$/.test(pathname)) return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_MEDIA === "1" && pathname === "/api/live/media/images/generate" && method === "POST") return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
       (pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/world-play-runs/v2/active" ||

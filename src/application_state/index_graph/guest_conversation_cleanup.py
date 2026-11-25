@@ -25,8 +25,9 @@ def cleanup_expired_guest_conversations(*, limit: int = 8) -> None:
         with unit_of_work() as conn:
             conn.execute("SET LOCAL statement_timeout = '5s'")
             query = ("SELECT s.expires_at, s.session_id::text FROM application_state.index_graph_sessions s "
-                     "JOIN agent.world_state a ON a.world_id='guest-' || replace(s.session_id::text, '-', '') "
-                     "WHERE s.expires_at <= clock_timestamp() ")
+                     "WHERE s.expires_at <= clock_timestamp() AND ("
+                     "EXISTS (SELECT 1 FROM agent.world_state a WHERE a.world_id='guest-' || replace(s.session_id::text, '-', '')) "
+                     "OR EXISTS (SELECT 1 FROM play.scene_edit_proposal p WHERE p.world_id='guest-' || replace(s.session_id::text, '-', ''))) ")
             if _cursor is None:
                 rows = conn.execute(query + 'ORDER BY s.expires_at, s.session_id LIMIT %s', (limit,)).fetchall()
             else:
@@ -64,6 +65,7 @@ def cleanup_expired_guest_conversation(session_id: str) -> None:
         owner = conn.execute('SELECT owner_subject FROM workspace.managed_world WHERE world_id=%s', (world_id,)).fetchone()
         if owner is None or owner[0] != f'guest-session:{canonical}':
             raise ApplicationStateConflictError('Guest World ownership differs from its session')
+        conn.execute('DELETE FROM play.scene_edit_proposal WHERE world_id=%s', (world_id,))
         turns = 'SELECT turn_id FROM agent.turn WHERE world_id=%s'
         for table in ('turn_context_trace', 'turn_rules_execution', 'turn_reviewed_action'):
             conn.execute(f'DELETE FROM agent.{table} WHERE turn_id IN ({turns})', (world_id,))
