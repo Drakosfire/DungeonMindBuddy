@@ -522,8 +522,11 @@ class BuildJevHarness:
 
     def _native_completion(self, adapter, work_driver):
         """Continue real Build work through the shared native read and writer owners."""
+        from application_state.agent_conversation.build_intentional_response import placement_question
+
+        question = placement_question(adapter._broker_execution(), work_driver.selection)
         placement = getattr(work_driver.selection, "paragraph_placement", None)
-        if (work_driver.operation == "propose_build_insertion" and placement is not None
+        if (question is None and work_driver.operation == "propose_build_insertion" and placement is not None
                 and placement.target is None
                 and explicit_build_page_target(adapter.request.build_write_capability, work_driver.selection) is None):
             from .agent_turn_service import AgentTurnServiceError
@@ -563,13 +566,18 @@ class BuildJevHarness:
                 asyncio.run(self._decide(adapter,selector))
             else:
                 selector.settle_empty()
-            if work_driver.operation=='propose_build_insertion':
+            if work_driver.operation=='propose_build_insertion' and question is None:
                 return self._proposal(adapter,work_driver,native_rules=rules,native_proof=proof)
             if work_driver.operation=='prepare_build_image':
                 from .build_image_writer import prepare_image
                 return prepare_image(self,adapter,work_driver,native_rules=rules,native_proof=proof)
             self.failure_stage = "writer_prepare"
             writer = PlanJevWriter(adapter,proof,rules,dialogue=dialogue)
+            if question is not None:
+                writer.instructions += (
+                    "\nPlacement is unresolved. Return only the inline questions review. "
+                    "Leave answer_segments empty and ask this question in collaboration.questions: " + question
+                )
             completed = asyncio.run(writer.run(transport=self.writer_transport))
             adapter.turn = completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed
             return completed

@@ -269,9 +269,9 @@ def authoring_input(native_context, capability, instruction, operation):
 def _input_frames(raw,execution,work_schema, *, prose_frame=None, prose_work=None):
     """One actual producer packet, selected by the stored operation."""
     from .native_execution import NativeBuildActionV1
-    from .build_intentional_response import selected_action
+    from .build_intentional_response import placement_question, selected_action
     selected=selected_action(execution) if isinstance(execution.policy.action,NativeBuildActionV1) else None
-    operation=None if selected is None else selected.operation
+    operation = None if selected is None or placement_question(execution, selected) is not None else selected.operation
     schema={'propose_build_insertion':'dmb_build_compose_input_v1',
         'prepare_build_image':'dmb_build_image_direction_input_v1'}.get(operation)
     if schema is None:

@@ -328,10 +328,11 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     auth, included = validate_native_packet_writer(execution,provider_attempt_id)
     body, frame, outputs, supports = packet_input_records(execution,prepared_request_json,
         expected_envelope_sha256=expected_envelope_sha256,allow_build=isinstance(action,NativeBuildActionV1))
-    from .build_intentional_response import selected_action
+    from .build_intentional_response import placement_question, selected_action
     selected=selected_action(graph_execution) if isinstance(action,NativeBuildActionV1) else None
     operation=selected.operation if selected is not None else None
-    creative=operation in {'propose_build_insertion','prepare_build_image'}
+    creative = (operation in {'propose_build_insertion', 'prepare_build_image'}
+                and placement_question(graph_execution, selected) is None)
     if creative:
         from application_state.build_proposal.types import BuildComposeOutput, BuildProseBoundaryOutput, ImageDirectionV2
         if execution.budget_use.calls or execution.supports or frame.lookups:

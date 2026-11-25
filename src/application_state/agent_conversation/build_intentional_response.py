@@ -723,12 +723,35 @@ def selected_action(execution):
     return choices[0]
 
 
+def placement_question(execution, selection):
+    """Project an unresolved current-page write into the existing Questions review."""
+    from application_state.build_proposal.types import explicit_build_page_target
+    from .native_execution import NativeBuildActionV1
+
+    action = getattr(execution.policy, "action", None)
+    placement = getattr(selection, "paragraph_placement", None)
+    if (not isinstance(action, NativeBuildActionV1)
+            or selection.operation != "propose_build_insertion"
+            or placement is None or placement.target is not None
+            or placement.disposition == "different_destination"
+            or action.intent.build_reference_image_id is not None
+            or "questions" not in (action.capabilities.reviews or ())
+            or explicit_build_page_target(action.write_capability, selection) is not None):
+        return None
+    return {
+        "ambiguous": "That passage appears more than once. Which section should I use?",
+        "missing": "I couldn't find that passage in the requested section. Which existing passage should I use?",
+    }.get(placement.disposition, "Which existing paragraph should I use, and should I insert before or after it?")
+
+
 def selected_contract(execution):
     from .types import BuildReviewedActionSelectionV1
     choice=selected_action(execution)
     if isinstance(choice,BuildReviewedActionSelectionV1):
         return None
     validate_resolution_metadata(choice,execution.policy)
+    if placement_question(execution, choice) is not None:
+        return resolution_for(execution.policy, "clarify_request")
     return {key: value for key, value in choice.resolution.items() if key != "source_scope"}
 
 

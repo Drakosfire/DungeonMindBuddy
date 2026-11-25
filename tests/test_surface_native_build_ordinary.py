@@ -553,6 +553,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                                          probabilities={key: float(key == chosen) for key in choices})
                     continue
+                placement_scope = (
+                    "unique" if contextual == "ambiguous" and writer.adapter.request.message.startswith(
+                        "My answers to your clarifying questions:"
+                    ) else contextual
+                )
                 chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else (source_need(writer.adapter.request.message) if callable(source_need) else source_need) if name=='source_need'
                     else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
@@ -561,9 +566,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                           "paragraph_destination": "different_page" if contextual == "different" else "current_page",
                           "paragraph_insertion_location": "unstated",
                           "paragraph_relation": "unresolved" if contextual == "caret" else "after",
-                          "paragraph_scope": "unscoped" if contextual in {"ambiguous", "caret"} else "named",
+                          "paragraph_scope": "unscoped" if placement_scope in {"ambiguous", "caret"} else "named",
                           "paragraph_text0": "exclude" if contextual == "caret" else "include", "paragraph_scope0": "exclude",
-                          "paragraph_scope1": "include" if contextual in {"unique", "mixed", "different"} else "exclude"}[name]
+                          "paragraph_scope1": "include" if placement_scope in {"unique", "mixed", "different"} else "exclude"}[name]
                     if name.startswith("paragraph_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
@@ -604,6 +609,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if failure=='retry_unknown':
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
+            placement_question = contextual in {"ambiguous", "missing"} and self.adapter.request.message == message
+            if placement_question:
+                mode = False
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
             current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
             from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
@@ -693,7 +701,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if mode:
                     assert body['input'].count(json.dumps(expected_draft, ensure_ascii=False)[1:-1]) == 1
                 else:
-                    assert sum(expected_draft in row['content'] for row in body['input']) == 1
+                    draft_in_input = json.dumps(expected_draft, ensure_ascii=False)[1:-1] if placement_question else expected_draft
+                    assert sum(draft_in_input in row['content'] for row in body['input']) == 1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only'
@@ -745,6 +754,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if placement_question:
+                question = body["instructions"].split("ask this question in collaboration.questions: ", 1)[1]
+                candidate.update(answer_segments=[], collaboration={
+                    "kind": "questions", "questions": [{"text": question}],
+                })
             if image_move == "other_discussion":
                 candidate["answer_segments"] = [
                     dict(kind="discussion", text="The image would sit to the right of the nearby material."),
@@ -1547,17 +1561,72 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert not writer.calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
-    if contextual in {"ambiguous", "missing", "different"}:
+    if contextual in {"ambiguous", "missing"}:
+        from application_state.build_proposal.service import BuildProposalService
+
+        assert response.status_code == 200, response.text
+        completion = response.json()["knowledge_context"]["completion"]
+        review = completion["collaboration"]
+        assert review["kind"] == "questions" and len(review["questions"]) == 1
+        question = review["questions"][0]["text"]
+        assert {"ambiguous": "appears more than once", "missing": "in the requested section"}[contextual] in question
+        proposal_service = BuildProposalService()
+        assert proposal_service.list(world, cap.conversation_id) == []
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        history_url = f"/api/live/agent/worlds/{world}/conversation"
+        history = client.get(history_url)
+        assert history.status_code == 200, history.text
+        assert history.json()["turns"][0]["knowledge_context"]["completion"] == completion
+        call_counts = len(decisions.calls), len(writer.calls)
+        replay = client.post("/api/live/agent/turn", json=body)
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["knowledge_context"]["completion"] == completion
+        assert (len(decisions.calls), len(writer.calls)) == call_counts
+        if contextual == "missing":
+            return
+
+        from copy import deepcopy
+
+        answer = deepcopy(body)
+        answer.update(
+            turn_id=str(uuid4()),
+            message=f"My answers to your clarifying questions:\n\nQuestion: {question}\nMy answer: Use the East section.",
+        )
+        pointer_revision = AgentConversationService().get_world_pointer(world).revision
+        answer["build_draft_context"]["expected_pointer_revision"] = pointer_revision
+        answer["build_write_capability"].update(
+            idempotency_key=str(uuid4()), expected_pointer_revision=pointer_revision,
+        )
+        continued = client.post("/api/live/agent/turn", json=answer)
+        assert continued.status_code == 200, continued.text
+        assert continued.json()["knowledge_context"]["completion"]["schema"] == "dmb_build_authoring_completion_v1"
+        record = proposal_service.get(world, UUID(answer["build_write_capability"]["idempotency_key"]))
+        assert record.state == "proposed" and not record.inserted_in_draft
+        assert record.reservation.prose_target.alias == "passage2:insert_after"
+        opening = next(
+            json.loads(call.content) for call in reversed(decisions.calls)
+            if "requested_work" in json.loads(call.content)["questions"]
+        )
+        assert message in json.dumps(opening)
+        assert "Use the East section." in json.dumps(opening)
+        proposal_packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+        assert proposal_packet["instruction"] == answer["message"]
+        assert proposal_packet["recent_dialogue"][-1]["user"] == message
+        assert proposal_packet["paragraph_placement"]["section"] == ["East"]
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        reopened = client.get(history_url)
+        assert reopened.status_code == 200, reopened.text
+        turns = reopened.json()["turns"]
+        assert completion in [row["knowledge_context"]["completion"] for row in turns]
+        assert answer["message"] in [row["user_text"] for row in turns]
+        return
+    if contextual == "different":
         from application_state.build_proposal.service import BuildProposalService
 
         assert response.status_code == 409, response.text
         detail = response.json()["detail"]
         assert detail["code"] == "build_contextual_placement_unresolved"
-        assert {
-            "ambiguous": "appears more than once",
-            "missing": "in the requested section",
-            "different": "names a different page",
-        }[contextual] in detail["message"]
+        assert "names a different page" in detail["message"]
         assert len(decisions.calls) == 1 and not writer.calls
         assert BuildProposalService().list(world, cap.conversation_id) == []
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
