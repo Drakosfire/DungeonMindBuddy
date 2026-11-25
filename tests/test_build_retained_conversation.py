@@ -123,6 +123,48 @@ def test_legacy_admission_does_not_change_historical_dialogue_codec():
 from tests.test_native_plan_assertions import lane as lane
 
 
+def test_stored_anchored_discussion_reopens_retained_native_citation(lane, tmp_path, monkeypatch):
+    from tests.test_surface_native_build_ordinary import _fresh_case
+    from application_state.agent_conversation.native_corpus import acquired_body_reads, resolve_retained_body_citation
+    from application_state.agent_conversation.service import AgentConversationService
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from apps.live_control_server.services import native_graph_reads, build_related_pages
+
+    monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **kwargs: lane.repo)
+    synthesis = 'Recap the earlier saved source and cite it. Do not search again.'
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, True, False,
+        native_body='irrelevant', requested_work=lambda message: 'discuss',
+        source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup')
+    assert acquired_body_reads(case.turn.graph_context_execution)
+    assert not case.turn.completion.native_body_citations
+    case.request['build_authored_references'] = None
+    case.request['primary_work'].update(expected_revision=case.source.loaded_revision,
+        expected_content_sha256=case.source.content_sha256)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Anchored follow-up attempted new acquisition')
+    with monkeypatch.context() as guard:
+        guard.setattr(native_graph_reads, 'prepare_query', forbidden)
+        guard.setattr(build_related_pages, 'acquire_selected_pages', forbidden)
+        guard.setattr(native_corpus_source, 'open_native_corpus_member', forbidden)
+        guard.setattr(native_corpus_source, 'read_native_corpus_member', forbidden)
+        turn_id = uuid4()
+        response = case.client.post('/api/live/agent/turn', json=case.request | {
+            'turn_id': str(turn_id), 'message': synthesis})
+        assert response.status_code == 200, response.text
+    turn = max(AgentConversationService().list_turns(case.world, case.turn.conversation_id),
+        key=lambda row: row.sequence)
+    turn_id = turn.turn_id
+    assert retained.admission(turn.graph_context_execution) is not None
+    assert not acquired_body_reads(turn.graph_context_execution)
+    assert turn.completion.native_body_citations
+    for index, citation in enumerate(turn.completion.native_body_citations):
+        _, _, exact = resolve_retained_body_citation(turn.graph_context_execution, citation)
+        opened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{turn_id}/native-body-excerpts/{index}')
+        assert opened.status_code == 200, opened.text
+        assert opened.json()['content'] == exact
+
+
 @pytest.mark.parametrize('turn_count,discussion,legacy', [(8, False, False), (60, False, False), (8, True, False), (8, False, True)])
 def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_editor_or_new_search(
         lane, tmp_path, monkeypatch, turn_count, discussion, legacy):
