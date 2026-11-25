@@ -157,6 +157,13 @@ Use `guest-play-buddy-documents-serving` when staging; it requires the distinct
 `play-buddy=1` image identity and records the candidate-only Play Buddy switch.
 An earlier Buddy-only image cannot be staged as a Play Buddy release.
 
+For guest Build proposals, also select `hosted_guest_build_proposals=true` and
+stage with `guest-build-proposals-documents-serving` and the same document
+template digest as the seventh argument. Its distinct `build-proposals=1` image
+identity and staged setting enable the candidate's existing Build proposal flow.
+A Play Buddy-only image is rejected for this mode. Rollback uses the base
+Compose policy; this switch alone does not establish production acceptance.
+
 For a serving release that includes approved guest source pages, install a root-owned
 `/etc/buddy-deploy/guest-documents-template.json` and a root-owned
 `/etc/buddy-deploy/guest-document-bundles` directory. The template is UTF-8 JSON

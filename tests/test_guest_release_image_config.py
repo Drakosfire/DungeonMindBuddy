@@ -362,3 +362,14 @@ def test_guest_play_buddy_release_identity_and_dependencies():
     verifier = SCRIPT.parent / 'verify_guest_graph_release.sh'
     assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '1', '1', '1', '1'], capture_output=True).returncode == 0
     assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '1', '1', '0', '1'], capture_output=True).returncode != 0
+
+
+def test_guest_build_proposals_release_identity_and_dependencies():
+    root = SCRIPT.parents[1]
+    workflow = (root / '.github/workflows/publish-buddy-image.yml').read_text()
+    assert '[[ "$GUEST_BUILD_PROPOSALS" == 0 || "$GUEST_PLAY_BUDDY" == 1 ]]' in workflow
+    assert 'VITE_HOSTED_GUEST_BUILD_PROPOSALS="$GUEST_BUILD_PROPOSALS"' in workflow
+    assert 'guest_config="$guest_config;build-proposals=1"' in workflow
+    verifier = SCRIPT.parent / 'verify_guest_graph_release.sh'
+    assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '1', '1', '1', '1', '1'], capture_output=True).returncode == 0
+    assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '1', '1', '1', '0', '1'], capture_output=True).returncode != 0
