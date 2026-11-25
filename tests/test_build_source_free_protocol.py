@@ -2221,7 +2221,10 @@ def test_pending_harness_execute_routes_to_pending_completion_before_legacy_acqu
         def _native_completion(self, actual_adapter, actual_driver):
             routed.append((actual_adapter, actual_driver))
             return 'pending-completion-boundary'
-    harness = Harness()
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    adapter.pending_build_source_observation = receipt.source_observation
+    adapter.enable_rules_lookup = lambda capability: pytest.fail('Pending Build activated the legacy Rules adapter')
+    harness = Harness(rules_capability=rules_capability(graph=True))
     harness._capture_failure = lambda adapter, exc: None
     if reference_image:
         with pytest.raises(ValueError, match='image reference requires an edit'):
@@ -2694,3 +2697,92 @@ def test_pending_writer_selection_requires_strict_positive_claim_integers_before
             selector.settle_empty()
         assert (state.access_calls, state.locks, state.persisted) == before
         assert state.depth == 0
+
+
+@_pending_test_contextmanager
+def pending_rules_runtime_case(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+    from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    with pending_writer_runtime_case(monkeypatch) as (state, adapter, selector, turns):
+        request_id = str(uuid4())
+        adapter.request = SimpleNamespace(turn_id=request_id, surface=SimpleNamespace(surface_id='build'))
+        adapter.world_id, adapter.expected_conversation_id = state.turn.world_id, None
+        adapter.submitted_intent = state.turn.graph_context_execution.policy.action.intent
+        adapter.rules_runtime = None
+        adapter.service = state.service
+        adapter._is_build_turn = lambda: True
+        state.turn = t.Turn.model_validate(state.turn.model_copy(update={
+            'idempotency_key': _turn_idempotency_key(state.turn.world_id, request_id)}))
+        adapter.turn = state.turn
+        adapter.fence.renewer.update_turn(state.turn)
+        state.rules_payload, state.rules_inserts, state.rules_locks = None, 0, 0
+        class Cursor:
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def execute(self, sql, args):
+                assert state.depth == 1
+                self.row = None
+                if 'FROM agent.turn WHERE' in sql:
+                    assert args == (state.turn.world_id, state.turn.conversation_id, state.turn.turn_id)
+                    state.rules_locks += 1
+                    self.row = {key: getattr(state.turn, key) for key in ('status', 'revision', 'attempt',
+                        'claim_expires_at', 'idempotency_key', 'submitted_intent_fingerprint_v1', 'submitted_intent_fingerprint_v2')}
+                    self.row['graph_execution_schema'] = state.turn.graph_context_execution.schema_
+                else:
+                    assert 'FROM agent.turn_rules_execution' in sql
+                    assert args == (state.turn.turn_id, state.turn.attempt)
+                    if state.rules_payload is not None:
+                        self.row = {'revision': 1, 'payload': state.rules_payload}
+            def fetchone(self):
+                return self.row
+        state.conn.cursor = lambda **kwargs: Cursor()
+        def execute(sql, args=None):
+            assert state.depth == 1
+            if sql == 'SELECT clock_timestamp()':
+                return SimpleNamespace(fetchone=lambda: (state.now,))
+            assert 'INSERT INTO agent.turn_rules_execution' in sql
+            assert state.rules_payload is None and args[:2] == (state.turn.turn_id, state.turn.attempt)
+            state.rules_inserts += 1
+            state.rules_payload = args[2].obj
+            return SimpleNamespace(rowcount=1)
+        state.conn.execute = execute
+        runtime = PlanRulesRuntime(adapter, rules_capability(graph=True))
+        yield state, adapter, runtime
+
+
+def test_pending_rules_runtime_uses_real_ledger_scope_and_frame_without_lookup_or_source(monkeypatch):
+    with pending_rules_runtime_case(monkeypatch) as (state, adapter, runtime):
+        frame = runtime.frame()
+        assert not frame.lookups and not frame.supports
+        scope = runtime.native.record.execution.scope
+        assert (scope.world_id, scope.conversation_id, scope.turn_id, scope.product_attempt) == (
+            state.turn.world_id, state.turn.conversation_id, state.turn.turn_id, state.turn.attempt)
+        assert not runtime.native.record.execution.events
+        assert state.rules_inserts == state.rules_locks == 1
+        assert runtime.frame() == frame and state.rules_inserts == 1
+        assert state.persisted == 1 and state.materialized == 0
+        assert adapter.rules_runtime is runtime
+
+
+@pytest.mark.parametrize('failure', ['expiry', 'revision', 'idempotency', 'attempt', 'fingerprint'])
+def test_pending_rules_runtime_refuses_stale_or_crossed_parent_before_ledger_creation(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateError
+    with pending_rules_runtime_case(monkeypatch) as (state, adapter, runtime):
+        if failure == 'expiry':
+            state.now += timedelta(hours=1)
+        elif failure == 'revision':
+            state.turn = state.turn.model_copy(update={'revision': state.turn.revision + 1})
+        elif failure == 'idempotency':
+            adapter.fence.renewer.update_turn(state.turn.model_copy(update={'idempotency_key': uuid4()}))
+        elif failure == 'attempt':
+            adapter.fence.renewer.update_turn(state.turn.model_copy(update={'attempt': 2}))
+        else:
+            adapter.fence.renewer.update_turn(state.turn.model_copy(update={'submitted_intent_fingerprint_v2': 'f' * 64}))
+        with pytest.raises((ApplicationStateError, ValueError)):
+            runtime.frame()
+        assert state.rules_inserts == 0 and state.materialized == 0 and state.persisted == 1

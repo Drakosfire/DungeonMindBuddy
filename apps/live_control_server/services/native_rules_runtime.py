@@ -80,8 +80,12 @@ class NativeRulesRuntime:
 
         cap = RulesCapabilityV1.model_validate(capability)
         self.graph_enabled = adapter.turn is not None and adapter.turn.graph_context_execution is not None
-        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
-        native_build = adapter.turn is not None and type(adapter.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+        from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+        native_build = adapter.turn is not None and (
+            type(adapter.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1
+            or (type(adapter.turn.graph_context_receipt), type(adapter.turn.graph_context_execution))
+                == (BuildPendingContextReceiptV1, BuildPendingExecutionV1))
         if cap != rules_capability(graph=self.graph_enabled) or (adapter._is_build_turn() and not native_build):
             raise ValueError("Native Rules requires the exact native Plan/Play capability")
         if adapter.rules_runtime is not None or adapter.fence is None:
@@ -127,11 +131,14 @@ class NativeRulesRuntime:
             PlanSourceContextReceiptV1, PlanSourceExecutionV1,
             PlayWorldGraphContextReceiptV1, PlayWorldGraphExecutionV1,
         )
-        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
         receipt, graph = turn.graph_context_receipt, turn.graph_context_execution
         if not self.graph_enabled:
             if receipt is not None or graph is not None:
                 raise ValueError("Rules-only scope cannot inherit combined context")
+        elif type(receipt) is BuildPendingContextReceiptV1:
+            from application_state.agent_conversation.build_source_free import pending_turn_owner
+            pending_turn_owner(turn)
         elif type(receipt) is SurfaceNativeContextReceiptV1:
             from application_state.agent_conversation.native_execution import validate_request_identity
             validate_request_identity(receipt,graph,turn)

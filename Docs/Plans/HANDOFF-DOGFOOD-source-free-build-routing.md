@@ -239,6 +239,10 @@ explicit adapter/initial-driver branches currently being implemented:
   WriterSelectionDriver._settle pending-only dedicated service dispatch;
   service.record_pending_build_writer_selection: empty current retained catalog only;
   pending execution V2 selection structural join. Generic pending append remains closed.
+- build_source_free.pending_turn_owner: current running pending receipt/Turn binding
+  only; PlanRulesRuntime._initialize and NativeRulesRuntime.__init__/_bind exact
+  pending delegation; harness.execute skips the legacy Rules adapter only for its
+  host pending observation. Existing Rules ledger scope/claim/CAS owners unchanged.
 - This handoff.
 
 **Released now:** native_corpus.py, native_writer.py,
@@ -742,3 +746,23 @@ historical schema/provenance and generic bypass refusal. This is exact input
 construction, not actual writer dispatch/output acceptance. Native writer
 authorization/lifecycle/completion, current strict readers/fence, source/App
 coverage, SQL and full-Send/signed-in acceptance still require integration.
+
+
+## Pending native Rules ledger checkpoint
+
+Pending Build no longer starts the legacy Build Rules adapter solely because
+fresh native source authority has not been prepared. The pending observation
+keeps it on the existing native Rules path. PlanRulesRuntime and NativeRulesRuntime
+validate an actual running pending Turn through the pending owner before binding
+the existing source-independent Rules scope and ledger. No lookup or source grant
+is added, no Rules event/schema/claim/CAS implementation changes, and the legacy
+Build/Plan/Play paths keep their original branches.
+
+Eight focused working controls passed2.72s at the real harness/Rules runtime,
+conversation service and Rules store with fake transaction/cursor storage. They
+cover one exact ledger scope/empty frame/re-entry/no lookup or source IO, expired
+claim and changed revision/idempotency/attempt/fingerprint refusal, plus pending
+harness suppression of the legacy adapter. This is not SQL/provider/terminal/UI
+acceptance. Writer admission must still bind this ledger atomically to the exact
+prepared pending writer request; its lifecycle and final proof are not enabled
+by the ledger connection alone.

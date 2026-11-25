@@ -28,8 +28,11 @@ class PlanRulesRuntime:
         if self.native is None:
             if self.adapter.fence is None:
                 raise ValueError("Plan Rules must wait for its actual Plan claim")
-            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
-            if type(self.adapter.fence.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+            if type(self.adapter.fence.turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+                from application_state.agent_conversation.build_source_free import pending_turn_owner
+                pending_turn_owner(self.adapter.fence.turn)
+            elif type(self.adapter.fence.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
                 from application_state.agent_conversation.native_retrieval import owner
                 owner(self.adapter.fence.turn)
             else:

@@ -229,7 +229,8 @@ class BuildJevHarness:
         self.output_limit_exceeded = False
         self.adapter = adapter
         adapter._build_jev_accounting = self.accounting
-        if self.rules_capability is not None and adapter.native_source_authority is None:
+        if (self.rules_capability is not None and adapter.native_source_authority is None
+                and getattr(adapter, 'pending_build_source_observation', None) is None):
             adapter.enable_rules_lookup(self.rules_capability)
         self.failure_stage = "controller_prepare"
         primary_error = False

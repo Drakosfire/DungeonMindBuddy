@@ -506,3 +506,16 @@ def validate_pending_empty_writer_selection(execution, event):
     for field, expected in close_selection({}, {}).items():
         if list(getattr(event, field)) != expected:
             raise ValueError('Pending empty selection cannot manufacture acquired evidence')
+
+
+def pending_turn_owner(turn):
+    """Validate a current pending parent; this grants no selected source reads."""
+    from . import types as t
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
+    if (type(turn) is not t.Turn or turn.status != 'running'
+            or type(turn.graph_context_receipt) is not BuildPendingContextReceiptV1
+            or type(turn.graph_context_execution) is not BuildPendingExecutionV1):
+        raise ValueError('Pending runtime requires its actual running Build owner')
+    current = t.Turn.model_validate_json(turn.model_dump_json(by_alias=True))
+    return current.graph_context_receipt, current.graph_context_execution
