@@ -519,3 +519,16 @@ access checks receive no acquired catalog. No generic provider bypass is enabled
 These helper/service checks do not establish SQL rollback or actual runtime
 activation. Startup/driver callbacks and downstream writer/terminal integration
 remain required before release.
+
+
+## Runtime prepared-request builder lease
+
+Extend the serial lease to plan_source_turn.py only in the Build-owned
+freeze_build function and a new _freeze_pending_build composition helper. Reuse
+its existing prepared-wire, action/capability, saved-basis, accounting, retained
+history and provenance checks. An explicit pair of source/conversation observations
+selects the pending Build codec and requires no native authority/query, reviewed
+admission, authored references or acquired page catalog. Bind the conversation
+observation to the captured host interaction without refreshing it. The historical
+shared/Plan/Play factory paths and bytes stay unchanged. This optional factory
+branch does not enable startup or release by itself.

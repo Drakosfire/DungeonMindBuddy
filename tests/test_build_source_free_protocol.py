@@ -1467,3 +1467,106 @@ def test_pending_append_binding_returns_validated_execution_after_source_settlem
     changed = execution.model_copy(update={'context_receipt_sha256': 'a' * 64})
     with pytest.raises(ValueError):
         AgentConversationService()._bind_execution_append(receipt, changed)
+
+
+def pending_runtime_freeze_case():
+    from types import SimpleNamespace
+    from hashlib import sha256
+    from application_state.agent_conversation.build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
+    from application_state.agent_conversation.native_context import BuildWorkContextV1
+    from application_state.agent_conversation.build_intentional_response import budget_fields, semantic_routing_state, semantic_request_id, decision_instructions, WORK
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from apps.live_control_server.services.build_jev_driver import DriverDecisionProjection
+    from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
+    from tests.test_build_jev_estimated_continuations import counter
+    _, policy = pending_execution_pair()
+    intent = policy.action.intent
+    markdown = '# Current page\nCaptured saved authoring context.'
+    digest = sha256(markdown.encode()).hexdigest()
+    intent = intent.model_copy(update={'primary_work': intent.primary_work.model_copy(update={'expected_content_sha256': digest})})
+    request = SimpleNamespace(surface=SimpleNamespace(surface_id='build'), message=intent.message,
+        client_thread_id=intent.client_thread_id, turn_id=str(uuid4()), build_write_capability=None,
+        build_image_move_capture=None, build_draft_context=None, build_authored_references=None)
+    source = SimpleNamespace(world_id=intent.world_id, document_id=intent.primary_work.object_id,
+        revision=intent.primary_work.expected_revision, content_sha256=digest, visibility_state='internal',
+        title='Current page', markdown=markdown)
+    accounting = counter()
+    budget = BuildJevHarness.budget(request, accounting=accounting, world_context=True, named_citations=True)
+    budget['buildJevActions'].update(budget_fields(budget['buildJevActions']))
+    conversation = BuildConversationObservationV1(conversation_id=uuid4(), pointer_revision=3)
+    history = [{'user': f'Question {i}', 'assistant': f'Existing context {i}'} for i in range(40)]
+    host = {'allowed_operations': budget['buildJevActions']['allowed_surface_operations'],
+        'current_page': {'document_id': source.document_id, 'title': source.title},
+        'capability_sha256': None, 'conversation_id': str(conversation.conversation_id),
+        'pointer_revision': conversation.pointer_revision, 'history': history, 'working_draft': None, 'page_target': None}
+    state = semantic_routing_state(request.message, host, None)
+    questions = {'requested_work': {'type': 'choice', 'instructions': decision_instructions(), 'criteria': dict.fromkeys(WORK)}}
+    body = {'model': 'jev-1.14.0', 'state': state, 'questions': questions}
+    raw = json.dumps(body)
+    projection = DriverDecisionProjection(state_json=json.dumps(state), questions_json=json.dumps(questions),
+        request_id=semantic_request_id(state, world_id=intent.world_id, client_thread_id=request.client_thread_id,
+            idempotency_key=_turn_idempotency_key(intent.world_id, request.turn_id)), event_sequence=0,
+        prior_provider_attempt_id=None, graph_payloads=(), source_event_ids=(), section_read_ids=(),
+        host_phase='select', host_interaction_json=json.dumps(host))
+    basis = t.BuildSourceContextBasisV1(world_id=source.world_id, document_id=source.document_id,
+        registry_revision=source.revision, content_sha256=digest, visibility='internal')
+    provenance = provenance_for(BuildWorkContextV1(source_basis=basis)).model_copy(update={'surface_instance_id': intent.surface_instance_id})
+    return dict(request=request, work=SimpleNamespace(build_source=source),
+        view={'payloadJson': raw, 'payloadUtf8Bytes': len(raw.encode()), 'payloadSha256': sha256(raw.encode()).hexdigest(),
+              'provider': 'typesafe', 'model': 'jev-1.14.0', 'apiMode': 'typesafe_decision', 'contextMode': 'default'},
+        budget=budget, authority=None, native_query=None, provenance=provenance, submitted_intent=intent,
+        projection=projection, accounting=accounting, included_history=[(uuid4(), row['assistant']) for row in history],
+        source_observation=BuildSourceObservationV1(managed_world_id=intent.world_id, binding=None,
+            requested_revision_id=None, observed_head_revision_id=None), conversation_observation=conversation)
+
+
+def test_real_build_runtime_freezer_emits_pending_input_without_source_or_catalog():
+    from apps.live_control_server.services.plan_source_turn import freeze_build
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1, NativeBuildPendingProviderInputV3
+    kwargs = pending_runtime_freeze_case()
+    receipt, execution, membership = freeze_build(**kwargs)
+    assert type(receipt) is BuildPendingContextReceiptV1 and type(receipt.assembled_input) is NativeBuildPendingProviderInputV3
+    assert not hasattr(receipt, 'source_authority') and receipt.source_observation.binding is None
+    assert execution.policy.action.related_page_catalog is None and not execution.events
+    assert len(receipt.assembled_input.included_history) == 40 and membership == ([], [], [])
+    wire = kwargs['view']['payloadJson']
+    assert str(receipt.conversation_observation.conversation_id) not in wire
+    assert receipt.context_receipt_sha256 not in wire
+
+
+@pytest.mark.parametrize('failure', ['authority', 'catalog', 'pointer', 'world', 'partial_observation', 'wire'])
+def test_real_build_runtime_freezer_rejects_crossed_or_acquired_pending_inputs(failure):
+    from apps.live_control_server.services.plan_source_turn import freeze_build
+    from tests.test_build_source_free_routing import settled_source
+    kwargs = pending_runtime_freeze_case()
+    if failure == 'authority':
+        kwargs['authority'] = settled_source(managed_world_id=kwargs['submitted_intent'].world_id)
+    elif failure == 'catalog':
+        kwargs['budget']['buildJevActions']['related_page_catalog'] = []
+    elif failure == 'pointer':
+        kwargs['conversation_observation'] = kwargs['conversation_observation'].model_copy(update={'pointer_revision': 4})
+    elif failure == 'world':
+        kwargs['source_observation'] = kwargs['source_observation'].model_copy(update={'managed_world_id': 'foreign-world'})
+    elif failure == 'partial_observation':
+        kwargs['conversation_observation'] = None
+    else:
+        kwargs['view']['payloadJson'] += ' '
+    with pytest.raises(ValueError):
+        freeze_build(**kwargs)
+
+
+def test_real_build_runtime_freezer_keeps_historical_shared_path_separate():
+    from apps.live_control_server.services.plan_source_turn import freeze_build
+    from tests.test_build_source_free_routing import settled_source
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, NativeBuildProviderInputV2
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
+    kwargs = pending_runtime_freeze_case()
+    kwargs.pop('source_observation')
+    kwargs.pop('conversation_observation')
+    kwargs['authority'] = settled_source(managed_world_id=kwargs['submitted_intent'].world_id)
+    kwargs['native_query'] = NativePlanQueryUnavailableV1(managed_world_id=kwargs['submitted_intent'].world_id,
+        reason='native_graph_binding_unavailable')
+    receipt, execution, _ = freeze_build(**kwargs)
+    assert type(receipt) is SurfaceNativeContextReceiptV1 and type(receipt.assembled_input) is NativeBuildProviderInputV2
+    assert receipt.source_authority == kwargs['authority']
+    assert execution.policy.policy_version == 'surface_native_execution_v1'
