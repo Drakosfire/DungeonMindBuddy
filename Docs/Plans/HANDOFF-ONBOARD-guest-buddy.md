@@ -6,6 +6,8 @@ Outcome: the existing Buddy conversation is available in the normal guest worksp
 
 Write lease: this handoff; narrowly scoped guest session admission and guest principal; existing Buddy conversation and graph/source read authorization and transactional lifecycle/capacity boundaries; existing conversation UI, guest transport and default-off image configuration; focused tests and only the relevant chat/World-evidence entry in `evals/plan-authoring-benchmark.md`. Active #4652 owns `native_completion.py`, its focused tests and the clarification entry in that catalog; do not modify those files or that entry. Other open conversation and retrieval lanes were checked and must be rechecked before review. Do not change provider/model selection or unrelated agent action routing. Any additional capability or effect outside this scope is a split signal.
 
+Owner amendment: `ci/test-classification.json` is included solely to add this slice's new guest conversation test module to the existing domain-integration inventory, after Actions identified it as unclassified. No selection or existing entry changes.
+
 Verify at the mounted HTTP and normal conversation UI boundaries with synthetic source evidence and a fake runtime: a multi-hop question uses the session graph and returns traceable citations; two guests cannot read or write each other's conversations, sources or graph; forged World selectors, duplicate selectors, origin/CSRF failures, expiry/reset during a turn and at commit, bounded retained data and exact retry behavior; signed-in and feature-off regressions. Review exact cumulative diff, request Bugbot and record focused evidence. Serving integration and real deployed multi-hop verification follow separately; this slice does not complete the goal.
 
 
