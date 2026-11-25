@@ -25,6 +25,7 @@ export function BuddyHome() {
   const retryWorld = useRetrySelectedWorld();
   const [sample, setSample] = useState<number | null>(null);
   const signedOut = auth.status === "signed_out";
+  const adventure = signedOut && import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1";
   return <div className="buddy-home">
     <a className="buddy-home__skip" href="#buddy-home-main">Skip to content</a>
     <header className="buddy-home__masthead">
@@ -34,11 +35,11 @@ export function BuddyHome() {
     <main id="buddy-home-main" tabIndex={-1}>
       <section className="buddy-home__hero" aria-labelledby="buddy-home-title">
         <div className="buddy-home__invitation">
-          <p className="buddy-home__eyebrow">Your campaign companion</p>
-          <h1 id="buddy-home-title">Your world,<br />ready for the table.</h1>
-          <p className="buddy-home__intro">Keep your campaign sources, session prep, and stories connected.</p>
+          <p className="buddy-home__eyebrow">{adventure ? "A ready-to-play one-shot" : "Your campaign companion"}</p>
+          <h1 id="buddy-home-title">{adventure ? "Sizzek’s Apprentice" : <>Your world,<br />ready for the table.</>}</h1>
+          <p className="buddy-home__intro">{adventure ? "A carnival, a missing apprentice, and a funhouse with a mind of its own. Explore the adventure across Buddy." : "Keep your campaign sources, session prep, and stories connected."}</p>
           <div className="buddy-home__entry">
-            {signedOut ? <>{import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1" && <a className="buddy-home__primary" href="/graph" onClick={interceptPrimaryNavigationClick}>Explore Sizzek World <span aria-hidden="true">→</span></a>}<a className="buddy-home__primary" href={dungeonMindLoginHref(`${window.location.pathname}${window.location.search}${window.location.hash}`)}>Sign in with DungeonMind <span aria-hidden="true">→</span></a><p>Use your existing DungeonMind account.</p></>
+            {signedOut ? <>{import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1" && <a className="buddy-home__primary" href="/graph" onClick={interceptPrimaryNavigationClick}>Explore the graph <span aria-hidden="true">→</span></a>}<a className="buddy-home__primary" href={dungeonMindLoginHref(`${window.location.pathname}${window.location.search}${window.location.hash}`)}>Sign in with DungeonMind <span aria-hidden="true">→</span></a><p>Use your existing DungeonMind account.</p></>
               : world.kind === "managed" ? world.graphStatus === "provisioning"
                 ? <><a className="buddy-home__primary" href={worldScopedSurfaceHref("/build", world.worldId)} onClick={interceptPrimaryNavigationClick}>Open in Build <span aria-hidden="true">→</span></a><p>Start with a source in {world.name}. Your graph isn’t ready yet.</p></>
                 : <><a className="buddy-home__primary" href={worldScopedSurfaceHref("/graph", world.worldId)} onClick={interceptPrimaryNavigationClick}>Open your World <span aria-hidden="true">→</span></a><p>Continue in {world.name}.</p></>
@@ -46,9 +47,22 @@ export function BuddyHome() {
               : world.kind === "error" ? <div role="alert"><p>{world.message}</p><button type="button" onClick={retryWorld}>Retry World selection</button></div>
               : <><p className="buddy-home__choose">Your next story starts with a World.</p><WorldSelector creationPath="/" /><p>Choose or create a World to get started.</p></>}
           </div>
-          <a className="buddy-home__explore" href="#buddy-about">Explore the idea <span aria-hidden="true">↓</span></a>
+          <a className="buddy-home__explore" href="#buddy-about">{adventure ? "Explore the adventure" : "Explore the idea"} <span aria-hidden="true">↓</span></a>
         </div>
-        <article className="buddy-home__preview" aria-labelledby="buddy-preview-title">
+        {adventure ? <article className="buddy-home__preview buddy-home__adventure" aria-labelledby="buddy-preview-title">
+          <div className="buddy-home__preview-label"><span>One-shot · 4 players · level 5</span></div>
+          <h2 id="buddy-preview-title">Welcome to Sizzek’s Carnival</h2>
+          <p className="buddy-home__story">Opening day has arrived. When patrons vanish inside the new funhouse, Sizzek needs your help finding them—and her apprentice.</p>
+          <p>Step into the adventure, follow its connections, and make the story your own.</p>
+          <nav className="buddy-home__adventure-links" aria-label="Explore Sizzek’s Apprentice">
+            <a href="/graph" onClick={interceptPrimaryNavigationClick}><strong>Graph</strong><span>Explore the people and places →</span></a>
+            {import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && <a href="/plan" onClick={interceptPrimaryNavigationClick}><strong>Plan</strong><span>See the prepared one-shot →</span></a>}
+            {import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && <a href="/play" onClick={interceptPrimaryNavigationClick}><strong>Play</strong><span>Start at the carnival →</span></a>}
+            {import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" && <a href="/build" onClick={interceptPrimaryNavigationClick}><strong>Build</strong><span>Open the source documents →</span></a>}
+            {import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && <a href="/combat" onClick={interceptPrimaryNavigationClick}><strong>Combat Tracker</strong><span>Run the funhouse encounter →</span></a>}
+          </nav>
+          <p className="buddy-home__sample-caption">Your changes are yours to explore and reset.</p>
+        </article> : <article className="buddy-home__preview" aria-labelledby="buddy-preview-title">
           <div className="buddy-home__preview-label"><span>Campaign preview</span></div>
           <h2 id="buddy-preview-title">The mill at dusk</h2>
           <img src={millImage} width="1440" height="480" alt="A lamplit watermill beside an autumn river at dusk" fetchPriority="high" />
@@ -57,7 +71,7 @@ export function BuddyHome() {
           <button className="buddy-home__source" type="button" aria-expanded={sample === 3} aria-controls="buddy-sample-note" onClick={() => setSample(sample === 3 ? null : 3)}><span aria-hidden="true">▤</span> From: Session recap</button>
           {sample !== null && <section id="buddy-sample-note" className="buddy-home__sample" aria-label="Sample note" aria-live="polite"><p className="buddy-home__sample-kind">{samples[sample].kind} · Fictional example</p><h3>{samples[sample].name}</h3><p>{samples[sample].text}</p><button type="button" onClick={() => { const previous = sample; setSample(null); const triggers = document.querySelectorAll<HTMLButtonElement>(".buddy-home__references button, .buddy-home__source"); triggers[previous]?.focus(); }}>Close note</button></section>}
           <p className="buddy-home__sample-caption">An original sample, separate from your Worlds.</p>
-        </article>
+        </article>}
       </section>
       <section id="buddy-about" className="buddy-home__about" aria-labelledby="buddy-about-title">
         <h2 id="buddy-about-title">From your notes to your next session</h2>
@@ -67,7 +81,7 @@ export function BuddyHome() {
           <section><span className="buddy-home__chapter" aria-hidden="true">III</span><div><h3>Play</h3><p>Keep prepared material close at the table.</p></div></section>
         </div>
         <p className="buddy-home__availability">The Buddy journey · Features vary by release and deployment.</p>
-        <details className="buddy-home__more"><summary>A little more about Buddy</summary><p>Buddy helps tabletop game masters connect campaign material with session preparation and play. Follow a character back to their source, revisit an unresolved lead, and keep the story's context close. The preview above is fictional; your account's Worlds stay separate.</p><p>Use the compass navigation above to find the surfaces on this deployment. Sign in to choose an existing World; availability depends on the hosted release.</p></details>
+        <details className="buddy-home__more"><summary>A little more about Buddy</summary><p>Buddy helps tabletop game masters connect campaign material with session preparation and play. Follow a character back to their source, revisit an unresolved lead, and keep the story's context close. Your account’s Worlds stay separate.</p><p>Use the compass navigation above to find the surfaces on this deployment. Sign in to choose an existing World; availability depends on the hosted release.</p></details>
       </section>
     </main>
     <footer className="buddy-home__footer"><span>Part of DungeonMind</span><nav aria-label="DungeonMind links"><a href="https://www.dungeonmind.net/">DungeonMind.net <span aria-hidden="true">↗</span></a><a href="#buddy-about">About Buddy</a><a href={fontCreditsUrl}>Font credits</a></nav></footer>

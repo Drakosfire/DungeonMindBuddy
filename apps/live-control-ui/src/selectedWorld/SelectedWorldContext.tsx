@@ -304,7 +304,7 @@ export function GuestBuildWorldProvider({ locationSnapshot, children }: { locati
           }
         }
         if (!controller.signal.aborted) setState({ kind: "managed", worldId: world.worldId,
-          name: world.name, documentId: selection.documentId, graphStatus: "active" });
+          name: "Sizzek’s Apprentice", documentId: selection.documentId, graphStatus: "active" });
       } catch (error) {
         if (!controller.signal.aborted) setState({ kind: "error", message: error instanceof Error ? error.message : "Guest World unavailable." });
       }
