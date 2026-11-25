@@ -476,3 +476,17 @@ changed records and stale claims fail. The existing historical append path and
 choice/read semantics are unchanged. Public App body materialization/read admission
 and real runtime callbacks remain activation gates; fake-storage checks are not
 SQL isolation qualification.
+
+
+## Exact selected App page materialization
+
+The pending App read service requires an admitted selected UUID and its captured
+PagePointer under current pointer/claim/access/leaf checks. It releases App row
+locks before calling the existing public App page materializer, validates exact
+saved-pointer fields and body digest, then re-locks and checks the unchanged
+request/execution, claim and current App access before read admission. No Core
+binding is needed or manufactured. An admitted page cannot be silently refreshed
+or reacquired with another read identity. Exact recorded identity at the current
+revision returns non-fresh without IO; an old revision conflicts before IO.
+Existing snapshot-owner checks remain intact. Concrete production access/runtime
+callbacks and actual SQL concurrency proof remain required before activation.

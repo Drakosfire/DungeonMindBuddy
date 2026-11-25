@@ -3292,6 +3292,74 @@ class AgentConversationService:
                 return turn, False
             return self._append_pending_checked(conn, turn, selection, expected_revision)
 
+    def read_pending_app_page(self, world_id, conversation_id, turn_id, *,
+                              expected_revision, expected_attempt, document_id, event_id, read_id,
+                              materialize_page, authorize_current_access):
+        """Materialize one selected exact App page without holding App row locks.
+
+        The materializer is the existing public App snapshot owner, not a model
+        selector or Core grant. Repeated reads never silently refresh the pointer.
+        """
+        from . import types as t
+        from .build_related_pages import PagePointer, PageReference, RelatedPagesSelection, RelatedPageRead
+        from .build_source_free import BuildAppPageCatalogObservedV1
+        world_id = _world_id(world_id)
+        if (any(type(value) is not UUID for value in (document_id, event_id, read_id))
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(materialize_page) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending page read requires its exact host selection and read/access owners')
+        with unit_of_work(_ready_dsn()) as conn:
+            before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            catalogs = [event for event in before.graph_context_execution.events
+                        if type(event) is BuildAppPageCatalogObservedV1]
+            selections = [event for event in before.graph_context_execution.events if type(event) is RelatedPagesSelection]
+            pointers = [page for catalog in catalogs for page in catalog.pages if page.document_id == document_id]
+            if len(selections) != 1 or len(pointers) != 1 or document_id not in selections[0].document_ids:
+                raise ApplicationStateValidationError('Pending page read lacks its actual admitted page choice')
+            pointer, = pointers
+            if authorize_current_access(conn, before, (pointer,)) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize the selected saved page')
+            if before.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending saved-page claim expired before materialization')
+            prior = [event for event in before.graph_context_execution.events if type(event) is RelatedPageRead
+                     and (event.page.document_id == document_id or event.event_id == event_id or event.read_id == read_id)]
+            if prior:
+                if (len(prior) == 1 and prior[0].event_id == event_id and prior[0].read_id == read_id
+                        and prior[0].page.document_id == document_id):
+                    return before, False
+                raise ApplicationStateConflictError('Pending saved page was already read or read identity was reused')
+            if any(event.event_id == event_id for event in before.graph_context_execution.events):
+                raise ApplicationStateConflictError('Pending saved-page event identity is already in use')
+            selection_id, sequence = selections[0].event_id, len(before.graph_context_execution.events)
+            frozen = (before.graph_context_receipt.context_receipt_sha256,
+                      before.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(before.graph_context_execution), before.submitted_intent_fingerprint_v2)
+        try:
+            materialized = materialize_page(pointer)
+            if type(materialized) is not dict or set(materialized) != set(PageReference.model_fields) | {'markdown'}:
+                raise ValueError('Pending page materialization must return the exact public App snapshot')
+            read = RelatedPageRead.model_validate_json(json.dumps({
+                'event_id': str(event_id), 'sequence': sequence, 'read_id': str(read_id),
+                'selection_event_id': str(selection_id), 'markdown': materialized['markdown'],
+                'page': {key: value for key, value in materialized.items() if key != 'markdown'}}))
+            if any(getattr(read.page, key) != getattr(pointer, key) for key in PagePointer.model_fields):
+                raise ValueError('Pending page materialization changed the selected saved pointer')
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            actual = (current.graph_context_receipt.context_receipt_sha256,
+                      current.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(current.graph_context_execution), current.submitted_intent_fingerprint_v2)
+            if actual != frozen:
+                raise ApplicationStateConflictError('Pending request or execution changed during saved-page materialization')
+            if authorize_current_access(conn, current, (read.page,)) is not True:
+                raise ApplicationStateConflictError('Current App access changed during saved-page materialization')
+            return self._append_pending_checked(conn, current, read, expected_revision)
+
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):
         from .types import BuildDraftContextCapturedV1

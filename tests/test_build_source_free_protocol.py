@@ -1184,3 +1184,107 @@ def test_pending_outcome_records_known_not_sent_without_sdk_entry(monkeypatch):
     assert not any(getattr(row, 'outcome', None) == 'sdk_entered' and
         getattr(row, 'provider_attempt_id', None) == authorization.provider_attempt_id
         for row in updated.graph_context_execution.events)
+
+
+def pending_page_read_harness(monkeypatch):
+    from types import SimpleNamespace
+    from pathlib import Path
+    from hashlib import sha256
+    from apps.live_control_server.services import build_related_pages as public_owner
+    state, _, choose, _, _ = pending_selection_service_harness(monkeypatch)
+    _, fresh = choose()
+    assert fresh and state.turn.revision == 7
+    page = state.turn.graph_context_execution.events[4].pages[0]
+    markdown = 'Ethel remembered a dream; the password was reported, not established as played truth.'
+    state.snapshot = SimpleNamespace(record=SimpleNamespace(world_id=page.world_id,
+        document_id=str(page.document_id), kind='worldbuilding_source', status='active', content_status='committed',
+        revision=page.registry_revision, title=page.title, visibility_state=page.visibility,
+        source_domain='worldbuilding', document_class='person', authority_state='draft'),
+        loaded_revision=page.registry_revision, content_sha256=sha256(markdown.encode()).hexdigest(), markdown=markdown)
+    state.physical_page_reads = 0
+    state.on_page_read = None
+    def snapshot(root, document_id):
+        assert state.depth == 0 and root == Path('/synthetic-app-read') and document_id == str(page.document_id)
+        state.physical_page_reads += 1
+        if state.on_page_read:
+            state.on_page_read()
+        return state.snapshot
+    monkeypatch.setattr(public_owner, 'root', lambda: Path('/synthetic-app-read'))
+    monkeypatch.setattr(public_owner, 'get_committed_page_snapshot', snapshot)
+    event_id, read_id = uuid4(), uuid4()
+    def read(*, revision=7, event=event_id, identity=read_id, document=page.document_id, materializer=public_owner.materialize):
+        return state.service.read_pending_app_page(state.turn.world_id, state.turn.conversation_id, state.turn.turn_id,
+            expected_revision=revision, expected_attempt=1, document_id=document, event_id=event, read_id=identity,
+            materialize_page=materializer, authorize_current_access=state.authorize)
+    return state, read, page
+
+
+def test_pending_page_read_uses_public_snapshot_owner_once_without_core_or_app_locks(monkeypatch):
+    from application_state.agent_conversation.build_source_free import effective_pending_source
+    from application_state.errors import ApplicationStateConflictError
+    state, read, page = pending_page_read_harness(monkeypatch)
+    assert state.turn.graph_context_receipt.source_observation.binding is None
+    updated, fresh = read()
+    assert fresh and updated.revision == 8 and state.physical_page_reads == 1
+    event = updated.graph_context_execution.events[-1]
+    assert event.page.document_id == page.document_id and event.markdown == state.snapshot.markdown
+    assert effective_pending_source(updated.graph_context_receipt, updated.graph_context_execution) is None
+    replay, fresh = read(revision=8)
+    assert not fresh and replay == updated and state.physical_page_reads == 1
+    with pytest.raises(ApplicationStateConflictError):
+        read()  # stale claim fails before any IO
+    with pytest.raises(ApplicationStateConflictError):
+        read(revision=8, event=uuid4(), identity=uuid4())
+    assert state.physical_page_reads == 1
+
+
+@pytest.mark.parametrize('failure', ['unselected', 'access_before', 'pointer_after', 'access_after',
+    'expiry_after', 'successor_after', 'revision_changed', 'digest_changed', 'cas_failure',
+    'event_collision', 'claim_after', 'access_delay_after'])
+def test_pending_page_read_discards_changed_scope_access_or_snapshot(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    state, read, _ = pending_page_read_harness(monkeypatch)
+    def change():
+        if failure == 'pointer_after':
+            state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 2})
+        elif failure == 'access_after':
+            state.denied = True
+        elif failure == 'expiry_after':
+            state.now += timedelta(hours=1)
+        elif failure == 'successor_after':
+            state.successor = True
+        elif failure == 'claim_after':
+            state.turn = state.turn.model_copy(update={'revision': state.turn.revision + 1})
+        elif failure == 'access_delay_after':
+            state.access_delay = True
+    state.on_page_read = change
+    if failure == 'access_before':
+        state.denied = True
+    elif failure == 'revision_changed':
+        state.snapshot.record.revision += 1
+        state.snapshot.loaded_revision += 1
+    elif failure == 'digest_changed':
+        state.snapshot.markdown += 'Uncommitted replacement.'
+    elif failure == 'cas_failure':
+        state.cas_failure = True
+    kwargs = ({'document': uuid4()} if failure == 'unselected' else
+              {'event': state.turn.graph_context_execution.events[-1].event_id} if failure == 'event_collision' else {})
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        read(**kwargs)
+    assert state.persisted == 4
+    assert state.physical_page_reads == (0 if failure in {'unselected', 'access_before', 'event_collision'} else 1)
+
+
+def test_pending_page_read_does_not_pass_foreign_materialization_to_access_owner(monkeypatch):
+    from application_state.errors import ApplicationStateValidationError
+    state, read, page = pending_page_read_harness(monkeypatch)
+    before = state.access_calls
+    def foreign(pointer):
+        assert state.depth == 0
+        from hashlib import sha256
+        return pointer.model_dump(mode='json') | {'world_id': 'foreign-world',
+            'content_sha256': sha256(b'foreign').hexdigest(), 'markdown': 'foreign'}
+    with pytest.raises(ApplicationStateValidationError, match='changed the selected saved pointer'):
+        read(materializer=foreign)
+    assert state.access_calls == before + 1 and state.persisted == 4
