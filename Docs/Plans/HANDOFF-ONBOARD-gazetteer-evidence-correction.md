@@ -1,6 +1,6 @@
 # ONBOARD: correct frozen Gazetteer evidence
 
-Status: ACTIVE. The owner authorized Sizzek ingestion and asked that normal Buddy
+Historical source assignment, merged as #4592. The current serving assignment and deployment order are in [the serving handoff](HANDOFF-ONBOARD-gazetteer-correction-serving.md). The owner authorized Sizzek ingestion and asked that normal Buddy
 workflows, not a separate demo interface, operate on the resulting World. The
 existing Build Worldbuilding launch produced Sizzek's Izmati Prep run
 `ad59d066-329e-5168-bc31-ee4344036b04` with 70 candidate nodes, 34 candidate
