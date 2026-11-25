@@ -397,3 +397,10 @@ it('shows recorded execution activity immediately in the timeline tab', () => {
   expect(screen.getByRole('list', {name:'Recorded activity'})).toBeVisible()
   expect(screen.getByText('jev')).toBeVisible()
 })
+
+
+it('explains when a graph crawler replay was not captured', () => {
+  render(<TraceTabContext.Provider value="crawler"><BuddyContextTrace replyDetails ownerActive={false} trace={trace([])} /></TraceTabContext.Provider>);
+  expect(screen.getByText('No graph crawler replay was captured for this attempt.')).toBeVisible();
+  expect(screen.queryByRole('list', {name:'Recorded activity'})).not.toBeInTheDocument();
+});

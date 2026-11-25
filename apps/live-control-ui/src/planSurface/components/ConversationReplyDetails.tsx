@@ -1,7 +1,7 @@
 import './BuddyEvidence.css';
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
-export type TraceTab = 'evidence' | 'timeline' | 'prompt' | 'diagnostics';
+export type TraceTab = 'evidence' | 'crawler' | 'timeline' | 'prompt' | 'diagnostics';
 export const TraceTabContext = createContext<TraceTab | null>(null);
 export function TraceEvidence({ children }: { children: ReactNode }) {
   const tab = useContext(TraceTabContext);
@@ -14,7 +14,7 @@ export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load,
   load: (signal: AbortSignal) => Promise<void>; showSources?: boolean; reviewLabel?: string; children: ReactNode;
 }) {
   const [tab, setTab] = useState<TraceTab>('evidence');
-  const tabs: [TraceTab, string][] = [['evidence', 'Evidence'], ['timeline', 'Execution timeline'], ['prompt', 'Prompt'], ['diagnostics', 'Diagnostics']];
+  const tabs: [TraceTab, string][] = [['evidence', 'Evidence'], ['crawler', 'Graph crawler'], ['timeline', 'Execution timeline'], ['prompt', 'Prompt'], ['diagnostics', 'Diagnostics']];
   const tabId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
