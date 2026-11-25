@@ -105,6 +105,7 @@ export function SelectedWorldProvider({
   children: ReactNode;
 }) {
   const auth = useHostedAuthStatus();
+  const principalKey = JSON.stringify([auth.status, auth.subject]);
   const hosted = auth.status === "authenticated";
   const selection = requestedWorldSelection(locationSnapshot);
   const selectionKey = selectionIdentity(selection);
@@ -113,15 +114,16 @@ export function SelectedWorldProvider({
   const hostedPlanDocument = hosted && pathname === "/plan" && selection.documentId !== null;
   const [retryGeneration, setRetryGeneration] = useState(0);
   // Each selector transition owns fresh page admission, including A→B→A.
-  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration, isHome, hostedPlanDocument]);
-  const [loaded, setLoaded] = useState<{ scope: typeof selectionScope; value: SelectedWorldState } | null>(null);
+  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration, isHome, hostedPlanDocument, principalKey]);
+  const [loaded, setLoaded] = useState<{ scope: typeof selectionScope; value: SelectedWorldState; principalKey?: string; retainedWorld?: VerifiedManagedWorld } | null>(null);
   const retry = useCallback(() => {
-    setLoaded(null);
+    setLoaded(current => current?.retainedWorld ? current : null);
     setRetryGeneration((current) => current + 1);
   }, []);
   const continuedWorldOnly = selection.explicit && Boolean(selection.worldId)
     && !selection.documentId && !selection.runId && !selection.extractionRunId
     && loaded?.value.kind === "managed" && loaded.value.worldId === selection.worldId
+    && loaded.principalKey === principalKey
     && (!isHome || loaded.scope === selectionScope);
   const admission = useMemo<SelectedWorldState>(() => continuedWorldOnly && loaded?.value.kind === "managed"
     ? { ...loaded.value, documentId: null }
@@ -131,35 +133,52 @@ export function SelectedWorldProvider({
       ? loaded.value
       : { kind: "loading", requestedWorldId: selection.worldId },
     [continuedWorldOnly, loaded, selectionScope]);
-  const state = useMemo<SelectedWorldState>(() => admission.kind === "loading"
+  const state = useMemo<SelectedWorldState>(() => admission.kind === "error" && loaded?.scope === selectionScope
+    && loaded.principalKey === principalKey && loaded.retainedWorld
+    ? loaded.retainedWorld
+    : admission.kind === "loading" && selection.explicit && selection.worldId
+    && loaded?.principalKey === principalKey && loaded.retainedWorld?.worldId === selection.worldId
+    ? loaded.retainedWorld
+    : admission.kind === "loading"
     && selection.explicit && selection.worldId && loaded?.value.kind === "managed"
+    && loaded.principalKey === principalKey
     && loaded.value.worldId === selection.worldId
     ? { ...loaded.value, documentId: null }
-    : admission, [admission, loaded, selection.explicit, selection.worldId]);
+    : admission, [admission, loaded, selectionScope, principalKey, selection.explicit, selection.worldId]);
 
   useLayoutEffect(() => {
+    if (loaded?.value.kind === "managed" && loaded.principalKey !== principalKey) {
+      setLoaded(null);
+      return;
+    }
+    if (loaded?.retainedWorld && (!selection.explicit || selection.worldId !== loaded.retainedWorld.worldId
+        || loaded.principalKey !== principalKey)) {
+      setLoaded(null);
+      return;
+    }
     if (loaded?.value.kind === "managed" && loaded.scope !== selectionScope
       && (!selection.explicit || selection.worldId !== loaded.value.worldId)) {
       // A committed World boundary ends eligibility of the previous receipt.
       // It cannot be reused if navigation returns before the new read settles.
       setLoaded(null);
     }
-  }, [loaded, selectionScope, selection.explicit, selection.worldId]);
+  }, [loaded, selectionScope, selection.explicit, selection.worldId, principalKey]);
 
   // Retained World identity conveys no admission for incoming document selectors.
-  currentVerifiedManagedWorld = state.kind === "managed" ? state : null;
+  currentVerifiedManagedWorld = state.kind === "managed" && admission.kind !== "error" ? state : null;
 
   useEffect(() => () => { currentVerifiedManagedWorld = null; }, []);
 
   useEffect(() => {
     if (continuedWorldOnly && loaded?.value.kind === "managed") {
       if (loaded.scope !== selectionScope || loaded.value.documentId !== null) {
-        setLoaded({ scope: selectionScope, value: { ...loaded.value, documentId: null } });
+        setLoaded({ scope: selectionScope, value: { ...loaded.value, documentId: null }, principalKey });
       }
       return;
     }
     if (!selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId) return;
     const catalogRequest = new AbortController();
+    const recoveryRequest = new AbortController();
     let cancelled = false;
     void (async () => {
       try {
@@ -230,6 +249,7 @@ export function SelectedWorldProvider({
           setLoaded({
             scope: selectionScope,
             value: verified,
+            principalKey,
           });
           if (verified.kind === "managed" && (selection.runId || selection.extractionRunId)
             && selectionIdentity(requestedWorldSelection(window.location.href)) === selectionKey) {
@@ -245,8 +265,21 @@ export function SelectedWorldProvider({
       } catch (error) {
         catalogRequest.abort();
         if (!cancelled) {
+          let retainedWorld: VerifiedManagedWorld | undefined;
+          const previousWorld = loaded?.value.kind === "managed" ? loaded.value : loaded?.retainedWorld;
+          if (selection.explicit && selection.worldId && selection.documentId
+              && previousWorld?.worldId === selection.worldId && loaded?.principalKey === principalKey) {
+            try {
+              const worlds = hosted ? [await getHostedWorldContainer(selection.worldId, recoveryRequest.signal)] : (await listWorldContainers(recoveryRequest.signal)).records;
+              const verified = verifyManagedWorldSelection({requestedWorldId: selection.worldId, document: null, worlds});
+              if (verified.kind === "managed") retainedWorld = verified;
+            } catch { /* A failed World or authorization check cannot retain the owner. */ }
+          }
+          if (cancelled) return;
           setLoaded({
             scope: selectionScope,
+            principalKey,
+            retainedWorld,
             value: {
               kind: "error",
               message: error instanceof Error ? error.message : "World selection could not be verified.",
@@ -255,8 +288,8 @@ export function SelectedWorldProvider({
         }
       }
     })();
-    return () => { cancelled = true; catalogRequest.abort(); };
-  }, [selectionScope, continuedWorldOnly, hosted, hostedPlanDocument]);
+    return () => { cancelled = true; catalogRequest.abort(); recoveryRequest.abort(); };
+  }, [selectionScope, continuedWorldOnly, hosted, hostedPlanDocument, principalKey]);
 
   return (
     <SelectedWorldRetryContext.Provider value={retry}>

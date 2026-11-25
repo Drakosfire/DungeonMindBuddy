@@ -160,7 +160,7 @@ const AgentTraceInspector = deferredComponent(() => import("../../agentInteracti
 export interface WorldPlanAgentConversationProps {
   /** The persistent App host stays mounted while Plan and Play routes change. */
   visible?: boolean;
-  buildMode?: { savedSource: import("../../agentInteraction/WorldAgentConversation").SavedWorldBuildConversationContext | null; composeBridge?: import("../../buildSurface/buildComposeBridge").BuildComposeBridge | null } | null;
+  buildMode?: { savedSource: import("../../agentInteraction/WorldAgentConversation").SavedWorldBuildConversationContext | null; composeBridge?: import("../../buildSurface/buildComposeBridge").BuildComposeBridge | null; selectDocument?: (id: string) => Promise<boolean> } | null;
   playMode?: { admittedRun: import("../../agentInteraction/WorldAgentConversation").AdmittedWorldPlayConversationContext | null; sceneEditBridge?: import("../../playSurface/agentEdit/playSceneEditBridge").PlaySceneEditBridge | null } | null;
   presentationHosts?: PlanConversationPresentationHosts;
   worldId: string;
@@ -6988,6 +6988,7 @@ export function WorldPlanAgentConversation({
                 key={turn.turn_id}
                 worldId={verifiedWorldId} conversationId={history.conversation_id}
                 turnId={turn.turn_id} completion={completed} disabled={composerBusy}
+                selectDocument={buildMode?.selectDocument}
                 digest={() => textSha256(canonicalJson(completed))}
               />}
             {draftEditor}

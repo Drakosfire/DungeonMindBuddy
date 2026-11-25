@@ -1,0 +1,9 @@
+# Chat navigation and restored Markdown serving carry
+
+Status: ACTIVE. Serial image-only carry of the independently reviewed and merged #4789 and #4793 onto live revision `49a651f894aa781ab69462cda4332523158886ff`, the `codex/sizzek-guest-play-writer-serving-base` tip at dispatch. Scope is the two reviewed changes and this handoff; no schema or primary data mutation. The outcomes are coupled for this release because the reported refresh both closed the chat and exposed restored formatting.
+
+The combined focused local owner checks passed: 99 cases in the selected-World, app-owner, saved-page confirmation, saved-citation and Markdown-renderer files. Earlier focused checks also cover Build selector registration and document-controller failure. The app-level tests mock the Build page, so a single real saved-link → controller → failing second admission integration remains unproven. The user's exact formatting case was not inspected; the formatter fixes the reproduced prose-boundary discrepancy and tested tables, fenced code and citations. Independent review required before merge and release.
+
+Publication attempt 45723396981 failed before image publication: TypeScript TS2554 in `SelectedWorldContext.tsx` because the hosted World re-verification call omitted its required `AbortSignal`. The corrective slice supplies a separate recovery controller and aborts it on effect cleanup; the previous catalog controller is already aborted when recovery begins. No deployment occurred. Local type checking and focused recovery tests must pass before republishing.
+
+The production parent advanced to `dac90daae33d03f3b0204e363b5e19cd3cae0f67` during preparation. The carry was rebased onto it; the affected UI source and focused tests are byte-identical to the previously checked candidate. The new parent must be used for publisher and rollback pins.

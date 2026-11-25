@@ -9,6 +9,38 @@ import {savedCitationPreviewFixture} from '../../test/savedCitationPreviewFixtur
 import * as api from '../../api/liveApi';
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 
+it('keeps separate prose segments as paragraphs after restoring a reply',async()=>{
+  const {preview}=await savedCitationPreviewFixture();
+  preview.answer_segments=[{kind:'discussion',text:'**First:** A quiet town.'},{kind:'discussion',text:'**Second:** A hidden mind.'}];
+  preview.native_body_citations=[];
+  const answer=preview.answer_segments.map(segment=>segment.text).join('\n');
+  const {container}=render(<SavedCitationAnswer preview={preview} answer={answer} worldId="world" turnId="turn"/>);
+  expect(container.querySelectorAll('.world-plan-agent-answer p')).toHaveLength(2);
+  expect(screen.getByText('First:').tagName).toBe('STRONG');
+  expect(screen.getByText('Second:').tagName).toBe('STRONG');
+});
+it('keeps a table and fenced code spanning restored segments intact',async()=>{
+  const {preview}=await savedCitationPreviewFixture();
+  preview.answer_segments=[{kind:'discussion',text:'## People\n\n| Name | Job |'},
+    {kind:'discussion',text:'| --- | --- |\n| Nella | Baker |\n\n```md'},
+    {kind:'discussion',text:'# Literal heading\n```'}];
+  preview.native_body_citations=[];
+  const answer=preview.answer_segments.map(segment=>segment.text).join('\n');
+  const {container}=render(<SavedCitationAnswer preview={preview} answer={answer} worldId="world" turnId="turn"/>);
+  expect(screen.getByRole('table')).toHaveTextContent('Nella');
+  expect(container.querySelector('pre code')).toHaveTextContent('# Literal heading');
+});
+it('keeps a citation with its restored paragraph',async()=>{
+  const {preview,answer,body,citation}=await savedCitationPreviewFixture();
+  preview.answer_segments.push({kind:'discussion',text:'A separate follow-up.'});
+  vi.spyOn(api,'getAgentNativeBodyExcerpt').mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v2',world_id:'world',turn_id:'turn',citation_index:0,citation,content:body,display_label:null});
+  const {container}=render(<SavedCitationAnswer preview={preview} answer={answer+'\nA separate follow-up.'} worldId="world" turnId="turn"/>);
+  expect(container.querySelectorAll('.world-plan-agent-answer p')).toHaveLength(2);
+  const button=screen.getByRole('button',{name:'Read source · Full document'});
+  expect(button.closest('p')).toHaveTextContent(answer);
+  fireEvent.click(button);expect(await screen.findByText(body)).toBeInTheDocument();
+});
+
 it('renders saved markers without detail or source reads and opens one exact native GET',async()=>{
   const {preview,answer,body,citation}=await savedCitationPreviewFixture();
   const source=vi.spyOn(api,'getAgentNativeBodyExcerpt').mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v2',world_id:'world',turn_id:'turn',citation_index:0,citation,content:body,display_label:'Bridge recap'});

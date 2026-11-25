@@ -268,6 +268,29 @@ function AdmissionProbe() {
 function deferred<T>() { let resolve!:(value:T)=>void; const promise=new Promise<T>(r=>{resolve=r}); return {promise,resolve}; }
 
 describe('World lifetime and incoming page admission',()=>{
+ it('does not retain a previous principal while a same-World recovery is pending',async()=>{
+  const auth=vi.spyOn(hostedAuth,'useHostedAuthStatus').mockReturnValue({status:'authenticated',subject:'first',displayName:null,refreshWarning:false});
+  vi.mocked(getHostedWorldContainer).mockResolvedValue(world);
+  const view=render(<SelectedWorldProvider locationSnapshot={`/plan?world=${world.world_id}`}><AdmissionProbe/></SelectedWorldProvider>);
+  await waitFor(()=>expect(screen.getByTestId('admission')).toHaveTextContent('managed'));
+  const gate=deferred<WorldContainerRecord>();
+  vi.mocked(getHostedWorldContainer).mockReturnValue(gate.promise);
+  vi.mocked(getWorkspaceDocumentAny).mockRejectedValue(new Error('page unavailable'));
+  view.rerender(<SelectedWorldProvider locationSnapshot={`/build?world=${world.world_id}&documentId=new-doc`}><AdmissionProbe/></SelectedWorldProvider>);
+  expect(screen.getByTestId('identity')).toHaveTextContent(`managed:${world.world_id}:`);
+  await waitFor(()=>expect(getHostedWorldContainer).toHaveBeenCalledTimes(3));
+  const recoverySignal=vi.mocked(getHostedWorldContainer).mock.calls[2]![1];
+  expect(recoverySignal.aborted).toBe(false);
+  auth.mockReturnValue({status:'authenticated',subject:'second',displayName:null,refreshWarning:false});
+  view.rerender(<SelectedWorldProvider locationSnapshot={`/build?world=${world.world_id}&documentId=new-doc`}><AdmissionProbe/></SelectedWorldProvider>);
+  expect(recoverySignal.aborted).toBe(true);
+  expect(screen.getByTestId('identity')).not.toHaveTextContent(`managed:${world.world_id}:`);
+  expect(screen.getByTestId('admission')).toHaveTextContent('loading');
+  auth.mockReturnValue({status:'authenticated',subject:'first',displayName:null,refreshWarning:false});
+  view.rerender(<SelectedWorldProvider locationSnapshot={`/build?world=${world.world_id}&documentId=new-doc`}><AdmissionProbe/></SelectedWorldProvider>);
+  expect(screen.getByTestId('identity')).not.toHaveTextContent(`managed:${world.world_id}:`);
+  view.unmount();auth.mockRestore();
+ });
  it('retains only same verified World identity while a new document is pending, then rejects a mismatch',async()=>{
   vi.mocked(listWorldContainers).mockResolvedValue({schema_version:'dmb_world_container_registry_v1',records:[world]});
   const view=render(<SelectedWorldProvider locationSnapshot={`/plan?world=${world.world_id}`}><AdmissionProbe/></SelectedWorldProvider>);
