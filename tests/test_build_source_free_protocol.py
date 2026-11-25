@@ -224,6 +224,16 @@ def settlement_harness(monkeypatch, *, with_source=True, scope='source_lookup', 
         return SimpleNamespace(fetchone=lambda: (1,) if state.successor else None)
     conn.execute = leaf_query
     state.leaf_query = leaf_query
+    class RulesCursor:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, sql, args):
+            assert state.depth == 1 and 'FROM agent.turn_rules_execution WHERE' in sql
+            assert args == (state.turn.turn_id, state.turn.attempt)
+        def fetchone(self):
+            payload = getattr(state, 'rules_payload', None)
+            return None if payload is None else {'revision': getattr(state, 'rules_revision', 1), 'payload': payload}
+    conn.cursor = lambda **kwargs: RulesCursor()
     @contextmanager
     def uow(*args, **kwargs):
         assert state.depth == 0
@@ -4104,7 +4114,7 @@ def test_pending_native_selected_records_use_actual_query_and_existing_closure(m
 
 
 @contextmanager
-def pending_native_dispatch_case(monkeypatch):
+def pending_native_dispatch_case(monkeypatch, *, select_rules=False):
     import json
     from hashlib import sha256
     from types import SimpleNamespace
@@ -4118,9 +4128,11 @@ def pending_native_dispatch_case(monkeypatch):
         assert prepare_pending_native_source(adapter)
         receipt, execution = native_retrieval.owner(state.turn)
         auth = controller('build', execution.policy, sequence=len(execution.events), semantic=False)
+        from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
         parent = NativeBuildRetrievalDecisionInputV3(request_id=auth.decision_request_id,
             parent_attempt_id=auth.provider_attempt_id, scope_sha256=native_retrieval.scope_digest(state.turn),
-            question=state.turn.user_text, candidates=(), allowed_operations=('discover_more', 'finish_retrieval'),
+            question=state.turn.user_text, candidates=(rules_candidate(),) if select_rules else (),
+            allowed_operations=('select_candidates', 'finish_retrieval') if select_rules else ('discover_more', 'finish_retrieval'),
             **native_retrieval.source_pins(receipt, execution))
         prepared = prepare_decision(parent, controller_accounting=native_retrieval.controller_accounting(execution))
         raw = json.dumps({'model': prepared.model, 'state': prepared.state, 'questions': {
@@ -4134,8 +4146,9 @@ def pending_native_dispatch_case(monkeypatch):
                 envelope_sha256=envelope, provider=auth.provider, model=auth.model, api_mode=auth.api_mode,
                 context_mode=auth.build_context.context_mode)})})
         proof = {'parent_request_json': parent.model_dump_json(by_alias=True), 'request_json': raw}
-        result = DecisionResult(answers={row.name: ChoiceDecisionAnswer(selected='finish_retrieval',
-            probabilities={key: .9 if key == 'finish_retrieval' else .1 for key in row.options})
+        result = DecisionResult(answers={row.name: ChoiceDecisionAnswer(
+            selected='include' if row.name.startswith('candidate_') else 'finish_retrieval',
+            probabilities={key: .9 if key == ('include' if row.name.startswith('candidate_') else 'finish_retrieval') else .1 for key in row.options})
             for row in prepared.questions}, observation=InferenceObservation(provider='typesafe',
                 resolved_model='jev-1.14.0', response_model='jev-1.14.0', latency_ms=1,
                 retry_count=0, state='completed', provider_attempt_count=1))
@@ -4481,7 +4494,7 @@ def test_pending_native_materialization_checks_live_owner_and_never_reopens_repl
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
 
 
-@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch'])
+@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context'])
 def test_pending_guarded_direct_read_uses_public_core_with_original_real_authority(monkeypatch, mode):
     from types import SimpleNamespace
     from application_state.agent_conversation import native_corpus as bodies
@@ -4496,8 +4509,39 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
     memory = lane.__wrapped__()
     state, _ = settlement_harness(monkeypatch, with_source=True)
     section_mode = mode.startswith('section')
-    source_body = '# Maelthor\n\n' + state.turn.user_text + '\n\n# Elsewhere\n\nOther material.\n' if section_mode else BODY
-    admit(memory, body=source_body)
+    source_body = ('# Maelthor\n\n' + state.turn.user_text + '\n\n# Elsewhere\n\nOther material.\n' if section_mode
+                   else '# Check\n\nThe check revealed that Maelthor guards the ferry.\n' if mode in {'loop_objects', 'loop_objects_context'} else BODY)
+    admission = admit(memory, body=source_body, multiple=mode in {'loop_objects', 'loop_objects_context'})
+    if mode in {'loop_objects', 'loop_objects_context'}:
+        from worldkeeper.application import contracts as wk
+        from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
+        from graph_memory.vnext.domain_runtime import GM_LABEL, CAMPAIGN_SCOPE_AXIS
+        from tests.test_native_corpus_source_access import NOW
+        support_ref = admission.bindings[-1].evidence_ref_id
+        if mode == 'loop_objects':
+            from hashlib import sha256
+            from dungeonmind.application.vnext import publish_native_source_evidence_extension
+            from dungeonmind.contracts.vnext.native_source import NativeSourceEvidenceExtensionV1
+            raw = source_body.encode()
+            extension = publish_native_source_evidence_extension(repository=memory.repo,
+                domain_contract=memory.domain, semantic_profile=memory.profile, audience_labels=(GM_LABEL,),
+                request=NativeSourceEvidenceExtensionV1(space_id='world:test', extension_id='pending-object-support',
+                    original_admission_id=admission.admission_id, source_artifact_id=admission.source_artifact_id,
+                    source_revision_id=admission.source_revision_id, expected_body_sha256=sha256(raw).hexdigest(),
+                    expected_parent_revision_id=memory.repo.get_head('world:test').head_revision_id,
+                    expected_source_authority_epoch=memory.repo.open_native_source_view('world:test').epoch,
+                    created_at=NOW, spans=[dict(client_ref='fact-support', evidence_role='support', start_byte=0,
+                        end_byte=len(raw), expected_slice_sha256=sha256(raw).hexdigest())]))
+            support_ref = extension.bindings[0].evidence_ref_id
+        metadata = wk.AssertionMetadata(scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, 'c1'),),
+            visibility=wk.Visibility('labels_any', (GM_LABEL,)), epistemic_basis='asserted',
+            claim_mode='dungeonbuddy.claim:fact', standing='established',
+            evidence_ref_ids=(support_ref,), temporal_scope=wk.TemporalScope(kind='unknown'))
+        runtime = transport.runtime(memory.repo, memory.domain, memory.profile, now=NOW, operation_id='pending-native-object')
+        runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent('world:test', 'fixture', (
+            wk.CreateObject('check', (wk.CreateFact('name', 'dnd5e:name', wk.LiteralFactValue('check'), metadata),
+                wk.CreateFact('summary', 'dnd5e:summary', wk.LiteralFactValue('The check revealed that Maelthor guards the ferry.'), metadata))),
+        ))), confirmed_by='pending-core-test')
     memory.bound = SimpleNamespace(**(vars(memory.bound) | {'managed_world_id': state.turn.world_id}))
     principal = SimpleNamespace(role='gm', managed_world_id=state.turn.world_id)
     observation = core.observe_build_source_pointer(managed_world_id=state.turn.world_id,
@@ -4553,6 +4597,68 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
             state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_execution':
                 execution.model_copy(update={'events': [*execution.events, auth, *outcomes(auth, auth.sequence + 1), selected]})
             }).model_dump_json(by_alias=True))
+        if mode in {'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context'}:
+            import asyncio
+            import httpx2
+            from generationengine import GenerationEngineError
+            from apps.live_control_server.services.build_pending_native_retrieval import run_pending_native_retrieval
+            from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+            monkeypatch.setenv('TYPESAFE_JEV_API_KEY', 'synthetic-only')
+            calls = []
+            class Transport(httpx2.AsyncBaseTransport):
+                async def handle_async_request(self, request):
+                    body = json.loads(request.content)
+                    step = len(calls)
+                    calls.append(body)
+                    wanted = ('Native Graph object' if mode in {'loop_objects', 'loop_objects_context'} and step == 0
+                              else 'Explicit admitted full-source read' if mode not in {'section_loop', 'loop_objects', 'loop_objects_context'} and step == 0
+                              else 'Source lexical navigation' if mode == 'section_loop' and step == 0
+                              else 'Exact source section' if mode == 'section_loop' and step == 1 else None)
+                    offered = body['state'].get('candidates', [])
+                    pick = next((i for i, row in enumerate(offered) if wanted and row['kind'].startswith(wanted)), None)
+                    if wanted: assert pick is not None
+                    answers = {}
+                    for name, question in body['questions'].items():
+                        chosen = ('include' if name == f'candidate_{pick}' else 'exclude') if name.startswith('candidate_') else 'finish_retrieval'
+                        if mode == 'loop_invalid': chosen = 'not_offered'
+                        answers[name] = {'type': 'choice', 'choice': chosen, 'confidence': 1,
+                            'probabilities': {key: float(key == chosen) for key in question['criteria']}}
+                    return httpx2.Response(200, request=request, json={'model': body['model'],
+                        'usage': {'input_tokens': 23, 'output_tokens': 4}, 'answers': answers})
+            with pending_app_runtime_case(monkeypatch, seed=state) as (_, runtime_adapter):
+                runtime_adapter.native_corpus_context = context
+                runtime_adapter.native_source_authority = authority
+                runtime_adapter.native_query_context = adapter.native_query_context
+                runtime_adapter.native_query = adapter.native_query
+                runtime_adapter.request.message = state.turn.user_text
+                dialogue = tuple({'role': role, 'content': f'{role} captured context {i}'}
+                    for i in range(60) for role in ('user', 'assistant'))
+                harness = BuildJevHarness(decision_transport=Transport(), accounting=runtime_adapter._build_jev_accounting)
+                harness.adapter, harness.calls, harness.timings, harness._inflight = runtime_adapter, [], [], {}
+                def run(): return asyncio.run(run_pending_native_retrieval(runtime_adapter, harness, dialogue=dialogue))
+                if mode == 'loop_invalid':
+                    with pytest.raises(GenerationEngineError): run()
+                    with pytest.raises(ValueError, match='cannot be resent'): run()
+                    assert len(calls) == 1 and not opens
+                else:
+                    assert run() == {}
+                    assert len(calls) == (3 if mode == 'section_loop' else 2)
+                    assert len(opens) == (2 if mode == 'section_loop' else 0 if mode in {'loop_objects', 'loop_objects_context'} else 1)
+                    if mode in {'loop_objects', 'loop_objects_context'}:
+                        from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadObservedV1
+                        observed = [e for e in state.turn.graph_context_execution.events if type(e) is NativePlanAssertionReadObservedV1]
+                        assert observed
+                        if mode == 'loop_objects':
+                            assert any(e.reads for e in observed)
+                            assert any('Maelthor guards the ferry' in r.assertion.model_dump_json() for e in observed for r in e.reads)
+                        else:
+                            assert all(not e.reads and e.unavailable_assertion_ids for e in observed)
+                    assert all(body['state']['dialogue_reference'] == list(dialogue) for body in calls)
+                    before = len(calls), len(opens)
+                    assert run() == {} and (len(calls), len(opens)) == before
+                    assert state.turn.graph_context_execution.events[-1].operation == 'finish_retrieval'
+                assert prepares == [observation.observed_head_revision_id] and len(searches) == 1
+            return
         if 'navigation' in mode:
             from apps.live_control_server.services.native_source_navigation import navigator
             from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
@@ -4696,3 +4802,95 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
         assert prepares == [observation.observed_head_revision_id] and len(searches) == 1
     finally:
         fence.stop()
+
+
+@pytest.mark.parametrize('failure', [None, 'question', 'source_pin', 'offer', 'foreign_turn'])
+def test_pending_native_rules_offer_keeps_actual_selected_parent_binding(monkeypatch, failure):
+    from hashlib import sha256
+    from application_state.agent_conversation.plan_jev_rules_lookup import _selected_offer, RULES_HANDLE
+    from tests.test_surface_native_execution import outcomes, choice
+    with pending_native_dispatch_case(monkeypatch, select_rules=True) as (state, auth, proof, response, call):
+        call('authorize_pending_native_retrieval', authorization=auth, prepared_input_proof=proof)
+        entry, outcome = outcomes(auth, len(state.turn.graph_context_execution.events))
+        outcome = outcome.model_copy(update={'response_sha256': sha256(response.encode()).hexdigest()})
+        call('enter_pending_app_page_sdk', outcome=entry, prepared_request_json=proof['request_json'])
+        call('record_pending_app_controller_outcome', outcome=outcome)
+        selected = choice(state.turn.graph_context_receipt, state.turn.graph_context_execution, auth,
+            len(state.turn.graph_context_execution.events), 'select_candidates', (RULES_HANDLE,)).model_copy(update={
+                'controller_response_sha256': sha256(response.encode()).hexdigest()})
+        call('record_pending_native_selection', selection=selected, producer_proof=proof | {'response_json': response})
+        parent = json.loads(proof['parent_request_json'])
+        turn = state.turn
+        if failure == 'question': parent['question'] = 'Foreign question'
+        elif failure == 'source_pin': parent['source_revision'] = 'foreign'
+        elif failure == 'offer': parent['candidates'][0]['label'] = 'Campaign lore, not rules'
+        elif failure == 'foreign_turn': turn = turn.model_copy(update={'world_id': 'foreign'})
+        if failure:
+            with pytest.raises(ValueError): _selected_offer(turn, json.dumps(parent))
+        else:
+            assert _selected_offer(turn, json.dumps(parent, indent=2)) == selected
+        assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
+
+
+@pytest.mark.parametrize('settled', [False, True])
+def test_pending_native_finish_requires_real_owned_rules_ledger_closure(monkeypatch, settled):
+    import asyncio
+    import httpx2
+    from hashlib import sha256
+    from application_state.errors import ApplicationStateError
+    from application_state.agent_conversation.plan_jev_rules_lookup import RULES_HANDLE, prepare_authorization
+    from application_state.agent_conversation.rules_authority_policy import rules_capability, rules_submission_authorization_id
+    from application_state.agent_conversation.rules_authority_types import RulesScopeV1
+    from application_state.agent_conversation.rules_authority_events import empty_execution, RulesExecutionV1, RulesQueryObservedV1
+    from apps.live_control_server.services.build_pending_native_retrieval import PendingNativeRetrievalDriver
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from tests.test_surface_native_execution import outcomes, choice
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY', 'synthetic-only')
+    with pending_native_dispatch_case(monkeypatch, select_rules=True) as (state, auth, proof, response, call):
+        call('authorize_pending_native_retrieval', authorization=auth, prepared_input_proof=proof)
+        entry, outcome = outcomes(auth, len(state.turn.graph_context_execution.events))
+        outcome = outcome.model_copy(update={'response_sha256': sha256(response.encode()).hexdigest()})
+        call('enter_pending_app_page_sdk', outcome=entry, prepared_request_json=proof['request_json'])
+        call('record_pending_app_controller_outcome', outcome=outcome)
+        selected = choice(state.turn.graph_context_receipt, state.turn.graph_context_execution, auth,
+            len(state.turn.graph_context_execution.events), 'select_candidates', (RULES_HANDLE,)).model_copy(update={
+                'controller_response_sha256': sha256(response.encode()).hexdigest()})
+        call('record_pending_native_selection', selection=selected, producer_proof=proof | {'response_json': response})
+        cap = rules_capability(graph=True)
+        turn = state.turn
+        scope = RulesScopeV1(schema='dmb_rules_scope_v1', execution_id=uuid4(), world_id=turn.world_id,
+            conversation_id=turn.conversation_id, turn_id=turn.turn_id, product_attempt=turn.attempt,
+            ruleset_id=cap.ruleset_id, corpus_sha256=cap.corpus_sha256,
+            authorization_id=rules_submission_authorization_id(world_id=turn.world_id,
+                conversation_id=turn.conversation_id, idempotency_key=turn.idempotency_key,
+                submitted_intent_sha256=turn.submitted_intent_fingerprint_v2, capability=cap),
+            capability_policy_sha256=cap.policy_sha256, budget=cap.budget)
+        ledger = empty_execution(scope)
+        grant = prepare_authorization(ledger, turn, proof['parent_request_json'])
+        events = [grant]
+        if settled:
+            events.append(RulesQueryObservedV1(kind='query_observed', event_id=uuid4(), sequence=1,
+                execution_id=scope.execution_id, call_id=grant.call_id, query_id=grant.query_id,
+                packet_sha256='a' * 64, presentation_utf8=0, status='no_evidence', support_refs=(), emitted_support_ids=()))
+        ledger = RulesExecutionV1.model_validate(ledger.model_copy(update={'events': tuple(events),
+            'budget_use': ledger.budget_use.model_copy(update={'calls': 1, 'distinct_questions': 1})}).model_dump(mode='python', by_alias=True))
+        state.rules_payload = ledger.model_dump(mode='json', by_alias=True)
+        class Transport(httpx2.AsyncBaseTransport):
+            async def handle_async_request(self, request):
+                body = json.loads(request.content)
+                return httpx2.Response(200, request=request, json={'model': body['model'], 'usage': {'input_tokens': 11, 'output_tokens': 2}, 'answers': {
+                    key: {'type': 'choice', 'choice': 'finish_retrieval', 'confidence': 1,
+                        'probabilities': {name: float(name == 'finish_retrieval') for name in q['criteria']}}
+                    for key, q in body['questions'].items()}})
+        with pending_app_runtime_case(monkeypatch, seed=state) as (_, adapter):
+            harness = BuildJevHarness(decision_transport=Transport(), accounting=adapter._build_jev_accounting)
+            harness.adapter, harness.calls, harness.timings, harness._inflight = adapter, [], [], {}
+            driver = PendingNativeRetrievalDriver(adapter, (), allowed_operations=('select_candidates', 'finish_retrieval'))
+            if settled:
+                asyncio.run(harness._decide(adapter, driver))
+                assert driver.selection.operation == 'finish_retrieval'
+            else:
+                with pytest.raises(ApplicationStateError, match='unresolved Rules read'):
+                    asyncio.run(harness._decide(adapter, driver))
+                assert driver.selection is None
+                assert not any(getattr(e, 'operation', None) == 'finish_retrieval' for e in state.turn.graph_context_execution.events)

@@ -1470,3 +1470,57 @@ was started. These are fake-App/in-memory/mock transport checks, not SQL lock
 latency/concurrency/rollback or live semantic/app/release qualification. Complete
 pending runtime orchestration and native writer closure are still unimplemented;
 PlanJevDriver and its leased expansion helpers/tests remain untouched.
+
+
+Pending acquisition loop lease: same serial4642. Add orchestration in
+build_pending_native_retrieval using the actual frozen query, existing object
+record catalogue and pending native navigator/guarded service callbacks. Preserve
+full supplied frozen dialogue; do not implement another query search or provider
+retry. Pin plan_jev_rules_lookup._selected_offer's exact pending owner/pins branch
+only, preserving actual selected offer/parent/operation checks. Main activation
+waits for full native writer closure. Validate actual SDK plus public memory-Core
+reads and stored-finish recovery/no additional IO; retain physical SQL/live app
+and model-quality requirements separately. PlanJevDriver remains untouched.
+
+Loop recovery boundary: completed source/object selections and stored finish may
+be reused without further discovery/IO. Recovered Rules selection remains an
+explicit gate: a fresh NativeRulesRuntime generates a new execution_id, whereas
+the current Rules store requires the exact existing scope. Do not call its fresh
+_initialize as if that adopts a completed stored Rules operation, and do not
+reissue a lookup. The pending loop refuses recovered Rules work without its
+original runtime/prepared proof. Full stored-Rules scope adoption/reader evidence
+remains required before integrated activation/acceptance; no Rules recovery
+success is claimed by this loop checkpoint.
+
+
+Pending acquisition-loop checkpoint: run_pending_native_retrieval composes the
+actual frozen query/object catalogue, guarded statement/assertion materializers,
+existing pending source navigator and actual SDK controller until acknowledged
+finish. It derives attempted/opened records from stored events, preserves full
+supplied dialogue, refuses unresolved controller resend and offers no second
+query search. Completed source/object work and stored finish are reused. The
+Rules selected-offer owner delegates only exact pending receipt/pins; all original
+parent/question/offer/operation checks remain. Dedicated pending finish now reads
+the actual current-attempt Rules ledger and refuses any unresolved Rules operation,
+matching existing native admission rather than bypassing it.
+
+76 focused protocol/IO/runtime/public-Core/Rules-binding/finish/main-App controls
+passed5.78s. New official-SDK + public memory-Core loop cases exercise direct read
+(two decisions/one source read), scan/section (three decisions/two body opens),
+genuine Core/WK assertion support acquisition, context-only support unavailability,
+full60-pair dialogue, original one-time query preparation, repeated stored finish
+without additional SDK/IO, and malformed-output no-resend. Rules parent aliases,
+question/source/offer/foreign-owner corruption and unresolved-versus-observed
+owned Rules ledger closure are checked at actual service/proof boundaries.
+The initial positive object fixture attached context-only evidence and was
+correctly unavailable; a public Core support extension supplies the genuine
+positive case while keeping the context-only case negative. A mock Rules-finish
+response lacked required SDK usage and was corrected, without production relaxations.
+
+App persistence remains fake and transport mocked; no database or live provider
+was started. The loop is not yet activated in main completion: pending native
+writer selection/input/citation closure, recovered Rules scope adoption, actual
+Rules lookup/reader evidence, current serving/reader integration and focused
+same-App SQL/full Send/live semantic/signed-in app/review/merge/deploy gates remain.
+No passing standalone loop result is a release/activation claim. PlanJevDriver
+and its leased expansion work remain untouched.

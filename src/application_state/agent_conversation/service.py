@@ -3567,6 +3567,15 @@ class AgentConversationService:
                 row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
                     (turn.turn_id, turn.attempt)).fetchone()
                 verify_selection(turn, selection, producer_proof, row[0] if row else None)
+                if selection.operation == 'finish_retrieval':
+                    from .rules_authority_store import load_turn_rules_locked
+                    from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+                    rules = load_turn_rules_locked(conn, turn)
+                    if rules is not None:
+                        calls = {e.call_id for e in rules.execution.events if isinstance(e, RulesToolAuthorizedV1)}
+                        observed = {e.call_id for e in rules.execution.events if isinstance(e, RulesQueryObservedV1)}
+                        if calls != observed:
+                            raise ValueError('Pending retrieval cannot finish with an unresolved Rules read')
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             if authorize_current_access(conn, turn, pages) is not True:

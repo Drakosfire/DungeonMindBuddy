@@ -101,3 +101,130 @@ class PendingNativeRetrievalDriver(PendingAppPageDriver):
         _commit(adapter, 'record_pending_native_selection', selection=event,
             producer_proof=proof, authorize_current_access=adapter.pending_build_access)
         self.selection, self.proof = event, proof
+
+
+def _record_state(execution):
+    from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1
+    result = {}
+    for family, grant_type, observed_type, field in (
+            ('statement', NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1, 'statement_ids'),
+            ('assertion', NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, 'assertion_ids')):
+        grants = [e for e in execution.events if type(e) is grant_type]
+        observed = {e.authorization_event_id: e for e in execution.events if type(e) is observed_type}
+        attempted = {identity for e in grants for identity in getattr(e, field)}
+        opened = {r.support.statement_id if family == 'statement' else r.assertion.assertion_id
+                  for e in observed.values() for r in e.reads}
+        result[family] = grants, observed, attempted, opened
+    return result
+
+
+def _object_candidates(query, execution):
+    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4, object_record_catalog
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+    if type(query) is not NativeGraphQueryV4:
+        return (), ()
+    state = _record_state(execution)
+    offers, examined = [], []
+    for unit in object_record_catalog(query).units:
+        ids = {'statement': set(unit.statement_ids), 'assertion': set(unit.assertion_ids)}
+        if not any(ids.values()):
+            continue
+        if any(values - state[family][2] for family, values in ids.items()):
+            offers.append(RetrievalCandidate(handle=unit.handle, label=unit.label,
+                kind='Native Graph object; open its complete admitted statement and assertion support'))
+        else:
+            opened = {(family, identity) for family, values in ids.items() for identity in values & state[family][3]}
+            complete = all(values <= state[family][3] for family, values in ids.items())
+            status = 'opened' if complete else 'partial' if opened else 'unavailable'
+            examined.append(RetrievalCandidate(handle=unit.handle, label=unit.label,
+                kind=f'Previously selected native object: {status}; not an answer-sufficiency verdict'))
+    return tuple(offers), tuple(examined)
+
+
+def _read_selected_objects(adapter, query, selection):
+    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4, object_record_ids
+    from .native_graph_reads import read_selected
+    if type(query) is not NativeGraphQueryV4:
+        return
+    for family in ('statement', 'assertion'):
+        execution = adapter._broker_execution()
+        grants, observed, attempted, _ = _record_state(execution)[family]
+        pending = [g for g in grants if g.event_id not in observed]
+        if any(g.provider_attempt_id != selection.controller_attempt_id for g in pending):
+            raise ValueError('Pending native read belongs to another controller')
+        ids = object_record_ids(query, selection.selected_handles, assertion=family == 'assertion', attempted=attempted)
+        if ids:
+            event_id = uuid4()
+            _commit(adapter, 'authorize_pending_native_read', event_id=event_id, record_kind=family,
+                record_ids=tuple(ids), authorize_current_access=adapter.pending_build_access)
+            pending.append(next(e for e in adapter._broker_execution().events if e.event_id == event_id))
+        for grant in pending:
+            context = adapter.native_query_context
+            if context is None or context.query != query:
+                raise ValueError('Pending native reads require the original public query context')
+            _commit(adapter, 'observe_pending_native_read', event_id=uuid4(), authorization_event_id=grant.event_id,
+                read=lambda actual, context=context: read_selected(context, actual, context.principal),
+                authorize_current_access=adapter.pending_build_access)
+
+
+async def run_pending_native_retrieval(adapter, harness, *, dialogue=(), rules=None):
+    """Collect under actual pending owners until an acknowledged explicit finish.
+
+    The initial query is already frozen. No discovery retry or legacy Graph
+    bootstrap is performed. Interrupted source IO remains an unresolved grant;
+    the navigator refuses to repeat it. Stored completed acquisitions are reused.
+    """
+    from application_state.agent_conversation.build_pending_native import prepared_pending_source
+    from application_state.agent_conversation.native_retrieval import current_selection
+    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4, object_record_catalog
+    from application_state.agent_conversation.native_corpus import native_corpus_search_handle
+    from application_state.agent_conversation.plan_jev_rules_lookup import RULES_HANDLE, rules_candidate
+    from .native_source_navigation import navigator
+    receipt, execution = owner(adapter.fence.turn)
+    _, query = prepared_pending_source(receipt, execution)
+    if getattr(adapter, 'native_query', None) != query:
+        raise ValueError('Pending retrieval cannot substitute its prepared query')
+    sources = navigator(adapter)
+    producing = None
+    while True:
+        _, execution = owner(adapter.fence.turn)
+        auths = [e for e in execution.events if type(e) is NativeRetrievalAuthorizedV1]
+        selected = None
+        if auths:
+            choices = [e for e in execution.events if type(e) is NativeRetrievalSelectedV1
+                       and e.controller_attempt_id == auths[-1].provider_attempt_id]
+            if len(choices) != 1:
+                raise ValueError('Pending native dispatch is unresolved and cannot be resent')
+            selected = current_selection(adapter.fence.turn)
+            if selected.operation == 'finish_retrieval':
+                return {}  # Build's writer reconstructs its actual stored work.
+            if selected.operation != 'select_candidates':
+                raise ValueError('Pending native discovery was already prepared once')
+            object_handles = ({u.handle for u in object_record_catalog(query).units}
+                              if type(query) is NativeGraphQueryV4 else set())
+            grant, search, auths_read, reads = sources._events()
+            settled = {sources._handle(g) for g in auths_read if g.event_id in reads}
+            if grant is not None and search is not None:
+                settled.add(native_corpus_search_handle(grant.query_sha256))
+            native_offers = {row.handle for row in sources.offered()}
+            metadata = set(sources._keyword_catalog()) | {sources.expansion_handle()}
+            known = object_handles | native_offers | settled | metadata | ({RULES_HANDLE} if rules is not None else set())
+            if not set(selected.selected_handles) <= known:
+                raise ValueError('Pending native selection differs from its actual acquisition catalogue')
+            _read_selected_objects(adapter, query, selected)
+            needed = [h for h in selected.selected_handles if h in native_offers and h not in settled]
+            if needed:
+                sources.select(tuple(needed))
+            if rules is not None and RULES_HANDLE in selected.selected_handles and not rules.selected:
+                if producing is None or producing.selection != selected:
+                    raise ValueError('Recovered Rules selection requires its original runtime and prepared proof')
+                rules.lookup_selected(producing.proof['parent_request_json'])
+        offers, examined = _object_candidates(query, adapter._broker_execution())
+        candidates = [*offers, *sources.offered()]
+        reviewed = [*examined, *sources.examined()]
+        if rules is not None:
+            (reviewed if rules.selected else candidates).append(rules_candidate())
+        producing = PendingNativeRetrievalDriver(adapter, candidates, dialogue=dialogue,
+            examined_candidates=reviewed, allowed_operations=('select_candidates', 'finish_retrieval'))
+        await harness._decide(adapter, producing)
