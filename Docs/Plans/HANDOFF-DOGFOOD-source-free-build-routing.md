@@ -207,7 +207,9 @@ explicit adapter/initial-driver branches currently being implemented:
   branches/host fields in _PolicyExecutionAdapter.__init__, _ensure_claimed and
   _claim_initial. build_jev_driver.py: pending pointer capture in freeze_interaction
   and pending initial-driver selection only.
-- build_jev_harness.configured_budget: host-only defer_related_pages option only.
+- build_jev_harness.configured_budget: host-only defer_related_pages option;
+  _decide: exact pending-policy received-response capture before work validation.
+  No other harness behavior or whole-file reservation.
 - plan_source_turn.freeze_build: optional pending branch and _freeze_pending_build
   helper only. Plan/Play factories and shared historical composition are free.
 - agent_context_trace_collector._provider_output: exact pending controller policy

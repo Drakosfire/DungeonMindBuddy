@@ -22,7 +22,7 @@ from generationengine.types import (
 from generationengine.providers.openai_text import OpenAITextProvider
 from generationengine.text_dispatch import TextDispatchGate
 from application_state.agent_conversation import types as ledger
-from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
+from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1
 from application_state.agent_conversation.build_authoring import completion_for_proposal
 from application_state.build_proposal.types import BuildProposalOrigin, explicit_build_page_target
 from apps.live_control_server.models.build_document_proposal import (
@@ -680,7 +680,7 @@ class BuildJevHarness:
             self._observe(result, started, "controller")
             # Retain actual received bytes before a host gate can reject them.
             # This protected, unvalidated Debug channel grants no answer authority.
-            if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1)):
+            if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1)):
                 adapter.context_capture.controller_decision_response(
                     canonical(result.model_dump(mode="json")),
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,

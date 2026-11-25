@@ -1972,3 +1972,55 @@ def test_pending_startup_refuses_denied_or_revoked_world_before_dispatch(monkeyp
         _prepare_pending_build_startup(request, world_id=principal.managed_world_id,
             principal=principal, durable_turn=None, authorize_world=authorize)
     assert error.value.status_code == 403 and state['observed'] == int(deny_after_metadata)
+
+
+@pytest.mark.parametrize('reject_decision', [False, True])
+def test_pending_harness_captures_actual_received_response_before_work_validation_and_closes_client(monkeypatch, reject_decision):
+    import asyncio
+    from types import SimpleNamespace
+    from generationengine.types import DecisionResult, ChoiceDecisionAnswer, InferenceObservation
+    from apps.live_control_server.services import build_jev_harness as owner
+    from apps.live_control_server.services.build_jev_transitions import DecisionIntent, DecisionQuestion
+    from apps.live_control_server.services.build_jev_driver import canonical
+    receipt, policy = pending_execution_pair()
+    response = DecisionResult(answers={'requested_work': ChoiceDecisionAnswer(
+        selected='discuss', probabilities={'discuss': 1.0, 'clarify_request': 0.0})}, observation=InferenceObservation(
+        provider='typesafe', resolved_model='jev-1.14.0', response_model='jev-1.14.0',
+        latency_ms=1, retry_count=0, state='completed', provider_attempt_count=1))
+    captured, order = [], []
+    producer = uuid4()
+    def capture(raw, *, producing_provider_attempt_id):
+        captured.append((raw, producing_provider_attempt_id))
+        order.append('capture')
+    collector = SimpleNamespace(controller_decision_response=capture,
+        provider_usage=lambda calls: None, observe=lambda observation: order.append('failure'))
+    adapter = SimpleNamespace(trace=None, context_capture=collector,
+        last_provider_attempt_id=producer, turn=object(), failure=None,
+        _broker_execution=lambda: SimpleNamespace(policy=policy))
+    class Client:
+        async def decide(self, request):
+            order.append('received')
+            return response
+        async def aclose(self):
+            order.append('closed')
+    monkeypatch.setattr(owner, 'decision_client', lambda **kwargs: Client())
+    class Driver:
+        step = DecisionIntent(request_id='work', phase='select', state={}, questions=(
+            DecisionQuestion(name='requested_work', kind='choice', question='What work?', options=('discuss', 'clarify_request')),))
+        def stage(self):
+            return SimpleNamespace(state=lambda: {})
+        def accept_decision(self, model, answers, *, actual_response):
+            assert captured == [(canonical(response.model_dump(mode='json')), producer)]
+            assert actual_response is response and model == 'jev-1.14.0'
+            order.append('validate')
+            if reject_decision:
+                raise ValueError('decision refused')
+    harness = owner.BuildJevHarness()
+    harness.adapter, harness.calls, harness._inflight, harness.timings = adapter, [], {}, []
+    if reject_decision:
+        with pytest.raises(ValueError, match='decision refused'):
+            asyncio.run(harness._decide(adapter, Driver()))
+        assert order == ['received', 'capture', 'validate', 'failure', 'closed']
+    else:
+        asyncio.run(harness._decide(adapter, Driver()))
+        assert order == ['received', 'capture', 'validate', 'closed']
