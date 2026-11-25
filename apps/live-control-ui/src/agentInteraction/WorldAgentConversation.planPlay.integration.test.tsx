@@ -554,6 +554,24 @@ describe("one App-level World conversation host across Plan and Play", () => {
       expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
     } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
   });
+  it('sends a guest Play question with the saved Run and World context', async () => {
+    vi.stubEnv('VITE_HOSTED_GUEST_PLAY_BUDDY', '1');
+    const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(() => new Promise(() => {}));
+    try {
+      render(<Harness initial="play"/>);
+      fireEvent.click(await screen.findByRole('button', {name:'Open', exact:true}));
+      const input = await screen.findByLabelText('Message DungeonBuddy');
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.change(input, {target:{value:'What is happening in this scene?'}});
+      fireEvent.click(screen.getByRole('button', {name:'Send message', exact:true}));
+      await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1));
+      const request = vi.mocked(postWorldPlayAgentTurn).mock.calls[0]![0];
+      expect(request.primary_work.kind).toBe('run');
+      expect(request.graph_request.mode).toBe('world');
+      expect(request.play_target).toBeDefined();
+    } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(readActiveConversationMessages).mockImplementation(defaultReadMessages);

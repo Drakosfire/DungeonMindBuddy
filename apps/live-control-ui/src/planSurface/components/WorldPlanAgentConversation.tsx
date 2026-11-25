@@ -4938,6 +4938,13 @@ export function WorldPlanAgentConversation({
       return;
     }
 
+    if (guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === '1'
+      && (!useWorldGraphForAsk || composerReferences.length)) {
+      setError(!useWorldGraphForAsk
+        ? 'Enable World context before asking Buddy about this session.'
+        : 'Remove selected references before asking Buddy about this session.');
+      return;
+    }
     if (!visible || !isReadOnly || !admittedRun || admittedRun.worldId !== verifiedWorldId
       || !historySnapshotRef.current || historyLoading || historyError || !message
       || sending || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;

@@ -164,6 +164,37 @@ def test_guest_build_discussion_admission_is_page_and_session_bound(guests, monk
     assert foreign.post('/api/live/agent/turn', headers={'X-DMB-Index-Graph-CSRF': other_token}, json=body).status_code == 403
 
 
+def test_guest_play_discussion_admission_is_session_bound(guests, monkeypatch):
+    from uuid import uuid4
+    from tests.test_agent_turn_route import _play_turn_payload
+    (first, token, world), (second, other_token, _other_world) = guests[0]
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_TURN_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED', '1')
+    body = {**_play_turn_payload(), 'client_thread_id': str(uuid4()), 'turn_id': str(uuid4()),
+        'owner_scope': {'kind': 'world', 'world_id': world},
+        'graph_request': {'mode': 'world', 'world_id': world, 'campaign_id': None,
+                          'revision_pin': None, 'focus': {'kind': 'none', 'session_id': None, 'campaign_id': None}}}
+    app = FastAPI()
+    @app.post('/api/live/agent/turn')
+    def admitted(): return {'admitted': True}
+    install_hosted_request_boundary(app)
+    async def signed_out(_request): return None
+    app.state.dms_principal_resolver = signed_out
+    client = TestClient(app, base_url='https://buddy.example', headers={'Origin': 'https://buddy.example', 'Sec-Fetch-Site': 'same-origin'})
+    client.cookies.update(first.cookies)
+    headers = {'X-DMB-Index-Graph-CSRF': token}
+    assert client.post('/api/live/agent/turn', headers=headers, json=body).status_code == 200
+    assert client.post('/api/live/agent/turn', json=body).status_code == 403
+    assert client.post('/api/live/agent/turn', headers={**headers, 'Origin': 'https://bad.example'}, json=body).status_code == 403
+    foreign = TestClient(app, base_url='https://buddy.example', headers={'Origin': 'https://buddy.example', 'Sec-Fetch-Site': 'same-origin'})
+    foreign.cookies.update(second.cookies)
+    assert foreign.post('/api/live/agent/turn', headers={'X-DMB-Index-Graph-CSRF': other_token}, json=body).status_code == 403
+    monkeypatch.delenv('DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED')
+    assert client.post('/api/live/agent/turn', headers=headers, json=body).status_code == 403
+
+
 def test_guest_plan_routes_are_default_off(monkeypatch):
     from apps.live_control_server.services.guest_build_access import matches_guest_build_route
     monkeypatch.delenv("DMB_HOSTED_GUEST_PLAN_ENABLED", raising=False)
@@ -572,8 +603,8 @@ def test_guest_reset_revokes_prepared_native_source_body(guests, tmp_path, monke
             open_native_corpus_member(context, lane.meta.evidence_ref_ids[0])
 
 
-@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build'), [(False, False), (True, False), (False, True)])
-def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer, reset_during_build):
+@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build', 'reset_during_play'), [(False, False, False), (True, False, False), (False, True, False), (False, False, True)])
+def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer, reset_during_build, reset_during_play):
     import json
     import re
     import httpx2
@@ -615,6 +646,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     app.include_router(index_graph.router)
     app.include_router(workspace_documents.router)
     app.include_router(live.router)
+    app.include_router(play_runs.router)
     app.include_router(native_graph_inspection.router)
     app.include_router(native_source_inspection.router)
     monkeypatch.setattr(workspace_documents, 'repo_root', lambda: tmp_path)
@@ -915,6 +947,66 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     answer = client.post('/api/live/agent/turn', headers=headers, json=payload)
     assert answer.status_code == 200, answer.text
     assert 'B fled' in answer.json()['answer']['text']
+    # Normal Play conversation with the same real guest session and synthetic providers.
+    from application_state.content.service import create_world_plan, commit_plan
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+    from apps.live_control_server.services import play_jev_harness
+    from apps.live_control_server.services.play_jev_harness import PlayJevHarness
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED', '1')
+    play_plan = create_world_plan(title='Guest Play', world_id=world.world_id)
+    play_plan, play_revision = commit_plan(str(play_plan.work_object_id), V2_SOURCE_MARKDOWN,
+        expected_world_id=world.world_id, expected_revision=play_plan.object_revision)
+    run_id = str(uuid4())
+    run_body = {'schema_version': 'dmb_world_session_create_v1', 'playable_artifact_id': str(play_plan.work_object_id),
+        'expected_playable_revision': play_revision.revision_n, 'expected_playable_work_revision_id': str(play_revision.work_revision_id),
+        'expected_playable_content_sha256': play_revision.content_sha256, 'entry_scene_id': 'scene:gate',
+        'encounters': [{'scene_id': 'scene:gate', 'template': None}]}
+    run_response = client.put(f'/api/live/world-play-runs/v2/{run_id}', params={'world_id': world.world_id}, headers=headers, json=run_body)
+    assert run_response.status_code == 200, run_response.text
+    play_entered, play_release = Event(), Event()
+    class PlayWriter(WriterWire):
+        async def handle_async_request(self, req):
+            if reset_during_play:
+                play_entered.set()
+                assert play_release.wait(15)
+            self.text = json.dumps({'schema': POLICY, 'limitations': [], 'requested_detail_gaps': [],
+                'answer_segments': [{'kind': 'native_assertion_claim', 'text': 'A reports that B fled; uncertain.', 'assertion_handles': ['assertion0']}]})
+            return await super().handle_async_request(req)
+    play_wire = PlayWriter(None, '')
+    class PlayHarness(PlayJevHarness):
+        def execute(self, adapter, **kwargs):
+            play_wire.adapter = adapter
+            return super().execute(adapter, **kwargs)
+    monkeypatch.setattr(play_jev_harness, 'default_play_jev_runtime', lambda: PlayHarness(
+        decision_transport=Decisions(), writer_transport=play_wire,
+        decision_api_key='synthetic', writer_api_key='synthetic'))
+    play_payload = {'schema': 'dmb_agent_turn_request_v1', 'client_thread_id': str(uuid4()), 'turn_id': str(uuid4()),
+        'surface': {'surface_id': 'play', 'instance_id': run_id}, 'owner_scope': {'kind': 'world', 'world_id': world.world_id},
+        'primary_work': {'kind': 'run', 'object_id': run_id, 'expected_revision': 1,
+            'play_content_basis': {'edition_revision': 0, 'edition_revision_id': None, 'content_sha256': play_revision.content_sha256}},
+        'play_target': {'beat_id': 'beat:arrival', 'scene_id': 'scene:gate', 'marker_grammar_version': 'v2'},
+        'client_work_state': 'saved_clean', 'graph_request': {'mode': 'world', 'world_id': world.world_id,
+            'campaign_id': None, 'revision_pin': None, 'focus': {'kind': 'none', 'session_id': None, 'campaign_id': None}},
+        'graph_selection': None, 'message': 'What did B do?'}
+    if reset_during_play:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending_play = pool.submit(client.post, '/api/live/agent/turn', headers=headers, json=play_payload)
+            try:
+                assert play_entered.wait(15)
+                assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+            finally:
+                play_release.set()
+            play_response = pending_play.result(timeout=15)
+        assert play_response.status_code != 200, play_response.text
+        assert 'A reports that B fled' not in play_response.text
+        from application_state.engine import connect
+        with connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT count(*) FROM agent.turn WHERE turn_id=%s AND status='completed'", (play_payload['turn_id'],)).fetchone()[0] == 0
+        return
+    play_response = client.post('/api/live/agent/turn', headers=headers, json=play_payload)
+    assert play_response.status_code == 200, play_response.text
+    assert 'B fled' in play_response.json()['answer']['text']
     from apps.live_control_server.services import guest_build_access
     from application_state.engine import connect
     from application_state.errors import ApplicationStateConflictError
@@ -1272,7 +1364,7 @@ def test_guest_image_retention_serializes_with_reset(guests, application_state_d
         assert reset.result(timeout=10).status_code == 200
 
 
-def test_guest_play_run_is_bound_to_session(guests, monkeypatch):
+def test_guest_play_run_is_bound_to_session(guests, monkeypatch, tmp_path):
     from application_state.content.service import create_world_plan, commit_plan
     from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN, gate_progress
     from apps.live_control_server.services import guest_build_access
@@ -1319,6 +1411,28 @@ def test_guest_play_run_is_bound_to_session(guests, monkeypatch):
     assert first.get(f"{path}/reference-manifest", params={"world_id": world}).status_code == 200
     assert first.get(f"{path}/content", params={"world_id": world}).status_code == 200
     assert second.get(path, params={"world_id": other_world}).status_code in (403, 404)
+    # The actual Play turn work resolver must bind the exact Run and edition
+    # to the session World, not just trust guest admission.
+    from tests.test_agent_turn_route import _play_turn_payload
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
+    payload = _play_turn_payload(revision=progress.json()['run_revision'])
+    payload['owner_scope'] = {'kind': 'world', 'world_id': world}
+    payload['primary_work']['object_id'] = run
+    payload['primary_work']['play_content_basis']['content_sha256'] = revision.content_sha256
+    payload['graph_request'] = {'mode': 'world', 'world_id': world, 'campaign_id': None,
+        'revision_pin': None, 'focus': {'kind': 'none', 'session_id': None, 'campaign_id': None}}
+    turn = AgentTurnRequest.model_validate(payload)
+    resolved = agent._work_resolver(turn, {'kind': 'world', 'id': world})
+    assert resolved.object_id == run and resolved.world_id == world
+    with pytest.raises(AgentTurnServiceError, match='unavailable|stale'):
+        agent._work_resolver(turn, {'kind': 'world', 'id': other_world})
+    stale = turn.model_copy(update={'primary_work': turn.primary_work.model_copy(
+        update={'expected_revision': progress.json()['run_revision'] + 1})})
+    with pytest.raises(AgentTurnServiceError, match='stale'):
+        agent._work_resolver(stale, {'kind': 'world', 'id': world})
     assert first.post("/api/live/index-graph/reset", headers=headers).status_code == 200
     assert first.get(path, params={"world_id": world}).status_code in (401, 403)
 
