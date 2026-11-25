@@ -291,12 +291,17 @@ def authoring_input(native_context, capability, instruction, operation):
     if not isinstance(native_context,tuple) or len(native_context)!=3:
         raise ValueError('Native authoring requires concrete context, execution and submission')
     receipt,execution,work=native_context
-    from .native_execution import NativeBuildActionV1
+    from .native_execution import BuildPendingExecutionV1, NativeBuildActionV1
     from .build_intentional_response import selected_action
-    if type(execution) is not SurfaceNativeExecutionV1 or type(execution.policy.action) is not NativeBuildActionV1:
+    if (type(execution) not in (SurfaceNativeExecutionV1, BuildPendingExecutionV1)
+            or type(execution.policy.action) is not NativeBuildActionV1):
         raise ValueError('Native authoring requires the actual Build action')
     action=execution.policy.action
     selected=selected_action(execution)
+    if type(execution) is BuildPendingExecutionV1:
+        from .build_source_free import pending_paragraph_proposal
+        if not pending_paragraph_proposal(execution, selected):
+            raise ValueError('Pending authoring requires an exact anchored paragraph placement')
     from application_state.build_proposal.types import explicit_build_page_target
     explicit_target = explicit_build_page_target(action.write_capability, selected)
     paragraph_work = _build_paragraph_work(action, selected)
