@@ -269,6 +269,8 @@ def _join_pending_turn(turn):
     from .build_draft_context import validate_record_identity
     from .build_intentional_response import validate_turn_arguments
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    from .native_execution import _join_turn_lifecycle
+    _join_turn_lifecycle(turn)
     _join_pending_turn_fields(receipt, execution, turn.provenance,
         turn.submitted_intent_fingerprint_v2, turn.completion, turn.assistant_text)
     from .retained_conversation import validate_binding
@@ -285,8 +287,7 @@ def _join_pending_turn(turn):
             or turn.conversation_id != receipt.conversation_observation.conversation_id
             or turn.provenance.surface_instance_id != intent.surface_instance_id
             or turn.play_context_receipt is not None
-            or (turn.status == 'completed') != (turn.completion is not None)
-            or turn.status in {'accepted', 'running'} and turn.completed_at is not None):
+            ):
         raise ValueError("Stored pending Turn differs from its admitted request or lifecycle")
     validate_turn_arguments(execution, user_text=turn.user_text, turn_id=turn.turn_id, attempt=turn.attempt)
     for event in execution.events:

@@ -3076,7 +3076,11 @@ def test_pending_writer_real_sdk_reply_is_proved_completed_and_stored_readable_w
         assert repository._turn_from_row(None, row, references=references) == completed
         from copy import deepcopy
         from application_state.errors import ApplicationStateIntegrityError
-        for change in ('text', 'completion_text', 'context', 'binding', 'lifecycle'):
+        missing_timestamp = completed.model_dump(mode='json', by_alias=True)
+        missing_timestamp['completed_at'] = None
+        with pytest.raises(ValidationError, match='lifecycle'):
+            t.Turn.model_validate_json(json.dumps(missing_timestamp))
+        for change in ('text', 'completion_text', 'context', 'binding', 'lifecycle', 'timestamp'):
             altered = deepcopy(row)
             if change == 'text':
                 altered['assistant_text'] = 'Unbound changed text'
@@ -3086,8 +3090,10 @@ def test_pending_writer_real_sdk_reply_is_proved_completed_and_stored_readable_w
                 altered['completion']['context_receipt_sha256'] = 'b' * 64
             elif change == 'binding':
                 altered['graph_context_execution']['events'][-1]['completion_sha256'] = 'b' * 64
-            else:
+            elif change == 'lifecycle':
                 altered['status'] = 'running'
+            else:
+                altered['completed_at'] = None
             with pytest.raises((ApplicationStateIntegrityError, ValidationError, ValueError)):
                 repository._turn_from_row(None, altered, references=references)
 
