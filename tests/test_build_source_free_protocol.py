@@ -4495,7 +4495,7 @@ def test_pending_native_materialization_checks_live_owner_and_never_reopens_repl
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
 
 
-@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context', 'loop_selection', 'loop_selection_history', 'loop_selection_access', 'loop_selection_unknown', 'loop_selection_main'])
+@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context', 'loop_selection', 'loop_selection_history', 'loop_selection_access', 'loop_selection_unknown', 'loop_selection_main', 'loop_selection_main_object'])
 def test_pending_guarded_direct_read_uses_public_core_with_original_real_authority(monkeypatch, mode):
     from types import SimpleNamespace
     from application_state.agent_conversation import native_corpus as bodies
@@ -4512,15 +4512,15 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
     state = pending_page_dispatch_harness(monkeypatch)[0] if writer_mode else settlement_harness(monkeypatch, with_source=True)[0]
     section_mode = mode.startswith('section')
     source_body = ('# Maelthor\n\n' + state.turn.user_text + '\n\n# Elsewhere\n\nOther material.\n' if section_mode
-                   else '# Check\n\nThe check revealed that Maelthor guards the ferry.\n' if mode in {'loop_objects', 'loop_objects_context'} else BODY)
-    admission = admit(memory, body=source_body, multiple=mode in {'loop_objects', 'loop_objects_context'})
-    if mode in {'loop_objects', 'loop_objects_context'}:
+                   else '# Check\n\nThe check revealed that Maelthor guards the ferry.\n' if mode in {'loop_objects', 'loop_objects_context', 'loop_selection_main_object'} else BODY)
+    admission = admit(memory, body=source_body, multiple=mode in {'loop_objects', 'loop_objects_context', 'loop_selection_main_object'})
+    if mode in {'loop_objects', 'loop_objects_context', 'loop_selection_main_object'}:
         from worldkeeper.application import contracts as wk
         from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
         from graph_memory.vnext.domain_runtime import GM_LABEL, CAMPAIGN_SCOPE_AXIS
         from tests.test_native_corpus_source_access import NOW
         support_ref = admission.bindings[-1].evidence_ref_id
-        if mode == 'loop_objects':
+        if mode in {'loop_objects', 'loop_selection_main_object'}:
             from hashlib import sha256
             from dungeonmind.application.vnext import publish_native_source_evidence_extension
             from dungeonmind.contracts.vnext.native_source import NativeSourceEvidenceExtensionV1
@@ -4621,7 +4621,7 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                                 key: {'type': 'choice', 'choice': 'not_offered' if mode == 'loop_selection_unknown' else 'direct_support',
                                     'confidence': 1, 'probabilities': {choice: float(choice == 'direct_support') for choice in question['criteria']}}
                                 for key, question in body['questions'].items()}})
-                    wanted = ('Native Graph object' if mode in {'loop_objects', 'loop_objects_context'} and step == 0
+                    wanted = ('Native Graph object' if mode in {'loop_objects', 'loop_objects_context', 'loop_selection_main_object'} and step == 0
                               else 'Explicit admitted full-source read' if mode not in {'section_loop', 'loop_objects', 'loop_objects_context'} and step == 0
                               else 'Source lexical navigation' if mode == 'section_loop' and step == 0
                               else 'Exact source section' if mode == 'section_loop' and step == 1 else None)
@@ -4647,7 +4647,7 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     for i in range(60) for role in ('user', 'assistant'))
                 harness = BuildJevHarness(decision_transport=Transport(), accounting=runtime_adapter._build_jev_accounting)
                 harness.adapter, harness.calls, harness.timings, harness._inflight = runtime_adapter, [], [], {}
-                if mode == 'loop_selection_main':
+                if mode in {'loop_selection_main', 'loop_selection_main_object'}:
                     import httpx
                     from types import MethodType
                     from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter, _turn_idempotency_key
@@ -4675,6 +4675,9 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                         writers.append(json.loads(request.content))
                         candidate = {'answer_segments': [{'kind': 'native_body_claim',
                             'text': 'The source says “Éphanna heard the guard.”', 'excerpt_handles': ['body0']}], 'limitations': []}
+                        if mode == 'loop_selection_main_object':
+                            candidate['answer_segments'] = [{'kind': 'native_assertion_claim',
+                                'text': 'The cited source supplies this Check record.', 'assertion_handles': ['assertion0']}]
                         return httpx.Response(200, request=request, json={'id': 'resp_main_native', 'object': 'response',
                             'created_at': 1, 'model': writers[-1]['model'], 'status': 'completed', 'output': [{'type': 'message',
                                 'id': 'msg_main_native', 'role': 'assistant', 'status': 'completed',
@@ -4688,10 +4691,19 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                         _material=lambda: ((), (), ()))
                     completed = harness._native_completion(runtime_adapter, work)
                     assert completed.status == 'completed' and state.completions == 1
-                    assert completed.completion.native_body_citations
+                    assert (completed.completion.native_assertion_citations if mode == 'loop_selection_main_object'
+                        else completed.completion.native_body_citations)
+                    from apps.live_control_server.services.agent_turn_service import project_plan_turn_context
+                    projected = project_plan_turn_context(completed, delivery_replay=False)
+                    if mode == 'loop_selection_main_object':
+                        assert projected.deferred_build_citations.assertions
+                    else:
+                        assert projected.deferred_build_citations is None
                     row, references = stored_row(completed)
                     assert repository._turn_from_row(None, row, references=references) == completed
-                    assert len(calls) == 3 and len(writers) == len(opens) == len(searches) == 1
+                    assert len(calls) == (2 if mode == 'loop_selection_main_object' else 3)
+                    assert len(opens) == (0 if mode == 'loop_selection_main_object' else 1)
+                    assert len(writers) == len(searches) == 1
                     assert all(len(body['state'].get('dialogue_reference', body['state'].get('conversation', {}).get('history', []))) in {60, 120}
                         for body in calls)
                     return
@@ -4703,12 +4715,12 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                 else:
                     assert run() == {}
                     assert len(calls) == (3 if mode == 'section_loop' else 2)
-                    assert len(opens) == (2 if mode == 'section_loop' else 0 if mode in {'loop_objects', 'loop_objects_context'} else 1)
-                    if mode in {'loop_objects', 'loop_objects_context'}:
+                    assert len(opens) == (2 if mode == 'section_loop' else 0 if mode in {'loop_objects', 'loop_objects_context', 'loop_selection_main_object'} else 1)
+                    if mode in {'loop_objects', 'loop_objects_context', 'loop_selection_main_object'}:
                         from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadObservedV1
                         observed = [e for e in state.turn.graph_context_execution.events if type(e) is NativePlanAssertionReadObservedV1]
                         assert observed
-                        if mode == 'loop_objects':
+                        if mode in {'loop_objects', 'loop_selection_main_object'}:
                             assert any(e.reads for e in observed)
                             assert any('Maelthor guards the ferry' in r.assertion.model_dump_json() for e in observed for r in e.reads)
                         else:

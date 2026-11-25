@@ -75,7 +75,7 @@ export function isSurfaceNativeCompletion(
   if(!exact(v,['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations'])
     ||v.schema!=='dmb_surface_native_completion_v1'||v.surface_id!==r.work_context.surface_id||v.context_receipt_sha256!==r.context_receipt_sha256||!uuid(v.producing_provider_attempt_id)||v.answer_basis!=='mixed_evidence'
     ||!Array.isArray(v.answer_segments)||v.answer_segments.length>128||!(isCollaboration(v.collaboration,true,true,true,true) || v.surface_id === 'build' && isLorePageDraft(v.collaboration))||v.collaboration!==null&&v.surface_id!=='build'&&!(v.surface_id==='plan'&&typeof v.collaboration==='object'&&v.collaboration!==null&&'kind' in v.collaboration&&v.collaboration.kind==='connected_page')||!v.answer_segments.length&&v.collaboration===null)return false;
-  const pending='native_query' in r&&r.native_query.schema==='dmb_native_build_query_pending_v1';
+  const pending='source_observation' in r||r.native_query.schema==='dmb_native_build_query_pending_v1';
   const projected={statements:new Set<string>(),assertions:new Set<string>()};
   if(membership!==undefined) {
     if(!pending||!exact(membership,['context_receipt_sha256','producing_provider_attempt_id','statements','assertions'])
@@ -139,18 +139,22 @@ export function isSurfaceNativeCompletion(
       if(seen.has(key))return false;seen.add(key);
       if(family==='native_body_citations'){if(!sources.has(index)||c.line_end<c.line_start
         ||('prior_reference' in c && (work.surface_id!=='build'||!isLorePageDraft(v.collaboration))))return false;cited.add(index);continue;}
-      if(!('native_query' in r))return false;
-      const q=r.native_query;
-      if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
+      const q='native_query' in r?r.native_query:null;
+      if(q===null) {
+        const observed='source_observation' in r?r.source_observation:null;
+        if(!observed?.binding||c.managed_world_id!==observed.managed_world_id
+          ||c.native_world_id!==observed.binding.native_world_id
+          ||c.read_revision_id!==(observed.requested_revision_id??observed.observed_head_revision_id))return false;
+      } else if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
       if(family==='native_clause_citations') {
         const key=canonical([c.statement_id,c.campaign_id]);
-        const matches=q.schema==='dmb_native_build_query_pending_v1'?projected.statements.has(key)
+        const matches=q===null||q.schema==='dmb_native_build_query_pending_v1'?projected.statements.has(key)
           :[...q.matches,...((q.schema==='dmb_native_graph_query_v3'||q.schema==='dmb_native_graph_query_v4')?q.authored_targets.flatMap(t=>t.matches):[])].some(m=>m.statement_id===c.statement_id&&m.campaign_id===c.campaign_id);
         if(!sources.has(index)||!matches)return false;
         witnessed.statements.add(key);cited.add(index);
       } else {
         const key=canonical([c.assertion_id,c.assertion_sha256]);
-        const matches=q.schema==='dmb_native_build_query_pending_v1'?projected.assertions.has(key)
+        const matches=q===null||q.schema==='dmb_native_build_query_pending_v1'?projected.assertions.has(key)
           :[...q.assertion_matches,...((q.schema==='dmb_native_graph_query_v3'||q.schema==='dmb_native_graph_query_v4')?q.authored_targets.flatMap(t=>t.assertion_matches):[])].some(m=>m.assertion_id===c.assertion_id&&m.assertion_sha256===c.assertion_sha256);
         if(!graphs.get(index)?.includes(c.assertion_id)||!matches)return false;
         witnessed.assertions.add(key);
@@ -288,11 +292,12 @@ export function isBuildPendingReceipt(v:unknown,validateWork:(work:unknown)=>wor
 }
 export function isBuildPendingContext(v:unknown,validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1,
   validateExecution:(execution:unknown)=>boolean,history=false):v is import('../api/types').AgentBuildPendingContextResponseV1 {
-  if(!exact(v,['schema','receipt','completion','execution','delivery_replay'])
+  const membership=typeof v==='object'&&v!==null&&'deferred_build_citations' in v;
+  if(!exact(v,['schema','receipt','completion','execution','delivery_replay',...(membership?['deferred_build_citations']:[])])
     ||v.schema!=='dmb_agent_build_pending_context_response_v1'||!isBuildPendingReceipt(v.receipt,validateWork)
     ||typeof v.delivery_replay!=='boolean'||v.execution!==null&&!validateExecution(v.execution))return false;
   const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
-  return v.completion===null?history&&(execution===null||execution.claimability!=='completed')
-    :isSurfaceNativeCompletion(v.completion,v.receipt)&&execution!==null
+  return v.completion===null?!membership&&history&&(execution===null||execution.claimability!=='completed')
+    :isSurfaceNativeCompletion(v.completion,v.receipt,v.deferred_build_citations)&&execution!==null
       &&execution.claimability==='completed'&&execution.authorization_state==='response_received';
 }

@@ -46,3 +46,19 @@ def read_source_authority(receipt, execution):
     if type(receipt) is BuildPendingContextReceiptV1:
         return prepared_pending_source(receipt, execution)[0]
     return receipt.source_authority
+
+
+def pending_citation_identity(receipt):
+    """Citation identity only; included-read/settlement owners prove evidence.
+
+    This tuple grants no IO and is not a substitute query/source authority.
+    Pending execution binding independently requires actual settlement at these
+    original captured pins before native Graph supports can reach a writer.
+    """
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is not BuildPendingContextReceiptV1:
+        raise ValueError('Pending citation identity requires its actual receipt')
+    observed = receipt.source_observation
+    if observed.binding is None or observed.requested_or_observed_revision is None:
+        raise ValueError('Pending native citation has no captured source identity')
+    return observed.managed_world_id, observed.binding.native_world_id, observed.requested_or_observed_revision

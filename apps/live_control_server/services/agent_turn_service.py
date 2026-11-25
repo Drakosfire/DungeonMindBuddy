@@ -6897,9 +6897,28 @@ def project_plan_turn_context(
         )
     from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
     if type(receipt) is BuildPendingContextReceiptV1:
-        from apps.live_control_server.models.agent_turn import AgentBuildPendingContextResponseV1
-        return AgentBuildPendingContextResponseV1(receipt=receipt, completion=turn.completion,
-            execution=execution_projection, delivery_replay=delivery_replay)
+        from apps.live_control_server.models.agent_turn import AgentBuildPendingContextResponseV1, DeferredBuildCitationMembership
+        from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+        completion, membership = turn.completion, None
+        if (type(completion) is SurfaceNativeCompletionV1
+                and (completion.native_clause_citations or completion.native_assertion_citations)):
+            # This is presentation of actual retained acquisition, not a query
+            # reconstructed from metadata or a new source grant.
+            from application_state.agent_conversation.build_pending_native import prepared_pending_source
+            _, query = prepared_pending_source(receipt, execution)
+            # _validate_policy_turn_record above already checks the complete
+            # retained producer/citation binding; do not validate it twice.
+            authority = getattr(query, 'authority', None)
+            if authority is None or any((cite.managed_world_id, cite.native_world_id, cite.read_revision_id)
+                    != (authority.managed_world_id, authority.native_world_id, authority.revision_id)
+                    for cite in [*completion.native_clause_citations, *completion.native_assertion_citations]):
+                raise ValueError('Pending citation presentation differs from its actual settled scope')
+            membership = DeferredBuildCitationMembership(context_receipt_sha256=receipt.context_receipt_sha256,
+                producing_provider_attempt_id=completion.producing_provider_attempt_id,
+                statements=sorted({(c.statement_id, c.campaign_id) for c in completion.native_clause_citations}),
+                assertions=sorted({(c.assertion_id, c.assertion_sha256) for c in completion.native_assertion_citations}))
+        return AgentBuildPendingContextResponseV1(receipt=receipt, completion=completion,
+            execution=execution_projection, delivery_replay=delivery_replay, deferred_build_citations=membership)
     if type(receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1:
         from apps.live_control_server.models.agent_turn import (
             AgentSurfaceNativeContextResponseV1, DeferredBuildCitationMembership,

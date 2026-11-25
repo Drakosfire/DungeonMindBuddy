@@ -869,6 +869,10 @@ class AgentBuildPendingContextResponseV1(BaseModel):
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
 
+    deferred_build_citations: DeferredBuildCitationMembership | None = Field(
+        default=None, exclude_if=lambda value: value is None,
+    )
+
     @model_validator(mode='after')
     def completion_owner(self):
         if (self.completion is None and self.execution is not None

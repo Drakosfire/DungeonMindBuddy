@@ -360,3 +360,31 @@ it('permits only unfinished history without a pending completion',()=>{
   expect(isBuildPendingContext(c,buildWork,()=>true,true)).toBe(true);
   expect(isBuildPendingReceipt(pendingBuild.receipt,buildWork)).toBe(true);
 });
+
+it.each(['valid','missing','root','producer','assertion','extra','revision','native-world'])(
+  'binds pending Graph citations to the settled membership and captured scope: %s', mutation=>{
+    const original=authoredContext(), r=original.receipt, answer=original.completion;
+    const c=structuredClone(pendingBuild) as any;
+    c.receipt.context_receipt_sha256=r.context_receipt_sha256;
+    c.receipt.provenance_sha256=r.provenance_sha256;
+    c.receipt.work_context=r.work_context;
+    const authority=r.native_query.authority;
+    c.receipt.source_observation={schema:'dmb_build_source_observation_v1',managed_world_id:authority.managed_world_id,
+      binding:{managed_world_id:authority.managed_world_id,native_world_id:authority.native_world_id,
+        binding_version:authority.binding_version,provisioning_id:authority.provisioning_id??null},
+      requested_revision_id:authority.revision_id,observed_head_revision_id:authority.revision_id};
+    c.completion=answer;
+    c.deferred_build_citations={context_receipt_sha256:r.context_receipt_sha256,
+      producing_provider_attempt_id:answer.producing_provider_attempt_id,
+      statements:answer.native_clause_citations.map(cite=>[cite.statement_id,cite.campaign_id]),
+      assertions:answer.native_assertion_citations.map(cite=>[cite.assertion_id,cite.assertion_sha256])};
+    if(mutation==='missing')delete c.deferred_build_citations;
+    if(mutation==='root')c.deferred_build_citations.context_receipt_sha256='f'.repeat(64);
+    if(mutation==='producer')c.deferred_build_citations.producing_provider_attempt_id='00000000-0000-4000-8000-000000000001';
+    if(mutation==='assertion')c.deferred_build_citations.assertions[0][0]='foreign';
+    if(mutation==='extra')c.deferred_build_citations.assertions.push(['extra','f'.repeat(64)]);
+    if(mutation==='revision')c.receipt.source_observation.requested_revision_id='foreign';
+    if(mutation==='native-world')c.receipt.source_observation.binding.native_world_id='foreign';
+    expect(isBuildPendingContext(c,buildWork,()=>true)).toBe(mutation==='valid');
+  },
+);
