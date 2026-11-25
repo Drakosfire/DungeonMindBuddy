@@ -12,6 +12,7 @@ from application_state.build_proposal.graph_reference_review import (
 )
 from application_state.build_proposal.review import (
     BuildReviewCommand,
+    BuildProposalReview,
     BuildProposalReviewService,
 )
 from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
@@ -19,6 +20,14 @@ from apps.live_control_server.services import hosted_auth
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 
 router = APIRouter()
+
+
+def _review_response(service, review):
+    if isinstance(review, BuildProposalReview):
+        original = service.original_editor_json(review)
+        if original is not None:
+            return {**review.model_dump(mode="json"), "original_editor_json": original}
+    return review
 
 
 def scope(world_id, request):
@@ -38,7 +47,8 @@ def get_review(world_id: str, action_id: UUID, request: Request):
     world = scope(world_id, request)
     try:
         try:
-            review = BuildProposalReviewService().get(world, action_id)
+            service = BuildProposalReviewService()
+            review = _review_response(service, service.get(world, action_id))
         except ApplicationStateNotFoundError:
             review = BuildGraphReferenceReviewService().get(world, action_id)
         if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
@@ -71,9 +81,10 @@ def change_review(
         authorize_world = None
         if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
             authorize_world = partial(scope, world_id, request)
-        review = BuildProposalReviewService(validate_source=validate_source).execute(
-            world, action_id, body, authorize_world=authorize_world,
-        )
+        service = BuildProposalReviewService(validate_source=validate_source)
+        review = service.execute(world, action_id, body, authorize_world=authorize_world)
+        if body.operation == "open":
+            review = _review_response(service, review)
         if authorize_world is not None:
             authorize_world()
         return review

@@ -19,6 +19,7 @@ export interface BuildProposalReview {
   page_body_target?:BuildPageBodyTarget|null;
   page_end_target?:BuildPageEndTarget|null;
   prose_target?:BuildProseBoundaryTarget;
+  original_editor_json?:string;
   schema:'dmb_build_proposal_review_v2'|'dmb_build_proposal_review_v3'|'dmb_build_proposal_review_v5';world_id:string;action_id:string;reservation_sha256:string;
   placement_caret:number;revision:number;state:'editing'|'discarded'|'applying'|'applied';markdown:string;markdown_sha256:string;
   apply:ProposalApplyReceipt|null;updated_at:string;placement?:PlacementCapability;retired_placements?:RetiredPlacement[];
@@ -32,6 +33,7 @@ export async function proposalReview(world:string,action:string,command?:BuildRe
   const result=await response.json() as BuildProposalReview;
   if(!['dmb_build_proposal_review_v2','dmb_build_proposal_review_v3','dmb_build_proposal_review_v5'].includes(result.schema)
     ||result.world_id!==world||result.action_id!==action
+    ||(result.original_editor_json!==undefined&&(result.schema!=='dmb_build_proposal_review_v5'||typeof result.original_editor_json!=='string'))
     ||(result.schema==='dmb_build_proposal_review_v5'?!isBuildProseBoundaryTarget(result.prose_target):result.prose_target!==undefined))
     throw new Error('The suggestion belongs to a different page request.');
   return result;
