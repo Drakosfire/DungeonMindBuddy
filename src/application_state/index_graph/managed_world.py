@@ -19,6 +19,9 @@ from application_state.unit_of_work import unit_of_work
 from application_state.world_catalog import service as catalog
 from application_state.world_catalog.types import NativeGraphBindingRecord, WorldContainerRecord
 
+GUEST_ADVENTURE_TITLE = "Sizzek's Apprentice"
+_LEGACY_GUEST_TITLE = "Sizzek World"
+
 
 def bind_initialized_guest_world(session: IndexGraphSession) -> catalog.StoredWorld:
     """Recover or create the exact catalog binding for an active session.
@@ -55,7 +58,7 @@ def bind_initialized_guest_world(session: IndexGraphSession) -> catalog.StoredWo
             created_at = row[1].isoformat()
             expected = catalog._validated_record(WorldContainerRecord(
                 world_id=world_id,
-                name="Sizzek World",
+                name=GUEST_ADVENTURE_TITLE,
                 source_root_relpath=catalog.world_source_root_relpath(world_id),
                 created_at=created_at,
                 owner_subject=subject,
@@ -67,12 +70,17 @@ def bind_initialized_guest_world(session: IndexGraphSession) -> catalog.StoredWo
             catalog._lock_world_revision(conn, world_id)
             records = catalog._records(conn, world_id=world_id)
             if records:
-                if records[0].record != expected:
+                existing = records[0].record
+                # Existing short-lived sessions retain their original stored name;
+                # accept that one historical value without weakening any binding.
+                if existing.name == _LEGACY_GUEST_TITLE:
+                    existing = existing.model_copy(update={"name": GUEST_ADVENTURE_TITLE})
+                if existing != expected:
                     raise ApplicationStateConflictError("Guest World binding conflicts with saved metadata")
                 seed_guest_documents(conn, session_id=canonical, world_id=world_id)
                 seed_guest_apprentice_plan(conn, session_id=canonical, world_id=world_id)
                 seed_guest_apprentice_combat(conn, session_id=canonical, world_id=world_id)
-                return records[0]
+                return catalog.StoredWorld(existing, records[0].revision)
             catalog._write(conn, expected, revision=1)
             seed_guest_documents(conn, session_id=canonical, world_id=world_id)
             seed_guest_apprentice_plan(conn, session_id=canonical, world_id=world_id)
