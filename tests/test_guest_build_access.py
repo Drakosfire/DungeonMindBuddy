@@ -1916,3 +1916,37 @@ def test_guest_combat_capacity_and_reset_serialization(guests, monkeypatch):
         assert pending.result(timeout=15).status_code in (200, 403)
         assert reset.result(timeout=15).status_code == 200
     assert client.get(root, params={'world_id': world}).status_code in (401, 403)
+
+
+def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch, tmp_path):
+    import hashlib
+    import json
+    from application_state.index_graph import guest_apprentice_plan
+
+    contexts, _, source = guests
+    (first, token, world), (second, other_token, other_world) = contexts
+    bundle = tmp_path / 'release.json'
+    bundle.write_text(json.dumps({'version': 1, 'graph_space': source['world_id'],
+                                  'graph_revision': source['revision_id'],
+                                  'documents': [{'title': "Sizzek's Apprentice", 'markdown': 'Source.'}]}))
+    digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
+    monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE', str(bundle))
+    monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE_SHA256', digest)
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAN_ENABLED', '1')
+    monkeypatch.setattr(guest_apprentice_plan, '_BUNDLE_SHA256', digest)
+    for client, csrf in ((first, token), (second, other_token)):
+        res = client.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': csrf})
+        assert res.status_code == 200, res.text
+    path = '/api/live/workspace-documents/world-plans'
+    a = first.get(path, params={'world_id': world}).json()['records']
+    b = second.get(path, params={'world_id': other_world}).json()['records']
+    assert len(a) == len(b) == 1
+    doc = a[0]['document_id']
+    assert a[0]['title'] == "Sizzek's Apprentice" and doc != b[0]['document_id']
+    snapshot = first.get(f'/api/live/workspace-documents/{doc}/snapshot')
+    assert snapshot.status_code == 200 and 'scene:trap-room' in snapshot.json()['markdown']
+    assert second.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code == 403
+    assert first.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
+    assert len(first.get(path, params={'world_id': world}).json()['records']) == 1
+    assert first.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
+    assert first.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code in (401, 403)
