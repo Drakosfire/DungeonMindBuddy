@@ -1577,24 +1577,37 @@ describe("one App-level World conversation host across Plan and Play", () => {
       provenance: {...prior.provenance, surface_id: surface,
         primary_work: {...prior.provenance.primary_work,
           object_id: surface === "build" ? "source-one" : prior.provenance.primary_work.object_id}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    const saved = history([terminal]);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({
+      ...saved, schema: 'dmb_agent_conversation_history_v3',
+      turns: saved.turns.map(row => ({...row, idempotency_key: '11111111-1111-4111-8111-000000000001'})),
+    });
+    if (surface === 'build') {
+      vi.mocked(readDiscussionRetryInput).mockResolvedValue({
+        schema:'dmb_build_retained_discussion_retry_input_v1', world_id:WORLD, conversation_id:saved.conversation_id!,
+        turn_id:saved.turns[0].turn_id, revision:4, pointer_revision:1, surface_instance_id:'build-instance',
+        message:prior.user_text, client_work_state:'saved_dirty', snapshot:draftSnapshot(), snapshot_sha256:SHA, authored_references:null,
+      });
+    }
     vi.mocked(postWorldPlanAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     render(<Harness initial={surface} buildBridge={surface==='build'?retryBridge():undefined} />);
     fireEvent.click(await screen.findByRole("button", {name:"Open"}));
-    const retry = await screen.findByRole("button", {name:"Retry question"});
-    await waitFor(() => expect(retry).toBeEnabled());
-    const failureText = screen.getByText(surface === 'build'
+    const trace = await screen.findByText('Trace', {selector:'summary'});
+    const debug = trace.closest('details')!;
+    expect(debug).not.toHaveAttribute('open');
+    fireEvent.click(trace);
+    const failureText = await screen.findByText(surface === 'build'
       ? 'This reply stopped before it finished. Your saved source was not changed.'
       : surface === 'play' ? 'This reply stopped before it finished. No Run change was applied.'
       : 'This reply stopped before it finished. Your Plan was not changed.');
-    const debug = failureText.closest('details')!;
-    expect(debug).not.toHaveAttribute('open');
+    const retry = await screen.findByRole("button", {name:"Retry question"});
+    await waitFor(() => expect(retry).toBeEnabled());
     expect(retry.closest('.world-plan-agent-conversation__turn-status')).not.toContainElement(failureText);
-    fireEvent.click(within(debug).getByText('Trace', {exact:true}));
-    expect(debug).toHaveAttribute('open');
-    fireEvent.click(within(debug).getByText('Trace', {exact:true}));
+    const hydratedDebug = failureText.closest('details')!;
+    expect(hydratedDebug).toHaveAttribute('open');
+    fireEvent.click(within(hydratedDebug).getByText('Trace', {exact:true}));
     const input=screen.getByLabelText("Message DungeonBuddy");
     if(otherDraft)fireEvent.change(input,{target:{value:"Keep my unsent draft"}});
     fireEvent.click(retry);fireEvent.click(retry);
@@ -1602,9 +1615,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
     const request=vi.mocked(post).mock.calls[0][0];
     expect(request.message).toBe(prior.user_text);expect(request.turn_id).not.toBe(prior.turn_id);
-    if(surface==='build')expect((request as {retry_of?:unknown}).retry_of).toEqual({turn_id:'22222222-2222-4222-8222-000000000001',revision:4});
+    if(surface==='build')expect((request as {retry_of?:unknown}).retry_of).toEqual({turn_id:'22222222-2222-4222-8222-000000000001',revision:4,retained_snapshot_sha256:SHA});
     expect(input).toHaveValue(otherDraft?"Keep my unsent draft":"");
-    expect(screen.getAllByText(prior.user_text,{exact:true})).toHaveLength(1);
+    const visibleQuestions = [...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node => node.textContent === prior.user_text);
+    expect(visibleQuestions).toHaveLength(1);
     expect(screen.queryByLabelText("Submitted message")).not.toBeInTheDocument();
     expect(screen.getByText("Retrying your question…")).toBeInTheDocument();
     fireEvent.change(input,{target:{value:"Keep my newer typing"}});
