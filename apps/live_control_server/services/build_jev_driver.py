@@ -16,7 +16,12 @@ def _require_guest_build_discussion(adapter, *, label, graph_reference, image_mo
     from .hosted_native_graph_access import HostedGuestGraphPrincipal
     if not isinstance(getattr(adapter, 'native_principal', None), HostedGuestGraphPrincipal):
         return
-    if label not in {'discuss', 'clarify_request'} or graph_reference not in (None, 'other_work') or image_move not in (None, 'other'):
+    import os
+    allowed = {'discuss', 'clarify_request'}
+    if (os.getenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED') == '1'
+            and adapter.request.build_write_capability is not None):
+        allowed.add('write_current_page')
+    if label not in allowed or graph_reference not in (None, 'other_work') or image_move not in (None, 'other'):
         from .agent_turn_service import AgentTurnServiceError
         raise AgentTurnServiceError('Guest Buddy currently supports discussion in Build.',
                                     code='guest_turn_capability_unavailable', status_code=403)

@@ -47,9 +47,12 @@ def get_review(world_id: str, action_id: UUID, request: Request):
     world = scope(world_id, request)
     try:
         try:
-            service = BuildProposalReviewService()
+            from .agent import _guest_proposal_options
+            service = BuildProposalReviewService(**_guest_proposal_options(request))
             review = _review_response(service, service.get(world, action_id))
         except ApplicationStateNotFoundError:
+            if getattr(request.state, "guest_conversation_world", None) is not None:
+                raise
             review = BuildGraphReferenceReviewService().get(world, action_id)
         if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
             scope(world_id, request)
@@ -67,6 +70,8 @@ def change_review(
     world = scope(world_id, request)
     try:
         if not isinstance(body, BuildReviewCommand):
+            if getattr(request.state, "guest_conversation_world", None) is not None:
+                raise HTTPException(403, detail="Guest Graph reference review is unavailable")
             result = _change_graph_reference_review(world, action_id, body, request)
             if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
                 scope(world_id, request)
@@ -79,14 +84,17 @@ def change_review(
                 from application_state.errors import ApplicationStateConflictError
                 raise ApplicationStateConflictError(str(exc)) from exc
         authorize_world = None
-        if hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS:
+        hosted = hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
+        guest = getattr(request.state, "guest_conversation_world", None) is not None
+        if hosted and not guest:
             authorize_world = partial(scope, world_id, request)
-        service = BuildProposalReviewService(validate_source=validate_source)
+        from .agent import _guest_proposal_options
+        service = BuildProposalReviewService(validate_source=validate_source, **_guest_proposal_options(request))
         review = service.execute(world, action_id, body, authorize_world=authorize_world)
         if body.operation == "open":
             review = _review_response(service, review)
-        if authorize_world is not None:
-            authorize_world()
+        if hosted:
+            scope(world_id, request)
         return review
     except ApplicationStateError as exc:
         raise HTTPException(

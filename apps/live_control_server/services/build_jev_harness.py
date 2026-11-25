@@ -1110,6 +1110,8 @@ class BuildJevHarness:
                     writer_model=writer_model,
                     transport=self.writer_transport,
                     frozen_history=history,
+                    proposal_authorize_transaction=adapter.service._authorize_transaction,
+                    proposal_validate_transaction=adapter.service._validate_transaction,
                     **inputs,
                     **({'_native_output_capture':capture_native} if native_rules is not None else {}),
                 )
@@ -1157,6 +1159,12 @@ class BuildJevHarness:
             proof=NativeRulesOutputProofV1.from_capture(reply_native,
                 prepared_request_json=prepared_native.body.decode(),rules_execution_id=native_rules.native.record.execution.scope.execution_id,
                 producing_provider_attempt_id=action.authorization.provider_attempt_id)
-            adapter.turn=adapter.service.complete_native_base_turn(result,output_proof=proof,
-                expected_rules_revision=native_rules.native.record.revision,work_proof=native_proof)
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            if type(adapter.turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+                adapter.turn=adapter.service.complete_pending_native_base_turn(result,output_proof=proof,
+                    expected_rules_revision=native_rules.native.record.revision,work_proof=native_proof,
+                    authorize_current_access=adapter.pending_build_access)
+            else:
+                adapter.turn=adapter.service.complete_native_base_turn(result,output_proof=proof,
+                    expected_rules_revision=native_rules.native.record.revision,work_proof=native_proof)
         return adapter.turn

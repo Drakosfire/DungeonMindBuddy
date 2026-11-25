@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+from contextlib import contextmanager
 from uuid import UUID, uuid5, NAMESPACE_URL
 
 from psycopg.types.json import Jsonb
@@ -14,6 +15,19 @@ from application_state.build_proposal.types import (
 )
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from application_state.unit_of_work import unit_of_work
+
+
+@contextmanager
+def _proposal_transaction(authorize, validate, *, read_only=False):
+    """Run proposal work and lifecycle checks on the same App transaction."""
+    with unit_of_work(_ready_dsn()) as conn:
+        if read_only and authorize is not None:
+            conn.execute("SET TRANSACTION READ ONLY")
+        if authorize is not None:
+            authorize(conn, read_only=read_only)
+        yield conn
+        if not read_only and validate is not None:
+            validate(conn)
 
 
 def _load(row) -> BuildProposalRecord:
@@ -81,16 +95,19 @@ def admit_native_prose_boundary(conn, reservation):
 
 
 class BuildProposalService:
-    def __init__(self, *, admit_prose_boundary=None, require_native_page_target=False):
+    def __init__(self, *, admit_prose_boundary=None, require_native_page_target=False,
+                 authorize_transaction=None, validate_transaction=None):
         self.admit_prose_boundary = admit_prose_boundary
         self.require_native_page_target = require_native_page_target
+        self.authorize_transaction = authorize_transaction
+        self.validate_transaction = validate_transaction
 
     def reserve(self, reservation: BuildProposalReservation) -> tuple[BuildProposalRecord, bool]:
         boundary = type(reservation) is BuildProseBoundaryReservation
         if boundary and self.admit_prose_boundary is None:
             raise ApplicationStateConflictError("Build prose boundaries require their admitted catalog owner")
         world = reservation.basis.world_id
-        with unit_of_work(_ready_dsn()) as conn:
+        with _proposal_transaction(self.authorize_transaction, self.validate_transaction) as conn:
             # Same World serialization also covers concurrent duplicate submissions.
             pointer = _lock_pointer(conn, world)
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND idempotency_key=%s FOR UPDATE",
@@ -120,14 +137,14 @@ class BuildProposalService:
             return result, True
 
     def get(self, world_id: str, action_id: UUID) -> BuildProposalRecord:
-        with unit_of_work(_ready_dsn()) as conn:
+        with _proposal_transaction(self.authorize_transaction, self.validate_transaction, read_only=True) as conn:
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s", (world_id, action_id)).fetchone()
         if row is None:
             raise ApplicationStateNotFoundError("Build proposal unavailable in this World")
         return _load(row)
 
     def list(self, world_id: str, conversation_id: UUID) -> list[BuildProposalRecord]:
-        with unit_of_work(_ready_dsn()) as conn:
+        with _proposal_transaction(self.authorize_transaction, self.validate_transaction, read_only=True) as conn:
             exists = conn.execute("SELECT 1 FROM agent.conversation WHERE world_id=%s AND conversation_id=%s", (world_id, conversation_id)).fetchone()
             if not exists:
                 raise ApplicationStateNotFoundError("World conversation unavailable")
@@ -141,7 +158,7 @@ class BuildProposalService:
         allowed_fields = {"authorization", "proposal", "failure_code", "raw_response", "observation"}
         if not set(fields).issubset(allowed_fields):
             raise ValueError("Unsupported Build receipt fields")
-        with unit_of_work(_ready_dsn()) as conn:
+        with _proposal_transaction(self.authorize_transaction, self.validate_transaction) as conn:
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s FOR UPDATE", (world_id, action_id)).fetchone()
             if row is None:
                 raise ApplicationStateNotFoundError("Build proposal unavailable in this World")
@@ -188,7 +205,7 @@ class BuildProposalService:
 
     def report_inserted(self, world_id: str, action_id: UUID, *, expected_revision: int, authorize=None) -> BuildProposalRecord:
         """Client-observed draft insertion; never a durable workspace Save receipt."""
-        with unit_of_work(_ready_dsn()) as conn:
+        with _proposal_transaction(self.authorize_transaction, self.validate_transaction) as conn:
             row = conn.execute("SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s FOR UPDATE", (world_id, action_id)).fetchone()
             if row is None:
                 raise ApplicationStateNotFoundError("Build proposal unavailable in this World")
