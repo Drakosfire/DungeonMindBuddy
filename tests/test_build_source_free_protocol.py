@@ -5157,3 +5157,185 @@ def test_pending_chat_draft_cannot_replace_lookup_with_retained_context(monkeypa
                 state.turn.conversation_id, state.turn.turn_id, expected_revision=state.turn.revision,
                 expected_attempt=state.turn.attempt, event_id=uuid4(), authorize_current_access=state.authorize)
         assert state.persisted == state.retained_reads == state.materialized == 0
+
+
+@contextmanager
+def retained_saved_page_writer_case(monkeypatch):
+    """Actual pending owner/SDK path with one full historical related-page read."""
+    from hashlib import sha256
+    from application_state.agent_conversation import retained_conversation as history
+    from application_state.agent_conversation.build_related_pages import RelatedPageRead, PageReference
+    original = history.capture
+    body = ('# Maelthor\n\nEthel believes Maelthor can read forgotten names; '
+            'this is her belief, not an established power. '
+            'The cult says Maelthor is immortal, but that is only a rumor.\n')
+    captured = []
+    def capture(current, turns, **kwargs):
+        page = PageReference(world_id=current.world_id, document_id=uuid4(), registry_revision=2,
+            title='Maelthor retained source', visibility='internal', content_sha256=sha256(body.encode()).hexdigest())
+        read = RelatedPageRead(event_id=uuid4(), sequence=1, read_id=uuid4(), selection_event_id=uuid4(),
+            page=page, markdown=body)
+        turns[0].graph_context_execution.events += (read,)
+        captured.append(read)
+        return original(current, turns, **kwargs)
+    monkeypatch.setattr(history, 'capture', capture)
+    with pending_writer_completion_case(monkeypatch) as value:
+        assert len(captured) == 1
+        yield (*value, captured[0])
+
+
+def retained_saved_page_completed_fixture(monkeypatch, pretty=False):
+    import asyncio
+    import httpx
+    from types import SimpleNamespace
+    from application_state.agent_conversation.build_related_pages import citation_records, records
+    from application_state.agent_conversation.retained_conversation import admission
+    from apps.live_control_server.services.build_related_pages import open_page
+    calls = []
+    def respond(request):
+        body = json.loads(request.content);calls.append(body)
+        choices = body['text']['format']['schema']['properties']['answer_segments']['items']['anyOf']
+        claim = next(row for row in choices if row['properties']['kind'].get('const') == 'related_page_claim')
+        alias = claim['properties']['read_id']['enum'][0]
+        candidate = {'answer_segments': [{'kind': 'related_page_claim', 'read_id': alias,
+            'text': 'Ethel believes Maelthor can read forgotten names; the cult’s immortality claim is a rumor.'}],
+            'limitations': []}
+        if 'collaboration' in body['text']['format']['schema']['properties']:candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_retained_page', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{'type': 'message',
+                'id': 'msg_retained_page', 'role': 'assistant', 'status': 'completed', 'content': [{
+                    'type': 'output_text', 'text': json.dumps(candidate, ensure_ascii=False, indent=2 if pretty else None),
+                    'annotations': []}]}]})
+    with retained_saved_page_writer_case(monkeypatch) as (state, adapter, rules, writer, prepared, original):
+        turn = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert turn.status == 'completed' and state.completions == 1 and len(calls) == 1
+        value = admission(turn.graph_context_execution)
+        assert value.presentation_policy == 'retained_conversation_semantic_v4' and len(value.history) == 60
+        assert not records(turn.graph_context_execution) and state.materialized == 0
+        assert state.retained_reads == 1
+        claim = turn.completion.answer_segments[0]
+        assert claim.page == original.page
+        assert claim.read_id != original.read_id  # Completion-local reference, not a new read event.
+        assert len(citation_records(turn.graph_context_execution)) == 1
+        row, references = stored_row(turn)
+        restored = repository._turn_from_row(None, row, references=references)
+        opened = open_page(SimpleNamespace(inspect_turn=lambda **_: restored), turn.world_id, turn.turn_id, claim.read_id)
+        assert opened['page'] == original.page.model_dump(mode='json') and opened['markdown'] == original.markdown
+        with pytest.raises(ValueError):open_page(SimpleNamespace(inspect_turn=lambda **_: restored), 'foreign', turn.turn_id, claim.read_id)
+        with pytest.raises(ValueError):open_page(SimpleNamespace(inspect_turn=lambda **_: restored), turn.world_id, turn.turn_id, uuid4())
+        wire = json.dumps(calls[0]['input'])
+        for identity in (str(original.read_id), str(original.event_id), str(claim.read_id),
+                str(original.page.document_id), original.page.content_sha256, str(value.event_id)):
+            assert identity not in wire
+        from copy import deepcopy
+        for field in ('read_id', 'page_title', 'page_basis', 'retained_body'):
+            altered = deepcopy(row)
+            if field == 'read_id':altered['completion']['answer_segments'][0]['read_id'] = str(uuid4())
+            elif field == 'page_title':altered['completion']['answer_segments'][0]['page']['title'] = 'Forged title'
+            elif field == 'page_basis':altered['completion']['answer_segments'][0]['page']['registry_revision'] += 1
+            else:
+                event = next(e for e in altered['graph_context_execution']['events']
+                    if e['kind'] == 'build_prior_body_evidence_admitted_v3')
+                next(c for c in event['authored_context'] if c['role'] == 'related_authored')['text'] = 'Changed body'
+            with pytest.raises((ApplicationStateIntegrityError, ValidationError, ValueError)):
+                repository._turn_from_row(None, altered, references=references)
+        return restored, original
+
+
+@pytest.mark.parametrize('pretty', [False, True])
+def test_retained_saved_page_sdk_binds_and_reopens_exact_historical_body_without_acquisition(monkeypatch, pretty):
+    retained_saved_page_completed_fixture(monkeypatch, pretty)
+
+
+@pytest.mark.parametrize('change', ['body', 'title', 'world', 'document', 'occurrence', 'missing_occurrence'])
+def test_retained_saved_page_projection_refuses_changed_snapshot_or_owner(monkeypatch, change):
+    from application_state.agent_conversation.retained_conversation import admission
+    from application_state.agent_conversation.build_related_pages import retained_saved_page_references
+    with retained_saved_page_writer_case(monkeypatch) as (state, adapter, rules, writer, prepared, original):
+        execution = state.turn.graph_context_execution
+        value = admission(execution)
+        contexts = list(value.authored_context)
+        index = next(i for i, row in enumerate(contexts) if row.role == 'related_authored')
+        row = contexts[index]
+        if change == 'body':row = row.model_copy(update={'text': 'Changed unbound body'})
+        elif change == 'title':row = row.model_copy(update={'title': ' '})
+        elif change in {'world', 'document'}:
+            row = row.model_copy(update={'source_basis': row.source_basis.model_copy(update={
+                'world_id' if change == 'world' else 'document_id': 'foreign'})})
+        elif change == 'missing_occurrence':row = row.model_copy(update={'occurrences': ()})
+        else:row = row.model_copy(update={'occurrences': (row.occurrences[0].model_copy(update={'turn_id': uuid4()}),)})
+        contexts[index] = row
+        changed = value.model_copy(update={'authored_context': tuple(contexts)})
+        execution = execution.model_copy(update={'events': tuple(changed if e is value else e for e in execution.events)})
+        with pytest.raises(ValueError):retained_saved_page_references(execution)
+
+
+@pytest.mark.parametrize('policy', ['retained_conversation_semantic_v3', 'retained_conversation_semantic_v2'])
+def test_retained_saved_page_new_citation_offer_does_not_change_historical_presentation(monkeypatch, policy):
+    from application_state.agent_conversation.retained_conversation import admission
+    from application_state.agent_conversation.build_related_pages import retained_saved_page_references
+    with retained_saved_page_writer_case(monkeypatch) as (state, adapter, rules, writer, prepared, original):
+        execution = state.turn.graph_context_execution;value = admission(execution)
+        old = value.model_copy(update={'presentation_policy': policy})
+        execution = execution.model_copy(update={'events': tuple(old if e is value else e for e in execution.events)})
+        assert retained_saved_page_references(execution) == ()
+
+
+@pytest.mark.parametrize('role', ['working_draft', 'saved_authored'])
+def test_retained_saved_page_citation_excludes_drafts_and_partial_saved_sections(monkeypatch, role):
+    from application_state.agent_conversation.retained_conversation import admission
+    from application_state.agent_conversation.build_related_pages import retained_saved_page_references
+    with retained_saved_page_writer_case(monkeypatch) as (state, adapter, rules, writer, prepared, original):
+        execution = state.turn.graph_context_execution;value = admission(execution)
+        changed = value.model_copy(update={'authored_context': tuple(
+            row.model_copy(update={'role': role}) if row.role == 'related_authored' else row
+            for row in value.authored_context)})
+        execution = execution.model_copy(update={'events': tuple(changed if e is value else e for e in execution.events)})
+        assert retained_saved_page_references(execution) == ()
+
+
+def test_retained_saved_page_selector_collision_is_refused_without_fabricating_acquisition(monkeypatch):
+    from application_state.agent_conversation.build_related_pages import citation_records, retained_saved_page_references
+    with retained_saved_page_writer_case(monkeypatch) as (state, adapter, rules, writer, prepared, original):
+        execution = state.turn.graph_context_execution;reference, = retained_saved_page_references(execution)
+        collision = original.model_copy(update={'read_id': reference.read_id})
+        forged = execution.model_copy(update={'events': (*execution.events, collision)})
+        with pytest.raises(ValueError, match='collide'):citation_records(forged)
+        assert len(citation_records(execution)) == 1
+
+
+@pytest.mark.parametrize('deny_at', [None, 1, 2])
+def test_retained_saved_page_existing_http_reader_preserves_current_access_checks(monkeypatch, deny_at):
+    from types import SimpleNamespace
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import agent as routes
+    from apps.live_control_server.services import hosted_native_graph_access as access
+    turn, original = retained_saved_page_completed_fixture(monkeypatch)
+    claim = turn.completion.answer_segments[0];calls = []
+    def require(request, world, **kwargs):
+        assert world == turn.world_id;calls.append(world)
+        if deny_at == len(calls):raise HTTPException(status_code=403, detail={'code': 'world_access_denied'})
+    monkeypatch.setattr(access, 'require_conversation_access', require)
+    monkeypatch.setattr(routes, '_verified_world_id', lambda world: world)
+    monkeypatch.setattr(routes, '_conversation_service', lambda request: SimpleNamespace(inspect_turn=lambda **_: turn))
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'production')
+    app = FastAPI();app.include_router(routes.router, prefix='/api/live')
+    with TestClient(app) as client:
+        response = client.get(f'/api/live/agent/worlds/{turn.world_id}/conversation/turns/{turn.turn_id}/related-pages/{claim.read_id}')
+    assert response.status_code == (403 if deny_at else 200)
+    assert len(calls) == (deny_at or 2)
+    if not deny_at:assert response.json()['markdown'] == original.markdown
+    else:assert original.markdown not in response.text
+
+
+
+def test_retained_saved_page_duplicate_snapshot_is_refused(monkeypatch):
+    from application_state.agent_conversation.retained_conversation import admission
+    from application_state.agent_conversation.build_related_pages import retained_saved_page_references
+    with retained_saved_page_writer_case(monkeypatch) as (state, adapter, rules, writer, prepared, original):
+        execution = state.turn.graph_context_execution;value = admission(execution)
+        saved = next(row for row in value.authored_context if row.role == 'related_authored')
+        changed = value.model_copy(update={'authored_context': (*value.authored_context, saved)})
+        execution = execution.model_copy(update={'events': tuple(changed if e is value else e for e in execution.events)})
+        with pytest.raises(ValueError, match='repeats'):retained_saved_page_references(execution)
