@@ -1,4 +1,4 @@
-import {readConversationMessages, readConversationTurns} from '../api/conversationLibraryApi';
+import {readActiveConversationMessages, readConversationMessages, readConversationTurns} from '../api/conversationLibraryApi';
 import * as hostedAuth from "../auth/HostedAuthGate";
 import * as guestSession from '../guestWorld/guestBuildSession';
 import nativeBuildWire from '../test/surface-native-build-http.json';
@@ -1363,7 +1363,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", {name:"Open",exact:true}));
     await waitFor(()=>expect(releases).toHaveLength(1));
-    const signal=vi.mocked(getWorldAgentConversationHistory).mock.calls[0][1]?.signal;
+    const signal=vi.mocked(readActiveConversationMessages).mock.calls[0][2];
     expect(signal?.aborted).toBe(false);
     fireEvent.click(screen.getByRole("button",{name:"Close conversation",exact:true}));
     expect(signal?.aborted).toBe(true);
