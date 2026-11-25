@@ -217,6 +217,12 @@ explicit adapter/initial-driver branches currently being implemented:
   helper only. Plan/Play factories and shared historical composition are free.
 - agent_context_trace_collector._provider_output: exact pending controller policy
   recognition only. native_corpus_source.observe_build_source_pointer only.
+- build_pending_source.py: new host-only pending materialization/reopening owner;
+  agent_conversation/service.py.reopen_pending_build_source: exact pending retained
+  source reopening with current claim/access and unchanged stored query only.
+  server adapter constructor pending source-preparation field and root pending-only
+  factory injection; harness _native_completion exact pending preparation branch.
+  No Plan source factory, query resolver, Core or existing reader lease is added.
 - This handoff.
 
 **Released now:** native_corpus.py, native_writer.py,
@@ -637,3 +643,27 @@ read/skip, full60-turn input, no host page identity in model input, revocation,
 uncertain delivery, re-entry and source-free exits. These are not PostgreSQL,
 full-Send, writer/terminal or signed-in acceptance evidence. Those remain required
 before merge and activation, along with the current serving reader fence.
+
+
+## Pending source runtime connection checkpoint
+
+The pending root now injects a host-only PendingBuildSourcePreparation into its
+adapter. After App acquisition, unresolved lookup without a read App body can
+prepare exactly the requested/observed revision. Public source preparation uses
+an identity resolver that checks the captured binding before Core access; the
+service repeats current access, binding, request, pointer, claim and leaf checks
+before admitting the one settlement. Host contexts publish only after admission.
+Retained preparation reopens the stored query through the existing public owner;
+it neither repeats Graph search nor changes the stored discovery or authority.
+The new pending-only reopen service checks both locked boundaries, runs external
+IO outside App row locks and makes no execution mutation.
+
+Read App bodies currently stop this automatic Core preparation: their coverage
+and writer owners still need integration. No adequate-evidence or successful
+terminal claim follows from that stop. Missing captured binding/revision remains
+unprepared; a later head never fills it. Other source and historical codecs are
+unchanged. Focused runtime/service controls cover original revision, one search,
+reopening, mutation/revocation, CAS/claim/pointer/leaf and expiry failures. Fake
+transactions remain diagnostics, not PostgreSQL concurrency/rollback evidence.
+Writer/terminal, retained evidence, readers/fence and full-Send/signed-in proof
+remain the merge and activation gates.

@@ -1547,6 +1547,12 @@ class AgentTurnExecutionPersistencePort(Protocol):
         materialize_source: Callable[..., Any], authorize_current_access: Callable[..., bool],
     ) -> tuple[Turn, bool]: ...
 
+    def reopen_pending_build_source(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        reopen_source: Callable[..., Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
     def observe_pending_build_app_catalog(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event_id: UUID,
@@ -1937,7 +1943,7 @@ class _PolicyExecutionAdapter:
         native_principal=None,
         native_query_context=None, native_query=None,
         pending_build_source_observation=None, pending_build_conversation_observation=None,
-        pending_build_access=None,
+        pending_build_access=None, pending_build_source_preparation=None,
     ) -> None:
         self.rules_runtime = None
         self.native_source_reply = None
@@ -1957,6 +1963,14 @@ class _PolicyExecutionAdapter:
         self.pending_build_source_observation = pending_build_source_observation
         self.pending_build_conversation_observation = pending_build_conversation_observation
         self.pending_build_access = pending_build_access
+        self.pending_build_source_preparation = pending_build_source_preparation
+        if pending_build_source_preparation is not None:
+            from .build_pending_source import PendingBuildSourcePreparation
+            if (type(pending_build_source_preparation) is not PendingBuildSourcePreparation
+                    or pending_build_source_observation is None
+                    or pending_build_source_preparation.world_id != world_id
+                    or pending_build_source_preparation.app_access is not pending_build_access):
+                raise ValueError('Pending source preparation differs from its current App owner')
         if pending_build_source_observation is not None:
             from application_state.agent_conversation.build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
             from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
@@ -7711,6 +7725,16 @@ def execute_agent_turn(
         pending_build_observation, pending_build_conversation, pending_build_access = _prepare_pending_build_startup(
             request, world_id=canonical_world_id, principal=native_principal, durable_turn=durable_turn,
             authorize_world=authorize_build_world)
+        from .build_pending_source import PendingBuildSourcePreparation
+        from .plan_source_turn import prepare as prepare_pending_source
+        def resolve_pending_query(turn, source_context):
+            if not callable(native_graph_query_resolver):
+                raise AgentTurnServiceError('The pending Graph query owner is unavailable.',
+                    code='native_graph_query_unavailable', status_code=503)
+            return native_graph_query_resolver(request, owner, work, turn.graph_context_receipt, source_context)
+        pending_build_source_preparation = PendingBuildSourcePreparation(
+            world_id=canonical_world_id, principal=native_principal, app_access=pending_build_access,
+            prepare_source=prepare_pending_source, resolve_query=resolve_pending_query)
         # Only public head/binding metadata was observed. No native authority,
         # Graph query or related-page catalog exists before the work decision.
         graph_result = {"status": "not_requested", "selection_found": None}
@@ -8250,7 +8274,8 @@ def execute_agent_turn(
             native_query_context=native_query_context, native_query=native_query,
             **({'pending_build_source_observation': pending_build_observation,
                 'pending_build_conversation_observation': pending_build_conversation,
-                'pending_build_access': pending_build_access} if pending_build else {}),
+                'pending_build_access': pending_build_access,
+                'pending_build_source_preparation': pending_build_source_preparation} if pending_build else {}),
         )
         if isinstance(selected_runtime, BuildJevHarness):
             adapter.prepare_deferred_build_query = prepare_deferred_build_query

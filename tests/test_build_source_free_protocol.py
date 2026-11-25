@@ -2141,6 +2141,10 @@ def test_pending_app_runtime_real_sdk_admits_actual_choice_and_reads_only_select
         selected, = [event for event in state.turn.graph_context_execution.events if type(event) is RelatedPagesSelection]
         assert selected.document_ids == ([page.document_id] if choice == 'read' else [])
         assert bodies == selected.document_ids
+        if bodies:
+            from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+            # Reading a saved page is not permission for a redundant Core search.
+            assert prepare_pending_native_source(adapter) is False
         assert len([event for event in state.turn.graph_context_execution.events if type(event) is RelatedPageRead]) == len(bodies)
         asyncio.run(acquire_pending_app_pages(adapter, harness))
         assert len(calls) == 1 and bodies == selected.document_ids
@@ -2226,3 +2230,131 @@ def test_pending_harness_execute_routes_to_pending_completion_before_legacy_acqu
     else:
         assert harness.execute(adapter) == 'pending-completion-boundary'
         assert routed == [(adapter, driver)] and stopped == [True]
+
+
+@_pending_test_contextmanager
+def pending_source_runtime_case(monkeypatch, *, with_source=True):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from apps.live_control_server.services.build_pending_source import PendingBuildSourcePreparation
+    from tests.test_build_source_free_routing import settled_source, prepared_query
+    state, _ = settlement_harness(monkeypatch, with_source=with_source)
+    state.source_prepares, state.query_searches, state.query_reopens = [], [], []
+    state.source_change = state.query_change = False
+    state.revoke_during_prepare = False
+    observed = state.turn.graph_context_receipt.source_observation
+    state.current_binding = observed.binding
+    def prepare(world, principal, *, revision_id, resolve_identity):
+        assert state.depth == 0 and world == state.turn.world_id
+        assert resolve_identity(world) == state.current_binding
+        state.source_prepares.append(revision_id)
+        if state.on_prepare:
+            state.on_prepare()
+        if state.revoke_during_prepare:
+            state.denied = True
+        source = settled_source(managed_world_id=world,
+            revision_id='new-head-must-not-substitute' if state.source_change else revision_id)
+        return SimpleNamespace(authority=source), source
+    def query(turn, context):
+        assert state.depth == 0
+        state.query_searches.append(turn.user_text)
+        result = prepared_query(context.authority).model_copy(update={'question': turn.user_text})
+        return SimpleNamespace(query=result), result
+    def reopen(query, principal):
+        assert state.depth == 0
+        state.query_reopens.append(query)
+        return SimpleNamespace(query=query.model_copy(update={'question': 'changed'}) if state.query_change else query)
+    principal = SimpleNamespace(role='gm', managed_world_id=state.turn.world_id)
+    owner = PendingBuildSourcePreparation(world_id=state.turn.world_id, principal=principal,
+        app_access=state.authorize, prepare_source=prepare, resolve_query=query,
+        resolve_identity=lambda world: state.current_binding, reopen_query=reopen)
+    fence = _ClaimFence(state.service, state.turn, pending_build_access=state.authorize)
+    adapter = SimpleNamespace(turn=state.turn, fence=fence,
+        native_corpus_context=None, native_source_authority=None, native_query_context=None, native_query=None,
+        pending_build_source_preparation=owner,
+        _broker_receipt=lambda: fence.turn.graph_context_receipt,
+        _broker_execution=lambda: fence.turn.graph_context_execution)
+    try:
+        yield state, adapter, owner
+    finally:
+        fence.stop()
+
+
+def test_pending_source_runtime_settles_original_revision_then_reopens_without_another_search(monkeypatch):
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, owner):
+        assert prepare_pending_native_source(adapter)
+        source, query = adapter.native_source_authority, adapter.native_query
+        assert state.source_prepares == ['observed-revision'] and state.query_searches == [state.turn.user_text]
+        assert not state.query_reopens and state.persisted == 1
+        assert prepare_pending_native_source(adapter)
+        assert state.source_prepares == ['observed-revision', 'observed-revision']
+        assert state.query_searches == [state.turn.user_text] and state.query_reopens == [query]
+        assert adapter.native_source_authority == source and adapter.native_query == query
+        assert state.persisted == 1 and state.access_calls == 4 and state.depth == 0
+
+
+@pytest.mark.parametrize('failure', ['binding', 'revision', 'access', 'access_after_prepare', 'pointer', 'expiry', 'cas'])
+def test_pending_source_runtime_refuses_changed_scope_or_claim_before_publishing_context(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, owner):
+        if failure == 'binding':
+            state.current_binding = state.current_binding.model_copy(update={'binding_version': 2})
+        elif failure == 'revision':
+            state.source_change = True
+        elif failure == 'access':
+            state.denied = True
+        elif failure == 'access_after_prepare':
+            state.revoke_during_prepare = True
+        elif failure == 'pointer':
+            state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 1})
+        elif failure == 'expiry':
+            state.now += timedelta(hours=1)
+        else:
+            state.cas_failure = True
+        with pytest.raises((ApplicationStateError, ValueError)):
+            prepare_pending_native_source(adapter)
+        assert state.persisted == 0 and adapter.native_corpus_context is None
+        assert adapter.native_source_authority is None and adapter.native_query_context is None and adapter.native_query is None
+
+
+def test_pending_source_runtime_does_not_replace_absent_captured_scope(monkeypatch):
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch, with_source=False) as (state, adapter, owner):
+        assert prepare_pending_native_source(adapter) is False
+        assert not state.source_prepares and not state.query_searches and state.persisted == 0
+
+
+@pytest.mark.parametrize('failure', ['query', 'binding', 'access', 'expiry', 'access_delay', 'prepare_delay', 'source', 'pointer_during', 'successor'])
+def test_pending_source_runtime_reopening_refuses_mutation_revocation_or_expiry_without_search(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, owner):
+        assert prepare_pending_native_source(adapter)
+        source, query = adapter.native_source_authority, adapter.native_query
+        if failure == 'query':
+            state.query_change = True
+        elif failure == 'binding':
+            state.current_binding = state.current_binding.model_copy(update={'binding_version': 2})
+        elif failure == 'access':
+            state.denied = True
+        elif failure == 'expiry':
+            state.now += timedelta(hours=1)
+        elif failure == 'access_delay':
+            state.access_delay_before = True
+        elif failure == 'source':
+            state.source_change = True
+        elif failure == 'pointer_during':
+            state.on_prepare = lambda: setattr(state, 'pointer', state.pointer.model_copy(
+                update={'revision': state.pointer.revision + 1}))
+        elif failure == 'successor':
+            state.successor = True
+        else:
+            state.on_prepare = lambda: setattr(state, 'now', state.now + timedelta(hours=1))
+        with pytest.raises((ApplicationStateError, ValueError)):
+            prepare_pending_native_source(adapter)
+        assert adapter.native_source_authority == source and adapter.native_query == query
+        assert len(state.query_searches) == 1 and state.persisted == 1

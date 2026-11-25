@@ -2949,6 +2949,55 @@ class AgentConversationService:
                 raise ApplicationStateConflictError('Pending source claim changed before append')
             return updated, True
 
+    def reopen_pending_build_source(self, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt,
+                                    reopen_source, authorize_current_access):
+        """Reopen a settled source/query without mutating or repeating discovery.
+
+        The host callback runs outside App transactions. Both locked boundaries
+        check the original pointer, leaf, live claim, exact execution and current
+        access. Reopening grants no new provider attempt or source selection.
+        """
+        from . import types as t
+        from .build_source_free import effective_pending_source
+        world_id = _world_id(world_id)
+        if (type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(reopen_source) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending reopening requires its exact host and current-access owners')
+        with unit_of_work(_ready_dsn()) as conn:
+            before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            try:
+                source = effective_pending_source(before.graph_context_receipt, before.graph_context_execution)
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if source is None:
+                raise ApplicationStateValidationError('Pending reopening requires an already settled source')
+            if authorize_current_access(conn, before, source) is not True:
+                raise ApplicationStateConflictError('Current access does not authorize retained pending source')
+            if before.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending source claim expired before reopening')
+            frozen = (before.graph_context_receipt.context_receipt_sha256,
+                      t.canonical_sha256(before.graph_context_execution),
+                      before.submitted_intent_fingerprint_v2)
+        reopened = reopen_source(before, source)
+        if type(reopened) is not tuple or reopened != source:
+            raise ApplicationStateValidationError('Pending reopening cannot replace its original authority or query')
+        with unit_of_work(_ready_dsn()) as conn:
+            current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            actual = (current.graph_context_receipt.context_receipt_sha256,
+                      t.canonical_sha256(current.graph_context_execution),
+                      current.submitted_intent_fingerprint_v2)
+            if actual != frozen:
+                raise ApplicationStateConflictError('Pending execution changed during source reopening')
+            if authorize_current_access(conn, current, source) is not True:
+                raise ApplicationStateConflictError('Current access changed during pending source reopening')
+            if current.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending source claim expired during reopening')
+            return current, False
+
     def observe_pending_build_app_catalog(self, world_id, conversation_id, turn_id, *,
                                           expected_revision, expected_attempt, event_id,
                                           discover_pages, authorize_current_access):
