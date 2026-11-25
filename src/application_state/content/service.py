@@ -537,6 +537,7 @@ def _commit_in_connection(
     page_presentation_changed: bool = False,
     plan_presentation=presentation.UNSET,
     authorize_world: Callable[[str | None], None] | None = None,
+    authorize_commit: Callable | None = None,
 ) -> tuple[_StoredContentObject, WorkRevision]:
     """Use the caller's transaction; never commit or allocate another connection."""
     if page_presentation_changed and kind != "worldbuilding_source":
@@ -592,6 +593,8 @@ def _commit_in_connection(
             and (canonical_title is None or obj.title == canonical_title)
             and expected_revision == obj.object_revision - 1
         ):
+            if authorize_commit is not None:
+                authorize_commit(conn, obj.world_id, len(content.encode("utf-8")), True)
             return obj, current
         raise ApplicationStateConflictError(
             f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
@@ -607,6 +610,8 @@ def _commit_in_connection(
             )
             if authorize_world is not None:
                 authorize_world(obj.world_id)
+            if authorize_commit is not None:
+                authorize_commit(conn, obj.world_id, len(content.encode("utf-8")), True)
             persisted = repo.update_work_object(
                 conn, updated, expected_object_revision=obj.object_revision
             )
@@ -615,6 +620,8 @@ def _commit_in_connection(
                     "revision mismatch: concurrent Plan title update"
                 )
             return persisted, current
+        if authorize_commit is not None:
+            authorize_commit(conn, obj.world_id, len(content.encode("utf-8")), True)
         return obj, current
     revision_n = repo.next_revision_n(conn, work_object_id)
     revision = WorkRevision(
@@ -628,6 +635,8 @@ def _commit_in_connection(
     )
     if authorize_world is not None:
         authorize_world(obj.world_id)
+    if authorize_commit is not None:
+        authorize_commit(conn, obj.world_id, len(content.encode("utf-8")), False)
     repo.insert_work_revision(conn, revision)
     if layout is not None:
         presentation.insert(conn, revision, layout)
@@ -676,6 +685,7 @@ def _commit(
     title: str | None = None,
     plan_presentation=presentation.UNSET,
     authorize_world: Callable[[str | None], None] | None = None,
+    authorize_commit: Callable | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
@@ -686,6 +696,7 @@ def _commit(
             expected_world_id=expected_world_id, title=title,
             plan_presentation=plan_presentation,
             authorize_world=authorize_world,
+            authorize_commit=authorize_commit,
         )
 
 
@@ -698,6 +709,7 @@ def commit_plan(
     title: str | None = None,
     page_presentation=presentation.UNSET,
     authorize_world: Callable[[str | None], None] | None = None,
+    authorize_commit: Callable | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     """Commit Markdown and an explicit presentation to one World Plan revision."""
     return _commit(
@@ -709,6 +721,7 @@ def commit_plan(
         title=title,
         plan_presentation=page_presentation,
         authorize_world=authorize_world,
+        authorize_commit=authorize_commit,
     )
 
 

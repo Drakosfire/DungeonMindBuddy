@@ -97,6 +97,7 @@ def test_guest_create_save_and_reopen_isolated_document(guests):
 
 
 def test_guest_plan_create_and_isolation(guests, monkeypatch):
+    from apps.live_control_server.services import guest_build_access
     monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
     contexts, _, _ = guests
     (first, token, world), (second, _, other_world) = contexts
@@ -121,8 +122,13 @@ def test_guest_plan_create_and_isolation(guests, monkeypatch):
     receipt = prepared.json()
     commit = {**draft, "schema_version": "dmb_tiptap_markdown_write_commit_v2",
               "writer_confirm_token": receipt["writer_confirm_token"], "expected_revision": receipt["registry_revision"]}
+    monkeypatch.setattr(guest_build_access, "MAX_GUEST_SAVED_BYTES", 1)
+    assert first.post("/api/live/tiptap/markdown-write/commit", headers=headers, json=commit).status_code == 409
+    monkeypatch.setattr(guest_build_access, "MAX_GUEST_SAVED_BYTES", 16 * 1024 * 1024)
     saved = first.post("/api/live/tiptap/markdown-write/commit", headers=headers, json=commit)
     assert saved.status_code == 200, saved.text
+    monkeypatch.setattr(guest_build_access, "MAX_GUEST_SAVED_BYTES", 1)
+    assert first.post("/api/live/tiptap/markdown-write/commit", headers=headers, json=commit).status_code == 200
     snapshot = first.get(f"/api/live/workspace-documents/{doc}/snapshot")
     assert snapshot.status_code == 200, snapshot.text
     assert "A new clue." in snapshot.json()["markdown"]
@@ -231,7 +237,8 @@ def test_authenticated_identity_does_not_fall_back_to_guest_cookie(guests):
     assert client.post("/api/live/workspace-documents", headers={"X-DMB-Index-Graph-CSRF": token}, json=body).status_code == 403
 
 
-def test_reset_waits_for_guest_commit_transaction(guests, application_state_dsn, monkeypatch):
+@pytest.mark.parametrize("kind", ["page", "plan"])
+def test_reset_waits_for_guest_commit_transaction(guests, application_state_dsn, monkeypatch, kind):
     import time
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
@@ -240,14 +247,22 @@ def test_reset_waits_for_guest_commit_transaction(guests, application_state_dsn,
 
     (client, token, world), _ = guests[0]
     headers = {"X-DMB-Index-Graph-CSRF": token}
-    body = {"title": "Race note", "world_id": world, "campaign_id": world,
-            "kind": "worldbuilding_source", "source_domain": "worldbuilding", "document_class": "lore",
-            "authority_state": "draft", "visibility_state": "internal"}
-    doc = client.post("/api/live/workspace-documents", headers=headers, json=body).json()["document_id"]
+    if kind == "plan":
+        monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
+        body = {"title": "Race plan", "world_id": world, "scope_mode": "world"}
+        doc = client.post("/api/live/workspace-documents/world-plans", headers=headers, json=body).json()["document_id"]
+        scope = {"scope_mode": "world", "world_id": world, "schema_version": "dmb_tiptap_markdown_write_prepare_v2"}
+    else:
+        body = {"title": "Race note", "world_id": world, "campaign_id": world,
+                "kind": "worldbuilding_source", "source_domain": "worldbuilding", "document_class": "lore",
+                "authority_state": "draft", "visibility_state": "internal"}
+        doc = client.post("/api/live/workspace-documents", headers=headers, json=body).json()["document_id"]
+        scope = {}
     prepared = client.post("/api/live/tiptap/markdown-write/prepare", headers=headers,
-                           json={"document_id": doc, "markdown": "A racing edit"}).json()
+                           json={"document_id": doc, "markdown": "A racing edit", **scope}).json()
     packet = {"document_id": doc, "markdown": "A racing edit", "writer_confirm_token": prepared["writer_confirm_token"],
               "expected_revision": prepared["registry_revision"]}
+    if kind == "plan": packet.update({**scope, "schema_version": "dmb_tiptap_markdown_write_commit_v2"})
     entered, release = Event(), Event()
     original = guest_build_access.guest_write_capacity
     def hold_transaction(*args, **kwargs):
