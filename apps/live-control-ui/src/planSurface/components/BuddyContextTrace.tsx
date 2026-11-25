@@ -254,8 +254,8 @@ function ReplyTraceOverview({ trace, passages, ownerActive }: {
 export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean; replyDetails?: boolean }) {
   const [promptOpen, setPromptOpen] = useState(false)
   const tab = useContext(TraceTabContext)
-  const [visitedTimeline, setVisitedTimeline] = useState(false)
-  useEffect(() => { if (tab === 'timeline') setVisitedTimeline(true) }, [tab])
+  const [visitedCrawler, setVisitedCrawler] = useState(false)
+  useEffect(() => { if (tab === 'crawler') setVisitedCrawler(true) }, [tab])
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
   const failed = trace.terminal_status === 'failed' || trace.terminal_status === 'interrupted'
   const failures = trace.observations.filter((event): event is Extract<BuddyTraceObservation, {kind: 'failure'}> => event.kind === 'failure' && event.phase !== 'trace_capture')
@@ -281,7 +281,9 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     {replyDetails && <div hidden={tab !== null && tab !== 'evidence'}><ReplyTraceOverview trace={trace} passages={passages} ownerActive={ownerActive} /></div>}
     {!replyDetails && <>{traceHeader}{diagnostics}</>}
     {replyDetails && failed && <p role="alert">This attempt stopped before completing a reply.</p>}
-    {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{(visitedTimeline || tab === null) && <RetrievalReplayDetails trace={trace} initialOpen active={tab === null || tab === 'timeline'} />}{tab === null ? <details><summary>Execution timeline</summary>{timeline}</details> : timeline}</div>}
+    {replyDetails && tab !== null && <div hidden={tab !== 'crawler'}>{visitedCrawler && (replaySteps(trace).length ? <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`} trace={trace} steps={replaySteps(trace)} active={tab === 'crawler'} /> : <p>No graph crawler replay was captured for this attempt.</p>)}</div>}
+    {replyDetails && tab === null && <RetrievalReplayDetails trace={trace} initialOpen />}
+    {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{tab === null ? <details><summary>Execution timeline</summary>{timeline}</details> : timeline}</div>}
     {replyDetails && tab === 'prompt' && <BuddyPromptInspector trace={trace} />}
     {replyDetails && (tab === null
       ? <details><summary>Diagnostics</summary>{traceHeader}{copy}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</details>
