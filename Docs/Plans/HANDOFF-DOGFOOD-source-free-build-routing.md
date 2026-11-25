@@ -1,6 +1,10 @@
 # DOGFOOD: source-free Build outcomes
 
-ACTIVE bounded implementation assignment; not a merge or release qualification.
+MERGED SOURCE: PR4642 at c5001f5caabbd2dfa66d8a991604507d0a69533a,
+reviewed head e0bb59a53da9e0a5d09e7af210a1a15bae8809c8. Source review and
+seven focused SQL/POST checks passed; deployment/app acceptance remain open.
+Current consuming assignment: HANDOFF-DOGFOOD-pending-build-serving.md.
+The implementation assignment and chronological stage records below are history.
 Alan's writer/context cleanup and request to deploy the remaining gaps authorize
 this outcome. DOGFOOD authors/adopts the design and owns implementation. The
 independent reviewer accepted proposal 008ffd837d98ec1896662b71b20d135b93b4c43a79814594f3c8139864229528
