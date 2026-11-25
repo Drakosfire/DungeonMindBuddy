@@ -11,6 +11,7 @@ import { BuildCanvasTestProvider } from './buildCanvasTestProvider';
 import { BuildSurfaceShell } from './BuildSurfaceShell';
 import { useBuildCompose } from '../planSurface/components/BuildComposeProposal';
 import * as api from '../api/liveApi';
+import * as conversationApi from '../api/conversationLibraryApi';
 import * as proposals from '../api/buildDocumentProposalApi';
 import type { WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponse } from '../api/types';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
@@ -22,6 +23,7 @@ vi.mock('../selectedWorld/SelectedWorldContext', async original => ({
 }));
 vi.mock('../api/liveApi', async original => ({ ...await original<typeof api>(), getWorkspaceDocumentSnapshot: vi.fn(),
   prepareTiptapMarkdownWrite: vi.fn(), commitTiptapMarkdownWrite: vi.fn(), getBuildSourceNavigation: vi.fn(), getWorldAgentConversationHistory: vi.fn(), postWorldBuildAgentTurn: vi.fn() }));
+vi.mock('../api/conversationLibraryApi', async original => ({ ...await original<typeof conversationApi>(), readActiveConversationMessages: vi.fn() }));
 vi.mock('../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
 vi.mock('../api/buildDocumentProposalApi', async original => ({ ...await original<typeof proposals>(),
   composeBuildProposal: vi.fn(), listBuildProposals: vi.fn(), reportBuildInsertion: vi.fn(), getBuildProposal: vi.fn() }));
@@ -60,6 +62,7 @@ let stored: WorkspaceDocumentSnapshot;
 beforeEach(() => {
   Object.defineProperty(globalThis, 'crypto', { configurable: true, value: webcrypto });
   vi.clearAllMocks(); localStorage.clear(); sessionStorage.clear(); window.history.replaceState({}, '', `/build?world=elderwyld&documentId=${DOC}`);
+  vi.mocked(conversationApi.readActiveConversationMessages).mockResolvedValue({schema:'dmb_active_conversation_messages_v4',world_id:'elderwyld',conversation_state:'active',conversation_id:history.conversation_id,active_conversation_id:history.active_conversation_id,pointer_revision:history.pointer_revision,messages:[],next_before_sequence:null});
   stored = { schema_version: 'dmb_workspace_document_snapshot_v1', record: { schema_version: 'dmb_workspace_document_record_v1',
     document_id: DOC, title: 'Edge', campaign_id: 'elderwyld', world_id: 'elderwyld', target_session: null, kind: 'worldbuilding_source',
     target_relpath: `out/workspace/worldbuilding/${DOC}.md`, status: 'active', content_status: 'committed', revision: 1,
@@ -343,10 +346,12 @@ it('restores a saved on-page review with chat closed and does not reread history
  const record=await vi.mocked(proposals.composeBuildProposal).getMockImplementation()!({idempotency_key:'closed-page-review',conversation_id:history.conversation_id!,expected_pointer_revision:1,basis:cap.basis,draft_markdown:cap.draftMarkdown,instruction:'A table'});
  await act(async()=>{finish([record]);});
  await screen.findByRole('region',{name:'Proposed page change'});
- expect(session.dirty).toBe(false);expect(api.getWorldAgentConversationHistory).toHaveBeenCalledTimes(1);
+ expect(session.dirty).toBe(false);expect(conversationApi.readActiveConversationMessages).toHaveBeenCalledTimes(1);
+ expect(api.getWorldAgentConversationHistory).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Open conversation'}));
  await screen.findByLabelText('Message DungeonBuddy');
- expect(api.getWorldAgentConversationHistory).toHaveBeenCalledTimes(1);
+ expect(conversationApi.readActiveConversationMessages).toHaveBeenCalledTimes(1);
+ expect(api.getWorldAgentConversationHistory).not.toHaveBeenCalled();
  view.unmount();
  vi.mocked(proposals.listBuildProposals).mockResolvedValue([record]);
  render(<ClosedPageHarness/>);
