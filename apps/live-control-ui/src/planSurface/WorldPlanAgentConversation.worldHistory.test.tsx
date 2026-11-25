@@ -5682,7 +5682,9 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText("Buddy is working on this reply…")).not.toBeInTheDocument();
     const deliveryDiagnostic = screen.getByText(/Delivery · The outcome of this Ask is uncertain/);
     expect(deliveryDiagnostic).not.toBeVisible();
-    fireEvent.click(screen.getByText("Trace"));
+    const disclosure = deliveryDiagnostic.closest("details");
+    expect(disclosure).not.toBeNull();
+    fireEvent.click(within(disclosure!).getByText("Details"));
     expect(deliveryDiagnostic).toBeVisible();
     expect(screen.queryByText("Buddy is working on this reply…")).not.toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Submitted message" })).toHaveTextContent("Query the graph about Mirathorn.");
