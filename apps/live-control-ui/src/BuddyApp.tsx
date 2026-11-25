@@ -91,7 +91,7 @@ function BuddyGraphPage({
   } else if (auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1") {
     explorer = <>
       <div><button type="button" disabled={resetting} onClick={() => {
-        if (!window.confirm("Reset your Sizzek World changes?")) return;
+        if (!window.confirm("Reset your Sizzek’s Apprentice changes?")) return;
         setResetting(true);
         setResetError("");
         void playgroundApi.reset().then(() => setGuestGeneration(value => value + 1))
@@ -99,7 +99,7 @@ function BuddyGraphPage({
           .finally(() => setResetting(false));
       }}>Reset guest World</button>{resetError && <span role="alert">{resetError}</span>}</div>
       {resetting ? <p role="status">Resetting your World…</p> :
-        <NativeGraphDemo key={guestGeneration} api={playgroundApi} embedded mode="playground" worldTitle="Sizzek World" renderGuestNodeDetails={id => <GuestNodeSources key={id} nodeId={id} read={playgroundApi.readSources} />} />}
+        <NativeGraphDemo key={guestGeneration} api={playgroundApi} embedded mode="playground" worldTitle="Sizzek’s Apprentice" renderGuestNodeDetails={id => <GuestNodeSources key={id} nodeId={id} read={playgroundApi.readSources} />} />}
     </>;
   } else if (auth.status === "signed_out") {
     explorer = <main className="app-status" aria-labelledby="buddy-playground-title">
