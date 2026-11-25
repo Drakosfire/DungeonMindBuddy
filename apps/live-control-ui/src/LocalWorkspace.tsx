@@ -29,6 +29,8 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
 }) {
   const selectedWorld = useSelectedWorld();
   const guestBuild = guestBuildActive();
+  const buddyAvailable = !guestBuild || (import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" && (route !== "play" || import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === "1")
+    && (route !== "build" || import.meta.env.VITE_HOSTED_GUEST_BUILD_BUDDY === "1"));
   const auth = useHostedAuthStatus();
   const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const graphOwner = auth.status === "authenticated" ? auth.subject : auth.status;
@@ -57,9 +59,9 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
                   {pageAdmitted ? <>
                     <ToolHost />
                     <LegacyProjectionHostAdapter />
-                    {!guestBuild && <AgentInteractionChrome />}
+                    {buddyAvailable && <AgentInteractionChrome />}
                   </> : null}
-                  {!guestBuild && <WorldAgentConversation surface={pageAdmitted && (route === "plan" || route === "play" || route === "build") ? route : "other"}
+                  {buddyAvailable && <WorldAgentConversation surface={pageAdmitted && (route === "plan" || route === "play" || route === "build") ? route : "other"}
                     worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
                     worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined} />}
                   </DocumentReferenceSurfaceHost>

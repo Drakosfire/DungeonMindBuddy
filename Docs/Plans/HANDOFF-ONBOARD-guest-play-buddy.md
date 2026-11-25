@@ -1,0 +1,17 @@
+# ONBOARD: guest Buddy discussion in Play
+
+Status: ACTIVE under the owner's Sizzek objective and review/merge/deployment authority. Serial source successor to merged guest conversation #4688 and guest Build discussion #4689, on `codex/onboard-guest-play-buddy` based on main `985c196d7c390c680f0c60092d4c1818cfb80f97`. Guest Play serving #4686 awaits the prior production image; source work does not change that release order.
+
+Outcome: guests can ask Buddy about their own saved Play run in the existing Play conversation. Use the normal exact saved run/scene context, session-derived World and copied Graph. Preserve guest reset and isolation, and do not grant owner identity or unrelated effects. This is one step toward all normal guest operations, not completion of ingestion, live model quality or production acceptance.
+
+Write lease: this handoff; guest turn admission; existing Play conversation visibility/transport and only any necessary Play decision guard; focused guest and mounted Play tests; the discussion row of the action catalog. Do not alter provider selection, Play scene/choice operations, schemas or production release controls in this slice. Inspect currently open touching PRs and function-level leases before editing shared code. Use the existing owned disposable App clone and shared read-only Core serially; no production state or provider is leased.
+
+Verify the owning HTTP boundary with a real guest session and saved run, synthetic provider if needed, foreign World/run and stale context rejection, reset during a provider response, CSRF/origin and feature-off behavior, and the normal mounted Play conversation. Preserve signed-in behavior. Review the cumulative diff and obtain Bugbot review; real provider, release integration and deployed acceptance follow separately.
+
+Working-tree checkpoint: default-off Play discussion admission accepts only a saved-clean, exact run/target in the guest World with current World Graph scope, and exposes the existing Play conversation behind a separate frontend switch. A focused hosted middleware fixture passes for the matching session, missing CSRF, bad origin, another guest and feature-off. The normal Play work resolver binds run and edition to the verified World; an actual guest turn, foreign run/stale context, reset during provider work and mounted UI still require verification. No release wiring or deployment has occurred.
+
+Additional working-tree evidence: the actual Play work resolver accepts a guest-owned saved Run and rejects another World or stale Run revision. A mounted Play conversation fixture sends the saved Run, target and World Graph context; the guest UI now gives an actionable message when Graph context is disabled or unsupported selected references are present. A real guest HTTP-to-provider turn and reset during that turn remain unverified.
+
+A real hosted guest session now creates a saved Play Run and completes an ordinary Play Buddy turn through the real controller/writer using synthetic source evidence and provider transports. A separate paused-writer race resets the guest session and verifies no answer or completed turn survives. Both focused cases pass. This does not establish real-provider quality or deployed behavior.
+
+Preliminary Bugbot found no actionable product or security defect. Focused real-session, saved Run ownership, stale revision, reset and mounted UI checks pass with synthetic providers. Exact-head review remains. Both Play Buddy switches are default off and are not yet included in production release wiring.

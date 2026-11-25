@@ -298,13 +298,19 @@ def begin_context_trace_locked(
 
 
 class TurnContextTraceStore:
+    def __init__(self, *, transaction=None):
+        self._transaction = transaction
+
+    def _unit_of_work(self, dsn):
+        return self._transaction(dsn) if self._transaction is not None else unit_of_work(dsn)
+
     def begin(
         self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
         expected_revision: int, attempt: int, trace_id: UUID, started_at: datetime,
     ) -> TurnContextTraceV1:
         from application_state.agent_conversation.service import _ready_dsn
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._unit_of_work(_ready_dsn()) as conn:
             return begin_context_trace_locked(
                 conn, world_id=world_id, conversation_id=conversation_id, turn_id=turn_id,
                 expected_revision=expected_revision, attempt=attempt, trace_id=trace_id,
@@ -320,7 +326,7 @@ class TurnContextTraceStore:
 
         prompt_attempt = (str(observation.provider_attempt_id)
                           if type(observation) is TracePromptReference else None)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
                 "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
                 "clock_timestamp() AS now, sequence FROM agent.turn "
@@ -405,7 +411,7 @@ class TurnContextTraceStore:
     ) -> TurnContextTraceV1:
         from application_state.agent_conversation.service import _ready_dsn
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
                 "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
                 "clock_timestamp() AS now FROM agent.turn "
@@ -440,7 +446,7 @@ class TurnContextTraceStore:
         """Read one bounded exact capture, never all attempts or current Graph evidence."""
         from application_state.agent_conversation.service import _ready_dsn
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._unit_of_work(_ready_dsn()) as conn:
             row = conn.execute(
                 "SELECT CASE WHEN octet_length(capture.payload::text) <= %s "
                 "THEN capture.payload ELSE NULL END "
@@ -475,7 +481,7 @@ class TurnContextTraceStore:
     ) -> list[TurnContextTraceV1]:
         from application_state.agent_conversation.service import _ready_dsn
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
                 "SELECT agent.reconstruct_plan_execution(turn_id, revision, attempt, graph_context_execution), "
                 "conversation_id, graph_context_receipt FROM agent.turn WHERE world_id=%s AND turn_id=%s",

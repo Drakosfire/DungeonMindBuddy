@@ -21,7 +21,7 @@ _ALLOWED_ENVIRONMENTS = frozenset({"local", "development", "dev"})
 class NativeGraphPrincipal:
     subject: str
     role: Literal["gm", "player"]
-    auth_method: Literal["local_operator", "local_session", "hosted_owner"]
+    auth_method: Literal["local_operator", "local_session", "hosted_owner", "hosted_guest"]
 
 
 def _unavailable() -> HTTPException:

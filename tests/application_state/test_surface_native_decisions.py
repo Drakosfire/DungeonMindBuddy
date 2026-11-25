@@ -147,6 +147,130 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
             expected_attempt=final.attempt, selection=step.selection, producer_proof=step.proof)
 
 
+def test_plan_session_rechecks_transaction_authorization_before_append(application_state_dsn):
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    allowed = True
+
+    def authorize(_conn, *, read_only):
+        assert not read_only
+        if not allowed:
+            raise ApplicationStateConflictError('guest session expired')
+
+    session = NativePlanSession(case.turn, authorize_transaction=authorize)
+    allowed = False
+    step = case.steps[-1]
+    with pytest.raises(ApplicationStateConflictError, match='guest session expired'):
+        session.execute(PlanSessionCommand.SELECTION,
+            expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+            selection=step.selection, producer_proof=step.proof)
+    stored = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+    assert stored.revision == case.turn.revision
+
+
+def test_plan_session_rolls_back_append_when_storage_limit_rejects(application_state_dsn):
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    allowed = True
+    def validate(_conn):
+        if not allowed:
+            raise ApplicationStateConflictError('guest storage limit')
+    session = NativePlanSession(case.turn, validate_transaction=validate)
+    allowed = False
+    step = case.steps[-1]
+    with pytest.raises(ApplicationStateConflictError, match='guest storage limit'):
+        session.execute(PlanSessionCommand.SELECTION, expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt, selection=step.selection, producer_proof=step.proof)
+    stored = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+    assert stored.revision == case.turn.revision
+    with pytest.raises(ApplicationStateConflictError, match='sealed'):
+        session.execute(PlanSessionCommand.SELECTION, expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt, selection=step.selection, producer_proof=step.proof)
+
+
+def test_guest_byte_limit_counts_and_rolls_back_split_plan_events(application_state_dsn, monkeypatch):
+    from types import SimpleNamespace
+    from application_state.unit_of_work import unit_of_work
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+    from apps.live_control_server.services import guest_build_access
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    world = case.turn.world_id
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world))
+    def validate(conn):
+        guest_build_access.guest_conversation_bytes(request, conn, world)
+    session = NativePlanSession(case.turn, validate_transaction=validate)
+    with unit_of_work() as conn:
+        before = guest_build_access.guest_conversation_bytes(request, conn, world)
+        initial = conn.execute('SELECT count(*) FROM agent.plan_execution_event WHERE turn_id=%s', (case.turn.turn_id,)).fetchone()[0]
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', before)
+    step = case.steps[-1]
+    with pytest.raises(ApplicationStateConflictError, match='storage limit'):
+        session.execute(PlanSessionCommand.SELECTION, expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt, selection=step.selection, producer_proof=step.proof)
+    with unit_of_work() as conn:
+        assert conn.execute('SELECT count(*) FROM agent.plan_execution_event WHERE turn_id=%s', (case.turn.turn_id,)).fetchone()[0] == initial
+    assert case.service.inspect_turn(world_id=world, turn_id=case.turn.turn_id).revision == case.turn.revision
+
+
+def test_locked_plan_waiter_reconstructs_suffix_committed_while_waiting(application_state_dsn):
+    from concurrent.futures import ThreadPoolExecutor
+    from time import monotonic, sleep
+
+    import psycopg
+    from psycopg.types.json import Jsonb
+
+    from application_state.agent_conversation import repository as repo
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    turn = case.turn
+    execution = turn.graph_context_execution
+    event = execution.events[-1]
+    base = execution.model_dump(mode='json', by_alias=True)
+    base['events'].pop()
+
+    def read(waiter):
+        return repo.lock_turn(waiter, turn.world_id, turn.turn_id)
+
+    with ThreadPoolExecutor(max_workers=1) as worker:
+        with (
+            psycopg.connect(application_state_dsn) as writer,
+            psycopg.connect(application_state_dsn) as waiter,
+        ):
+            writer.execute(
+                'UPDATE agent.turn SET revision=revision+1, graph_context_execution=%s WHERE turn_id=%s',
+                (Jsonb(base), turn.turn_id),
+            )
+            writer.execute(
+                'INSERT INTO agent.plan_execution_checkpoint '
+                '(turn_id, revision, attempt, base_count, event_count) VALUES (%s,%s,%s,%s,%s)',
+                (turn.turn_id, turn.revision + 1, turn.attempt, event.sequence, event.sequence + 1),
+            )
+            writer.execute(
+                'INSERT INTO agent.plan_execution_event (turn_id, sequence, payload) VALUES (%s,%s,%s)',
+                (turn.turn_id, event.sequence, Jsonb(event.model_dump(mode='json', by_alias=True))),
+            )
+            waiting = worker.submit(read, waiter)
+            try:
+                deadline = monotonic() + 5
+                while monotonic() < deadline:
+                    blockers = writer.execute(
+                        'SELECT pg_blocking_pids(%s)', (waiter.info.backend_pid,),
+                    ).fetchone()[0]
+                    if writer.info.backend_pid in blockers:
+                        break
+                    sleep(0.01)
+                else:
+                    pytest.fail('Reader did not wait on the Plan root lock')
+            finally:
+                writer.commit()
+            locked = waiting.result(timeout=5)
+            assert locked.revision == turn.revision + 1
+            assert locked.graph_context_execution == execution
+
+
 @pytest.mark.parametrize('project_outcomes', [False, True])
 def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(
     application_state_dsn, project_outcomes, monkeypatch,

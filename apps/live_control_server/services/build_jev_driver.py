@@ -10,6 +10,17 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
+
+def _require_guest_build_discussion(adapter, *, label, graph_reference, image_move):
+    """Reject guest effect choices before their owners or page selection run."""
+    from .hosted_native_graph_access import HostedGuestGraphPrincipal
+    if not isinstance(getattr(adapter, 'native_principal', None), HostedGuestGraphPrincipal):
+        return
+    if label not in {'discuss', 'clarify_request'} or graph_reference not in (None, 'other_work') or image_move not in (None, 'other'):
+        from .agent_turn_service import AgentTurnServiceError
+        raise AgentTurnServiceError('Guest Buddy currently supports discussion in Build.',
+                                    code='guest_turn_capability_unavailable', status_code=403)
+
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.dialogue_projection import project_dialogue, dialogue_rule
 from apps.live_control_server.models.world_graph_object_projection import (
@@ -1325,6 +1336,7 @@ class BuildJevDriver:
                     raise AgentTurnServiceError(
                         str(exc), code="build_discussion_source_uncertain", status_code=409,
                     ) from exc
+                _require_guest_build_discussion(a, label=label, graph_reference=graph_reference, image_move=image_move)
                 resolution = resolution_for(execution.policy, label, source_scope=source_scope)
                 placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
                 selected = resolution['operation']
@@ -1363,6 +1375,7 @@ class BuildJevDriver:
                                  or is_anchored_conversation_draft(a._broker_execution(), event))):
                     select_pages(self, prepared, actual_response)
             else:
+                _require_guest_build_discussion(a, label=None, graph_reference=None, image_move=None)
                 question = self._selection_intent.questions[0]
                 answer = answers.get("operation", {})
                 selected, scores = answer.get("selected"), answer.get("probabilities")

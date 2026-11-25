@@ -1,4 +1,4 @@
-import { guestBuildCsrf, guestBuildEpochCurrent, guestBuildRequestEpoch } from "../guestWorld/guestBuildSession";
+import { guestBuildActive, guestBuildCsrf, guestBuildEpochCurrent, guestBuildRequestEpoch } from "../guestWorld/guestBuildSession";
 import type { PdfLocator } from "./retainedPdfRegions";
 import {verifyNativeThreatReply,type NativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from './nativeThreatCreation';
 import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
@@ -2843,6 +2843,11 @@ export async function postWorldPlayAgentTurn(
 export async function postWorldBuildAgentTurn(request: import("./types").WorldBuildAgentTurnRequestV1,
   onProgress:(progress:BuildObjectConstructionProgress)=>void=()=>undefined,
   onReply?:(event:import("./buildConstructionStream").BuildReplyEvent)=>void): Promise<WorldPlanAgentTurnResponse> {
+  if (guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1") {
+    return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", {
+      method: "POST", body: JSON.stringify(request),
+    });
+  }
   try{
     return await apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn",
       {method:"POST",body:JSON.stringify(request),headers: {
