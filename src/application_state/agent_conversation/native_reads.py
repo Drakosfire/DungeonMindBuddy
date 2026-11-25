@@ -41,7 +41,7 @@ class _NativeReadOperation:
         )
         from .native_batch_completion import conclude_selected_batch
         if self.producer not in {
-            authorize_read, observe_read, capture_native_input,
+            authorize_read, observe_read, observe_selected_read_locked, capture_native_input,
             authorize_native_reference, observe_native_reference, observe_native_source_reference,
             authorize_direct_sources_locked, observe_direct_source_locked,
             authorize_body_search_locked, observe_body_search_locked,
@@ -192,6 +192,33 @@ def observe_read(turn, *, event_id, authorization_event_id, reads, unavailable_i
         **{unavailable_field: tuple(unavailable_ids)})
     _validate_prospective_read(receipt, execution, event)
     return event
+
+
+def observe_selected_read_locked(turn, *, event_id, authorization_event_id, read):
+    """Open only the actual current grant; never expose a Turn to a reader."""
+    from .native_plan_assertions import NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1
+    from .build_pending_native import read_selection
+    from .native_context import BuildPendingContextReceiptV1
+    if type(turn.graph_context_receipt) is not BuildPendingContextReceiptV1:
+        raise ValueError('Guarded selected-record materialization requires its actual pending Build owner')
+    _, execution = _owner(turn)
+    prior = _prior_event(execution, event_id,
+        (NativePlanStatementReadObservedV1, NativePlanAssertionReadObservedV1),
+        authorization_event_id=authorization_event_id)
+    if prior is not None:
+        return prior
+    grants = [e for e in execution.events
+        if type(e) in (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1)
+        and e.event_id == authorization_event_id]
+    selected = read_selection(turn)
+    if (len(grants) != 1 or selected.operation != 'select_candidates'
+            or grants[0].provider_attempt_id != selected.controller_attempt_id
+            or any(isinstance(e, (NativePlanStatementReadObservedV1, NativePlanAssertionReadObservedV1))
+                   and e.authorization_event_id == authorization_event_id for e in execution.events)):
+        raise ValueError('Selected native read requires its unique current unobserved grant')
+    reads, unavailable = read(deepcopy(grants[0]))
+    return observe_read(turn, event_id=event_id, authorization_event_id=authorization_event_id,
+        reads=reads, unavailable_ids=unavailable)
 
 
 def _prior_event(execution, event_id, model, **identity):

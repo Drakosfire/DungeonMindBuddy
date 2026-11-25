@@ -1751,10 +1751,10 @@ class AgentConversationService:
             from .types import BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1
             from .build_pending_app_coverage import BuildAppCoverageDecidedV1
             from .types import PlanJevRetrievalSelectionV1
-            if type(turn.graph_context_execution) is BuildPendingExecutionV1 and isinstance(event, (
+            if type(turn.graph_context_execution) is BuildPendingExecutionV1 and (native_source_materializer is not None or isinstance(event, (
                     ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead,
                     BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1, BuildAppCoverageDecidedV1,
-                    PlanJevRetrievalSelectionV1)):
+                    PlanJevRetrievalSelectionV1))):
                 raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
@@ -3359,6 +3359,107 @@ class AgentConversationService:
             if prior:
                 return turn, False
             return self._append_pending_checked(conn, turn, decision, expected_revision)
+
+    def _pending_native_read_operation(self, world_id, conversation_id, turn_id, *,
+                                       expected_revision, expected_attempt, producer,
+                                       authorize_current_access, **arguments):
+        """Guard a closed native producer with current pending App ownership.
+
+        Core callbacks receive only their detached selected grants and retain
+        current public Core access checks. No generic Turn callback is accepted.
+        """
+        from .native_reads import (_NativeReadOperation, authorize_read,
+            observe_selected_read_locked, authorize_direct_sources_locked, observe_direct_source_locked)
+        from .native_execution import BuildPendingExecutionV1
+        from .build_pending_native import pending_native_owner
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        if (not any(producer is allowed for allowed in (authorize_read, observe_selected_read_locked,
+                             authorize_direct_sources_locked, observe_direct_source_locked))
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending native IO requires its closed producer and current App owner')
+        operation = _NativeReadOperation(producer, arguments)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            try:
+                pending_native_owner(turn)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending native IO')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native IO claim expired before materialization')
+            produced = operation(conn, turn)
+            events = produced if type(produced) is tuple else (produced,)
+            if not events:
+                raise ApplicationStateValidationError('Pending native producer returned no records')
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending native IO')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native IO claim expired during materialization')
+            prior_by_id = {e.event_id: e for e in turn.graph_context_execution.events}
+            known = [prior_by_id.get(e.event_id) for e in events]
+            if any(known):
+                if not all(known) or any(old != new for old, new in zip(known, events)):
+                    raise ApplicationStateConflictError('Pending native producer repeated a partial or changed batch')
+                return turn, False
+            try:
+                execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                    turn.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                        'events': [e.model_dump(mode='json', by_alias=True)
+                                   for e in [*turn.graph_context_execution.events, *events]]}))
+                self._bind_execution_append(turn.graph_context_receipt, execution)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native IO claim expired before append')
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending native IO lost its claim fence')
+            return updated, True
+
+    def authorize_pending_native_read(self, world_id, conversation_id, turn_id, *,
+                                      expected_revision, expected_attempt, event_id,
+                                      record_kind, record_ids, authorize_current_access):
+        from .native_reads import authorize_read
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_read, event_id=event_id, record_kind=record_kind, record_ids=record_ids,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_native_read(self, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt, event_id,
+                                    authorization_event_id, read, authorize_current_access):
+        from .native_reads import observe_selected_read_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_selected_read_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, read=read,
+            authorize_current_access=authorize_current_access)
+
+    def authorize_pending_native_direct_sources(self, world_id, conversation_id, turn_id, *,
+                                                expected_revision, expected_attempt, grants,
+                                                authorize_current_access):
+        from .native_reads import authorize_direct_sources_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_direct_sources_locked, grants=grants,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_native_direct_source(self, world_id, conversation_id, turn_id, *,
+                                             expected_revision, expected_attempt, event_id,
+                                             authorization_event_id, read, authorize_current_access):
+        from .native_reads import observe_direct_source_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_direct_source_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, read=read,
+            authorize_current_access=authorize_current_access)
 
     def authorize_pending_native_retrieval(self, world_id, conversation_id, turn_id, *,
                                            expected_revision, expected_attempt, authorization,

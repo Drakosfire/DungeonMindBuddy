@@ -4395,3 +4395,87 @@ def test_pending_native_direct_source_uses_settlement_and_existing_exact_body_va
         with pytest.raises(ValueError):
             native_reads.authorize_direct_sources_locked(decoded(prefix), grants=({'event_id': uuid4(), **(target | {'content_sha256': '0' * 64})},))
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
+
+
+@pytest.mark.parametrize('record_kind', ['direct', 'statement', 'assertion'])
+@pytest.mark.parametrize('failure', [None, 'pointer', 'access', 'expired', 'successor', 'access_after', 'expiry_after', 'cas', 'grant', 'generic', 'producer'])
+def test_pending_native_materialization_checks_live_owner_and_never_reopens_replay(monkeypatch, record_kind, failure):
+    from datetime import timedelta
+    from application_state.agent_conversation import native_corpus as bodies, native_retrieval
+    from application_state.agent_conversation.native_plan_assertions import object_selection_handle
+    from application_state.agent_conversation.build_pending_native import prepared_pending_source
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    from tests import test_build_source_free_routing as routing
+    from tests.test_native_plan_assertions import _object_catalog_query
+    from tests.test_surface_native_execution import controller, outcomes, choice
+    original = routing.prepared_query
+    def populated(source):
+        base = original(source)
+        return _object_catalog_query().model_copy(update={'authority': base.authority, 'question': base.question})
+    monkeypatch.setattr(routing, 'prepared_query', populated)
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, _):
+        assert prepare_pending_native_source(adapter)
+        receipt, execution = native_retrieval.owner(state.turn)
+        authority, query = prepared_pending_source(receipt, execution)
+        target = {'source_artifact_id': 'fixture-artifact', 'source_revision_id': 'fixture-revision', 'content_sha256': 'a' * 64}
+        handle = bodies.native_direct_source_handle(authority, **target) if record_kind == 'direct' else object_selection_handle(query, 'A')
+        auth = controller('build', execution.policy, sequence=len(execution.events), semantic=False)
+        selected = choice(receipt, execution, auth, auth.sequence + 3, 'select_candidates', (handle,))
+        state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_execution':
+            execution.model_copy(update={'events': [*execution.events, auth, *outcomes(auth, auth.sequence + 1), selected]})
+        }).model_dump_json(by_alias=True))
+        def call(method, **kwargs):
+            return getattr(state.service, method)(state.turn.world_id, state.turn.conversation_id, state.turn.turn_id,
+                expected_revision=state.turn.revision, expected_attempt=1, authorize_current_access=state.authorize, **kwargs)
+        ids = ('ent:shared', 'ent:a') if record_kind == 'statement' else ('assertion:shared', 'assertion:a')
+        if record_kind == 'direct':
+            grant_id = uuid4()
+            assert call('authorize_pending_native_direct_sources', grants=({'event_id': grant_id, **target},))[1]
+        else:
+            grant_id = uuid4()
+            assert call('authorize_pending_native_read', event_id=grant_id, record_kind=record_kind, record_ids=ids)[1]
+        grant = state.turn.graph_context_execution.events[-1]
+        callbacks = []
+        def read(actual):
+            assert state.depth == 1 and actual == grant and type(actual) is type(grant)
+            callbacks.append(actual)
+            if failure == 'access_after': state.denied = True
+            if failure == 'expiry_after': state.now += timedelta(hours=1)
+            return None if record_kind == 'direct' else ((), ids)
+        if failure == 'pointer': state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 1})
+        elif failure == 'access': state.denied = True
+        elif failure == 'expired': state.now += timedelta(hours=1)
+        elif failure == 'successor': state.successor = True
+        elif failure == 'cas': state.cas_failure = True
+        before = state.persisted
+        observation_id = uuid4()
+        def observe():
+            return call('observe_pending_native_direct_source' if record_kind == 'direct' else 'observe_pending_native_read',
+                event_id=observation_id, authorization_event_id=uuid4() if failure == 'grant' else grant_id, read=read)
+        if failure is None:
+            assert observe()[1]
+            assert observe()[1] is False and callbacks == [grant]
+            assert state.persisted == before + 1
+            observation_id = uuid4()
+            with pytest.raises(ApplicationStateError): observe()
+            assert callbacks == [grant]
+        else:
+            with pytest.raises(ApplicationStateError):
+                if failure == 'generic':
+                    from application_state.agent_conversation import service as service_module
+                    monkeypatch.setattr(service_module, '_execution_append_transaction', lambda measure: state.uow())
+                    if record_kind == 'direct':
+                        state.service.observe_native_direct_source(state.turn.world_id, state.turn.conversation_id,
+                            state.turn.turn_id, expected_revision=state.turn.revision, expected_attempt=1,
+                            event_id=observation_id, authorization_event_id=grant_id, read=read)
+                    else:
+                        state.service.observe_native_read(state.turn.world_id, state.turn.conversation_id,
+                            state.turn.turn_id, expected_revision=state.turn.revision, expected_attempt=1,
+                            event_id=observation_id, authorization_event_id=grant_id, reads=(), unavailable_ids=ids)
+                elif failure == 'producer':
+                    call('_pending_native_read_operation', producer=lambda *args: pytest.fail('generic producer invoked'))
+                else: observe()
+            assert state.persisted == before
+            assert len(callbacks) == int(failure in {'access_after', 'expiry_after', 'cas'})
+        assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens

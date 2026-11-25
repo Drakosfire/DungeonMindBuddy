@@ -1350,3 +1350,36 @@ an incorrect positional argument; corrected to its actual keyword signature.
 No database or provider/live read was used. Dedicated pending current-access
 materialization/physical SQL and the full runtime/native writer path remain
 unfinished; none of these structural checks establish deployment readiness.
+
+
+Pending selected IO lease checkpoint: pin native_reads' closed producer allowlist
+and a selected-record observation producer which receives only a detached retained
+grant at Core callback entry, plus service pending-only native read wrappers.
+Use the existing pending pointer/claim/leaf lock order and exact App PageReferences
+around materialization. Do not broaden generic Turn callbacks or alter legacy
+service read admission. This is required to activate the existing pending record/
+direct-source work, not a separate capability/PR. Core read/access implementations
+remain unchanged. Validate pre/post access, expiry/CAS, exact replay/no second IO,
+wrong selection/grant and producer refusal before runtime integration.
+
+
+Pending selected IO checkpoint: pending-only service methods now wrap the closed
+statement/assertion and direct-source producers in pending World/conversation/
+Turn pointer, attempt, leaf, claim and exact App PageReference access checks before
+and after materialization. The selected-record producer receives an actual
+unobserved grant, gives the reader only a detached grant, and uses the existing
+observation/record-integrity owner. Exact stored observation replay performs no
+second IO. Generic native materializers cannot enter through pending generic
+append; arbitrary producer identity is refused. Legacy read service APIs and Core
+read/access implementations remain unchanged.
+
+50 focused pending native materialization/runtime/integrity and main-App controls
+passed4.64s. The33 new guard cases cover each read family, pre/post access and
+expiry, changed pointer, retry successor, unknown grant, CAS loss, exact replay
+and duplicate observation, generic-path refusal and arbitrary producer refusal.
+Their read callbacks are synthetic unavailable results, and App locks/persistence
+are fake: these do not prove successful public Core reads under pending authority,
+physical SQL rollback/races or release qualification. Full pending native runtime
+loop/body IO/writer closure and integrated SQL/full Send/live semantic/signed-in
+app/current serving review/deployment remain required. No database/provider or
+background benchmark was started.
