@@ -29,10 +29,16 @@ done
 readonly config_dir=/etc/buddy-deploy
 probe_name=
 cleanup_probe() {
+  local ids identity remaining
   [[ -n "$probe_name" ]] || return 0
-  if [[ "$(timeout 5s docker inspect --format '{{index .Config.Labels "org.dungeonmindbuddy.stage-probe"}}' "$probe_name" 2>/dev/null || true)" == "$probe_name" ]]; then
-    timeout 5s docker rm -f "$probe_name" >/dev/null 2>&1 || true
-  fi
+  ids=$(timeout 5s docker ps -aq --no-trunc --filter "name=^/$probe_name$") || return 1
+  [[ -z "$ids" ]] && return 0
+  [[ "$ids" =~ ^[0-9a-f]{64}$ ]] || return 1
+  identity=$(timeout 5s docker inspect --format '{{.Id}} {{index .Config.Labels "org.dungeonmindbuddy.stage-probe"}}' "$ids") || return 1
+  [[ "$identity" == "$ids $probe_name" ]] || return 1
+  timeout 5s docker rm -f "$ids" >/dev/null || return 1
+  remaining=$(timeout 5s docker ps -aq --no-trunc --filter "id=$ids") || return 1
+  [[ -z "$remaining" ]]
 }
 candidate_tag="dungeonmindbuddy:$revision"
 rollback_tag="dungeonmindbuddy:$rollback_revision"
@@ -74,7 +80,7 @@ if [[ "$mode" == guest-build-documents-serving ]]; then
   trusted "$template"
   trusted "$bundles"
   bundle_tmp=$(mktemp "$bundles/.bundle.XXXXXX")
-  trap 'cleanup_probe; rm -f -- "$bundle_tmp" "${tmp:-}"' EXIT
+  trap 'cleanup_probe || printf "Buddy stage: document probe cleanup uncertain\n" >&2; rm -f -- "$bundle_tmp" "${tmp:-}"' EXIT
   trap 'exit 130' INT TERM
   GUEST_TEMPLATE="$template" GUEST_TEMPLATE_SHA="$7" GUEST_BUNDLE="$bundle_tmp" GUEST_SPACE="$guest_graph_space" GUEST_REVISION="$guest_graph_revision" python3 - <<'PY' || fail "invalid guest document template"
 import hashlib, json, os
@@ -113,7 +119,7 @@ PY
 fi
 
 tmp=$(mktemp "$config_dir/releases/.stage.XXXXXX")
-trap 'cleanup_probe; rm -f -- "$tmp" "${bundle_tmp:-}"' EXIT
+trap 'cleanup_probe || printf "Buddy stage: document probe cleanup uncertain\n" >&2; rm -f -- "$tmp" "${bundle_tmp:-}"' EXIT
 printf 'candidate_tag=%s\ncandidate_id=%s\nrollback_tag=%s\nrollback_id=%s\nrollback_revision=%s\nregistry_digest=%s\n' \
   "$candidate_tag" "$candidate_id" "$rollback_tag" "$rollback_id" "$rollback_revision" "$digest" > "$tmp"
 if [[ "$mode" != default ]]; then
@@ -152,7 +158,7 @@ if [[ "$mode" == guest-build-documents-serving ]]; then
     --entrypoint python "$ref" -c \
     'from application_state.index_graph.guest_documents import seed_guest_documents; import sys; sys.exit(0 if callable(seed_guest_documents) else 1)' ||
     fail "candidate image lacks guest document seeding"
-  cleanup_probe
+  cleanup_probe || fail "document probe cleanup uncertain"
   probe_name=
 fi
 
