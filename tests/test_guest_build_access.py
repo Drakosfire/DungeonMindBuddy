@@ -1918,7 +1918,7 @@ def test_guest_combat_capacity_and_reset_serialization(guests, monkeypatch):
     assert client.get(root, params={'world_id': world}).status_code in (401, 403)
 
 
-def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch, tmp_path):
+def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch, tmp_path, application_state_dsn):
     import hashlib
     import json
     from application_state.index_graph import guest_apprentice_plan
@@ -2035,8 +2035,16 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
             assert entered.wait(15)
             resetting = pool.submit(first.post, '/api/live/index-graph/reset', headers=headers)
             import time
-            time.sleep(.2)
-            assert not resetting.done()
+            from application_state.engine import connect
+            deadline = time.monotonic() + 5
+            with connect(application_state_dsn) as observer:
+                while time.monotonic() < deadline:
+                    observer.execute('SELECT pg_stat_clear_snapshot()')
+                    waiting = observer.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
+                    if waiting:
+                        break
+                    time.sleep(.05)
+            assert waiting and not resetting.done(), 'reset did not wait for the guest transaction lock'
         finally:
             release.set()
         assert pending.result(timeout=15).status_code in (200, 401, 403)
