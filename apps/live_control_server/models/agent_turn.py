@@ -865,7 +865,7 @@ class AgentBuildPendingContextResponseV1(BaseModel):
     schema_: Literal['dmb_agent_build_pending_context_response_v1'] = Field(
         default='dmb_agent_build_pending_context_response_v1', alias='schema')
     receipt: BuildPendingContextReceiptV1
-    completion: SurfaceNativeCompletionV1 | None
+    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
 
@@ -879,10 +879,11 @@ class AgentBuildPendingContextResponseV1(BaseModel):
                 and self.execution.claimability == 'completed'):
             raise ValueError('Completed pending Build context requires its completion')
         if self.completion is not None and (
-                self.completion.surface_id != 'build'
+                (isinstance(self.completion, SurfaceNativeCompletionV1) and self.completion.surface_id != 'build')
                 or self.completion.context_receipt_sha256 != self.receipt.context_receipt_sha256
                 or self.execution is None or self.execution.claimability != 'completed'
-                or self.execution.authorization_state != 'response_received'):
+                or self.execution.authorization_state != 'response_received'
+                or (isinstance(self.completion, BuildAuthoringCompletionV1) and self.deferred_build_citations is not None)):
             raise ValueError('Pending Build completion differs from its exact receipt')
         return self
 
