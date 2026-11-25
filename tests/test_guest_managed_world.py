@@ -129,6 +129,17 @@ def test_released_pages_are_seeded_once_per_guest_and_reset(
     _, second = create_session()
     with index_graph.open_index_graph_service(first) as graph:
         graph.graph()
+    from application_state.index_graph import guest_documents
+    original_commit = guest_documents.content._commit_in_connection
+    def fail_after_write(*args, **kwargs):
+        original_commit(*args, **kwargs)
+        raise RuntimeError('injected seed failure')
+    with monkeypatch.context() as injected:
+        injected.setattr(guest_documents.content, '_commit_in_connection', fail_after_write)
+        with pytest.raises(RuntimeError, match='injected seed failure'):
+            bind_initialized_guest_world(first)
+    from uuid import UUID
+    assert catalog.get_world(f'guest-{UUID(first.session_id).hex}') is None
     with ThreadPoolExecutor(max_workers=2) as pool:
         bindings = list(pool.map(bind_initialized_guest_world, (first, first)))
     assert bindings[0] == bindings[1]

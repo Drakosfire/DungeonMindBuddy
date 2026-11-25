@@ -82,12 +82,16 @@ def seed_guest_documents(conn, *, session_id: str, world_id: str) -> None:
     added_bytes = sum(len(doc['markdown'].encode('utf-8')) for doc in documents)
     if revisions + len(documents) > _MAX_REVISIONS or saved_bytes + added_bytes > _MAX_BUNDLE_BYTES:
         raise ApplicationStateUnavailableError('Guest source documents exceed the World capacity')
-    for doc in documents:
+    entries = []
+    for ordinal, doc in enumerate(documents):
         ident = uuid4()
         pages._insert_page(conn, ident, world_id, doc['title'], world_id, pages.PageMetadata())
         content._commit_in_connection(conn, str(ident), doc['markdown'],
                                       kind='worldbuilding_source', expected_revision=1)
+        entries.append({'ordinal': ordinal, 'document_id': str(ident)})
+    receipt = json.dumps({'version': 1, 'bundle_sha256': expected_digest, 'entries': entries},
+                         sort_keys=True, separators=(',', ':'))
     conn.execute(
         'INSERT INTO application_state.index_graph_bindings(session_id, key, value) VALUES (%s::uuid, %s, %s)',
-        (session_id, _MARKER, hashlib.sha256(raw).hexdigest()),
+        (session_id, _MARKER, receipt),
     )

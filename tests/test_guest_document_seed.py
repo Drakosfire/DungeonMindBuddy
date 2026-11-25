@@ -49,6 +49,8 @@ def test_seed_once_and_retry_preserves_guest_edits(tmp_path, monkeypatch):
     assert len(created) == len(committed) == len(conn.insertions) == 1
     assert created[0][2:5] == ('guest-one', 'Apprentice', 'guest-one')
     assert committed[0][0][2] == 'original'
+    receipt = json.loads(conn.insertions[0][2])
+    assert receipt['entries'] == [{'ordinal': 0, 'document_id': str(created[0][1])}]
 
 
 def test_rejects_bundle_from_other_graph_without_writes(tmp_path, monkeypatch):
