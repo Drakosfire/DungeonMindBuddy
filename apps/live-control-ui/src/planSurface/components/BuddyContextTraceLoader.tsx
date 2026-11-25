@@ -31,7 +31,7 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
       <summary>Earlier trace attempts</summary>
       {earlier.map(trace => <details key={trace.trace_id}>
         <summary>Attempt {trace.attempt}</summary>
-        <DebugAttempt trace={trace} running={false} replyDetails={replyDetails} />
+        <DebugAttempt trace={trace} running={false} />
       </details>)}
     </details>}
   </div>
