@@ -11,19 +11,19 @@ on:
       registry_digest:
         description: Immutable digest from the approved publication run
         type: string
-        required: true
+        required: false
       candidate_id:
         description: Image config digest from the approved registry manifest
         type: string
-        required: true
+        required: false
       rollback_revision:
         description: Expected currently serving source revision
         type: string
-        required: true
+        required: false
       rollback_id:
         description: Expected currently serving image ID
         type: string
-        required: true
+        required: false
       release_mode:
         description: Release mode accepted by the production staging helper
         type: string
@@ -63,15 +63,20 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$ROLLBACK_REVISION" =~ ^[0-9a-f]{40}$ ]]
-          for digest in "$REGISTRY_DIGEST" "$CANDIDATE_ID" "$ROLLBACK_ID"; do
-            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          done
-          [[ "$RELEASE_MODE" =~ ^[a-z-]+$ ]]
-          [[ -z "$DOCUMENT_DIGEST" || "$DOCUMENT_DIGEST" =~ ^[0-9a-f]{64}$ ]]
-          request="$REVISION $REGISTRY_DIGEST $CANDIDATE_ID $ROLLBACK_REVISION $ROLLBACK_ID $RELEASE_MODE"
-          if [[ -n "$DOCUMENT_DIGEST" ]]; then
-            request+=" $DOCUMENT_DIGEST"
+          request=$REVISION
+          if [[ -n "$REGISTRY_DIGEST$CANDIDATE_ID$ROLLBACK_REVISION$ROLLBACK_ID" ]]; then
+            [[ "$ROLLBACK_REVISION" =~ ^[0-9a-f]{40}$ ]]
+            for digest in "$REGISTRY_DIGEST" "$CANDIDATE_ID" "$ROLLBACK_ID"; do
+              [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            done
+            [[ "$RELEASE_MODE" =~ ^[a-z-]+$ ]]
+            [[ -z "$DOCUMENT_DIGEST" || "$DOCUMENT_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+            request="$REVISION $REGISTRY_DIGEST $CANDIDATE_ID $ROLLBACK_REVISION $ROLLBACK_ID $RELEASE_MODE"
+            if [[ -n "$DOCUMENT_DIGEST" ]]; then
+              request+=" $DOCUMENT_DIGEST"
+            fi
+          else
+            [[ "$RELEASE_MODE" == default && -z "$DOCUMENT_DIGEST" ]]
           fi
           [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
           : "${DEPLOY_KEY:?Set the Buddy production deploy key}"
@@ -88,8 +93,12 @@ jobs:
             -o UserKnownHostsFile="$ssh_dir/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             "buddy-deploy@$DEPLOY_HOST" "$request" | tee "$ssh_dir/result"
-          grep -Fxq "BUDDY_STAGED $REVISION $CANDIDATE_ID $REGISTRY_DIGEST" "$ssh_dir/result"
-          grep -Fxq "BUDDY_LIVE $REVISION $CANDIDATE_ID" "$ssh_dir/result"
+          if [[ -n "$CANDIDATE_ID" ]]; then
+            grep -Fxq "BUDDY_STAGED $REVISION $CANDIDATE_ID $REGISTRY_DIGEST" "$ssh_dir/result"
+            grep -Fxq "BUDDY_LIVE $REVISION $CANDIDATE_ID" "$ssh_dir/result"
+          else
+            grep -Eq "^BUDDY_LIVE $REVISION sha256:[0-9a-f]{64}$" "$ssh_dir/result"
+          fi
 
       - name: Check public Buddy readiness and signed-out authentication
         shell: bash

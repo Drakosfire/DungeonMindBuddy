@@ -133,10 +133,14 @@ gh workflow run deploy-buddy.yml --ref main \
   -f document_digest="${document_digest:-}"
 ```
 
-A required reviewer in the `buddy-production` GitHub environment approves the
-exact request before the runner receives its deployment key. The dispatcher
+The production operator authorizes the exact request before dispatch. The
+`buddy-production` environment restricts the workflow to main. The dispatcher
 checks the healthy serving rollback, stages, and activates under a single lock.
 Confirm both `BUDDY_STAGED` and `BUDDY_LIVE` with the candidate image ID.
+
+Until the production operator replaces the activation-only forced command,
+continue staging as root and dispatch with the revision alone. After the
+forced command changes, the dispatcher requires all candidate and rollback pins.
 
 Before staging either guest mode, install a root-owned, root-only `/etc/buddy-deploy/guest-graph.conf` containing the authorized baseline as shell assignments `guest_graph_space=<space>` and `guest_graph_revision=<revision>`. Use the exact approved identifiers; the helper validates and freezes them in the release record. Changing them cannot retarget an existing staged release. Do not include credentials.
 
