@@ -579,7 +579,19 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
     """Validate stored native citations/binding; producing admission owns acceptance."""
     from .native_execution import _revalidate_context_binding
 
-    receipt, execution = _revalidate_context_binding(receipt, execution)
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
+    if (type(receipt), type(execution)) == (BuildPendingContextReceiptV1, BuildPendingExecutionV1):
+        from .build_source_free import _pending_components, _join_pending_source
+        receipt, execution = _pending_components(receipt, execution)
+        _join_pending_source(receipt, execution)
+        final = [event for event in execution.events if type(event) is t.CompletionBindingEventV1]
+        if (len(final) != 1 or final[0].provider_attempt_id != producer
+                or final[0].claim_graph_event_ids != bindings
+                or final[0].completion_sha256 != t.canonical_sha256(completion)):
+            raise ValueError('Pending retained completion differs from its exact final binding')
+    else:
+        receipt, execution = _revalidate_context_binding(receipt, execution)
     _join_retained_completion(completion, receipt, execution, producer, bindings)
 
 
@@ -670,8 +682,15 @@ def _join_retained_completion(completion, receipt, execution, producer, bindings
     if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
         return
     prefix = execution.model_copy(update={'events': execution.events[:auth.sequence]})
-    _validate_owned_context_binding(receipt, prefix)
-    frame = _model_frame_from_validated_prefix(receipt, prefix)
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_source_free import validate_pending_execution_binding
+        from .native_writer import model_frame
+        prefix = validate_pending_execution_binding(receipt, prefix)
+        frame = model_frame(receipt, prefix)
+    else:
+        _validate_owned_context_binding(receipt, prefix)
+        frame = _model_frame_from_validated_prefix(receipt, prefix)
     from .build_primary_context import records
     evidence=SimpleNamespace(**read_evidence_records(prefix,frame),
         saved_sections=records(prefix,receipt.work_context.source_basis) if completion.surface_id=='build' else ())

@@ -39,7 +39,7 @@ def section_query_terms(markdown,sections,question):
 def navigator(adapter):
     if getattr(adapter,'_native_source_navigator',None) is None:
         receipt=adapter.fence.turn.graph_context_receipt if adapter.fence is not None else None
-        if (isinstance(receipt,t.PlanSourceContextReceiptV1) or
+        if (type(receipt) is t.BuildPendingContextReceiptV1 or isinstance(receipt,t.PlanSourceContextReceiptV1) or
                 (type(receipt) is t.SurfaceNativeContextReceiptV1
                  and type(adapter.fence.turn.graph_context_execution) is t.SurfaceNativeExecutionV1
                  and adapter.fence.turn.graph_context_execution.policy.action.surface_id in {"plan","build","play"})

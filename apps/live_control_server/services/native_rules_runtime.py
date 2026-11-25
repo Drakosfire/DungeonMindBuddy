@@ -80,8 +80,12 @@ class NativeRulesRuntime:
 
         cap = RulesCapabilityV1.model_validate(capability)
         self.graph_enabled = adapter.turn is not None and adapter.turn.graph_context_execution is not None
-        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
-        native_build = adapter.turn is not None and type(adapter.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+        from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+        native_build = adapter.turn is not None and (
+            type(adapter.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1
+            or (type(adapter.turn.graph_context_receipt), type(adapter.turn.graph_context_execution))
+                == (BuildPendingContextReceiptV1, BuildPendingExecutionV1))
         if cap != rules_capability(graph=self.graph_enabled) or (adapter._is_build_turn() and not native_build):
             raise ValueError("Native Rules requires the exact native Plan/Play capability")
         if adapter.rules_runtime is not None or adapter.fence is None:
@@ -127,11 +131,14 @@ class NativeRulesRuntime:
             PlanSourceContextReceiptV1, PlanSourceExecutionV1,
             PlayWorldGraphContextReceiptV1, PlayWorldGraphExecutionV1,
         )
-        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
         receipt, graph = turn.graph_context_receipt, turn.graph_context_execution
         if not self.graph_enabled:
             if receipt is not None or graph is not None:
                 raise ValueError("Rules-only scope cannot inherit combined context")
+        elif type(receipt) is BuildPendingContextReceiptV1:
+            from application_state.agent_conversation.build_source_free import pending_turn_owner
+            pending_turn_owner(turn)
         elif type(receipt) is SurfaceNativeContextReceiptV1:
             from application_state.agent_conversation.native_execution import validate_request_identity
             validate_request_identity(receipt,graph,turn)
@@ -154,7 +161,9 @@ class NativeRulesRuntime:
                 corpus_sha256=cap.corpus_sha256, authorization_id=self.authorization_id,
                 capability_policy_sha256=cap.policy_sha256, budget=cap.budget,
             )
-            self.record = a.service.begin_rules_execution(scope, expected_turn_revision=turn.revision)
+            self.record = (a.service.begin_pending_rules_execution(scope, expected_turn_revision=turn.revision,
+                authorize_current_access=a.pending_build_access) if type(receipt) is BuildPendingContextReceiptV1
+                else a.service.begin_rules_execution(scope, expected_turn_revision=turn.revision))
         elif (self.record.execution.scope.turn_id != turn.turn_id
                 or self.record.execution.scope.product_attempt != turn.attempt):
             raise ValueError("Native Rules execution crossed a product attempt")
@@ -390,8 +399,8 @@ class NativeRulesRuntime:
             rules_execution_id=self.record.execution.scope.execution_id,
             producing_provider_attempt_id=self.adapter.producing_provider_attempt_id,
         )
-        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
-        shared=type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+        shared=type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1)
         trace=self.adapter.context_capture.trace.model_dump(mode='json') if shared else None
         if self.graph_enabled and not shared:
             # Reuse the turn-local immutable result bytes; no Graph reacquisition.
@@ -451,8 +460,12 @@ class NativeRulesRuntime:
             )
             if accept_base is not None:
                 return accept_base(result,proof,self.record.revision)
-            return self.adapter.service.complete_native_base_turn(result,
-                output_proof=proof,expected_rules_revision=self.record.revision,**({'work_proof':work_proof} if shared else {}))
+            pending = type(turn.graph_context_execution) is BuildPendingExecutionV1
+            complete = (self.adapter.service.complete_pending_native_base_turn if pending
+                else self.adapter.service.complete_native_base_turn)
+            return complete(result, output_proof=proof, expected_rules_revision=self.record.revision,
+                **({'work_proof':work_proof} if shared else {}),
+                **({'authorize_current_access':self.adapter.pending_build_access} if pending else {}))
         if shared:
             from application_state.agent_conversation.native_rules_output import normalize_shared_native_output
             normalized=normalize_shared_native_output(turn.graph_context_receipt,turn.graph_context_execution,

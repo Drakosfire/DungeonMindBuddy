@@ -28,8 +28,11 @@ class PlanRulesRuntime:
         if self.native is None:
             if self.adapter.fence is None:
                 raise ValueError("Plan Rules must wait for its actual Plan claim")
-            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
-            if type(self.adapter.fence.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+            if type(self.adapter.fence.turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+                from application_state.agent_conversation.build_source_free import pending_turn_owner
+                pending_turn_owner(self.adapter.fence.turn)
+            elif type(self.adapter.fence.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
                 from application_state.agent_conversation.native_retrieval import owner
                 owner(self.adapter.fence.turn)
             else:
@@ -37,6 +40,23 @@ class PlanRulesRuntime:
             self.native = NativeRulesRuntime(self.adapter, self.capability)
             self.adapter.rules_runtime = self
         return self.native
+
+    def restore_pending(self):
+        """Reuse completed pending Rules work; never resend an unresolved lookup."""
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+        if type(self.adapter.fence.turn.graph_context_receipt) is not BuildPendingContextReceiptV1:
+            return
+        native = self._initialize()
+        def restore():
+            native._bind()
+            events = native.record.execution.events
+            calls = tuple(e.call_id for e in events if isinstance(e, RulesToolAuthorizedV1))
+            settled = {e.call_id for e in events if type(e) is RulesQueryObservedV1}
+            if any(call not in settled for call in calls):
+                raise ValueError('Pending Rules recovery cannot resend an unresolved lookup')
+            self.selected, self.call_ids = bool(calls), calls
+        self.adapter.fence.rules_checkpoint(restore, lambda: native.record)
 
     def lookup_selected(self, parent_request_json):
         if self.selected:
@@ -77,8 +97,8 @@ class PlanRulesRuntime:
         native = self._initialize()
         with a.fence.renewer._lock:
             turn = native._bind()
-            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
-            if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+            if type(turn.graph_context_receipt) in (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1):
                 # The owning APP append already admitted writer + Rules input in
                 # one transaction. Read that same ledger, without a second grant.
                 native.record=a.service.begin_rules_execution(native.record.execution.scope,expected_turn_revision=turn.revision)

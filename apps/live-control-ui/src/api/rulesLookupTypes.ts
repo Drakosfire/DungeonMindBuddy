@@ -58,7 +58,7 @@ export interface RulesAnswerContext {
 export interface RulesUnclaimedContext {
   schema: 'dmb_agent_rules_unclaimed_context_v1';
   completion?: import('./types').SurfaceNativeCompletionV1 | null;
-  receipt: import('./types').SurfaceNativeContextReceiptV1 | import('./types').PlanNativeContextReceiptV1 | import('./types').PlanSourceContextReceiptV1 | import('./types').WorldPlanGraphContextReceiptV1 | import('./types').WorldBuildGraphReceiptV1 | import('./types').WorldPlayGraphContextReceiptV1;
+  receipt: import('./types').BuildPendingContextReceiptV1 | import('./types').SurfaceNativeContextReceiptV1 | import('./types').PlanNativeContextReceiptV1 | import('./types').PlanSourceContextReceiptV1 | import('./types').WorldPlanGraphContextReceiptV1 | import('./types').WorldBuildGraphReceiptV1 | import('./types').WorldPlayGraphContextReceiptV1;
   execution: import('./types').WorldPlanGraphExecutionProjectionV1;
   delivery_replay: boolean;
 }
