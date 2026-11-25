@@ -91,16 +91,6 @@ export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
 }
 
 function neighborhoodFrames(step: RetrievalStep): RetrievalStep[] {
-  const readableStep = (item: RetrievalStep, position: number) => {
-    if (item.hop) {
-      const label = labelForStep(position)
-      return `${label(item.hop.from_node_id) ?? 'Unnamed object'} → ${label(item.hop.to_node_id) ?? 'Unnamed object'}`
-    }
-    if (item.pruning) return `Exclude ${item.pruning.total} ${item.pruning.total === 1 ? 'candidate' : 'candidates'}`
-    if (item.native) return item.writerEvidence ? 'Read Graph evidence for the answer writer' : 'Read Graph evidence'
-    if (item.request.operation === 'search' && item.request.query_text.trim()) return `Search for “${item.request.query_text.trim()}”`
-    return stepLabel(item)
-  }
   const replay = step.result.neighborhood_replay
   if (!replay || step.request.operation !== 'neighborhood') return [step]
   const nodes = new Map(step.result.nodes.map(node => [node.node_id, node]))
@@ -515,6 +505,16 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
       </section>}
       {passages.length === 0 && <p>No matching source excerpt was captured for this lookup.</p>}
     </>
+  }
+  const readableStep = (item: RetrievalStep, position: number) => {
+    if (item.hop) {
+      const label = labelForStep(position)
+      return `${label(item.hop.from_node_id) ?? 'Unnamed object'} → ${label(item.hop.to_node_id) ?? 'Unnamed object'}`
+    }
+    if (item.pruning) return `Exclude ${item.pruning.total} ${item.pruning.total === 1 ? 'candidate' : 'candidates'}`
+    if (item.native) return item.writerEvidence ? 'Read Graph evidence for the answer writer' : 'Read Graph evidence'
+    if (item.request.operation === 'search' && item.request.query_text.trim()) return `Search for “${item.request.query_text.trim()}”`
+    return stepLabel(item)
   }
   const replay = (
     <section className="buddy-retrieval-replay" aria-label="Retrieval replay">
