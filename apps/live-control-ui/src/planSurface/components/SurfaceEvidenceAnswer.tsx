@@ -58,7 +58,13 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
     return segments.length ? <details onToggle={event => setCitationsOpen(event.currentTarget.open)}>
       <summary>Cited in the reply</summary>
       {citationsOpen && <section aria-label="Cited in the reply">{segments.map(index =>
-        renderSegment(completion.answer_segments[index]!, index, index))}</section>}
+        summaries.has(index)
+          ? <ul key={index}>{summaries.get(index)!.entries.map(entry =>
+            <li key={entry.target}><a href={entry.target} title={entry.title}>{entry.number}. {entry.title}</a></li>)}</ul>
+          : <SourceCitationEvidence key={index} identity={canonical([completion,worldId,turnId,index])}
+            statements={[{choices:choicesBySegment[index]!.map(choice => ({
+              ...choice, buttonText: `${choice.number}. ${choice.title || choice.label}`,
+            }))}]}/>)}</section>}
     </details> : null;
   }
   return <div aria-label="Evidence-grounded answer">{composition ? composition.ranges.map((r,i)=>

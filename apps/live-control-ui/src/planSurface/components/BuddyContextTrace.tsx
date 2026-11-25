@@ -212,6 +212,10 @@ function ReplyTraceOverview({ trace, passages, ownerActive }: {
   const otherPassages = passages.filter(passage => !writerSequences.has(passage.sequence))
   const writerGraph = trace.native_assertion_steps?.some(step => step.writer_evidence)
     || trace.observations.some(event => event.kind === 'graph_tool' && writerSequences.has(event.sequence))
+  const startingNodes = trace.native_discovery_replay?.seed_ids.flatMap(id => {
+    const label = trace.native_discovery_replay?.labels[id]?.trim()
+    return label && label !== id && !label.startsWith('ent:') ? [label] : []
+  }) ?? []
   const incomplete = trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at)
   const openPassage = (passage: BuddyTraceSourcePassage) => <BuddyHistoricalSourcePassage
     key={passage.sequence} graphRevision={passage.graph_revision}
@@ -228,7 +232,9 @@ function ReplyTraceOverview({ trace, passages, ownerActive }: {
     {incomplete && <p>Some activity is missing from this trace.</p>}
     {searches.length > 0
       ? <p>Buddy searched the World Graph for {searches.map(query => `“${query}”`).join(', ')}.</p>
-      : trace.native_discovery_replay && <p>Buddy explored recorded connections in the World Graph.</p>}
+      : startingNodes.length > 0
+        ? <p>Buddy started with {startingNodes.slice(0, 3).join(', ')}{startingNodes.length > 3 ? ' and other World Graph objects' : ''}.</p>
+        : trace.native_discovery_replay && <p>Buddy explored recorded connections in the World Graph.</p>}
     {writerGraph || writerPassages.length > 0
       ? <section aria-label="Sent to the answer writer">
         <h5>Sent to the answer writer</h5>
@@ -238,6 +244,7 @@ function ReplyTraceOverview({ trace, passages, ownerActive }: {
       : <p>This trace does not identify evidence sent to the answer writer.</p>}
     {otherPassages.length > 0 && <details>
       <summary>Other excerpts recorded during retrieval</summary>
+      <p>The trace does not establish whether the writer received these excerpts.</p>
       {otherPassages.map(openPassage)}
     </details>}
   </section>

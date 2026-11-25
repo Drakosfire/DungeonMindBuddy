@@ -69,6 +69,11 @@ it.each([false,true])('renders exact session citation links with citationsOnly=%
   await screen.findByRole('region',{name:'Cited in the reply'});
  }
 
+ if(citationsOnly){
+  expect(screen.queryByText('The rehearsal left the route unresolved.')).not.toBeInTheDocument();
+  expect(screen.getByRole('link',{name:/^1[.] Gate rehearsal/})).toHaveAttribute('href',sessionCitationTarget(packet.world_id,fixture().summary.supports[0]!));
+  return;
+ }
  expect(screen.getByLabelText('Saved session summary').textContent).toContain('route unresolved');
  expect(screen.getByRole('link',{name:'1'})).toHaveAttribute('title','Gate rehearsal — notes and reflections · Scene notes');
  expect(screen.getByRole('link',{name:'2'})).toHaveAttribute('title','Gate rehearsal — notes and reflections · Closing reflections');
