@@ -495,6 +495,7 @@ class BuildAppPageSelectionAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
     kind: Literal["build_app_page_selection_authorized_v1"] = "build_app_page_selection_authorized_v1"
     context_phase: Literal["navigate"] = "navigate"
     catalog_event_id: UUID
+    admitted_from_revision: int = Field(ge=1, strict=True)
 
 
 class NativeBuildSourceSettledV1(Strict):

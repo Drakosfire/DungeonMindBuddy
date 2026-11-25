@@ -199,7 +199,15 @@ def settlement_harness(monkeypatch, *, with_source=True, scope='source_lookup'):
         foreign_source=False, cas_failure=False, access_delay_before=False,
         pointer=t.WorldPointer(world_id=turn.world_id, active_conversation_id=turn.conversation_id,
                                revision=observed.pointer_revision))
-    conn = object()
+    conn = SimpleNamespace()
+    state.conn = conn
+    state.successor = False
+    def leaf_query(sql, args):
+        assert state.depth == 1
+        assert sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s' and args == (state.turn.turn_id,)
+        return SimpleNamespace(fetchone=lambda: (1,) if state.successor else None)
+    conn.execute = leaf_query
+    state.leaf_query = leaf_query
     @contextmanager
     def uow(*args, **kwargs):
         assert state.depth == 0
@@ -208,6 +216,7 @@ def settlement_harness(monkeypatch, *, with_source=True, scope='source_lookup'):
             yield conn
         finally:
             state.depth -= 1
+    state.uow = uow
     monkeypatch.setattr(service_module, 'unit_of_work', uow)
     monkeypatch.setattr(service_module, '_ready_dsn', lambda: 'synthetic-no-database')
     def world_lock(_conn, world):
@@ -215,7 +224,7 @@ def settlement_harness(monkeypatch, *, with_source=True, scope='source_lookup'):
         state.locks.append('world')
         return state.pointer
     def conversation_lock(_conn, world, conversation_id):
-        assert _conn is conn and state.depth == 1 and conversation_id == turn.conversation_id
+        assert _conn is conn and state.depth == 1 and conversation_id == state.turn.conversation_id
         state.locks.append('conversation')
         return t.Conversation(world_id=world, conversation_id=conversation_id, status='active',
             revision=2, next_turn_sequence=2, created_at=now, updated_at=now, archived_at=None)
@@ -593,7 +602,7 @@ def pending_page_phase_case():
     initial = controller('build', policy, sequence=5)
     values = initial.model_dump(mode='json', by_alias=True) | {
         'kind': 'build_app_page_selection_authorized_v1', 'context_phase': 'navigate',
-        'catalog_event_id': str(catalog.event_id)}
+        'catalog_event_id': str(catalog.event_id), 'admitted_from_revision': 3}
     auth = BuildAppPageSelectionAuthorizedV1.model_validate_json(json.dumps(values))
     selected = RelatedPagesSelection(event_id=uuid4(), sequence=8,
         controller_attempt_id=auth.provider_attempt_id, controller_envelope_sha256=auth.envelope_sha256,
@@ -756,3 +765,122 @@ def test_pending_native_preparation_cannot_cross_an_unresolved_app_page_phase(en
         pending_source_work(partial)
     complete = pending_execution(receipt, policy, events)
     assert pending_source_work(complete).event_id == events[3].event_id
+
+
+def pending_page_dispatch_harness(monkeypatch):
+    from types import SimpleNamespace
+    from datetime import timedelta
+    from tests.test_surface_native_execution import BUILD_TURN_ID
+    state, _ = settlement_harness(monkeypatch, with_source=False)
+    receipt, execution, auth, initial, raw, _ = pending_page_input_case()
+    provenance = provenance_for(receipt.work_context).model_copy(
+        update={'surface_instance_id': execution.policy.action.intent.surface_instance_id})
+    data = receipt.model_dump(mode='json', by_alias=True)
+    data.pop('context_receipt_sha256')
+    receipt = seal_pending_receipt(data | {'provenance_sha256': t.canonical_sha256(provenance)})
+    events = list(execution.events)
+    events[-1] = events[-1].model_copy(update={'pending_context_receipt_sha256': receipt.context_receipt_sha256})
+    execution = pending_execution(receipt, execution.policy, events)
+    sub = t.TurnSubmission(world_id=execution.policy.action.intent.world_id,
+        conversation_id=receipt.conversation_observation.conversation_id, idempotency_key=uuid4(),
+        expected_conversation_revision=1, user_text=execution.policy.action.intent.message,
+        provenance=provenance, submitted_intent_v2=execution.policy.action.intent,
+        graph_context_receipt=receipt, graph_context_execution=pending_execution(receipt, execution.policy))
+    state.turn = retained(sub, turn_id=BUILD_TURN_ID, status='running', revision=3, attempt=1,
+        claim_expires_at=state.now + timedelta(minutes=2), graph_context_execution=execution)
+    state.pointer = t.WorldPointer(world_id=sub.world_id, active_conversation_id=sub.conversation_id,
+        revision=receipt.conversation_observation.pointer_revision)
+    first = events[0]
+    state.prompt = {'kind': 'prompt_reference', 'sequence': 0, 'elapsed_ms': 0,
+        'evidence_id': str(uuid4()), 'provider_attempt_id': str(first.provider_attempt_id),
+        'provider': first.provider, 'model': first.model, 'api_mode': first.api_mode,
+        'serializer_version': first.serializer_version, 'payload_sha256': first.envelope_sha256,
+        'payload_utf8_bytes': len(initial.encode())}
+    state.prompt_count = 1
+    def query(sql, args):
+        if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+            return state.leaf_query(sql, args)
+        assert state.depth == 1 and args == (state.turn.turn_id,)
+        assert sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s'
+        return SimpleNamespace(fetchall=lambda: [({'observations': [state.prompt] * state.prompt_count},)])
+    state.conn.execute = query
+    def run(*, authorization=auth, request=raw, first_request=initial):
+        return state.service.authorize_pending_app_page_selection(state.turn.world_id,
+            state.turn.conversation_id, state.turn.turn_id, expected_revision=3, expected_attempt=1,
+            authorization=authorization, prepared_request_json=request, initial_request_json=first_request,
+            authorize_current_access=state.authorize)
+    return state, run, auth, raw
+
+
+def test_locked_pending_page_dispatch_is_one_shot_and_replays_original_call_nonfresh(monkeypatch):
+    state, run, auth, _ = pending_page_dispatch_harness(monkeypatch)
+    admitted, fresh = run()
+    assert fresh and admitted.revision == 4 and state.persisted == 1
+    assert state.locks == ['world', 'conversation', 'turn'] and state.access_calls == 1
+    replay, fresh = run()
+    assert not fresh and replay == admitted and state.persisted == 1 and state.access_calls == 2
+    assert state.materialized == 0
+
+
+@pytest.mark.parametrize('failure', ['pointer', 'expiry', 'attempt', 'access', 'access_delay',
+    'wire', 'missing_prompt', 'duplicate_prompt', 'prompt_hash', 'prompt_role', 'cas_failure', 'admission_revision', 'successor'])
+def test_locked_pending_page_dispatch_rejects_stale_or_unproven_calls(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    state, run, auth, raw = pending_page_dispatch_harness(monkeypatch)
+    if failure == 'pointer':
+        state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 2})
+    elif failure == 'expiry':
+        state.now += timedelta(hours=1)
+    elif failure == 'attempt':
+        state.turn = state.turn.model_copy(update={'attempt': 2})
+    elif failure == 'access':
+        state.denied = True
+    elif failure == 'access_delay':
+        state.access_delay = True
+    elif failure == 'wire':
+        body = json.loads(raw)
+        body['state']['host_receipt'] = 'forbidden'
+        raw = json.dumps(body)
+    elif failure in {'missing_prompt', 'duplicate_prompt'}:
+        state.prompt_count = 0 if failure == 'missing_prompt' else 2
+    elif failure == 'prompt_hash':
+        state.prompt['payload_sha256'] = 'b' * 64
+    elif failure == 'prompt_role':
+        state.prompt['provider'] = 'another-provider'
+    elif failure == 'cas_failure':
+        state.cas_failure = True
+    elif failure == 'successor':
+        state.successor = True
+    else:
+        auth = auth.model_copy(update={'admitted_from_revision': 4})
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        run(authorization=auth, request=raw)
+    assert state.persisted == state.materialized == 0
+
+
+@pytest.mark.parametrize('event_kind', ['authorization', 'sdk_entry'])
+def test_pending_generic_append_cannot_bypass_prepared_dispatch_owner(monkeypatch, event_kind):
+    from application_state.agent_conversation import service as service_module
+    from application_state.errors import ApplicationStateValidationError
+    state, _, auth, _ = pending_page_dispatch_harness(monkeypatch)
+    monkeypatch.setattr(service_module, '_execution_append_transaction', lambda measure: state.uow())
+    event = auth if event_kind == 'authorization' else t.ProviderOutcomeEventV1(kind='provider_outcome',
+        event_id=uuid4(), sequence=6, provider_attempt_id=auth.provider_attempt_id, outcome='sdk_entered')
+    with pytest.raises(ApplicationStateValidationError, match='exact prepared-input admission owner'):
+        state.service._append_graph_execution_event(state.turn.world_id, state.turn.conversation_id,
+            state.turn.turn_id, expected_revision=3, expected_attempt=1, event=event, duplicate_key='event_id')
+    assert state.persisted == 0
+
+
+@pytest.mark.parametrize('when', ['before', 'after'])
+def test_pending_source_preparation_rejects_a_saved_successor_before_or_during_io(monkeypatch, when):
+    from application_state.errors import ApplicationStateConflictError
+    state, run = settlement_harness(monkeypatch)
+    if when == 'before':
+        state.successor = True
+    else:
+        state.on_prepare = lambda: setattr(state, 'successor', True)
+    with pytest.raises(ApplicationStateConflictError, match='saved successor'):
+        run()
+    assert state.persisted == 0 and state.materialized == (0 if when == 'before' else 1)

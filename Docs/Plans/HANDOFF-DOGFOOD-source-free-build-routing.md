@@ -419,3 +419,16 @@ only in the new pending execution with exact catalog/selection/pointer joins.
 This adds no fallback source owner or new provenance authority. Concrete prepared
 request/response proof, current read access, and runtime dispatch remain required
 before activation; structural prefixes alone grant no IO or model call.
+
+
+## Pending dispatch owner checkpoint
+
+The later App phase is admitted by its own locked service method using the
+captured initial prompt reference and exact raw request, the unchanged catalog
+and semantic request compiler, current App-only access and pointer/claim checks.
+Persist the original admission revision on this new unproduced authorization so
+an exact lost-response retry returns non-fresh, never a second dispatch grant.
+The generic event append refuses pending provider authorizations and SDK entry;
+those must use their exact new prepared-input/current-access owners. Other
+historical/shared paths remain unchanged. New prompt capture, guarded SDK entry,
+producing-response admission and runtime wiring are still activation gates.
