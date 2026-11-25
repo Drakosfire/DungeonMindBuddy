@@ -27,6 +27,13 @@ done
   fail "candidate and rollback must be distinct"
 
 readonly config_dir=/etc/buddy-deploy
+probe_name=
+cleanup_probe() {
+  [[ -n "$probe_name" ]] || return 0
+  if [[ "$(timeout 5s docker inspect --format '{{index .Config.Labels "org.dungeonmindbuddy.stage-probe"}}' "$probe_name" 2>/dev/null || true)" == "$probe_name" ]]; then
+    timeout 5s docker rm -f "$probe_name" >/dev/null 2>&1 || true
+  fi
+}
 candidate_tag="dungeonmindbuddy:$revision"
 rollback_tag="dungeonmindbuddy:$rollback_revision"
 ref="ghcr.io/drakosfire/dungeonmindbuddy@$digest"
@@ -67,7 +74,8 @@ if [[ "$mode" == guest-build-documents-serving ]]; then
   trusted "$template"
   trusted "$bundles"
   bundle_tmp=$(mktemp "$bundles/.bundle.XXXXXX")
-  trap 'rm -f -- "$bundle_tmp" "${tmp:-}"' EXIT
+  trap 'cleanup_probe; rm -f -- "$bundle_tmp" "${tmp:-}"' EXIT
+  trap 'exit 130' INT TERM
   GUEST_TEMPLATE="$template" GUEST_TEMPLATE_SHA="$7" GUEST_BUNDLE="$bundle_tmp" GUEST_SPACE="$guest_graph_space" GUEST_REVISION="$guest_graph_revision" python3 - <<'PY' || fail "invalid guest document template"
 import hashlib, json, os
 from pathlib import Path
@@ -105,7 +113,7 @@ PY
 fi
 
 tmp=$(mktemp "$config_dir/releases/.stage.XXXXXX")
-trap 'rm -f -- "$tmp" "${bundle_tmp:-}"' EXIT
+trap 'cleanup_probe; rm -f -- "$tmp" "${bundle_tmp:-}"' EXIT
 printf 'candidate_tag=%s\ncandidate_id=%s\nrollback_tag=%s\nrollback_id=%s\nrollback_revision=%s\nregistry_digest=%s\n' \
   "$candidate_tag" "$candidate_id" "$rollback_tag" "$rollback_id" "$rollback_revision" "$digest" > "$tmp"
 if [[ "$mode" != default ]]; then
@@ -137,9 +145,15 @@ fi
 [[ "$(docker image inspect --format "$candidate_identity" "$ref")" == "$expected_identity" ]] ||
   fail "registry image does not match the approved release identity"
 if [[ "$mode" == guest-build-documents-serving ]]; then
-  docker run --rm --network=none --entrypoint python "$ref" -c \
+  probe_name="buddy-doc-seed-probe-${revision:0:12}-${bundle_tmp##*.}"
+  timeout --signal=TERM --kill-after=5s 30s docker run --rm --name "$probe_name" \
+    --label "org.dungeonmindbuddy.stage-probe=$probe_name" --network=none --read-only \
+    --memory=256m --cpus=1 --pids-limit=64 --cap-drop=ALL --security-opt=no-new-privileges \
+    --entrypoint python "$ref" -c \
     'from application_state.index_graph.guest_documents import seed_guest_documents; import sys; sys.exit(0 if callable(seed_guest_documents) else 1)' ||
     fail "candidate image lacks guest document seeding"
+  cleanup_probe
+  probe_name=
 fi
 
 existing=$(docker image ls --filter "reference=$candidate_tag" --format '{{.Repository}}:{{.Tag}}')

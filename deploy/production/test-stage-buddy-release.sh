@@ -27,8 +27,17 @@ case "$*" in
     printf '%s %s\n' "$rollback_id" "$rollback" ;;
   "pull --platform linux/amd64 ghcr.io/drakosfire/dungeonmindbuddy@$digest")
     ;;
-  "run --rm --network=none --entrypoint python ghcr.io/drakosfire/dungeonmindbuddy@$digest -c "*)
+  "run --rm --name buddy-doc-seed-probe-"*)
+    [[ "$*" == *'--network=none --read-only --memory=256m --cpus=1 --pids-limit=64 --cap-drop=ALL --security-opt=no-new-privileges'* ]] || exit 89
+    if [[ ${TEST_PROBE_STUCK:-0} == 1 ]]; then printf '%s' "$4" > "$TEST_ROOT/probe-owner"; exit 1; fi
     [[ ${TEST_NO_DOCUMENT_SEED:-0} != 1 ]] ;;
+  'inspect --format '*buddy-doc-seed-probe-*)
+    [[ -f "$TEST_ROOT/probe-owner" ]] || exit 1
+    cat "$TEST_ROOT/probe-owner" ;;
+  'rm -f buddy-doc-seed-probe-'*)
+    [[ "${*: -1}" == "$(cat "$TEST_ROOT/probe-owner")" ]] || exit 91
+    rm "$TEST_ROOT/probe-owner"
+    touch "$TEST_ROOT/probe-cleaned" ;;
   "image inspect "*"@$digest")
     if [[ "$*" == *org.dungeonmindbuddy.serving-parent* ]]; then
       printf '%s %s linux/amd64 %s %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}" "${TEST_SERVING_PARENT-<no value>}"
@@ -119,6 +128,8 @@ if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT=
 grep -F 'invalid guest document template digest' "$scratch/stderr"
 if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" TEST_NO_DOCUMENT_SEED=1 run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Image without document seeding accepted' >&2; exit 1; fi
 grep -F 'candidate image lacks guest document seeding' "$scratch/stderr"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" TEST_PROBE_STUCK=1 run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Failed probe accepted' >&2; exit 1; fi
+[[ -e "$scratch/probe-cleaned" && ! -e "$scratch/probe-owner" ]]
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha"
 bundle_sha=$(sed -n 's/^guest_document_sha=//p' "$record")
 [[ "$bundle_sha" =~ ^[0-9a-f]{64}$ && -f "$scratch/guest-document-bundles/$bundle_sha.json" ]]
