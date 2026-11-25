@@ -99,6 +99,7 @@ jobs:
           [[ "$GUEST_PLAY" == 0 || "$GUEST_PLAN" == 1 ]]
           [[ "$GUEST_MEDIA" == 0 || "$GUEST_MEDIA" == 1 ]]
           [[ "$GUEST_MEDIA" == 0 || "$GUEST_BUILD" == 1 ]]
+          [[ "$GUEST_PLAY" == "$GUEST_MEDIA" ]]
           [[ "$GUEST_MEDIA" == 0 || ( -n "$SERVING_PR" && -n "$SERVING_PARENT" ) ]]
           if [[ -z "$SERVING_PR" && -z "$SERVING_PARENT" ]]; then
             git rev-list --first-parent HEAD | grep -Fx "$REVISION" >/dev/null

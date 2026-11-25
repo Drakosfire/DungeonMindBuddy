@@ -322,6 +322,7 @@ def test_publisher_binds_guest_play_and_media():
     workflow = (SCRIPT.parents[1] / ".github/workflows/publish-buddy-image.yml").read_text()
     assert '[[ "$GUEST_PLAY" == 0 || "$GUEST_PLAN" == 1 ]]' in workflow
     assert '[[ "$GUEST_MEDIA" == 0 || "$GUEST_BUILD" == 1 ]]' in workflow
+    assert '[[ "$GUEST_PLAY" == "$GUEST_MEDIA" ]]' in workflow
     for feature in ("PLAY", "MEDIA"):
         assert f'VITE_HOSTED_GUEST_{feature}="$GUEST_{feature}"' in workflow
         assert f'hosted_guest_{feature.lower()}:' in workflow
