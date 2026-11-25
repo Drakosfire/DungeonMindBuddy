@@ -3483,3 +3483,220 @@ def test_pending_app_coverage_projects_owned_metadata_but_preserves_meaningful_a
     assert len(projected.splitlines()) == len(raw.splitlines())
     assert execution.events[-1].markdown == raw
     assert execution.events[-1].page.content_sha256 == sha256(raw.encode()).hexdigest()
+
+
+def pending_app_coverage_proof_case(verdict='saved_pages_sufficient'):
+    from hashlib import sha256
+    from generationengine.types import DecisionResult, ChoiceDecisionAnswer, InferenceObservation
+    from application_state.agent_conversation.build_pending_app_coverage import (
+        BuildAppCoverageAuthorizedV1, BuildAppCoverageDecidedV1, pending_app_coverage_input)
+    from application_state.agent_conversation.build_decision_context import identity
+    from tests.test_surface_native_execution import outcomes
+    receipt, before, initial, _, read = pending_app_coverage_case()
+    raw = json.dumps(pending_app_coverage_input(receipt, before, initial))
+    template = before.events[5].model_dump(mode='python')
+    template.pop('catalog_event_id')
+    auth = BuildAppCoverageAuthorizedV1.model_validate(template | {
+        'kind':'build_app_coverage_authorized_v1','event_id':uuid4(),'sequence':len(before.events),
+        'provider_attempt_id':uuid4(),'envelope_sha256':sha256(raw.encode()).hexdigest(),
+        'dispatch_identity_sha256':identity(envelope_sha256=sha256(raw.encode()).hexdigest(),
+            provider=template['provider'],model=template['model'],api_mode=template['api_mode'],context_mode=template['context_mode']),
+        'work_event_id':before.events[3].event_id,'read_event_ids':(read.event_id,), 'admitted_from_revision':4})
+    execution = pending_execution(receipt,before.policy,[*before.events,auth,*outcomes(auth,len(before.events)+1)])
+    result=DecisionResult(answers={'source_requirement':ChoiceDecisionAnswer(selected=verdict,
+        probabilities={key:.9 if key==verdict else .1 for key in ('saved_pages_sufficient','native_sources_required')})},
+        observation=InferenceObservation(provider='typesafe',resolved_model='jev-1.14.0',response_model='jev-1.14.0',
+            latency_ms=1,retry_count=0,state='completed',provider_attempt_count=1))
+    response=result.model_dump_json(by_alias=True)
+    collector,store,_=pending_response_collector(components=(receipt,execution))
+    collector.controller_decision_response(response,producing_provider_attempt_id=auth.provider_attempt_id)
+    decision=BuildAppCoverageDecidedV1(event_id=uuid4(),sequence=len(execution.events),
+        controller_attempt_id=auth.provider_attempt_id,controller_envelope_sha256=auth.envelope_sha256,
+        controller_response_sha256=sha256(response.encode()).hexdigest(),verdict=verdict)
+    proof={'request_json':raw,'response_json':response,'initial_request_json':initial}
+    return receipt,execution,decision,proof,store.trace.model_dump(mode='json',by_alias=True)
+
+
+@pytest.mark.parametrize('verdict',['saved_pages_sufficient','native_sources_required'])
+def test_pending_app_coverage_verdict_binds_captured_vote_and_controls_only_further_preparation(verdict):
+    from application_state.agent_conversation.build_pending_app_coverage import validate_coverage_result
+    from application_state.agent_conversation.build_source_free import pending_source_work
+    receipt,execution,decision,proof,trace=pending_app_coverage_proof_case(verdict)
+    assert validate_coverage_result(receipt,execution,decision,proof,trace)==verdict
+    admitted=pending_execution(receipt,execution.policy,[*execution.events,decision])
+    assert type(admitted).model_validate_json(admitted.model_dump_json(by_alias=True))==admitted
+    if verdict=='saved_pages_sufficient':
+        with pytest.raises(ValueError,match='further-source'):
+            pending_source_work(admitted)
+    else:
+        assert pending_source_work(admitted).event_id==execution.events[3].event_id
+    # Dispatch or response acknowledgement alone never authorizes new source IO.
+    with pytest.raises(ValueError,match='further-source'):
+        pending_source_work(execution)
+
+
+@pytest.mark.parametrize('failure',['missing_capture','changed_capture','changed_vote','changed_body',
+    'changed_history','hidden_retry','tie','foreign_producer','unresolved','read_ids','late_read'])
+def test_pending_app_coverage_contract_refuses_unproven_or_changed_verdict(failure):
+    from hashlib import sha256
+    from application_state.agent_conversation.build_pending_app_coverage import validate_coverage_result
+    receipt,execution,decision,proof,trace=pending_app_coverage_proof_case()
+    if failure=='missing_capture':trace['observations']=[]
+    elif failure=='changed_capture':trace['observations'][-1]['materials'][0]['text']='{}'
+    elif failure=='changed_vote':decision=decision.model_copy(update={'verdict':'native_sources_required'})
+    elif failure=='changed_body':proof['request_json']=proof['request_json'].replace('Remember the rain','Changed password')
+    elif failure=='changed_history':proof['initial_request_json']=proof['initial_request_json'].replace('User detail 0','Changed first detail')
+    elif failure in ('hidden_retry','tie'):
+        response=json.loads(proof['response_json'])
+        if failure=='hidden_retry':response['observation']['retry_count']=1
+        else:response['answers']['source_requirement']['probabilities']={key:.5 for key in ('saved_pages_sufficient','native_sources_required')}
+        proof['response_json']=json.dumps(response)
+        decision=decision.model_copy(update={'controller_response_sha256':sha256(proof['response_json'].encode()).hexdigest()})
+        trace['observations'][-1]['materials'][0]['text']=proof['response_json']
+    elif failure=='foreign_producer':decision=decision.model_copy(update={'controller_attempt_id':uuid4()})
+    elif failure=='unresolved':
+        events=list(execution.events);events[-1]=events[-1].model_copy(update={'outcome':'outcome_unknown'})
+        execution=execution.model_copy(update={'events':events})
+    elif failure=='read_ids':
+        events=list(execution.events);events[10]=events[10].model_copy(update={'read_event_ids':(uuid4(),)})
+        execution=execution.model_copy(update={'events':events})
+    else:
+        read=execution.events[9].model_copy(update={'event_id':uuid4(),'sequence':len(execution.events)})
+        with pytest.raises(ValueError):
+            pending_execution(receipt,execution.policy,[*execution.events,read])
+        return
+    with pytest.raises(ValueError):
+        validate_coverage_result(receipt,execution,decision,proof,trace)
+
+
+def pending_app_coverage_service_case(monkeypatch):
+    from types import SimpleNamespace
+    from datetime import timedelta
+    from tests.test_surface_native_execution import BUILD_TURN_ID
+    state,_,_,_=pending_page_dispatch_harness(monkeypatch)
+    receipt,execution,decision,proof,_=pending_app_coverage_proof_case()
+    provenance=provenance_for(receipt.work_context).model_copy(update={
+        'surface_instance_id':execution.policy.action.intent.surface_instance_id})
+    data=receipt.model_dump(mode='json',by_alias=True);data.pop('context_receipt_sha256')
+    receipt=seal_pending_receipt(data|{'provenance_sha256':t.canonical_sha256(provenance)})
+    events=list(execution.events)
+    events[4]=events[4].model_copy(update={'pending_context_receipt_sha256':receipt.context_receipt_sha256})
+    execution=pending_execution(receipt,execution.policy,events)
+    sub=t.TurnSubmission(world_id=execution.policy.action.intent.world_id,
+        conversation_id=receipt.conversation_observation.conversation_id,idempotency_key=uuid4(),
+        expected_conversation_revision=1,user_text=execution.policy.action.intent.message,provenance=provenance,
+        submitted_intent_v2=execution.policy.action.intent,graph_context_receipt=receipt,
+        graph_context_execution=pending_execution(receipt,execution.policy))
+    state.turn=retained(sub,turn_id=BUILD_TURN_ID,status='running',revision=4,attempt=1,
+        claim_expires_at=state.now+timedelta(minutes=2),
+        graph_context_execution=pending_execution(receipt,execution.policy,events[:10]))
+    state.pointer=t.WorldPointer(world_id=sub.world_id,active_conversation_id=sub.conversation_id,
+        revision=receipt.conversation_observation.pointer_revision)
+    auth=events[10]
+    first=events[0]
+    state.prompt=state.prompt|{'provider_attempt_id':str(first.provider_attempt_id),
+        'payload_sha256':first.envelope_sha256,'payload_utf8_bytes':len(proof['initial_request_json'].encode())}
+    state.sdk_prompt=state.prompt|{'evidence_id':str(uuid4()),'provider_attempt_id':str(auth.provider_attempt_id),
+        'payload_sha256':auth.envelope_sha256,'payload_utf8_bytes':len(proof['request_json'].encode())}
+    state.sdk_prompt_count=1
+    collector,store,_=pending_response_collector(components=(receipt,execution))
+    collector.controller_decision_response(proof['response_json'],producing_provider_attempt_id=auth.provider_attempt_id)
+    state.coverage_trace=store.trace.model_dump(mode='json',by_alias=True)
+    def query(sql,args):
+        if sql=='SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':return state.leaf_query(sql,args)
+        assert state.depth==1
+        if sql=='SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s':
+            assert args==(state.turn.turn_id,)
+            return SimpleNamespace(fetchall=lambda:[({'observations':[state.prompt]+[state.sdk_prompt]*state.sdk_prompt_count},)])
+        assert sql=='SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s'
+        assert args==(state.turn.turn_id,state.turn.attempt)
+        return SimpleNamespace(fetchone=lambda:(state.coverage_trace,))
+    state.conn.execute=query
+    authorize=state.authorize
+    state.access_refs=[]
+    def access(conn,turn,pages):
+        assert pages and all(type(page).__name__=='PageReference' for page in pages)
+        state.access_refs.append(pages)
+        return authorize(conn,turn,pages)
+    state.coverage_access=access
+    def admit(**changes):
+        fields=dict(expected_revision=4,expected_attempt=1,authorization=auth,
+            prepared_request_json=proof['request_json'],initial_request_json=proof['initial_request_json'],
+            authorize_current_access=access)|changes
+        return state.service.authorize_pending_app_coverage(state.turn.world_id,state.turn.conversation_id,
+            state.turn.turn_id,**fields)
+    def lifecycle(event,**changes):
+        fields=dict(expected_revision=state.turn.revision,expected_attempt=1,outcome=event,
+            authorize_current_access=access)|changes
+        if event.outcome=='sdk_entered':
+            return state.service.enter_pending_app_page_sdk(state.turn.world_id,state.turn.conversation_id,
+                state.turn.turn_id,prepared_request_json=proof['request_json'],**fields)
+        return state.service.record_pending_app_controller_outcome(state.turn.world_id,state.turn.conversation_id,
+            state.turn.turn_id,**fields)
+    def settle(**changes):
+        fields=dict(expected_revision=state.turn.revision,expected_attempt=1,decision=decision,
+            producer_proof=proof,authorize_current_access=access)|changes
+        return state.service.record_pending_app_coverage(state.turn.world_id,state.turn.conversation_id,
+            state.turn.turn_id,**fields)
+    return state,admit,lifecycle,settle,events[11],events[12],decision,proof
+
+
+def test_pending_app_coverage_locked_admission_dispatch_and_verdict_are_one_shot(monkeypatch):
+    from application_state.errors import ApplicationStateError
+    state,admit,lifecycle,settle,entry,response,decision,proof=pending_app_coverage_service_case(monkeypatch)
+    turn,fresh=admit();assert fresh and state.persisted==1
+    replay,fresh=admit();assert not fresh and replay==turn and state.persisted==1
+    turn,fresh=lifecycle(entry);assert fresh and state.persisted==2
+    replay,fresh=lifecycle(entry);assert not fresh and replay==turn and state.persisted==2
+    with pytest.raises(ApplicationStateError):
+        lifecycle(entry.model_copy(update={'event_id':uuid4()}))
+    lifecycle(response)
+    completed,fresh=settle();assert fresh and completed.graph_context_execution.events[-1]==decision
+    replay,fresh=settle();assert not fresh and replay==completed and state.persisted==4
+    assert state.materialized==0 and state.access_refs
+
+
+@pytest.mark.parametrize('failure',['pointer','access','access_after','expiry','claim','bool_attempt','body','initial','cas'])
+def test_pending_app_coverage_service_discards_changed_authorization_scope(monkeypatch,failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateError
+    state,admit,_,_,_,_,_,proof=pending_app_coverage_service_case(monkeypatch)
+    changes={}
+    if failure=='pointer':state.pointer=state.pointer.model_copy(update={'revision':state.pointer.revision+1})
+    elif failure=='access':state.denied=True
+    elif failure=='access_after':
+        original=state.coverage_access
+        def changed(conn,turn,pages):
+            allowed=original(conn,turn,pages)
+            return allowed and len(state.access_refs)<2
+        changes['authorize_current_access']=changed
+    elif failure=='expiry':state.access_delay=True
+    elif failure=='claim':changes['expected_revision']=3
+    elif failure=='bool_attempt':changes['expected_attempt']=True
+    elif failure=='body':changes['prepared_request_json']=proof['request_json'].replace('Remember the rain','Different password')
+    elif failure=='initial':changes['initial_request_json']='{}'
+    else:state.cas_failure=True
+    with pytest.raises(ApplicationStateError):admit(**changes)
+    assert state.persisted==0 and state.materialized==0
+
+
+@pytest.mark.parametrize('failure',['missing_capture','access','expiry','unknown','generic'])
+def test_pending_app_coverage_verdict_requires_actual_capture_access_claim_and_dedicated_owner(monkeypatch,failure):
+    from application_state.errors import ApplicationStateError
+    state,admit,lifecycle,settle,entry,response,decision,_=pending_app_coverage_service_case(monkeypatch)
+    admit();lifecycle(entry)
+    if failure=='unknown':response=response.model_copy(update={'outcome':'outcome_unknown'})
+    lifecycle(response)
+    before=state.persisted
+    if failure=='missing_capture':state.coverage_trace['observations']=[]
+    elif failure=='access':state.denied=True
+    elif failure=='expiry':state.access_delay=True
+    if failure=='generic':
+        from application_state.agent_conversation import service as service_module
+        monkeypatch.setattr(service_module,'_execution_append_transaction',lambda measure:state.uow())
+        with pytest.raises(ApplicationStateError,match='exact prepared-input admission owner'):
+            state.service._append_graph_execution_event(state.turn.world_id,state.turn.conversation_id,state.turn.turn_id,
+                expected_revision=state.turn.revision,expected_attempt=1,event=decision,duplicate_key='event_id')
+    else:
+        with pytest.raises(ApplicationStateError):settle()
+    assert state.persisted==before and state.materialized==0

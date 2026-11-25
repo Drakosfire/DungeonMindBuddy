@@ -1062,3 +1062,37 @@ raw reads and hashes stay unchanged. Added owned link/PDF provenance sentinels
 alongside external-link, fenced literal and authored hash preservation controls.
 This is model-context projection only, not regex scrubbing or a new evidence
 owner. Controller/result admission and runtime activation remain unfinished.
+
+
+## App coverage dispatch contract continuation
+
+ACTIVE same coverage/routing outcome: new distinct coverage authorization/verdict
+records, pending prefix phase joins and exact request/result proof in the coverage
+module; then dedicated locked App service authorization/result admission and
+existing one-shot SDK lifecycle delegation for this exact type. The captured read
+set and work cannot change. Unresolved/unknown coverage blocks source settlement;
+saved_pages_sufficient forbids Core preparation, native_sources_required retains
+its existing positive path. Generic append cannot admit these records. Writer
+selection/transport integration still require their own exact guarded closure.
+
+Coverage admission checkpoint:43 focused checks passed1.69s. Distinct typed
+coverage authorization names the unique work and complete ordered saved-read set;
+its current mode/context is recognized by build_decision_context.mode_context.
+The verdict must follow the exact acknowledged controller and actual protected
+SDK response bytes; changed work/read set/request/dialogue/vote/producer, hidden
+retry, tie or late acquisition is refused. Unresolved/unknown coverage cannot
+prepare Core; saved_pages_sufficient forbids preparation, and
+native_sources_required preserves the captured-source preparation gate without
+itself granting source IO.
+
+Dedicated service ports authorize_pending_app_coverage/record_pending_app_coverage
+hold the current pointer, leaf, attempt/revision/expiry and exact current App page
+references before/after proof. Existing SDK-entry/outcome ports accept only the
+new exact controller type and recheck those saved references. SDK entry is
+one-shot/non-fresh on duplicate; changed entry refuses. Generic provider/verdict
+append is blocked. Fake transaction controls cover current access changes,
+claim/pointer/strict argument failures, prompt/capture changes, CAS and unknown
+outcomes; they do not prove PostgreSQL rollback/concurrency. The new runtime
+coverage Driver is not yet integrated and no writer selection or sufficiency
+answer is activated. That, native source-needed continuation, current reader
+fence and full-Send/signed-in acceptance remain open.

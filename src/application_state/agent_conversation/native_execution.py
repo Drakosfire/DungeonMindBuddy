@@ -624,11 +624,15 @@ _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelecte
 NATIVE_EXECUTION_EVENT_LIMIT = 2048
 
 
+from .build_pending_app_coverage import (BuildAppCoverageAuthorizedV1, BuildAppCoverageDecidedV1,
+    validate_coverage_authorization, validate_coverage_decision)
+
+
 # App metadata/selected-page records are distinct from native acquisition.
 # Native acquisition/terminal owners still need integration; the pending writer
 # is confined to its admitted retained closure and empty acquired catalog.
 BuildPendingPrefixEventV1 = Annotated[
-    t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | t.ProviderOutcomeEventV1
+    t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
     | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
     | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1,
@@ -665,6 +669,10 @@ class BuildPendingExecutionV1(Strict):
         page_reads = set()
         writer = None
         for event in self.events:
+            if type(event) in (BuildAppPageCatalogObservedV1, BuildAppPageSelectionAuthorizedV1,
+                    t.RelatedPagesSelection, t.RelatedPageRead) and any(
+                    type(prior) is BuildAppCoverageAuthorizedV1 for prior in self.events[:event.sequence]):
+                raise ValueError('App coverage freezes its exact saved-page acquisition')
             if writer is not None and not (type(event) in (t.ProviderOutcomeEventV1, t.CompletionBindingEventV1)
                     and event.provider_attempt_id == writer.provider_attempt_id):
                 raise ValueError('Pending writer closes all further acquisition and dispatch')
@@ -674,6 +682,10 @@ class BuildPendingExecutionV1(Strict):
                     validate_pending_writer_authorization(self, event)
                     writer = event
                     continue
+                elif type(event) is BuildAppCoverageAuthorizedV1:
+                    if settled:
+                        raise ValueError('App coverage cannot follow native source preparation')
+                    validate_coverage_authorization(self, event)
                 elif type(event) is BuildAppPageSelectionAuthorizedV1:
                     if (settled or app_catalog is None or page_selection is not None
                             or event.catalog_event_id != app_catalog.event_id
@@ -690,6 +702,8 @@ class BuildPendingExecutionV1(Strict):
                         or event.included_source_read_event_ids
                         or getattr(event, "included_source_reuse_event_ids", ())):
                     raise ValueError("Pending controller cannot include unacquired source evidence")
+            elif type(event) is BuildAppCoverageDecidedV1:
+                validate_coverage_decision(self, event)
             elif type(event) is t.BuildRequestedWorkResolutionV1:
                 work_selected = True
             elif type(event) is t.CompletionBindingEventV1:

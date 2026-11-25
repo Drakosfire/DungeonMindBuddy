@@ -1595,6 +1595,19 @@ class AgentTurnExecutionPersistencePort(Protocol):
         authorize_current_access: Callable[..., bool],
     ) -> tuple[Turn, bool]: ...
 
+    def authorize_pending_app_coverage(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, authorization: Any,
+        prepared_request_json: str, initial_request_json: str,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def record_pending_app_coverage(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, decision: Any,
+        producer_proof: Mapping[str, Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
     def enter_pending_app_page_sdk(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, outcome: Any,

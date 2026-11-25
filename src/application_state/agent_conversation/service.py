@@ -1749,9 +1749,10 @@ class AgentConversationService:
             from .native_execution import BuildPendingExecutionV1
             from .build_related_pages import RelatedPagesSelection, RelatedPageRead
             from .types import BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1
+            from .build_pending_app_coverage import BuildAppCoverageDecidedV1
             if type(turn.graph_context_execution) is BuildPendingExecutionV1 and isinstance(event, (
                     ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead,
-                    BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1)):
+                    BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1, BuildAppCoverageDecidedV1)):
                 raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
@@ -3268,6 +3269,92 @@ class AgentConversationService:
             raise ApplicationStateValidationError('Pending page selection has no matching initial controller')
         self._validate_pending_prompt(conn, turn, first, initial_request_json)
 
+    def authorize_pending_app_coverage(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, prepared_request_json,
+            initial_request_json, authorize_current_access):
+        """Admit only the exact saved-read assessment, never source/writer authority."""
+        from .build_pending_app_coverage import (BuildAppCoverageAuthorizedV1,
+            pending_app_coverage_reads, validate_coverage_request)
+        world_id = _world_id(world_id)
+        if (type(authorization) is not BuildAppCoverageAuthorizedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or authorization.admitted_from_revision != expected_revision
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('App coverage requires its exact host claim and access owner')
+        try:
+            authorization = BuildAppCoverageAuthorizedV1.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt,
+                replay_event_id=authorization.event_id, replay_event_type=BuildAppCoverageAuthorizedV1)
+            self._validate_pending_initial_prompt(conn, turn, initial_request_json)
+            try:
+                pages = tuple(row.page for row in pending_app_coverage_reads(
+                    turn.graph_context_receipt, turn.graph_context_execution))
+                if authorize_current_access(conn, turn, pages) is not True:
+                    raise ApplicationStateConflictError('Current App access does not authorize coverage')
+                validate_coverage_request(turn.graph_context_receipt, turn.graph_context_execution,
+                    authorization, prepared_request_json, initial_request_json)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during coverage admission')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('App coverage claim expired during admission')
+            prior = [row for row in turn.graph_context_execution.events
+                if isinstance(row, ProviderAttemptAuthorizedEventV1)
+                and (row.event_id == authorization.event_id or row.provider_attempt_id == authorization.provider_attempt_id)]
+            if prior:
+                if len(prior) == 1 and prior[0] == authorization:
+                    return turn, False
+                raise ApplicationStateConflictError('App coverage authorization identity was already used')
+            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+
+    def record_pending_app_coverage(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, decision, producer_proof, authorize_current_access):
+        """Bind a verdict to protected actual SDK output and current exact App reads."""
+        from .build_pending_app_coverage import (BuildAppCoverageDecidedV1,
+            pending_app_coverage_reads, validate_coverage_result)
+        world_id = _world_id(world_id)
+        if (type(decision) is not BuildAppCoverageDecidedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not isinstance(producer_proof, dict) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('App coverage verdict requires its exact proof and claim owner')
+        try:
+            decision = BuildAppCoverageDecidedV1.model_validate_json(decision.model_dump_json())
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            self._validate_pending_initial_prompt(conn, turn, producer_proof.get('initial_request_json'))
+            try:
+                pages = tuple(row.page for row in pending_app_coverage_reads(
+                    turn.graph_context_receipt, turn.graph_context_execution))
+                if authorize_current_access(conn, turn, pages) is not True:
+                    raise ApplicationStateConflictError('Current App access does not authorize the coverage verdict')
+                prior = [row for row in turn.graph_context_execution.events if type(row) is BuildAppCoverageDecidedV1]
+                if prior and (len(prior) != 1 or prior[0] != decision):
+                    raise ApplicationStateConflictError('App coverage verdict was already admitted differently')
+                prefix = turn.graph_context_execution.model_copy(update={
+                    'events': turn.graph_context_execution.events[:decision.sequence]})
+                row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchone()
+                validate_coverage_result(turn.graph_context_receipt, prefix, decision, producer_proof, row[0] if row else None)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during coverage proof')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('App coverage verdict claim expired during proof')
+            if prior:
+                return turn, False
+            return self._append_pending_checked(conn, turn, decision, expected_revision)
+
     def authorize_pending_app_page_selection(self, world_id, conversation_id, turn_id, *,
                                              expected_revision, expected_attempt, authorization,
                                              prepared_request_json, initial_request_json,
@@ -3361,13 +3448,16 @@ class AgentConversationService:
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
             initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
-            if (not initial and type(authorization) is not BuildAppPageSelectionAuthorizedV1
+            from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
+            if (not initial and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1)
                     or authorization is None or outcome.provider_attempt_id != authorization.provider_attempt_id):
                 raise ApplicationStateValidationError('Pending SDK entry lacks its latest admitted Build controller')
             self._validate_pending_prompt(conn, turn, authorization, prepared_request_json)
             catalogs = [event for event in turn.graph_context_execution.events
                         if type(event) is BuildAppPageCatalogObservedV1]
-            if authorize_current_access(conn, turn, None if initial else catalogs[0].pages) is not True:
+            pages = (tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
+                if type(authorization) is BuildAppCoverageAuthorizedV1 else None if initial else catalogs[0].pages)
+            if authorize_current_access(conn, turn, pages) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize SDK entry')
             if turn.claim_expires_at <= repo.database_clock(conn):
                 raise ApplicationStateConflictError('Pending SDK entry claim expired during access validation')
@@ -3438,12 +3528,15 @@ class AgentConversationService:
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
             initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
-            if (not initial and type(authorization) is not BuildAppPageSelectionAuthorizedV1
+            from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
+            if (not initial and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1)
                     or authorization is None or authorization.provider_attempt_id != outcome.provider_attempt_id):
                 raise ApplicationStateValidationError('Pending outcome differs from its latest Build controller')
             catalogs = [event for event in turn.graph_context_execution.events
                         if type(event) is BuildAppPageCatalogObservedV1]
-            if authorize_current_access(conn, turn, None if initial else catalogs[0].pages) is not True:
+            pages = (tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
+                if type(authorization) is BuildAppCoverageAuthorizedV1 else None if initial else catalogs[0].pages)
+            if authorize_current_access(conn, turn, pages) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize pending outcome admission')
             if turn.claim_expires_at <= repo.database_clock(conn):
                 raise ApplicationStateConflictError('Pending outcome claim expired during access validation')

@@ -54,7 +54,8 @@ def mode_context(event):
     if type(event) is t.ProviderAttemptAuthorizedEventV5:
         return event
     from .native_execution import BuildAppPageSelectionAuthorizedV1
-    if type(event) is BuildAppPageSelectionAuthorizedV1:
+    from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1
+    if type(event) in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1):
         return event
     from .native_retrieval import NativeRetrievalAuthorizedV1
     if type(event) is NativeRetrievalAuthorizedV1 and event.build_context is not None:
