@@ -188,4 +188,10 @@ if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1;play=1;media=1
 grep -F 'registry image does not match' "$scratch/stderr"
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1;play=1;media=1;buddy=1;play-buddy=1' TEST_SERVING_PARENT="$rollback" run guest-play-buddy-documents-serving "$template_sha"
 grep -Fx 'guest_play_buddy_enabled=1' "$record"
+rm "$record" "$scratch/tag"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1;play=1;media=1;buddy=1;play-buddy=1' TEST_SERVING_PARENT="$rollback" run guest-build-proposals-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Old Play Buddy image accepted as Build proposals' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1;play=1;media=1;buddy=1;play-buddy=1;build-proposals=1' TEST_SERVING_PARENT="$rollback" run guest-build-proposals-documents-serving "$template_sha"
+grep -Fx 'guest_build_proposals_enabled=1' "$record"
+grep -Fx 'guest_play_buddy_enabled=1' "$record"
 printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'
