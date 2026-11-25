@@ -2641,7 +2641,7 @@ class AgentConversationService:
             expected_revision, expected_attempt, selection, producer_proof, authorize_current_access):
         """Close an empty acquired catalog against actual retained work and trace."""
         from . import types as t
-        from .writer_evidence_selection import validate_selection_proof, native_conversation_terminal
+        from .writer_evidence_selection import validate_selection_proof, native_work_terminal
         if (type(selection) is not t.BuildWriterEvidenceSelectionV2 or selection.mode != 'empty_catalog'
                 or type(expected_revision) is not int or expected_revision < 1
                 or type(expected_attempt) is not int or expected_attempt < 1
@@ -2653,7 +2653,7 @@ class AgentConversationService:
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             if authorize_current_access(conn, turn, None) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize retained writer selection')
-            if (selection.terminal_disposition != native_conversation_terminal(turn)
+            if (selection.terminal_disposition != native_work_terminal(turn)
                     or selection.terminal_disposition is None):
                 raise ApplicationStateValidationError('Pending writer selection has no admitted conversation terminal')
             captured = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',

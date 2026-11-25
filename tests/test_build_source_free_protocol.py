@@ -2563,13 +2563,29 @@ def test_pending_retained_capture_refuses_foreign_history_and_conflicting_duplic
 
 
 @_pending_test_contextmanager
-def pending_writer_runtime_case(monkeypatch):
+def pending_writer_runtime_case(monkeypatch, *, source_free_work=None):
     from types import SimpleNamespace
     from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
     from apps.live_control_server.services.build_jev_writer_selection import WriterSelectionDriver
     from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
     with pending_retained_runtime_case(monkeypatch) as (state, adapter, turns):
-        admit_pending_conversation(adapter)
+        if source_free_work is None:
+            admit_pending_conversation(adapter)
+        else:
+            from application_state.agent_conversation.build_intentional_response import resolution_for, operation_id_for, digest
+            execution = state.turn.graph_context_execution
+            work = execution.events[-1]
+            resolution = resolution_for(execution.policy, source_free_work, source_scope='source_lookup')
+            work = work.model_copy(update={'requested_work': source_free_work,
+                'resolution': resolution, 'intent_family': resolution['intent_family'],
+                'operation': resolution['operation'],
+                'broker_operation_id': operation_id_for(state.turn.turn_id, state.turn.attempt, work.machine_request_id, source_free_work),
+                'arguments_sha256': digest({'instruction': state.turn.user_text} if resolution['operation'] != 'answer_from_sources' else {})})
+            execution = pending_execution(state.turn.graph_context_receipt, execution.policy,
+                [*execution.events[:-1], work])
+            state.turn = t.Turn.model_validate(state.turn.model_copy(update={'graph_context_execution': execution}))
+            adapter.turn = state.turn
+            adapter.fence.renewer.update_turn(state.turn)
         trace = {'world_id': state.turn.world_id, 'conversation_id': str(state.turn.conversation_id),
             'turn_id': str(state.turn.turn_id), 'attempt': state.turn.attempt, 'capture_status': 'recording', 'observations': []}
         def query(sql, args):
@@ -2582,7 +2598,8 @@ def pending_writer_runtime_case(monkeypatch):
         state.writer_trace = trace
         adapter.context_capture = SimpleNamespace(trace=SimpleNamespace(model_dump=lambda **kwargs: trace))
         adapter.last_provider_attempt_id = state.turn.graph_context_execution.events[0].provider_attempt_id
-        terminal = native_conversation_terminal(state.turn)
+        from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
+        terminal = native_work_terminal(state.turn)
         selector = WriterSelectionDriver(adapter, SimpleNamespace(_material=lambda: ((), (), ())), terminal)
         yield state, adapter, selector, turns
 
@@ -2700,12 +2717,12 @@ def test_pending_writer_selection_requires_strict_positive_claim_integers_before
 
 
 @_pending_test_contextmanager
-def pending_rules_runtime_case(monkeypatch):
+def pending_rules_runtime_case(monkeypatch, *, source_free_work=None):
     from types import SimpleNamespace
     from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
     from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
     from application_state.agent_conversation.rules_authority_policy import rules_capability
-    with pending_writer_runtime_case(monkeypatch) as (state, adapter, selector, turns):
+    with pending_writer_runtime_case(monkeypatch, source_free_work=source_free_work) as (state, adapter, selector, turns):
         request_id = str(uuid4())
         adapter.request = SimpleNamespace(turn_id=request_id, surface=SimpleNamespace(surface_id='build'))
         adapter.world_id, adapter.expected_conversation_id = state.turn.world_id, None
@@ -2807,7 +2824,7 @@ def test_pending_rules_runtime_refuses_stale_or_crossed_parent_before_ledger_cre
 
 
 @_pending_test_contextmanager
-def pending_writer_dispatch_case(monkeypatch):
+def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None):
     import asyncio
     import httpx
     from datetime import UTC, datetime
@@ -2821,17 +2838,17 @@ def pending_writer_dispatch_case(monkeypatch):
     from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
     from apps.live_control_server.services import agent_prompt_evidence
     from application_state.agent_conversation.context_trace import TurnContextTraceV1
-    from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+    from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
     from application_state.agent_conversation.native_writer import output_request_fields
     from tests.test_build_jev_estimated_continuations import counter
-    with pending_rules_runtime_case(monkeypatch) as (state, adapter, rules):
+    with pending_rules_runtime_case(monkeypatch, source_free_work=source_free_work) as (state, adapter, rules):
         adapter.budget = {'estimator': state.turn.graph_context_execution.policy.provider_input_accounting.estimator,
             'apiMode': 'typesafe_decision'}
         adapter.trace, adapter.failure = None, None
         adapter._build_jev_accounting = counter()
         rules.frame()
         selector = WriterSelectionDriver(adapter, type('Material', (), {'_material': lambda self: ((), (), ())})(),
-            native_conversation_terminal(state.turn))
+            native_work_terminal(state.turn))
         selector.settle_empty()
         trace = TurnContextTraceV1(trace_id=uuid4(), world_id=state.turn.world_id,
             conversation_id=state.turn.conversation_id, turn_id=state.turn.turn_id, attempt=state.turn.attempt,
@@ -3024,9 +3041,9 @@ def test_pending_writer_actual_serialized_request_omits_host_bindings_and_preser
 
 
 @_pending_test_contextmanager
-def pending_writer_completion_case(monkeypatch):
+def pending_writer_completion_case(monkeypatch, *, source_free_work=None):
     from application_state.agent_conversation import repository
-    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+    with pending_writer_dispatch_case(monkeypatch, source_free_work=source_free_work) as (state, adapter, rules, writer, prepared):
         state.completions = 0
         monkeypatch.setattr(repository, 'lock_turn', lambda conn, world, turn_id: state.turn)
         def complete(conn, **fields):
@@ -3160,3 +3177,67 @@ def test_pending_writer_unbound_source_reference_cannot_become_an_accepted_reply
             asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
         assert len(calls) == 1 and state.completions == 0 and state.materialized == 0
         assert state.turn.completion is None and state.turn.assistant_text is None
+
+
+@pytest.mark.parametrize('label', ['clarify_request', 'clarify_creation', 'review_blank_lore_page'])
+def test_pending_source_free_terminal_settles_writer_without_retained_or_source_acquisition(monkeypatch, label):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+    from application_state.agent_conversation.writer_evidence_selection import native_terminal
+    from application_state.agent_conversation.build_source_free import pending_source_free_terminal
+    with pending_writer_runtime_case(monkeypatch, source_free_work=label) as (state, adapter, selector, turns):
+        terminal = {'status': 'ready', 'reason': 'pending_source_free_' + label}
+        assert native_terminal(state.turn) == terminal
+        selected = selector.settle_empty()
+        assert selected.terminal_disposition == terminal and selected.mode == 'empty_catalog'
+        rules = SimpleNamespace(frame=lambda: PlanRulesEvidenceFrameV1(
+            schema='dmb_plan_rules_evidence_v1', ruleset='synthetic', lookups=(), supports=()), authoring=None)
+        writer = PlanJevWriter(adapter, {}, rules)
+        assert writer.shared and writer.messages
+        assert state.retained_reads == 0 and state.materialized == 0 and state.persisted == 1
+        execution = state.turn.graph_context_execution
+        # An unacknowledged response cannot become a source-free terminal.
+        changed = list(execution.events)
+        changed[2] = changed[2].model_copy(update={'outcome': 'outcome_unknown'})
+        assert pending_source_free_terminal(execution.model_copy(update={'events': tuple(changed)})) is None
+        from tests.test_build_source_free_routing import pending_settlement
+        acquired = pending_settlement(state.turn.graph_context_receipt, execution.policy,
+            next(row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1))
+        assert pending_source_free_terminal(execution.model_copy(update={'events': (*execution.events, acquired)})) is None
+        # Stored selection cannot claim another source-free outcome.
+        altered = selected.model_copy(update={'terminal_disposition': {'status': 'ready', 'reason': 'invented'}})
+        with pytest.raises(ValueError, match='source-free work terminal'):
+            from application_state.agent_conversation.build_source_free import validate_pending_empty_writer_selection
+            validate_pending_empty_writer_selection(execution, altered)
+        # No label shortcut for factual lookup/discussion work.
+        assert pending_source_free_terminal(execution.model_copy(update={'events': tuple(
+            row.model_copy(update={'requested_work': 'discuss'})
+            if type(row) is t.BuildRequestedWorkResolutionV1 else row for row in execution.events)})) is None
+        work = next(row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1)
+        forged = work.model_copy(update={'resolution': work.resolution | {'barrier': 'invented'}})
+        with pytest.raises(ValueError, match='frozen response contract'):
+            pending_source_free_terminal(execution.model_copy(update={'events': tuple(
+                forged if row.event_id == work.event_id else row for row in execution.events)}))
+
+
+@pytest.mark.parametrize('label', ['clarify_request', 'clarify_creation', 'review_blank_lore_page'])
+def test_pending_source_free_real_sdk_completion(monkeypatch, label):
+    import asyncio
+    import httpx
+    calls = []
+    def respond(request):
+        calls.append(json.loads(request.content))
+        candidate = {'answer_segments': [{'kind': 'discussion', 'text': 'What should this new page describe?'}], 'limitations': []}
+        if 'collaboration' in calls[-1]['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_source_free', 'object': 'response',
+            'created_at': 1, 'model': calls[-1]['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_source_free', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    with pending_writer_completion_case(monkeypatch, source_free_work=label) as (state, adapter, rules, writer, prepared):
+        completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert completed.status == 'completed' and state.completions == 1 and len(calls) == 1
+        assert state.retained_reads == 0 and state.materialized == 0
+        row, references = stored_row(completed)
+        assert repository._turn_from_row(None, row, references=references) == completed

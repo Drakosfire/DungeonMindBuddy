@@ -369,6 +369,12 @@ def native_conversation_terminal(turn):
     return {"status": "ready", "reason": reason}
 
 
+def native_work_terminal(turn):
+    from .build_source_free import pending_source_free_terminal
+    return (native_approval_terminal(turn) or native_conversation_terminal(turn)
+        or pending_source_free_terminal(turn.graph_context_execution))
+
+
 def native_terminal(turn, *, before_sequence=None):
     from .native_retrieval import current_selection
     if not native_build(turn):
@@ -376,7 +382,7 @@ def native_terminal(turn, *, before_sequence=None):
     if before_sequence is not None:
         turn = turn.model_copy(update={'graph_context_execution': turn.graph_context_execution.model_copy(
             update={'events':turn.graph_context_execution.events[:before_sequence]})})
-    approval_terminal = native_approval_terminal(turn) or native_conversation_terminal(turn)
+    approval_terminal = native_work_terminal(turn)
     if approval_terminal is not None:
         return approval_terminal
     if current_selection(turn).operation != 'finish_retrieval':
@@ -450,7 +456,7 @@ def validate_selection_proof(turn, selection, trace, proof):
     if selection.mode == "empty_catalog":
         if catalog or proof:
             raise ValueError("Empty catalog settlement cannot manufacture a provider response")
-        scoped_terminal = native_approval_terminal(turn) or native_conversation_terminal(turn)
+        scoped_terminal = native_work_terminal(turn)
         if native_build(turn) and (scoped_terminal is not None
                 or selection.terminal_disposition.get("reason") in {
                     "native_variant_approval_requires_no_retrieval", "native_lore_page_from_conversation",

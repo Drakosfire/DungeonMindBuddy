@@ -556,9 +556,9 @@ class BuildJevHarness:
         # dialogue resolves follow-up references; it is never source evidence.
         dialogue = tuple({'role': role, 'content': pair[role]}
             for pair in adapter.build_frozen_history for role in ('user', 'assistant'))
-        from application_state.agent_conversation.writer_evidence_selection import native_approval_terminal, native_conversation_terminal
+        from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
 
-        terminal = native_approval_terminal(adapter.turn) or native_conversation_terminal(adapter.turn)
+        terminal = native_work_terminal(adapter.turn)
         retrieval = None
         writer = None
         try:

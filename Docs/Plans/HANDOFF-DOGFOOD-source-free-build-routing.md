@@ -841,3 +841,28 @@ call and no acquisition are asserted. This proves retained reply mechanics, not
 real SQL rollback/concurrency, signed-in app acceptance, page review/create/save,
 source-backed writer coverage or current HTTP/UI reader compatibility. Those
 remain required for the full objective and before PR merge/deployment.
+
+
+## Pending source-free terminal continuation
+
+ACTIVE within this same serial PR. Extend only pending terminal classification,
+empty writer selection and writer authorization to exact acknowledged
+clarify_request, clarify_creation and review_blank_lore_page decisions. The
+existing semantic resolver, capabilities and writer grammar remain authoritative.
+No acquired evidence may be present. Functions leased: new
+pending_source_free_terminal; pending validators; native terminal/selection
+classification; pending service selection; BuildJevHarness._native_completion
+terminal expression; focused protocol tests. Validate positive selection/writer
+paths and unresolved/changed work/acquisition failures; no broad suites.
+
+Source-free terminal continuation evidence:20 focused controls passed3.80s.
+Three exact acknowledged labels now reach empty writer selection, real writer
+input, actual GenerationEngine/OpenAI SDK dispatch and final stored completion
+without retained capture or source preparation. The blank-page fixture lacks
+review capability and therefore proves the truthful capability-barrier reply,
+not creation of a blank page. Existing compact/pretty retained replies and
+selection access/claim/proof failures remain covered. Unknown controller outcomes,
+changed semantic contracts, acquired source settlement, forged terminal and
+factual-lookup substitution are refused. Synthetic HTTP/fake App evidence is not
+SQL, actual Jev selection, page review/create or signed-in acceptance. Those gates
+and current strict API/UI readers/source-backed completion remain open.

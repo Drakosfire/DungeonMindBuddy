@@ -500,6 +500,35 @@ def validate_pending_retained_admission(execution, event):
         raise ValueError('Pending retained context requires unique source-free conversation work')
 
 
+def pending_source_free_terminal(execution):
+    """Exact acknowledged non-evidence work; never a substitute for a lookup."""
+    from . import types as t
+    from .native_execution import (BuildPendingExecutionV1, NativeBuildSourceSettledV1,
+        BuildAppPageCatalogObservedV1, native_read_event_ids)
+    from .build_intentional_response import validate_resolution_metadata
+    if type(execution) is not BuildPendingExecutionV1:
+        return None
+    work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
+    if len(work) != 1 or work[0].requested_work not in {
+            'clarify_request', 'clarify_creation', 'review_blank_lore_page'}:
+        return None
+    work = work[0]
+    validate_resolution_metadata(work, execution.policy)
+    controllers = [row for row in execution.events[:work.sequence]
+        if isinstance(row, t.ProviderAttemptAuthorizedEventV3)]
+    outcomes = [row.outcome for row in execution.events[:work.sequence]
+        if type(row) is t.ProviderOutcomeEventV1 and row.provider_attempt_id == work.controller_attempt_id]
+    if (not controllers or controllers[-1].provider_attempt_id != work.controller_attempt_id
+            or controllers[-1].envelope_sha256 != work.controller_envelope_sha256
+            or outcomes[-1:] != ['response_received']
+            or native_read_event_ids(execution.events)
+            or any(type(row) in (NativeBuildSourceSettledV1, BuildAppPageCatalogObservedV1,
+                    t.RelatedPagesSelection, t.RelatedPageRead)
+                or isinstance(row, t.BuildPriorBodyEvidenceAdmittedV1) for row in execution.events)):
+        return None
+    return {'status': 'ready', 'reason': 'pending_source_free_' + work.requested_work}
+
+
 def validate_pending_empty_writer_selection(execution, event):
     from . import types as t
     from .writer_evidence_selection import NATIVE_POLICY, close_selection, digest
@@ -512,9 +541,13 @@ def validate_pending_empty_writer_selection(execution, event):
             or event.judgments or event.controller_response_sha256 is not None or latest is None
             or latest.provider_attempt_id != event.controller_attempt_id
             or latest.envelope_sha256 != event.controller_envelope_sha256 or outcomes[-1:] != ['response_received']
-            or not any(type(prior) is t.BuildPriorBodyEvidenceAdmittedV3 for prior in prefix)
+            or not (any(type(prior) is t.BuildPriorBodyEvidenceAdmittedV3 for prior in prefix)
+                or pending_source_free_terminal(execution.model_copy(update={'events': prefix})))
             or any(isinstance(prior, t.BuildWriterEvidenceSelectionV1) for prior in prefix)):
-        raise ValueError('Pending empty writer selection requires its acknowledged retained context')
+        raise ValueError('Pending empty writer selection requires acknowledged source-free work or retained context')
+    terminal = pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
+    if terminal is not None and event.terminal_disposition != terminal:
+        raise ValueError('Pending empty selection differs from its source-free work terminal')
     for field, expected in close_selection({}, {}).items():
         if list(getattr(event, field)) != expected:
             raise ValueError('Pending empty selection cannot manufacture acquired evidence')
@@ -540,7 +573,8 @@ def validate_pending_writer_authorization(execution, event):
     selected = [row for row in prefix if type(row) is t.BuildWriterEvidenceSelectionV2]
     if (type(event) is not NativeBuildWriterAuthorizedV2 or len(selected) != 1
             or selected[0].mode != 'empty_catalog'
-            or not any(type(row) is t.BuildPriorBodyEvidenceAdmittedV3 for row in prefix)
+            or not (any(type(row) is t.BuildPriorBodyEvidenceAdmittedV3 for row in prefix)
+                or pending_source_free_terminal(execution.model_copy(update={'events': prefix})))
             or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.writer.identity()
             or event.native_read_event_ids != native_read_event_ids(prefix)
             or any(type(row) is NativeBuildWriterAuthorizedV2 for row in prefix)
@@ -549,7 +583,7 @@ def validate_pending_writer_authorization(execution, event):
             or getattr(event, 'included_source_reuse_event_ids', ())
             or event.compact_plan_editor_prose or event.compact_plan_graph_qualifications
             or event.deduplicate_plan_recap_prose):
-        raise ValueError('Pending writer requires its one exact retained work and read inclusion')
+        raise ValueError('Pending writer requires exact source-free or retained work and read inclusion')
 
 
 def validate_pending_completion_binding(execution, event):
