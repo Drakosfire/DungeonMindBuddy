@@ -832,6 +832,10 @@ async def resolve_hosted_combat_encounter(request: Request) -> str:
 
 
 def require_combat_encounter_access(request: Request, world_id: str) -> None:
+    if getattr(request.state, "guest_build_world", None) == world_id:
+        from apps.live_control_server.services.guest_build_access import require_guest_build_world
+        require_guest_build_world(request, world_id)
+        return
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
         enforce_native_graph_gm(request)
         return

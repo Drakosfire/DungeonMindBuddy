@@ -43,9 +43,9 @@ def list_world_combat_encounters(*, world_id: str) -> list[AnyCombatRecord]:
 
 
 def create_world_combat_encounter(
-    *, world_id: str, request: AnyCreateEncounterRequest
+    *, world_id: str, request: AnyCreateEncounterRequest, guest_guard=None
 ) -> AnyCombatRecord:
-    return encounter_state.create_encounter(world_id=world_id, request=request)
+    return encounter_state.create_encounter(world_id=world_id, request=request, **({"guest_guard": guest_guard} if guest_guard is not None else {}))
 
 
 def get_world_combat_encounter(
@@ -64,7 +64,7 @@ def get_world_combat_corpus_sheet(*, world_id: str, encounter_id: str, participa
 
 
 def save_world_combat_encounter(
-    *, world_id: str, encounter_id: str, request: AnySaveEncounterRequest, scope=None, authorize=None
+    *, world_id: str, encounter_id: str, request: AnySaveEncounterRequest, scope=None, authorize=None, guest_guard=None
 ) -> AnyCombatRecord:
     before = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id, scope=scope)
     if before.revision != request.expected_revision:
@@ -156,6 +156,7 @@ def save_world_combat_encounter(
             request=type(request)(expected_revision=request.expected_revision, draft=verified_draft),
             verified_world_identities=verified, verified_mechanics_snapshots=verified_snapshots, scope=scope,
             **({"authorize": authorize} if authorize is not None else {}),
+            **({"guest_guard": guest_guard} if guest_guard is not None else {}),
         )
 
 

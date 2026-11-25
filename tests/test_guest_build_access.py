@@ -1846,3 +1846,73 @@ def test_guest_saved_content_limits_are_atomic_across_documents(guests, monkeypa
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda packet: client.post("/api/live/tiptap/markdown-write/commit", headers=headers, json=packet), packets))
     assert sorted(response.status_code for response in results) == [200, 409]
+
+
+def test_guest_combat_tracker_scopes_encounters_and_reset(guests, monkeypatch):
+    from apps.live_control_server.routes import combat_encounters
+    contexts, _, _ = guests
+    (first, csrf, world), (other, other_csrf, other_world) = contexts
+    first.app.include_router(combat_encounters.router)
+    monkeypatch.setattr(combat_encounters, '_verified_world', lambda value: value)
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_ENABLED', '1')
+    root = '/api/live/combat/encounters'
+    headers = {'X-DMB-Index-Graph-CSRF': csrf}
+    assert first.get(root, params={'world_id': world}).json() == []
+    assert first.post(root, params={'world_id': world}, json={'title': 'Guest fight', 'ruleset_id': 'dnd5e.manual-tracking'}).status_code == 403
+    made = first.post(root, params={'world_id': world}, headers=headers, json={'title': 'Guest fight', 'ruleset_id': 'dnd5e.manual-tracking'})
+    assert made.status_code == 200, made.text
+    encounter = made.json(); ident = encounter['encounter_id']
+    assert first.get(root, params={'world_id': world}).json()[0]['encounter_id'] == ident
+    assert other.get(root, params={'world_id': other_world}).json() == []
+    assert other.get(f'{root}/{ident}', params={'world_id': world}).status_code == 403
+    assert other.get(f'{root}/{ident}', params={'world_id': other_world}).status_code == 404
+    draft = dict(encounter['draft']); draft['title'] = 'Updated fight'
+    saved = first.put(f'{root}/{ident}', params={'world_id': world}, headers=headers, json={'expected_revision': encounter['revision'], 'draft': draft})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()['draft']['title'] == 'Updated fight'
+    assert first.put(f'{root}/{ident}', params={'world_id': world}, headers=headers, json={'expected_revision': encounter['revision'], 'draft': draft}).status_code == 409
+    assert first.get(root, params=[('world_id', world), ('world_id', other_world)]).status_code in (400, 403)
+    assert first.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+    assert first.get(f'{root}/{ident}', params={'world_id': world}).status_code in (401, 403)
+    assert other.get(root, params={'world_id': other_world}).json() == []
+
+
+def test_guest_combat_capacity_and_reset_serialization(guests, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from apps.live_control_server.routes import combat_encounters
+    from apps.live_control_server.services import guest_build_access
+    (client, csrf, world), _ = guests[0]
+    client.app.include_router(combat_encounters.router)
+    monkeypatch.setattr(combat_encounters, '_verified_world', lambda value: value)
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_ENABLED', '1')
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_COMBAT_ENCOUNTERS', 1)
+    headers = {'X-DMB-Index-Graph-CSRF': csrf}
+    root = '/api/live/combat/encounters'
+    body = {'title': 'Guest fight', 'ruleset_id': 'dnd5e.manual-tracking'}
+    made = client.post(root, params={'world_id': world}, headers=headers, json=body)
+    assert made.status_code == 200, made.text
+    assert client.post(root, params={'world_id': world}, headers=headers, json=body).status_code == 409
+    entered, release = Event(), Event()
+    original = guest_build_access.guest_combat_capacity
+    def holding(request, conn, world_id, *, creating):
+        original(request, conn, world_id, creating=creating)
+        if not creating:
+            entered.set()
+            assert release.wait(15)
+    monkeypatch.setattr(guest_build_access, 'guest_combat_capacity', holding)
+    saved = made.json(); draft = dict(saved['draft']); draft['title'] = 'Last update'
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = pool.submit(client.put, f"{root}/{saved['encounter_id']}", params={'world_id': world}, headers=headers,
+                              json={'expected_revision': saved['revision'], 'draft': draft})
+        try:
+            assert entered.wait(15)
+            reset = pool.submit(client.post, '/api/live/index-graph/reset', headers=headers)
+            import time
+            time.sleep(.2)
+            assert not reset.done()
+        finally:
+            release.set()
+        assert pending.result(timeout=15).status_code in (200, 403)
+        assert reset.result(timeout=15).status_code == 200
+    assert client.get(root, params={'world_id': world}).status_code in (401, 403)
