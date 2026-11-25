@@ -62,11 +62,20 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Step through Buddy's work](Docs/Backlog/IDEA-conversation-search-replay.md) | Merged local replay mechanisms; retain hosted and broader trace acceptance gaps. |
 | [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Draft/variant/link/Combat mechanisms merged; ordinary live qualification remains open. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
+| [Delete the current Build page](#idea-delete-the-current-build-page--captured-2026-11-19) | Verify the existing direct deletion controls on hosted Build. |
 | [Deeper Build document hierarchy](Docs/Backlog/IDEA-build-document-hierarchy.md) | Retain only if dogfood shows a navigation gap after the merged picker and recap browser. |
 | [Independent source archive and restore](#deferred-define-independent-source-artifact-archive-and-restore) | Define what discovery and old citations do before designing controls. |
 | [Background relationship suggestions](#deferred-background-suggestions-for-missing-world-graph-relationships) | One opt-in, source-backed suggested relationship with duplicate suppression. |
 | [Create a campaign inside an existing World](#deferred-create-a-campaign-inside-an-existing-world) | Define membership ownership and prove ordinary scoped creation. |
 | [Propose edits to a related page](#deferred-propose-edits-to-an-existing-related-page-from-the-current-workspace) | Target one existing passage without leaving or corrupting the current draft. |
+
+## [IDEA] Delete the current Build page — captured 2026-11-19
+
+**Context:** Current source provides direct controls to trash a saved Build page and delete a saved statblock from Build. Hosted behavior still needs a direct witness.
+
+**Action:** On a disposable hosted World, check the direct controls from the open item and confirm the return to Build after deletion.
+
+**Exit proof:** Open a saved page and a saved statblock in Build, then delete each directly from its navbar without opening the picker. Verify the correct item is removed and check page restoration through World Trash. Record statblock deletion behavior separately.
 
 ## [IDEA] Delightful Buddy landing page — captured 2026-11-16
 
