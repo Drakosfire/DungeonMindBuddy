@@ -128,7 +128,8 @@ def test_stored_anchored_discussion_reopens_retained_native_citation(lane, tmp_p
     from application_state.agent_conversation.native_corpus import acquired_body_reads, resolve_retained_body_citation
     from application_state.agent_conversation.service import AgentConversationService
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
-    from apps.live_control_server.services import native_graph_reads, build_related_pages
+    from apps.live_control_server.services import (native_graph_reads, build_related_pages,
+        native_authored_references, plan_source_turn, native_source_inspection)
 
     monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **kwargs: lane.repo)
     synthesis = 'Recap the earlier saved source and cite it. Do not search again.'
@@ -145,9 +146,20 @@ def test_stored_anchored_discussion_reopens_retained_native_citation(lane, tmp_p
         raise AssertionError('Anchored follow-up attempted new acquisition')
     with monkeypatch.context() as guard:
         guard.setattr(native_graph_reads, 'prepare_query', forbidden)
+        guard.setattr(native_graph_reads, 'read_selected', forbidden)
+        guard.setattr(native_graph_reads, 'read_authored_reference', forbidden)
+        guard.setattr(build_related_pages, 'discover', forbidden)
+        guard.setattr(build_related_pages, 'materialize', forbidden)
         guard.setattr(build_related_pages, 'acquire_selected_pages', forbidden)
+        guard.setattr(native_corpus_source, 'prepare_native_source_context', forbidden)
         guard.setattr(native_corpus_source, 'open_native_corpus_member', forbidden)
         guard.setattr(native_corpus_source, 'read_native_corpus_member', forbidden)
+        guard.setattr(native_corpus_source, 'read_authored_source', forbidden)
+        guard.setattr(native_corpus_source, 'read_direct_native_source', forbidden)
+        guard.setattr(native_authored_references, 'read_authored_reference', forbidden)
+        guard.setattr(native_authored_references, 'read_authored_source', forbidden)
+        guard.setattr(plan_source_turn, 'prepare_native_source_context', forbidden)
+        guard.setattr(native_source_inspection, 'prepare_native_source_context', forbidden)
         turn_id = uuid4()
         response = case.client.post('/api/live/agent/turn', json=case.request | {
             'turn_id': str(turn_id), 'message': synthesis})

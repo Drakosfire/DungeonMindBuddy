@@ -1,0 +1,5 @@
+# Intent-first acquisition owner guards
+
+Status: ACTIVE. User-authorized serial test-only follow-up to #4778, based on the current `codex/sizzek-play-edit-base`; write set is this file and `tests/test_build_retained_conversation.py`. It expands the existing ordinary stored follow-up case to guard the named related-page catalog, Graph query/read, and native source preparation/read owners. No runtime behavior changes.
+
+The focused mock-provider case passed in one evaluator-owned App clone and an in-memory Core; its exact citation reopened and the clone was dropped and verified absent. Evidence: `out/intent-first-verification/acquisition-alias-ik03kzak/result.txt` and `owned-app.json`. The invocation is a direct test-function call; source identity is established by the committed test blob after the run, not automatically captured during it. The known imported aliases in native authored references, Plan source and source inspection, and related-page materialization are also guarded. Other acquisition owners and live traffic remain unobserved. A shell quoting error before evaluator connection was corrected; it did not create a clone or call a provider.
