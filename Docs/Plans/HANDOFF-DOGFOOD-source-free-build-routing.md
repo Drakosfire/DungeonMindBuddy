@@ -209,6 +209,8 @@ explicit adapter/initial-driver branches currently being implemented:
   and pending initial-driver selection only.
 - build_jev_harness.configured_budget: host-only defer_related_pages option;
   _decide: exact pending-policy received-response capture before work validation.
+  _native_completion: pending App acquisition call before native retrieval only.
+  New build_pending_app_pages.py owns that App-only runtime phase.
   No other harness behavior or whole-file reservation.
 - plan_source_turn.freeze_build: optional pending branch and _freeze_pending_build
   helper only. Plan/Play factories and shared historical composition are free.
@@ -614,3 +616,23 @@ World authorizer and GM principal, or the exact retained pending codec. Preserve
 legacy/Plan/Play and explicit-reference paths; retained pending observations are
 never refreshed. This draft wiring is not release activation: downstream later
 phases/writer/readers/fence and focused full-Send/app proof remain incomplete.
+
+
+## Pending App runtime connection checkpoint
+
+The new build_pending_app_pages owner is called by _native_completion before
+native retrieval. It captures App metadata only after admitted evidence-seeking
+work, reuses an existing catalog, and sends the exact frozen dialogue plus local
+page aliases through the real SDK and dedicated App admission/lifecycle owners.
+Actual captured SDK choices precede public exact saved-page materialization;
+re-entry reuses the one selection/read and cannot redispatch unresolved delivery.
+Anchored discussion, blank pages and clarification do not enter this acquisition
+phase. This is the same serial capability, with no new source grant or Core IO.
+
+Focused working diagnostics: 12 App-runtime controls passed2.70s using real SDK
+preparation/transport gate, claim fence, collector and service methods with fake
+App storage and a synthetic transport. They cover fresh/empty/retained metadata,
+read/skip, full60-turn input, no host page identity in model input, revocation,
+uncertain delivery, re-entry and source-free exits. These are not PostgreSQL,
+full-Send, writer/terminal or signed-in acceptance evidence. Those remain required
+before merge and activation, along with the current serving reader fence.

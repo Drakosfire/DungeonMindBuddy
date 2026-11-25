@@ -2024,3 +2024,175 @@ def test_pending_harness_captures_actual_received_response_before_work_validatio
     else:
         asyncio.run(harness._decide(adapter, Driver()))
         assert order == ['received', 'capture', 'validate', 'closed']
+
+
+@_pending_test_contextmanager
+def pending_app_runtime_case(monkeypatch):
+    from types import SimpleNamespace, MethodType
+    from datetime import UTC, datetime
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence, _PolicyExecutionAdapter
+    from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+    from application_state.agent_conversation.context_trace import TurnContextTraceV1
+    from apps.live_control_server.services import agent_prompt_evidence
+    from tests.test_build_jev_estimated_continuations import counter
+    state, _, _, _ = pending_page_dispatch_harness(monkeypatch)
+    state.trace = TurnContextTraceV1(trace_id=uuid4(), world_id=state.turn.world_id,
+        conversation_id=state.turn.conversation_id, turn_id=state.turn.turn_id, attempt=1,
+        started_at=datetime.now(UTC), execution_start_sequence=0, observations=[state.prompt])
+    def query(sql, args):
+        if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+            return state.leaf_query(sql, args)
+        payload = state.trace.model_dump(mode='json', by_alias=True)
+        if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s':
+            assert args == (state.turn.turn_id, state.turn.attempt)
+            return SimpleNamespace(fetchone=lambda: (payload,))
+        assert sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s'
+        assert args == (state.turn.turn_id,)
+        return SimpleNamespace(fetchall=lambda: [(payload,)])
+    state.conn.execute = query
+    def append_observation(*, observation, **binding):
+        assert binding['expected_revision'] == state.turn.revision
+        state.trace = TurnContextTraceV1.model_validate(state.trace.model_copy(update={
+            'observations': [*state.trace.observations, observation]}))
+        return state.trace
+    monkeypatch.setattr(state.service, 'append_context_trace', append_observation)
+    def store(raw, *, digest, size):
+        assert hashlib.sha256(raw.encode()).hexdigest() == digest and len(raw.encode()) == size
+        return uuid4()
+    import hashlib
+    monkeypatch.setattr(agent_prompt_evidence, 'store_prompt', store)
+    monkeypatch.setattr(agent_prompt_evidence, 'read_prompt', lambda ref: state.initial_request)
+    fence = _ClaimFence(state.service, state.turn, pending_build_access=state.authorize)
+    adapter = SimpleNamespace(turn=state.turn, fence=fence, failure=None, trace=None,
+        pending_build_access=state.authorize, rules_runtime=None,
+        budget={'apiMode': 'typesafe_decision'}, _build_jev_accounting=counter(),
+        request=SimpleNamespace(build_draft_context=None),
+        last_provider_attempt_id=state.turn.graph_context_execution.events[0].provider_attempt_id)
+    adapter._broker_receipt = lambda: fence.turn.graph_context_receipt
+    adapter._broker_execution = lambda: fence.turn.graph_context_execution
+    adapter._is_build_turn = lambda: True
+    for name in ('record_prepared_build_decision', 'record_lifecycle', '_capture_prepared_prompt'):
+        setattr(adapter, name, MethodType(getattr(_PolicyExecutionAdapter, name), adapter))
+    adapter.context_capture = ContextTraceCollector(fence, initial_trace=state.trace)
+    try:
+        yield state, adapter
+    finally:
+        fence.stop()
+
+
+@pytest.mark.parametrize('choice', ['read', 'skip'])
+@pytest.mark.parametrize('catalog_state', ['retained', 'fresh', 'empty'])
+def test_pending_app_runtime_real_sdk_admits_actual_choice_and_reads_only_selected_snapshot(monkeypatch, choice, catalog_state):
+    import asyncio
+    import httpx2
+    from hashlib import sha256
+    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from apps.live_control_server.services import build_related_pages
+    from application_state.agent_conversation.build_related_pages import RelatedPageRead, RelatedPagesSelection
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY', 'synthetic-only')
+    calls, bodies = [], []
+    class Transport(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            body = json.loads(request.content)
+            calls.append(body)
+            return httpx2.Response(200, request=request, json={'model': body['model'],
+                'usage': {'input_tokens': 23, 'output_tokens': 4}, 'answers': {
+                    key: {'type': 'choice', 'choice': choice, 'confidence': 1,
+                        'probabilities': {'read': float(choice == 'read'), 'skip': float(choice == 'skip')}}
+                    for key in body['questions']}})
+    with pending_app_runtime_case(monkeypatch) as (state, adapter):
+        page = state.turn.graph_context_execution.events[-1].pages[0]
+        def materialize(pointer):
+            assert pointer == page
+            bodies.append(pointer.document_id)
+            text = 'The saved page describes Ethel and the dream password.'
+            return dict(pointer.model_dump(mode='json'), content_sha256=sha256(text.encode()).hexdigest(), markdown=text)
+        monkeypatch.setattr(build_related_pages, 'materialize', materialize)
+        discoveries = []
+        def discover(request):
+            assert request is adapter.request
+            discoveries.append(request)
+            return [] if catalog_state == 'empty' else [page.model_dump(mode='json')]
+        if catalog_state == 'retained':
+            monkeypatch.setattr(build_related_pages, 'discover', lambda request: pytest.fail('Retained catalog rediscovered'))
+        else:
+            execution = state.turn.graph_context_execution
+            execution = type(execution).model_validate_json(execution.model_copy(update={
+                'events': execution.events[:-1]}).model_dump_json(by_alias=True))
+            state.turn = t.Turn.model_validate(state.turn.model_copy(update={'graph_context_execution': execution}))
+            adapter.fence.renewer.update_turn(state.turn)
+            monkeypatch.setattr(build_related_pages, 'discover', discover)
+
+        harness = BuildJevHarness(decision_transport=Transport())
+        harness.adapter, harness.calls, harness.timings, harness._inflight = adapter, [], [], {}
+        asyncio.run(acquire_pending_app_pages(adapter, harness))
+        assert len(discoveries) == (0 if catalog_state == 'retained' else 1)
+        if catalog_state == 'empty':
+            assert not calls and not bodies and state.materialized == 0
+            asyncio.run(acquire_pending_app_pages(adapter, harness))
+            assert len(discoveries) == 1 and not calls and not bodies
+            return
+        assert len(calls) == 1 and len(calls[0]['state']['history']) == 60
+        assert str(page.document_id) not in json.dumps(calls[0])
+        selected, = [event for event in state.turn.graph_context_execution.events if type(event) is RelatedPagesSelection]
+        assert selected.document_ids == ([page.document_id] if choice == 'read' else [])
+        assert bodies == selected.document_ids
+        assert len([event for event in state.turn.graph_context_execution.events if type(event) is RelatedPageRead]) == len(bodies)
+        asyncio.run(acquire_pending_app_pages(adapter, harness))
+        assert len(calls) == 1 and bodies == selected.document_ids
+        assert state.materialized == 0
+
+
+@pytest.mark.parametrize('failure', ['access', 'unknown'])
+def test_pending_app_runtime_denied_or_unknown_dispatch_cannot_read_or_resend(monkeypatch, failure):
+    import asyncio
+    import httpx2
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from apps.live_control_server.services import build_related_pages
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY', 'synthetic-only')
+    calls = []
+    with pending_app_runtime_case(monkeypatch) as (state, adapter):
+        class Transport(httpx2.AsyncBaseTransport):
+            async def handle_async_request(self, request):
+                calls.append(request)
+                if failure == 'unknown':
+                    raise httpx2.ReadTimeout('synthetic uncertain delivery', request=request)
+                state.denied = True
+                body = json.loads(request.content)
+                return httpx2.Response(200, request=request, json={'model': body['model'], 'answers': {
+                    key: {'type': 'choice', 'choice': 'read', 'confidence': 1,
+                        'probabilities': {'read': 1.0, 'skip': 0.0}} for key in body['questions']}})
+        monkeypatch.setattr(build_related_pages, 'materialize', lambda page: pytest.fail('Unresolved choice read a page'))
+        monkeypatch.setattr(build_related_pages, 'discover', lambda request: pytest.fail('Retained catalog rediscovered'))
+        harness = BuildJevHarness(decision_transport=Transport())
+        harness.adapter, harness.calls, harness.timings, harness._inflight = adapter, [], [], {}
+        with pytest.raises(GenerationEngineError):
+            asyncio.run(acquire_pending_app_pages(adapter, harness))
+        assert len(calls) == 1 and state.materialized == 0
+        with pytest.raises(GenerationEngineError):
+            asyncio.run(acquire_pending_app_pages(adapter, harness))
+        assert len(calls) == 1 and state.materialized == 0
+
+
+@pytest.mark.parametrize('label,scope', [('discuss', 'anchored'), ('clarify_request', 'uncertain'),
+    ('clarify_creation', 'uncertain'), ('review_blank_lore_page', 'uncertain')])
+def test_pending_app_runtime_does_not_acquire_for_retained_or_source_free_work(label, scope):
+    import asyncio
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+    from tests.test_build_source_free_routing import pending_work_prefix
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    receipt, policy = pending_execution_pair()
+    events = pending_work_prefix(policy, scope=scope)
+    work = events[-1]
+    resolution = resolution_for(policy, label, source_scope=scope)
+    events[-1] = type(work).model_validate(work.model_dump(mode='python') | {
+        'requested_work': label, 'intent_family': resolution['intent_family'],
+        'operation': resolution['operation'], 'resolution': resolution})
+    execution = pending_execution(receipt, policy, events)
+    adapter = SimpleNamespace(_broker_receipt=lambda: receipt, _broker_execution=lambda: execution)
+    # No claim, discovery, controller, source or page-read ports are available.
+    asyncio.run(acquire_pending_app_pages(adapter, object()))
