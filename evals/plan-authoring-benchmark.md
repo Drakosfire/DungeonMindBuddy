@@ -9,7 +9,7 @@ assessment local.
 
 | Action | Strongest verified boundary | Remaining proof |
 | --- | --- | --- |
-| Resolve an ambiguous Build paragraph placement | [Ordinary Build HTTP regression](../tests/test_surface_native_build_ordinary.py) covers the saved question and an inert proposal after the workbook submits the answer with the original request. | Verify the serving build in Chrome, including unchanged editor and saved page before acceptance. |
+| Resolve an ambiguous Build paragraph placement | The [ordinary Build HTTP regression](../tests/test_surface_native_build_ordinary.py) checks that Build conversation saves the inline question and resumes the original request to stage an inert proposal. The [editor regression](../apps/live-control-ui/src/buildSurface/buildComposeBridge.test.ts) exercises Build proposal review after plain Markdown reload discards temporary block IDs. | In the deployed app, verify that the answered request resumes, the proposal reopens at the intended paragraph, and the editor and saved page remain unchanged until acceptance. |
 
 ## Plan authoring and conversation-only cohort
 
