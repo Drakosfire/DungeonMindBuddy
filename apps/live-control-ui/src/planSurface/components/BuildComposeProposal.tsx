@@ -45,9 +45,9 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
     setError(null);
-    if (guestBuildActive() || (!enabled && !readHistory) || !history?.conversation_id) return;
+    if ((guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUILD_PROPOSALS !== "1") || (!enabled && !readHistory) || !history?.conversation_id) return;
     const controller = new AbortController(); let active = true;
-    if (enabled) listPreparedImages(worldId,history.conversation_id,controller.signal)
+    if (enabled && !guestBuildActive()) listPreparedImages(worldId,history.conversation_id,controller.signal)
       .then(values=>{if(active)setImageRecords({scope,values});})
       .catch(()=>{if(active)setError('Earlier image directions could not be loaded.');});
     listBuildProposals(worldId, history.conversation_id, controller.signal)

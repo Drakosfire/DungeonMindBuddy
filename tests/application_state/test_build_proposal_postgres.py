@@ -878,3 +878,22 @@ def test_image_move_review_consumes_once_and_confirms_only_exact_protected_save(
     assert store.confirm(world, action, claim, authorize=admitted) == confirmed
     assert store.claim(world, action, opened.revision, claim, editor, after, authorize=admitted) == (confirmed, False)
     assert pages.committed_page(document, world_id=world).presentation == projected
+
+
+def test_proposal_transaction_hooks_authorize_and_roll_back(reservation):
+    seen = []
+    def authorize(_conn, *, read_only):
+        seen.append(('authorize', read_only))
+    def reject(_conn):
+        seen.append(('validate', False))
+        raise ApplicationStateConflictError('guest quota exceeded')
+
+    store = BuildProposalService(authorize_transaction=authorize, validate_transaction=reject)
+    with pytest.raises(ApplicationStateConflictError, match='guest quota exceeded'):
+        store.reserve(reservation)
+    assert seen == [('authorize', False), ('validate', False)]
+    with pytest.raises(ApplicationStateNotFoundError):
+        BuildProposalService().get(reservation.basis.world_id, reservation.idempotency_key)
+    with pytest.raises(ApplicationStateNotFoundError):
+        store.get(reservation.basis.world_id, reservation.idempotency_key)
+    assert seen[-1] == ('authorize', True)
