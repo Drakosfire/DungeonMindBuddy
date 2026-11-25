@@ -99,6 +99,11 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
             raise SourcePassageOpenError('native_body_completion_unavailable', 404)
         turn = turn.base_projection.turn
     from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+    pending = (type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+        and type(turn.graph_context_execution) is BuildPendingExecutionV1
+        and type(turn.completion) is SurfaceNativeCompletionV1)
     shared = (type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
         and type(turn.completion) is SurfaceNativeCompletionV1)
     legacy = (isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1)
@@ -108,8 +113,15 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
         and isinstance(turn.completion, t.SurfaceEvidenceCompletionV5)
         and turn.completion.surface_id == 'play')
     if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
-            or not (shared or legacy or play)):
+            or not (shared or pending or legacy or play)):
         raise SourcePassageOpenError('native_body_completion_unavailable', 404)
+    pending_source = None
+    if pending:
+        try:
+            from application_state.agent_conversation.build_source_free import effective_pending_source
+            pending_source = effective_pending_source(turn.graph_context_receipt, turn.graph_context_execution)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise SourcePassageOpenError('native_body_access_unavailable', 409) from exc
     if citation_index >= len(turn.completion.native_body_citations):
         raise SourcePassageOpenError('native_body_not_found', 404)
     citation = turn.completion.native_body_citations[citation_index]
@@ -144,8 +156,6 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
         catalog, section, expected_text = resolve_retained_body_citation(
             turn.graph_context_execution, citation,
         )
-        authority = (turn.graph_context_receipt.authored_source_context.authority
-            if play else turn.graph_context_receipt.source_authority)
         from application_state.agent_conversation.retained_conversation import native_supports
         retained = [support for support in native_supports(turn.graph_context_execution)
                     if support.read.event_id == citation.read_event_id]
@@ -153,6 +163,13 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
             if len(retained) != 1 or retained[0].catalog != catalog:
                 raise ValueError('Retained citation has ambiguous original authority')
             authority = catalog.authority
+        elif pending:
+            if pending_source is None:
+                raise ValueError('Pending citation lacks its settled source authority')
+            authority = pending_source[0]
+        else:
+            authority = (turn.graph_context_receipt.authored_source_context.authority
+                if play else turn.graph_context_receipt.source_authority)
         prepared = prepare_native_source_context(managed_world_id=authority.managed_world_id,
             principal=principal, revision_id=authority.revision_id, repository=repository,
             resolve_identity=resolve_identity)
