@@ -569,7 +569,7 @@ describe("canonical local guest entry", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
     expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Sizzek World graph" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sizzek’s Apprentice graph" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset guest World" })).toBeInTheDocument();
     expectOnlyScopedIndexCalls(fetchMock);
     fireEvent.click(screen.getByRole("button", { name: "Lina, person" }));
@@ -579,10 +579,19 @@ describe("canonical local guest entry", () => {
 
   it("offers the Sizzek Graph from Buddy Home when signed out", async () => {
     vi.stubEnv("VITE_HOSTED_GUEST_GRAPH", "1");
+    vi.stubEnv("VITE_HOSTED_GUEST_BUILD", "1");
+    vi.stubEnv("VITE_HOSTED_GUEST_PLAN", "1");
+    vi.stubEnv("VITE_HOSTED_GUEST_PLAY", "1");
     vi.stubGlobal("fetch", nativeIndexFetch(guestGraph, "signed_out"));
     window.history.replaceState({}, "", "/");
     render(<App />);
-    expect(await screen.findByRole("link", { name: /explore sizzek world/i })).toHaveAttribute("href", "/graph");
+    expect(await screen.findByRole("heading", { name: "Sizzek’s Apprentice" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /explore the graph/i })).toHaveAttribute("href", "/graph");
+    const adventure = screen.getByRole("navigation", { name: "Explore Sizzek’s Apprentice" });
+    for (const [label, href] of [["Graph", "/graph"], ["Plan", "/plan"], ["Play", "/play"], ["Build", "/build"], ["Combat Tracker", "/combat"]]) {
+      expect(within(adventure).getByRole("link", { name: new RegExp(`^${label}`) })).toHaveAttribute("href", href);
+    }
+    expect(screen.queryByText("The mill at dusk")).not.toBeInTheDocument();
   });
 
   it.each(["/", "/#buddy-about", "/#buddy-home-main"])("keeps Home and its introductory anchors public at %s", async location => {

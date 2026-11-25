@@ -91,3 +91,9 @@
 @media (prefers-reduced-motion: reduce) { .buddy-home__primary { transition: none; } .buddy-home__primary:hover { transform: none; } }
 /* The welcome is a full-width composition inside the existing bounded shell. */
 .app-wrap[data-workspace-layout="bounded"]:has(.buddy-home) { max-width: none; padding-inline: 0; }
+.buddy-home__adventure-links { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px !important; border-top: 1px solid #ad8d5c80; margin-top: 22px; }
+.buddy-home .buddy-home__adventure-links a { display: grid; gap: 4px; align-content: start; color: #622d24; padding: 13px 0; text-decoration: none; border-bottom: 1px solid #ad8d5c55; }
+.buddy-home .buddy-home__adventure-links a:hover { color: #321711; text-decoration: underline; text-underline-offset: 4px; }
+.buddy-home__adventure-links strong { font: 600 19px/1.2 Georgia, serif; }
+.buddy-home__adventure-links span { color: #62513c; font-size: 13px; line-height: 1.4; }
+@media (max-width: 520px) { .buddy-home__adventure-links { grid-template-columns: 1fr; } }
