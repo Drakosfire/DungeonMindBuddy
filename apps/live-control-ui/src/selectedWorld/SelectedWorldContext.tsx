@@ -297,7 +297,9 @@ export function GuestBuildWorldProvider({ locationSnapshot, children }: { locati
         if (selection.explicit && selection.worldId !== world.worldId) throw new Error("This document belongs to another World.");
         if (selection.documentId) {
           const document = await getWorkspaceDocumentAny(selection.documentId);
-          if (document.kind !== "worldbuilding_source" || document.world_id !== world.worldId) {
+          const pathname = new URL(locationSnapshot, "http://localhost").pathname;
+          const expectedKind = pathname === "/plan" ? "plan" : "worldbuilding_source";
+          if (document.kind !== expectedKind || document.world_id !== world.worldId) {
             throw new Error("This document belongs to another World.");
           }
         }
@@ -315,7 +317,7 @@ export function GuestBuildWorldProvider({ locationSnapshot, children }: { locati
     // A sign-in transition can unmount this provider without leaving Build.
     // Do not carry a guest document selector into the signed-in World picker.
     const url = new URL(window.location.href);
-    if (url.pathname === "/build" && guestWorldRef.current &&
+    if ((url.pathname === "/build" || url.pathname === "/plan") && guestWorldRef.current &&
         (url.searchParams.get("world") === guestWorldRef.current || url.searchParams.get("campaign") === guestWorldRef.current)) {
       url.searchParams.delete("world");
       url.searchParams.delete("campaign");
