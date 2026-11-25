@@ -528,6 +528,22 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
         'client_work_state': 'saved_clean', 'graph_request': {'mode': 'none'}, 'graph_selection': None,
         'plan_context_policy': {'schema': 'dmb_plan_context_policy_v2', 'policy': 'auto_plan_world',
                                 'graph_source': 'reviewed_native_graph'}, 'message': 'What did B do?'}
+    binding = world.native_graph_binding
+    reference = {'schema': 'dmb_authored_graph_reference_v1', 'managed_world_id': world.world_id,
+                 'native_world_id': binding.native_world_id, 'binding_version': binding.binding_version,
+                 'graph_revision': lane.repo.get_head(binding.native_world_id).head_revision_id,
+                 'node_id': lane.ids['B'], 'label': 'B'}
+    payload['authored_references'] = {'schema': 'dmb_authored_references_v2', 'references': [reference]}
+    foreign = {**payload, 'authored_references': {'schema': 'dmb_authored_references_v2',
+               'references': [{**reference, 'managed_world_id': 'foreign-world'}]}}
+    assert client.post('/api/live/agent/turn', headers=headers, json=foreign).status_code in (400, 403, 422)
+    for invalid in ({**reference, 'native_world_id': lane.world.world_id},
+                    {**reference, 'graph_revision': 'rev:missing'}):
+        invalid_payload = {**payload, 'turn_id': str(uuid4()),
+                           'authored_references': {'schema': 'dmb_authored_references_v2', 'references': [invalid]}}
+        invalid_response = client.post('/api/live/agent/turn', headers=headers, json=invalid_payload)
+        assert invalid_response.status_code != 200, invalid_response.text
+    assert not wire.calls
     if reset_during_writer:
         with ThreadPoolExecutor(max_workers=1) as pool:
             pending = pool.submit(client.post, '/api/live/agent/turn', headers=headers, json=payload)

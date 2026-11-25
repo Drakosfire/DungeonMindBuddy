@@ -6154,7 +6154,7 @@ it('sends a guest Plan discussion without capturing an editor write target', asy
   }
 });
 
-it('keeps a guest question and selected reference when that context is not yet supported', async () => {
+it('sends a guest question with a selected graph reference', async () => {
   vi.stubEnv('VITE_HOSTED_GUEST_BUDDY', '1');
   const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
   setupApi(history('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 4, []));
@@ -6162,15 +6162,16 @@ it('keeps a guest question and selected reference when that context is not yet s
     schema: 'dmb_authored_graph_reference_v1', managed_world_id: worldId, native_world_id: 'native-world',
     binding_version: 1, graph_revision: 'graph-r1', node_id: 'selected-object', label: 'Selected object',
   }], null, 'plan');
-  const post = vi.spyOn(liveApi, 'postWorldPlanAgentTurn');
+  const received = deferred<void>(), outcome = deferred<never>();
+  const post = vi.spyOn(liveApi, 'postWorldPlanAgentTurn').mockImplementation(() => { received.resolve(); return outcome.promise; });
   try {
     render(conversationElement());
     await waitForConversationReady();
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText('Message DungeonBuddy'), {target: {value: 'Explain this connection.'}});
-    fireEvent.click(screen.getByRole('button', {name: 'Send message'}));
-    expect(await screen.findByText(/currently supports questions without a selected card/)).toBeInTheDocument();
-    expect(post).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Explain this connection.');
+    await act(async () => { fireEvent.click(screen.getByRole('button', {name: 'Send message'})); await received.promise; });
+    expect(post.mock.calls[0]![0].authored_references?.references[0]?.schema).toBe('dmb_authored_graph_reference_v1');
+    await act(async () => outcome.reject(new Error('Synthetic test completion')));
   } finally {
     guest.mockRestore();
     vi.unstubAllEnvs();

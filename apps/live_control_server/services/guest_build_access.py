@@ -112,13 +112,18 @@ async def admit_guest_conversation_request(request: Request) -> str:
                            and body.primary_work.kind == "plan" and body.graph_request.mode == "none"
                            and type(body.plan_context_policy) is PlanContextPolicyV2
                            and body.plan_requested_operation in (None, "discuss"))
+        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
+        references = body.authored_references
+        guest_graph_references = (plan_discussion and references is not None
+            and all(isinstance(ref, AuthoredGraphReferenceV1) and ref.managed_world_id == world_id
+                    for ref in references.references))
         # Other action families stay closed until their independent persistence
         # owners are bound to the guest lifecycle.
         if (not (index_discussion or plan_discussion) or body.graph_selection is not None
                 or body.selected_knowledge is not None or body.native_statement_selection is not None
                 or body.build_write_capability is not None or body.build_image_move_capture is not None
                 or body.build_draft_context is not None or body.build_authored_references is not None
-                or body.authored_references is not None
+                or (references is not None and not guest_graph_references)
                 or body.retry_of is not None or body.reviewed_step is not None
                 or body.plan_authoring_capture is not None
                 or body.plan_placement_catalog is not None or body.playable_target is not None
