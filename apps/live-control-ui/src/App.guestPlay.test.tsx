@@ -112,3 +112,23 @@ it("opens the prepared guest session from bare Play", async () => {
   await waitFor(()=>expect(open).toHaveBeenCalled(),{timeout:10000});
   await waitFor(()=>expect(new URLSearchParams(window.location.search).get('run')).toBe('11111111-1111-4111-8111-111111111111'));
 },15000);
+
+it("does not replace an existing guest active session with the default", async () => {
+  vi.stubEnv('PROD',true); vi.stubEnv('VITE_HOSTED_GUEST_BUILD','1'); vi.stubEnv('VITE_HOSTED_GUEST_PLAN','1'); vi.stubEnv('VITE_HOSTED_GUEST_PLAY','1');
+  const worldId=`guest-${'c'.repeat(32)}`, active='11111111-1111-4111-8111-111111111111';
+  const helper=await import('./playSurface/guestAdventureSession');
+  const open=vi.spyOn(helper,'guestAdventureSession').mockResolvedValue('22222222-2222-4222-8222-222222222222');
+  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>{
+    const path=String(input);
+    if(path==='/api/auth/session')return response(401,{status:'signed_out'});
+    if(path==='/api/live/index-graph/session')return response(200,{csrf_token:'guest-csrf'});
+    if(path==='/api/live/index-graph/world')return response(200,{world_id:worldId,name:'Sizzek World'});
+    if(path.startsWith('/api/live/world-play-runs/v2/active?'))return response(200,{schema_version:'dmb_world_play_active_run_v2',world_id:worldId,run_id:active,selected_at:'2026-01-01T00:00:00Z'});
+    if(path.startsWith('/api/live/world-play-runs/v2?'))return response(200,{schema_version:'dmb_world_play_runs_list_v2',world_id:worldId,records:[],source_titles:{}});
+    return response(404,{detail:'Not found'});
+  }));
+  window.history.replaceState({},'','/play'); render(<App/>);
+  await screen.findByText('No sessions in this World yet. Open a Plan and press Play to start one.',{},{timeout:10000});
+  expect(open).not.toHaveBeenCalled();
+  expect(new URLSearchParams(window.location.search).get('run')).toBeNull();
+},15000);
