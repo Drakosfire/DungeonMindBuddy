@@ -36,7 +36,7 @@ export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load,
       onOpenChange(next);
       if (next && !loaded && !busy && !error) inspect();
     }}>
-    <summary>Details</summary>
+    <summary>Trace</summary>
     {children}
     {open && busy && <p role="status">Loading reply details…</p>}
     {open && error && <div>

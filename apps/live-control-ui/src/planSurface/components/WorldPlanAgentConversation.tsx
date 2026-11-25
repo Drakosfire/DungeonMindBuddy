@@ -5236,7 +5236,7 @@ export function WorldPlanAgentConversation({
     switch (status) {
       case "discussion": return null;
       case "authored_grounded": return "Quoted material";
-      case "authored_grounded_partial": return "Quoted material · partial";
+      case "authored_grounded_partial": return null;
       case "insufficient_evidence": return "Needs more context";
       case "creative_proposal": return "Proposed idea";
       case "image_preparation_ready": return "Image direction";
