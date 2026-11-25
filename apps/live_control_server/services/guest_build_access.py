@@ -20,6 +20,8 @@ _DOCUMENT = re.compile(r"^/api/live/workspace-documents/([0-9a-f-]{36})(/snapsho
 _WRITE = frozenset({"/api/live/tiptap/markdown-write/prepare", "/api/live/tiptap/markdown-write/commit"})
 _INVENTORY = "/api/live/workspace-documents/pages/inventory"
 _CREATE = "/api/live/workspace-documents"
+_COMBAT_ROOT = "/api/live/combat/encounters"
+_COMBAT_RECORD = re.compile(r"^/api/live/combat/encounters/([0-9a-f-]{36})$")
 _PLANS = "/api/live/workspace-documents/world-plans"
 _PLAN_VIEW = "/api/live/plan-view"
 _PLAY_ROOT = "/api/live/world-play-runs/v2"
@@ -37,6 +39,7 @@ MAX_GUEST_PAGES = 32
 MAX_GUEST_REVISIONS = 256
 MAX_GUEST_SAVED_BYTES = 16 * 1024 * 1024
 MAX_GUEST_RUNS = 16
+MAX_GUEST_COMBAT_ENCOUNTERS = 16
 MAX_GUEST_CONVERSATIONS = 16
 MAX_GUEST_TURNS = 100
 MAX_GUEST_TURN_BYTES = 16 * 1024
@@ -184,6 +187,11 @@ def matches_guest_build_route(method: str, path: str) -> bool:
         if (method == "GET" and (path in {_MEDIA_ROOT + "/capabilities", _MEDIA_ROOT + "/library"} or _MEDIA_ASSET.fullmatch(path))
                 or method == "POST" and path == _MEDIA_ROOT + "/generate"):
             return True
+    if os.getenv("DMB_HOSTED_GUEST_PLAY_ENABLED") == "1":
+        if (method == "GET" and (path == _COMBAT_ROOT or _COMBAT_RECORD.fullmatch(path))
+                or method == "POST" and path == _COMBAT_ROOT
+                or method == "PUT" and _COMBAT_RECORD.fullmatch(path)):
+            return True
     if os.getenv("DMB_HOSTED_GUEST_PLAY_ENABLED") == "1" and os.getenv("DMB_HOSTED_GUEST_PLAN_ENABLED") == "1":
         match = _PLAY_RUN.fullmatch(path)
         if (method == "GET" and (path in {_PLAY_ROOT, _PLAY_ROOT + "/active", "/api/live/workspace-documents/world-runbooks"} or _PLAN_REVISION.fullmatch(path) or (match and match.group(2) != "/progress"))
@@ -260,7 +268,16 @@ async def admit_guest_build_request(request: Request) -> str:
         plan_revision = _PLAN_REVISION.fullmatch(path)
         play_run = _PLAY_RUN.fullmatch(path)
         asset = _MEDIA_ASSET.fullmatch(path)
-        if path in {_MEDIA_ROOT + "/capabilities", _MEDIA_ROOT + "/library", _MEDIA_ROOT + "/generate"}:
+        if path == _COMBAT_ROOT or _COMBAT_RECORD.fullmatch(path):
+            if query != [("world_id", world_id)]:
+                raise HTTPException(403, detail={"code": "guest_world_forbidden"})
+            match = _COMBAT_RECORD.fullmatch(path)
+            if match and str(UUID(match.group(1))) != match.group(1):
+                raise HTTPException(403, detail={"code": "guest_world_forbidden"})
+            body = await request.body()
+            if (request.method == "GET" and body) or len(body) > 1024 * 1024:
+                raise HTTPException(400, detail={"code": "invalid_guest_request"})
+        elif path in {_MEDIA_ROOT + "/capabilities", _MEDIA_ROOT + "/library", _MEDIA_ROOT + "/generate"}:
             allowed = {"world_id", "before_time", "before_id"} if path.endswith("/library") else {"world_id"}
             if set(key for key, _ in query) - allowed or request.query_params.get("world_id") != world_id:
                 raise HTTPException(403, detail={"code": "guest_world_forbidden"})
@@ -418,6 +435,15 @@ def guest_conversation_bytes(request: Request, conn, world_id: str) -> int:
     if total > MAX_GUEST_CONVERSATION_BYTES:
         raise ApplicationStateConflictError('This guest World has reached its conversation storage limit')
     return int(total)
+
+
+def guest_combat_capacity(request: Request, conn, world_id: str, *, creating: bool) -> None:
+    """Serialize guest encounter writes with reset and bound retained encounters."""
+    _lock_guest_session(request, conn, world_id)
+    if creating:
+        count = conn.execute("SELECT count(*) FROM combat.encounter WHERE world_id = %s", (world_id,)).fetchone()[0]
+        if count >= MAX_GUEST_COMBAT_ENCOUNTERS:
+            raise ApplicationStateConflictError("This guest World has reached its encounter limit")
 
 
 def guest_play_capacity(request: Request, conn, world_id: str, replay: bool) -> None:

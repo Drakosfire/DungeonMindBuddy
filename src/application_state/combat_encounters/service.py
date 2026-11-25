@@ -55,7 +55,7 @@ def _now() -> datetime:
 
 
 def create_encounter(
-    *, world_id: str, request: AnyCreateEncounterRequest
+    *, world_id: str, request: AnyCreateEncounterRequest, guest_guard=None
 ) -> AnyCombatRecord:
     canonical_world_id = _world_id(world_id)
     if isinstance(request, CreateManualEncounterRequest):
@@ -70,6 +70,8 @@ def create_encounter(
         dsn = load_runtime_dsn()
         assert_at_head(dsn=dsn)
         with unit_of_work(dsn) as conn:
+            if guest_guard is not None:
+                guest_guard(conn)
             return repo.insert_encounter(conn, record)
     try:
         ruleset = load_ruleset(request.ruleset_id)
@@ -91,6 +93,8 @@ def create_encounter(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        if guest_guard is not None:
+            guest_guard(conn)
         return repo.insert_encounter(conn, record)
 
 
@@ -130,12 +134,15 @@ def save_encounter(
     verified_mechanics_snapshots: dict | None = None,
     scope=None,
     authorize=None,
+    guest_guard=None,
 ) -> AnyCombatRecord:
     canonical_world_id = _world_id(world_id)
     canonical_encounter_id = _encounter_id(encounter_id)
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        if guest_guard is not None:
+            guest_guard(conn)
         from application_state.combat_encounters.access import guard
         guard(conn, world_id=canonical_world_id, encounter_id=canonical_encounter_id, scope=scope, for_mutation=True)
         before = repo.get_encounter(
