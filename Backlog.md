@@ -58,6 +58,8 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Standalone Elderwyld demo World and timeline](#idea-standalone-elderwyld-demo-world-and-timeline) | Author a populated, shareable setting history for signed-out Buddy without using collaborative campaign material. |
 | [Connected campaign arcs](Docs/Backlog/IDEA-connected-campaign-arcs.md) | Explore the source-backed Wandering Forest arc across sessions; use unrelated material as a negative control. |
 | [Show what Buddy is doing while it works](#idea-show-what-buddy-is-doing-while-it-works--captured-2026-11-20) | Use actual tool and action events to give concise live progress updates. |
+| [Syrinscape cues in Plan and Play](#idea-explore-syrinscape-in-plan-and-play--captured-2026-11-24) | Prove user authorization and one cue in an existing library. |
+| [Locally generated audio for Plan and Play](#idea-explore-local-audio-generation-for-plan-and-play--captured-2026-11-24) | Audition short effects and music loops, then compare ways to catalog and serve approved files. |
 | [Step through Buddy's work](Docs/Backlog/IDEA-conversation-search-replay.md) | Merged local replay mechanisms; retain hosted and broader trace acceptance gaps. |
 | [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Draft/variant/link/Combat mechanisms merged; ordinary live qualification remains open. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
@@ -399,3 +401,19 @@ a prototype is not a new durable authority.
 **First slice:** Test one ordinary Build request that reads a source and prepares an answer. Compare each visible status with the actual event sequence, including a slow or failed tool call.
 
 **Surfaces when:** Updating conversation progress, profiling pre-reply latency, or consolidating the trace.
+
+## [IDEA] Explore Syrinscape in Plan and Play — captured 2026-11-24
+
+**Context:** The operator already owns Syrinscape content and wants to cue it during sessions.
+
+**Action:** Evaluate user sign-in and account authorization, on-demand lookup in the existing library, and an embedded player versus an external launch. Prove that a GM can reference one cue in Plan and explicitly start and stop it in Play, with Syrinscape handling playback. Record credential handling and whether players can join the same session.
+
+**Refs:** [Syrinscape JavaScript player](https://docs.syrinscape.com/javascript-player/) and [HTTP API](https://docs.syrinscape.com/http-reference/).
+
+## [IDEA] Explore local audio generation for Plan and Play — captured 2026-11-24
+
+**Context:** The operator wants to generate original audio on their workstation and reuse approved tracks across sessions.
+
+**Action:** Generate and audition a small set of music beds, looping ambience, and short effects on the workstation. Record quality, generation time, curation effort, licensing, and provenance. Sketch a searchable catalog with stable asset references, compare cloud object storage with the operator's media server for direct browser playback, and demonstrate how Plan could reference one approved cue for manual playback in Play.
+
+**Surfaces when:** Selecting an audio generation experiment or designing a reusable audio catalog.
