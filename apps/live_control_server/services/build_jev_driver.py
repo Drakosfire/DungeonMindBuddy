@@ -145,7 +145,8 @@ def freeze_interaction(adapter):
         raise AgentTurnServiceError("The conversation changed while the working draft was captured. Send again.",
             code="build_editor_context_changed", status_code=409, provider_dispatched=False)
     history = project_dialogue(
-        adapter.service.list_build_dialogue(adapter.world_id, conversation_id) if conversation_id else [],
+        (adapter.service.list_pending_build_dialogue(adapter.world_id, conversation_id) if pending
+         else adapter.service.list_build_dialogue(adapter.world_id, conversation_id)) if conversation_id else [],
     )
     from application_state.agent_conversation.authored_graph_references import provider_references
     related=(adapter.budget.get("buildJevActions") or {}).get("related_page_catalog")

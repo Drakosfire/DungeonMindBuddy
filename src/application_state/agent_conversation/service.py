@@ -1344,6 +1344,15 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             return repo.list_build_dialogue(conn, world_id, conversation_id)
 
+    def list_pending_build_dialogue(self, world_id: str, conversation_id: UUID) -> list[dict[str, Any]]:
+        """Freeze complete eligible dialogue in one read-only App snapshot."""
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
+            if repo.get_conversation(conn, world_id, conversation_id) is None:
+                raise ApplicationStateNotFoundError('conversation not found in verified World')
+            return repo.list_pending_build_dialogue(conn, world_id, conversation_id)
+
     def list_turn_page(
         self,
         world_id: str,

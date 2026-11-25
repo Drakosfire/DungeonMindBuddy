@@ -1661,7 +1661,7 @@ def pending_adapter_driver_case(*, empty_pointer=False, observed=None, overrides
         state.access_calls += 1
         return True
     service = SimpleNamespace(get_world_pointer=get_pointer, get_active_conversation=get_active,
-        new_conversation=create, list_build_dialogue=dialogue)
+        new_conversation=create, list_build_dialogue=dialogue, list_pending_build_dialogue=dialogue)
     inputs = dict(service=service, request=request, world_id=pointer.world_id, work=kwargs['work'],
         bootstrap=None, playable_target=None, submitted_intent=kwargs['submitted_intent'], existing_turn=None,
         budget=kwargs['budget'], pending_build_source_observation=kwargs['source_observation'],

@@ -84,7 +84,7 @@ def test_completed_pending_sdk_reply_survives_real_sql_checks(application_state_
         assert repository._turn_from_row(None, stored, references=references) == turn
 
 
-@pytest.mark.parametrize('mode', ['clarify', 'rules', 'body', 'reset'])
+@pytest.mark.parametrize('mode', ['clarify', 'rules', 'body', 'reset', 'long'])
 def test_fresh_pending_build_post_completes_captured_routes(application_state_dsn, tmp_path, monkeypatch, mode):
     import httpx
     from tests.test_source_statements import make_lane
@@ -99,6 +99,11 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
         candidate = {'answer_segments': [{'kind': 'discussion', 'text': 'One detail will help me draft this page.'}], 'limitations': []}
         if 'collaboration' in body['text']['format']['schema']['properties']:
             candidate['collaboration'] = {'kind': 'questions', 'questions': [{'text': 'What should the new page describe?'}]}
+        if mode == 'long':
+            candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
+                'text': 'Authored note context: Maelthor is a ferryman with a blue boat. His fare is a truthful memory.'}],
+                'limitations': [], 'collaboration': {'kind': 'lore_page',
+                    'destination': {'request': 'current_author_request', 'title': 'Maelthor Long Chat'}, 'open_questions': []}}
         if mode == 'body':
             candidate = {'answer_segments': [{'kind': 'native_body_claim',
                 'text': 'The source supplies the cited passage.', 'excerpt_handles': ['body0']}], 'limitations': []}
@@ -129,7 +134,7 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
     prepare = native_corpus_source.prepare_native_source_context
     def prepare_source(**kwargs):
         prepares.append(1)
-        if clarify_mode: pytest.fail('Clarification must not prepare native sources')
+        if clarify_mode or mode == 'long': pytest.fail('Context-only work must not prepare native sources')
         return prepare(**kwargs)
     monkeypatch.setattr(native_corpus_source, 'prepare_native_source_context', prepare_source)
     monkeypatch.setattr(plan_source_turn, 'prepare_native_source_context', prepare_source)
@@ -138,12 +143,44 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
     monkeypatch.setattr(plan_source_turn, 'turn_source_repository', lambda **kwargs: lane.repo)
     def send(client, world, body):
         body['build_authored_references'] = None
+        if mode == 'long':
+            from datetime import datetime, UTC
+            from uuid import UUID, uuid4
+            from application_state.agent_conversation import AgentConversationService, types as t
+            primary = body['primary_work']
+            provenance = t.TurnProvenance(world_id=world, surface_resolution='resolved', surface_id='build',
+                surface_instance_id=body['surface']['instance_id'],
+                primary_work=t.HistoricalReference(resolution='resolved', kind='build', object_id=primary['object_id'],
+                    revision=str(primary['expected_revision']), content_sha256=primary['expected_content_sha256']),
+                selected_object=t.HistoricalReference(resolution='absent'))
+            conversation_id = UUID(body['build_draft_context']['conversation_id'])
+            with psycopg.connect(application_state_dsn) as conn:
+                conversation = repository.lock_conversation(conn, world, conversation_id)
+                revision = conversation.revision
+                assert conversation.next_turn_sequence == 1
+                for i in range(125):
+                    now = datetime.now(UTC)
+                    revision, sequence = repository.advance_conversation_for_turn(conn, world_id=world,
+                        conversation_id=conversation_id, expected_revision=revision, now=now)
+                    user = ('Maelthor is a ferryman with a blue boat. His fare is a truthful memory. Earliest detail 0.' if i == 0
+                            else f'Keep authored conversation detail {i}.')
+                    sub = t.TurnSubmission(world_id=world, conversation_id=conversation_id, idempotency_key=uuid4(),
+                        expected_conversation_revision=revision, user_text=user, provenance=provenance)
+                    repository.insert_turn(conn, turn_id=uuid4(), request_fingerprint='a' * 64,
+                        idempotency_fingerprint=t.canonical_sha256({'case': i}), submission=sub, sequence=sequence,
+                        now=now, status='completed', attempt=1, assistant_text=f'Acknowledged authored detail {i}.')
+            service = AgentConversationService()
+            full = service.list_pending_build_dialogue(world, conversation_id)
+            assert len(full) == 125 and 'Earliest detail 0' in full[0]['user'] and 'detail 124' in full[-1]['user']
+            assert len(service.list_build_dialogue(world, conversation_id)) == 6
         return client.post('/api/live/agent/turn', json=body)
     case = _fresh_case(lane, tmp_path, monkeypatch, 'used_rules' if mode == 'rules' else None, True, False, False, dispatch=send,
-        requested_work='clarify_creation' if clarify_mode else 'discuss',
-        source_need='uncertain' if clarify_mode else 'source_lookup', source_answer_output='capture_pending',
+        requested_work='clarify_creation' if clarify_mode else 'review_lore_page_from_conversation' if mode == 'long' else 'discuss',
+        source_need='uncertain' if clarify_mode else 'anchored' if mode == 'long' else 'source_lookup', source_answer_output='capture_pending',
         native_body='direct_support' if mode == 'body' else None, direct_source=mode == 'body',
-        message='Can I end my move in an occupied space?' if mode == 'rules' else 'What does the source say?' if mode == 'body'
+        lore_title='Maelthor Long Chat',
+        message='Create a separate new page titled Maelthor Long Chat from our entire conversation, including the earliest description. Do not search.' if mode == 'long'
+            else 'Can I end my move in an occupied space?' if mode == 'rules' else 'What does the source say?' if mode == 'body'
             else 'Please make a new page. Ask me what it should describe.')
     if mode == 'reset':
         assert case.response.status_code in {409, 503}
@@ -160,6 +197,25 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
     if mode == 'clarify':
         assert case.turn.completion.collaboration.questions[0].text == 'What should the new page describe?'
         assert not prepares and len(case.decisions.calls) == 1
+    elif mode == 'long':
+        assert not prepares and len(case.decisions.calls) == 1
+        first = json.loads(case.decisions.calls[0].content)
+        assert len(first['state']['interaction']['history']) == 125
+        assert 'Earliest detail 0' in json.dumps(first) and 'Earliest detail 0' in json.dumps(calls[0])
+        assert 'detail 124' in json.dumps(first) and 'detail 124' in json.dumps(calls[0])
+        from application_state.agent_conversation.types import canonical_sha256
+        from application_state.content import pages
+        request = {'conversation_id': str(case.turn.conversation_id), 'turn_id': str(case.turn.turn_id),
+            'review_sha256': canonical_sha256(case.turn.completion)}
+        route = f'/api/live/agent/worlds/{case.world}/conversation/lore-pages'
+        reviewed = case.client.post(route + '/review', json=request)
+        assert reviewed.status_code == 200, reviewed.text
+        saved = case.client.post(route + '/confirm', json=request)
+        assert saved.status_code == 200, saved.text
+        reopened = pages.committed_page(saved.json()['document_id'], world_id=case.world)
+        assert 'Maelthor' in reopened.revision.markdown and 'blue boat' in reopened.revision.markdown
+        assert 'truthful memory' in reopened.revision.markdown
+        assert case.client.post(route + '/confirm', json=request).json() == saved.json()
     elif mode == 'rules':
         assert 'occupied space' in case.turn.assistant_text and len(prepares) == 1
         assert len(case.decisions.calls) >= 3

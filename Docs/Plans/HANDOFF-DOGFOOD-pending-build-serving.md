@@ -63,3 +63,36 @@ Delivery remains unfinished until deployed signed-in app evidence proves current
 context/long-chat reuse, no redundant search, valid citations and page creation,
 review/save/reopen, plus clarification flow, semantic relevance/attribution/summary
 and latency. Source merge or mocked tests alone are not final acceptance.
+
+## Complete ordinary pending history boundary
+
+Release discovery found freeze_interaction still calls legacy list_build_dialogue
+(limit6). Earlier60-pair component tests manually supplied history, so they did
+not prove this App-loading boundary. This directly contradicts the existing
+long-chat goal; hold deployment and extend this release lease to exact
+repository.list_pending_build_dialogue/_cached_build_dialogue_item,
+AgentConversationService.list_pending_build_dialogue and BuildJevDriver
+freeze_interaction. Preserve legacy six-slot input behavior; pending alone reads
+all eligible completed dialogue using existing100-row transfer/reference bounds,
+one read-only repeatable snapshot and lossless projection. Extend immutable
+presentation caching to the equally pure pending completion codec with the same
+full-row/fresh-reference key and bounds; it grants no access/source authority.
+Prove ordinary POST with125 actual App chat pairs, oldest context in actual Jev
+and writer requests, no Core preparation and created/saved page readback where
+the owning action permits it. Preserve failed/unapproved output eligibility;
+retained evidence admission remains its separate full-history owner.
+
+The125-pair ordinary POST exposed an additional retained-evidence reader failure:
+list_retained_build_turns passed more than100 rows to the guarded reference
+reader. Its decoding now uses100-row batches while retaining every row, preserving
+the existing reference guard and exact retained owner selection.
+
+Working-tree focused boundary evidence: eight real PostgreSQL storage/POST cases
+passed in16.33s on the same exclusively owned App clone;125-pair request included
+oldest/newest history in actual mocked Jev/writer transport, no Core preparation,
+review/confirm and committed page readback, plus idempotent confirm/delivery replay.
+Clarification, Rules/native citations and reset-during-writer refusal passed.
+Five existing synthetic Graph-binding serializer warnings remain visible.
+Evidence: buddy-check.pending-release.w1eihyha/history-focused-sql.log.
+This is not live-provider latency or signed-in deployment acceptance. The797f659
+candidate image and ecec587 recovery image predate this fix and require replacement.
