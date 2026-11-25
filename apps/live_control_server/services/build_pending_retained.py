@@ -2,14 +2,14 @@
 from uuid import uuid4
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
-from application_state.agent_conversation.native_corpus import prior_conversation_work
+from application_state.agent_conversation.build_source_free import pending_retained_work
 
 
 def admit_pending_conversation(adapter):
     if type(adapter._broker_receipt()) is not BuildPendingContextReceiptV1:
         return False
     execution = adapter._broker_execution()
-    if prior_conversation_work(execution.events, allow_discussion=True) is None:
+    if pending_retained_work(execution) is None:
         return False
     prior = [event for event in execution.events if type(event) is ledger.BuildPriorBodyEvidenceAdmittedV3]
     if len(prior) > 1 or not callable(adapter.pending_build_access) or adapter.fence is None:

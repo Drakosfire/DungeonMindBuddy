@@ -52,7 +52,7 @@ def test_pending_shape_sql_admission_readback_and_crossed_family_refusal(applica
 def test_pending_schema_head_refuses_previous_reader(application_state_dsn, monkeypatch):
     with psycopg.connect(application_state_dsn) as conn:
         cli.assert_connection_at_head(conn)
-        monkeypatch.setattr(cli, '_alembic_head', lambda: '20261124_0210')
+        monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0211')
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_connection_at_head(conn)
 
@@ -84,7 +84,7 @@ def test_completed_pending_sdk_reply_survives_real_sql_checks(application_state_
         assert repository._turn_from_row(None, stored, references=references) == turn
 
 
-@pytest.mark.parametrize('mode', ['clarify', 'clarify_duplicate', 'rules', 'body', 'reset', 'long'])
+@pytest.mark.parametrize('mode', ['clarify', 'clarify_duplicate', 'rules', 'body', 'reset', 'long', 'chat_draft'])
 def test_fresh_pending_build_post_completes_captured_routes(application_state_dsn, tmp_path, monkeypatch, mode):
     import httpx
     from tests.test_source_statements import make_lane
@@ -106,6 +106,12 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
                 'text': 'Authored note context: Maelthor is a ferryman with a blue boat. His fare is a truthful memory.'}],
                 'limitations': [], 'collaboration': {'kind': 'lore_page',
                     'destination': {'request': 'current_author_request', 'title': 'Maelthor Long Chat'}, 'open_questions': []}}
+        if mode == 'chat_draft':
+            candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
+                'text': 'Authored note context: Maelthor is a ferryman; his blue boat carries a green lantern.'}],
+                'limitations': []}
+            if 'collaboration' in body['text']['format']['schema']['properties']:
+                candidate['collaboration'] = None
         if mode == 'body':
             candidate = {'answer_segments': [{'kind': 'native_body_claim',
                 'text': 'The source supplies the cited passage.', 'excerpt_handles': ['body0']}], 'limitations': []}
@@ -136,7 +142,7 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
     prepare = native_corpus_source.prepare_native_source_context
     def prepare_source(**kwargs):
         prepares.append(1)
-        if clarify_mode or mode == 'long': pytest.fail('Context-only work must not prepare native sources')
+        if clarify_mode or mode in {'long', 'chat_draft'}: pytest.fail('Context-only work must not prepare native sources')
         return prepare(**kwargs)
     monkeypatch.setattr(native_corpus_source, 'prepare_native_source_context', prepare_source)
     monkeypatch.setattr(plan_source_turn, 'prepare_native_source_context', prepare_source)
@@ -145,7 +151,7 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
     monkeypatch.setattr(plan_source_turn, 'turn_source_repository', lambda **kwargs: lane.repo)
     def send(client, world, body):
         body['build_authored_references'] = None
-        if mode == 'long':
+        if mode in {'long', 'chat_draft'}:
             from datetime import datetime, UTC
             from uuid import UUID, uuid4
             from application_state.agent_conversation import AgentConversationService, types as t
@@ -177,11 +183,12 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
             assert len(service.list_build_dialogue(world, conversation_id)) == 6
         return client.post('/api/live/agent/turn', json=body)
     case = _fresh_case(lane, tmp_path, monkeypatch, 'used_rules' if mode == 'rules' else None, True, False, False, dispatch=send,
-        requested_work='clarify_creation' if clarify_mode else 'review_lore_page_from_conversation' if mode == 'long' else 'discuss',
-        source_need='uncertain' if clarify_mode else 'anchored' if mode == 'long' else 'source_lookup', source_answer_output='capture_pending',
+        requested_work='clarify_creation' if clarify_mode else 'review_lore_page_from_conversation' if mode == 'long' else 'draft_in_conversation' if mode == 'chat_draft' else 'discuss',
+        source_need='uncertain' if clarify_mode else 'anchored' if mode in {'long', 'chat_draft'} else 'source_lookup', source_answer_output='capture_pending',
         native_body='direct_support' if mode == 'body' else None, direct_source=mode == 'body',
         lore_title='Maelthor Long Chat',
         message='Create a separate new page titled Maelthor Long Chat from our entire conversation, including the earliest description. Do not search.' if mode == 'long'
+            else 'Give me a one-sentence briefing for introducing Maelthor at the table, using only what we already discussed. Keep beliefs and rumors distinct from established details. Do not search or change pages.' if mode == 'chat_draft'
             else 'Can I end my move in an occupied space?' if mode == 'rules' else 'What does the source say?' if mode == 'body'
             else 'Please make a new page. Ask me what it should describe.')
     if mode == 'reset':
@@ -201,6 +208,12 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
         assert not prepares and len(case.decisions.calls) == 1
         if mode == 'clarify_duplicate':
             assert case.turn.completion.answer_segments == []
+    elif mode == 'chat_draft':
+        assert not prepares and len(case.decisions.calls) == 1
+        first = json.loads(case.decisions.calls[0].content)
+        assert len(first['state']['interaction']['history']) == 125
+        assert 'Earliest detail 0' in json.dumps(calls[0]) and 'detail 124' in json.dumps(calls[0])
+        assert 'Maelthor' in case.turn.assistant_text and 'green lantern' in case.turn.assistant_text
     elif mode == 'long':
         assert not prepares and len(case.decisions.calls) == 1
         first = json.loads(case.decisions.calls[0].content)

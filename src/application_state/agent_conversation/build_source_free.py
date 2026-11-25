@@ -510,15 +510,41 @@ def pending_conversation_route_can_admit(receipt, execution):
         t.RelatedPagesSelection, t.RelatedPageRead) for event in execution.events)
 
 
+def pending_retained_work(execution):
+    """Select retained-only pending work, without granting reads or admission.
+
+    Keep legacy conversation-work interpretation unchanged. A chat draft is an
+    existing requested operation; its anchored form uses the same full retained
+    closure as discussion, with current access and pointer checks at admission.
+    """
+    from . import types as t
+    from .native_execution import BuildPendingExecutionV1
+    from .native_corpus import prior_conversation_work
+    from .build_intentional_response import validate_resolution_metadata
+    if type(execution) is not BuildPendingExecutionV1:
+        return None
+    work = prior_conversation_work(execution.events, allow_discussion=True)
+    if work is None:
+        rows = [event for event in execution.events if type(event) is t.BuildRequestedWorkResolutionV1]
+        if len(rows) != 1:
+            return None
+        work = rows[0]
+        if (work.requested_work != 'draft_in_conversation'
+                or work.resolution.get('source_scope') != 'anchored'
+                or work.resolution.get('barrier') is not None):
+            return None
+    validate_resolution_metadata(work, execution.policy)
+    return work
+
+
 def validate_pending_retained_admission(execution, event):
     """Structural closure; only the locked capture owner can create this event."""
     from . import types as t
-    from .native_corpus import prior_conversation_work
     from .native_execution import NativeBuildSourceSettledV1
     if type(event) is not t.BuildPriorBodyEvidenceAdmittedV3:
         raise ValueError('Pending retained context requires its full current closure codec')
     prefix = execution.events[:event.sequence]
-    work = prior_conversation_work(prefix, allow_discussion=True)
+    work = pending_retained_work(execution.model_copy(update={'events': prefix}))
     if (work is None or work.event_id != event.work_event_id
             or event.world_id != execution.policy.action.intent.world_id
             or event.presentation_policy != 'retained_conversation_semantic_v3'
