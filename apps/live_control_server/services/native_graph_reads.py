@@ -410,6 +410,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   scope_mode='world', campaign_id=None, authored_references=None,
                   measure_work=None, resolve_event_source_scope=False):
     _require_gm(principal)
+    from apps.live_control_server.services.hosted_native_graph_access import require_guest_read_access
+    require_guest_read_access(principal, managed_world_id)
     measure = measure_work or (lambda _name: nullcontext())
     if authored_references is not None:
         from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1, AuthoredReferencesV2, object_selections
@@ -606,12 +608,15 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         raise ValueError('Active Graph binding changed during native query')
     if selective is not None:
         pinned = selective.retain_complete_facts(), access, domain, profile
+    require_guest_read_access(principal, managed_world_id)
     return QueryContext(query, bound, pinned, repo, principal, resolve), query
 
 
 def read_selected(context, authorization, principal):
     """Open support only for records in an exact APP-authorized query selection."""
     _require_gm(principal)
+    from apps.live_control_server.services.hosted_native_graph_access import require_guest_read_access
+    require_guest_read_access(principal, context.query.authority.managed_world_id)
     query = context.query
     if (not isinstance(query, NativePlanQueryV1)
             or not isinstance(authorization, (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1))
@@ -635,6 +640,7 @@ def read_selected(context, authorization, principal):
     result = reader(context, identities)
     if context.resolve_binding(authority.managed_world_id) != context.binding:
         raise ValueError('Native query binding changed during selected read')
+    require_guest_read_access(principal, authority.managed_world_id)
     return result
 
 
@@ -654,6 +660,8 @@ def read_authored_reference(context, authorization, principal):
     """Use the same pinned support readers for an explicitly human-origin grant."""
     from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2
     _require_gm(principal)
+    from apps.live_control_server.services.hosted_native_graph_access import require_guest_read_access
+    require_guest_read_access(principal, context.query.authority.managed_world_id)
     query = context.query
     if (type(authorization) is not BuildAuthoredReferenceAuthorizedV2
             or not isinstance(query, NativeGraphQueryV3)
@@ -672,6 +680,7 @@ def read_authored_reference(context, authorization, principal):
         tuple(match.assertion_id for match in target.assertion_matches), matches=target.assertion_matches)
     if context.resolve_binding(query.authority.managed_world_id) != context.binding:
         raise ValueError('Native query binding changed during authored read')
+    require_guest_read_access(principal, query.authority.managed_world_id)
     return AuthoredSupport(query_sha256=query.sha256, node_id=target.node_id,
         statement_reads=statement_reads, assertion_reads=assertion_reads,
         unavailable_statement_ids=unavailable_statements,
@@ -804,6 +813,8 @@ def reopen_context(query, principal):
     """Current access to a retained query's original R, without re-running search."""
     _require_gm(principal)
     authority = query.authority
+    from apps.live_control_server.services.hosted_native_graph_access import require_guest_read_access
+    require_guest_read_access(principal, authority.managed_world_id)
     if getattr(principal, 'managed_world_id', authority.managed_world_id) != authority.managed_world_id:
         raise ValueError('Historical native query World differs from principal World')
     bound = resolve_managed_world_binding(authority.managed_world_id)
@@ -816,4 +827,5 @@ def reopen_context(query, principal):
     if (h['domain_ref'] != authority.domain_ref.model_dump() or h['profile_ref'] != authority.profile_ref.model_dump()
             or pinned[1].source_view.epoch < authority.acquisition_epoch):
         raise ValueError('Historical native query authority changed')
+    require_guest_read_access(principal, authority.managed_world_id)
     return QueryContext(query, bound, pinned, repo, principal, resolve_managed_world_binding)

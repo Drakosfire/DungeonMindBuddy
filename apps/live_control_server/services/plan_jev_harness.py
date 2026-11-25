@@ -16,6 +16,18 @@ from .plan_jev_rules_runtime import PlanRulesRuntime
 from .plan_jev_writer import PlanJevWriter
 
 
+def _require_guest_discussion_selection(adapter, selected):
+    """Temporarily keep effect-bearing Plan choices out of guest turns."""
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    from .agent_turn_service import AgentTurnServiceError
+
+    if isinstance(getattr(adapter, "native_principal", None), HostedGuestGraphPrincipal) and selected not in {"discuss", "clarify"}:
+        raise AgentTurnServiceError(
+            "This guest conversation currently supports discussion only.",
+            code="guest_turn_capability_unavailable", status_code=403,
+        )
+
+
 class PlanJevHarness:
     descriptor = AgentRuntimeDescriptor('buddy-plan-jev','generationengine','plan-jev-one-writer','graph')
 
@@ -94,6 +106,7 @@ class PlanJevHarness:
                     semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title,
                         author_scope=author_scope, **driver.decision_arguments())
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
+            _require_guest_discussion_selection(adapter, selected)
             if selected == 'different_destination':
                 raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
                     code='plan_authoring_destination_unavailable', status_code=409)

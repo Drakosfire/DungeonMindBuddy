@@ -695,3 +695,49 @@ def test_author_tail_keeps_every_prior_role_text_once_and_current_request_withou
         retained.validate_dialogue_request(old, {'input': old_messages})
         with pytest.raises(ValueError, match='replay-only'):
             retained.require_current_presentation(old)
+
+
+@pytest.mark.parametrize('boundary', ['admission', 'writer'])
+def test_retained_build_append_rolls_back_when_guest_quota_rejects(lane, tmp_path, monkeypatch, boundary):
+    from tests.test_surface_native_build_ordinary import _fresh_case
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services import agent_turn_service
+
+    # This regression exercises the retained-context implementation; the newer
+    # pending path has its own admission and quota rollback controls.
+    monkeypatch.setattr(agent_turn_service, '_pending_build_startup_eligible', lambda *args, **kwargs: False)
+    synthesis = 'Recap our conversation without another search.'
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        native_body='irrelevant', requested_work='discuss',
+        source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup')
+    case.request['build_authored_references'] = None
+    method = 'admit_build_prior_body_evidence' if boundary == 'admission' else 'authorize_native_writer'
+    original = getattr(AgentConversationService, method)
+    rejected = []
+
+    def checked(owner, world, conversation_id, turn_id, **values):
+        before = owner.inspect_turn(world_id=world, turn_id=turn_id)
+        if before.user_text != synthesis:
+            return original(owner, world, conversation_id, turn_id, **values)
+        prior = owner._validate_transaction
+        def reject(_conn):
+            rejected.append(True)
+            raise ApplicationStateConflictError('guest quota exceeded')
+        owner._validate_transaction = reject
+        try:
+            with pytest.raises(ApplicationStateConflictError, match='guest quota exceeded'):
+                original(owner, world, conversation_id, turn_id, **values)
+        finally:
+            owner._validate_transaction = prior
+        after = owner.inspect_turn(world_id=world, turn_id=turn_id)
+        assert after == before
+        raise ApplicationStateConflictError('guest quota exceeded')
+
+    monkeypatch.setattr(AgentConversationService, method, checked)
+    before_writers = len(case.writer.calls)
+    response = case.client.post('/api/live/agent/turn', json=case.request | {
+        'turn_id': str(uuid4()), 'message': synthesis})
+    assert response.status_code != 200, response.text
+    assert rejected
+    assert len(case.writer.calls) == before_writers

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from typing import Any, Callable
 
 import psycopg
@@ -12,6 +14,7 @@ from dungeonmind.domain.errors import (
 )
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from application_state.errors import ApplicationStateError, ApplicationStateUnavailableError
@@ -35,6 +38,19 @@ from apps.live_control_server.services.index_graph import open_index_graph_servi
 
 
 router = APIRouter(prefix="/api/live/index-graph", tags=["index-graph"])
+
+
+def _schedule_guest_conversation_cleanup(response: Response) -> Response:
+    if (response.status_code == 200 and hosted_guest_world_enabled()
+            and os.getenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED') == '1'):
+        def run_cleanup():
+            try:
+                from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversations
+                cleanup_expired_guest_conversations()
+            except Exception:
+                logging.getLogger(__name__).exception('Guest conversation cleanup could not start')
+        response.background = BackgroundTask(run_cleanup)
+    return response
 MAX_REQUEST_BYTES = 16 * 1024
 SESSION_NOTICE = (
     "This graph belongs to this private browser session. The session cookie is its only "
@@ -226,7 +242,7 @@ async def start_or_resume_session(request: Request) -> Response:
                     "Session bootstrap does not accept a request body.",
                     400,
                 )
-        return await run_in_threadpool(_start_or_resume_session, request)
+        return _schedule_guest_conversation_cleanup(await run_in_threadpool(_start_or_resume_session, request))
     except HTTPException as exc:
         return _http_exception(exc)
 
@@ -336,7 +352,7 @@ async def reset_graph(request: Request) -> Response:
         async for chunk in request.stream():
             if chunk:
                 return _error("invalid_request", "Reset does not accept a request body.", 400)
-        return await run_in_threadpool(_reset_graph_session, request)
+        return _schedule_guest_conversation_cleanup(await run_in_threadpool(_reset_graph_session, request))
     except HTTPException as exc:
         return _http_exception(exc)
 

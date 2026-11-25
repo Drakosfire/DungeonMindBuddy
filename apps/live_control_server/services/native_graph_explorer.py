@@ -177,7 +177,7 @@ def hosted_response_binding(principal: NativeGraphPrincipal, managed_world_id: s
     _require_access(principal, managed_world_id)
     expected = (
         _resolve_binding(managed_world_id)
-        if principal.auth_method == "hosted_owner"
+        if principal.auth_method in {"hosted_owner", "hosted_guest"}
         else None
     )
     yield
