@@ -249,3 +249,28 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
     replay_context = replay.json()['rules_context']['unclaimed_context'] if mode == 'rules' else replay.json()['knowledge_context']
     assert replay_context['delivery_replay'] is True
     assert len(case.decisions.calls) == decision_count and len(calls) == 1
+
+
+
+def test_retained_saved_page_citation_survives_actual_sql_and_schema_fence(application_state_dsn, monkeypatch):
+    from tests.test_build_source_free_protocol import retained_saved_page_completed_fixture
+    turn, original = retained_saved_page_completed_fixture(monkeypatch)
+    row, references = stored_row(turn)
+    row.update(request_fingerprint='a' * 64, idempotency_fingerprint='b' * 64, updated_at=turn.completed_at)
+    with psycopg.connect(application_state_dsn) as conn:
+        cli.assert_connection_at_head(conn)
+        assert cli._alembic_head() == '20261125_0213'
+        conn.execute('CREATE TEMP TABLE retained_saved_citation_sql (LIKE agent.turn INCLUDING CONSTRAINTS) ON COMMIT DROP')
+        conn.execute('INSERT INTO retained_saved_citation_sql SELECT (jsonb_populate_record(NULL::agent.turn,%s)).*',
+            (Jsonb(json.loads(to_json(row))),))
+        with conn.cursor(row_factory=dict_row) as cursor:
+            actual = cursor.execute('SELECT ' + repository._TURN_COLS_T + ' FROM retained_saved_citation_sql t').fetchone()
+        restored = repository._turn_from_row(None, actual, references=references)
+        assert restored == turn
+        from types import SimpleNamespace
+        from apps.live_control_server.services.build_related_pages import open_page
+        opened = open_page(SimpleNamespace(inspect_turn=lambda **_: restored), restored.world_id,
+            restored.turn_id, restored.completion.answer_segments[0].read_id)
+        assert opened['markdown'] == original.markdown and opened['page'] == original.page.model_dump(mode='json')
+        monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0212')
+        with pytest.raises(ApplicationStateMigrationError):cli.assert_connection_at_head(conn)
