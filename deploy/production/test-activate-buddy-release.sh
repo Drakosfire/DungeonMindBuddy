@@ -101,7 +101,12 @@ case "$1 $2" in
     elif [[ "${3:-}" == *'.Config.Env'* ]]; then
       if [[ "${GUEST_ENV_MISSING:-0}" != 1 ]]; then
         printf '%s\n' 'DMB_HOSTED_GUEST_GRAPH_ENABLED=1' "DMB_HOSTED_GUEST_BUILD_ENABLED=${TEST_GUEST_BUILD_ENABLED:-0}" 'DMB_GUEST_GRAPH_SOURCE_SPACE=space:test' 'DMB_GUEST_GRAPH_SOURCE_REVISION=rev:test'
+        if [[ -n "${TEST_DOCUMENT_SHA:-}" ]]; then
+          printf '%s\n' 'DMB_GUEST_DOCUMENT_BUNDLE=/run/buddy-guest-documents.json' "DMB_GUEST_DOCUMENT_BUNDLE_SHA256=$TEST_DOCUMENT_SHA"
+        fi
       fi
+    elif [[ "${3:-}" == *'/run/buddy-guest-documents.json'* ]]; then
+      printf '%s false\n' "$TEST_ROOT/guest-document-bundles/$TEST_DOCUMENT_SHA.json"
     else
       printf '%s healthy /test/buddy\n' "$(cat "$TEST_ROOT/serving")"
     fi ;;
@@ -235,6 +240,24 @@ reset "$rollback_id"
 if TEST_GUEST_BUILD_ENABLED=0 run; then echo 'Candidate missing guest Build switch accepted' >&2; exit 1; fi
 grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
 if grep -F 'DMB_HOSTED_GUEST_BUILD_ENABLED' "$scratch/payload-$rollback_id"; then echo 'Rollback inherited guest Build' >&2; exit 1; fi
+mkdir "$scratch/guest-document-bundles"
+printf '%s' '{"version":1,"graph_space":"space:test","graph_revision":"rev:test","documents":[{"title":"Source","markdown":"A clue."}]}' > "$scratch/bundle"
+TEST_DOCUMENT_SHA=$(sha256sum "$scratch/bundle" | cut -d' ' -f1)
+export TEST_DOCUMENT_SHA
+cp "$scratch/bundle" "$scratch/guest-document-bundles/$TEST_DOCUMENT_SHA.json"
+printf 'guest_document_sha=%s\n' "$TEST_DOCUMENT_SHA" >> "$scratch/releases/$candidate.conf"
+reset "$rollback_id"
+TEST_GUEST_BUILD_ENABLED=1 run
+grep -F "DMB_GUEST_DOCUMENT_BUNDLE_SHA256: \"$TEST_DOCUMENT_SHA\"" "$scratch/payload-$candidate_id"
+grep -F '/run/buddy-guest-documents.json:ro' "$scratch/payload-$candidate_id"
+reset "$rollback_id"
+if TEST_GUEST_BUILD_ENABLED=1 FAIL_PUBLIC=1 run; then echo 'Failed guest release accepted' >&2; exit 1; fi
+grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
+if grep -F 'buddy-guest-documents.json' "$scratch/payload-$rollback_id"; then echo 'Rollback inherited guest document bundle' >&2; exit 1; fi
+printf ' ' >> "$scratch/guest-document-bundles/$TEST_DOCUMENT_SHA.json"
+if TEST_GUEST_BUILD_ENABLED=1 run; then echo 'Changed document bundle accepted' >&2; exit 1; fi
+grep -F 'guest document bundle digest mismatch' "$scratch/stderr"
+sed -i '/^guest_document_sha=/d' "$scratch/releases/$candidate.conf"
 sed -i '/^guest_graph_enabled=/d' "$scratch/releases/$candidate.conf"
 if TEST_GUEST_BUILD_ENABLED=1 run; then echo 'Guest Build without Graph accepted' >&2; exit 1; fi
 grep -F 'guest Build requires guest Graph' "$scratch/stderr"

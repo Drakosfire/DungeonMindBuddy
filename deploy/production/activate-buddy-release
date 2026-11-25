@@ -39,6 +39,15 @@ if [[ "$guest_graph_enabled" == 1 ]]; then
   [[ "${guest_graph_space:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph space"
   [[ "${guest_graph_revision:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph revision"
 fi
+guest_document_sha=${guest_document_sha:-}
+if [[ -n "$guest_document_sha" ]]; then
+  [[ "$guest_build_enabled" == 1 && "$guest_document_sha" =~ ^[0-9a-f]{64}$ ]] || fail "invalid staged guest document digest"
+  guest_document_bundle="$config_dir/guest-document-bundles/$guest_document_sha.json"
+  [[ -d "$config_dir/guest-document-bundles" && -f "$guest_document_bundle" ]] || fail "missing guest document bundle"
+  trusted "$config_dir/guest-document-bundles"
+  trusted "$guest_document_bundle"
+  [[ "$(sha256sum "$guest_document_bundle" | cut -d' ' -f1)" == "$guest_document_sha" ]] || fail "guest document bundle digest mismatch"
+fi
 
 verify_image() {
   local tag=$1 digest=$2 expected_revision=$3
@@ -60,8 +69,13 @@ with_image() {
   local tag=$1
   shift
   if [[ "$tag" == "$candidate_tag" && "$guest_graph_enabled" == 1 ]]; then
-    printf 'services:\n  buddy:\n    image: %s\n    environment:\n      DMB_HOSTED_GUEST_GRAPH_ENABLED: "1"\n      DMB_HOSTED_GUEST_BUILD_ENABLED: "%s"\n      DMB_GUEST_GRAPH_SOURCE_SPACE: "%s"\n      DMB_GUEST_GRAPH_SOURCE_REVISION: "%s"\n' \
-      "$tag" "$guest_build_enabled" "$guest_graph_space" "$guest_graph_revision" | "${compose[@]}" -f - "$@"
+    {
+      printf 'services:\n  buddy:\n    image: %s\n    environment:\n      DMB_HOSTED_GUEST_GRAPH_ENABLED: "1"\n      DMB_HOSTED_GUEST_BUILD_ENABLED: "%s"\n      DMB_GUEST_GRAPH_SOURCE_SPACE: "%s"\n      DMB_GUEST_GRAPH_SOURCE_REVISION: "%s"\n' \
+        "$tag" "$guest_build_enabled" "$guest_graph_space" "$guest_graph_revision"
+      if [[ -n "$guest_document_sha" ]]; then
+        printf '      DMB_GUEST_DOCUMENT_BUNDLE: /run/buddy-guest-documents.json\n      DMB_GUEST_DOCUMENT_BUNDLE_SHA256: "%s"\n    volumes:\n      - "%s:/run/buddy-guest-documents.json:ro"\n' "$guest_document_sha" "$guest_document_bundle"
+      fi
+    } | "${compose[@]}" -f - "$@"
   else
     printf 'services:\n  buddy:\n    image: %s\n' "$tag" | "${compose[@]}" -f - "$@"
   fi
@@ -83,6 +97,11 @@ verify_serving() {
       grep -Fxq "DMB_HOSTED_GUEST_BUILD_ENABLED=$guest_build_enabled" <<< "$guest_env" &&
       grep -Fxq "DMB_GUEST_GRAPH_SOURCE_SPACE=$guest_graph_space" <<< "$guest_env" &&
       grep -Fxq "DMB_GUEST_GRAPH_SOURCE_REVISION=$guest_graph_revision" <<< "$guest_env" || return 1
+    if [[ -n "$guest_document_sha" ]]; then
+      grep -Fxq 'DMB_GUEST_DOCUMENT_BUNDLE=/run/buddy-guest-documents.json' <<< "$guest_env" &&
+        grep -Fxq "DMB_GUEST_DOCUMENT_BUNDLE_SHA256=$guest_document_sha" <<< "$guest_env" || return 1
+      [[ "$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/run/buddy-guest-documents.json"}}{{.Source}} {{.RW}}{{end}}{{end}}' "$container")" == "$guest_document_bundle false" ]] || return 1
+    fi
   fi
 }
 
@@ -138,6 +157,8 @@ retain_images() {
           [[ "$value" == 1 ]] || return 1 ;;
         guest_graph_space|guest_graph_revision)
           [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || return 1 ;;
+        guest_document_sha)
+          [[ "$value" =~ ^[0-9a-f]{64}$ ]] || return 1 ;;
         *) return 1 ;;
       esac
       [[ ! "${pins[$key]+yes}" ]] || return 1

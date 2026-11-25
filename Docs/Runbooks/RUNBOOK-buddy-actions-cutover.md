@@ -127,6 +127,17 @@ identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`
 under the deployment lock. Confirm the resulting `BUDDY_STAGED` receipt.
 Guest records also contain the enabled switch and the two validated baseline identifiers. For a guest Build image, use `guest-build` for a main-line release or `guest-build-serving` for a serving overlay. The stage helper requires the Build-specific image label and records `guest_build_enabled=1`; the activator sets and verifies the Build runtime switch only for the candidate. Rollback uses the existing base Compose configuration. The activator supplies and verifies them for the candidate only; rollback uses the existing base Compose policy. Release records contain these literal fields:
 
+For a serving release that includes approved guest source pages, install a root-owned
+`/etc/buddy-deploy/guest-documents-template.json` and a root-owned
+`/etc/buddy-deploy/guest-document-bundles` directory. The template is UTF-8 JSON
+with `version: 1` and a `documents` list of `{title, markdown}` objects. Compute
+its lowercase SHA-256 and pass it as the seventh argument, after the literal mode
+`guest-build-documents-serving`. Stage binds the template to the existing approved
+Graph policy, stores a content-addressed read-only bundle, and records its digest.
+Keep that artifact for provenance and rollback. A changed template or existing
+release record is rejected. Activation verifies the bundle digest and mounts only
+that bundle read-only for the candidate; rollback does not inherit the mount.
+
 ```bash
 candidate_tag=dungeonmindbuddy:<full-candidate-sha>
 candidate_id=sha256:<candidate-image-id>

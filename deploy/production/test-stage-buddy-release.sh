@@ -27,6 +27,20 @@ case "$*" in
     printf '%s %s\n' "$rollback_id" "$rollback" ;;
   "pull --platform linux/amd64 ghcr.io/drakosfire/dungeonmindbuddy@$digest")
     ;;
+  "run --rm --name buddy-doc-seed-probe-"*)
+    [[ "$*" == *'--network=none --read-only --memory=256m --cpus=1 --pids-limit=64 --cap-drop=ALL --security-opt=no-new-privileges'* ]] || exit 89
+    if [[ ${TEST_PROBE_STUCK:-0} == 1 ]]; then printf '%s' "$4" > "$TEST_ROOT/probe-owner"; exit 1; fi
+    [[ ${TEST_NO_DOCUMENT_SEED:-0} != 1 ]] ;;
+  'ps -aq --no-trunc --filter '*)
+    if [[ ${TEST_PROBE_LIST_FAILURE:-0} == 1 ]]; then exit 92; fi
+    if [[ -f "$TEST_ROOT/probe-owner" ]]; then printf '%064d\n' 7; fi ;;
+  'inspect --format '*0000000000000000000000000000000000000000000000000000000000000007)
+    [[ -f "$TEST_ROOT/probe-owner" ]] || exit 1
+    printf '%064d ' 7
+    if [[ ${TEST_PROBE_OTHER_OWNER:-0} == 1 ]]; then printf 'unrelated-owner'; else cat "$TEST_ROOT/probe-owner"; fi ;;
+  'rm -f 0000000000000000000000000000000000000000000000000000000000000007')
+    rm "$TEST_ROOT/probe-owner"
+    touch "$TEST_ROOT/probe-cleaned" ;;
   "image inspect "*"@$digest")
     if [[ "$*" == *org.dungeonmindbuddy.serving-parent* ]]; then
       printf '%s %s linux/amd64 %s %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}" "${TEST_SERVING_PARENT-<no value>}"
@@ -109,4 +123,43 @@ if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' run guest-graph >"$s
 grep -F 'registry image does not match' "$scratch/stderr"
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' run guest-build
 grep -Fx 'guest_build_enabled=1' "$record"
+rm "$record" "$scratch/tag"
+mkdir "$scratch/guest-document-bundles"
+printf '%s' '{"version":1,"documents":[{"title":"Source","markdown":"A clue."}]}' > "$scratch/guest-documents-template.json"
+template_sha=$(sha256sum "$scratch/guest-documents-template.json" | cut -d' ' -f1)
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving invalid >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Invalid template digest accepted' >&2; exit 1; fi
+grep -F 'invalid guest document template digest' "$scratch/stderr"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" TEST_NO_DOCUMENT_SEED=1 run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Image without document seeding accepted' >&2; exit 1; fi
+grep -F 'candidate image lacks guest document seeding' "$scratch/stderr"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" TEST_PROBE_STUCK=1 run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Failed probe accepted' >&2; exit 1; fi
+[[ -e "$scratch/probe-cleaned" && ! -e "$scratch/probe-owner" ]]
+rm "$scratch/probe-cleaned"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" TEST_PROBE_STUCK=1 TEST_PROBE_OTHER_OWNER=1 run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Foreign probe removed' >&2; exit 1; fi
+[[ -e "$scratch/probe-owner" && ! -e "$scratch/probe-cleaned" ]]
+grep -F 'document probe cleanup uncertain' "$scratch/stderr"
+rm "$scratch/probe-owner"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" TEST_PROBE_LIST_FAILURE=1 run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Uncertain probe cleanup accepted' >&2; exit 1; fi
+grep -F 'document probe cleanup uncertain' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha"
+bundle_sha=$(sed -n 's/^guest_document_sha=//p' "$record")
+[[ "$bundle_sha" =~ ^[0-9a-f]{64}$ && -f "$scratch/guest-document-bundles/$bundle_sha.json" ]]
+python3 - "$scratch/guest-document-bundles/$bundle_sha.json" <<'PY'
+import json, sys
+bundle = json.load(open(sys.argv[1]))
+assert bundle['graph_space'] == 'space:test' and bundle['graph_revision'] == 'rev:test'
+assert bundle['documents'] == [{'title': 'Source', 'markdown': 'A clue.'}]
+PY
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha"
+printf ' ' >> "$scratch/guest-documents-template.json"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Changed template accepted' >&2; exit 1; fi
+grep -F 'invalid guest document template' "$scratch/stderr"
+printf '%s' '{"version":1,"documents":[{"title":"Source","markdown":"A clue."}]}' > "$scratch/guest-documents-template.json"
+printf ' ' >> "$scratch/guest-document-bundles/$bundle_sha.json"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Changed existing bundle accepted' >&2; exit 1; fi
+grep -F 'guest document bundle differs from its digest' "$scratch/stderr"
+rm "$scratch/guest-documents-template.json"
+ln -s "$scratch/bundle-symlink-target" "$scratch/guest-documents-template.json"
+printf '%s' '{}' > "$scratch/bundle-symlink-target"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Symlink template accepted' >&2; exit 1; fi
+grep -F 'symlink in deployment policy' "$scratch/stderr"
 printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'
