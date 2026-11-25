@@ -4803,6 +4803,37 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                             citation_index=0, principal=principal, service=service, repository=memory.repo,
                             resolve_identity=lambda _: memory.bound)
                         assert reopened.content == BODY and reopened.citation == opened.citation
+                        # Re-admit the actual prior read into a later pending turn
+                        # without settling any new source for that turn.
+                        from application_state.agent_conversation import retained_conversation
+                        from application_state.agent_conversation.build_intentional_response import resolution_for, operation_id_for, digest
+                        prior_execution = completed.graph_context_execution
+                        prior_work = next(event for event in prior_execution.events if type(event) is t.BuildRequestedWorkResolutionV1)
+                        later_id = uuid4()
+                        resolution = resolution_for(prior_execution.policy, 'discuss', source_scope='anchored')
+                        later_work = prior_work.model_copy(update={'requested_work': 'discuss',
+                            'intent_family': resolution['intent_family'], 'operation': resolution['operation'],
+                            'resolution': resolution, 'broker_operation_id': operation_id_for(later_id, completed.attempt,
+                                prior_work.machine_request_id, 'discuss'), 'arguments_sha256': digest({})})
+                        prefix = [*prior_execution.events[:prior_work.sequence], later_work]
+                        later_execution = pending_execution(completed.graph_context_receipt, prior_execution.policy, prefix)
+                        later = completed.model_copy(update={'turn_id': later_id, 'sequence': completed.sequence + 1,
+                            'graph_context_execution': later_execution})
+                        admission = retained_conversation.capture(later, (completed,), event_id=uuid4(),
+                            work_event_id=later_work.event_id,
+                            pointer_revision=completed.graph_context_receipt.conversation_observation.pointer_revision,
+                            discussion=True)
+                        later_execution = pending_execution(completed.graph_context_receipt, prior_execution.policy,
+                            [*prefix, admission])
+                        later = later.model_copy(update={'graph_context_execution': later_execution})
+                        from application_state.agent_conversation.build_source_free import effective_pending_source
+                        assert effective_pending_source(later.graph_context_receipt, later_execution) is None
+                        assert len(admission.native_context) == 1
+                        later_service = SimpleNamespace(inspect_turn=lambda **_: later)
+                        retained_open = open_native_body_excerpt(world_id=later.world_id, turn_id=later.turn_id,
+                            citation_index=0, principal=principal, service=later_service, repository=memory.repo,
+                            resolve_identity=lambda _: memory.bound)
+                        assert retained_open.content == BODY and retained_open.citation == opened.citation
                         damaged = completed.completion.native_body_citations[0].model_copy(update={'excerpt_sha256': '0' * 64})
                         bad_completion = completed.completion.model_copy(update={'native_body_citations': (damaged,)})
                         bad_turn = completed.model_copy(update={'completion': bad_completion})
@@ -4814,6 +4845,10 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                         with pytest.raises(SourcePassageOpenError, match='native_body_access_unavailable'):
                             open_native_body_excerpt(world_id=completed.world_id, turn_id=completed.turn_id,
                                 citation_index=0, principal=principal, service=service, repository=memory.repo,
+                                resolve_identity=lambda _: foreign)
+                        with pytest.raises(SourcePassageOpenError, match='native_body_access_unavailable'):
+                            open_native_body_excerpt(world_id=later.world_id, turn_id=later.turn_id,
+                                citation_index=0, principal=principal, service=later_service, repository=memory.repo,
                                 resolve_identity=lambda _: foreign)
                         with pytest.raises(SourcePassageOpenError, match='native_body_access_denied'):
                             open_native_body_excerpt(world_id=completed.world_id, turn_id=completed.turn_id,
@@ -4827,7 +4862,7 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     row, references = stored_row(completed)
                     assert repository._turn_from_row(None, row, references=references) == completed
                     assert len(calls) == (2 if mode == 'loop_selection_main_object' else 3)
-                    assert len(opens) == (0 if mode == 'loop_selection_main_object' else 3)
+                    assert len(opens) == (0 if mode == 'loop_selection_main_object' else 4)
                     assert len(writers) == len(searches) == 1
                     assert all(len(body['state'].get('dialogue_reference', body['state'].get('conversation', {}).get('history', []))) in {60, 120}
                         for body in calls)
