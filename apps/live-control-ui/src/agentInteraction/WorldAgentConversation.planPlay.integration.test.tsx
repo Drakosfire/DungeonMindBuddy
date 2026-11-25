@@ -1039,10 +1039,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
       await screen.findByText(/reply did not match the saved Build source and World Graph/);
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
+    if (!fresh) {
+      await screen.findByText(mode === 'mixed-question' || mode === 'mixed-unclaimed-question'
+        ? 'A question this captured answer does not address.' : question);
+      fireEvent.click(screen.getByText('Trace', {selector: 'summary'}));
+    }
     if(['producer','revision','provenance','source','world','extra','mixed-question','mixed-unclaimed-question','mixed-object-prose'].includes(mode)){
-      await screen.findByRole('group',{name:'World history unavailable'});
+      await screen.findByText('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.');
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
+    if (!fresh) await waitFor(() => expect(screen.queryByText('Loading reply details…')).not.toBeInTheDocument());
     await screen.findByText(question);
     if(mode==='interrupted'){
       expect(screen.queryByText(answer)).toBeNull();expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
