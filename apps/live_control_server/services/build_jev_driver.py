@@ -99,8 +99,11 @@ def freeze_interaction(adapter):
     if pending:
         from application_state.agent_conversation.build_source_free import capture_pending_conversation
         if pointer.active_conversation_id is None:
-            if getattr(adapter, 'pending_build_conversation_observation', None) is not None or adapter.turn is not None:
-                raise ValueError('Retained pending Build lost its captured active conversation')
+            if (getattr(adapter, 'pending_build_conversation_observation', None) is not None
+                    or adapter.turn is not None or adapter.expected_conversation_id is not None
+                    or any(getattr(adapter.request, name, None) is not None for name in (
+                        'build_draft_context', 'build_write_capability', 'build_image_move_capture'))):
+                raise ValueError('Captured pending Build lost its active conversation; cannot create a replacement')
             from .agent_turn_service import _active_or_create_conversation
             _active_or_create_conversation(adapter.service, world_id=adapter.world_id, turn_id=adapter.request.turn_id)
             pointer = adapter.service.get_world_pointer(adapter.world_id)

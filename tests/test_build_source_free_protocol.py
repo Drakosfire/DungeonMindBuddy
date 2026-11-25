@@ -1688,3 +1688,22 @@ def test_pending_driver_preserves_original_conversation_observation_after_reset_
     with pytest.raises(ValueError, match='original observation'):
         adapter.create_build_jev_driver()
     assert state.history_reads == 0
+
+
+@pytest.mark.parametrize('capture', ['expected', 'draft', 'write', 'image'])
+def test_pending_empty_pointer_rejects_stale_capture_before_conversation_creation(capture):
+    from application_state.agent_conversation.build_draft_context import BuildDraftContextRequestV1
+    from tests.test_surface_native_build_work import case
+    adapter, state = pending_adapter_driver_case(empty_pointer=True)
+    if capture == 'expected':
+        adapter.expected_conversation_id = uuid4()
+    elif capture == 'draft':
+        _, _, record, *_ = case()
+        adapter.request.build_draft_context = BuildDraftContextRequestV1(snapshot=record.record.snapshot,
+            conversation_id=record.record.conversation_id, expected_pointer_revision=record.record.expected_pointer_revision)
+    else:
+        # These host captures are rejected before their fields can be consumed.
+        setattr(adapter.request, 'build_write_capability' if capture == 'write' else 'build_image_move_capture', object())
+    with pytest.raises(ValueError, match='cannot create a replacement'):
+        adapter.create_build_jev_driver()
+    assert state.created == state.history_reads == 0 and state.pointer.active_conversation_id is None
