@@ -109,8 +109,18 @@ def test_guest_conversation_history_and_new_are_session_bound(guests, monkeypatc
     monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
     response = client.post(path + "/new", json=body, headers={"X-DMB-Index-Graph-CSRF": csrf})
     assert response.status_code == 200, response.text
+    from types import SimpleNamespace
+    from uuid import UUID
+    from application_state.unit_of_work import unit_of_work
+    session_id = str(UUID(world.removeprefix('guest-')))
+    bound_request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world, guest_build_session=session_id))
+    with unit_of_work() as conn:
+        guest_build_access._lock_guest_session(bound_request, conn, world)
+        exact_bytes = guest_build_access.guest_conversation_bytes(bound_request, conn, world)
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', exact_bytes)
     monkeypatch.setattr(guest_build_access, "MAX_GUEST_CONVERSATIONS", 1)
     assert client.post(path + "/new", json=body, headers={"X-DMB-Index-Graph-CSRF": csrf}).json() == response.json()
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
     second = {"command_id": str(uuid4()), "expected_pointer_revision": 1,
               "expected_active_conversation_id": response.json()["active_conversation_id"]}
     assert client.post(path + "/new", json=second, headers={"X-DMB-Index-Graph-CSRF": csrf}).status_code == 409

@@ -198,6 +198,31 @@ def test_plan_session_rolls_back_append_when_storage_limit_rejects(application_s
             expected_attempt=case.turn.attempt, selection=step.selection, producer_proof=step.proof)
 
 
+def test_guest_byte_limit_counts_and_rolls_back_split_plan_events(application_state_dsn, monkeypatch):
+    from types import SimpleNamespace
+    from application_state.unit_of_work import unit_of_work
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+    from apps.live_control_server.services import guest_build_access
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    world = case.turn.world_id
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world))
+    def validate(conn):
+        guest_build_access.guest_conversation_bytes(request, conn, world)
+    session = NativePlanSession(case.turn, validate_transaction=validate)
+    with unit_of_work() as conn:
+        before = guest_build_access.guest_conversation_bytes(request, conn, world)
+        initial = conn.execute('SELECT count(*) FROM agent.plan_execution_event WHERE turn_id=%s', (case.turn.turn_id,)).fetchone()[0]
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', before)
+    step = case.steps[-1]
+    with pytest.raises(ApplicationStateConflictError, match='storage limit'):
+        session.execute(PlanSessionCommand.SELECTION, expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt, selection=step.selection, producer_proof=step.proof)
+    with unit_of_work() as conn:
+        assert conn.execute('SELECT count(*) FROM agent.plan_execution_event WHERE turn_id=%s', (case.turn.turn_id,)).fetchone()[0] == initial
+    assert case.service.inspect_turn(world_id=world, turn_id=case.turn.turn_id).revision == case.turn.revision
+
+
 def test_locked_plan_waiter_reconstructs_suffix_committed_while_waiting(application_state_dsn):
     from concurrent.futures import ThreadPoolExecutor
     from time import monotonic, sleep
