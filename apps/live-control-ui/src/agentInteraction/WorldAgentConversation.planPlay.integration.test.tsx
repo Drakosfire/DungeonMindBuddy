@@ -538,6 +538,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       expect(sent.build_draft_context).toBeDefined();
       expect(sent.build_write_capability).toBeUndefined();
       expect(bridge.capture).not.toHaveBeenCalled();
+      expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalled();
     } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
   });
   it('keeps a guest Build question on an unsaved page without sending it', async () => {

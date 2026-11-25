@@ -2952,7 +2952,9 @@ export async function getWorldAgentConversationHistory(
     options.signal ? { signal: options.signal } : undefined,
   );
   const buildTurns = page.turns.filter(t=>t.provenance.surface_id==='build'&&t.provenance.primary_work.kind==='build');
-  if(options.includeTurnCorrelation&&page.conversation_id&&buildTurns.length){
+  // Guest history is read-only; owner-only retry context is not available to it.
+  const guestHistory = guestBuildRequestEpoch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation`, 'GET') !== null;
+  if(options.includeTurnCorrelation&&!guestHistory&&page.conversation_id&&buildTurns.length){
     const {readRetryContext}=await import('./conversationRetryApi');
     const contexts=await readRetryContext(worldId,page.conversation_id,buildTurns.map(t=>t.turn_id),options.signal);
     return {...page,turns:page.turns.map(t=>contexts.has(t.turn_id)?{...t,retry_context:contexts.get(t.turn_id)}:t)} as WorldAgentConversationHistoryResponse;

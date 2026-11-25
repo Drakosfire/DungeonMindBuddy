@@ -1,0 +1,5 @@
+# ONBOARD: Keep guest Buddy history in the guest session
+
+Status: ACTIVE under the user's signed-out Sizzek demo goal and Bugbot, merge and deployment authority. Serial serving slice based on live `04cbcad1173fa1ed103102ab90cfbaa03b4725ac`; recheck the production parent before publication. The lane owns the guest history transport and conversation component, focused tests and this brief.
+
+A real signed-out question succeeds and returns cited related-page claims, but the interface requests owner-only retry context and execution traces, receives 401s, and falsely tells guests to sign in. Load guest history without owner-only retry metadata and keep owner-only trace inspection out of guest conversation activity. Preserve signed-in retry/trace behavior and guest source citations. Verify the guest and owner transport paths, guest conversation UI, exact-head review, and a real deployed question and history refresh without the false sign-in message. Do not expand guest authorization to private trace data.
