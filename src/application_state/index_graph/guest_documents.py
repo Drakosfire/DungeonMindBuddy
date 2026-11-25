@@ -41,6 +41,8 @@ def seed_guest_documents(conn, *, session_id: str, world_id: str) -> None:
             entries = receipt['entries']
             if not isinstance(entries, list) or not 1 <= len(entries) <= _MAX_PAGES:
                 raise ValueError('invalid seed entries')
+            if any(not isinstance(entry, dict) or not isinstance(entry.get('document_id'), str) for entry in entries):
+                raise ValueError('invalid seed document id')
             ids = [UUID(entry['document_id']) for entry in entries]
             if len(set(ids)) != len(ids):
                 raise ValueError('duplicate seed entries')

@@ -91,8 +91,9 @@ def test_existing_seed_repairs_only_missing_classes_in_its_world(tmp_path, monke
     assert args[0] == 'guest-one' and str(args[1][0]) == receipt['entries'][0]['document_id']
 
 
-def test_invalid_seed_receipt_does_not_repair(tmp_path, monkeypatch):
+@pytest.mark.parametrize('document_id', ['not-a-uuid', 42, None])
+def test_invalid_seed_receipt_does_not_repair(tmp_path, monkeypatch, document_id):
     bundle(tmp_path, monkeypatch)
-    conn = Connection(None, (json.dumps({'entries': [{'document_id': 'not-a-uuid'}]}),))
+    conn = Connection(None, (json.dumps({'entries': [{'document_id': document_id}]}),))
     with pytest.raises(ApplicationStateUnavailableError, match='receipt'):
         seed.seed_guest_documents(conn, session_id='00000000-0000-0000-0000-000000000001', world_id='guest-one')
