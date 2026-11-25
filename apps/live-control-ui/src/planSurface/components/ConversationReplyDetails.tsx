@@ -5,7 +5,7 @@ export type TraceTab = 'evidence' | 'timeline' | 'prompt' | 'diagnostics';
 export const TraceTabContext = createContext<TraceTab | null>(null);
 export function TraceEvidence({ children }: { children: ReactNode }) {
   const tab = useContext(TraceTabContext);
-  return <div hidden={tab !== null && tab !== 'evidence'}>{children}{!traceAvailable && tab !== 'evidence' && <p>Trace capture is unavailable for this conversation.</p>}</div>;
+  return <div hidden={tab !== null && tab !== 'evidence'}>{children}</div>;
 }
 
 /** One disclosure for a reply. Saved text and independently owned actions never wait for it. */
