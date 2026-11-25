@@ -243,6 +243,14 @@ explicit adapter/initial-driver branches currently being implemented:
   only; PlanRulesRuntime._initialize and NativeRulesRuntime.__init__/_bind exact
   pending delegation; harness.execute skips the legacy Rules adapter only for its
   host pending observation. Existing Rules ledger scope/claim/CAS owners unchanged.
+- native_writer.verify_input_records: exact pending pair/prefix dispatch only;
+  pending execution writer V2 union and structural guard; service.authorize_pending_build_writer
+  plus pending writer SDK-entry/outcome methods; plan_jev_writer.authorize_native_writer
+  exact pending service/actual prepared writer binding; PlanRulesRuntime.authorize exact
+  pending atomic-ledger reread. Adapter.record_lifecycle exact pending writer branch.
+  rules_authority_store.require_open_plan_jev_acquisition_locked closes pending
+  acquisition after its writer; append_provider_event_locked exact pending-schema
+  guard prevents separate Rules authorization/inclusion. Existing input verifier/CAS unchanged.
 - This handoff.
 
 **Released now:** native_corpus.py, native_writer.py,
@@ -766,3 +774,33 @@ harness suppression of the legacy adapter. This is not SQL/provider/terminal/UI
 acceptance. Writer admission must still bind this ledger atomically to the exact
 prepared pending writer request; its lifecycle and final proof are not enabled
 by the ledger connection alone.
+
+
+## Pending retained writer dispatch checkpoint
+
+The pending writer admits its exact SDK request and existing Rules input under
+one current World/pointer/conversation/claim/leaf/access-checked App transaction.
+It reuses admit_native_writer_input_locked unchanged; the new pending service
+commits the matching provider event only after producing-input, current Rules
+revision and live claim/access checks. Separate generic Rules auth/inclusion
+cannot bypass this owner. Retained empty-selection work is the currently enabled
+writer branch; App/native acquired-source writer paths remain unintegrated.
+
+The exact NativeBuildWriterAuthorizedV2 is bound to complete work and retained
+read inventory. Its prefix closes further acquisition/dispatch. The actual
+prepared writer is retained host-side; pending SDK entry requires its durably
+captured exact request and a fresh claim/access check, and cannot enter twice.
+Known/unknown lifecycle records remain durable; an unknown result cannot be
+automatically resent. Response acknowledgement still requires the selected-text
+digest and does not itself accept final user output.
+
+Eighteen focused working controls passed3.80s using real OpenAI SDK serialization
+through a synthetic HTTP transport, actual writer authorization/input proof,
+claim/service/Rules owners and fake App cursors. They cover full120-message input
+and host-binding exclusion, admitted work/read inventory, altered history/work/
+hashes, capture/Rules revisions, current access/expiry/strict claim types, SDK
+entry once/changed bytes, independent Rules bypass, post-writer acquisition,
+Rules CAS and durable unknown delivery/no resend. Fake storage does not establish
+transaction rollback, SQL races or production qualification. Output normalization/
+completion, strict stored/API/UI readers and current serving fence, App/native
+coverage and acquisition, focused SQL/full-Send and signed-in acceptance remain.

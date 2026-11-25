@@ -2554,6 +2554,89 @@ class AgentConversationService:
             producer=observe_read, event_id=event_id, authorization_event_id=authorization_event_id,
             reads=reads, unavailable_ids=unavailable_ids)
 
+    def authorize_pending_build_writer(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, expected_rules_revision, authorization,
+            prepared_request_json, work_proof, authorize_current_access):
+        """Atomically admit pending writer input and its existing Rules proof."""
+        from .native_execution import NativeBuildWriterAuthorizedV2, BuildPendingExecutionV1
+        from .build_source_free import validate_pending_execution_binding
+        from .rules_authority_store import admit_native_writer_input_locked
+        if (type(authorization) is not NativeBuildWriterAuthorizedV2
+                or any(type(value) is not int or value < 1 for value in (
+                    expected_revision, expected_attempt, expected_rules_revision))
+                or not isinstance(prepared_request_json, str) or type(work_proof) is not dict
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending writer requires its exact input, claim and Rules owner')
+        world_id = _world_id(world_id)
+        try:
+            authorization = NativeBuildWriterAuthorizedV2.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending writing')
+            captured = conn.execute("SELECT payload->>'capture_status' FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                (turn.turn_id, turn.attempt)).fetchone()
+            if captured is None or captured[0] != 'recording':
+                raise ApplicationStateValidationError('Pending writer requires its active protected capture')
+            execution = turn.graph_context_execution
+            if authorization.sequence != len(execution.events):
+                raise ApplicationStateConflictError('Pending writer authorization has a stale sequence')
+            try:
+                prospective = BuildPendingExecutionV1.model_validate_json(execution.model_copy(
+                    update={'events': [*execution.events, authorization]}).model_dump_json(by_alias=True))
+                prospective = validate_pending_execution_binding(turn.graph_context_receipt, prospective)
+                _rules, fresh = admit_native_writer_input_locked(conn, turn, prospective, authorization,
+                    expected_revision=expected_rules_revision, prepared_request_json=prepared_request_json,
+                    work_proof=work_proof)
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if fresh is not True:
+                raise ApplicationStateConflictError('Pending writer requires a fresh one-shot Rules admission')
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending writer admission')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending writer claim expired during input verification')
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=prospective)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending writer lost its claim before atomic admission')
+            return updated, True
+
+    def record_pending_build_writer_lifecycle(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, outcome, prepared_request_json=None,
+            authorize_current_access):
+        """Only a fresh acknowledged SDK entry permits the pending writer send."""
+        from . import types as t
+        from .native_execution import NativeBuildWriterAuthorizedV2
+        if (type(outcome) is not t.ProviderOutcomeEventV1
+                or any(type(value) is not int or value < 1 for value in (expected_revision, expected_attempt))
+                or not callable(authorize_current_access)
+                or (outcome.outcome == 'sdk_entered') != isinstance(prepared_request_json, str)):
+            raise ApplicationStateValidationError('Pending writer lifecycle requires its actual SDK/request owner')
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending writer lifecycle')
+            writers = [event for event in turn.graph_context_execution.events if type(event) is NativeBuildWriterAuthorizedV2]
+            if len(writers) != 1 or outcome.provider_attempt_id != writers[0].provider_attempt_id:
+                raise ApplicationStateValidationError('Pending writer lifecycle differs from its unique authorization')
+            previous = [event for event in turn.graph_context_execution.events
+                if type(event) is t.ProviderOutcomeEventV1 and event.provider_attempt_id == outcome.provider_attempt_id]
+            if any(event.event_id == outcome.event_id for event in turn.graph_context_execution.events):
+                raise ApplicationStateConflictError('Pending writer lifecycle event is already admitted')
+            if outcome.outcome == 'sdk_entered':
+                if previous:
+                    raise ApplicationStateConflictError('Pending writer cannot re-enter transport')
+                self._validate_pending_prompt(conn, turn, writers[0], prepared_request_json)
+            elif outcome.outcome == 'response_received' and (not outcome.request_id or not outcome.response_sha256):
+                raise ApplicationStateValidationError('Pending writer response requires its exact selected text acknowledgement')
+            return self._append_pending_checked(conn, turn, outcome, expected_revision)
+
     def record_pending_build_writer_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection, producer_proof, authorize_current_access):
         """Close an empty acquired catalog against actual retained work and trace."""

@@ -625,12 +625,13 @@ NATIVE_EXECUTION_EVENT_LIMIT = 2048
 
 
 # App metadata/selected-page records are distinct from native acquisition.
-# Native reads, writer and terminal owners still require new-codec integration.
+# Native acquisition/terminal owners still need integration; the pending writer
+# is confined to its admitted retained closure and empty acquired catalog.
 BuildPendingPrefixEventV1 = Annotated[
     t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | t.ProviderOutcomeEventV1
     | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
-    | t.BuildWriterEvidenceSelectionV2,
+    | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2,
     Field(discriminator="kind"),
 ]
 
@@ -662,9 +663,18 @@ class BuildPendingExecutionV1(Strict):
         work_selected = False
         app_catalog = page_controller = page_outcome = page_selection = None
         page_reads = set()
+        writer = None
         for event in self.events:
+            if writer is not None and not (type(event) is t.ProviderOutcomeEventV1
+                    and event.provider_attempt_id == writer.provider_attempt_id):
+                raise ValueError('Pending writer closes all further acquisition and dispatch')
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
-                if type(event) is BuildAppPageSelectionAuthorizedV1:
+                if type(event) is NativeBuildWriterAuthorizedV2:
+                    from .build_source_free import validate_pending_writer_authorization
+                    validate_pending_writer_authorization(self, event)
+                    writer = event
+                    continue
+                elif type(event) is BuildAppPageSelectionAuthorizedV1:
                     if (settled or app_catalog is None or page_selection is not None
                             or event.catalog_event_id != app_catalog.event_id
                             or page_controller is not None and page_outcome != "known_not_sent"

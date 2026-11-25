@@ -519,3 +519,22 @@ def pending_turn_owner(turn):
         raise ValueError('Pending runtime requires its actual running Build owner')
     current = t.Turn.model_validate_json(turn.model_dump_json(by_alias=True))
     return current.graph_context_receipt, current.graph_context_execution
+
+
+def validate_pending_writer_authorization(execution, event):
+    from . import types as t
+    from .native_execution import NativeBuildWriterAuthorizedV2, native_read_event_ids
+    prefix = execution.events[:event.sequence]
+    selected = [row for row in prefix if type(row) is t.BuildWriterEvidenceSelectionV2]
+    if (type(event) is not NativeBuildWriterAuthorizedV2 or len(selected) != 1
+            or selected[0].mode != 'empty_catalog'
+            or not any(type(row) is t.BuildPriorBodyEvidenceAdmittedV3 for row in prefix)
+            or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.writer.identity()
+            or event.native_read_event_ids != native_read_event_ids(prefix)
+            or any(type(row) is NativeBuildWriterAuthorizedV2 for row in prefix)
+            or event.included_assertion_ids or event.included_relationship_ids or event.included_evidence_ref_ids
+            or event.included_graph_event_ids or event.included_source_read_event_ids
+            or getattr(event, 'included_source_reuse_event_ids', ())
+            or event.compact_plan_editor_prose or event.compact_plan_graph_qualifications
+            or event.deduplicate_plan_recap_prose):
+        raise ValueError('Pending writer requires its one exact retained work and read inclusion')

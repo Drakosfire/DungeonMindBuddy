@@ -1547,6 +1547,18 @@ class AgentTurnExecutionPersistencePort(Protocol):
         materialize_source: Callable[..., Any], authorize_current_access: Callable[..., bool],
     ) -> tuple[Turn, bool]: ...
 
+    def authorize_pending_build_writer(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
+        expected_attempt: int, expected_rules_revision: int, authorization: Any,
+        prepared_request_json: str, work_proof: Any, authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def record_pending_build_writer_lifecycle(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
+        expected_attempt: int, outcome: Any, prepared_request_json: str | None = None,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
     def record_pending_build_writer_selection(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, selection: Any, producer_proof: Any,
@@ -3438,9 +3450,13 @@ class _PolicyExecutionAdapter:
                 if pending:
                     if not callable(self.pending_build_access):
                         raise ValueError('Pending lifecycle requires its current App access owner')
+                    from application_state.agent_conversation.native_execution import NativeBuildWriterAuthorizedV2
+                    pending_writer = any(type(row) is NativeBuildWriterAuthorizedV2
+                        and row.provider_attempt_id == self.last_provider_attempt_id
+                        for row in self._broker_execution().events)
                     options = {'authorize_current_access': self.pending_build_access}
                     if transition == 'sdk_entered':
-                        prepared = getattr(self, '_prepared_build_decision', None)
+                        prepared = getattr(self, '_prepared_build_writer' if pending_writer else '_prepared_build_decision', None)
                         if (prepared is None or type(prepared.body) is not bytes
                                 or str(prepared.attempt_id) != str(self.last_provider_attempt_id)):
                             raise ValueError('Pending SDK entry requires its actual prepared request')
@@ -3448,6 +3464,8 @@ class _PolicyExecutionAdapter:
                         method = 'enter_pending_app_page_sdk'
                     else:
                         method = 'record_pending_app_controller_outcome'
+                    if pending_writer:
+                        method = 'record_pending_build_writer_lifecycle'
                     result = self.fence.append(method, 'outcome', event, **options)
                 else:
                     result = self.fence.append('record_provider_outcome', 'outcome', event, **record_options)

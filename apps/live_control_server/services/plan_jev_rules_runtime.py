@@ -80,8 +80,8 @@ class PlanRulesRuntime:
         native = self._initialize()
         with a.fence.renewer._lock:
             turn = native._bind()
-            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
-            if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+            if type(turn.graph_context_receipt) in (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1):
                 # The owning APP append already admitted writer + Rules input in
                 # one transaction. Read that same ledger, without a second grant.
                 native.record=a.service.begin_rules_execution(native.record.execution.scope,expected_turn_revision=turn.revision)

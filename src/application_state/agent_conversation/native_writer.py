@@ -398,16 +398,20 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
                          work_proof, world_id, conversation_id, turn_id, attempt, play_context_receipt=None,
                          retained_build_proof=False):
     """Bind one shared native frame to the exact stored producing SDK request."""
-    if ((type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1)
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
+    if ((type(receipt), type(execution)) not in {
+            (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1),
+            (BuildPendingContextReceiptV1, BuildPendingExecutionV1)}
             or type(authorization) not in NATIVE_WRITER_TYPES):
         raise ValueError("Native writer proof requires its concrete shared owner records")
-    validate_execution_binding(receipt, execution)
+    _validate_writer_binding(receipt, execution)
     writers = [event for event in execution.events if type(event) in NATIVE_WRITER_TYPES]
     if writers != [authorization] or execution.events[authorization.sequence] != authorization:
         raise ValueError("Native writer proof differs from its unique stored authorization")
     # Reparse actual records, not a legacy policy/view. Later outcomes never add
     # evidence to this producing frame; read owners refuse post-writer acquisition.
-    prefix = SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
+    prefix = type(execution).model_validate_json(execution.model_copy(
         update={"events": execution.events[:authorization.sequence]}).model_dump_json(by_alias=True))
     expected_work = model_work_frame(receipt,prefix,provenance=provenance,idempotency_key=idempotency_key,
         work_proof=work_proof,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,

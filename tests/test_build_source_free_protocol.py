@@ -2718,6 +2718,9 @@ def pending_rules_runtime_case(monkeypatch):
         adapter.turn = state.turn
         adapter.fence.renewer.update_turn(state.turn)
         state.rules_payload, state.rules_inserts, state.rules_locks = None, 0, 0
+        state.rules_revision = 1
+        state.capture_status = 'recording'
+        state.rules_cas_failure = False
         class Cursor:
             def __enter__(self):
                 return self
@@ -2736,7 +2739,7 @@ def pending_rules_runtime_case(monkeypatch):
                     assert 'FROM agent.turn_rules_execution' in sql
                     assert args == (state.turn.turn_id, state.turn.attempt)
                     if state.rules_payload is not None:
-                        self.row = {'revision': 1, 'payload': state.rules_payload}
+                        self.row = {'revision': state.rules_revision, 'payload': state.rules_payload}
             def fetchone(self):
                 return self.row
         state.conn.cursor = lambda **kwargs: Cursor()
@@ -2744,6 +2747,21 @@ def pending_rules_runtime_case(monkeypatch):
             assert state.depth == 1
             if sql == 'SELECT clock_timestamp()':
                 return SimpleNamespace(fetchone=lambda: (state.now,))
+            if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+                return state.leaf_query(sql, args)
+            if "SELECT payload->>'capture_status'" in sql:
+                return SimpleNamespace(fetchone=lambda: (state.capture_status,))
+            if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s':
+                return SimpleNamespace(fetchone=lambda: (state.writer_trace,))
+            if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s':
+                return SimpleNamespace(fetchall=lambda: [(state.writer_trace,)])
+            if 'UPDATE agent.turn_rules_execution SET revision=revision+1,payload=%s' in sql:
+                if state.rules_cas_failure:
+                    return SimpleNamespace(rowcount=0)
+                assert args[1:] == (state.turn.turn_id, state.turn.attempt, state.rules_revision)
+                state.rules_payload = args[0].obj
+                state.rules_revision += 1
+                return SimpleNamespace(rowcount=1)
             assert 'INSERT INTO agent.turn_rules_execution' in sql
             assert state.rules_payload is None and args[:2] == (state.turn.turn_id, state.turn.attempt)
             state.rules_inserts += 1
@@ -2786,3 +2804,220 @@ def test_pending_rules_runtime_refuses_stale_or_crossed_parent_before_ledger_cre
         with pytest.raises((ApplicationStateError, ValueError)):
             runtime.frame()
         assert state.rules_inserts == 0 and state.materialized == 0 and state.persisted == 1
+
+
+@_pending_test_contextmanager
+def pending_writer_dispatch_case(monkeypatch):
+    import asyncio
+    import httpx
+    from datetime import UTC, datetime
+    from hashlib import sha256
+    from types import MethodType
+    from openai import AsyncOpenAI
+    from generationengine.text_dispatch import PreparedTextDispatch
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from apps.live_control_server.services.build_jev_writer_selection import WriterSelectionDriver
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+    from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+    from apps.live_control_server.services import agent_prompt_evidence
+    from application_state.agent_conversation.context_trace import TurnContextTraceV1
+    from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+    from application_state.agent_conversation.native_writer import output_request_fields
+    from tests.test_build_jev_estimated_continuations import counter
+    with pending_rules_runtime_case(monkeypatch) as (state, adapter, rules):
+        adapter.budget = {'estimator': state.turn.graph_context_execution.policy.provider_input_accounting.estimator,
+            'apiMode': 'typesafe_decision'}
+        adapter.trace, adapter.failure = None, None
+        adapter._build_jev_accounting = counter()
+        rules.frame()
+        selector = WriterSelectionDriver(adapter, type('Material', (), {'_material': lambda self: ((), (), ())})(),
+            native_conversation_terminal(state.turn))
+        selector.settle_empty()
+        trace = TurnContextTraceV1(trace_id=uuid4(), world_id=state.turn.world_id,
+            conversation_id=state.turn.conversation_id, turn_id=state.turn.turn_id, attempt=state.turn.attempt,
+            started_at=datetime.now(UTC), execution_start_sequence=0, observations=[])
+        def append_observation(*, observation, **binding):
+            nonlocal trace
+            assert binding['expected_revision'] == state.turn.revision
+            trace = TurnContextTraceV1.model_validate(trace.model_copy(update={
+                'observations': [*trace.observations, observation]}))
+            state.writer_trace = trace.model_dump(mode='json', by_alias=True)
+            return trace
+        monkeypatch.setattr(state.service, 'append_context_trace', append_observation)
+        monkeypatch.setattr(agent_prompt_evidence, 'store_prompt', lambda raw, **kwargs: uuid4())
+        adapter.context_capture = ContextTraceCollector(adapter.fence, initial_trace=trace)
+        for name in ('record_lifecycle', '_capture_prepared_prompt'):
+            setattr(adapter, name, MethodType(getattr(_PolicyExecutionAdapter, name), adapter))
+        writer = PlanJevWriter(adapter, {}, rules)
+        body = {'model': writer.model, 'input': writer.messages, 'instructions': writer.instructions,
+            **output_request_fields(writer.output_reserve), 'text': {'format': writer.output_format},
+            'tools': [], 'stream': False, 'reasoning': {'effort': writer.reasoning_effort}, 'service_tier': 'fast'}
+        async def serialize():
+            wire = []
+            def response(request):
+                wire.append(request.content)
+                return httpx.Response(200, request=request, json={'id': 'resp_synthetic', 'object': 'response',
+                    'created_at': 1, 'model': writer.model, 'status': 'completed', 'output': []})
+            async with AsyncOpenAI(api_key='synthetic', http_client=httpx.AsyncClient(
+                    transport=httpx.MockTransport(response))) as client:
+                await client.responses.create(**body)
+            assert len(wire) == 1
+            return wire[0]
+        raw = asyncio.run(serialize())
+        prepared = PreparedTextDispatch(str(uuid4()), 'openai', 'responses', writer.model, 'POST',
+            'https://api.openai.com/v1/responses', raw, sha256(raw).hexdigest(), len(raw))
+        yield state, adapter, rules, writer, prepared
+
+
+def test_pending_writer_dispatch_binds_actual_sdk_bytes_and_rules_then_grants_entry_once(monkeypatch):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_writer import verify_input_records
+    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        assert writer.authorize(prepared)
+        assert state.rules_revision == 2 and state.persisted == 3
+        events = state.rules_payload['events']
+        assert [event['kind'] for event in events] == ['provider_authorized', 'provider_included']
+        evidence = verify_input_records(state.turn.graph_context_receipt, state.turn.graph_context_execution,
+            writer.authorization, prepared.body.decode(), provenance=state.turn.provenance,
+            idempotency_key=state.turn.idempotency_key, work_proof={}, world_id=state.turn.world_id,
+            conversation_id=state.turn.conversation_id, turn_id=state.turn.turn_id, attempt=state.turn.attempt)
+        assert evidence.work_frame['retained_authored_context']
+        entered = SimpleNamespace(request=prepared, outcome='sending', http_status=None)
+        assert writer.record(entered)
+        assert not writer.record(entered)
+        assert state.materialized == 0
+        assert state.rules_payload['events'][-1]['kind'] == 'provider_included'
+
+
+@pytest.mark.parametrize('failure', ['omitted_history', 'changed_history', 'changed_work', 'read_inventory',
+    'work_hash', 'capture', 'rules_revision', 'access', 'expiry', 'claim_attempt'])
+def test_pending_writer_dispatch_refuses_altered_input_or_lost_authority_before_sdk_entry(monkeypatch, failure):
+    from dataclasses import replace
+    from datetime import timedelta
+    from hashlib import sha256
+    from application_state.errors import ApplicationStateError
+    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        if failure in {'omitted_history', 'changed_history', 'changed_work'}:
+            body = json.loads(prepared.body)
+            messages = body['input']
+            if failure in {'omitted_history', 'changed_history'}:
+                index = next(index for index, row in enumerate(messages)
+                    if 'conversation_turn' in json.loads(row['content']))
+                if failure == 'omitted_history':
+                    messages.pop(index)
+                else:
+                    value = json.loads(messages[index]['content'])
+                    value['conversation'] = 'Invented replacement history'
+                    messages[index]['content'] = json.dumps(value)
+            else:
+                index = next(index for index, row in enumerate(messages) if 'build_work' in json.loads(row['content']))
+                value = json.loads(messages[index]['content'])
+                value['build_work']['retained_authored_context'] = []
+                messages[index]['content'] = json.dumps(value)
+            writer.messages = messages
+            raw = json.dumps(body).encode()
+            prepared = replace(prepared, body=raw, body_sha256=sha256(raw).hexdigest(), body_size=len(raw))
+        elif failure in {'read_inventory', 'work_hash', 'claim_attempt'}:
+            original = state.service.authorize_pending_build_writer
+            def admit(*args, authorization, **kwargs):
+                if failure == 'read_inventory':
+                    authorization = authorization.model_copy(update={'native_read_event_ids': ()})
+                elif failure == 'work_hash':
+                    authorization = authorization.model_copy(update={'work_frame_sha256': 'b' * 64})
+                else:
+                    kwargs['expected_attempt'] = True
+                return original(*args, authorization=authorization, **kwargs)
+            monkeypatch.setattr(state.service, 'authorize_pending_build_writer', admit)
+        elif failure == 'capture':
+            state.capture_status = 'paused'
+        elif failure == 'rules_revision':
+            state.rules_revision += 1
+        elif failure == 'access':
+            state.denied = True
+        else:
+            state.now += timedelta(hours=1)
+        with pytest.raises((ApplicationStateError, ValueError)):
+            writer.authorize(prepared)
+        assert writer.prepared is None and state.persisted == 2 and state.materialized == 0
+        assert not any(getattr(event, 'kind', None) == 'native_build_writer_authorized_v2'
+            for event in state.turn.graph_context_execution.events)
+
+
+@pytest.mark.parametrize('failure', ['bytes', 'access', 'expiry'])
+def test_pending_writer_sdk_entry_refuses_changed_bytes_or_lost_live_claim(monkeypatch, failure):
+    from dataclasses import replace
+    from datetime import timedelta
+    from types import SimpleNamespace
+    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        assert writer.authorize(prepared)
+        if failure == 'bytes':
+            adapter._prepared_build_writer = replace(prepared, body=prepared.body + b' ')
+        elif failure == 'access':
+            state.denied = True
+        else:
+            state.now += timedelta(hours=1)
+        assert not writer.record(SimpleNamespace(request=prepared, outcome='sending', http_status=None))
+        assert state.persisted == 3 and state.materialized == 0
+        assert not any(getattr(event, 'outcome', None) == 'sdk_entered'
+            and event.provider_attempt_id == writer.authorization.provider_attempt_id
+            for event in state.turn.graph_context_execution.events)
+
+
+def test_pending_writer_rules_input_cannot_bypass_atomic_owner_or_reopen_acquisition(monkeypatch):
+    from application_state.errors import ApplicationStateError
+    from application_state.agent_conversation.rules_authority_events import RulesProviderAuthorizedV1
+    from application_state.agent_conversation.rules_authority_store import require_open_plan_jev_acquisition_locked
+    from application_state.agent_conversation import repository
+    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        scope = rules.native.record.execution.scope
+        event = RulesProviderAuthorizedV1(kind='provider_authorized', event_id=uuid4(), sequence=0,
+            execution_id=scope.execution_id, provider_attempt_id=uuid4(), request_envelope_sha256=prepared.body_sha256,
+            matched_outputs=(), declared_support_refs=())
+        with pytest.raises(ApplicationStateError, match='atomic admission'):
+            state.service.append_rules_provider_event(scope, expected_turn_revision=state.turn.revision,
+                expected_ledger_revision=1, event=event, prepared_request_json=prepared.body.decode())
+        assert state.rules_revision == 1 and state.persisted == 2
+        assert writer.authorize(prepared)
+        monkeypatch.setattr(repository, 'get_turn', lambda conn, world, turn_id: state.turn)
+        with pytest.raises(ApplicationStateError, match='closes Rules acquisition'):
+            require_open_plan_jev_acquisition_locked(state.conn, scope)
+
+
+def test_pending_writer_unknown_transport_stays_durable_and_cannot_dispatch_again(monkeypatch):
+    from types import SimpleNamespace
+    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        assert writer.authorize(prepared)
+        assert writer.record(SimpleNamespace(request=prepared, outcome='sending', http_status=None))
+        assert writer.record(SimpleNamespace(request=prepared, outcome='outcome_unknown', http_status=None))
+        assert [event.outcome for event in state.turn.graph_context_execution.events
+            if isinstance(event, t.ProviderOutcomeEventV1)
+            and event.provider_attempt_id == writer.authorization.provider_attempt_id] == ['sdk_entered', 'outcome_unknown']
+        assert state.rules_payload['events'][-1]['status'] == 'unknown'
+        assert not writer.record(SimpleNamespace(request=prepared, outcome='sending', http_status=None))
+        assert not writer.authorize(prepared)
+        assert state.materialized == 0 and state.turn.assistant_text is None and state.turn.completion is None
+
+
+def test_pending_writer_rules_cas_failure_never_admits_or_dispatches_writer(monkeypatch):
+    from application_state.errors import ApplicationStateError
+    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        state.rules_cas_failure = True
+        with pytest.raises(ApplicationStateError, match='Rules provider ledger CAS'):
+            writer.authorize(prepared)
+        assert state.persisted == 2 and state.rules_revision == 1
+        assert writer.prepared is None and state.materialized == 0
+
+
+def test_pending_writer_actual_serialized_request_omits_host_bindings_and_preserves_all_dialogue(monkeypatch):
+    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        body = json.loads(prepared.body)
+        dialogue = [json.loads(row['content']) for row in body['input']
+            if 'conversation_turn' in json.loads(row['content'])]
+        assert len(dialogue) == 120 and dialogue[0]['conversation'] == 'Constraint 0'
+        assert dialogue[-2]['conversation'].startswith('Correction:')
+        raw = prepared.body.decode()
+        for value in (str(state.turn.turn_id), str(state.turn.conversation_id),
+            str(state.turn.idempotency_key), state.turn.graph_context_receipt.context_receipt_sha256,
+            state.turn.graph_context_execution.execution_policy_sha256, str(rules.native.authorization_id)):
+            assert value not in raw
+        assert 'not_prepared' in raw and 'Ashbell has three bridges' in raw
