@@ -91,6 +91,16 @@ export function replaySteps(trace: BuddyTurnContextTrace): RetrievalStep[] {
 }
 
 function neighborhoodFrames(step: RetrievalStep): RetrievalStep[] {
+  const readableStep = (item: RetrievalStep, position: number) => {
+    if (item.hop) {
+      const label = labelForStep(position)
+      return `${label(item.hop.from_node_id) ?? 'Unnamed object'} → ${label(item.hop.to_node_id) ?? 'Unnamed object'}`
+    }
+    if (item.pruning) return `Exclude ${item.pruning.total} ${item.pruning.total === 1 ? 'candidate' : 'candidates'}`
+    if (item.native) return item.writerEvidence ? 'Read Graph evidence for the answer writer' : 'Read Graph evidence'
+    if (item.request.operation === 'search' && item.request.query_text.trim()) return `Search for “${item.request.query_text.trim()}”`
+    return stepLabel(item)
+  }
   const replay = step.result.neighborhood_replay
   if (!replay || step.request.operation !== 'neighborhood') return [step]
   const nodes = new Map(step.result.nodes.map(node => [node.node_id, node]))
@@ -567,7 +577,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         ))}</ul>
         </GraphNodeViewer>
       </dialog>}
-      {step.pruning && <p>{step.pruning.reason}.{step.pruning.total > nodes.length
+      {step.pruning && <p>{readableStep(step, index)}. {step.pruning.reason}.{step.pruning.total > nodes.length
         && ' The capture lists only some of the excluded candidates.'}</p>}
       {wide && trace && !steps.some(item => item.hop || item.result.neighborhood_replay) && <p>Directed traversal was unavailable for this attempt.</p>}
       {wide && trace && trace.retrieval_exclusion_steps == null && !steps.some(item => item.result.neighborhood_replay) && <p>Pruning decisions were unavailable for this attempt.</p>}
@@ -602,7 +612,7 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
         <ol ref={list} className="buddy-retrieval-replay__steps" aria-label="Recorded retrieval steps">
           {steps.map((item, position) => (
             <li key={stepKey(item)} data-replay-active={position === index ? true : undefined}><button type="button" aria-current={position === index ? 'step' : undefined}
-              onClick={() => select(position)}>{stepLabel(item)}{showsLookupResult(item) && ` · ${item.result.outcome}`}
+              onClick={() => select(position)}>{readableStep(item, position)}
               {(showsLookupResult(item) && (item.native ? item.writerEvidence : writerObservations.has(item.sequence))) && <strong> · Writer evidence</strong>}</button></li>
           ))}
         </ol>
