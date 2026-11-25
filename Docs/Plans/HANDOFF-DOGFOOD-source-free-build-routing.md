@@ -290,3 +290,16 @@ This draft remains based on its pinned911c source. Before delivery, reconcile
 its cumulative runtime change with the deployed bee3 backend and current remote
 work; do not replace production changes by deploying the old prototype base.
 The serial topology and explicit CLARIFICATION4652 function split remain in force.
+
+## Provider-accounting closure checkpoint
+
+The existing provider lifecycle owner invokes build_decision_context.uses_role_accounting
+by concrete policy. Add only that exact new-policy dispatch to the write lease
+in build_decision_context.py. Preserve its accounting predicates and all old
+policy behavior; do not substitute a legacy execution or policy to pass them.
+The new pending execution starts as an unregistered prefix codec through work
+selection and source settlement. This is staging toward the same complete
+producer/reader/terminal protocol, not an independently delivered capability.
+
+The captured-semantics helper may likewise recognize only the exact new policy.
+No accounting algorithm, provider/model or historical policy behavior changes.

@@ -71,3 +71,64 @@ def validate_pending_source_settlement(receipt, settlement):
         raise ValueError("Source settlement differs from the observed binding")
     if source.revision_id != revision:
         raise ValueError("Source settlement differs from the requested or observed revision")
+
+
+def effective_pending_source(receipt, execution):
+    """Resolve a structurally joined pending source; never prepare or grant it.
+
+    None means no source authority/query exists. A non-None result remains subject
+    to actual locked-row settlement admission and existing read/access owners.
+    """
+    from . import types as t
+    from .native_context import BuildPendingContextReceiptV1, work_world_id
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+    from .build_world_context import validate_work_intent
+
+    if type(receipt) is not BuildPendingContextReceiptV1 or type(execution) is not BuildPendingExecutionV1:
+        raise ValueError("Pending source requires its concrete Build receipt and execution")
+    receipt = BuildPendingContextReceiptV1.model_validate_json(receipt.model_dump_json(by_alias=True))
+    execution = BuildPendingExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
+    policy, work = execution.policy, receipt.work_context
+    if (execution.context_receipt_sha256 != receipt.context_receipt_sha256
+            or policy.source_observation_sha256 != t.canonical_sha256(receipt.source_observation)
+            or policy.action.intent.world_id != work_world_id(work)):
+        raise ValueError("Pending action, work and observation commitments differ")
+    validate_work_intent(work.source_basis, policy.action.intent)
+    if receipt.source_observation.requested_revision_id != policy.action.intent.graph_request.revision_pin:
+        raise ValueError("Pending observation differs from the explicitly requested revision")
+    for event in execution.events:
+        if (type(event) is t.BuildDraftContextCapturedV1
+                and event.record.snapshot.saved_basis() != work.source_basis.model_dump(mode="json", by_alias=True)):
+            raise ValueError("Pending working draft differs from its frozen source basis")
+    settlements = [event for event in execution.events if type(event) is NativeBuildSourceSettledV1]
+    if not settlements:
+        return None
+    settlement, = settlements
+    validate_pending_source_settlement(receipt, settlement)
+    return settlement.source_authority, settlement.native_query
+
+
+def validate_pending_work_records(execution):
+    """Bind captured editor context before the new first decision, without IO."""
+    from . import types as t
+    from .build_draft_context import (BuildDraftContextRecordV1, BuildDraftSnapshotV1,
+                                     captured_context_sha256)
+    action = execution.policy.action
+    rows = [event for event in execution.events if type(event) is t.BuildDraftContextCapturedV1]
+    if len(rows) > 1:
+        raise ValueError("Pending work captures one immutable draft")
+    for event in rows:
+        record = BuildDraftContextRecordV1.model_validate_json(event.record.model_dump_json(by_alias=True))
+        if (event.sequence != 0
+                or captured_context_sha256(record) != action.intent.build_draft_context_sha256
+                or record.submitted_intent_fingerprint != t.submitted_turn_intent_fingerprint_v2(action.intent)):
+            raise ValueError("Pending draft differs from its submitted first-decision context")
+        if action.write_capability is not None:
+            capability = action.write_capability
+            editor = BuildDraftSnapshotV1(**{key: capability.draft_markdown if key == 'draft_markdown'
+                else getattr(capability.basis, key) for key in BuildDraftSnapshotV1.model_fields if key != 'schema_'})
+            if record.snapshot != editor:
+                raise ValueError("Pending editor differs from its captured write capability")
+    if action.intent.build_draft_context_sha256 is not None and not rows and any(
+            isinstance(event, t.ProviderAttemptAuthorizedEventV1) for event in execution.events):
+        raise ValueError("Pending decision requires its submitted draft capture first")

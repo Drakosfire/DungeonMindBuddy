@@ -614,6 +614,66 @@ _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelecte
 NATIVE_EXECUTION_EVENT_LIMIT = 2048
 
 
+# The pending prefix cannot decode source acquisition, writer or completion
+# records. Their new-codec admission is integrated separately before registration.
+BuildPendingPrefixEventV1 = Annotated[
+    t.ProviderAttemptAuthorizedEventV5 | t.ProviderOutcomeEventV1
+    | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
+    | NativeBuildSourceSettledV1,
+    Field(discriminator="kind"),
+]
+
+
+class BuildPendingExecutionV1(Strict):
+    """Unregistered Build prefix; structural closure grants no IO authority."""
+    schema_: Literal["dmb_build_pending_execution_v1"] = Field(
+        default="dmb_build_pending_execution_v1", alias="schema")
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    policy: BuildPendingExecutionPolicyV1
+    events: list[BuildPendingPrefixEventV1] = Field(max_length=NATIVE_EXECUTION_EVENT_LIMIT)
+
+    @model_validator(mode="after")
+    def observed_prefix(self):
+        BuildPendingExecutionPolicyV1.model_validate_json(self.policy.model_dump_json(by_alias=True))
+        expected = t.canonical_sha256(dict(schema=self.schema_,
+            context_receipt_sha256=self.context_receipt_sha256,
+            policy=self.policy.model_dump(mode="json", by_alias=True)))
+        if self.execution_policy_sha256 != expected:
+            raise ValueError("Pending Build execution policy differs from its commitment")
+        t.validate_provider_execution(self)
+        from .build_intentional_response import validate_native_action_events
+        validate_native_action_events(self)
+        from .build_source_free import validate_pending_work_records
+        validate_pending_work_records(self)
+        settled = False
+        for event in self.events:
+            if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+                if (settled or (event.provider, event.model, event.api_mode)
+                        != self.policy.provider_roles.controller.identity()):
+                    raise ValueError("Pending prefix permits only its pre-settlement controller")
+                if (event.included_assertion_ids or event.included_relationship_ids
+                        or event.included_evidence_ref_ids or event.included_graph_event_ids
+                        or event.included_source_read_event_ids
+                        or getattr(event, "included_source_reuse_event_ids", ())):
+                    raise ValueError("Pending controller cannot include unacquired source evidence")
+            elif type(event) is NativeBuildSourceSettledV1:
+                work = [e for e in self.events[:event.sequence]
+                        if type(e) is t.BuildRequestedWorkResolutionV1]
+                if (settled or len(work) != 1 or event.sequence != len(self.events) - 1
+                        or event.pending_context_receipt_sha256 != self.context_receipt_sha256
+                        or event.work_event_id != work[0].event_id
+                        or work[0].resolution.get("barrier") is not None
+                        or work[0].resolution.get("source_scope") not in {"source_lookup", "uncertain"}
+                        or work[0].requested_work in {"review_blank_lore_page", "clarify_request", "clarify_creation"}):
+                    raise ValueError("Source settlement requires its unique evidence-seeking work decision")
+                if (isinstance(event.native_query, NativeGraphQueryV4)
+                        and event.native_query.question != self.policy.action.intent.message):
+                    raise ValueError("Settled query changed the pending author request")
+                settled = True
+        return self
+
+
 class SurfaceNativeExecutionV1(Strict):
     schema_: Literal["dmb_surface_native_execution_v1"] = Field(default="dmb_surface_native_execution_v1", alias="schema")
     context_receipt_sha256: Digest

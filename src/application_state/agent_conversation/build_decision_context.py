@@ -83,6 +83,9 @@ def uses_role_accounting(policy):
     from . import types as t
     if isinstance(policy, t.BuildEstimatedActionControllerWriterPolicyV1):
         return True
+    if getattr(policy, "policy_version", None) == "build_pending_execution_v1":
+        from .native_execution import BuildPendingExecutionPolicyV1
+        return type(policy) is BuildPendingExecutionPolicyV1
     if getattr(policy, "policy_version", None) != "surface_native_execution_v1":
         return False
     from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1

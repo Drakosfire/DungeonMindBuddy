@@ -463,3 +463,171 @@ def test_pending_policy_rejects_a_different_writer_and_controller_estimator():
         policy="o200k_double_plus_4096_adaptive_context_v3", raw_wire_limit_bytes=256000)
     with pytest.raises(ValidationError, match="writer accounting differs"):
         BuildPendingExecutionPolicyV1.model_validate(values)
+
+
+def pending_execution_pair(*, with_source=False, captured_case=None):
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1
+    from tests.test_surface_native_execution import component
+    context, original = component('build') if captured_case is None else captured_case[:2]
+    world = context.work_context.source_basis.world_id
+    observed = BuildSourceObservationV1(managed_world_id=world,
+        binding=BuildSourceBindingObservedV1(managed_world_id=world,
+            native_world_id='native-observed', binding_version=1) if with_source else None,
+        requested_revision_id=None, observed_head_revision_id='observed-revision' if with_source else None)
+    receipt = seal_pending_receipt(pending_receipt_values(
+        work_context=context.work_context.model_dump(mode='json'),
+        source_observation=observed.model_dump(mode='json', by_alias=True)))
+    values = original.policy.model_dump(mode='python', by_alias=True)
+    for key in ('policy_version', 'source_authority_sha256', 'native_query_sha256'):
+        values.pop(key)
+    policy = BuildPendingExecutionPolicyV1.model_validate(values | {
+        'source_observation_sha256': t.canonical_sha256(observed)})
+    return receipt, policy
+
+
+def pending_execution(receipt, policy, events=()):
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+    data = dict(schema='dmb_build_pending_execution_v1',
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=policy.model_dump(mode='json', by_alias=True))
+    import json
+    return BuildPendingExecutionV1.model_validate_json(json.dumps(data | {
+        'execution_policy_sha256': t.canonical_sha256(data),
+        'events': [event.model_dump(mode='json', by_alias=True) for event in events]}))
+
+
+def pending_work_prefix(policy, *, scope='source_lookup'):
+    from tests.test_surface_native_execution import controller, outcomes, build_resolution
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    first = controller('build', policy)
+    work = build_resolution(policy, first, 3)
+    work = type(work).model_validate(work.model_dump(mode='python') | {
+        'resolution': resolution_for(policy, 'discuss', source_scope=scope)})
+    return [first, *outcomes(first, 1), work]
+
+
+def pending_settlement(receipt, policy, work):
+    from application_state.agent_conversation.native_execution import NativeBuildSourceSettledV1
+    source = settled_source(managed_world_id=policy.action.intent.world_id)
+    query = prepared_query(source).model_copy(update={'question': policy.action.intent.message})
+    original = source_settlement(receipt, authority=source, query_world=source.managed_world_id)
+    return NativeBuildSourceSettledV1.model_validate(original.model_dump(mode='python') | {
+        'sequence': 4, 'work_event_id': work.event_id, 'native_query': query})
+
+
+def test_pending_decision_without_core_does_not_manufacture_effective_source():
+    from application_state.agent_conversation.build_source_free import effective_pending_source
+    receipt, policy = pending_execution_pair()
+    execution = pending_execution(receipt, policy, pending_work_prefix(policy, scope='anchored'))
+    assert effective_pending_source(receipt, execution) is None
+    # Reopening this new prefix must not silently decode as the old authority-bearing pair.
+    from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
+    with pytest.raises(ValidationError):
+        SurfaceNativeExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
+
+
+def test_pending_settlement_exposes_only_its_exact_observed_authority_and_query():
+    from application_state.agent_conversation.build_source_free import effective_pending_source
+    receipt, policy = pending_execution_pair(with_source=True)
+    events = pending_work_prefix(policy)
+    settled = pending_settlement(receipt, policy, events[-1])
+    execution = pending_execution(receipt, policy, [*events, settled])
+    assert effective_pending_source(receipt, execution) == (settled.source_authority, settled.native_query)
+    assert receipt.source_observation.requested_or_observed_revision == 'observed-revision'
+
+
+@pytest.mark.parametrize('mutation', ['anchored', 'wrong_work', 'wrong_context', 'different_question', 'duplicate'])
+def test_pending_settlement_cannot_replace_the_selected_work_or_frozen_request(mutation):
+    from uuid import uuid4
+    receipt, policy = pending_execution_pair(with_source=True)
+    events = pending_work_prefix(policy, scope='anchored' if mutation == 'anchored' else 'source_lookup')
+    settled = pending_settlement(receipt, policy, events[-1])
+    if mutation == 'wrong_work':
+        settled = settled.model_copy(update={'work_event_id': uuid4()})
+    if mutation == 'wrong_context':
+        settled = settled.model_copy(update={'pending_context_receipt_sha256': 'f' * 64})
+    if mutation == 'different_question':
+        settled = settled.model_copy(update={'native_query': settled.native_query.model_copy(update={'question': 'Substituted question'})})
+    extra = [settled.model_copy(update={'event_id': uuid4(), 'sequence': 5})] if mutation == 'duplicate' else []
+    with pytest.raises(ValidationError):
+        pending_execution(receipt, policy, [*events, settled, *extra])
+
+
+def test_pending_effective_source_rejects_a_rehashed_new_revision():
+    from application_state.agent_conversation.build_source_free import effective_pending_source
+    receipt, policy = pending_execution_pair(with_source=True)
+    events = pending_work_prefix(policy)
+    settled = pending_settlement(receipt, policy, events[-1])
+    source = settled.source_authority.model_copy(update={'revision_id': 'later-head'})
+    query = prepared_query(source).model_copy(update={'question': policy.action.intent.message})
+    execution = pending_execution(receipt, policy, [*events, settled.model_copy(update={
+        'source_authority': source, 'native_query': query})])
+    with pytest.raises(ValueError, match='requested or observed revision'):
+        effective_pending_source(receipt, execution)
+
+
+def test_pending_prefix_refuses_a_complete_old_catalog_settlement():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    receipt, policy = pending_execution_pair()
+    events = pending_work_prefix(policy)
+    query = prepared_query(settled_source()).model_copy(update={'question': policy.action.intent.message})
+    old = NativeBuildQuerySettledV1(event_id=uuid4(), sequence=4,
+        controller_attempt_id=events[0].provider_attempt_id, query=query)
+    with pytest.raises(ValidationError, match='union_tag_invalid'):
+        pending_execution(receipt, policy, [*events, old])
+
+
+def test_pending_prefix_keeps_provider_role_and_outcome_unknown_guards():
+    from tests.test_surface_native_execution import native_writer, controller
+    receipt, policy = pending_execution_pair()
+    events = pending_work_prefix(policy)
+    writer = native_writer('build', policy, sequence=4)
+    with pytest.raises(ValidationError, match='union_tag_invalid'):
+        pending_execution(receipt, policy, [*events, writer])
+    changed = events[:3]
+    changed[-1] = changed[-1].model_copy(update={'outcome': 'outcome_unknown'})
+    second = controller('build', policy, sequence=3)
+    with pytest.raises(ValidationError, match='resolved prior attempt'):
+        pending_execution(receipt, policy, [*changed, second])
+
+
+def test_pending_role_accounting_still_rejects_a_wrong_estimator():
+    receipt, policy = pending_execution_pair()
+    events = pending_work_prefix(policy)
+    events[0] = events[0].model_copy(update={'input_estimator': 'borrowed-estimator'})
+    with pytest.raises(ValidationError, match='accounting differs'):
+        pending_execution(receipt, policy, events)
+
+
+def test_pending_first_decision_keeps_complete_captured_draft_and_rejects_substitution():
+    from hashlib import sha256
+    from application_state.agent_conversation.build_source_free import effective_pending_source
+    from tests.test_surface_native_build_work import case
+    captured = case()
+    receipt, policy = pending_execution_pair(captured_case=captured)
+    events = captured[1].events[:5]
+    execution = pending_execution(receipt, policy, events)
+    assert execution.events[0].record.snapshot.draft_markdown == captured[2].record.snapshot.draft_markdown
+    assert effective_pending_source(receipt, execution) is None
+    changed = events[0].record.snapshot.model_copy(update={
+        'draft_markdown': 'Substituted premise', 'draft_sha256': sha256(b'Substituted premise').hexdigest()})
+    forged = events[0].model_copy(update={'record': events[0].record.model_copy(update={'snapshot': changed})})
+    with pytest.raises(ValidationError, match='submitted first-decision context'):
+        pending_execution(receipt, policy, [forged, *events[1:]])
+    with pytest.raises(ValidationError, match='submitted draft capture first'):
+        pending_execution(receipt, policy, [event.model_copy(update={'sequence': index})
+            for index, event in enumerate(events[1:])])
+
+
+def test_pending_observation_cannot_replace_a_rehashed_explicit_request_pin():
+    from application_state.agent_conversation.build_source_free import effective_pending_source
+    receipt, policy = pending_execution_pair(with_source=True)
+    request = policy.action.intent.graph_request.model_copy(update={'revision_pin': 'explicit-other'})
+    intent = policy.action.intent.model_copy(update={'graph_request': request})
+    policy = policy.model_copy(update={'action': policy.action.model_copy(update={'intent': intent})})
+    execution = pending_execution(receipt, policy)
+    with pytest.raises(ValueError, match='explicitly requested revision'):
+        effective_pending_source(receipt, execution)
