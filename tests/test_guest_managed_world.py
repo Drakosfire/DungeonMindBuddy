@@ -100,6 +100,68 @@ def test_hosted_snapshot_world_binding_preserves_source_and_guest_graph(
     assert guest_repository.get_head(source["world_id"]).head_revision_id == source["revision_id"]
 
 
+def test_released_pages_are_seeded_once_per_guest_and_reset(
+    application_state_dsn, guest_repository, monkeypatch, tmp_path,
+):
+    import json
+    import hashlib
+    from concurrent.futures import ThreadPoolExecutor
+    from application_state.content import pages
+    from apps.live_control_server.native_graph_demo import NativeGraphDemoService
+
+    source_service = NativeGraphDemoService(guest_repository, tmp_path / 'source', storage_label='memory')
+    try:
+        source = source_service.graph()
+    finally:
+        source_service.close()
+    bundle = tmp_path / 'release.json'
+    bundle.write_text(json.dumps({'version': 1, 'graph_space': source['world_id'],
+                                  'graph_revision': source['revision_id'],
+                                  'documents': [{'title': 'Apprentice', 'markdown': 'A source.'}]}))
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'production')
+    monkeypatch.setenv('DMB_AUTH_MODE', 'hosted_dms')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_GRAPH_ENABLED', '1')
+    monkeypatch.setenv('DMB_GUEST_GRAPH_SOURCE_SPACE', source['world_id'])
+    monkeypatch.setenv('DMB_GUEST_GRAPH_SOURCE_REVISION', source['revision_id'])
+    monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE', str(bundle))
+    monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE_SHA256', hashlib.sha256(bundle.read_bytes()).hexdigest())
+    credential, first = create_session()
+    _, second = create_session()
+    with index_graph.open_index_graph_service(first) as graph:
+        graph.graph()
+    from application_state.index_graph import guest_documents
+    original_commit = guest_documents.content._commit_in_connection
+    def fail_after_write(*args, **kwargs):
+        original_commit(*args, **kwargs)
+        raise RuntimeError('injected seed failure')
+    with monkeypatch.context() as injected:
+        injected.setattr(guest_documents.content, '_commit_in_connection', fail_after_write)
+        with pytest.raises(RuntimeError, match='injected seed failure'):
+            bind_initialized_guest_world(first)
+    from uuid import UUID
+    assert catalog.get_world(f'guest-{UUID(first.session_id).hex}') is None
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        bindings = list(pool.map(bind_initialized_guest_world, (first, first)))
+    assert bindings[0] == bindings[1]
+    world1 = bindings[0].record.world_id
+    world2 = index_graph.ensure_guest_managed_world(second).record.world_id
+    page1, = pages.list_pages(world_id=world1)
+    page2, = pages.list_pages(world_id=world2)
+    assert page1.page.work_object_id != page2.page.work_object_id
+    original = pages.snapshot_page(str(page1.page.work_object_id), world_id=world1)
+    assert original.markdown == 'A source.'
+    pages.save_draft(str(page1.page.work_object_id), 'Guest edit.', world_id=world1,
+                     expected_revision=page1.page.object_revision,
+                     expected_working_copy_revision=original.working_copy_revision)
+    assert index_graph.ensure_guest_managed_world(first).record.world_id == world1
+    assert len(pages.list_pages(world_id=world1)) == 1
+    assert pages.snapshot_page(str(page1.page.work_object_id), world_id=world1).markdown == 'Guest edit.'
+    assert pages.snapshot_page(str(page2.page.work_object_id), world_id=world2).markdown == 'A source.'
+    _, reset = create_session(replace_credential=credential)
+    world3 = index_graph.ensure_guest_managed_world(reset).record.world_id
+    assert pages.snapshot_page(str(pages.list_pages(world_id=world3)[0].page.work_object_id), world_id=world3).markdown == 'A source.'
+
+
 def test_retries_catalog_failure_against_original_copied_graph(
     application_state_dsn, guest_repository, monkeypatch,
 ):

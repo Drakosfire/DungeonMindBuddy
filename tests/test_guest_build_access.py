@@ -85,6 +85,33 @@ def test_guest_create_save_and_reopen_isolated_document(guests):
     assert other_world != world
 
 
+def test_released_pages_open_through_ordinary_guest_build(guests, monkeypatch, tmp_path):
+    import hashlib
+    import json
+
+    contexts, _, source = guests
+    (first, token, world), (second, _, other_world) = contexts
+    bundle = tmp_path / 'released-documents.json'
+    bundle.write_text(json.dumps({'version': 1, 'graph_space': source['world_id'],
+                                  'graph_revision': source['revision_id'],
+                                  'documents': [{'title': 'Apprentice', 'markdown': 'A source.'}]}))
+    monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE', str(bundle))
+    monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE_SHA256', hashlib.sha256(bundle.read_bytes()).hexdigest())
+    inventory = first.get('/api/live/workspace-documents/pages/inventory', params={'world_id': world})
+    assert inventory.status_code == 200, inventory.text
+    record, = inventory.json()['records']
+    assert record['title'] == 'Apprentice'
+    doc = record['document_id']
+    snapshot = first.get(f'/api/live/workspace-documents/{doc}/snapshot')
+    assert snapshot.status_code == 200, snapshot.text
+    assert 'A source.' in snapshot.json()['markdown']
+    assert second.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code == 403
+    other = second.get('/api/live/workspace-documents/pages/inventory', params={'world_id': other_world})
+    assert other.status_code == 200 and other.json()['records'][0]['document_id'] != doc
+    assert first.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
+    assert first.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code in (401, 403)
+
+
 def test_guest_build_rejects_cross_world_and_missing_csrf(guests):
     (first, token, world), (second, other_token, other_world) = guests[0]
     body = {"title": "Foreign", "world_id": other_world, "campaign_id": other_world, "kind": "worldbuilding_source", "source_domain": "worldbuilding", "document_class": "lore", "authority_state": "draft", "visibility_state": "internal"}
