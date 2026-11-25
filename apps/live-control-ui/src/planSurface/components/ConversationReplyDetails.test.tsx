@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {expect,it,vi} from 'vitest';
-import {ConversationReplyDetails} from './ConversationReplyDetails';
+import {ConversationReplyDetails, TraceEvidence} from './ConversationReplyDetails';
 
 it('keeps one disclosure open through delayed hydration and does not repeat a read',async()=>{
   let finish!:()=>void;
@@ -80,10 +80,28 @@ it('switches Trace tabs using the keyboard while keeping the selected tab focuse
   const evidence = screen.getByRole('tab', {name: 'Evidence'});
   evidence.focus();
   fireEvent.keyDown(evidence, {key: 'ArrowRight'});
+  const crawler = screen.getByRole('tab', {name: 'Graph crawler'});
+  expect(crawler).toHaveFocus();
+  fireEvent.keyDown(crawler, {key: 'ArrowRight'});
   const timeline = screen.getByRole('tab', {name: 'Execution timeline'});
   expect(timeline).toHaveFocus();
   expect(timeline).toHaveAttribute('aria-selected', 'true');
   expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', timeline.id);
   fireEvent.keyDown(timeline, {key: 'End'});
   expect(screen.getByRole('tab', {name: 'Diagnostics'})).toHaveFocus();
+});
+
+
+it('confines saved suggestion review to Evidence when switching Trace tabs', () => {
+  render(<ConversationReplyDetails id="reply" open onOpenChange={() => {}} loaded load={async () => {}}>
+    <TraceEvidence><section aria-label="Saved suggestion review">Kept suggestion</section></TraceEvidence>
+  </ConversationReplyDetails>);
+  const suggestion = screen.getByRole('region', {name: 'Saved suggestion review'});
+  expect(suggestion).toBeVisible();
+  for (const name of ['Graph crawler', 'Execution timeline', 'Prompt', 'Diagnostics']) {
+    fireEvent.click(screen.getByRole('tab', {name}));
+    expect(suggestion).not.toBeVisible();
+  }
+  fireEvent.click(screen.getByRole('tab', {name: 'Evidence'}));
+  expect(suggestion).toBeVisible();
 });
