@@ -1640,7 +1640,7 @@ def test_guest_plan_create_and_isolation(guests, monkeypatch):
     assert first.get(f"/api/live/workspace-documents/{doc}/snapshot").status_code in (401, 403)
 
 
-def test_released_pages_open_through_ordinary_guest_build(guests, monkeypatch, tmp_path):
+def test_released_pages_open_through_ordinary_guest_build(guests, monkeypatch, tmp_path, application_state_dsn):
     import hashlib
     import json
 
@@ -1660,6 +1660,33 @@ def test_released_pages_open_through_ordinary_guest_build(guests, monkeypatch, t
     snapshot = first.get(f'/api/live/workspace-documents/{doc}/snapshot')
     assert snapshot.status_code == 200, snapshot.text
     assert 'A source.' in snapshot.json()['markdown']
+    assert snapshot.json()['record']['document_class'] == 'lore'
+    # Simulate a session seeded before the metadata fix. Reopening the same
+    # World repairs the seeded page without changing its revision or content.
+    from application_state.engine import connect
+    with connect(application_state_dsn) as conn:
+        conn.execute('UPDATE content.page_metadata SET document_class = NULL WHERE work_object_id = %s::uuid', (doc,))
+        conn.commit()
+    reopened = first.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': token})
+    assert reopened.status_code == 200, reopened.text
+    repaired = first.get(f'/api/live/workspace-documents/{doc}/snapshot').json()
+    assert repaired['record']['document_class'] == 'lore'
+    assert repaired['loaded_revision'] == snapshot.json()['loaded_revision']
+    assert repaired['markdown'] == snapshot.json()['markdown']
+    # Exercise the boundary that rejected the live guest Buddy question.
+    from types import SimpleNamespace
+    from apps.live_control_server.routes import agent
+    monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
+    locator = SimpleNamespace(kind='build', object_id=doc, expected_revision=repaired['loaded_revision'],
+                              expected_content_sha256=hashlib.sha256(repaired['markdown'].encode()).hexdigest())
+    body = SimpleNamespace(primary_work=locator, surface=SimpleNamespace(surface_id='build'),
+                           build_image_move_capture=None)
+    assert agent._build_work_resolver(body, {'kind': 'world', 'id': world}).object_id == doc
+    with connect(application_state_dsn) as conn:
+        conn.execute("UPDATE content.page_metadata SET document_class = 'adventure' WHERE work_object_id = %s::uuid", (doc,))
+        conn.commit()
+    assert first.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
+    assert first.get(f'/api/live/workspace-documents/{doc}/snapshot').json()['record']['document_class'] == 'adventure'
     assert second.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code == 403
     other = second.get('/api/live/workspace-documents/pages/inventory', params={'world_id': other_world})
     assert other.status_code == 200 and other.json()['records'][0]['document_id'] != doc

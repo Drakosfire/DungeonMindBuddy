@@ -1,0 +1,5 @@
+# ONBOARD: Restore Buddy access to seeded guest pages
+
+Status: ACTIVE under the user's Sizzek delivery, review, merge and deploy authority. Serial serving slice based on production `c034ff63ac35675d3644b43f653e9290e88ff087`; recheck live identity before publishing. The active lane owns `src/application_state/index_graph/guest_documents.py`, `tests/test_guest_document_seed.py`, `tests/test_guest_build_access.py` and this handoff.
+
+A real signed-out Buddy question on the seeded Apprentice page failed with `build_source_unavailable`: older guest seeds omit the document class required by the ordinary Build source resolver. Seed new release pages as lore and repair only null classes of pages named in that session's seed receipt and matching the same guest World. Preserve user content and non-null classifications. Verify fresh and resumed sessions at the mounted guest Build and Buddy source boundary, foreign World isolation, invalid receipts and exact-head review. Deploy through Actions and rerun the real question; this fix does not complete ingestion or guest acceptance.
