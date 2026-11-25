@@ -110,6 +110,7 @@ def create_page(
     campaign_id: str | None = None,
     metadata: PageMetadata | None = None,
     document_id: str | None = None,
+    authorize_allocation=None,
 ) -> PageState:
     """Allocate one page. Connected intent approval belongs to its operation owner."""
     if not world_id or world_id != world_id.strip() or get_world(world_id) is None:
@@ -124,6 +125,8 @@ def create_page(
         )
     try:
         with unit_of_work(_dsn()) as conn:
+            if authorize_allocation is not None:
+                authorize_allocation(conn, world_id)
             _insert_page(conn, ident, world_id, title, campaign_id, metadata)
             return _state(conn, str(ident), world_id)
     except psycopg.IntegrityError:
@@ -298,6 +301,7 @@ def commit_page(
     page_presentation=presentation.UNSET,
     layout_writer_profile: PageLayoutWriterProfile | None = None,
     authorize_world=None,
+    authorize_commit=None,
 ) -> tuple[PageState, WorkRevision]:
     _basis_values(expected_revision, expected_working_copy_revision)
     with unit_of_work(_dsn()) as conn:
@@ -339,6 +343,8 @@ def commit_page(
             _basis(conn, state.page, expected_revision, expected_working_copy_revision)
         if authorize_world is not None:
             authorize_world(state.page.world_id)
+        if authorize_commit is not None:
+            authorize_commit(conn, state.page.world_id, len(normalize_markdown(markdown).encode("utf-8")), replay)
         if layout_writer_profile is not None:
             page_id = state.page.work_object_id
             conn.execute("SELECT set_config('dmb.page_layout_writer', %s, true)", (str(page_id),))

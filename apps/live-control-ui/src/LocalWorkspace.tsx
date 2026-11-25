@@ -1,3 +1,4 @@
+import { guestBuildActive } from "./guestWorld/guestBuildSession";
 import {SavedStatblockProvider} from './statblocks/SavedStatblockSession';
 import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
@@ -27,6 +28,7 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
   children: ReactNode;
 }) {
   const selectedWorld = useSelectedWorld();
+  const guestBuild = guestBuildActive();
   const auth = useHostedAuthStatus();
   const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const graphOwner = auth.status === "authenticated" ? auth.subject : auth.status;
@@ -40,7 +42,7 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
           <WorldGuidedTour worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined}>
           <WorldGraphLensProvider
             key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
-            loadFocusOptions={pageAdmitted && route !== "graph"}
+            loadFocusOptions={pageAdmitted && route !== "graph" && !guestBuild}
             planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}
             managedWorldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
           >
@@ -55,11 +57,11 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
                   {pageAdmitted ? <>
                     <ToolHost />
                     <LegacyProjectionHostAdapter />
-                    <AgentInteractionChrome />
+                    {!guestBuild && <AgentInteractionChrome />}
                   </> : null}
-                  <WorldAgentConversation surface={pageAdmitted && (route === "plan" || route === "play" || route === "build") ? route : "other"}
+                  {!guestBuild && <WorldAgentConversation surface={pageAdmitted && (route === "plan" || route === "play" || route === "build") ? route : "other"}
                     worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
-                    worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined} />
+                    worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined} />}
                   </DocumentReferenceSurfaceHost>
                 </PeekRegionProvider>
               </SurfaceContextProvider>
