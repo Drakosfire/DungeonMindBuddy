@@ -6,10 +6,42 @@ citation capability. Runtime registration belongs to the matching new receipt.
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import Field, model_validator
 
 from .native_statement_input import Strict
+
+
+class BuildConversationObservationV1(Strict):
+    """Captured existing App pointer; never an independent mutable owner."""
+    conversation_id: UUID
+    pointer_revision: int = Field(ge=0, strict=True)
+
+
+def capture_pending_conversation(pointer, *, world_id, conversation_id):
+    """Snapshot a record supplied by the existing App World-state owner.
+
+    The transactional caller must lock/recheck authoritative state; constructing
+    this observation alone grants neither conversation access nor source IO.
+    """
+    from .types import WorldPointer
+    if type(pointer) is not WorldPointer:
+        raise ValueError("Pending conversation requires its actual World pointer record")
+    pointer = WorldPointer.model_validate_json(pointer.model_dump_json())
+    if pointer.world_id != world_id or pointer.active_conversation_id != conversation_id:
+        raise ValueError("Pending request differs from the active World conversation")
+    return BuildConversationObservationV1(conversation_id=conversation_id, pointer_revision=pointer.revision)
+
+
+def validate_pending_conversation_pointer(receipt, pointer):
+    """Compare the captured pointer without refreshing or replacing it."""
+    captured = receipt.conversation_observation
+    actual = capture_pending_conversation(pointer,
+        world_id=receipt.source_observation.managed_world_id,
+        conversation_id=captured.conversation_id)
+    if actual != captured:
+        raise ValueError("Pending conversation pointer changed after capture")
 
 
 class BuildSourceBindingObservedV1(Strict):
@@ -115,9 +147,13 @@ def _join_pending_source(receipt, execution):
     if receipt.source_observation.requested_revision_id != policy.action.intent.graph_request.revision_pin:
         raise ValueError("Pending observation differs from the explicitly requested revision")
     for event in execution.events:
-        if (type(event) is t.BuildDraftContextCapturedV1
-                and event.record.snapshot.saved_basis() != work.source_basis.model_dump(mode="json", by_alias=True)):
-            raise ValueError("Pending working draft differs from its frozen source basis")
+        if type(event) is t.BuildDraftContextCapturedV1:
+            if event.record.snapshot.saved_basis() != work.source_basis.model_dump(mode="json", by_alias=True):
+                raise ValueError("Pending working draft differs from its frozen source basis")
+            captured = receipt.conversation_observation
+            if (event.record.conversation_id != captured.conversation_id
+                    or event.record.expected_pointer_revision != captured.pointer_revision):
+                raise ValueError("Pending draft differs from its captured conversation pointer")
     settlements = [event for event in execution.events if type(event) is NativeBuildSourceSettledV1]
     if not settlements:
         return None
@@ -177,6 +213,7 @@ def validate_pending_submission(submission):
     intent = execution.policy.action.intent
     if (submission.submitted_intent_v1 is not None or submission.submitted_intent_v2 != intent
             or execution.events or submission.world_id != intent.world_id
+            or submission.conversation_id != receipt.conversation_observation.conversation_id
             or submission.user_text != intent.message
             or submission.provenance.surface_instance_id != intent.surface_instance_id):
         raise ValueError("Pending admission requires its unchanged Build request and empty execution")
@@ -192,6 +229,7 @@ def _join_pending_turn(turn):
     intent = execution.policy.action.intent
     if (turn.submitted_intent_fingerprint_v1 is not None
             or turn.world_id != intent.world_id or turn.user_text != intent.message
+            or turn.conversation_id != receipt.conversation_observation.conversation_id
             or turn.provenance.surface_instance_id != intent.surface_instance_id
             or turn.play_context_receipt is not None or turn.status == 'completed'
             or turn.status in {'accepted', 'running'} and turn.completed_at is not None):
@@ -203,3 +241,20 @@ def _join_pending_turn(turn):
                 conversation_id=turn.conversation_id, turn_id=turn.turn_id,
                 attempt=turn.attempt, submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
                 saved_basis=receipt.work_context.source_basis)
+
+
+def pending_source_work(execution):
+    """Select the one acknowledged evidence-seeking work; grants no IO itself."""
+    from . import types as t
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+    if type(execution) is not BuildPendingExecutionV1:
+        raise ValueError("Pending settlement requires its concrete execution")
+    rows = [event for event in execution.events if type(event) is t.BuildRequestedWorkResolutionV1]
+    if len(rows) != 1 or any(type(event) is NativeBuildSourceSettledV1 for event in execution.events):
+        raise ValueError("Pending source work must be unique and not already settled")
+    work, = rows
+    if (work.resolution.get('barrier') is not None
+            or work.resolution.get('source_scope') not in {'source_lookup', 'uncertain'}
+            or work.requested_work in {'review_blank_lore_page', 'clarify_request', 'clarify_creation'}):
+        raise ValueError("Pending source work does not request evidence acquisition")
+    return work

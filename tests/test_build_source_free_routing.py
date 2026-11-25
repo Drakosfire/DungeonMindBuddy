@@ -172,6 +172,7 @@ def pending_receipt_values(**changes):
         receipt_serializer_version="canonical-json-utf8-v1", provenance_sha256="c" * 64,
         work_context=work.model_dump(mode="json"),
         source_observation=BuildSourceObservationV1(**observation()).model_dump(mode="json", by_alias=True),
+        conversation_observation={'conversation_id': str(uuid4()), 'pointer_revision': 0},
         assembled_input=initial.model_dump(mode="json")) | changes
 
 
@@ -475,8 +476,13 @@ def pending_execution_pair(*, with_source=False, captured_case=None):
         binding=BuildSourceBindingObservedV1(managed_world_id=world,
             native_world_id='native-observed', binding_version=1) if with_source else None,
         requested_revision_id=None, observed_head_revision_id='observed-revision' if with_source else None)
+    from uuid import uuid4
+    conversation = ({'conversation_id': str(uuid4()), 'pointer_revision': 0} if captured_case is None else {
+        'conversation_id': str(captured_case[2].record.conversation_id),
+        'pointer_revision': captured_case[2].record.expected_pointer_revision})
     receipt = seal_pending_receipt(pending_receipt_values(
         work_context=context.work_context.model_dump(mode='json'),
+        conversation_observation=conversation,
         source_observation=observed.model_dump(mode='json', by_alias=True),
         assembled_input=pending_receipt_values()['assembled_input'] | {
             'provider_model_name': original.policy.provider_roles.controller.model,

@@ -351,3 +351,37 @@ Turn wire decoder owns component freshness once; standalone field/source callers
 reconstruct their own components. This distinction prevents repeated full-context
 decoding on history reads without weakening mutable-model checks. The next
 transaction/transport/terminal integration remains required before delivery.
+
+## Captured conversation fence and separate read owners
+
+The pending receipt must record a host-only observation of the existing App
+World pointer: conversation_id and pointer_revision. Draft and retained-body
+events do not exist for every first request, so they cannot be the universal
+initial fence. The observation is a snapshot of agent.world_state, never a new
+mutable pointer authority or model/client choice. Bind it to the actual submission
+and stored Turn conversation and to draft/retained captures when present.
+At admission and settlement, lock World -> conversation -> Turn, compare active
+ID and revision, and keep the original observation through retries. Reset then
+reopen of the same conversation must not erase this fence. Existing submission
+conversation-revision CAS remains separate; ordinary history growth is not a
+pointer change. Verify current running revision/attempt/expiry before preparation
+and before append, and recheck independently mutable access/binding afterward.
+The reviewed new protocol is unmerged and has no produced records; add this field
+now before its producing format and reader fence are activated.
+
+App saved-page acquisition is owned by current App access, not by Core authority.
+After an admitted required-lookup decision, lazy App catalog/page reads may work
+without a Core binding. Native acquisition additionally needs actual native
+source settlement. Neither read path may manufacture the other's authority.
+The distinct initial work-controller phase stays closed after selection; any
+later acquisition decision needs its own bound phase/owner. No keyword routing,
+policy mutation or fake unavailable/legacy receipt is authorized by this split.
+
+Atomic source preparation uses two existing App transactions: first lock and
+validate the captured pointer and current running claim/access, then release App
+locks during public-owner source materialization. Re-lock in the same order and
+recheck pointer, exact request/execution commitments, claim and current access
+before appending the one settlement. A reset, access change or expired claim
+during materialization discards the prepared result before any SDK dispatch.
+Do not hold App conversation locks across Core IO, fabricate authority, or treat
+mocked transaction tests as PostgreSQL isolation/rollback evidence.

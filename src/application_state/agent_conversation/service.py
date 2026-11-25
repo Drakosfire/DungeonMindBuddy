@@ -1097,6 +1097,13 @@ class AgentConversationService:
                 return matching_receipt(existing)
             if pointer.active_conversation_id != submission.conversation_id:
                 raise ApplicationStateConflictError("conversation is no longer active in this World")
+            from .native_context import BuildPendingContextReceiptV1
+            if type(submission.graph_context_receipt) is BuildPendingContextReceiptV1:
+                from .build_source_free import validate_pending_conversation_pointer
+                try:
+                    validate_pending_conversation_pointer(submission.graph_context_receipt, pointer)
+                except ValueError as exc:
+                    raise ApplicationStateConflictError(str(exc)) from exc
             conversation = repo.lock_conversation(conn, world_id, submission.conversation_id)
             if conversation is None:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
@@ -2803,6 +2810,124 @@ class AgentConversationService:
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=settlement, duplicate_key="event_id",
         )
+
+    def _pending_source_turn_locked(self, conn, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt):
+        """Use reset's lock order and the actual moving claim, not a source grant."""
+        from .native_context import BuildPendingContextReceiptV1
+        from .native_execution import BuildPendingExecutionV1
+        from .build_source_free import validate_pending_conversation_pointer
+        pointer = repo.lock_world_state(conn, world_id)
+        conversation = repo.lock_conversation(conn, world_id, conversation_id)
+        turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+        if (turn is None or turn.conversation_id != conversation_id
+                or conversation is None or conversation.status != 'active'):
+            raise ApplicationStateConflictError('Pending source lost its active conversation')
+        if (type(turn.graph_context_receipt) is not BuildPendingContextReceiptV1
+                or type(turn.graph_context_execution) is not BuildPendingExecutionV1):
+            raise ApplicationStateValidationError('Source settlement requires its actual pending Build Turn')
+        try:
+            validate_pending_conversation_pointer(turn.graph_context_receipt, pointer)
+        except ValueError as exc:
+            raise ApplicationStateConflictError(str(exc)) from exc
+        if (turn.status != 'running' or turn.revision != expected_revision
+                or turn.attempt != expected_attempt or turn.claim_expires_at is None
+                or turn.claim_expires_at <= repo.database_clock(conn)):
+            raise ApplicationStateConflictError('Pending source settlement has a stale or expired claim')
+        return turn
+
+    def settle_pending_build_source(self, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt, event_id,
+                                    materialize_source, authorize_current_access):
+        """Admit one public-owner preparation after current request/access checks.
+
+        Callbacks are host-owned, never model/client values. Materialization runs
+        outside App locks and returns owner models, not another receipt. The
+        access owner must affirm current App/principal/binding access both before
+        preparation and immediately before admission. Later selected reads still
+        perform their own current-access checks.
+        """
+        from . import types as t
+        from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+        from .build_source_free import pending_source_work, effective_pending_source, validate_pending_source_settlement
+        from .native_plan_assertions import NativeGraphQueryV4
+        from .native_plan_statements import NativePlanQueryUnavailableV1
+        world_id = _world_id(world_id)
+        if (type(event_id) is not UUID or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(materialize_source) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending source requires its host materialization and current-access owners')
+        with unit_of_work(_ready_dsn()) as conn:
+            before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            if authorize_current_access(conn, before, None) is not True:
+                raise ApplicationStateConflictError('Current access does not authorize pending source preparation')
+            if before.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending source claim expired before preparation')
+            prior = [event for event in before.graph_context_execution.events if type(event) is NativeBuildSourceSettledV1]
+            if prior:
+                if len(prior) == 1 and prior[0].event_id == event_id:
+                    return before, False
+                raise ApplicationStateConflictError('Pending source was already settled')
+            try:
+                work = pending_source_work(before.graph_context_execution)
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            observed = before.graph_context_receipt.source_observation
+            if observed.binding is None or observed.requested_or_observed_revision is None:
+                raise ApplicationStateConflictError('Pending native source has no captured scope to prepare')
+            captured_receipt = before.graph_context_receipt
+            captured_message, work_event_id = before.user_text, work.event_id
+            event_sequence = len(before.graph_context_execution.events)
+            frozen = (before.graph_context_receipt.context_receipt_sha256,
+                      before.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(before.graph_context_execution),
+                      before.submitted_intent_fingerprint_v2)
+        # No App transaction/row lock remains held during external source IO.
+        prepared = materialize_source(before)
+        if (type(prepared) is not tuple or len(prepared) != 2
+                or type(prepared[0]) is not t.NativeCorpusAuthorityV1
+                or type(prepared[1]) not in (NativeGraphQueryV4, NativePlanQueryUnavailableV1)):
+            raise ApplicationStateValidationError('Source preparation must return its actual authority and query owner models')
+        try:
+            settlement = NativeBuildSourceSettledV1.model_validate_json(json.dumps({
+                'event_id': str(event_id), 'sequence': event_sequence,
+                'pending_context_receipt_sha256': frozen[0], 'work_event_id': str(work_event_id),
+                'source_authority': prepared[0].model_dump(mode='json', by_alias=True),
+                'native_query': prepared[1].model_dump(mode='json', by_alias=True)}))
+            validate_pending_source_settlement(captured_receipt, settlement)
+            if getattr(settlement.native_query, 'question', captured_message) != captured_message:
+                raise ValueError('Prepared source query changed the submitted request')
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        prepared = (settlement.source_authority, settlement.native_query)
+        with unit_of_work(_ready_dsn()) as conn:
+            current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            actual = (current.graph_context_receipt.context_receipt_sha256,
+                      current.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(current.graph_context_execution),
+                      current.submitted_intent_fingerprint_v2)
+            if actual != frozen:
+                raise ApplicationStateConflictError('Pending request or execution changed during source preparation')
+            if authorize_current_access(conn, current, prepared) is not True:
+                raise ApplicationStateConflictError('Current access changed during pending source preparation')
+            # The public access check can itself take time; retain the live claim fence.
+            if current.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending source claim expired before admission')
+            try:
+                execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                    current.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                        'events': [event.model_dump(mode='json', by_alias=True)
+                                   for event in [*current.graph_context_execution.events, settlement]]}))
+                effective_pending_source(current.graph_context_receipt, execution)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending source claim changed before append')
+            return updated, True
 
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):

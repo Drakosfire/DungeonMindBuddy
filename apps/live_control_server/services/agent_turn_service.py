@@ -1541,6 +1541,12 @@ class AgentTurnExecutionPersistencePort(Protocol):
         expected_revision: int, expected_attempt: int, settlement: Any,
     ) -> tuple[Turn, bool]: ...
 
+    def settle_pending_build_source(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, event_id: UUID,
+        materialize_source: Callable[..., Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
     def authorize_provider_attempt(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, provider_attempt_event: Any,

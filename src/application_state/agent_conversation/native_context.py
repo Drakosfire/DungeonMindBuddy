@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from .native_corpus import NativeCorpusAuthorityV1
-from .build_source_free import BuildSourceObservationV1
+from .build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
 from .native_plan_assertions import NativePlanQueryV2, NativeGraphQueryV3, NativeGraphQueryV4
 from .native_plan_statements import NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1
 from .native_statement_input import Strict
@@ -195,6 +195,7 @@ class BuildPendingContextReceiptV1(Strict):
     provenance_sha256: Digest
     work_context: BuildWorkContextV1
     source_observation: BuildSourceObservationV1
+    conversation_observation: BuildConversationObservationV1
     assembled_input: NativeBuildPendingProviderInputV3
 
     @model_validator(mode="after")
