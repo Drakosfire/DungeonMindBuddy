@@ -268,12 +268,12 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     <summary>The Prompt</summary>
     {promptOpen && <BuddyPromptInspector trace={trace} />}
   </details>
-  const timeline = <details open={!replyDetails}><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
+  const timeline = <ol aria-label="Recorded activity">{rows.map(({ event, observations }) => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
       <div><Event event={event} passages={passages} trace={trace} />
         {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
           <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
-      </div></li>)}</ol></details>
+      </div></li>)}</ol>
   const traceHeader = <header><div><h4>{failed ? 'Reply error report' : replyDetails ? 'Capture information' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
       {!replyDetails && copy}
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
@@ -281,9 +281,11 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     {replyDetails && <div hidden={tab !== null && tab !== 'evidence'}><ReplyTraceOverview trace={trace} passages={passages} ownerActive={ownerActive} /></div>}
     {!replyDetails && <>{traceHeader}{diagnostics}</>}
     {replyDetails && failed && <p role="alert">This attempt stopped before completing a reply.</p>}
-    {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{(visitedTimeline || tab === null) && <RetrievalReplayDetails trace={trace} initialOpen active={tab === null || tab === 'timeline'} />}{timeline}</div>}
+    {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{(visitedTimeline || tab === null) && <RetrievalReplayDetails trace={trace} initialOpen active={tab === null || tab === 'timeline'} />}{tab === null ? <details><summary>Execution timeline</summary>{timeline}</details> : timeline}</div>}
     {replyDetails && tab === 'prompt' && <BuddyPromptInspector trace={trace} />}
-    {replyDetails && <div hidden={tab !== null && tab !== 'diagnostics'}>{traceHeader}{copy}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</div>}
+    {replyDetails && (tab === null
+      ? <details><summary>Diagnostics</summary>{traceHeader}{copy}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</details>
+      : <div hidden={tab !== 'diagnostics'}>{traceHeader}{copy}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</div>)}
     {!replyDetails && failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
       <h5>This attempt stopped before completing a reply.</h5>
       {failure ? <><p>{failure.code === 'build_source_name_missing' ? 'A retrieved passage has no verified source name. Buddy stopped while assembling source context.' : 'Recorded failure:'} <code>{failure.code}</code></p><p>Stage: {failure.stage ?? failure.phase}</p>
@@ -295,6 +297,6 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     </section>}
     {!replyDetails && trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
     {!replyDetails && <RetrievalReplayDetails trace={trace} initialOpen={false} />}
-    {!replyDetails && timeline}
+    {!replyDetails && <details open><summary>Execution timeline</summary>{timeline}</details>}
   </section>
 }

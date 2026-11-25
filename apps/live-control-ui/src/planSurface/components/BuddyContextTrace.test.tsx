@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BuddyContextTrace, type BuddyTurnContextTrace } from './BuddyContextTrace'
+import { TraceTabContext } from './ConversationReplyDetails'
 import {buddyTraceText} from './buddyTraceText'
 import type { BuddyTraceGraphResult, BuddyTraceSourcePassage } from '../../api/buddyContextTraceTypes'
 
@@ -387,4 +388,12 @@ it('does not label a Plan author-scope response as a retrieval decision', () => 
     materials:[{item_id:'unvalidated-plan-jev-result:scope-attempt',state:'model_context',role:'assistant',text:'{}'}]}])} />)
   fireEvent.click(screen.getByText('Working context · after this turn'))
   expect(screen.queryByRole('note')).toBeNull()
+})
+
+it('shows recorded execution activity immediately in the timeline tab', () => {
+  render(<TraceTabContext.Provider value="timeline"><BuddyContextTrace replyDetails ownerActive={false}
+    trace={trace([{kind:'provider_call', sequence:0, elapsed_ms:12, provider:'example', model:'jev', outcome:'response_received'}])} />
+  </TraceTabContext.Provider>)
+  expect(screen.getByRole('list', {name:'Recorded activity'})).toBeVisible()
+  expect(screen.getByText('jev')).toBeVisible()
 })
