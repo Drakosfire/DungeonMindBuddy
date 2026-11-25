@@ -439,6 +439,8 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
     from apps.live_control_server.routes import native_graph_inspection
+    from apps.live_control_server.routes import native_source_inspection
+    from apps.live_control_server.services import native_source_inspection as source_inspection_service
     from tests.test_plan_jev_writer import WriterWire
     from application_state.agent_conversation.native_plan_assertions import POLICY
 
@@ -461,6 +463,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     app.include_router(workspace_documents.router)
     app.include_router(live.router)
     app.include_router(native_graph_inspection.router)
+    app.include_router(native_source_inspection.router)
     monkeypatch.setattr(workspace_documents, 'repo_root', lambda: tmp_path)
     monkeypatch.setattr(live, 'repo_root', lambda: tmp_path)
     monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
@@ -468,6 +471,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
     monkeypatch.setattr(native_registry_source, 'repository', lambda **_kw: lane.repo)
     monkeypatch.setattr(native_registry_source, 'read_repository', lambda **_kw: lane.repo)
+    monkeypatch.setattr(source_inspection_service, 'turn_source_repository', lambda **_kw: lane.repo)
     from dataclasses import asdict
     monkeypatch.setattr(native_registry_source, 'binding', lambda world_id: asdict(native_registry_source.resolve_managed_world_binding(world_id)))
     monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
@@ -498,6 +502,19 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert client.post('/api/live/native-graph-inspection/read', headers=headers, json=forged).status_code != 200
     assert client.post('/api/live/native-graph-inspection/read', headers=headers,
         json={**inspection, 'selection': {'kind': 'chronology'}}).status_code == 403
+    assert client.post('/api/live/native-source-inspection/catalog', json=inspection_scope).status_code == 403
+    sources = client.post('/api/live/native-source-inspection/catalog', headers=headers, json=inspection_scope)
+    assert sources.status_code == 200, sources.text
+    item = sources.json()['catalogue']['sources'][0]
+    source_read = {'scope': sources.json()['scope'], 'source_artifact_id': item['source_artifact']['source_artifact_id'],
+                   'source_revision_id': item['source_revision']['source_revision_id'], 'evidence_ref_id': item['evidence_ref_ids'][0]}
+    opened_source = client.post('/api/live/native-source-inspection/read', headers=headers, json=source_read)
+    assert opened_source.status_code == 200, opened_source.text
+    assert 'A reports that B fled' in opened_source.text
+    foreign_source = {**source_read, 'scope': {**source_read['scope'], 'managed_world_id': 'foreign-world'}}
+    assert client.post('/api/live/native-source-inspection/read', headers=headers, json=foreign_source).status_code == 403
+    forged_source = {**source_read, 'scope': {**source_read['scope'], 'native_world_id': lane.world.world_id}}
+    assert client.post('/api/live/native-source-inspection/read', headers=headers, json=forged_source).status_code != 200
     session_id = str(UUID(world.world_id.removeprefix('guest-')))
     request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world.world_id, guest_build_session=session_id))
     principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
@@ -588,13 +605,25 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
                  'native_world_id': binding.native_world_id, 'binding_version': binding.binding_version,
                  'graph_revision': lane.repo.get_head(binding.native_world_id).head_revision_id,
                  'node_id': lane.ids['B'], 'label': 'B'}
-    payload['authored_references'] = {'schema': 'dmb_authored_references_v2', 'references': [reference]}
+    source_reference = {'schema': 'dmb_authored_source_reference_v1', 'managed_world_id': world.world_id,
+        'native_world_id': binding.native_world_id, 'binding_version': binding.binding_version,
+        'knowledge_revision': sources.json()['scope']['revision_id'], 'source_artifact_id': source_read['source_artifact_id'],
+        'source_revision_id': source_read['source_revision_id'], 'evidence_ref_id': source_read['evidence_ref_id'],
+        'content_sha256': item['source_revision']['content_sha256'], 'selection_kind': 'full_document',
+        'section_id': None, 'label': 'Report'}
+    payload['authored_references'] = {'schema': 'dmb_authored_references_v2', 'references': [reference, source_reference]}
     foreign = {**payload, 'authored_references': {'schema': 'dmb_authored_references_v2',
                'references': [{**reference, 'managed_world_id': 'foreign-world'}]}}
     assert client.post('/api/live/agent/turn', headers=headers, json=foreign).status_code in (400, 403, 422)
     for invalid in ({**reference, 'native_world_id': lane.world.world_id},
                     {**reference, 'binding_version': binding.binding_version + 1},
                     {**reference, 'graph_revision': 'rev:missing'}):
+        invalid_payload = {**payload, 'turn_id': str(uuid4()),
+                           'authored_references': {'schema': 'dmb_authored_references_v2', 'references': [invalid]}}
+        invalid_response = client.post('/api/live/agent/turn', headers=headers, json=invalid_payload)
+        assert invalid_response.status_code != 200, invalid_response.text
+    for invalid in ({**source_reference, 'native_world_id': lane.world.world_id},
+                    {**source_reference, 'content_sha256': '0' * 64}):
         invalid_payload = {**payload, 'turn_id': str(uuid4()),
                            'authored_references': {'schema': 'dmb_authored_references_v2', 'references': [invalid]}}
         invalid_response = client.post('/api/live/agent/turn', headers=headers, json=invalid_payload)
@@ -671,6 +700,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert other.get(f'/api/live/workspace-documents/{document}/committed-revision').status_code == 403
     other_headers = {'X-DMB-Index-Graph-CSRF': other_session.json()['csrf_token']}
     assert other.post('/api/live/native-graph-inspection/catalog', headers=other_headers, json=inspection_scope).status_code == 403
+    assert other.post('/api/live/native-source-inspection/read', headers=other_headers, json=source_read).status_code == 403
     other_conversation = other.post(f"/api/live/agent/worlds/{other_world.json()['world_id']}/conversation/new",
         headers=other_headers, json={'command_id': str(uuid4()), 'expected_pointer_revision': 0,
                                     'expected_active_conversation_id': None})
@@ -696,6 +726,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert rejected.status_code != 200
     assert 'catalogue' not in rejected.text
     assert client.post('/api/live/native-graph-inspection/catalog', headers=headers, json=inspection_scope).status_code in (401, 403, 409)
+    assert client.post('/api/live/native-source-inspection/read', headers=headers, json=source_read).status_code in (401, 403, 409)
     assert client.get(citation).status_code in (401, 403)
     from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
     from application_state.errors import ApplicationStateConflictError

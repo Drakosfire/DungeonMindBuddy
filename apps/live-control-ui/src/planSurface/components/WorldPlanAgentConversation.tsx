@@ -4164,8 +4164,8 @@ export function WorldPlanAgentConversation({
     if(!isRetry&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
     const planReferenceInput=isRetry ? retryReferences ?? undefined : composerReferences.length?authoredReferences(composerReferences):undefined;
     if (guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1"
-        && (targetAtSubmit || planOperation === "write_current_page" || planReferenceInput?.references.some(ref => ref.schema !== 'dmb_authored_graph_reference_v1'))) {
-      setError('Guest Buddy currently supports graph references, but not selected sources, cards, or Plan edits. Remove the unsupported selection to ask.');
+        && (targetAtSubmit || planOperation === "write_current_page")) {
+      setError('Guest Buddy currently supports questions without a selected card or Plan edit. Remove the unsupported selection to ask.');
       return;
     }
     if(planOperation&&!useWorldGraphForAsk){setError('Enable World context to send this native Plan operation. Your message has not been sent.');return;}

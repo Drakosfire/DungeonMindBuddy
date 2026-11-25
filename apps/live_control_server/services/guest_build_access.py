@@ -45,7 +45,8 @@ MAX_GUEST_CONVERSATION_BYTES = 32 * 1024 * 1024
 
 def matches_guest_conversation_route(method: str, path: str) -> bool:
     """Recognize the initial conversation paths; admission is separately gated."""
-    if method == 'POST' and path in {'/api/live/native-graph-inspection/catalog', '/api/live/native-graph-inspection/read'}:
+    if method == 'POST' and path in {'/api/live/native-graph-inspection/catalog', '/api/live/native-graph-inspection/read',
+                                     '/api/live/native-source-inspection/catalog', '/api/live/native-source-inspection/read'}:
         return True
     match = _CONVERSATION.fullmatch(path)
     if method == "GET" and (_CONVERSATION_CITATION.fullmatch(path) or _CONVERSATION_MESSAGES.fullmatch(path)):
@@ -90,11 +91,11 @@ async def admit_guest_conversation_request(request: Request) -> str:
             raise HTTPException(400, detail={"code": "invalid_guest_request"})
     elif query:
         raise HTTPException(400, detail={"code": "invalid_guest_request"})
-    if request.url.path.startswith('/api/live/native-graph-inspection/'):
+    if request.url.path.startswith(('/api/live/native-graph-inspection/', '/api/live/native-source-inspection/')):
         try:
             body = await request.json()
             scope = body if request.url.path.endswith('/catalog') else body['scope']
-            selection = None if request.url.path.endswith('/catalog') else body['selection']
+            selection = body.get('selection') if request.url.path.startswith('/api/live/native-graph-inspection/') else None
             if (not isinstance(scope, dict) or scope.get('managed_world_id') != world_id
                     or scope.get('scope_mode') != 'world' or scope.get('campaign_id') is not None
                     or (selection is not None and (not isinstance(selection, dict) or selection.get('kind') != 'entity'))):
@@ -125,10 +126,10 @@ async def admit_guest_conversation_request(request: Request) -> str:
                            and body.primary_work.kind == "plan" and body.graph_request.mode == "none"
                            and type(body.plan_context_policy) is PlanContextPolicyV2
                            and body.plan_requested_operation in (None, "discuss"))
-        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
+        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredSourceReferenceV1
         references = body.authored_references
         guest_graph_references = (plan_discussion and references is not None
-            and all(isinstance(ref, AuthoredGraphReferenceV1) and ref.managed_world_id == world_id
+            and all(isinstance(ref, (AuthoredGraphReferenceV1, AuthoredSourceReferenceV1)) and ref.managed_world_id == world_id
                     for ref in references.references))
         # Other action families stay closed until their independent persistence
         # owners are bound to the guest lifecycle.

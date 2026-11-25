@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from contextlib import nullcontext
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import InspectionScope
 from apps.live_control_server.models.native_source_inspection import NativeSourceRead, PublishedRecapObjectsRead, PublishedRecapRead
@@ -9,7 +10,10 @@ from apps.live_control_server.services import native_source_inspection as servic
 from apps.live_control_server.services.native_graph_explorer import NativeGraphExplorerError, hosted_response_binding
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 
-from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency
+from apps.live_control_server.services.hosted_native_graph_access import native_graph_explorer_dependency, HostedGuestGraphPrincipal
+
+def _guest_response_binding(principal, world_id):
+    return hosted_response_binding(principal, world_id) if isinstance(principal, HostedGuestGraphPrincipal) else nullcontext()
 
 router = APIRouter(
     prefix="/api/live/native-source-inspection",
@@ -33,12 +37,20 @@ def _call(fn, body, principal):
 
 @router.post("/catalog")
 def catalog(body: InspectionScope, principal=Depends(native_graph_explorer_dependency)):
-    return _call(service.catalog, body, principal)
+    try:
+        with _guest_response_binding(principal, body.managed_world_id):
+            return _call(service.catalog, body, principal)
+    except NativeGraphExplorerError as exc:
+        raise HTTPException(status_code=exc.status, detail={"code": exc.code}) from None
 
 
 @router.post("/read")
 def inspect(body: NativeSourceRead, principal=Depends(native_graph_explorer_dependency)):
-    return _call(service.inspect, body, principal)
+    try:
+        with _guest_response_binding(principal, body.scope.managed_world_id):
+            return _call(service.inspect, body, principal)
+    except NativeGraphExplorerError as exc:
+        raise HTTPException(status_code=exc.status, detail={"code": exc.code}) from None
 
 @router.post("/published-recap")
 def published_recap(body: PublishedRecapRead, principal=Depends(native_graph_explorer_dependency)):

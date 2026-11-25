@@ -17,7 +17,7 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
   if (!active) return null;
   const pathname = path.split("?", 1)[0];
   const conversation = import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" &&
-    ((pathname === "/api/live/native-graph-inspection/catalog" || pathname === "/api/live/native-graph-inspection/read") && method === "POST" ||
+    ((/^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)) && method === "POST" ||
       pathname === "/api/live/agent/turn" && method === "POST" ||
       pathname === `/api/live/agent/worlds/${active.worldId}/conversation` && method === "GET" ||
       pathname === `/api/live/agent/worlds/${active.worldId}/conversations/active/messages` && method === "GET" ||
@@ -48,7 +48,7 @@ export function guestBuildCsrf(path: string, method: string): string | null {
   if (!active || method === "GET" || method === "HEAD") return null;
   const pathname = path.split("?", 1)[0];
   if (import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" && method === "POST" &&
-      (pathname === "/api/live/agent/turn" || pathname === "/api/live/native-graph-inspection/catalog" || pathname === "/api/live/native-graph-inspection/read" || pathname === `/api/live/agent/worlds/${active.worldId}/conversation/new`)) return active.csrf;
+      (pathname === "/api/live/agent/turn" || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname) || pathname === `/api/live/agent/worlds/${active.worldId}/conversation/new`)) return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_MEDIA === "1" && pathname === "/api/live/media/images/generate" && method === "POST") return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
       (pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/world-play-runs/v2/active" ||
