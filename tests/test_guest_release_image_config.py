@@ -267,7 +267,35 @@ def test_publisher_guest_build_is_explicit_and_bound_to_graph():
     assert 'VITE_HOSTED_GUEST_BUILD="$GUEST_BUILD"' in workflow
     assert 'guest_config="$guest_config;build=1"' in workflow
     assert 'tag="$tag-build"' in workflow
-    assert '"$PWD" "$GUEST_BUILD"' in workflow
+    assert '"$PWD" "$GUEST_BUILD" "$GUEST_PLAN"' in workflow
+
+
+def test_publisher_guest_plan_requires_build_and_serving_parent():
+    workflow = (SCRIPT.parents[1] / ".github/workflows/publish-buddy-image.yml").read_text()
+    assert "hosted_guest_plan:" in workflow
+    assert '[[ "$GUEST_PLAN" == 0 || "$GUEST_BUILD" == 1 ]]' in workflow
+    assert '[[ "$GUEST_PLAN" == 0 || ( -n "$SERVING_PR" && -n "$SERVING_PARENT" ) ]]' in workflow
+    assert 'VITE_HOSTED_GUEST_PLAN="$GUEST_PLAN"' in workflow
+    assert 'guest_config="$guest_config;plan=1"' in workflow
+
+
+def test_plan_release_verifier_requires_plan_ui_and_server(tmp_path):
+    script = SCRIPT.parent / "verify_guest_graph_release.sh"
+    files = {
+        "Dockerfile.production": "ARG VITE_HOSTED_GUEST_GRAPH=0\nARG VITE_HOSTED_GUEST_BUILD=0\nARG VITE_HOSTED_GUEST_PLAN=0\n",
+        "apps/live-control-ui/src/App.tsx": "VITE_HOSTED_GUEST_GRAPH\nVITE_HOSTED_GUEST_BUILD\nVITE_HOSTED_GUEST_PLAN\n",
+        "src/application_state/index_graph/sessions.py": "DMB_HOSTED_GUEST_GRAPH_ENABLED\nDMB_HOSTED_GUEST_BUILD_ENABLED\n",
+        "apps/live_control_server/services/hosted_auth.py": "DMB_HOSTED_GUEST_GRAPH_ENABLED\nadmit_guest_build_request\n",
+        "apps/live_control_server/services/guest_build_access.py": "DMB_HOSTED_GUEST_PLAN_ENABLED\n",
+    }
+    for name, content in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    assert subprocess.run(["bash", str(script), str(tmp_path), "1", "1"], capture_output=True).returncode == 0
+    assert subprocess.run(["bash", str(script), str(tmp_path), "0", "1"], capture_output=True).returncode != 0
+    (tmp_path / "apps/live_control_server/services/guest_build_access.py").write_text("# no Plan boundary\n")
+    assert subprocess.run(["bash", str(script), str(tmp_path), "1", "1"], capture_output=True).returncode != 0
 
 
 def test_guest_build_release_requires_both_ui_and_server_boundary(tmp_path):

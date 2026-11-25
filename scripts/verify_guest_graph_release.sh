@@ -3,7 +3,9 @@
 set -euo pipefail
 root=${1:?expected source root}
 build=${2:-0}
+plan=${3:-0}
 [[ "$build" == 0 || "$build" == 1 ]] || { printf '%s\n' 'Invalid guest Build flag.' >&2; exit 1; }
+[[ "$plan" == 0 || "$plan" == 1 ]] && [[ "$plan" == 0 || "$build" == 1 ]] || { printf '%s\n' 'Invalid guest Plan flag.' >&2; exit 1; }
 fail() { printf '%s\n' 'Selected revision does not support the hosted guest Graph.' >&2; exit 1; }
 grep -Fxq 'ARG VITE_HOSTED_GUEST_GRAPH=0' "$root/Dockerfile.production" || fail
 grep -Fq 'VITE_HOSTED_GUEST_GRAPH' "$root/apps/live-control-ui/src/App.tsx" || fail
@@ -16,4 +18,9 @@ if [[ "$build" == 1 ]]; then
   grep -Fq 'DMB_HOSTED_GUEST_BUILD_ENABLED' "$root/src/application_state/index_graph/sessions.py" || fail
   grep -Fq 'admit_guest_build_request' "$root/apps/live_control_server/services/hosted_auth.py" || fail
   test -f "$root/apps/live_control_server/services/guest_build_access.py" || fail
+fi
+if [[ "$plan" == 1 ]]; then
+  grep -Fxq 'ARG VITE_HOSTED_GUEST_PLAN=0' "$root/Dockerfile.production" || fail
+  grep -Fq 'VITE_HOSTED_GUEST_PLAN' "$root/apps/live-control-ui/src/App.tsx" || fail
+  grep -Fq 'DMB_HOSTED_GUEST_PLAN_ENABLED' "$root/apps/live_control_server/services/guest_build_access.py" || fail
 fi

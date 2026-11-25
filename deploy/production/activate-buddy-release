@@ -35,11 +35,15 @@ guest_graph_enabled=${guest_graph_enabled:-0}
 guest_build_enabled=${guest_build_enabled:-0}
 [[ "$guest_build_enabled" == 0 || "$guest_build_enabled" == 1 ]] || fail "invalid staged guest Build setting"
 [[ "$guest_build_enabled" == 0 || "$guest_graph_enabled" == 1 ]] || fail "guest Build requires guest Graph"
+guest_plan_enabled=${guest_plan_enabled:-0}
+[[ "$guest_plan_enabled" == 0 || "$guest_plan_enabled" == 1 ]] || fail "invalid staged guest Plan setting"
+[[ "$guest_plan_enabled" == 0 || "$guest_build_enabled" == 1 ]] || fail "guest Plan requires guest Build"
 if [[ "$guest_graph_enabled" == 1 ]]; then
   [[ "${guest_graph_space:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph space"
   [[ "${guest_graph_revision:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph revision"
 fi
 guest_document_sha=${guest_document_sha:-}
+[[ "$guest_plan_enabled" == 0 || -n "$guest_document_sha" ]] || fail "guest Plan requires guest documents"
 if [[ -n "$guest_document_sha" ]]; then
   [[ "$guest_build_enabled" == 1 && "$guest_document_sha" =~ ^[0-9a-f]{64}$ ]] || fail "invalid staged guest document digest"
   guest_document_bundle="$config_dir/guest-document-bundles/$guest_document_sha.json"
@@ -72,6 +76,7 @@ with_image() {
     {
       printf 'services:\n  buddy:\n    image: %s\n    environment:\n      DMB_HOSTED_GUEST_GRAPH_ENABLED: "1"\n      DMB_HOSTED_GUEST_BUILD_ENABLED: "%s"\n      DMB_GUEST_GRAPH_SOURCE_SPACE: "%s"\n      DMB_GUEST_GRAPH_SOURCE_REVISION: "%s"\n' \
         "$tag" "$guest_build_enabled" "$guest_graph_space" "$guest_graph_revision"
+      printf '      DMB_HOSTED_GUEST_PLAN_ENABLED: "%s"\n' "$guest_plan_enabled"
       if [[ -n "$guest_document_sha" ]]; then
         printf '      DMB_GUEST_DOCUMENT_BUNDLE: /run/buddy-guest-documents.json\n      DMB_GUEST_DOCUMENT_BUNDLE_SHA256: "%s"\n    volumes:\n      - "%s:/run/buddy-guest-documents.json:ro"\n' "$guest_document_sha" "$guest_document_bundle"
       fi
@@ -97,6 +102,7 @@ verify_serving() {
       grep -Fxq "DMB_HOSTED_GUEST_BUILD_ENABLED=$guest_build_enabled" <<< "$guest_env" &&
       grep -Fxq "DMB_GUEST_GRAPH_SOURCE_SPACE=$guest_graph_space" <<< "$guest_env" &&
       grep -Fxq "DMB_GUEST_GRAPH_SOURCE_REVISION=$guest_graph_revision" <<< "$guest_env" || return 1
+    grep -Fxq "DMB_HOSTED_GUEST_PLAN_ENABLED=$guest_plan_enabled" <<< "$guest_env" || return 1
     if [[ -n "$guest_document_sha" ]]; then
       grep -Fxq 'DMB_GUEST_DOCUMENT_BUNDLE=/run/buddy-guest-documents.json' <<< "$guest_env" &&
         grep -Fxq "DMB_GUEST_DOCUMENT_BUNDLE_SHA256=$guest_document_sha" <<< "$guest_env" || return 1
@@ -153,7 +159,7 @@ retain_images() {
           [[ "$value" =~ ^[0-9a-f]{40}$ ]] || return 1 ;;
         guest_graph_enabled)
           [[ "$value" == 1 ]] || return 1 ;;
-        guest_build_enabled)
+        guest_build_enabled|guest_plan_enabled)
           [[ "$value" == 1 ]] || return 1 ;;
         guest_graph_space|guest_graph_revision)
           [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || return 1 ;;

@@ -100,7 +100,7 @@ case "$1 $2" in
       printf '%s\n' "$referenced_id"
     elif [[ "${3:-}" == *'.Config.Env'* ]]; then
       if [[ "${GUEST_ENV_MISSING:-0}" != 1 ]]; then
-        printf '%s\n' 'DMB_HOSTED_GUEST_GRAPH_ENABLED=1' "DMB_HOSTED_GUEST_BUILD_ENABLED=${TEST_GUEST_BUILD_ENABLED:-0}" 'DMB_GUEST_GRAPH_SOURCE_SPACE=space:test' 'DMB_GUEST_GRAPH_SOURCE_REVISION=rev:test'
+        printf '%s\n' 'DMB_HOSTED_GUEST_GRAPH_ENABLED=1' "DMB_HOSTED_GUEST_BUILD_ENABLED=${TEST_GUEST_BUILD_ENABLED:-0}" "DMB_HOSTED_GUEST_PLAN_ENABLED=${TEST_GUEST_PLAN_ENABLED:-0}" 'DMB_GUEST_GRAPH_SOURCE_SPACE=space:test' 'DMB_GUEST_GRAPH_SOURCE_REVISION=rev:test'
         if [[ -n "${TEST_DOCUMENT_SHA:-}" ]]; then
           printf '%s\n' 'DMB_GUEST_DOCUMENT_BUNDLE=/run/buddy-guest-documents.json' "DMB_GUEST_DOCUMENT_BUNDLE_SHA256=$TEST_DOCUMENT_SHA"
         fi
@@ -250,6 +250,14 @@ reset "$rollback_id"
 TEST_GUEST_BUILD_ENABLED=1 run
 grep -F "DMB_GUEST_DOCUMENT_BUNDLE_SHA256: \"$TEST_DOCUMENT_SHA\"" "$scratch/payload-$candidate_id"
 grep -F '/run/buddy-guest-documents.json:ro' "$scratch/payload-$candidate_id"
+printf 'guest_plan_enabled=1\n' >> "$scratch/releases/$candidate.conf"
+reset "$rollback_id"
+TEST_GUEST_BUILD_ENABLED=1 TEST_GUEST_PLAN_ENABLED=1 run
+grep -F 'DMB_HOSTED_GUEST_PLAN_ENABLED: "1"' "$scratch/payload-$candidate_id"
+reset "$rollback_id"
+if TEST_GUEST_BUILD_ENABLED=1 TEST_GUEST_PLAN_ENABLED=0 run; then echo 'Candidate missing guest Plan switch accepted' >&2; exit 1; fi
+grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
+sed -i '/^guest_plan_enabled=/d' "$scratch/releases/$candidate.conf"
 reset "$rollback_id"
 if TEST_GUEST_BUILD_ENABLED=1 FAIL_PUBLIC=1 run; then echo 'Failed guest release accepted' >&2; exit 1; fi
 grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
