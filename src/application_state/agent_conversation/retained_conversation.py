@@ -136,13 +136,16 @@ def capture(current, turns, *, event_id, work_event_id, pointer_revision, seed=N
             if key not in authored:
                 authored[key] = dict(source_basis=basis, role=role, title=title, text=text, occurrences=[])
             authored[key]["occurrences"].append(occurrence)
+    from .native_execution import BuildPendingExecutionV1
+    citable_saved_pages = discussion and type(current.graph_context_execution) is BuildPendingExecutionV1
     admission_type = t.BuildPriorBodyEvidenceAdmittedV3 if discussion else t.BuildPriorBodyEvidenceAdmittedV2
     return admission_type(
         event_id=event_id, sequence=len(current.graph_context_execution.events),
         work_event_id=work_event_id, supports=(), world_id=current.world_id,
         conversation_id=current.conversation_id, turn_id=current.turn_id, attempt=current.attempt,
         conversation_sequence=current.sequence, pointer_revision=pointer_revision,
-        presentation_policy="retained_conversation_semantic_v3",
+        presentation_policy=("retained_conversation_semantic_v4" if citable_saved_pages
+                             else "retained_conversation_semantic_v3"),
         history=tuple(history), authored_context=tuple(t.RetainedAuthoredContextV1(**row) for row in authored.values()),
         native_context=tuple(t.RetainedNativeContextV1(**row) for row in native.values()))
 
@@ -165,7 +168,7 @@ def dialogue_messages(execution):
 
 def current_request_message(execution):
     value = admission(execution)
-    if value is None or value.presentation_policy != "retained_conversation_semantic_v3":
+    if value is None or value.presentation_policy not in {"retained_conversation_semantic_v3", "retained_conversation_semantic_v4"}:
         return None
     return dict(role="user", content=canonical_bytes(
         dict(request_now=execution.policy.action.intent.message)).decode())
@@ -255,7 +258,7 @@ def native_supports(execution):
 
 def require_current_presentation(execution):
     value = admission(execution)
-    if value is not None and value.presentation_policy != "retained_conversation_semantic_v3":
+    if value is not None and value.presentation_policy not in {"retained_conversation_semantic_v3", "retained_conversation_semantic_v4"}:
         raise ValueError("Historical retained presentation is replay-only; start a fresh turn")
 
 
