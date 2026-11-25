@@ -19,7 +19,7 @@ it('keeps quoted Plan material visibly separate from source-supported prose',()=
   expect(screen.getByLabelText('Source-supported statement').textContent).toContain('journal describes');
 });
 
-it('shows unopened Graph authority and opens the selected named source at its original citation index',async()=>{
+it.each([false,true])('opens the selected named source at its original citation index with citationsOnly=%s',async(citationsOnly)=>{
   vi.stubGlobal('crypto',webcrypto);
   const c=evidence(),id='11111111-1111-4111-8111-111111111111';
   const passage='An exact synthetic source passage.';
@@ -32,9 +32,16 @@ it('shows unopened Graph authority and opens the selected named source at its or
   c.source_citations=[{...citation,segment_index:1,source_name:'Other journal'},citation];
   c.answer_context_status='graph_grounded';c.citation_map={schema:'dmb_graph_citation_map_v2',context_receipt_sha256:c.context_receipt_sha256,entries:[{claim_id:'g',target_kind:'assertion',target_id:'a',graph_revision:'r',evidence_ref_ids:['e'],source_opened:false,source_read_ids:[]}]};
   vi.mocked(getAgentSourcePassage).mockResolvedValue({schema:'dmb_agent_source_passage_read_v1',target:{schema:'dmb_agent_source_passage_open_target_v1',kind:'source_passage',world_id:'w',turn_id:id,citation_index:1},citation,content:passage});
-  render(<SurfaceEvidenceAnswer completion={c} worldId="w" turnId={id}/>);
-  expect(screen.getByText('World Graph · source passage not opened')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button',{name:'Read Synthetic park journal · lines 5–5'}));
+  render(<SurfaceEvidenceAnswer completion={c} worldId="w" turnId={id} citationsOnly={citationsOnly}/>);
+  if(citationsOnly){
+    screen.getByText('Cited in the reply').closest('details')!.open=true;
+    await screen.findByRole('region',{name:'Cited in the reply'});
+    expect(screen.queryByText('The journal describes a walkway.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:/^2[.] Synthetic park journal/}));
+  } else {
+    expect(screen.getByText('World Graph · source passage not opened')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Read Synthetic park journal · lines 5–5'}));
+  }
   await screen.findByText(passage);
   expect(getAgentSourcePassage).toHaveBeenCalledWith('w',id,1);
 });

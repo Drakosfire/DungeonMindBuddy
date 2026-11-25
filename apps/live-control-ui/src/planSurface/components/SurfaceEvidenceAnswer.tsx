@@ -52,6 +52,14 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
     </section>;
   };
   const chars=composition ? Array.from(composition.text) : [];
+  const citationLabel = (index: number, title: string) => {
+    const segment = completion.answer_segments[index];
+    if (segment?.kind !== 'native_assertion_claim') return title;
+    const standings = [...new Set(segment.qualifications.flatMap(item =>
+      typeof item.standing === 'string' && ['provisional', 'established'].includes(item.standing)
+        ? [item.standing] : []))];
+    return standings.length ? `${title} · ${standings.join(' / ')}` : title;
+  };
   if (citationsOnly) {
     const segments = completion.answer_segments.flatMap((_, index) =>
       choicesBySegment[index]?.length || summaries.get(index)?.targets.length ? [index] : []);
@@ -63,7 +71,7 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
             <li key={entry.target}><a href={entry.target} title={entry.title}>{entry.number}. {entry.title}</a></li>)}</ul>
           : <SourceCitationEvidence key={index} identity={canonical([completion,worldId,turnId,index])}
             statements={[{choices:choicesBySegment[index]!.map(choice => ({
-              ...choice, buttonText: `${choice.number}. ${choice.title || choice.label}`,
+              ...choice, buttonText: `${choice.number}. ${citationLabel(index, choice.title || choice.label)}`,
             }))}]}/>)}</section>}
     </details> : null;
   }
