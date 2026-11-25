@@ -58,6 +58,7 @@ export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: {
     && !Array.isArray(item.value) && 'role' in item.value && item.value.role === 'system')
   const otherMessages = messages.filter(item => !systemMessages.includes(item))
   const system = parts.find(item => item.pointer === '/instructions')
+  const jevInput = parts.filter(item => item.pointer === '/state' || item.pointer === '/questions')
   const inputText = (value: unknown) => {
     if (value && typeof value === 'object' && !Array.isArray(value) && 'content' in value) {
       const message = value as Record<string, unknown>
@@ -72,7 +73,8 @@ export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: {
       {system && <section><h5>System instructions</h5><pre tabIndex={0}>{inputText(system.value)}</pre></section>}
       {systemMessages.map(item => <section key={item.pointer}><h5>{item.label}</h5><pre tabIndex={0}>{inputText(item.value)}</pre></section>)}
       {otherMessages.map(item => <section key={item.pointer}><h5>{item.label}</h5><pre tabIndex={0}>{inputText(item.value)}</pre></section>)}
-      {!system && messages.length === 0 && <p>No message text was captured in a recognized format.</p>}
+      {jevInput.map(item => <section key={item.pointer}><h5>{item.pointer === '/state' ? 'State' : 'Questions'}</h5><pre tabIndex={0}>{inputText(item.value)}</pre></section>)}
+      {!system && messages.length === 0 && jevInput.length === 0 && <section><h5>Captured input</h5><pre tabIndex={0}>{format(body, false)}</pre></section>}
     </section>
     <details className="buddy-prompt__disclosure">
       <summary>Request details and exact JSON</summary>
