@@ -30,6 +30,10 @@ const history: WorldAgentConversationHistoryResponse = { schema: 'dmb_agent_conv
   conversation_id: '22222222-2222-4222-8222-222222222222', active_conversation_id: '22222222-2222-4222-8222-222222222222',
   pointer_revision: 1, conversation_state: 'active', turns: [], next_before_sequence: null };
 let session: ReturnType<typeof useMarkdownCanvasSession>;
+async function proposalSave() {
+  const review = await screen.findByRole('region', {name:'Proposed page change'});
+  return within(review).getByRole('button', {name:'Save', exact:true});
+}
 function Controls() {
   session = useMarkdownCanvasSession();
   const registry = useWorldAgentConversationState()!;
@@ -90,9 +94,9 @@ it('proposes a table, inserts into mounted Build, manually edits, explicitly sav
   await waitFor(() => expect(session.phase).toBe('ready_clean'));
   act(() => { session.editor!.commands.setTextSelection(session.editor!.state.doc.content.size - 1); });
   fireEvent.click(screen.getByRole('button', { name: 'Request table' }));
-  await screen.findByRole('button', { name: 'Keep on page' });
+  await proposalSave();
   expect(session.editor!.state.doc.textContent).not.toContain('Nella');
-  fireEvent.click(screen.getByRole('button', { name: 'Keep on page' }));
+  fireEvent.click(await proposalSave());
   await waitFor(() => expect(session.dirty).toBe(true));
   expect(session.editor!.getJSON().content?.some(node => node.type === 'table')).toBe(true);
   expect(api.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
@@ -115,7 +119,7 @@ it('proposes a table, inserts into mounted Build, manually edits, explicitly sav
 it('refuses insertion after an intervening edit and keeps the new writing', async () => {
   render(<Harness />); await waitFor(() => expect(session.phase).toBe('ready_clean'));
   fireEvent.click(screen.getByRole('button', { name: 'Request table' }));
-  await screen.findByRole('button', { name: 'Keep on page' });
+  await proposalSave();
   act(() => { session.editor!.commands.insertContent('My new idea.'); });
   const before = session.editor!.getJSON();
   await screen.findByRole('status');
@@ -152,7 +156,7 @@ it('uses the Harness for a discussion follow-up and exposes its durable preview 
   fireEvent.change(composer, { target: { value: 'Sounds good; please put that on the page as a table.' } });
   await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).not.toBeDisabled());
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
-  const insert = await screen.findByRole('button', { name: 'Keep on page' });
+  const insert = await proposalSave();
   expect(api.postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   expect(proposals.composeBuildProposal).not.toHaveBeenCalled();
   expect(session.dirty).toBe(false);
@@ -207,13 +211,13 @@ it('reloads a proposal and inserts at its original position after the author mov
   await waitFor(() => expect(session.phase).toBe('ready_clean'));
   act(() => {session.editor!.commands.setTextSelection(session.editor!.state.doc.content.size-1);});
   fireEvent.click(screen.getByRole('button',{name:'Request table'}));
-  await screen.findByRole('button',{name:'Keep on page'});
+  await proposalSave();
   expect(saved[0].reservation.basis.editor_sha256).toMatch(/^[a-f0-9]{64}$/);
   view.unmount(); render(<Harness />);
   await waitFor(() => expect(session.phase).toBe('ready_clean'));
   act(() => {session.editor!.commands.setTextSelection(1);});
   const before=session.editor!.getJSON();
-  fireEvent.click(await screen.findByRole('button',{name:'Keep on page'}));
+  fireEvent.click(await proposalSave());
   await waitFor(() => expect(session.dirty).toBe(true));
   const markdown=tiptapJsonToSemanticMarkdown(session.editor!.getJSON());
   expect(markdown.indexOf('A fort town.')).toBeLessThan(markdown.indexOf('Nella'));
