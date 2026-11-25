@@ -970,3 +970,33 @@ is wired but has not yet been exercised by an actual send/component request
 control; focused history success is not that evidence. Ordinary backend endpoint,
 Rules mixed/unclaimed paths, current serving fence, source-backed acquisition,
 SQL/full-Send and signed-in save/reopen remain required.
+
+
+## Pending Build send acceptance controls
+
+ACTIVE same slice: focused cases in
+agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx use the
+existing actual Build composer/send/recovery harness and captured pending API
+fixture. Test plain, approved Rules and unclaimed Rules replies plus foreign
+chat/Graph/page/answer refusals. Keep exact pending recovery on refusal; no
+automatic resend. Repair only pending-specific dispatch gaps these cases expose.
+
+Pending send evidence:9 focused actual composer/send/recovery integration cases
+passed731ms. Plain and captured-draft replies, approved Rules base and unclaimed
+Rules replies are accepted; foreign chat, Graph metadata, page basis, answer text
+and captured draft pointer are refused while the pending request stays retained.
+Each case asserts exactly one send and no assertion-source read. The valid draft
+pointer case covers the existing capture owner; unknown replies are not resent.
+
+The pointer negative initially failed: a correctly hashed pending response could
+contradict the actual submitted editor capture. buildReceiptMatchesRequest now
+joins both captured conversation ID and expected pointer revision when a draft
+capture exists. A response refresh also exposed a stale DOM assertion in the new
+fixture; the assertion now waits on the current rendered element. App TypeScript
+compile passed with the production fix. External test import initially failed
+because Vite denied the reused dependency PDF worker path; only the external
+scratch config permits that exact dependency directory. Source config is unchanged.
+Node24/matching reused dependencies/global lock and working-evidence limits remain
+as recorded. These mocks exercise actual client dispatch, not live backend/Jev,
+source acquisition, page saving or deployed app behavior. Endpoint/serving fence,
+source-backed/SQL/full-Send/signed-in acceptance remain merge gates.

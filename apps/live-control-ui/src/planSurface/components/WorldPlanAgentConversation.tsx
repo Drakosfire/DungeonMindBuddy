@@ -1584,6 +1584,9 @@ function buildReceiptMatchesRequest(receipt:WorldBuildGraphReceiptV1|import('../
   const source=buildSourceBasis(receipt);
   return source.world_id===request.owner_scope.world_id&&source.document_id===request.primary_work.object_id
     &&source.registry_revision===request.primary_work.expected_revision&&source.content_sha256===request.primary_work.expected_content_sha256
+    &&(receipt.schema!=='dmb_build_pending_context_receipt_v1'||!request.build_draft_context
+      ||receipt.conversation_observation.conversation_id===request.build_draft_context.conversation_id
+        &&receipt.conversation_observation.pointer_revision===request.build_draft_context.expected_pointer_revision)
     &&(receipt.schema!=='dmb_surface_native_context_receipt_v1'||receipt.native_query.schema==='dmb_native_plan_query_unavailable_v1'||receipt.native_query.question===request.message);
 }
 function buildReceiptMatchesGraph(receipt:WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt']|import('../../api/types').BuildPendingContextReceiptV1,graph:{status:unknown;world_id:unknown;revision_id:unknown}):boolean {
