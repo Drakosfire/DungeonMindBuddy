@@ -1934,6 +1934,8 @@ class _PolicyExecutionAdapter:
         native_source_authority=None,
         native_principal=None,
         native_query_context=None, native_query=None,
+        pending_build_source_observation=None, pending_build_conversation_observation=None,
+        pending_build_access=None,
     ) -> None:
         self.rules_runtime = None
         self.native_source_reply = None
@@ -1950,6 +1952,30 @@ class _PolicyExecutionAdapter:
         self.native_source_authority = native_source_authority
         self.native_principal = native_principal
         self.native_query_context, self.native_query = native_query_context, native_query
+        self.pending_build_source_observation = pending_build_source_observation
+        self.pending_build_conversation_observation = pending_build_conversation_observation
+        self.pending_build_access = pending_build_access
+        if pending_build_source_observation is not None:
+            from application_state.agent_conversation.build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            if (type(pending_build_source_observation) is not BuildSourceObservationV1
+                    or pending_build_conversation_observation is not None and type(pending_build_conversation_observation) is not BuildConversationObservationV1
+                    or not self._is_build_turn() or not callable(pending_build_access)
+                    or native_source_authority is not None or native_corpus_context is not None
+                    or native_query_context is not None or native_query is not None or bootstrap is not None
+                    or request.build_authored_references is not None or submitted_intent.reviewed_step is not None
+                    or (budget.get('buildJevActions') or {}).get('related_page_catalog') is not None):
+                raise ValueError('Pending Build requires its exact host observations/access without acquired source/catalog')
+            observed = BuildSourceObservationV1.model_validate_json(pending_build_source_observation.model_dump_json(by_alias=True))
+            if observed.managed_world_id != world_id:
+                raise ValueError('Pending Build observation belongs to another World')
+            if existing_turn is not None and (type(existing_turn.graph_context_receipt) is not BuildPendingContextReceiptV1
+                    or existing_turn.graph_context_receipt.source_observation != observed
+                    or existing_turn.graph_context_receipt.conversation_observation != pending_build_conversation_observation):
+                raise ValueError('Retained pending Build cannot refresh its captured observations')
+            self.pending_build_source_observation = observed
+        elif pending_build_conversation_observation is not None or pending_build_access is not None:
+            raise ValueError('Pending Build host inputs require their actual source observation')
         if native_source_authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
             if native_source_authority.managed_world_id != world_id:
@@ -1957,7 +1983,7 @@ class _PolicyExecutionAdapter:
             if isinstance(native_source_authority, NativeCorpusAuthorityV1) and (
                     native_corpus_context is None or native_corpus_context.authority != native_source_authority):
                 raise ValueError("Plan source execution requires its trusted source context")
-        elif bootstrap is None:
+        elif bootstrap is None and pending_build_source_observation is None:
             raise ValueError("Plan execution requires an actual capability basis")
         self.initial_session_projection = (json.loads(json.dumps(
             bootstrap.retrieval_session.project_for_hermes(), ensure_ascii=False))
@@ -2120,7 +2146,7 @@ class _PolicyExecutionAdapter:
         self, view: Mapping[str, Any],
     ) -> tuple[Turn, list[str], list[str], list[str]]:
         plan_jev_request = getattr(self, "_active_plan_jev_request", None)
-        if self.native_source_authority is not None and self._is_build_turn():
+        if (self.native_source_authority is not None or self.pending_build_source_observation is not None) and self._is_build_turn():
             if self.fence is not None:
                 return self.fence.turn, [], [], []
             return self._claim_initial(view)
@@ -2191,6 +2217,7 @@ class _PolicyExecutionAdapter:
         return self.fence.turn
 
     def _claim_initial(self, view, *, plan_jev_request=None, reviewed_admission=None, plan_request_dialogue=None):
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
         if self.fence is not None:
             receipt = self.fence.turn.graph_context_receipt
             if receipt is None:
@@ -2200,7 +2227,7 @@ class _PolicyExecutionAdapter:
                     provider_dispatched=None,
                 )
             if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
-                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)):
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)):
                 return self.fence.turn, [], [], []
             return (
                 self.fence.turn,
@@ -2219,7 +2246,15 @@ class _PolicyExecutionAdapter:
                         managed_world_id=self.world_id, binding_version=self.bootstrap.binding_version)}
                    if self.bootstrap is not None and (self._is_build_turn() or self.request.surface.surface_id == "play") else {}),
             )
-            if self.native_source_authority is not None and self._is_build_turn():
+            if self.pending_build_source_observation is not None:
+                from .plan_source_turn import freeze_build
+                receipt, execution, membership = freeze_build(self.request, self.work, view, self.budget,
+                    authority=None, native_query=None, provenance=provenance, submitted_intent=self.submitted_intent,
+                    projection=getattr(self, '_active_build_driver_projection', None), accounting=self._build_jev_accounting,
+                    included_history=getattr(self, 'build_history_for_inclusion', ()),
+                    source_observation=self.pending_build_source_observation,
+                    conversation_observation=self.pending_build_conversation_observation)
+            elif self.native_source_authority is not None and self._is_build_turn():
                 from .plan_source_turn import freeze_build
                 receipt, execution, membership = freeze_build(self.request,self.work,view,self.budget,
                     authority=self.native_source_authority,native_query=self.native_query,provenance=provenance,
@@ -2302,7 +2337,11 @@ class _PolicyExecutionAdapter:
                 and receipt.assembled_input.dialogue_sha256 == opening_dialogue_sha256(plan_request_dialogue)) if plan_request_dialogue is not None else None
             if (
                 receipt is None
-                or (self.native_source_authority is None and (
+                or (self.pending_build_source_observation is not None and (
+                    type(receipt) is not BuildPendingContextReceiptV1
+                    or receipt.source_observation != self.pending_build_source_observation
+                    or receipt.conversation_observation != self.pending_build_conversation_observation))
+                or (self.pending_build_source_observation is None and self.native_source_authority is None and (
                     receipt.graph_authority.graph_revision != self.bootstrap.world_scope.revision_id
                     or receipt.graph_authority.binding_version != self.bootstrap.binding_version))
                 or (self.native_source_authority is not None and (
@@ -2335,7 +2374,7 @@ class _PolicyExecutionAdapter:
                     provider_dispatched=None,
                 )
         membership = (([], [], []) if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
-                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)) else (
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)) else (
             list(receipt.assembled_input.dispatched_assertion_ids),
             list(receipt.assembled_input.dispatched_relationship_ids),
             list(receipt.assembled_input.dispatched_evidence_ref_ids),

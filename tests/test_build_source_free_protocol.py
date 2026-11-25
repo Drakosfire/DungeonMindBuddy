@@ -1600,3 +1600,91 @@ def test_pending_budget_defers_discovery_but_preserves_actual_authoring_capabili
     assert policy_capabilities(SimpleNamespace(**deferred['buildJevActions'])) == policy_capabilities(SimpleNamespace(**ordinary['buildJevActions']))
     for key in ['collaboration_output_policy', 'connected_page_review_policy', 'relationship_review_policy', 'source_quote_binding_policy']:
         assert deferred['buildJevActions'][key] == ordinary['buildJevActions'][key]
+
+
+def pending_adapter_driver_case(*, empty_pointer=False, observed=None, overrides=None):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+    kwargs = pending_runtime_freeze_case()
+    request = kwargs['request']
+    request.primary_work = kwargs['submitted_intent'].primary_work
+    request.graph_request = kwargs['submitted_intent'].graph_request
+    request.reviewed_step = None
+    conversation_id = kwargs['conversation_observation'].conversation_id
+    pointer = t.WorldPointer(world_id=kwargs['submitted_intent'].world_id,
+        active_conversation_id=None if empty_pointer else conversation_id, revision=3)
+    state = SimpleNamespace(pointer=pointer, created=0, history_reads=0, access_calls=0)
+    history = [{'turn_id': str(uuid4()), 'user': f'Question {i}', 'assistant': f'Existing context {i}'} for i in range(40)]
+    def get_pointer(world):
+        assert world == pointer.world_id
+        return state.pointer
+    def get_active(world):
+        assert world == pointer.world_id
+        return None if state.pointer.active_conversation_id is None else SimpleNamespace(conversation_id=state.pointer.active_conversation_id)
+    def create(command):
+        assert command.expected_pointer_revision == state.pointer.revision
+        assert command.expected_active_conversation_id == state.pointer.active_conversation_id
+        state.created += 1
+        state.pointer = state.pointer.model_copy(update={'active_conversation_id': conversation_id, 'revision': state.pointer.revision + 1})
+    def dialogue(world, conversation):
+        assert world == pointer.world_id and conversation == state.pointer.active_conversation_id
+        state.history_reads += 1
+        return history
+    def access(*args):
+        state.access_calls += 1
+        return True
+    service = SimpleNamespace(get_world_pointer=get_pointer, get_active_conversation=get_active,
+        new_conversation=create, list_build_dialogue=dialogue)
+    inputs = dict(service=service, request=request, world_id=pointer.world_id, work=kwargs['work'],
+        bootstrap=None, playable_target=None, submitted_intent=kwargs['submitted_intent'], existing_turn=None,
+        budget=kwargs['budget'], pending_build_source_observation=kwargs['source_observation'],
+        pending_build_conversation_observation=observed, pending_build_access=access)
+    inputs.update(overrides or {})
+    adapter = _PolicyExecutionAdapter(**inputs)
+    return adapter, state
+
+
+@pytest.mark.parametrize('empty_pointer', [False, True])
+def test_pending_adapter_driver_prepares_full_semantic_work_without_core_or_catalog(empty_pointer):
+    adapter, state = pending_adapter_driver_case(empty_pointer=empty_pointer)
+    driver = adapter.create_build_jev_driver()
+    assert driver._native and adapter.native_source_authority is None and adapter.bootstrap is None
+    assert state.created == int(empty_pointer) and state.history_reads == 1 and state.access_calls == 0
+    assert adapter.pending_build_conversation_observation.conversation_id == state.pointer.active_conversation_id
+    assert adapter.pending_build_conversation_observation.pointer_revision == state.pointer.revision
+    assert adapter.expected_conversation_id == state.pointer.active_conversation_id
+    request = driver.step
+    assert len(request.state['interaction']['history']) == 40
+    assert {question.name for question in request.questions} == {'requested_work', 'source_need'}
+    wire = json.dumps(request.state)
+    assert str(state.pointer.active_conversation_id) not in wire
+    assert 'related_page_catalog' not in wire and 'native_world_id' not in wire
+
+
+@pytest.mark.parametrize('failure', ['authority', 'catalog', 'access_owner', 'source_world'])
+def test_pending_adapter_refuses_acquired_or_unowned_inputs(failure):
+    from tests.test_build_source_free_routing import settled_source
+    kwargs = pending_runtime_freeze_case()
+    overrides = {}
+    if failure == 'authority':
+        overrides['native_source_authority'] = settled_source(managed_world_id=kwargs['submitted_intent'].world_id)
+    elif failure == 'catalog':
+        kwargs['budget']['buildJevActions']['related_page_catalog'] = []
+        overrides['budget'] = kwargs['budget']
+    elif failure == 'access_owner':
+        overrides['pending_build_access'] = None
+    else:
+        overrides['pending_build_source_observation'] = kwargs['source_observation'].model_copy(update={'managed_world_id': 'foreign-world'})
+    with pytest.raises(ValueError):
+        pending_adapter_driver_case(overrides=overrides)
+
+
+def test_pending_driver_preserves_original_conversation_observation_after_reset_reopen():
+    adapter, state = pending_adapter_driver_case()
+    from application_state.agent_conversation.build_source_free import capture_pending_conversation
+    adapter.pending_build_conversation_observation = capture_pending_conversation(state.pointer,
+        world_id=state.pointer.world_id, conversation_id=state.pointer.active_conversation_id)
+    state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 2})
+    with pytest.raises(ValueError, match='original observation'):
+        adapter.create_build_jev_driver()
+    assert state.history_reads == 0

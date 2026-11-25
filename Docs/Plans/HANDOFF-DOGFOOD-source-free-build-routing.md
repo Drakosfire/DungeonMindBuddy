@@ -187,33 +187,56 @@ Build-only split and the full source-free objective remain intact. The committed
 prototype is resuming after the writer release described below; no source-free
 runtime is active and no passing source-free outcome is claimed.
 
-## Exclusive bounded implementation write lease
+## Current exclusive write lease — narrowed to unblock shared work
 
-New src/application_state/agent_conversation/build_source_free.py owns the new
-codec/state and route predicates; new tests/test_build_source_free_routing.py owns
-focused physical-read, authority and HTTP/continuation regressions. Existing:
-apps/live_control_server/services/{agent_turn_service,build_jev_harness,build_jev_driver,native_graph_reads}.py;
-apps/live_control_server/integrations/dungeonmind/native_corpus_source.py only a
-new metadata-observation helper delegating public metadata owners, not the selected
-passage resolver leased by #4561;
-src/application_state/agent_conversation/{build_intentional_response,native_context,native_execution,native_corpus,native_writer,writer_evidence_selection,retained_conversation,service,types}.py;
-src/application_state/migrations/versions/20261124_0211_build_source_free_pending.py;
-Docs/Plans/HANDOFF-DOGFOOD-source-free-build-routing.md.
-src/application_state/agent_conversation/native_completion.py only the new-codec
-entry dispatch/helpers specified above; legacy question normalization is excluded.
-Only Build-discriminated new-codec registration/delegation in shared validators
-and service admission is allocated; old receipt/action/Plan/Play semantics remain
-byte-identical or have exact unchanged-codec reconstruction tests. Changing more
-files, any historical codec semantics, a Core public contract, a model/provider,
-Plan routing, frontend UX, benchmark qualification code or a shared registry/lockfile
-is a stop/split signal. The split is adopted here after independent design-readiness review. Any expansion
-requires a bounded owner checkpoint before editing.
+This section supersedes every earlier or later reservation/extension in this
+handoff. Those sections describe required integration, not ownership of untouched
+files. DOGFOOD retains only the pending-specific symbols already changed and the
+explicit adapter/initial-driver branches currently being implemented:
+
+- build_source_free.py and the two new test_build_source_free_* modules.
+- agent_conversation/service.py: new pending service/helper methods; exact pending
+  admission/binding/generic-bypass branches. Existing shared/Plan/Play/legacy
+  behavior is not reserved.
+- native_context.py/native_execution.py/types.py/repository.py: new pending codec
+  declarations, exact pending dispatch and App-controller subtype accounting only.
+- build_intentional_response._captured_semantics, build_decision_context pending
+  policy/subtype dispatch, and build_draft_context.native_build_action /
+  validate_native_record: exact pending branches only.
+- server agent_turn_service.py: pending persistence protocol methods and pending
+  branches/host fields in _PolicyExecutionAdapter.__init__, _ensure_claimed and
+  _claim_initial. build_jev_driver.py: pending pointer capture in freeze_interaction
+  and pending initial-driver selection only.
+- build_jev_harness.configured_budget: host-only defer_related_pages option only.
+- plan_source_turn.freeze_build: optional pending branch and _freeze_pending_build
+  helper only. Plan/Play factories and shared historical composition are free.
+- agent_context_trace_collector._provider_output: exact pending controller policy
+  recognition only. native_corpus_source.observe_build_source_pointer only.
+- This handoff.
+
+**Released now:** native_corpus.py, native_writer.py,
+writer_evidence_selection.py, retained_conversation.py, native_completion.py,
+native_reads.py, native_retrieval.py, native_graph_reads.py, HTTP response models,
+frontend API/decoder/component files, and every other untouched shared function.
+No whole-file lease is retained merely because a file contains a pending branch.
+Other lanes may implement their independently owned branches/functions without
+waiting for PR4642. An actual overlapping edit still requires a bounded split.
+
+**Migration reservation released:** 20261124_0211_build_source_free_pending.py
+is not allocated to this lane. Choose the then-current available serving revision
+when the integrated reader fence is ready. Older mentions of 0211 below are a
+superseded proposal, not a sequencing gate for other work.
+
+When integration needs a released path, DOGFOOD will re-anchor and pin only the
+exact required new-codec symbol/branch before editing it, preserving other lanes.
+Implementation remains one serial PR; no new provider/model, Core contract,
+historical codec meaning or frontend UX capability is authorized by this cleanup.
 
 
-## Read-owner closure checkpoint
+## Read-owner closure requirements — no untouched-file reservation
 
 Implementation inspection and independent owner review found two omitted shared
-read owners. Extend this same protocol lease to native_reads.py and
+read owners. Future integration may need native_reads.py and
 native_retrieval.py under src/application_state/agent_conversation, restricted to
 exact new-Build-discriminator delegation. This adds no capability or new PR.
 
@@ -305,11 +328,12 @@ producer/reader/terminal protocol, not an independently delivered capability.
 The captured-semantics helper may likewise recognize only the exact new policy.
 No accounting algorithm, provider/model or historical policy behavior changes.
 
-## Stored and transport consumer closure checkpoint
+## Stored and transport consumer requirements — no untouched-file reservation
 
 The new receipt/execution is not consumable by the old concrete row or HTTP/UI
 decoders. Extend this same indivisible pending producer/reader/fence protocol,
-without a second product capability or PR, to these bounded consumers:
+without a second product capability or PR, will need these bounded consumers;
+none is reserved unless included in the Current exclusive write lease above:
 - repository.py: exact new stored receipt/execution codec dispatch, integrity
   classification and complete Turn wire decoding only; all old codecs remain.
 - apps/live_control_server/models/agent_turn.py: distinct Build pending response
@@ -539,3 +563,17 @@ explicit defer_related_pages option for the pending startup caller. It omits
 catalog discovery while retaining the same existing collaboration/authoring
 capabilities and policy flags. Default calls retain their existing discovery
 behavior. This option is not a client/model setting or startup activation.
+
+
+## Pending adapter and initial driver wiring
+
+The leased adapter accepts explicit host source/conversation observations and a
+current App-access callback without a native source or Graph bootstrap. Reject
+mixed authority/catalog/reference inputs and refreshed retained observations.
+The Build driver captures the existing typed App pointer, opening an absent
+conversation only through _active_or_create_conversation, before its unchanged
+semantic work decision. Preserve the original pointer through retries and bind
+expected_conversation_id. The adapter's initial claim calls the reviewed pending
+freeze_build branch, returns empty Graph membership and compares pending fields
+on retained admission instead of reading legacy Graph authority. No model-visible
+host metadata or default startup activation is introduced by these optional inputs.
