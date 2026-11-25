@@ -42,6 +42,16 @@ function Controls() {
 function Harness() { return <AgentInteractionProvider><WorldAgentConversationProvider worldId="elderwyld">
   <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell /><Controls /></BuildCanvasTestProvider>
 </WorldAgentConversationProvider></AgentInteractionProvider>; }
+it('publishes the Build document selector to the persistent conversation owner', async () => {
+  const selectDocument=vi.fn().mockResolvedValue(false);
+  function SelectorProbe(){const registry=useWorldAgentConversationState();return <button onClick={()=>void registry?.build?.value.selectDocument?.('saved-page')}>Open through owner</button>;}
+  render(<AgentInteractionProvider><WorldAgentConversationProvider worldId="elderwyld">
+    <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell selectDocument={selectDocument}/><SelectorProbe/></BuildCanvasTestProvider>
+  </WorldAgentConversationProvider></AgentInteractionProvider>);
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Open through owner'})).toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button',{name:'Open through owner'}));
+  expect(selectDocument).toHaveBeenCalledWith('saved-page');
+});
 let stored: WorkspaceDocumentSnapshot;
 beforeEach(() => {
   Object.defineProperty(globalThis, 'crypto', { configurable: true, value: webcrypto });
