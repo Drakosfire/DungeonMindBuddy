@@ -1,3 +1,5 @@
+import { guestBuildActive, guestBuildEpochCurrent, guestBuildRequestEpoch } from "../guestWorld/guestBuildSession";
+import { guestAdventureSession } from "./guestAdventureSession";
 import {matchesNavigationTarget,useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
 import type {TourDispatchScope} from '../guidedTour/GuidedTour';
 import {runPins} from '../guidedTour/ownerPins';
@@ -382,6 +384,7 @@ function PlayChooser({
   const [titles, setTitles] = useState<Record<string, string>>({});
   const [linkedPlanTitle, setLinkedPlanTitle] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeResolved, setActiveResolved] = useState(false);
   const [endedIds,setEndedIds]=useState<string[]>([]);
   useEffect(()=>{
     let cancelled=false;setEndedIds([]);
@@ -397,6 +400,7 @@ function PlayChooser({
     let cancelled = false;
     setTitles({});
     setActiveId(null);
+    setActiveResolved(false);
     if (!selectedWorldId) {
       void listWorkspaceDocuments().then((inventory) => {
         if (cancelled || !inventory) return;
@@ -407,9 +411,10 @@ function PlayChooser({
     }
     void Promise.resolve(continuityWarning ? null : selectedWorldId ? getWorldPlayActiveRun(selectedWorldId) : getPlayActiveRun())
       .then(active => {
-        if (cancelled || !active) return;
-        if (selectedWorldId && !isWorldPlayActiveRunState(active, selectedWorldId)) return;
-        setActiveId(active.run_id);
+        if (cancelled) return;
+        if (active && selectedWorldId && !isWorldPlayActiveRunState(active, selectedWorldId)) return;
+        if (active) setActiveId(active.run_id);
+        setActiveResolved(true);
       }).catch(() => { /* The list remains usable without Resume metadata. */ });
     return () => { cancelled = true; };
   }, [selectedWorldId, continuityWarning, trashInventoryVersion]);
@@ -465,6 +470,27 @@ function PlayChooser({
     return () => { cancelled = true; };
   }, [initialPlanId, selectedWorldId, status, titles, trashInventoryVersion]);
 
+  useEffect(() => {
+    if (!guestBuildActive() || !selectedWorldId || status !== "ready" || !activeResolved || initialPlanId || continuityWarning) return;
+    const params = new URLSearchParams(window.location.search);
+    if ([...params.keys()].some(key => key !== "world")) return;
+    const epoch = guestBuildRequestEpoch('/api/live/world-play-runs/v2', 'GET');
+    if (epoch === null) return;
+    let cancelled = false;
+    const current = () => !cancelled && guestBuildEpochCurrent(epoch) && window.location.pathname === "/play"
+      && ![...new URLSearchParams(window.location.search).keys()].some(key => key !== "world");
+    if (activeId) {
+      if (records.some(record => record.run_id === activeId && record.schema_version === 'dmb_world_play_run_record_v2' && record.world_id === selectedWorldId) && current()) navigateToRun(activeId);
+      return () => { cancelled = true; };
+    }
+    void guestAdventureSession(selectedWorldId, records, current).then(runId => {
+      if (runId && current()) navigateToRun(runId);
+    }).catch(error => {
+      if (current()) setDetail(error instanceof Error ? error.message : "The prepared session could not be opened.");
+    });
+    return () => { cancelled = true; };
+  }, [selectedWorldId, status, activeResolved, activeId, initialPlanId, continuityWarning, records]);
+
   const ordered = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   const matching = initialPlanId ? ordered.filter(record => record.playable_artifact_id === initialPlanId) : ordered;
   const other = initialPlanId ? ordered.filter(record => record.playable_artifact_id !== initialPlanId) : [];
@@ -502,6 +528,7 @@ function PlayChooser({
         <p className="play-muted">Take scene notes and edit as you improvise. Your changes save to this session’s copy, keeping the Plan intact.</p>
         {selectedWorldId ? <p className="play-welcome-plan"><a href={`/plan?world=${encodeURIComponent(selectedWorldId)}`}>Open a Plan →</a><span>Prepare scenes, then press Play to begin a session.</span></p> : null}
         {continuityWarning ? <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">{continuityWarning}</p> : null}
+        {guestBuildActive() && status === "ready" && detail ? <p role="alert">{detail}</p> : null}
         <LocalPlaySetupHint message={continuityWarning ?? detail} />
       </header>
       {!selectedWorldId ? <SurfaceWorldPicker surface="play" /> : null}

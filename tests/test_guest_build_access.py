@@ -1948,5 +1948,24 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     assert second.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code == 403
     assert first.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
     assert len(first.get(path, params={'world_id': world}).json()['records']) == 1
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_ENABLED', '1')
+    revision = first.get(f'/api/live/workspace-documents/{doc}/committed-revision')
+    assert revision.status_code == 200, revision.text
+    pin = revision.json()
+    source_request = {'playable_artifact_id': doc, 'expected_playable_revision': pin['revision_n'],
+                      'expected_playable_work_revision_id': pin['work_revision_id'],
+                      'expected_playable_content_sha256': pin['content_sha256']}
+    headers = {'X-DMB-Index-Graph-CSRF': token}
+    preview = first.post('/api/live/world-play-runs/v2/preparation', params={'world_id': world, 'entry_scene_id': 'scene:contract'}, headers=headers, json=source_request)
+    assert preview.status_code == 200, preview.text
+    from uuid import UUID
+    run = str(UUID(world.removeprefix('guest-')))
+    run_path = f'/api/live/world-play-runs/v2/{run}'
+    created = first.put(run_path, params={'world_id': world}, headers=headers, json=preview.json()['request'])
+    assert created.status_code == 200, created.text
+    assert created.json()['run']['progress']['current_scene_id'] == 'scene:contract'
+    assert first.put(run_path, params={'world_id': world}, headers=headers, json=preview.json()['request']).status_code == 200
+    assert second.get(run_path, params={'world_id': world}).status_code == 403
     assert first.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
+    assert first.get(run_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code in (401, 403)
