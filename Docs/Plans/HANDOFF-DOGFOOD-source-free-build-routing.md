@@ -912,3 +912,31 @@ wire-shape tightening: completed execution must not pair with null completion.
 The validated Turn projector cannot emit it; the response model now explicitly
 rejects it too, with a focused completed-draft negative control. Endpoint/UI,
 serving fence and source-backed acceptance remain incomplete.
+
+
+## Frontend pending reader continuation
+
+ACTIVE same serial producer/reader slice: api/types.ts adds distinct pending
+Build receipt/response; shared/surfaceNativeProtocol.ts owns strict metadata-only
+receipt and completion decoding, with focused shared protocol tests. Reuse native
+completion validation without fabricating a query. Next integrate Build-only
+dispatch/provenance/digests in WorldPlanAgentConversation.tsx and Rules wire types.
+No Plan/Play admission, no authority from source observation, no broad tests.
+
+Frontend reader checkpoint:103 focused tests in shared/surfaceNativeProtocol.test.ts
+passed435ms, using actual pending API projector output from the synthetic
+sixty-turn SDK/completion fixture. Strict metadata observation, source-binding,
+head/pointer/assembler/extra-key, foreign surface/root, null completion/execution
+and citation controls are covered. The existing shared completion validator is
+reused; pending observation grants no clause/assertion membership. Unfinished
+history stays separate from completed response delivery. The reader is not yet
+wired into the Build conversation dispatcher or Rules unions.
+
+The app TypeScript compile diagnostic passed. Initial --incremental false failed
+TS6379 before source checking; rerun with the project's composite setting passed.
+Checks used Node24.22.3, Vitest3.2.4, matching package-lock dependencies reused from
+buddy-check.LPopRI/ui, external verified Projects directory
+buddy-check.pending-reader.A8hkGW/ui, and the global frontend lock. These are
+focused working-source diagnostics, not fresh exact-source release qualification.
+No broad frontend test suite ran. Build dispatcher/digests/Rules wiring, ordinary
+HTTP delivery, serving fence and live source-backed/app acceptance remain open.

@@ -328,3 +328,35 @@ it.each(['valid','missing','foreign-epoch','bad-receipt','wrong-producer','wrong
     expect(valid).toBe(mutation==='valid');
   },
 );
+
+// Actual projector output from the pending sixty-turn SDK/completion boundary fixture.
+import pendingBuild from '../test/pending-build-page-api.json';
+import {isBuildPendingReceipt,isBuildPendingContext} from './surfaceNativeProtocol';
+it('accepts the distinct pending Build draft API projection without source authority',()=>{
+  expect(isBuildPendingContext(pendingBuild,buildWork,()=>true)).toBe(true);
+  expect(isSurfaceNativeReceipt(pendingBuild.receipt,buildWork)).toBe(false);
+  expect(isBuildPendingContext(pendingBuild,work,()=>true)).toBe(false);
+});
+it.each(['world','binding','head','pointer','assembler','authority','surface','root','null','execution','citation','extra'])(
+  'rejects invalid pending Build observation/completion: %s',mutation=>{
+    const c=structuredClone(pendingBuild) as any;
+    if(mutation==='world')c.receipt.source_observation.managed_world_id='foreign';
+    if(mutation==='binding')c.receipt.source_observation.binding={managed_world_id:'foreign',native_world_id:'native',binding_version:1,provisioning_id:null};
+    if(mutation==='head')c.receipt.source_observation.observed_head_revision_id='unbound-head';
+    if(mutation==='pointer')c.receipt.conversation_observation.pointer_revision=true;
+    if(mutation==='assembler')c.receipt.assembled_input.assembler_version='native_build_semantic_initial_v2';
+    if(mutation==='authority')c.receipt.source_authority={};
+    if(mutation==='surface')c.completion.surface_id='plan';
+    if(mutation==='root')c.completion.context_receipt_sha256='0'.repeat(64);
+    if(mutation==='null')c.completion=null;
+    if(mutation==='execution')c.execution=null;
+    if(mutation==='citation')c.completion.native_clause_citations=[{}];
+    if(mutation==='extra')c.deferred_build_citations={};
+    expect(isBuildPendingContext(c,buildWork,()=>true,true)).toBe(false);
+});
+it('permits only unfinished history without a pending completion',()=>{
+  const c={...pendingBuild,completion:null,execution:null};
+  expect(isBuildPendingContext(c,buildWork,()=>true)).toBe(false);
+  expect(isBuildPendingContext(c,buildWork,()=>true,true)).toBe(true);
+  expect(isBuildPendingReceipt(pendingBuild.receipt,buildWork)).toBe(true);
+});
