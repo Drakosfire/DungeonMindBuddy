@@ -107,13 +107,29 @@ describe('opt-in turn trace read', () => {
     expect(screen.getByText('How Buddy built this reply')).toBeInTheDocument()
     expect(load).toHaveBeenCalledTimes(2)
   })
+  it('leads with the latest trace and groups earlier failed captures', async () => {
+    const failed = { ...trace(), terminal_status: 'failed' as const, capture_status: 'complete' as const,
+      closed_at: '2026-10-13T00:00:01Z' }
+    const completed = { ...failed, trace_id: 'second', attempt: 2, execution_start_sequence: 1,
+      terminal_status: 'completed' as const, started_at: '2026-10-13T00:00:02Z', closed_at: '2026-10-13T00:00:03Z' }
+    const load = vi.fn().mockResolvedValue(response([failed, completed]))
+    render(<BuddyContextTraceLoader {...props} enabled replyDetails load={load} />)
+    const earlier = await screen.findByText('Earlier trace attempts')
+    const latest = screen.getAllByRole('region', { name: 'How Buddy built this reply' })[0]!
+    expect(latest.compareDocumentPosition(earlier) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    earlier.closest('details')!.open = true
+    screen.getByText('Attempt 1').closest('details')!.open = true
+    expect(screen.getByRole('alert')).toHaveTextContent('This attempt stopped before completing a reply.')
+  })
+
   it('shows an ended turn with an unclosed capture as incomplete without background polling', async () => {
     vi.useFakeTimers()
     const saved=trace(), load=vi.fn().mockResolvedValue(response([saved]))
     const view=render(<BuddyContextTraceLoader {...props} enabled load={load} />)
     await act(async()=>{})
     expect(screen.getByText('Incomplete capture')).toBeInTheDocument()
-    expect(screen.getByRole('note')).toHaveTextContent('The turn has ended')
+    expect(screen.getByRole('button', { name: 'Refresh trace' })).toBeVisible()
     expect(saved.closed_at).toBeNull()
     await act(async()=>vi.advanceTimersByTimeAsync(10000))
     expect(load).toHaveBeenCalledTimes(1)
