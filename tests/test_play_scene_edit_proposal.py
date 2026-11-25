@@ -1,5 +1,6 @@
 """Owning HTTP/provider/storage and exact-scene boundaries for reviewed Play edits."""
 import asyncio
+import json
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -51,7 +52,8 @@ class Generator:
         self.calls = []
     async def generate_structured(self, request):
         self.calls.append(request)
-        return SimpleNamespace(parsed={"replacement_markdown": self.replacement, "summary": "Clarify the gate scene.",
+        replacement = self.replacement(request) if callable(self.replacement) else self.replacement
+        return SimpleNamespace(parsed={"replacement_markdown": replacement, "summary": "Clarify the gate scene.",
             "assumptions": ["A proposed preparation detail."], "cannot_complete_reason": None},
             observation=SimpleNamespace(response_model="test-model", resolved_model="test-model", latency_ms=12))
 
@@ -74,8 +76,7 @@ def test_http_propose_review_apply_and_replay_leave_plan_notes_and_other_scenes_
         "\n> [!READ-ALOUD] At the gate\n> The gate is waiting.\n"
         "\n> [!GM-NOTE] Pause\n> Wait for a response.\n"
     )
-    replacement = content.markdown[start:end] + addition
-    generator = Generator(replacement)
+    generator = Generator(lambda request: json.loads(request.user_prompt)["scene_body"] + addition)
     monkeypatch.setattr(service.GenerationClient, "from_env", lambda: generator)
     monkeypatch.setattr(service, "load_dungeonmindbuddy_dotenv", lambda: None)
     monkeypatch.setattr(service, "load_buddy_model_policy", lambda **kw: {"actions": {"structured_generation": "writer"}, "models": {"writer": "test-model"}})
@@ -93,6 +94,11 @@ def test_http_propose_review_apply_and_replay_leave_plan_notes_and_other_scenes_
     assert "context_receipt" not in record and "request" not in record
     assert "scene_note" not in record["basis"]
     assert len(generator.calls) == 1
+    prompt = generator.calls[0].user_prompt
+    for host_value in (str(world.world_id), str(run.run_id), str(obj.work_object_id),
+                       content.content_sha256, "scene:gate-line"):
+        assert host_value not in prompt
+    assert "scene:local-reference-" in prompt
     result = record["result"]
     assert result["candidate_markdown"].startswith(content.markdown[:start])
     assert result["candidate_markdown"].endswith(content.markdown[end:])
@@ -183,3 +189,26 @@ def test_scene_can_reuse_a_saved_media_reference_in_its_admitted_beat_context():
     assert candidate["candidate_markdown"].count(media) == 2
     with pytest.raises(ValueError, match="outside the admitted"):
         service.build_candidate(original, "scene:gate", "![Invented](dmb-media:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb)", admitted_media={media})
+
+
+def test_scene_writer_local_references_round_trip_and_reject_invented_targets():
+    from apps.live_control_server.services.play_scene_model_aliases import scene_model_aliases
+    media = "dmb-media:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    original = f'<!-- dmb-playable-element:v2 kind=beat id=beat:road -->\n## Road\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\n![Map]({media})\n'
+    aliases = scene_model_aliases(original, original, "Keep the map")
+    localized = aliases.localize(original)
+    assert media not in localized and "scene:gate" not in localized
+    assert aliases.resolve(localized) == original
+    with pytest.raises(ValueError, match="unknown internal reference"):
+        aliases.resolve("![New](dmb-media:invented)")
+
+
+def test_scene_writer_aliases_do_not_rewrite_each_other():
+    from apps.live_control_server.services.play_scene_model_aliases import scene_model_aliases
+    original = ('<!-- dmb-playable-element:v2 kind=beat id=beat:road -->\n## Road\n\n'
+        '<!-- dmb-playable-element:v2 kind=scene id=scene:local -->\n### Local\n\n'
+        '<!-- dmb-playable-element:v2 kind=scene id=scene:longname -->\n### Long\n')
+    aliases = scene_model_aliases(original, "", "")
+    localized = aliases.localize(original)
+    assert "scene:longname" not in localized and "id=scene:local -->" not in localized
+    assert aliases.resolve(localized) == original
