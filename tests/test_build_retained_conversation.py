@@ -702,7 +702,11 @@ def test_retained_build_append_rolls_back_when_guest_quota_rejects(lane, tmp_pat
     from tests.test_surface_native_build_ordinary import _fresh_case
     from application_state.agent_conversation import AgentConversationService
     from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services import agent_turn_service
 
+    # This regression exercises the retained-context implementation; the newer
+    # pending path has its own admission and quota rollback controls.
+    monkeypatch.setattr(agent_turn_service, '_pending_build_startup_eligible', lambda *args, **kwargs: False)
     synthesis = 'Recap our conversation without another search.'
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
         native_body='irrelevant', requested_work='discuss',
