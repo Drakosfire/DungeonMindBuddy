@@ -96,3 +96,11 @@ Five existing synthetic Graph-binding serializer warnings remain visible.
 Evidence: buddy-check.pending-release.w1eihyha/history-focused-sql.log.
 This is not live-provider latency or signed-in deployment acceptance. The797f659
 candidate image and ecec587 recovery image predate this fix and require replacement.
+
+## NONMERGE forward recovery artifact (history-fixed source)
+
+Operational branch codex/dogfood-pending-211-history-recovery derives from reviewed
+1fec1277cf. Its only runtime difference refuses fresh pending admission while
+retaining schema211 readers and existing pending turn recovery. It is not a
+replacement product solution and must not be merged as product behavior.
+It supersedes the earlier ecec587 recovery artifact.
