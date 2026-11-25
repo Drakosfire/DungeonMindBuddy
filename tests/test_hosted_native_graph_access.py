@@ -4880,6 +4880,9 @@ def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):
     service.get.side_effect = ApplicationStateNotFoundError("Proposal not found")
     service.execute.side_effect = ApplicationStateNotFoundError("Proposal not found")
     monkeypatch.setattr(build_proposal_reviews, "BuildProposalReviewService", lambda **kwargs: service)
+    graph_service = Mock()
+    graph_service.get.side_effect = ApplicationStateNotFoundError("Graph proposal not found")
+    monkeypatch.setattr(build_proposal_reviews, "BuildGraphReferenceReviewService", lambda: graph_service)
     monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
     action = uuid4()
     path = f"/api/live/agent/worlds/managed/build-proposals/{action}/review"
@@ -4889,6 +4892,7 @@ def test_hosted_build_review_binds_world_and_action(hosted, monkeypatch):
     assert hosted.client.request("POST", path + "?world_id=foreign", json=body).status_code == 403
     service.get.assert_not_called()
     service.execute.assert_not_called()
+    service.original_editor_json.assert_not_called()
     assert hosted.client.request("GET", path).status_code == 404
     service.get.assert_called_once_with("managed", action)
     assert hosted.client.request("POST", path, json=body).status_code == 404
