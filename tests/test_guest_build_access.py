@@ -123,7 +123,8 @@ def test_guest_play_run_is_bound_to_session(guests, monkeypatch):
     assert first.get(path, params={"world_id": world}).status_code in (401, 403)
 
 
-def test_guest_play_creation_serializes_with_reset(guests, application_state_dsn, monkeypatch):
+@pytest.mark.parametrize("operation", ["create", "progress"])
+def test_guest_play_write_serializes_with_reset(guests, application_state_dsn, monkeypatch, operation):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
     from uuid import uuid4
@@ -132,7 +133,7 @@ def test_guest_play_creation_serializes_with_reset(guests, application_state_dsn
     from application_state.engine import connect
     from apps.live_control_server.services import guest_build_access
     from apps.live_control_server.services.play_run_edition_structure import structure_signature
-    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN, gate_progress
     monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
     monkeypatch.setenv("DMB_HOSTED_GUEST_PLAY_ENABLED", "1")
     (client, token, world), _ = guests[0]
@@ -144,15 +145,22 @@ def test_guest_play_creation_serializes_with_reset(guests, application_state_dsn
             "expected_playable_content_sha256": revision.content_sha256, "entry_scene_id": scenes[0]["scene_id"],
             "encounters": [{"scene_id": scene["scene_id"], "template": None} for scene in scenes]}
     headers = {"X-DMB-Index-Graph-CSRF": token}
+    run_id = str(uuid4())
+    path = f"/api/live/world-play-runs/v2/{run_id}"
+    if operation == "progress":
+        created = client.put(path, params={"world_id": world}, headers=headers, json=body)
+        assert created.status_code == 200, created.text
     entered, release = Event(), Event()
-    original = guest_build_access.guest_play_capacity
+    original = guest_build_access._lock_guest_session
     def hold(*args, **kwargs):
         original(*args, **kwargs)
         entered.set()
         if not release.wait(10): raise RuntimeError("guest Play race test timed out")
-    monkeypatch.setattr(guest_build_access, "guest_play_capacity", hold)
+    monkeypatch.setattr(guest_build_access, "_lock_guest_session", hold)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        create = pool.submit(client.put, f"/api/live/world-play-runs/v2/{uuid4()}", params={"world_id": world}, headers=headers, json=body)
+        target = path if operation == "create" else f"{path}/progress"
+        payload = body if operation == "create" else {"expected_run_revision": 1, "progress": gate_progress().model_dump(mode="json")}
+        create = pool.submit(client.put, target, params={"world_id": world}, headers=headers, json=payload)
         try:
             assert entered.wait(10)
             reset = pool.submit(client.post, "/api/live/index-graph/reset", headers=headers)
