@@ -238,6 +238,38 @@ class BuildProposalReviewService:
                 raise ApplicationStateNotFoundError("Proposal review unavailable")
             return BuildProposalReview.model_validate(row[0])
 
+    def original_editor_json(self, review: BuildProposalReview) -> str | None:
+        """Read the original capture for an authenticated prose review."""
+        if review.prose_target is None or review.state not in {"editing", "applying"}:
+            return None
+        from application_state.agent_conversation import repository
+        from application_state.agent_conversation.native_execution import NativeBuildActionV1
+
+        with unit_of_work(_ready_dsn()) as conn:
+            row = conn.execute(
+                "SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s",
+                (review.world_id, review.action_id),
+            ).fetchone()
+            if row is None:
+                return None
+            proposal = _load(row)
+            if not isinstance(proposal, BuildProseBoundaryProposalRecord) or proposal.request_fingerprint != review.reservation_sha256:
+                return None
+            reservation = proposal.reservation
+            origin = reservation.origin
+            if origin is None or reservation.prose_target != review.prose_target:
+                return None
+            turn = repository.get_turn(conn, review.world_id, origin.durable_turn_id)
+            if turn is None or turn.conversation_id != reservation.conversation_id or turn.attempt != origin.turn_attempt:
+                return None
+            execution = turn.graph_context_execution
+            action = execution.policy.action if execution is not None else None
+            capability = action.write_capability if isinstance(action, NativeBuildActionV1) else None
+            if capability is None or capability.basis != reservation.basis or capability.idempotency_key != reservation.idempotency_key:
+                return None
+            capture = capability.boundary_editor_json
+            return capture if capture and digest(capture) == reservation.basis.editor_sha256 else None
+
     def execute(self, world_id, action_id, command, *, authorize_world=None):
         with unit_of_work(_ready_dsn()) as conn:
             pointer = _lock_pointer(conn, world_id)
