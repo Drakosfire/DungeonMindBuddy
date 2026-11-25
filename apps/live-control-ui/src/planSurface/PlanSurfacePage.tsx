@@ -1,3 +1,4 @@
+import { guestBuildActive } from "../guestWorld/guestBuildSession";
 import { RecapGraphModule } from "./graphPreview/RecapGraphModule";
 import {ConnectedPageReviewControl} from '../shared/ConnectedPageReviewControl';
 import {useStatblockWorkbenchProjection,STATBLOCK_WORKBENCH_TOOL,STATBLOCK_WORKBENCH_PROJECTION} from '../statblocks/statblockWorkbenchProjection';
@@ -816,7 +817,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
 
   useEffect(() => {
     let cancelled = false;
-    const destination=initialDocumentId?tourNavigation?.claimDestination('plan',worldId,initialDocumentId):null;
+    let destination=initialDocumentId?tourNavigation?.claimDestination('plan',worldId,initialDocumentId):null;
     const assertDestinationCurrent=()=>{if(destination&&!destination.isCurrent())throw new Error("Guided navigation canceled. Choose a Plan explicitly or retry to open it normally.");};
     void (async () => {
       try {
@@ -830,8 +831,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         if (inventory.world_id !== worldId) throw new Error("World Plan inventory does not match the selected World.");
         if (cancelled) return;
         setRecords(inventory.records);
-        if (initialDocumentId) {
-          const snapshot = await getWorldOwnedPlanSnapshot(initialDocumentId);
+        const params = new URLSearchParams(window.location.search);
+        const guestDefault = guestBuildActive() && !initialDocumentId
+          && ![...params.keys()].some(key => key !== "world")
+          && !localDraft?.markdown && (!localDraft?.title || localDraft.title === "Plan")
+          && !localDraft?.pending_write && !localDraft?.create_uncertain
+          && !localDraft?.uncertain_create_draft
+          ? inventory.records.find(record => record.title === "Sizzek's Apprentice" && record.world_id === worldId)
+          : undefined;
+        const resolvedDocumentId = initialDocumentId ?? guestDefault?.document_id ?? null;
+        if (resolvedDocumentId) {
+          const snapshot = await getWorldOwnedPlanSnapshot(resolvedDocumentId);
           if (snapshot.record.world_id !== worldId || snapshot.record.campaign_id !== null || snapshot.record.kind !== "plan") {
             throw new Error("This Plan does not belong to the selected World.");
           }
@@ -841,7 +851,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           if (cancelled) return;
           assertDestinationCurrent();
           destination?.complete();
-          const recoverLocal = localDraft?.document_id === initialDocumentId;
+          const recoverLocal = localDraft?.document_id === resolvedDocumentId;
           setLastSavedAt(snapshot.record.content_status === "committed"
             ? durableTimestamp(snapshot.record.updated_at)
             : null);
@@ -863,7 +873,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           serverPresentationRef.current = savedPresentation;
           updatePresentation(localPresentation);
           setComposing(Boolean(localPresentation || savedPresentation));
-          documentIdRef.current = initialDocumentId;
+          documentIdRef.current = resolvedDocumentId;
           revisionRef.current = snapshot.loaded_revision;
           titleRef.current = nextTitle;
           markdownRef.current = nextMarkdown;
@@ -872,7 +882,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           serverDigestRef.current = snapshot.content_sha256;
           setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot, recoverLocal && Boolean(localDraft.pending_write)));
           pendingWriteRef.current = recoverLocal ? localDraft.pending_write ?? null : null;
-          authoringHoldRef.current=readPlanApplicationHold(worldId,initialDocumentId);
+          authoringHoldRef.current=readPlanApplicationHold(worldId,resolvedDocumentId);
           setAutoSavePaused(pendingWriteRef.current !== null || authoringHoldRef.current !== null);
           setTitle(nextTitle);
           setMarkdown(nextMarkdown);
@@ -892,11 +902,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           if (!new URLSearchParams(window.location.search).has("documentId")) {
             const url = new URL(window.location.href);
             url.searchParams.set("world", worldId);
-            url.searchParams.set("documentId", initialDocumentId);
+            url.searchParams.set("documentId", resolvedDocumentId);
             window.history.replaceState({}, "", `${url.pathname}${url.search}`);
           }
           persistWorldPlanLocalDraft(worldId, {
-            document_id: initialDocumentId,
+            document_id: resolvedDocumentId,
             title: nextTitle,
             markdown: nextMarkdown,
             page_presentation: localPresentation,
