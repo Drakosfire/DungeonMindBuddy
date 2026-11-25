@@ -283,7 +283,7 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     {replyDetails && failed && <p role="alert">This attempt stopped before completing a reply.</p>}
     {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{(visitedTimeline || tab === null) && <RetrievalReplayDetails trace={trace} initialOpen active={tab === null || tab === 'timeline'} />}{tab === null ? <details><summary>Execution timeline</summary>{timeline}</details> : timeline}</div>}
     {replyDetails && tab === 'prompt' && <BuddyPromptInspector trace={trace} />}
-    {replyDetails && <div hidden={tab !== null && tab !== 'diagnostics'}>{traceHeader}{copy}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</div>}
+    {replyDetails && <div hidden={tab !== 'diagnostics'}>{traceHeader}{copy}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</div>}
     {!replyDetails && failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
       <h5>This attempt stopped before completing a reply.</h5>
       {failure ? <><p>{failure.code === 'build_source_name_missing' ? 'A retrieved passage has no verified source name. Buddy stopped while assembling source context.' : 'Recorded failure:'} <code>{failure.code}</code></p><p>Stage: {failure.stage ?? failure.phase}</p>
