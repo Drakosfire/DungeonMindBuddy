@@ -287,14 +287,14 @@ class BuildJevHarness:
                     return reference_driver.completed
                 except ApplicationStateConflictError as exc:
                     raise AgentTurnServiceError(str(exc), code="build_graph_reference_conflict", status_code=409) from exc
-            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
-            if type(adapter._broker_receipt()) is BuildPendingContextReceiptV1:
-                return self._native_completion(adapter, driver)
             capability = adapter.request.build_write_capability
             if capability is not None and capability.reference_image_id is not None and (
                 driver.operation != "propose_build_insertion" or adapter.native_source_authority is None
             ):
                 raise ValueError("The image reference requires an edit to the selected passage.")
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            if type(adapter._broker_receipt()) is BuildPendingContextReceiptV1:
+                return self._native_completion(adapter, driver)
             from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
             if (adapter.native_source_authority is not None
                     and conversation_route_can_admit(adapter._broker_receipt(), adapter._broker_execution())

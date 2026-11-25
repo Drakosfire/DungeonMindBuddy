@@ -1920,7 +1920,7 @@ def test_pending_startup_observes_metadata_between_live_access_checks(monkeypatc
         'principal': principal, 'revision_id': request.graph_request.revision_pin}
 
 
-@pytest.mark.parametrize('reason', ['references', 'reviewed', 'selected_knowledge', 'graph_selection', 'retry', 'no_owner', 'not_gm'])
+@pytest.mark.parametrize('reason', ['references', 'reviewed', 'selected_knowledge', 'graph_selection', 'retry', 'no_owner', 'not_gm', 'reference_image'])
 def test_pending_startup_keeps_explicit_or_unowned_requests_on_their_original_path(monkeypatch, reason):
     from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
@@ -1938,6 +1938,9 @@ def test_pending_startup_keeps_explicit_or_unowned_requests_on_their_original_pa
         request.retry_of = uuid4()
     elif reason == 'not_gm':
         principal.role = 'player'
+    elif reason == 'reference_image':
+        from types import SimpleNamespace
+        request.build_write_capability = SimpleNamespace(reference_image_id=uuid4())
     result = _prepare_pending_build_startup(request, world_id=kwargs['submitted_intent'].world_id,
         principal=principal, durable_turn=None, authorize_world=None if reason == 'no_owner' else lambda world: None)
     assert result == (None, None, None)
@@ -2198,19 +2201,28 @@ def test_pending_app_runtime_does_not_acquire_for_retained_or_source_free_work(l
     asyncio.run(acquire_pending_app_pages(adapter, object()))
 
 
-def test_pending_harness_execute_routes_to_pending_completion_before_legacy_acquisition():
+@pytest.mark.parametrize('reference_image', [False, True])
+def test_pending_harness_execute_routes_to_pending_completion_before_legacy_acquisition(reference_image):
     from types import SimpleNamespace
     from apps.live_control_server.services.build_jev_harness import BuildJevHarness
     receipt, _ = pending_execution_pair()
     driver = SimpleNamespace(_interaction={'history': []}, _selection_intent=None,
-        selection=SimpleNamespace(typed_graph_reference=None))
+        selection=SimpleNamespace(typed_graph_reference=None), operation='answer_from_sources')
     routed, stopped = [], []
-    adapter = SimpleNamespace(native_source_authority=None,
+    adapter = SimpleNamespace(native_source_authority=None, failure=None,
+        request=SimpleNamespace(build_authored_references=None, build_write_capability=SimpleNamespace(reference_image_id=uuid4()) if reference_image else None),
         create_build_jev_driver=lambda **kwargs: driver, _broker_receipt=lambda: receipt,
         stop=lambda: stopped.append(True))
     class Harness(BuildJevHarness):
         def _native_completion(self, actual_adapter, actual_driver):
             routed.append((actual_adapter, actual_driver))
             return 'pending-completion-boundary'
-    assert Harness().execute(adapter) == 'pending-completion-boundary'
-    assert routed == [(adapter, driver)] and stopped == [True]
+    harness = Harness()
+    harness._capture_failure = lambda adapter, exc: None
+    if reference_image:
+        with pytest.raises(ValueError, match='image reference requires an edit'):
+            harness.execute(adapter)
+        assert not routed and stopped == [True]
+    else:
+        assert harness.execute(adapter) == 'pending-completion-boundary'
+        assert routed == [(adapter, driver)] and stopped == [True]
