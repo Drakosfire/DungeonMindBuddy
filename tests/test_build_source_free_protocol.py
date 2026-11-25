@@ -884,3 +884,76 @@ def test_pending_source_preparation_rejects_a_saved_successor_before_or_during_i
     with pytest.raises(ApplicationStateConflictError, match='saved successor'):
         run()
     assert state.persisted == 0 and state.materialized == (0 if when == 'before' else 1)
+
+
+def pending_sdk_entry_harness(monkeypatch):
+    from types import SimpleNamespace
+    state, admit, authorization, raw = pending_page_dispatch_harness(monkeypatch)
+    admitted, fresh = admit()
+    assert fresh and admitted.revision == 4
+    state.sdk_prompt = state.prompt | {
+        'evidence_id': str(uuid4()), 'provider_attempt_id': str(authorization.provider_attempt_id),
+        'payload_sha256': authorization.envelope_sha256, 'payload_utf8_bytes': len(raw.encode())}
+    state.sdk_prompt_count = 1
+    def query(sql, args):
+        if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+            return state.leaf_query(sql, args)
+        assert state.depth == 1 and args == (state.turn.turn_id,)
+        assert sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s'
+        return SimpleNamespace(fetchall=lambda: [({'observations': [state.prompt] +
+            [state.sdk_prompt] * state.sdk_prompt_count},)])
+    state.conn.execute = query
+    entry = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=6,
+        provider_attempt_id=authorization.provider_attempt_id, outcome='sdk_entered')
+    def enter(*, event=entry, request=raw, revision=4):
+        return state.service.enter_pending_app_page_sdk(state.turn.world_id, state.turn.conversation_id,
+            state.turn.turn_id, expected_revision=revision, expected_attempt=1, outcome=event,
+            prepared_request_json=request, authorize_current_access=state.authorize)
+    return state, enter, entry, raw
+
+
+def test_pending_sdk_entry_requires_captured_prompt_and_grants_only_once(monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    state, enter, entry, _ = pending_sdk_entry_harness(monkeypatch)
+    updated, fresh = enter()
+    assert fresh and updated.revision == 5 and state.persisted == 2
+    with pytest.raises(ApplicationStateConflictError):
+        enter()  # a lost response does not grant a second dispatch
+    restored, fresh = enter(revision=updated.revision)
+    assert not fresh and restored == updated and state.persisted == 2
+    with pytest.raises(ApplicationStateConflictError):
+        enter(revision=updated.revision, event=entry.model_copy(update={'event_id': uuid4()}))
+    assert state.materialized == 0
+
+
+@pytest.mark.parametrize('failure', ['pointer', 'access', 'expiry', 'access_delay', 'successor',
+    'missing_prompt', 'duplicate_prompt', 'prompt_hash', 'prompt_role', 'wire', 'foreign_attempt', 'cas_failure'])
+def test_pending_sdk_entry_refuses_stale_access_or_unproven_wire(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    state, enter, entry, raw = pending_sdk_entry_harness(monkeypatch)
+    if failure == 'pointer':
+        state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 2})
+    elif failure == 'access':
+        state.denied = True
+    elif failure == 'expiry':
+        state.now += timedelta(hours=1)
+    elif failure == 'access_delay':
+        state.access_delay = True
+    elif failure == 'successor':
+        state.successor = True
+    elif failure in {'missing_prompt', 'duplicate_prompt'}:
+        state.sdk_prompt_count = 0 if failure == 'missing_prompt' else 2
+    elif failure == 'prompt_hash':
+        state.sdk_prompt['payload_sha256'] = 'b' * 64
+    elif failure == 'prompt_role':
+        state.sdk_prompt['api_mode'] = 'another-api'
+    elif failure == 'wire':
+        raw += ' '
+    elif failure == 'foreign_attempt':
+        entry = entry.model_copy(update={'provider_attempt_id': uuid4()})
+    else:
+        state.cas_failure = True
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        enter(event=entry, request=raw)
+    assert state.persisted == 1 and state.materialized == 0

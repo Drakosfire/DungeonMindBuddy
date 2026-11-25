@@ -432,3 +432,17 @@ The generic event append refuses pending provider authorizations and SDK entry;
 those must use their exact new prepared-input/current-access owners. Other
 historical/shared paths remain unchanged. New prompt capture, guarded SDK entry,
 producing-response admission and runtime wiring are still activation gates.
+
+
+## Guarded App controller SDK entry
+
+The admitted later page controller enters through a dedicated service owner after
+its actual prompt reference is captured. Revalidate the latest stored controller,
+exact body hash/byte count/provider/serializer against that reference, and current
+pointer, running claim, saved-successor isolation and App-only access before the
+one-shot sdk_entered append. The existing ProviderOutcomeEventV1 codec suffices;
+no new lifecycle owner or implicit redispatch is introduced. An old revision is
+a conflict, an exact already-recorded entry at the current revision is non-fresh,
+and any different outcome or entry identity refuses another grant. A lost entry
+response never authorizes a repeated model call. Producing-response capture,
+actual SDK adapter callbacks and runtime integration remain required.
