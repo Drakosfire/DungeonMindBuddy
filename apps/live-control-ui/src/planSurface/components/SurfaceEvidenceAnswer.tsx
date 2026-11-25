@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {sessionSummaryMarkdown} from "../../shared/sessionEvidenceCitation";
 import {SourceCitationEvidence} from './SourceCitationEvidence';
 import {passageChoices,nativeChoices,nativeSavedChoices,nativeRecapChoices} from './sourceCitationReads';
@@ -8,9 +9,10 @@ import {WorldPlanAgentAnswer} from "./WorldPlanAgentAnswer";
 
 type Composition = {text:string;ranges:{domain:string;base_segment_index:number|null;text_start:number;text_end:number}[]};
 /** Same visible authority and exact passage selector in Plan, Play and Rules compositions. */
-export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,buildSourceBasis,nativeScope}:{
-  nativeScope?:import("../../api/nativeGraphInspection").InspectionPin;completion:SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;buildSourceBasis?:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'];
+export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,buildSourceBasis,nativeScope,citationsOnly=false}:{
+  citationsOnly?:boolean;nativeScope?:import("../../api/nativeGraphInspection").InspectionPin;completion:SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;buildSourceBasis?:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'];
 }) {
+  const [citationsOpen, setCitationsOpen] = useState(false);
   // Number visible citations across this answer, independent of transport indexes.
   let nextNumber=0;
   const summaries=new Map<number,ReturnType<typeof sessionSummaryMarkdown>>();
@@ -52,6 +54,29 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
   const chars=composition ? Array.from(composition.text) : [];
   const encounter = completion.schema === 'dmb_surface_native_completion_v1' && completion.surface_id === 'plan'
     ? completion.encounter_attachment_preview : undefined;
+  const citationLabel = (index: number, title: string) => {
+    const segment = completion.answer_segments[index];
+    if (segment?.kind !== 'native_assertion_claim') return title;
+    const standings = [...new Set(segment.qualifications.flatMap(item =>
+      typeof item.standing === 'string' && ['provisional', 'established'].includes(item.standing)
+        ? [item.standing] : []))];
+    return standings.length ? `${title} · ${standings.join(' / ')}` : title;
+  };
+  if (citationsOnly) {
+    const segments = completion.answer_segments.flatMap((_, index) =>
+      choicesBySegment[index]?.length || summaries.get(index)?.targets.length ? [index] : []);
+    return segments.length ? <details onToggle={event => setCitationsOpen(event.currentTarget.open)}>
+      <summary>Cited in the reply</summary>
+      {citationsOpen && <section aria-label="Cited in the reply">{segments.map(index =>
+        summaries.has(index)
+          ? <ul key={index}>{summaries.get(index)!.entries.map(entry =>
+            <li key={entry.target}><a href={entry.target} title={entry.title}>{entry.number}. {entry.title}</a></li>)}</ul>
+          : <SourceCitationEvidence key={index} identity={canonical([completion,worldId,turnId,index])}
+            statements={[{choices:choicesBySegment[index]!.map(choice => ({
+              ...choice, buttonText: `${choice.number}. ${citationLabel(index, choice.title || choice.label)}`,
+            }))}]}/>)}</section>}
+    </details> : null;
+  }
   return <div aria-label="Evidence-grounded answer">{composition ? composition.ranges.map((r,i)=>
     r.domain === 'base' && r.base_segment_index !== null
       ? renderSegment(completion.answer_segments[r.base_segment_index]!,r.base_segment_index,i)
