@@ -528,6 +528,7 @@ function PlayChooser({
         <p className="play-muted">Take scene notes and edit as you improvise. Your changes save to this session’s copy, keeping the Plan intact.</p>
         {selectedWorldId ? <p className="play-welcome-plan"><a href={`/plan?world=${encodeURIComponent(selectedWorldId)}`}>Open a Plan →</a><span>Prepare scenes, then press Play to begin a session.</span></p> : null}
         {continuityWarning ? <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">{continuityWarning}</p> : null}
+        {guestBuildActive() && status === "ready" && detail ? <p role="alert">{detail}</p> : null}
         <LocalPlaySetupHint message={continuityWarning ?? detail} />
       </header>
       {!selectedWorldId ? <SurfaceWorldPicker surface="play" /> : null}
