@@ -240,8 +240,9 @@ fence, or treat structural join tests as transactional admission evidence.
 The observed closure does not require editing native_plan_session.py or
 plan_jev_decision.py. If implementation reveals further files or leased helpers,
 checkpoint again before editing rather than silently broadening this lease.
-The initial metadata/receipt/settlement codecs remain unregistered until the
-whole producer/reader/terminal/fence invariant is integrated and qualified.
+The metadata/receipt/settlement codecs are staged only in this unmerged draft.
+Enabling the runtime producer and reader fence requires the whole
+producer/reader/terminal invariant to be integrated and qualified.
 
 ## Deployed predecessor and focused successor checkpoint
 
@@ -297,7 +298,7 @@ The existing provider lifecycle owner invokes build_decision_context.uses_role_a
 by concrete policy. Add only that exact new-policy dispatch to the write lease
 in build_decision_context.py. Preserve its accounting predicates and all old
 policy behavior; do not substitute a legacy execution or policy to pass them.
-The new pending execution starts as an unregistered prefix codec through work
+The new pending execution started as an unregistered prefix codec through work
 selection and source settlement. This is staging toward the same complete
 producer/reader/terminal protocol, not an independently delivered capability.
 
@@ -341,3 +342,12 @@ checkpoint. The consumers belong with the producer because otherwise a valid
 pending Turn could fail on reopen or be rejected by the app. Registration alone
 will not authorize source IO, terminal output or release. Atomic settlement and
 full-Send positive/negative evidence remain required.
+
+Stored-codec staging now registers the distinct receipt/execution pair in the
+unmerged branch's typed Turn and row decoder. It rejects crossed legacy/new
+pairs and unowned terminal prose. Runtime startup still never constructs the
+new producer, and no migration or release activation has been added. The complete
+Turn wire decoder owns component freshness once; standalone field/source callers
+reconstruct their own components. This distinction prevents repeated full-context
+decoding on history reads without weakening mutable-model checks. The next
+transaction/transport/terminal integration remains required before delivery.

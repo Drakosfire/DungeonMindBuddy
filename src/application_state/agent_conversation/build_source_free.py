@@ -79,15 +79,29 @@ def effective_pending_source(receipt, execution):
     None means no source authority/query exists. A non-None result remains subject
     to actual locked-row settlement admission and existing read/access owners.
     """
-    from . import types as t
-    from .native_context import BuildPendingContextReceiptV1, work_world_id
-    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
-    from .build_world_context import validate_work_intent
+    receipt, execution = _pending_components(receipt, execution)
+    return _join_pending_source(receipt, execution)
 
+
+def _pending_components(receipt, execution):
+    """Reconstruct only at a boundary that does not already own fresh models."""
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
     if type(receipt) is not BuildPendingContextReceiptV1 or type(execution) is not BuildPendingExecutionV1:
         raise ValueError("Pending source requires its concrete Build receipt and execution")
-    receipt = BuildPendingContextReceiptV1.model_validate_json(receipt.model_dump_json(by_alias=True))
-    execution = BuildPendingExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
+    return (BuildPendingContextReceiptV1.model_validate_json(receipt.model_dump_json(by_alias=True)),
+            BuildPendingExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True)))
+
+
+def _join_pending_source(receipt, execution):
+    """Join components already freshly decoded by their owning boundary."""
+    from . import types as t
+    from .native_context import work_world_id
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+    from .native_context import BuildPendingContextReceiptV1
+    from .build_world_context import validate_work_intent
+    if type(receipt) is not BuildPendingContextReceiptV1 or type(execution) is not BuildPendingExecutionV1:
+        raise ValueError("Pending source requires its concrete Build receipt and execution")
     policy, work = execution.policy, receipt.work_context
     if (execution.context_receipt_sha256 != receipt.context_receipt_sha256
             or policy.source_observation_sha256 != t.canonical_sha256(receipt.source_observation)
@@ -140,9 +154,14 @@ def validate_pending_work_records(execution):
 
 def validate_pending_turn_fields(receipt, execution, provenance, intent_fingerprint, completion, assistant_text):
     """Stored pending prefix closure, before its terminal owner is integrated."""
+    receipt, execution = _pending_components(receipt, execution)
+    _join_pending_turn_fields(receipt, execution, provenance, intent_fingerprint, completion, assistant_text)
+
+
+def _join_pending_turn_fields(receipt, execution, provenance, intent_fingerprint, completion, assistant_text):
     from . import types as t
     from .native_context import _join_work_context
-    effective_pending_source(receipt, execution)
+    _join_pending_source(receipt, execution)
     _join_work_context(receipt, provenance)
     if t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent) != intent_fingerprint:
         raise ValueError("Pending stored request fingerprint differs from admission")
@@ -152,8 +171,8 @@ def validate_pending_turn_fields(receipt, execution, provenance, intent_fingerpr
 
 def validate_pending_submission(submission):
     from .native_context import _join_work_context
-    receipt, execution = submission.graph_context_receipt, submission.graph_context_execution
-    effective_pending_source(receipt, execution)
+    receipt, execution = _pending_components(submission.graph_context_receipt, submission.graph_context_execution)
+    _join_pending_source(receipt, execution)
     _join_work_context(receipt, submission.provenance, play_context_receipt=submission.play_context_receipt)
     intent = execution.policy.action.intent
     if (submission.submitted_intent_v1 is not None or submission.submitted_intent_v2 != intent
@@ -163,12 +182,12 @@ def validate_pending_submission(submission):
         raise ValueError("Pending admission requires its unchanged Build request and empty execution")
 
 
-def validate_pending_turn(turn):
+def _join_pending_turn(turn):
     from . import types as t
     from .build_draft_context import validate_record_identity
     from .build_intentional_response import validate_turn_arguments
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
-    validate_pending_turn_fields(receipt, execution, turn.provenance,
+    _join_pending_turn_fields(receipt, execution, turn.provenance,
         turn.submitted_intent_fingerprint_v2, turn.completion, turn.assistant_text)
     intent = execution.policy.action.intent
     if (turn.submitted_intent_fingerprint_v1 is not None

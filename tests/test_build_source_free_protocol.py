@@ -95,3 +95,16 @@ def test_pending_first_controller_cannot_replace_its_resealed_initial_envelope(f
     execution = pending_execution(receipt, policy, pending_work_prefix(policy, scope='anchored'))
     with pytest.raises(ValueError, match='first provider authorization must match'):
         effective_pending_source(receipt, execution)
+
+
+def test_repository_pending_wire_decode_has_one_component_freshness_owner(monkeypatch):
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+    turn = retained(pending_submission())
+    row, references = stored_row(turn)
+    def duplicate_decode(*args, **kwargs):
+        raise AssertionError('Stored pending component was independently decoded again')
+    monkeypatch.setattr(BuildPendingContextReceiptV1, 'model_validate_json', duplicate_decode)
+    monkeypatch.setattr(BuildPendingExecutionV1, 'model_validate_json', duplicate_decode)
+    restored = repository._turn_from_row(None, row, references=references)
+    assert restored.model_dump_json(by_alias=True) == turn.model_dump_json(by_alias=True)

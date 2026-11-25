@@ -7201,8 +7201,8 @@ class Turn(StrictModel):
         )
         if (isinstance(self.graph_context_receipt, BuildPendingContextReceiptV1)
                 or isinstance(self.graph_context_execution, BuildPendingExecutionV1)):
-            from .build_source_free import validate_pending_turn
-            validate_pending_turn(self)
+            from .build_source_free import _join_pending_turn
+            _join_pending_turn(self)
         if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
                 or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
             from .native_context import _join_work_context
