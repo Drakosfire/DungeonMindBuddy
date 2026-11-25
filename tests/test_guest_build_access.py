@@ -114,6 +114,80 @@ def test_guest_conversation_history_and_new_are_session_bound(guests, monkeypatc
     assert client.get(path).status_code in (401, 403)
 
 
+def test_guest_cleanup_sweep_advances_past_failed_session(guests, monkeypatch):
+    from uuid import uuid4
+    from application_state.index_graph import guest_conversation_cleanup as cleanup
+
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    for client, csrf, world in guests[0]:
+        response = client.post(f'/api/live/agent/worlds/{world}/conversation/new',
+            headers={'X-DMB-Index-Graph-CSRF': csrf}, json={'command_id': str(uuid4()),
+                'expected_pointer_revision': 0, 'expected_active_conversation_id': None})
+        assert response.status_code == 200, response.text
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '0')
+    for client, csrf, _ in guests[0]:
+        assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+    attempted = []
+    def fail(session_id):
+        attempted.append(session_id)
+        raise RuntimeError('synthetic unexpected dependency')
+    monkeypatch.setattr(cleanup, '_cursor', None)
+    monkeypatch.setattr(cleanup, 'cleanup_expired_guest_conversation', fail)
+    cleanup.cleanup_expired_guest_conversations(limit=1)
+    cleanup.cleanup_expired_guest_conversations(limit=1)
+    assert len(attempted) == 2 and attempted[0] != attempted[1]
+
+
+def test_guest_cleanup_skips_a_locked_session(guests, monkeypatch, application_state_dsn):
+    from time import monotonic
+    from uuid import UUID
+    from application_state.engine import connect
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
+
+    (client, csrf, world), _ = guests[0]
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '0')
+    assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+    session_id = str(UUID(world.removeprefix('guest-')))
+    with connect(application_state_dsn) as conn:
+        conn.execute('SELECT 1 FROM application_state.index_graph_sessions WHERE session_id=%s FOR UPDATE', (session_id,))
+        started = monotonic()
+        with pytest.raises(ApplicationStateConflictError):
+            cleanup_expired_guest_conversation(session_id)
+        assert monotonic() - started < 2
+
+
+def test_guest_cleanup_rolls_back_on_unexpected_dependency(guests, monkeypatch, application_state_dsn):
+    from uuid import UUID, uuid4
+    from application_state.engine import connect
+    from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
+    import psycopg
+
+    (client, csrf, world), _ = guests[0]
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    response = client.post(f'/api/live/agent/worlds/{world}/conversation/new',
+        headers={'X-DMB-Index-Graph-CSRF': csrf}, json={'command_id': str(uuid4()),
+            'expected_pointer_revision': 0, 'expected_active_conversation_id': None})
+    assert response.status_code == 200, response.text
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '0')
+    assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+    session_id = str(UUID(world.removeprefix('guest-')))
+    with connect(application_state_dsn) as conn:
+        conn.execute('CREATE TABLE agent.test_guest_cleanup_dependency (conversation_id uuid REFERENCES agent.conversation(conversation_id))')
+        conn.execute('INSERT INTO agent.test_guest_cleanup_dependency VALUES (%s)', (response.json()['conversation_id'],))
+        conn.commit()
+        try:
+            with pytest.raises(psycopg.errors.ForeignKeyViolation):
+                cleanup_expired_guest_conversation(session_id)
+            assert conn.execute('SELECT count(*) FROM agent.command_receipt WHERE world_id=%s', (world,)).fetchone()[0] == 1
+            assert conn.execute('SELECT count(*) FROM agent.world_state WHERE world_id=%s', (world,)).fetchone()[0] == 1
+            assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (world,)).fetchone()[0] == 1
+        finally:
+            conn.rollback()
+            conn.execute('DROP TABLE agent.test_guest_cleanup_dependency')
+            conn.commit()
+
+
 def test_guest_turn_admission_is_default_off_and_rejects_streams(guests, monkeypatch):
     from tests.test_agent_turn_route import _payload
 
@@ -453,6 +527,18 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert other.get(citation).status_code == 403
     assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
     assert client.get(citation).status_code in (401, 403)
+    from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.engine import connect
+    with connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
+    other_id = str(UUID(other_world.json()['world_id'].removeprefix('guest-')))
+    with pytest.raises(ApplicationStateConflictError):
+        cleanup_expired_guest_conversation(other_id)
+    cleanup_expired_guest_conversation(session_id)
+    with connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
+        assert conn.execute('SELECT count(*) FROM agent.turn WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
 
 
 def test_guest_normal_turn_uses_guest_conversation(guests, monkeypatch, tmp_path):
