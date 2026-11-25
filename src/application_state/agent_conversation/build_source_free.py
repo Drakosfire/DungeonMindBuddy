@@ -559,14 +559,20 @@ def pending_source_free_terminal(execution):
     from . import types as t
     from .native_execution import (BuildPendingExecutionV1, NativeBuildSourceSettledV1,
         BuildAppPageCatalogObservedV1, native_read_event_ids)
-    from .build_intentional_response import validate_resolution_metadata
+    from .build_intentional_response import placement_question, validate_resolution_metadata
     if type(execution) is not BuildPendingExecutionV1:
         return None
     work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
-    if len(work) != 1 or work[0].requested_work not in {
-            'clarify_request', 'clarify_creation', 'review_blank_lore_page'}:
+    if len(work) != 1:
         return None
     work = work[0]
+    if work.requested_work == 'write_current_page':
+        if (work.resolution.get('source_scope') != 'anchored'
+                or work.resolution.get('barrier') is not None
+                or placement_question(execution, work) is None):
+            return None
+    elif work.requested_work not in {'clarify_request', 'clarify_creation', 'review_blank_lore_page'}:
+        return None
     validate_resolution_metadata(work, execution.policy)
     controllers = [row for row in execution.events[:work.sequence]
         if isinstance(row, t.ProviderAttemptAuthorizedEventV3)]
