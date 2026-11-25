@@ -14,6 +14,7 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from application_state.index_graph.sessions import IndexGraphSession
 from application_state.index_graph.guest_documents import seed_guest_documents
 from application_state.index_graph.guest_apprentice_plan import seed_guest_apprentice_plan
+from application_state.index_graph.guest_apprentice_combat import seed_guest_apprentice_combat
 from application_state.unit_of_work import unit_of_work
 from application_state.world_catalog import service as catalog
 from application_state.world_catalog.types import NativeGraphBindingRecord, WorldContainerRecord
@@ -70,10 +71,12 @@ def bind_initialized_guest_world(session: IndexGraphSession) -> catalog.StoredWo
                     raise ApplicationStateConflictError("Guest World binding conflicts with saved metadata")
                 seed_guest_documents(conn, session_id=canonical, world_id=world_id)
                 seed_guest_apprentice_plan(conn, session_id=canonical, world_id=world_id)
+                seed_guest_apprentice_combat(conn, session_id=canonical, world_id=world_id)
                 return records[0]
             catalog._write(conn, expected, revision=1)
             seed_guest_documents(conn, session_id=canonical, world_id=world_id)
             seed_guest_apprentice_plan(conn, session_id=canonical, world_id=world_id)
+            seed_guest_apprentice_combat(conn, session_id=canonical, world_id=world_id)
             return catalog.StoredWorld(expected, 1)
     except psycopg.IntegrityError as exc:
         raise ApplicationStateConflictError("Guest World binding conflicts with saved metadata") from exc

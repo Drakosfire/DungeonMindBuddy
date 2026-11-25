@@ -10,6 +10,7 @@ import type { WorldMechanicsAssociation } from "../../api/worldMechanicsTypes";
 import * as combatApi from "../../combat/combatApi";
 import type { CombatEncounterRecord } from "../../combat/combatTypes";
 import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
+import * as guestSession from "../../guestWorld/guestBuildSession";
 import { CombatRosterModule } from "./CombatRosterModule";
 import {manualCombatRecord} from '../../combat/ManualCombat.testSupport';
 import {TourRunProvider} from "../../guidedTour/RunScope";
@@ -88,6 +89,28 @@ function deferred<T>() {
 describe("CombatRosterModule", () => {
   beforeEach(() => {tourReadings.clear();localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:testCombatLocks()});});
   afterEach(() => vi.restoreAllMocks());
+
+  it('opens the prepared encounter on bare guest Combat entry', async () => {
+    window.history.replaceState({}, '', '/combat');
+    vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+    const prepared = record({draft:{...record().draft,title:'Funhouse: The Closing Walls'}});
+    vi.spyOn(combatApi, 'listAnyWorldCombatEncounters').mockResolvedValue([prepared]);
+    mount();
+    expect(await screen.findByRole('row', {name:/Geomantic Drake/})).toBeVisible();
+    expect(screen.getByRole('combobox', {name:'Encounter'})).toHaveValue(prepared.encounter_id);
+  });
+
+  it('resumes the guest selected encounter rather than replacing it with the default', async () => {
+    window.history.replaceState({}, '', '/combat');
+    vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+    const saved = record();
+    const prepared = record({encounter_id:'44444444-4444-4444-8444-444444444444',draft:{...record().draft,title:'Funhouse: The Closing Walls'}});
+    localStorage.setItem(combatSelectionKey('elderwyld'), saved.encounter_id);
+    vi.spyOn(combatApi, 'listAnyWorldCombatEncounters').mockResolvedValue([prepared,saved]);
+    mount();
+    expect(await screen.findByRole('row', {name:/Geomantic Drake/})).toBeVisible();
+    expect(screen.getByRole('combobox', {name:'Encounter'})).toHaveValue(saved.encounter_id);
+  });
 
   function mockActorDialogs() {
     const prototype = HTMLDialogElement.prototype;

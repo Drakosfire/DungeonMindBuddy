@@ -27,6 +27,7 @@ import {CombatRosterWorkspace, type CombatProjectionControl} from '../../combat/
 import "../../combat/combatRoster.css";
 import {CombatRecoverySession, combatDraftEqual, combatSelectionKey, type CombatRecovery} from "../../combat/combatRecovery";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
+import { guestBuildActive } from "../../guestWorld/guestBuildSession";
 
 const DND5E_RULESET_ID = "dnd5e.manual-tracking";
 
@@ -316,12 +317,22 @@ export function CombatRosterModule({scope,variant,encounterListHref}:{scope?:Com
       return ()=>{alive=false;};
     }
     void listAnyWorldCombatEncounters(worldId)
-      .then((items) => {
+      .then(async (items) => {
         if (alive && generation === worldRequestGeneration.current) {
           setEncounters(items);
           setLoadedWorldId(worldId);
           const selected = localStorage.getItem(combatSelectionKey(worldId));
           if (items.some(item => item.world_id === worldId && item.encounter_id === selected)) setSelectedEncounterId(selected!);
+          const params = new URLSearchParams(window.location.search);
+          if (guestBuildActive() && window.location.pathname === '/combat'
+              && ![...params.keys()].some(key => key !== 'world')) {
+            const target = items.find(item => item.world_id === worldId && item.encounter_id === selected)
+              ?? items.find(item => item.world_id === worldId && item.draft.title === 'Funhouse: The Closing Walls');
+            if (target) {
+              setSelectedEncounterId(target.encounter_id);
+              await adoptRecord(target, worldId, target.encounter_id, generation);
+            }
+          }
         }
       })
       .catch((caught) => {
