@@ -1724,6 +1724,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         record = proposal_service.get(world, UUID(answer["build_write_capability"]["idempotency_key"]))
         assert record.state == "proposed" and not record.inserted_in_draft
         assert record.reservation.prose_target.alias == "passage2:insert_after"
+        review_url = f"/api/live/agent/worlds/{world}/build-proposals/{record.action_id}/review"
+        capture = answer["build_write_capability"]["boundary_editor_json"]
+        opened = client.post(review_url, json={"operation": "open", "expected_revision": 0})
+        assert opened.status_code == 200, opened.text
+        assert opened.json()["original_editor_json"] == capture
+        restored = client.get(review_url)
+        assert restored.status_code == 200, restored.text
+        assert restored.json()["original_editor_json"] == capture
         opening = next(
             json.loads(call.content) for call in reversed(decisions.calls)
             if "requested_work" in json.loads(call.content)["questions"]
