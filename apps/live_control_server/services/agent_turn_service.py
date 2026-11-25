@@ -1901,7 +1901,9 @@ class _ClaimFence:
                         and type(self.service) is AgentConversationService and eligible(updated)):
                     session_owned = True
                     self.renewer._session = NativePlanSession(updated,
-                        measure=self.trace.measure_host_work if self.trace is not None else None)
+                        measure=self.trace.measure_host_work if self.trace is not None else None,
+                        authorize_transaction=self.service._authorize_transaction,
+                        validate_transaction=self.service._validate_transaction)
             except BaseException as exc:
                 if session_owned:
                     if self.renewer._session is not None:
@@ -7175,7 +7177,7 @@ def _interrupt_policy_delivery(
         ) from exc
 
 
-def _pending_build_app_access(world_id, authorize_world):
+def _pending_build_app_access(world_id, authorize_world, principal=None):
     """Adapt the existing live route authorization owner for pending App checks.
 
     This grants neither Core source access nor a new permission. The original
@@ -7188,7 +7190,15 @@ def _pending_build_app_access(world_id, authorize_world):
         from application_state.agent_conversation.build_related_pages import PagePointer, PageReference
         if turn.world_id != world_id:
             return False
-        if authorize_world(world_id) is not None:
+        from .hosted_native_graph_access import HostedGuestGraphPrincipal
+        if isinstance(principal, HostedGuestGraphPrincipal):
+            from .guest_build_access import _check_guest_session
+            if (principal.auth_method != 'hosted_guest' or principal.subject != 'hosted_guest'
+                    or principal.role != 'gm' or principal.managed_world_id != world_id
+                    or getattr(principal.request.state, 'guest_build_session', None) != principal.session_id):
+                return False
+            _check_guest_session(principal.request, conn, world_id, lock=False)
+        elif authorize_world(world_id) is not None:
             return False
         if pages is None:
             return True
@@ -7244,7 +7254,7 @@ def _prepare_pending_build_startup(request, *, world_id, principal, durable_turn
     if authorize_world(world_id) is not None:
         raise AgentTurnServiceError('Current World access changed during Build observation.',
             code='native_source_access_denied', status_code=403, provider_dispatched=False)
-    return observed, conversation, _pending_build_app_access(world_id, authorize_world)
+    return observed, conversation, _pending_build_app_access(world_id, authorize_world, principal)
 
 
 def execute_agent_turn(

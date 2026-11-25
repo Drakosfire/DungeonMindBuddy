@@ -1,0 +1,7 @@
+# ONBOARD: Carry Gazetteer correction to serving
+
+Status: ACTIVE under the owner's Sizzek delivery, review, merge and deployment authority. Serial successor on `codex/onboard-gazetteer-current`, based on live Play/media release `6a4988e9f13fac0f07e4a2e2d0dd1ef7495ab70b`, deployed through Actions run 45682761539. Verify the live parent again before publication and preserve enabled guest switches and document bundle.
+
+Carry main #4592's Gazetteer frozen-evidence correction into the serving lineage so the existing Sizzek Prep candidate can be corrected using its own registered profile. Preserve exact source, parent, World, literal quote and idempotency checks; no publication or canon outcome is implied. The cherry-pick is the entire product change; this handoff documents the serving order. Verify the focused correction tests, inspect the exact cumulative diff and get Bugbot review. After predecessor deployment, re-anchor, merge, publish and activate with the approved guest settings; verify actual correction in the existing workflow and continue ingestion. Full graph population, guest Buddy and production acceptance remain open.
+
+Reanchored verification: the carried patch is byte-identical to the prior reviewed #4705 patch; all 15 focused evidence-correction tests passed (one existing Pydantic warning). Exact-head review and correction against the actual Sizzek candidate remain required.

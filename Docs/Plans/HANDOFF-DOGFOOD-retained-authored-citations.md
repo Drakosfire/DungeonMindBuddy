@@ -5,8 +5,10 @@ explicitly includes evidence-bound citations, long-chat reuse without another
 search, fixing remaining gaps, reviewed merges, backups and Actions deployment.
 DOGFOOD owns this bounded slice. Current main e699ab91711c2ddeaa2afb3df93fa077162f9d56
 is policy/publisher authority; the retained runtime stack lives on the reviewed
-serving lineage. Base codex/dogfood-retained-citations-base at observed serving
-6a4988e9f13fac0f07e4a2e2d0dd1ef7495ab70b; implementation branch
+serving lineage. Current base codex/dogfood-retained-citations-c034-base at healthy serving
+c034ff63ac35675d3644b43f653e9290e88ff087 (image c16a2027), preserving the
+reviewed guest Buddy/Play Buddy and trace release. The initial6a base was
+superseded before merge; no prior branch was rewritten. Implementation branch
 codex/dogfood-retained-authored-citations in existing dogfood-ci-one-app checkout.
 Re-read actual serving before publishing; never change rollback pins alone.
 
@@ -81,3 +83,11 @@ historical production-format rows decoded under213 source. Workers/connections
 closed. These are diagnostics, not exact-head qualification. A final missing-
 occurrence refusal was added afterward; run the focused selectors again at the
 committed SHA and retain external results before exact-head review.
+
+User narrowed the active goal to PR4723 and its actual citation deployment/app
+acceptance. General writer audits, onboarding and unrelated features are excluded.
+The original ebf00e9b3df71c8ba24eaf9f21f0cec8bb134101 citation implementation
+passed independent source review and exact42protocol/1SQL checks. Current-serving
+adoption preserves its citation code unchanged; repeat only those focused owning
+checks and exact-head review after this source/base update. Publication must use
+the merged current-base PR and current guest flags, not obsolete6a rollback pins.

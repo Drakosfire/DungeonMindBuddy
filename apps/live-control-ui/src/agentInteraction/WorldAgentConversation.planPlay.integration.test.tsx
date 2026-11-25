@@ -1,5 +1,6 @@
 import pendingBuildWire from '../test/pending-build-page-api.json';
 import * as hostedAuth from "../auth/HostedAuthGate";
+import * as guestSession from '../guestWorld/guestBuildSession';
 import nativeBuildWire from '../test/surface-native-build-http.json';
 import {readActiveConversationMessages} from '../api/conversationLibraryApi';
 import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
@@ -181,11 +182,11 @@ function PlayPublisher({ admitted, sessionCopy = false, editContent }: { admitte
   usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
   return null;
 }
-function BuildPublisher({ admitted, bridge, sourceRevision = 2, sourceId='source-one' }: { admitted: boolean; bridge?: BuildComposeBridge | null; sourceRevision?: number;sourceId?:string }) {
+function BuildPublisher({ admitted, bridge, sourceRevision = 2, sourceId='source-one', clean = false }: { admitted: boolean; bridge?: BuildComposeBridge | null; sourceRevision?: number;sourceId?:string; clean?: boolean }) {
   const surface = useMemo(() => ({ surfaceId: "build" as const, label: "Build", campaignId: null,
     documentId: sourceId, sessionNumber: null, ambientSummary: "Saved source", sourceEnvelope: null }), [sourceId]);
   const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: sourceId, revision: sourceRevision,
-    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted, sourceRevision,sourceId]);
+    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: !clean }) : null, [admitted, sourceRevision,sourceId,clean]);
   usePublishAgentSurfaceContext(surface);
   return <DocumentConversationDock surface="build" contextLabel="City of Mirathorn" reader={<div>Build source projection</div>}>
     {hosts => <BuildHarnessBinding source={source} hosts={hosts} bridge={bridge} />}
@@ -232,8 +233,8 @@ function SceneEditorFixture({ content, allowed, onUnsubmitted }: { content: Play
 }
 function OpenGuidance({repeatCorrelation}:{repeatCorrelation?:string}){const tour=useGuidedTour();return <><button onClick={()=>tour?.open()}>Open guidance</button>{repeatCorrelation?<button onClick={()=>tour?.recordConversationDispatch(repeatCorrelation,tour.captureScope())}>Repeat request registration</button>:null}</>;}
 function TourBoundary({enabled,world,children,repeatCorrelation}:{enabled:boolean;world:string;children:ReactNode;repeatCorrelation?:string}){return enabled?<WorldGuidedTour worldId={world}><OpenGuidance repeatCorrelation={repeatCorrelation}/>{children}</WorldGuidedTour>:children;}
-function Harness({ guided=false,repeatCorrelation,initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision,buildSourceId }: {
-  guided?:boolean;repeatCorrelation?:string;initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;buildSourceId?:string;
+function Harness({ guided=false,repeatCorrelation,initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision,buildSourceId, buildClean = false }: {
+  guided?:boolean;repeatCorrelation?:string;initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;buildSourceId?:string;buildClean?:boolean;
 }) {
   const [surface, setSurface] = useState(initial);
   const [sessionCopy, setSessionCopy] = useState(false);
@@ -246,7 +247,7 @@ function Harness({ guided=false,repeatCorrelation,initial = "plan", admitted = t
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
       <button type="button" onClick={() => setSessionCopy(value => !value)}>Use session copy</button>
       <ProposalFixture /><NewerPendingFixture />
-      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} bridge={buildBridge} sourceRevision={buildSourceRevision} sourceId={buildSourceId} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
+      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} bridge={buildBridge} sourceRevision={buildSourceRevision} sourceId={buildSourceId} clean={buildClean} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
       {editContent ? <SceneEditorFixture content={editContent} allowed={!sessionCopy} onUnsubmitted={setSessionCopy} /> : null}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
@@ -520,6 +521,58 @@ function openConversationOptions() {
 
 const defaultReadMessages = vi.mocked(readActiveConversationMessages).getMockImplementation()!;
 describe("one App-level World conversation host across Plan and Play", () => {
+  it('prepares a guest Build question without a write capability', async () => {
+    vi.stubEnv('VITE_HOSTED_GUEST_BUILD_BUDDY', '1');
+    const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+    const bridge = retryBridge();
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(() => new Promise(() => {}));
+    try {
+      render(<Harness initial="build" buildBridge={bridge} buildClean/>);
+      fireEvent.click(await screen.findByRole('button', {name:'Open', exact:true}));
+      const input = await screen.findByLabelText('Message DungeonBuddy');
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.change(input, {target:{value:'What is on this page?'}});
+      fireEvent.click(screen.getByRole('button', {name:'Send message', exact:true}));
+      await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+      const sent = vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0];
+      expect(sent.build_draft_context).toBeDefined();
+      expect(sent.build_write_capability).toBeUndefined();
+      expect(bridge.capture).not.toHaveBeenCalled();
+    } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
+  });
+  it('keeps a guest Build question on an unsaved page without sending it', async () => {
+    vi.stubEnv('VITE_HOSTED_GUEST_BUILD_BUDDY', '1');
+    const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+    try {
+      render(<Harness initial="build" buildBridge={retryBridge()}/>);
+      fireEvent.click(await screen.findByRole('button', {name:'Open', exact:true}));
+      const input = await screen.findByLabelText('Message DungeonBuddy');
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.change(input, {target:{value:'What is on this page?'}});
+      fireEvent.click(screen.getByRole('button', {name:'Send message', exact:true}));
+      expect(await screen.findByText('Save the page and remove selected references before asking Buddy.')).toBeVisible();
+      expect(input).toHaveValue('What is on this page?');
+      expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
+  });
+  it('sends a guest Play question with the saved Run and World context', async () => {
+    vi.stubEnv('VITE_HOSTED_GUEST_PLAY_BUDDY', '1');
+    const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(() => new Promise(() => {}));
+    try {
+      render(<Harness initial="play"/>);
+      fireEvent.click(await screen.findByRole('button', {name:'Open', exact:true}));
+      const input = await screen.findByLabelText('Message DungeonBuddy');
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.change(input, {target:{value:'What is happening in this scene?'}});
+      fireEvent.click(screen.getByRole('button', {name:'Send message', exact:true}));
+      await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1));
+      const request = vi.mocked(postWorldPlayAgentTurn).mock.calls[0]![0];
+      expect(request.primary_work.kind).toBe('run');
+      expect(request.graph_request.mode).toBe('world');
+      expect(request.play_target).toBeDefined();
+    } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(readActiveConversationMessages).mockImplementation(defaultReadMessages);
