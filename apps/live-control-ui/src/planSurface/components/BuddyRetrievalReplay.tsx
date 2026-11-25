@@ -580,44 +580,32 @@ export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly Retriev
               <p>Buddy read {ids.length} {ids.length === 1 ? 'record' : 'records'} about this node in step {position + 1}.
                 {read.writerEvidence && ' These records were passed to the answer writer.'}</p>
               <RecordedAssertions trace={trace} labelFor={labelForStep(position)} step={{ ...read, result: { ...read.result, claim_ids: [...ids] } }} />
-              <button type="button" onClick={() => { dismissNode(); select(position) }}>Go to step {position + 1}</button>
             </div>)}
             {inspectedHops.map(({ position, from, to }) => <p key={position}>
-              Buddy followed a recorded connection from {from} to {to}.{' '}
-              <button type="button" onClick={() => { dismissNode(); select(position) }}>Go to step {position + 1}</button>
+              Buddy followed a recorded connection from {from} to {to}.
             </p>)}
             {inspectedPruning.map(position => <p key={position}>
-              {steps[position].pruning?.reason}.{' '}
-              <button type="button" onClick={() => { dismissNode(); select(position) }}>Go to step {position + 1}</button>
+              {steps[position].pruning?.reason}.
             </p>)}
           </> : undefined}
         </NodeOverview>
         <ul className="buddy-retrieval-replay__node-visits">{inspectedVisits.map(position => (
           <li key={position}><button type="button" onClick={() => { dismissNode(); select(position) }}>
-            Step {position + 1} · {stepLabel(steps[position])}
+            Step {position + 1} · {readableStep(steps[position], position)}
           </button>
-            {trace && (steps[position].result.claim_ids.length > 0 || steps[position].result.evidence_ref_ids.length > 0) && <details>
-              <summary>Evidence from step {position + 1}</summary>
-              {steps[position].result.claim_ids.length > 0 && <RecordedAssertions trace={trace} labelFor={labelForStep(position)} step={steps[position]} />}
-              {renderStepEvidence(steps[position])}
-            </details>}
           </li>
         ))}</ul>
         </GraphNodeViewer>
       </dialog>}
-      {step.pruning && <details>
-        <summary>Pruned {step.pruning.total} {step.pruning.total === 1 ? 'candidate' : 'candidates'}</summary>
-        <p>{step.pruning.reason}.</p>
-        <ul>{nodes.map(node => <li key={node.node_id}>{displayNodeName(node)}</li>)}</ul>
-        {step.pruning.total > nodes.length && <p>Some pruned candidates were outside the trace sample.</p>}
-      </details>}
+      {step.pruning && <p>{step.pruning.reason}.{step.pruning.total > nodes.length
+        && ' The capture lists only some of the excluded candidates.'}</p>}
       {wide && trace && !steps.some(item => item.hop || item.result.neighborhood_replay) && <p>Directed traversal was unavailable for this attempt.</p>}
       {wide && trace && trace.retrieval_exclusion_steps == null && !steps.some(item => item.result.neighborhood_replay) && <p>Pruning decisions were unavailable for this attempt.</p>}
       <button type="button" aria-expanded={showDetails}
         onClick={() => setShowDetails(value => !value)}>{showDetails ? 'Hide replay details' : 'Show replay details'}</button>
       {showDetails && <div className="buddy-retrieval-replay__workspace">
         <section aria-label="Recorded lookup results">
-          <h5>{stepLabel(step)}</h5>
+          <h5>{readableStep(step, index)}</h5>
           {(showsLookupResult(step) && (step.native ? step.writerEvidence : writerObservations.has(step.sequence))) && <p><strong>Evidence sent to the answer writer</strong></p>}
           {showsLookupResult(step) && <p>{total_counts.nodes} objects · {total_counts.relationships} relationships · {total_counts.claims} claims</p>}
           {showsLookupResult(step) && projection_status === 'limited' && <p>Some results were omitted from the saved trace.</p>}

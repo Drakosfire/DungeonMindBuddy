@@ -104,7 +104,7 @@ it('interleaves native and legacy reads using ledger order', () => {
   fireEvent.click(screen.getByRole("button", { name: "Expand" }))
   openReplayDetails()
   fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
-  expect(screen.getByRole('heading', { name: 'Read native assertions' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Read Graph evidence for the answer writer' })).toBeInTheDocument()
   expect(screen.getByText('Evidence sent to the answer writer')).toBeInTheDocument()
 })
 
@@ -313,6 +313,9 @@ it.each([
     } as BuddyTurnContextTrace
     render(<BuddyRetrievalReplay steps={replaySteps(trace)} trace={trace} />)
     fireEvent.click(screen.getByRole('button', { name: 'Caelynn' }))
+    const dialog = within(screen.getByRole('dialog', { name: 'Replay node details' }))
+    expect(dialog.queryByText(/^Evidence from step/)).not.toBeInTheDocument()
+    expect(dialog.getAllByRole('button', { name: /^Step [0-9]+ ·/ })).toHaveLength(1)
     const overview = within(screen.getByRole('region', { name: 'What Buddy learned' }))
     if (visible) {
       expect(await overview.findByText('The recorded qualifier took place at the arena.', { selector: 'div > p' })).toBeVisible()
