@@ -371,8 +371,10 @@ def native_conversation_terminal(turn):
 
 def native_work_terminal(turn):
     from .build_source_free import pending_source_free_terminal
+    from .build_pending_app_coverage import pending_app_writer_terminal
     return (native_approval_terminal(turn) or native_conversation_terminal(turn)
-        or pending_source_free_terminal(turn.graph_context_execution))
+        or pending_source_free_terminal(turn.graph_context_execution)
+        or pending_app_writer_terminal(turn.graph_context_execution))
 
 
 def native_terminal(turn, *, before_sequence=None):

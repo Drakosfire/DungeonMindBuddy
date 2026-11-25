@@ -2584,13 +2584,16 @@ def test_pending_retained_capture_refuses_foreign_history_and_conflicting_duplic
 
 
 @_pending_test_contextmanager
-def pending_writer_runtime_case(monkeypatch, *, source_free_work=None, lore_page=False):
+def pending_writer_runtime_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
     from types import SimpleNamespace
     from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
     from apps.live_control_server.services.build_jev_writer_selection import WriterSelectionDriver
     from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
-    with pending_retained_runtime_case(monkeypatch, lore_page=lore_page) as (state, adapter, turns):
-        if source_free_work is None:
+    seed = pending_app_writer_seed if app_pages else pending_retained_runtime_case
+    with seed(monkeypatch, lore_page=lore_page) as (state, adapter, turns):
+        if app_pages:
+            pass
+        elif source_free_work is None:
             admit_pending_conversation(adapter)
         else:
             from application_state.agent_conversation.build_intentional_response import resolution_for, operation_id_for, digest
@@ -2618,7 +2621,8 @@ def pending_writer_runtime_case(monkeypatch, *, source_free_work=None, lore_page
         state.conn.execute = query
         state.writer_trace = trace
         adapter.context_capture = SimpleNamespace(trace=SimpleNamespace(model_dump=lambda **kwargs: trace))
-        adapter.last_provider_attempt_id = state.turn.graph_context_execution.events[0].provider_attempt_id
+        adapter.last_provider_attempt_id = next(row.provider_attempt_id for row in reversed(state.turn.graph_context_execution.events)
+            if isinstance(row,t.ProviderAttemptAuthorizedEventV3))
         from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
         terminal = native_work_terminal(state.turn)
         selector = WriterSelectionDriver(adapter, SimpleNamespace(_material=lambda: ((), (), ())), terminal)
@@ -2738,12 +2742,12 @@ def test_pending_writer_selection_requires_strict_positive_claim_integers_before
 
 
 @_pending_test_contextmanager
-def pending_rules_runtime_case(monkeypatch, *, source_free_work=None, lore_page=False):
+def pending_rules_runtime_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
     from types import SimpleNamespace
     from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
     from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
     from application_state.agent_conversation.rules_authority_policy import rules_capability
-    with pending_writer_runtime_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page) as (state, adapter, selector, turns):
+    with pending_writer_runtime_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, selector, turns):
         request_id = str(uuid4())
         adapter.request = SimpleNamespace(turn_id=request_id, surface=SimpleNamespace(surface_id='build'))
         adapter.world_id, adapter.expected_conversation_id = state.turn.world_id, None
@@ -2845,7 +2849,7 @@ def test_pending_rules_runtime_refuses_stale_or_crossed_parent_before_ledger_cre
 
 
 @_pending_test_contextmanager
-def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_page=False):
+def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
     import asyncio
     import httpx
     from datetime import UTC, datetime
@@ -2862,7 +2866,7 @@ def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_pag
     from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
     from application_state.agent_conversation.native_writer import output_request_fields
     from tests.test_build_jev_estimated_continuations import counter
-    with pending_rules_runtime_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page) as (state, adapter, rules):
+    with pending_rules_runtime_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules):
         adapter.budget = {'estimator': state.turn.graph_context_execution.policy.provider_input_accounting.estimator,
             'apiMode': 'typesafe_decision'}
         adapter.trace, adapter.failure = None, None
@@ -2886,7 +2890,7 @@ def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_pag
         adapter.context_capture = ContextTraceCollector(adapter.fence, initial_trace=trace)
         for name in ('record_lifecycle', '_capture_prepared_prompt', 'stop'):
             setattr(adapter, name, MethodType(getattr(_PolicyExecutionAdapter, name), adapter))
-        writer = PlanJevWriter(adapter, {}, rules)
+        writer = PlanJevWriter(adapter, {}, rules, dialogue=getattr(adapter, 'app_test_dialogue', ()))
         body = {'model': writer.model, 'input': writer.messages, 'instructions': writer.instructions,
             **output_request_fields(writer.output_reserve), 'text': {'format': writer.output_format},
             'tools': [], 'stream': False, 'reasoning': {'effort': writer.reasoning_effort}, 'service_tier': 'fast'}
@@ -3062,9 +3066,9 @@ def test_pending_writer_actual_serialized_request_omits_host_bindings_and_preser
 
 
 @_pending_test_contextmanager
-def pending_writer_completion_case(monkeypatch, *, source_free_work=None, lore_page=False):
+def pending_writer_completion_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
     from application_state.agent_conversation import repository
-    with pending_writer_dispatch_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page) as (state, adapter, rules, writer, prepared):
+    with pending_writer_dispatch_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules, writer, prepared):
         state.completions = 0
         monkeypatch.setattr(repository, 'lock_turn', lambda conn, world, turn_id: state.turn)
         def complete(conn, **fields):
@@ -3785,3 +3789,89 @@ def test_pending_app_coverage_runtime_actual_sdk_preserves_context_and_never_rep
             from application_state.errors import ApplicationStateError
             with pytest.raises(ApplicationStateError):asyncio.run(assess_pending_app_coverage(adapter,harness))
             assert len(calls)==2 and len(reads)==1
+
+
+@_pending_test_contextmanager
+def pending_app_writer_seed(monkeypatch, *, lore_page=False):
+    import asyncio
+    import httpx2
+    from hashlib import sha256
+    from apps.live_control_server.services import build_related_pages
+    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+    from apps.live_control_server.services.build_pending_app_coverage import assess_pending_app_coverage
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY','synthetic-no-network')
+    class Transport(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self,request):
+            body=json.loads(request.content)
+            coverage='source_requirement' in body['questions']
+            keys=('saved_pages_sufficient','native_sources_required') if coverage else ('read','skip')
+            chosen=keys[0]
+            return httpx2.Response(200,request=request,json={'model':body['model'],
+                'usage':{'input_tokens':23,'output_tokens':4},'answers':{name:{'type':'choice','choice':chosen,
+                    'confidence':1,'probabilities':{key:float(key==chosen) for key in keys}} for name in body['questions']}})
+    with pending_app_runtime_case(monkeypatch) as (state,adapter):
+        def materialize(pointer):
+            text='Ethel dreamed of Maelthor. The cult password is “Remember the rain”.'
+            return pointer.model_dump(mode='json')|{'markdown':text,'content_sha256':sha256(text.encode()).hexdigest()}
+        monkeypatch.setattr(build_related_pages,'materialize',materialize)
+        harness=BuildJevHarness(decision_transport=Transport())
+        harness.adapter,harness.calls,harness.timings,harness._inflight=adapter,[],[],{}
+        asyncio.run(acquire_pending_app_pages(adapter,harness))
+        assert asyncio.run(assess_pending_app_coverage(adapter,harness))=='saved_pages_sufficient'
+        original_access=adapter.pending_build_access
+        state.writer_page_checks=0
+        def writer_access(conn,current,pages):
+            assert pages and all(type(page).__name__=='PageReference' for page in pages)
+            state.writer_page_checks+=1
+            return original_access(conn,current,pages)
+        adapter.pending_build_access=adapter.fence.pending_build_access=writer_access
+        history=json.loads(state.initial_request)['state']['interaction']['history']
+        adapter.app_test_dialogue=tuple({'role':role,'content':row[role]} for row in history for role in ('user','assistant'))
+        yield state,adapter,[]
+
+
+@pytest.mark.parametrize('failure',[None,'alias','access','access_after'])
+def test_pending_app_writer_real_sdk_reply_binds_saved_page_and_stored_citation_without_search(monkeypatch,failure):
+    import asyncio
+    import httpx
+    from application_state.errors import ApplicationStateError
+    from generationengine import GenerationEngineError
+    calls=[]
+    def respond(request):
+        calls.append(json.loads(request.content))
+        text='Ethel dreamed of Maelthor. The cult password is “Remember the rain”.'
+        if failure=='access_after':state.denied=True
+        candidate={'answer_segments':[{'kind':'related_page_claim','text':text,
+            'read_id':'invented-source' if failure=='alias' else 'source0'}],'limitations':[]}
+        return httpx.Response(200,request=request,json={'id':'resp_app_page','object':'response','created_at':1,
+            'model':calls[-1]['model'],'status':'completed','output':[{'type':'message','id':'msg_app_page',
+                'role':'assistant','status':'completed','content':[{'type':'output_text','text':json.dumps(candidate),'annotations':[]}]}]})
+    with pending_writer_completion_case(monkeypatch,app_pages=True) as (state,adapter,rules,writer,prepared):
+        if failure=='access':state.denied=True
+        if failure:
+            with pytest.raises((ValueError,ApplicationStateError,GenerationEngineError)):
+                asyncio.run(writer.run(transport=httpx.MockTransport(respond),api_key='synthetic'))
+            assert state.completions==0 and state.turn.completion is None
+            assert len(calls)==(0 if failure=='access' else 1)
+            return
+        completed=asyncio.run(writer.run(transport=httpx.MockTransport(respond),api_key='synthetic'))
+        assert completed.status=='completed' and state.completions==1 and len(calls)==1
+        claim=completed.completion.answer_segments[0]
+        page=next(row for row in completed.graph_context_execution.events if type(row) is t.RelatedPageRead)
+        assert claim.kind=='related_page_claim' and claim.read_id==page.read_id and claim.page==page.page
+        assert 'Remember the rain' in completed.assistant_text
+        assert state.writer_page_checks>=4 and state.materialized==0
+        assert 'Already discussed detail 0' in json.dumps(calls[0]['input'])
+        assert 'Already discussed detail 59' in json.dumps(calls[0]['input'])
+        for binding in (str(page.read_id),str(page.page.document_id),str(completed.turn_id),
+                completed.graph_context_receipt.context_receipt_sha256):
+            assert binding not in json.dumps(calls[0]['input'])
+        row,references=stored_row(completed)
+        assert repository._turn_from_row(None,row,references=references)==completed
+        from copy import deepcopy
+        from application_state.errors import ApplicationStateIntegrityError
+        forged=deepcopy(row)
+        forged['completion']['answer_segments'][0]['page']['registry_revision']+=1
+        with pytest.raises(ApplicationStateIntegrityError):
+            repository._turn_from_row(None,forged,references=references)

@@ -2568,6 +2568,7 @@ class AgentConversationService:
                 or not isinstance(prepared_request_json, str) or type(work_proof) is not dict
                 or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('Pending writer requires its exact input, claim and Rules owner')
+        from .build_pending_app_coverage import pending_writer_access_pages
         world_id = _world_id(world_id)
         try:
             authorization = NativeBuildWriterAuthorizedV2.model_validate_json(authorization.model_dump_json(by_alias=True))
@@ -2576,7 +2577,7 @@ class AgentConversationService:
         with unit_of_work(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
-            if authorize_current_access(conn, turn, None) is not True:
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize pending writing')
             captured = conn.execute("SELECT payload->>'capture_status' FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
                 (turn.turn_id, turn.attempt)).fetchone()
@@ -2596,7 +2597,7 @@ class AgentConversationService:
                 raise ApplicationStateValidationError(str(exc)) from exc
             if fresh is not True:
                 raise ApplicationStateConflictError('Pending writer requires a fresh one-shot Rules admission')
-            if authorize_current_access(conn, turn, None) is not True:
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
                 raise ApplicationStateConflictError('Current App access changed during pending writer admission')
             if turn.claim_expires_at <= repo.database_clock(conn):
                 raise ApplicationStateConflictError('Pending writer claim expired during input verification')
@@ -2617,11 +2618,12 @@ class AgentConversationService:
                 or not callable(authorize_current_access)
                 or (outcome.outcome == 'sdk_entered') != isinstance(prepared_request_json, str)):
             raise ApplicationStateValidationError('Pending writer lifecycle requires its actual SDK/request owner')
+        from .build_pending_app_coverage import pending_writer_access_pages
         world_id = _world_id(world_id)
         with unit_of_work(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
-            if authorize_current_access(conn, turn, None) is not True:
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize pending writer lifecycle')
             writers = [event for event in turn.graph_context_execution.events if type(event) is NativeBuildWriterAuthorizedV2]
             if len(writers) != 1 or outcome.provider_attempt_id != writers[0].provider_attempt_id:
@@ -2648,11 +2650,12 @@ class AgentConversationService:
                 or type(expected_attempt) is not int or expected_attempt < 1
                 or producer_proof is not None or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('Pending retained selection requires its exact empty-catalog owner')
+        from .build_pending_app_coverage import pending_writer_access_pages
         world_id = _world_id(world_id)
         with unit_of_work(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
-            if authorize_current_access(conn, turn, None) is not True:
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize retained writer selection')
             if (selection.terminal_disposition != native_work_terminal(turn)
                     or selection.terminal_disposition is None):
@@ -2663,7 +2666,7 @@ class AgentConversationService:
                 validate_selection_proof(turn, selection, captured[0] if captured else {}, None)
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
-            if authorize_current_access(conn, turn, None) is not True:
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
                 raise ApplicationStateConflictError('Current App access changed during retained selection')
             return self._append_pending_checked(conn, turn, selection, expected_revision)
 
@@ -4291,6 +4294,7 @@ class AgentConversationService:
         with unit_of_work(dsn) as conn:
             pending_pointer = None
             if pending_current_access is not None:
+                from .build_pending_app_coverage import pending_writer_access_pages
                 if not callable(pending_current_access) or prepared_recovery:
                     raise ApplicationStateValidationError('Pending completion cannot borrow another lifecycle owner')
                 pending_pointer = repo.lock_world_state(conn, world_id)
@@ -4320,7 +4324,7 @@ class AgentConversationService:
             if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
                 if (pending_pointer is None or pending_current_access is None
                         or pending_pointer.revision != turn.graph_context_receipt.conversation_observation.pointer_revision
-                        or pending_current_access(conn, turn, None) is not True):
+                        or pending_current_access(conn, turn, pending_writer_access_pages(turn)) is not True):
                     raise ApplicationStateConflictError('Pending completion requires its current captured App pointer and access')
             elif pending_current_access is not None:
                 raise ApplicationStateValidationError('Pending completion owner cannot accept another receipt family')
@@ -4405,7 +4409,7 @@ class AgentConversationService:
                 native_output_verified = True
             execution = _validated_base_execution_locked(conn, turn, result,
                 prepared_recovery=prepared_recovery, native_output_verified=native_output_verified)
-            if pending_current_access is not None and pending_current_access(conn, turn, None) is not True:
+            if pending_current_access is not None and pending_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
                 raise ApplicationStateConflictError('Current App access changed during pending output verification')
             if pending_current_access is not None and turn.claim_expires_at <= repo.database_clock(conn):
                 raise ApplicationStateConflictError('Pending claim expired during final output verification')

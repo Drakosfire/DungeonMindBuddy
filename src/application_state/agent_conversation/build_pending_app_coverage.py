@@ -153,3 +153,43 @@ def validate_coverage_result(receipt, execution, decision, proof, trace):
     if len(captured) != 1 or captured[0].get('text') != raw:
         raise ValueError('App coverage requires its exact captured controller response')
     return decision.verdict
+
+
+def pending_app_writer_terminal(execution):
+    """Read-only phase classification; actual claim/access/proof remains host-owned."""
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+    if type(execution) is not BuildPendingExecutionV1:
+        return None
+    decisions = [row for row in execution.events if type(row) is BuildAppCoverageDecidedV1]
+    if (len(decisions) != 1 or decisions[0].verdict != 'saved_pages_sufficient'
+            or any(type(row) is NativeBuildSourceSettledV1 for row in execution.events)):
+        return None
+    validate_coverage_decision(execution, decisions[0])
+    return {'status': 'ready', 'reason': 'pending_saved_app_pages_sufficient'}
+
+
+def pending_writer_access_pages(turn):
+    """Exact acquired App references; no source/citation authority is inferred."""
+    return tuple(row.page for row in turn.graph_context_execution.events
+        if type(row) is t.RelatedPageRead) or None
+
+
+def pending_related_pages_project(execution):
+    from .native_execution import BuildPendingExecutionV1
+    from .build_source_free import BuildAppPageCatalogObservedV1
+    from .build_related_pages import POLICY, ROLE
+    if type(execution) is not BuildPendingExecutionV1:
+        raise ValueError('Pending related pages require their concrete execution')
+    execution = BuildPendingExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
+    catalogs = [row for row in execution.events if type(row) is BuildAppPageCatalogObservedV1]
+    if not catalogs:
+        return None
+    reads = [row for row in execution.events if type(row) is t.RelatedPageRead]
+    acquired = {row.page.document_id for row in reads}
+    return {'policy': POLICY, 'role': ROLE,
+        'catalog_scope': 'active_committed_worldbuilding_pages_in_this_world_excluding_current',
+        'absence_authority': 'not_proven_by_this_saved_page_catalog',
+        'availability': [{'page': page.model_dump(mode='json'),
+            'acquisition': 'read' if page.document_id in acquired else 'not_read'} for page in catalogs[0].pages],
+        'pages': [{'read_id': str(row.read_id), 'page': row.page.model_dump(mode='json'),
+            'markdown': row.markdown} for row in reads]}

@@ -1136,3 +1136,42 @@ before that activation. Fake App transactions do not prove SQL rollback/races,
 physical no-discovery, real Jev quality, fresh HTTP POST, page save/reopen or
 serving-release qualification. Native-needed continuation and all prior full-goal
 gates remain open.
+
+
+## App-backed writer closure continuation
+
+ACTIVE same slice: related pages are mandatory Build work, not optional acquired
+source units. Keep the existing empty optional-catalog writer selection (no extra
+model call), gated by exact sufficient App coverage; do not invent a nonempty
+optional selector. New pending-related-page host projection in build_related_pages
+and pending App terminal/validation feed the unchanged semantic work/quote owners.
+At pending writer selection/admission/lifecycle/completion, pass exact acquired
+PageReferences to current App access, not only the World. Extend focused fixtures
+to exercise actual App selection/coverage -> writer proof/citations/readback before
+activating _native_completion. Old Surface/native codecs remain unchanged.
+
+App writer checkpoint:9 focused controls passed4.11s through actual App-selection
+and coverage SDK/mock transport, existing writer SDK/normalization/proof, fake App
+completion and stored readback. Mandatory related-page projection carries the
+exact source0 page through the existing grammar; no extra source-selection model
+call is introduced. Both earliest and latest of60 dialogue turns reach the writer.
+Exact PageReferences are rechecked at pending selection/admission/lifecycle/final
+completion. Unknown source aliases, altered stored citation page revision and
+current access lost before or after generation are refused. Existing retained
+compact/pretty and source-free completions remain covered. Source authority stays
+not_prepared and no native source preparation occurs in these controls.
+
+A forced-output experiment expected an unsupported prose quotation to be rejected,
+but the inherited supplied-page reply contract binds the selected page identity,
+not semantic entailment of every prose claim. That expected host rejection was
+not a valid invariant of this output grammar; no new quote-format requirement was
+added. Preserve this as an open semantic support evaluation requirement, alongside
+prior attribution/summary gaps. Current checks prove exact citation/input binding,
+not the truth/support of arbitrary model wording or real Jev/writer quality. Keep
+that limitation visible in live semantic acceptance; do not treat the source0 pin
+alone as grounding evidence.
+
+The main _native_completion harness remains unactivated for this new coverage
+path pending integrated review/testing. Source-needed native continuation, fresh
+HTTP POST/backend Rules, current reader fence, real SQL/full-Send and signed-in
+source/page create/save/reopen/citation/latency/deployment gates remain open.

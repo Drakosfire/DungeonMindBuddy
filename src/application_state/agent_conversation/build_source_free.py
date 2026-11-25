@@ -542,6 +542,7 @@ def pending_source_free_terminal(execution):
 
 
 def validate_pending_empty_writer_selection(execution, event):
+    from .build_pending_app_coverage import pending_app_writer_terminal
     from . import types as t
     from .writer_evidence_selection import NATIVE_POLICY, close_selection, digest
     prefix = execution.events[:event.sequence]
@@ -554,10 +555,12 @@ def validate_pending_empty_writer_selection(execution, event):
             or latest.provider_attempt_id != event.controller_attempt_id
             or latest.envelope_sha256 != event.controller_envelope_sha256 or outcomes[-1:] != ['response_received']
             or not (any(type(prior) is t.BuildPriorBodyEvidenceAdmittedV3 for prior in prefix)
-                or pending_source_free_terminal(execution.model_copy(update={'events': prefix})))
+                or pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
+                or pending_app_writer_terminal(execution.model_copy(update={'events': prefix})))
             or any(isinstance(prior, t.BuildWriterEvidenceSelectionV1) for prior in prefix)):
         raise ValueError('Pending empty writer selection requires acknowledged source-free work or retained context')
-    terminal = pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
+    terminal = (pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
+        or pending_app_writer_terminal(execution.model_copy(update={'events': prefix})))
     if terminal is not None and event.terminal_disposition != terminal:
         raise ValueError('Pending empty selection differs from its source-free work terminal')
     for field, expected in close_selection({}, {}).items():
@@ -579,6 +582,7 @@ def pending_turn_owner(turn):
 
 
 def validate_pending_writer_authorization(execution, event):
+    from .build_pending_app_coverage import pending_app_writer_terminal
     from . import types as t
     from .native_execution import NativeBuildWriterAuthorizedV2, native_read_event_ids
     prefix = execution.events[:event.sequence]
@@ -586,7 +590,8 @@ def validate_pending_writer_authorization(execution, event):
     if (type(event) is not NativeBuildWriterAuthorizedV2 or len(selected) != 1
             or selected[0].mode != 'empty_catalog'
             or not (any(type(row) is t.BuildPriorBodyEvidenceAdmittedV3 for row in prefix)
-                or pending_source_free_terminal(execution.model_copy(update={'events': prefix})))
+                or pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
+                or pending_app_writer_terminal(execution.model_copy(update={'events': prefix})))
             or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.writer.identity()
             or event.native_read_event_ids != native_read_event_ids(prefix)
             or any(type(row) is NativeBuildWriterAuthorizedV2 for row in prefix)
