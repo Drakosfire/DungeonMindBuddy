@@ -1,0 +1,7 @@
+# Intent: bind the current page in source-free clarification
+
+Status: ACTIVE. User authorized intent-first safeguards and delivery. Serial slice based on `codex/sizzek-combat-current-base` at `49f8081fcbda50348f67d1017f2b74b2a510a377`; branch `codex/intent-first-page-identity-live`. The separately merged placement slice addresses another decision and is not a dependency of this change.
+
+An isolated ordinary turn selected `clarify_request` for an ambiguous current-page edit but the writer named a prior conversational draft. The initial decision input contained the current page title. Preserve that captured navigation context for the writer without acquiring another source, allowing a saved page title only as untrusted navigation data. Bind the projection to the initial request receipt and existing claim/access checks; preserve historical empty-proof replay. Never place IDs or execution metadata in the model prompt.
+
+Write set: this handoff, `apps/live_control_server/services/plan_jev_writer.py`, `src/application_state/agent_conversation/native_writer.py`, `src/application_state/agent_conversation/native_build_work_view.py`, and focused existing tests in `tests/test_build_source_free_protocol.py`. Verify owner-level prompt projection, correct and tampered request binding, no source acquisition, stale/access behavior and existing replay. Review cumulative diff and use focused checks. Primary data is out of scope.
