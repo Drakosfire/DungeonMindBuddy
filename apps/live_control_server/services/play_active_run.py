@@ -191,7 +191,7 @@ def set_play_active_run(*, run_id: str) -> PlayActiveRunState:
 
 
 def set_world_play_active_run(
-    *, world_id: str, run_id: str, authorize_world=None
+    *, world_id: str, run_id: str, authorize_world=None, authorize_transaction=None
 ) -> WorldPlayActiveRunState:
     """Select an exact World-owned Run through the World-specific active pointer."""
 
@@ -200,7 +200,8 @@ def set_world_play_active_run(
     except ValueError as exc:
         raise PlayActiveRunError(str(exc), status_code=422) from exc
     try:
-        row = play_service.set_world_play_active_run(world_id, canonical_run_id, authorize_world=authorize_world)
+        row = play_service.set_world_play_active_run(world_id, canonical_run_id, authorize_world=authorize_world,
+            **({"authorize_transaction": authorize_transaction} if authorize_transaction is not None else {}))
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
     return WorldPlayActiveRunState(

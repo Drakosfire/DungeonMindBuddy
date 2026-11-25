@@ -364,11 +364,12 @@ def create_play_run(
         return PlayRunAggregate(run=run, manifest=manifest)
 
 
-def create_world_play_run(*, world_id: str, run_id: UUID | str, request):
+def create_world_play_run(*, world_id: str, run_id: UUID | str, request, authorize_creation=None):
     from application_state.play.session_encounters import create_session
     from application_state.play.session_encounter_types import WorldSessionCreateRequest
     return create_session(world_id=world_id, run_id=run_id,
-                          request=WorldSessionCreateRequest.model_validate(request))
+                          request=WorldSessionCreateRequest.model_validate(request),
+                          **({"authorize_creation": authorize_creation} if authorize_creation is not None else {}))
 
 
 def get_play_run_aggregate(run_id: UUID | str) -> PlayRunAggregate:
@@ -512,6 +513,7 @@ def replace_world_play_run_progress(
     expected_run_revision: int,
     progress: dict,
     authorize_world: Callable[[], None] | None = None,
+    authorize_transaction: Callable | None = None,
 ) -> WorldPlayRunAggregate:
     result = _replace_play_run_progress(
         run_id=run_id,
@@ -519,6 +521,7 @@ def replace_world_play_run_progress(
         progress=progress,
         world_id=world_id,
         authorize_world=authorize_world,
+        authorize_transaction=authorize_transaction,
     )
     if not isinstance(result, WorldPlayRunAggregate):
         raise ApplicationStateIntegrityError(
@@ -534,6 +537,7 @@ def _replace_play_run_progress(
     progress: dict,
     world_id: str | None,
     authorize_world: Callable[[], None] | None = None,
+    authorize_transaction: Callable | None = None,
 ) -> PlayRun | WorldPlayRunAggregate:
     canonical_run_id = _as_uuid(run_id, field_name="run_id")
     canonical_world_id = None if world_id is None else _require_world_id(world_id)
@@ -576,6 +580,8 @@ def _replace_play_run_progress(
         )
         if authorize_world is not None:
             authorize_world()
+        if authorize_transaction is not None:
+            authorize_transaction(conn, resolved_world_id)
         if expected == run.run_revision and admitted == run.progress:
             return result(run)
         if expected == run.run_revision - 1 and admitted == run.progress:
@@ -850,7 +856,8 @@ def set_play_active_run(run_id: UUID | str) -> PlayActiveRun:
 
 
 def set_world_play_active_run(
-    world_id: str, run_id: UUID | str, *, authorize_world: Callable[[], None] | None = None
+    world_id: str, run_id: UUID | str, *, authorize_world: Callable[[], None] | None = None,
+    authorize_transaction: Callable | None = None,
 ) -> PlayActiveRun:
     canonical_world_id = _require_world_id(world_id)
     canonical_run_id = _as_uuid(run_id, field_name="run_id")
@@ -866,6 +873,8 @@ def set_world_play_active_run(
         current = repo.lock_active_run(conn, scope_key=scope_key)
         if authorize_world is not None:
             authorize_world()
+        if authorize_transaction is not None:
+            authorize_transaction(conn, canonical_world_id)
         if current is not None and current.run_id == canonical_run_id:
             active = current
         else:

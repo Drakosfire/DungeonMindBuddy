@@ -249,7 +249,7 @@ export function BuildSurfaceContext({
           {activeDocumentId ? <>
             <SurfaceContextAction className="build-navbar-tool" aria-label="Link existing node" title={guest ? "Node linking in Build is not yet available to guests" : "Link an existing graph node"} disabled={guest || !linkAvailable || !renameAdmitted || documentMutationBusy}
               onClick={() => { if (linkAvailable) openReferenceTool?.(BUILD_FIND_EXISTING_TOOL_ID); }}>Link node</SurfaceContextAction>
-            <SurfaceContextAction className="build-navbar-tool" aria-label="Open Image Studio" title={guest ? "Image creation is not yet available to guests" : "Create or place an image"} disabled={guest || !renameAdmitted || documentMutationBusy}
+            <SurfaceContextAction className="build-navbar-tool" aria-label="Open Image Studio" title={guest && import.meta.env.VITE_HOSTED_GUEST_MEDIA !== "1" ? "Image creation is not yet available to guests" : "Create or place an image"} disabled={guest && import.meta.env.VITE_HOSTED_GUEST_MEDIA !== "1" || !renameAdmitted || documentMutationBusy}
               onClick={() => requestBuildStudioAction("image")}>Images</SurfaceContextAction>
           </> : null}
           {!guest && trashWorldId ? <WorkspaceTrashControl showTrash={false} worldId={trashWorldId}

@@ -317,7 +317,7 @@ export function GuestBuildWorldProvider({ locationSnapshot, children }: { locati
     // A sign-in transition can unmount this provider without leaving Build.
     // Do not carry a guest document selector into the signed-in World picker.
     const url = new URL(window.location.href);
-    if ((url.pathname === "/build" || url.pathname === "/plan") && guestWorldRef.current &&
+    if ((url.pathname === "/build" || url.pathname === "/plan" || url.pathname === "/play") && guestWorldRef.current &&
         (url.searchParams.get("world") === guestWorldRef.current || url.searchParams.get("campaign") === guestWorldRef.current)) {
       url.searchParams.delete("world");
       url.searchParams.delete("campaign");
