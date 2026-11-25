@@ -1,6 +1,7 @@
 import {createElement} from 'react';
 import {TourNavigationRegistry,TourNavigationProvider,type NavigationScope} from '../guidedTour/Navigation';
 import * as worldSelection from '../selectedWorld/SelectedWorldContext';
+import * as guestSession from '../guestWorld/guestBuildSession';
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -149,6 +150,33 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
     expect(result.current.activeRecord).toBeNull();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+  });
+
+  it("opens the released adventure for a guest on bare Build", async () => {
+    const guest = vi.spyOn(guestSession, "guestBuildActive").mockReturnValue(true);
+    const selected = vi.spyOn(worldSelection, "useSelectedWorld").mockReturnValue({kind:"managed", worldId:"guest-world", name:"Adventure", documentId:null});
+    try {
+      const record = {world_id:"guest-world", campaign_id:null, title:"Sizzek's Apprentice"};
+      vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({schema_version:"dmb_workspace_document_registry_v1",campaign_tags:[],next_before_updated_at:null,next_before_document_id:null,records:[buildRecord(DOC_A,record)]});
+      vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(mockSnapshot(DOC_A,record));
+      const {result} = renderHook(() => useBuildWorkspaceDocumentController());
+      await waitFor(() => expect(result.current.activeDocumentId).toBe(DOC_A));
+    } finally { guest.mockRestore(); selected.mockRestore(); }
+  });
+
+  it("preserves a guest's explicitly linked source", async () => {
+    const guest = vi.spyOn(guestSession, "guestBuildActive").mockReturnValue(true);
+    const selected = vi.spyOn(worldSelection, "useSelectedWorld").mockReturnValue({kind:"managed",worldId:"guest-world",name:"Adventure",documentId:DOC_B});
+    try {
+      const other = {world_id:"guest-world",campaign_id:null};
+      vi.mocked(liveApi.listWorkspacePageInventory).mockResolvedValue({schema_version:"dmb_workspace_document_registry_v1",campaign_tags:[],next_before_updated_at:null,next_before_document_id:null,records:[buildRecord(DOC_A,{...other,title:"Sizzek's Apprentice"}),buildRecord(DOC_B,other)]});
+      vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(mockSnapshot(DOC_B,other));
+      window.history.replaceState({},"",`/build?world=guest-world&documentId=${DOC_B}`);
+      const {result} = renderHook(() => useBuildWorkspaceDocumentController());
+      await waitFor(() => expect(result.current.activeDocumentId).toBe(DOC_B));
+      await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+      expect(result.current.activeDocumentId).toBe(DOC_B);
+    } finally { guest.mockRestore(); selected.mockRestore(); }
   });
 
   it("lists worldbuilding sources across campaigns", async () => {
