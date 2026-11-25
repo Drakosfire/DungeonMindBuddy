@@ -256,7 +256,8 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
 
 
 def freeze_build(request, work, view, budget, *, authority, native_query, provenance,
-                 submitted_intent, projection, accounting, included_history=(), reviewed_admission=None):
+                 submitted_intent, projection, accounting, included_history=(), reviewed_admission=None,
+                 source_observation=None, conversation_observation=None):
     """Capture actual Build work and its first prepared semantic wire, without a Graph packet."""
     from application_state.agent_conversation.native_context import BuildWorkContextV1, NativeBuildProviderInputV2, NativeReviewedActionInputV1
     from application_state.agent_conversation.native_execution import NativeBuildActionV1
@@ -264,6 +265,14 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
     basis = work.build_source
     if request.surface.surface_id!='build' or basis is None or accounting is None:
         raise ValueError('Native Build requires its actual saved work and accounting')
+    pending = source_observation is not None or conversation_observation is not None
+    if pending:
+        from application_state.agent_conversation.build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
+        if (type(source_observation) is not BuildSourceObservationV1
+                or type(conversation_observation) is not BuildConversationObservationV1
+                or authority is not None or native_query is not None or reviewed_admission is not None
+                or request.build_authored_references is not None):
+            raise ValueError('Pending Build requires observations without acquired authority, references or reviewed admission')
     reviewed=reviewed_admission is not None
     if reviewed:
         from application_state.agent_conversation.reviewed_action import admission_manifest,digest
@@ -324,13 +333,23 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
             or projection.request_id!=semantic_request_id(body['state'],world_id=basis.world_id,
                 client_thread_id=request.client_thread_id,idempotency_key=_turn_idempotency_key(basis.world_id,request.turn_id))):
             raise ValueError('Semantic Build input differs from its captured work and capability')
-        assembled = NativeBuildProviderInputV2(provider_model_name=view['model'], provider_model_version=view['model'],
+        from application_state.agent_conversation.native_context import NativeBuildPendingProviderInputV3
+        input_type = NativeBuildPendingProviderInputV3 if pending else NativeBuildProviderInputV2
+        assembled = input_type(provider_model_name=view['model'], provider_model_version=view['model'],
             tokenizer_name=accounting.descriptor['policy'], tokenizer_version=accounting.tokenizer_version,
             provider_envelope_input_tokens=accounting.estimate(body), output_token_reserve=0,
             context_window_limit=budget['contextLimitTokens'],
             included_history=tuple(t.PlanWorldGraphHistoryPinV1(turn_id=turn_id,
                 answer_sha256=sha256(text.encode()).hexdigest()) for turn_id,text in included_history
                 if text and _contains_text(body,text)), assembled_input_sha256=view['payloadSha256'])
+    if pending:
+        if (host.get('conversation_id') != str(conversation_observation.conversation_id)
+                or host.get('pointer_revision') != conversation_observation.pointer_revision):
+            raise ValueError('Pending Build conversation differs from its frozen host interaction')
+        return _freeze_pending_build(BuildWorkContextV1(source_basis=source_basis), action, assembled,
+            source_observation, conversation_observation, provenance, budget,
+            controller_accounting=accounting.descriptor,
+            writer_budget=_native_writer_budget(actions['writer_context_budget'], accounting))
     return _freeze_native(BuildWorkContextV1(source_basis=source_basis),action,assembled,
         authority,native_query,provenance,budget,controller_accounting=accounting.descriptor,
         writer_budget=_native_writer_budget(actions['writer_context_budget'], accounting))
@@ -369,6 +388,33 @@ def _freeze_native(work_context, action, assembled, authority, native_query, pro
     validate_work_context(receipt,provenance,play_context_receipt=play_context_receipt)
     validate_context_binding(receipt,execution)
     return receipt,execution,([],[],[])
+
+
+def _freeze_pending_build(work_context, action, assembled, source_observation, conversation_observation,
+                          provenance, budget, *, controller_accounting, writer_budget):
+    """Compose the distinct Build observation codec without any source grant."""
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1, _join_work_context
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionPolicyV1, BuildPendingExecutionV1
+    from application_state.agent_conversation.build_source_free import validate_pending_execution_binding
+    data = dict(provenance_sha256=t.canonical_sha256(provenance), work_context=work_context,
+        source_observation=source_observation, conversation_observation=conversation_observation, assembled_input=assembled)
+    provisional = BuildPendingContextReceiptV1.model_construct(context_receipt_sha256='0' * 64, **data)
+    wire = provisional.model_dump(mode='json', by_alias=True, exclude={'context_receipt_sha256'})
+    receipt = BuildPendingContextReceiptV1.model_validate_json(json.dumps(wire | {
+        'context_receipt_sha256': t.canonical_sha256(wire)}))
+    policy = BuildPendingExecutionPolicyV1(action=action,
+        source_observation_sha256=t.canonical_sha256(source_observation), provider_roles=budget['providerRoles'],
+        provider_input_accounting={'kind': 'conservative_upper_bound', 'estimator': budget['estimator']},
+        max_provider_attempts=None, max_total_provider_input_tokens=None, max_total_provider_output_tokens=None,
+        controller_continuation_accounting=controller_accounting, writer_context_budget=writer_budget)
+    wire = dict(schema='dmb_build_pending_execution_v1', context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=policy.model_dump(mode='json', by_alias=True))
+    execution = BuildPendingExecutionV1.model_validate_json(json.dumps(wire | {
+        'execution_policy_sha256': t.canonical_sha256(wire), 'events': []}))
+    provenance = t.TurnProvenance.model_validate_json(provenance.model_dump_json(by_alias=True))
+    _join_work_context(receipt, provenance)
+    execution = validate_pending_execution_binding(receipt, execution)
+    return receipt, execution, ([], [], [])
 
 
 def _contains_text(value, text):

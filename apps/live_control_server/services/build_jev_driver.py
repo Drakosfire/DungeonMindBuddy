@@ -95,6 +95,27 @@ def wire_questions(intent: DecisionIntent) -> dict:
 def freeze_interaction(adapter):
     capability = adapter.request.build_write_capability
     pointer = adapter.service.get_world_pointer(adapter.world_id)
+    pending = getattr(adapter, 'pending_build_source_observation', None) is not None
+    if pending:
+        from application_state.agent_conversation.build_source_free import capture_pending_conversation
+        if pointer.active_conversation_id is None:
+            if (getattr(adapter, 'pending_build_conversation_observation', None) is not None
+                    or adapter.turn is not None or adapter.expected_conversation_id is not None
+                    or any(getattr(adapter.request, name, None) is not None for name in (
+                        'build_draft_context', 'build_write_capability', 'build_image_move_capture'))):
+                raise ValueError('Captured pending Build lost its active conversation; cannot create a replacement')
+            from .agent_turn_service import _active_or_create_conversation
+            _active_or_create_conversation(adapter.service, world_id=adapter.world_id, turn_id=adapter.request.turn_id)
+            pointer = adapter.service.get_world_pointer(adapter.world_id)
+        captured = capture_pending_conversation(pointer, world_id=adapter.world_id,
+            conversation_id=pointer.active_conversation_id)
+        observed = getattr(adapter, 'pending_build_conversation_observation', None)
+        if observed is not None and observed != captured:
+            raise ValueError('Pending Build conversation changed after its original observation')
+        if adapter.expected_conversation_id is not None and adapter.expected_conversation_id != captured.conversation_id:
+            raise ValueError('Pending Build differs from its expected conversation')
+        adapter.pending_build_conversation_observation = captured
+        adapter.expected_conversation_id = captured.conversation_id
     conversation_id = pointer.active_conversation_id
     if capability is not None and (capability.conversation_id != conversation_id
             or capability.expected_pointer_revision != pointer.revision):
@@ -124,7 +145,8 @@ def freeze_interaction(adapter):
         raise AgentTurnServiceError("The conversation changed while the working draft was captured. Send again.",
             code="build_editor_context_changed", status_code=409, provider_dispatched=False)
     history = project_dialogue(
-        adapter.service.list_build_dialogue(adapter.world_id, conversation_id) if conversation_id else [],
+        (adapter.service.list_pending_build_dialogue(adapter.world_id, conversation_id) if pending
+         else adapter.service.list_build_dialogue(adapter.world_id, conversation_id)) if conversation_id else [],
     )
     from application_state.agent_conversation.authored_graph_references import provider_references
     related=(adapter.budget.get("buildJevActions") or {}).get("related_page_catalog")
@@ -243,7 +265,8 @@ class BuildJevDriver:
         self._adapter = adapter
         self.image_move = None
         self._assessment_receipt = None
-        self._native = adapter.native_source_authority is not None
+        self._native = (adapter.native_source_authority is not None
+            or getattr(adapter, 'pending_build_source_observation', None) is not None)
         if self._native:
             self._init_native()
             return

@@ -1243,6 +1243,22 @@ export interface SurfaceNativeContextReceiptV1 {
     | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string}
     | NativePlanRequestAdmissionV1;
 }
+export interface BuildPendingContextReceiptV1 {
+  schema:'dmb_build_pending_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
+  context_receipt_sha256:string;provenance_sha256:string;
+  work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'build'}>;
+  source_observation:{schema:'dmb_build_source_observation_v1';managed_world_id:string;
+    binding:{managed_world_id:string;native_world_id:string;binding_version:number;provisioning_id:string|null}|null;
+    requested_revision_id:string|null;observed_head_revision_id:string|null};
+  conversation_observation:{conversation_id:string;pointer_revision:number};
+  assembled_input:Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {
+    assembler_version:'native_build_pending_initial_v3'};
+}
+export interface AgentBuildPendingContextResponseV1 {
+  schema:'dmb_agent_build_pending_context_response_v1';receipt:BuildPendingContextReceiptV1;
+  completion:SurfaceNativeCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
+  deferred_build_citations?:DeferredBuildCitationMembership;
+}
 export interface ConversationLorePageDraft {
   kind: 'lore_page';
   destination: {instruction: string; title: string} | {request: 'current_author_request'; title: string};
@@ -1282,7 +1298,7 @@ export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextRespon
 export type BuildSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
   receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'build'}>};
 };
-export type WorldBuildKnowledgeContext = WorldBuildKnowledgeContextV1 | BuildSurfaceNativeContextResponseV1;
+export type WorldBuildKnowledgeContext = WorldBuildKnowledgeContextV1 | BuildSurfaceNativeContextResponseV1 | AgentBuildPendingContextResponseV1;
 export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1 | AgentPlanNativeContextResponseV1 | PlanSurfaceNativeContextResponseV1;
 
 export interface WorldBuildGraphReceiptV1 extends Omit<WorldPlanGraphContextReceiptV1, "schema" | "plan_context_policy" | "plan_basis" | "playable_target"> {

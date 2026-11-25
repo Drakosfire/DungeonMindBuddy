@@ -16,11 +16,11 @@ NATIVE_POLICY = "source_unit_selection_event_closure_v2"
 
 def policy_for(execution):
     from .types import BuildWriterEvidenceSelectionV1
-    from .native_execution import SurfaceNativeExecutionV1
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
     settled = [e for e in execution.events if isinstance(e, BuildWriterEvidenceSelectionV1)]
     if settled:
         return settled[0].policy
-    return NATIVE_POLICY if type(execution) is SurfaceNativeExecutionV1 else POLICY
+    return NATIVE_POLICY if type(execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1) else POLICY
 
 JUDGMENTS = ("direct_support", "qualification_or_conflict", "uncertain", "irrelevant")
 RULES = (
@@ -44,9 +44,9 @@ RULES += (
 
 def enabled(policy):
     from .types import BuildSelectedSourceActionControllerWriterPolicyV1
-    from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+    from .native_execution import SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1, NativeBuildActionV1
     return (isinstance(policy,BuildSelectedSourceActionControllerWriterPolicyV1)
-        or type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1)
+        or type(policy) in (SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1) and type(policy.action) is NativeBuildActionV1)
 
 
 def canonical(value):
@@ -128,21 +128,28 @@ def acquired_catalog(execution, trace, *, policy=None):
             units[key] = {"id": key, "kind": "saved_section",
                           "section": event.model_dump(mode="json", by_alias=True)}
     if (policy or policy_for(execution)) == NATIVE_POLICY:
-        from .native_corpus import acquired_body_reads, body_selection_unit_id, acquired_body_catalogs, NativeAuthoredSourceReadV1
-        catalogs = acquired_body_catalogs(execution)
-        for read in acquired_body_reads(execution):
-            if isinstance(read, NativeAuthoredSourceReadV1):
-                continue  # Explicit author context is required, not a model relevance vote.
-            excerpt = read.excerpt
-            catalog = catalogs[excerpt.catalog_sha256]
-            key = body_selection_unit_id(read)
-            units[key] = dict(id=key, kind="native_body", native_read_event_id=str(read.event_id),
-                catalog_sha256=excerpt.catalog_sha256, selector_policy=excerpt.selector_policy,
-                extent=excerpt.section.model_dump(mode="json"),
-                passage=dict(text=excerpt.text, source_class="opened_native_body_not_graph_truth",
-                    source_artifact_id=catalog.source.artifact.source_artifact_id,
-                    source_revision_id=catalog.source.revision.source_revision_id,
-                    line_start=excerpt.section.line_start, line_end=excerpt.section.line_end))
+        units.update(native_body_catalog(execution))
+    return {key: units[key] for key in sorted(units)}
+
+
+def native_body_catalog(execution):
+    """Pure typed-ledger catalog; actual capture/SDK proof stays with admission."""
+    units = {}
+    from .native_corpus import acquired_body_reads, body_selection_unit_id, acquired_body_catalogs, NativeAuthoredSourceReadV1
+    catalogs = acquired_body_catalogs(execution)
+    for read in acquired_body_reads(execution):
+        if isinstance(read, NativeAuthoredSourceReadV1):
+            continue  # Explicit author context is required, not a model relevance vote.
+        excerpt = read.excerpt
+        catalog = catalogs[excerpt.catalog_sha256]
+        key = body_selection_unit_id(read)
+        units[key] = dict(id=key, kind="native_body", native_read_event_id=str(read.event_id),
+            catalog_sha256=excerpt.catalog_sha256, selector_policy=excerpt.selector_policy,
+            extent=excerpt.section.model_dump(mode="json"),
+            passage=dict(text=excerpt.text, source_class="opened_native_body_not_graph_truth",
+                source_artifact_id=catalog.source.artifact.source_artifact_id,
+                source_revision_id=catalog.source.revision.source_revision_id,
+                line_start=excerpt.section.line_start, line_end=excerpt.section.line_end))
     return {key: units[key] for key in sorted(units)}
 
 
@@ -224,8 +231,9 @@ def source_projection(catalog):
 def selection_state(turn, catalog, terminal, historical_initial, *, policy=None):
     """Exact final-controller input; this does not claim catalog completeness."""
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
-    from .native_context import SurfaceNativeContextReceiptV1
-    native = type(receipt) is SurfaceNativeContextReceiptV1
+    from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+    pending = type(receipt) is BuildPendingContextReceiptV1
+    native = type(receipt) in (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)
     if not native:
         authority, scope = receipt.graph_authority, execution.policy.source_read_scope
     if terminal.get("status") == "refused":
@@ -239,7 +247,8 @@ def selection_state(turn, catalog, terminal, historical_initial, *, policy=None)
         "historical_initial": historical_initial,
         "user_question": turn.user_text,
         "source_basis": (receipt.work_context.source_basis if native else receipt.source_basis).model_dump(mode="json"),
-        **({'native_query_sha256':execution.policy.native_query_sha256} if native else {"graph_scope": {
+        **({'pending_context_receipt_sha256':receipt.context_receipt_sha256} if pending
+           else {'native_query_sha256':execution.policy.native_query_sha256} if native else {"graph_scope": {
             "managed_world_id": authority.managed_world_id,
             "native_world_id": authority.native_world_id,
             "binding_version": authority.binding_version,
@@ -262,13 +271,17 @@ def host_basis(state, *, semantic=False):
     """The existing receipt field commits the exact input codec and host scope."""
     if not semantic:
         return state['basis_sha256']
-    return digest(dict(input_codec='semantic_source_slots_v1',
+    return digest(dict(input_codec='semantic_pending_source_slots_conversation_v1' if 'pending_context_receipt_sha256' in state else 'semantic_source_slots_v1',
         host_state={key:value for key,value in state.items() if key!='basis_sha256'}))
 
 
 def native_build(turn):
-    from .native_execution import SurfaceNativeExecutionV1, NativeBuildActionV1
+    from .native_execution import SurfaceNativeExecutionV1, NativeBuildActionV1, BuildPendingExecutionV1
+    from .native_context import BuildPendingContextReceiptV1
     execution = turn.graph_context_execution
+    if type(execution) is BuildPendingExecutionV1:
+        return (type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+                and type(execution.policy.action) is NativeBuildActionV1)
     return (type(execution) is SurfaceNativeExecutionV1
             and type(execution.policy.action) is NativeBuildActionV1)
 
@@ -298,10 +311,20 @@ def semantic_state(turn, catalog, *, retained_raw_markdown=False):
     return dict(user_question=turn.user_text, sources=sources, rules=RULES)
 
 
+def pending_semantic_state(turn, catalog, initial_request_json):
+    from .build_source_free import pending_semantic_context
+    from .native_context import BuildPendingContextReceiptV1
+    if type(turn.graph_context_receipt) is not BuildPendingContextReceiptV1:
+        raise ValueError('Pending selection conversation requires its actual pending receipt')
+    context = pending_semantic_context(turn.graph_context_receipt, turn.graph_context_execution, initial_request_json)
+    return semantic_state(turn, catalog) | {'conversation': {
+        'history': context['history'], 'current_page': context['current_page']}}
+
+
 def is_semantic_state(state):
     # Exact, disjoint wire codec. All nested fields are compared to the owner
     # projection below; unknown/hybrid shapes cannot match either exact codec.
-    return isinstance(state, dict) and set(state) == {'user_question', 'sources', 'rules'}
+    return isinstance(state, dict) and set(state) in ({'user_question', 'sources', 'rules'}, {'user_question', 'sources', 'rules', 'conversation'})
 
 
 def selection_history(turn, auth):
@@ -363,6 +386,15 @@ def native_conversation_terminal(turn):
     return {"status": "ready", "reason": reason}
 
 
+def native_work_terminal(turn):
+    from .build_source_free import pending_source_free_terminal, pending_native_terminal
+    from .build_pending_app_coverage import pending_app_writer_terminal
+    return (native_approval_terminal(turn) or native_conversation_terminal(turn)
+        or pending_source_free_terminal(turn.graph_context_execution)
+        or pending_app_writer_terminal(turn.graph_context_execution)
+        or pending_native_terminal(turn.graph_context_execution))
+
+
 def native_terminal(turn, *, before_sequence=None):
     from .native_retrieval import current_selection
     if not native_build(turn):
@@ -370,7 +402,7 @@ def native_terminal(turn, *, before_sequence=None):
     if before_sequence is not None:
         turn = turn.model_copy(update={'graph_context_execution': turn.graph_context_execution.model_copy(
             update={'events':turn.graph_context_execution.events[:before_sequence]})})
-    approval_terminal = native_approval_terminal(turn) or native_conversation_terminal(turn)
+    approval_terminal = native_work_terminal(turn)
     if approval_terminal is not None:
         return approval_terminal
     if current_selection(turn).operation != 'finish_retrieval':
@@ -379,7 +411,7 @@ def native_terminal(turn, *, before_sequence=None):
 
 
 def validate_prepared_selection(turn,auth,request_text,trace,terminal=None, *, policy=None,
-                                retained_proof=False):
+                                retained_proof=False, pending_initial_request_json=None):
     """One exact acquired-catalog input check, before dispatch and on acceptance."""
     from .source_writer_output import strict_json
     execution = turn.graph_context_execution
@@ -397,8 +429,11 @@ def validate_prepared_selection(turn,auth,request_text,trace,terminal=None, *, p
         expected_terminal = native_terminal(turn,before_sequence=auth.sequence)
         if terminal is not None and canonical(terminal) != canonical(expected_terminal):
             raise ValueError('Selection terminal differs from acknowledged native finish')
-        expected_state = semantic_state(turn,catalog)
-        if retained_proof and canonical(request['state']) != canonical(expected_state):
+        from .native_context import BuildPendingContextReceiptV1
+        pending = type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+        expected_state = (pending_semantic_state(turn, catalog, pending_initial_request_json) if pending
+                          else semantic_state(turn,catalog))
+        if retained_proof and not pending and canonical(request['state']) != canonical(expected_state):
             expected_state = semantic_state(turn, catalog, retained_raw_markdown=True)
     else:
         # Retained old prepared bytes, including initial-V2 turns, keep their
@@ -444,7 +479,7 @@ def validate_selection_proof(turn, selection, trace, proof):
     if selection.mode == "empty_catalog":
         if catalog or proof:
             raise ValueError("Empty catalog settlement cannot manufacture a provider response")
-        scoped_terminal = native_approval_terminal(turn) or native_conversation_terminal(turn)
+        scoped_terminal = native_work_terminal(turn)
         if native_build(turn) and (scoped_terminal is not None
                 or selection.terminal_disposition.get("reason") in {
                     "native_variant_approval_requires_no_retrieval", "native_lore_page_from_conversation",
@@ -453,7 +488,10 @@ def validate_selection_proof(turn, selection, trace, proof):
             raise ValueError("Empty scoped catalog must bind to the acknowledged work decision")
         judgments, historical, semantic = {}, {}, False
     else:
-        if not catalog or not isinstance(proof, dict) or set(proof) != {"request_json", "response_json"}:
+        from .native_context import BuildPendingContextReceiptV1
+        pending = type(receipt) is BuildPendingContextReceiptV1
+        proof_keys = {'request_json', 'response_json', 'initial_request_json'} if pending else {'request_json', 'response_json'}
+        if not catalog or not isinstance(proof, dict) or set(proof) != proof_keys:
             raise ValueError("Nonempty selection requires exact producer proof")
         request_text, response_text = proof["request_json"], proof["response_json"]
         # Request capacity belongs to its frozen accounting policy. The response
@@ -468,6 +506,7 @@ def validate_selection_proof(turn, selection, trace, proof):
         request,verified_catalog=validate_prepared_selection(
             turn, auth, request_text, trace, selection.terminal_disposition,
             policy=selection.policy, retained_proof=True,
+            pending_initial_request_json=proof['initial_request_json'] if pending else None,
         )
         if verified_catalog!=catalog:
             raise ValueError('Selection acquired catalog changed')

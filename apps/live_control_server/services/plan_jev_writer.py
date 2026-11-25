@@ -224,11 +224,17 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame, *,
         compact_plan_editor_prose=compact_plan_editor_prose,
         compact_plan_graph_qualifications=compact_plan_graph_qualifications,
         deduplicate_plan_recap_prose=deduplicate_plan_recap_prose, **work_commitment)
-    adapter.turn=_require_fresh_execution_append(adapter.fence.append('authorize_native_writer','authorization',event,
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    pending = type(adapter._broker_receipt()) is BuildPendingContextReceiptV1
+    adapter.turn=_require_fresh_execution_append(adapter.fence.append(
+        'authorize_pending_build_writer' if pending else 'authorize_native_writer','authorization',event,
         expected_rules_revision=rules.native.record.revision,prepared_request_json=prepared.body.decode(),work_proof=proof,
+        **({'authorize_current_access': adapter.pending_build_access} if pending else {}),
         **({'authoring_reservation':{'action_id':rules.authoring[0].action_id,'capture':rules.authoring[1]}}
             if rules.authoring is not None else {})))
     adapter.last_provider_attempt_id=event.provider_attempt_id
+    if pending:
+        adapter._prepared_build_writer = prepared
     view=dict(provider='openai',model=model,apiMode='responses',payloadJson=prepared.body.decode(),
         payloadSha256=prepared.body_sha256,payloadUtf8Bytes=prepared.body_size)
     rules.authorize(view)
@@ -386,7 +392,11 @@ class PlanJevWriter:
         native_budget = getattr(adapter.fence.turn.graph_context_execution.policy,'writer_context_budget',None)
         self.output_reserve = native_budget.output_reserve_tokens if native_budget is not None else adapter.budget['outputReserveTokens']
         self.context_limit = native_budget.context_limit_tokens if native_budget is not None else adapter.budget['contextLimitTokens']
-        self.shared = type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+        self.shared = (type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+            or (type(adapter.fence.turn.graph_context_receipt), type(adapter.fence.turn.graph_context_execution))
+                == (BuildPendingContextReceiptV1, BuildPendingExecutionV1))
         from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
         rule_frame = model_rules_frame(rules.frame())
         self.projection = None

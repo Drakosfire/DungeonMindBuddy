@@ -513,11 +513,13 @@ def _turn_from_row(
     from .native_statement_answer import NativeStatementCompletionV1
     from .types import NativeStatementExecutionV1, PlanSourceContextReceiptV1, PlanSourceExecutionV1, PlanNativeContextReceiptV1, PlanNativeExecutionV1
 
-    from .native_context import SurfaceNativeContextReceiptV1
-    from .native_execution import SurfaceNativeExecutionV1
+    from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
     from .native_completion import SurfaceNativeCompletionV1
 
     column_codecs = (
+        ("graph_context_receipt", BuildPendingContextReceiptV1),
+        ("graph_context_execution", BuildPendingExecutionV1),
         ("graph_context_receipt", SurfaceNativeContextReceiptV1),
         ("graph_context_execution", SurfaceNativeExecutionV1),
         ("completion", SurfaceNativeCompletionV1),
@@ -532,7 +534,8 @@ def _turn_from_row(
         ("graph_context_execution", NativeStatementExecutionV1),
         ("completion", NativeStatementCompletionV1),
     )
-    shared_models = (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1)
+    shared_models = (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1,
+                     BuildPendingContextReceiptV1, BuildPendingExecutionV1)
     integrity_models = (*shared_models, NativeStatementContextReceiptV1,
                         NativeStatementExecutionV1, NativeStatementCompletionV1)
     matched_codecs = {
@@ -553,7 +556,7 @@ def _turn_from_row(
             try:
                 fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
             except ValidationError as exc:
-                if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1, SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1):
+                if model in integrity_models:
                     raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
                 raise
     shared_turn = None
@@ -1159,7 +1162,7 @@ def _cached_build_dialogue_item(conn, row, references, proposals):
     execution = row["graph_context_execution"]
     cacheable = (row["answer_composition_kind"] == "base" and row["status"] == "completed"
                  and isinstance(completion, dict) and completion.get("schema") == "dmb_surface_native_completion_v1"
-                 and isinstance(execution, dict) and execution.get("schema") == "dmb_surface_native_execution_v1")
+                 and isinstance(execution, dict) and execution.get("schema") in {"dmb_surface_native_execution_v1", "dmb_build_pending_execution_v1"})
     if not cacheable:
         return _build_dialogue_item(_turn_from_row(conn, row, references=references, proposal_payloads=proposals))
     # The underlying codec is pure for this completion family. Include every
@@ -1189,6 +1192,26 @@ def list_build_dialogue(conn, world_id: str, conversation_id: UUID) -> list[dict
     return [item for row in rows if (item := _cached_build_dialogue_item(
         conn, row, references[row["turn_id"]], proposals,
     )) is not None]
+
+
+def list_pending_build_dialogue(conn, world_id: str, conversation_id: UUID) -> list[dict[str, Any]]:
+    """Complete eligible dialogue, preserving the existing bounded row readers.
+
+    The service owns one read-only repeatable snapshot. Pagination is a transfer
+    bound, never a recent-context limit; every prior slot is examined once.
+    """
+    pages, before = [], None
+    while True:
+        rows, references, proposals, more = _turn_page_inputs(
+            conn, world_id, conversation_id, limit=100, before_sequence=before, lookahead=True)
+        if not rows:
+            break
+        pages.append([item for row in rows if (item := _cached_build_dialogue_item(
+            conn, row, references[row['turn_id']], proposals)) is not None])
+        if not more:
+            break
+        before = rows[0]['sequence']
+    return [item for page in reversed(pages) for item in page]
 
 
 def list_retained_build_turns(conn, current):
@@ -1236,8 +1259,14 @@ def list_retained_build_turns(conn, current):
     anchor = rows[0]["retained_anchor_sequence"] if rows else None
     for row in rows:
         row.pop("retained_anchor_sequence")
-    references = _turn_reference_page(conn, rows)
-    turns = tuple(_turn_from_row(conn, row, references=references[row["turn_id"]]) for row in rows)
+    # Preserve the bounded reference reader without truncating retained history.
+    decoded = []
+    for offset in range(0, len(rows), 100):
+        page = rows[offset:offset + 100]
+        references = _turn_reference_page(conn, page)
+        decoded.extend(_turn_from_row(conn, row, references=references[row["turn_id"]])
+                       for row in page)
+    turns = tuple(decoded)
     from .retained_conversation import admission
     seed = admission(turns[0].graph_context_execution) if anchor is not None else None
     if anchor is not None and (not turns or turns[0].sequence != anchor or seed is None):

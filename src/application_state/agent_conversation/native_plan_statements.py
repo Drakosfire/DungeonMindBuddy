@@ -250,12 +250,19 @@ def producing_reads(turn, authorization, raw):
 
 def citation(receipt, authorization, read, *, index):
     from .native_statement_answer import NativeStatementClauseCitationV1
-    authority, support = receipt.native_query.authority, read.support
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import pending_citation_identity
+        managed_world_id, native_world_id, read_revision_id = pending_citation_identity(receipt)
+    else:
+        authority = receipt.native_query.authority
+        managed_world_id, native_world_id, read_revision_id = authority.managed_world_id, authority.native_world_id, authority.revision_id
+    support = read.support
     return NativeStatementClauseCitationV1(segment_index=index, statement_id=support.statement_id,
         provider_attempt_id=authorization.provider_attempt_id, envelope_sha256=authorization.envelope_sha256,
         context_receipt_sha256=receipt.context_receipt_sha256,
-        managed_world_id=authority.managed_world_id, native_world_id=authority.native_world_id,
-        campaign_id=support.payload['clause']['campaign'], read_revision_id=authority.revision_id,
+        managed_world_id=managed_world_id, native_world_id=native_world_id,
+        campaign_id=support.payload['clause']['campaign'], read_revision_id=read_revision_id,
         publication_revision_id=support.publication_receipt['published_revision_id'],
         source_artifact_id=support.source_artifact_id, source_revision_id=support.source_revision_id,
         body_sha256=support.source_body_sha256, start_byte=support.clause_start_byte,

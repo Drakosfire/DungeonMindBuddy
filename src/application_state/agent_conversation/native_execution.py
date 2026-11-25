@@ -16,6 +16,7 @@ from application_state.build_proposal.image_move_capture import BuildImageMoveCa
 from . import types as t
 from .build_intentional_response import Capabilities, known_semantics
 from .build_related_pages import PagePointer
+from .build_source_free import BuildAppPageCatalogObservedV1
 from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
     SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
@@ -260,6 +261,38 @@ class SurfaceNativeExecutionPolicyV1(Strict):
         return self
 
 
+class BuildPendingExecutionPolicyV1(Strict):
+    """Fresh Build policy with an observation commitment, not source authority."""
+    policy_version: Literal["build_pending_execution_v1"] = "build_pending_execution_v1"
+    action: NativeBuildActionV1
+    source_observation_sha256: Digest
+    provider_roles: t.GraphControllerWriterRolesV1
+    provider_input_accounting: t.GraphExecutionAccountingV1
+    max_provider_attempts: int | None = Field(ge=1, strict=True)
+    max_total_provider_input_tokens: int | None = Field(ge=1, strict=True)
+    max_total_provider_output_tokens: int | None = Field(ge=1, strict=True)
+    controller_continuation_accounting: t.BuildControllerContinuationAccountingV4 | t.BuildControllerContinuationAccountingV3
+    writer_context_budget: t.BuildWriterContextBudgetV1 | NativeWriterEstimatedBudgetV1
+
+    @model_validator(mode="after")
+    def fresh_observed_build(self):
+        action = self.action
+        if (action.intent.reviewed_step is not None
+                or getattr(action.intent, "authored_references", None) is not None):
+            raise ValueError("Pending Build policy requires fresh work without authored references")
+        if action.related_page_catalog is not None:
+            raise ValueError("Pending Build policy cannot capture an acquired related-page catalog")
+        if (self.provider_roles.controller.identity() != ("typesafe", "jev-1.14.0", "typesafe_decision")
+                or self.provider_roles.writer.identity() != self.writer_context_budget.identity()):
+            raise ValueError("Pending Build roles differ from their frozen role/accounting owners")
+        if isinstance(self.writer_context_budget, NativeWriterEstimatedBudgetV1):
+            counter = self.controller_continuation_accounting
+            if (self.writer_context_budget.estimator != counter.policy
+                    or self.writer_context_budget.tokenizer_version != counter.tokenizer_version):
+                raise ValueError("Pending Build writer accounting differs from its controller counter")
+        return self
+
+
 class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
     """One native producing frame and exact read set for every new surface.
 
@@ -457,6 +490,46 @@ class NativeBuildQuerySettledV1(Strict):
     query: NativeGraphQueryV4
 
 
+class BuildAppPageSelectionAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
+    """A distinct later App metadata decision, never reopening initial work."""
+    kind: Literal["build_app_page_selection_authorized_v1"] = "build_app_page_selection_authorized_v1"
+    context_phase: Literal["navigate"] = "navigate"
+    catalog_event_id: UUID
+    admitted_from_revision: int = Field(ge=1, strict=True)
+
+
+class NativeBuildSourceSettledV1(Strict):
+    """Full source preparation result for the distinct pending Build receipt.
+
+    Structural closure only. The APP append owner must additionally join the
+    exact request/work/pointer, current access and one-way execution prefix.
+    """
+    kind: Literal["native_build_source_settled_v1"] = "native_build_source_settled_v1"
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    pending_context_receipt_sha256: Digest
+    admitted_from_revision: int = Field(ge=1, strict=True)
+    work_event_id: UUID
+    source_authority: t.NativeCorpusAuthorityV1
+    native_query: NativeGraphQueryV4 | t.NativePlanQueryUnavailableV1
+
+    @model_validator(mode="after")
+    def same_prepared_source(self):
+        source, query = self.source_authority, self.native_query
+        if type(query) is t.NativePlanQueryUnavailableV1:
+            if query.managed_world_id != source.managed_world_id:
+                raise ValueError("Settled Build query belongs to another managed World")
+        else:
+            authority = query.authority
+            if (query.authored_targets or authority.scope_mode != "world" or authority.campaign_id is not None
+                    or authority.session_id is not None
+                    or any(getattr(authority, key) != getattr(source, key) for key in (
+                        "managed_world_id", "native_world_id", "binding_version", "revision_id",
+                        "domain_ref", "profile_ref", "acquisition_epoch"))):
+                raise ValueError("Settled Build query differs from its prepared source authority")
+        return self
+
+
 def effective_native_query(context, execution):
     """Return the query admitted by this prefix, or the typed pending commitment."""
     query = context.native_query
@@ -549,6 +622,176 @@ _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelecte
 
 
 NATIVE_EXECUTION_EVENT_LIMIT = 2048
+
+
+from .build_pending_app_coverage import (BuildAppCoverageAuthorizedV1, BuildAppCoverageDecidedV1,
+    validate_coverage_authorization, validate_coverage_decision)
+
+
+# App metadata/selected-page records are distinct from native acquisition.
+# Native acquisition/terminal owners still need integration; the pending writer
+# is confined to its admitted retained closure and empty acquired catalog.
+BuildPendingPrefixEventV1 = Annotated[
+    t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
+    | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
+    | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
+    | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1
+    | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
+    | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
+    | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1
+    | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
+    | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
+    | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1,
+    Field(discriminator="kind"),
+]
+
+
+class BuildPendingExecutionV1(Strict):
+    """Pending Build execution; structural closure grants no IO authority."""
+    schema_: Literal["dmb_build_pending_execution_v1"] = Field(
+        default="dmb_build_pending_execution_v1", alias="schema")
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    policy: BuildPendingExecutionPolicyV1
+    events: list[BuildPendingPrefixEventV1] = Field(max_length=NATIVE_EXECUTION_EVENT_LIMIT)
+
+    @model_validator(mode="after")
+    def observed_prefix(self):
+        BuildPendingExecutionPolicyV1.model_validate_json(self.policy.model_dump_json(by_alias=True))
+        expected = t.canonical_sha256(dict(schema=self.schema_,
+            context_receipt_sha256=self.context_receipt_sha256,
+            policy=self.policy.model_dump(mode="json", by_alias=True)))
+        if self.execution_policy_sha256 != expected:
+            raise ValueError("Pending Build execution policy differs from its commitment")
+        t.validate_provider_execution(self)
+        from .build_intentional_response import validate_native_action_events
+        validate_native_action_events(self)
+        from .build_source_free import validate_pending_work_records
+        validate_pending_work_records(self)
+        settled = False
+        app_catalog_observed = False
+        work_selected = False
+        app_catalog = page_controller = page_outcome = page_selection = None
+        page_reads = set()
+        writer = None
+        for event in self.events:
+            if type(event) in (BuildAppPageCatalogObservedV1, BuildAppPageSelectionAuthorizedV1,
+                    t.RelatedPagesSelection, t.RelatedPageRead) and any(
+                    type(prior) is BuildAppCoverageAuthorizedV1 for prior in self.events[:event.sequence]):
+                raise ValueError('App coverage freezes its exact saved-page acquisition')
+            if writer is not None and not (type(event) in (t.ProviderOutcomeEventV1, t.CompletionBindingEventV1)
+                    and event.provider_attempt_id == writer.provider_attempt_id):
+                raise ValueError('Pending writer closes all further acquisition and dispatch')
+            if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+                if type(event) is NativeBuildWriterAuthorizedV2:
+                    from .build_source_free import validate_pending_writer_authorization
+                    validate_pending_writer_authorization(self, event)
+                    writer = event
+                    continue
+                elif type(event) is t.ProviderAttemptAuthorizedEventV5 and event.context_phase == 'writer_selection':
+                    from .build_source_free import validate_pending_writer_selection_authorization
+                    validate_pending_writer_selection_authorization(self, event)
+                elif type(event) is NativeRetrievalAuthorizedV1:
+                    if (not settled or event.build_context is None
+                            or (event.provider, event.model, event.api_mode)
+                            != self.policy.provider_roles.controller.identity()):
+                        raise ValueError('Pending retrieval requires its settled source and actual Build controller')
+                elif type(event) is BuildAppCoverageAuthorizedV1:
+                    if settled:
+                        raise ValueError('App coverage cannot follow native source preparation')
+                    validate_coverage_authorization(self, event)
+                elif type(event) is BuildAppPageSelectionAuthorizedV1:
+                    if (settled or app_catalog is None or page_selection is not None
+                            or event.catalog_event_id != app_catalog.event_id
+                            or page_controller is not None and page_outcome != "known_not_sent"
+                            or (event.provider, event.model, event.api_mode)
+                            != self.policy.provider_roles.controller.identity()):
+                        raise ValueError("App page controller requires its unique unresolved captured catalog phase")
+                    page_controller, page_outcome = event, None
+                elif (settled or work_selected or (event.provider, event.model, event.api_mode)
+                        != self.policy.provider_roles.controller.identity()):
+                    raise ValueError("Pending controller authorization must precede work selection")
+                if (event.included_assertion_ids or event.included_relationship_ids
+                        or event.included_evidence_ref_ids or event.included_graph_event_ids
+                        or event.included_source_read_event_ids
+                        or getattr(event, "included_source_reuse_event_ids", ())):
+                    raise ValueError("Pending controller cannot include unacquired source evidence")
+            elif type(event) is BuildAppCoverageDecidedV1:
+                validate_coverage_decision(self, event)
+            elif type(event) is t.BuildRequestedWorkResolutionV1:
+                work_selected = True
+            elif type(event) is t.CompletionBindingEventV1:
+                from .build_source_free import validate_pending_completion_binding
+                validate_pending_completion_binding(self, event)
+            elif type(event) is t.BuildWriterEvidenceSelectionV2:
+                from .build_source_free import validate_pending_writer_selection
+                validate_pending_writer_selection(self, event)
+            elif type(event) is t.BuildPriorBodyEvidenceAdmittedV3:
+                from .build_source_free import validate_pending_retained_admission
+                validate_pending_retained_admission(self, event)
+            elif type(event) is BuildAppPageCatalogObservedV1:
+                from .build_source_free import pending_source_work
+                if app_catalog_observed or settled:
+                    raise ValueError("Pending App catalog may be observed once before native settlement")
+                work = pending_source_work(self.model_copy(update={'events': self.events[:event.sequence]}))
+                if (event.work_event_id != work.event_id
+                        or event.pending_context_receipt_sha256 != self.context_receipt_sha256):
+                    raise ValueError("Pending App catalog differs from its evidence-seeking work")
+                app_catalog_observed = True
+                app_catalog = event
+            elif type(event) is t.ProviderOutcomeEventV1:
+                if page_controller is not None and event.provider_attempt_id == page_controller.provider_attempt_id:
+                    page_outcome = event.outcome
+            elif type(event) is t.RelatedPagesSelection:
+                if (page_selection is not None or page_controller is None or page_outcome != "response_received"
+                        or event.controller_attempt_id != page_controller.provider_attempt_id
+                        or event.controller_envelope_sha256 != page_controller.envelope_sha256
+                        or not set(event.document_ids).issubset({page.document_id for page in app_catalog.pages})):
+                    raise ValueError("App page selection requires its acknowledged catalog controller and exact choices")
+                page_selection = event
+            elif type(event) is t.RelatedPageRead:
+                offered = {page.document_id: page for page in app_catalog.pages} if app_catalog else {}
+                if (page_selection is None or event.selection_event_id != page_selection.event_id
+                        or event.page.document_id not in page_selection.document_ids
+                        or event.page.document_id in page_reads
+                        or event.page.document_id not in offered
+                        or any(getattr(event.page, key) != getattr(offered[event.page.document_id], key)
+                               for key in PagePointer.model_fields)):
+                    raise ValueError("App page read differs from its exact selected saved pointer")
+                page_reads.add(event.page.document_id)
+            elif type(event) is NativeBuildSourceSettledV1:
+                from .build_source_free import pending_source_work
+                pending_source_work(self.model_copy(update={'events': self.events[:event.sequence]}))
+                work = [e for e in self.events[:event.sequence]
+                        if type(e) is t.BuildRequestedWorkResolutionV1]
+                if (settled or len(work) != 1
+                        or event.pending_context_receipt_sha256 != self.context_receipt_sha256
+                        or event.work_event_id != work[0].event_id
+                        or work[0].resolution.get("barrier") is not None
+                        or work[0].resolution.get("source_scope") not in {"source_lookup", "uncertain"}
+                        or work[0].requested_work in {"review_blank_lore_page", "clarify_request", "clarify_creation"}):
+                    raise ValueError("Source settlement requires its unique evidence-seeking work decision")
+                if (isinstance(event.native_query, NativeGraphQueryV4)
+                        and event.native_query.question != self.policy.action.intent.message):
+                    raise ValueError("Settled query changed the pending author request")
+                settled = True
+            elif type(event) in (NativeRetrievalSelectedV1,
+                    t.NativeDirectSourceAuthorizedV1, t.NativeDirectSourceObservedV1,
+                    t.NativeBodySearchAuthorizedV1, t.NativeBodySearchObservedV1,
+                    t.NativeBodyReadAuthorizedV1, t.NativeBodyReadObservedV1,
+                    t.NativePlanStatementReadAuthorizedV1, t.NativePlanStatementReadObservedV1,
+                    t.NativePlanAssertionReadAuthorizedV1, t.NativePlanAssertionReadObservedV1):
+                if not settled:
+                    raise ValueError('Pending native acquisition cannot precede its source settlement')
+        if settled:
+            from .native_retrieval import validate_decision_phases
+            validate_decision_phases(self)
+            settlement = next(e for e in self.events if type(e) is NativeBuildSourceSettledV1)
+            from .native_plan_statements import validate_selected_record_events
+            validate_selected_record_events(settlement.native_query, self)
+            from .native_corpus import validate_native_body_events
+            validate_native_body_events(self)
+        return self
 
 
 class SurfaceNativeExecutionV1(Strict):
