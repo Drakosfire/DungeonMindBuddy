@@ -2233,13 +2233,14 @@ def test_pending_harness_execute_routes_to_pending_completion_before_legacy_acqu
 
 
 @_pending_test_contextmanager
-def pending_source_runtime_case(monkeypatch, *, with_source=True):
+def pending_source_runtime_case(monkeypatch, *, with_source=True, local_auth=None):
     from types import SimpleNamespace
     from apps.live_control_server.services.agent_turn_service import _ClaimFence
     from apps.live_control_server.services.build_pending_source import PendingBuildSourcePreparation
     from tests.test_build_source_free_routing import settled_source, prepared_query
     state, _ = settlement_harness(monkeypatch, with_source=with_source)
     state.source_prepares, state.query_searches, state.query_reopens = [], [], []
+    state.acquisition_epoch = 1
     state.source_change = state.query_change = False
     state.revoke_during_prepare = False
     observed = state.turn.graph_context_receipt.source_observation
@@ -2253,7 +2254,8 @@ def pending_source_runtime_case(monkeypatch, *, with_source=True):
         if state.revoke_during_prepare:
             state.denied = True
         source = settled_source(managed_world_id=world,
-            revision_id='new-head-must-not-substitute' if state.source_change else revision_id)
+            revision_id='new-head-must-not-substitute' if state.source_change else revision_id,
+            acquisition_epoch=state.acquisition_epoch)
         return SimpleNamespace(authority=source), source
     def query(turn, context):
         assert state.depth == 0
@@ -2264,7 +2266,11 @@ def pending_source_runtime_case(monkeypatch, *, with_source=True):
         assert state.depth == 0
         state.query_reopens.append(query)
         return SimpleNamespace(query=query.model_copy(update={'question': 'changed'}) if state.query_change else query)
-    principal = SimpleNamespace(role='gm', managed_world_id=state.turn.world_id)
+    if local_auth is None:
+        principal = SimpleNamespace(role='gm', managed_world_id=state.turn.world_id)
+    else:
+        from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+        principal = NativeGraphPrincipal(subject='local-dogfood', role='gm', auth_method=local_auth)
     owner = PendingBuildSourcePreparation(world_id=state.turn.world_id, principal=principal,
         app_access=state.authorize, prepare_source=prepare, resolve_query=query,
         resolve_identity=lambda world: state.current_binding, reopen_query=reopen)
@@ -2358,3 +2364,47 @@ def test_pending_source_runtime_reopening_refuses_mutation_revocation_or_expiry_
             prepare_pending_native_source(adapter)
         assert adapter.native_source_authority == source and adapter.native_query == query
         assert len(state.query_searches) == 1 and state.persisted == 1
+
+
+@pytest.mark.parametrize('auth_method', ['local_operator', 'local_session'])
+def test_pending_source_runtime_preserves_actual_local_principal_and_live_app_scope(monkeypatch, auth_method):
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch, local_auth=auth_method) as (state, adapter, owner):
+        assert not hasattr(owner.principal, 'managed_world_id')
+        assert prepare_pending_native_source(adapter)
+        assert len(state.query_searches) == 1 and state.access_calls == 2
+        state.denied = True
+        with pytest.raises(ApplicationStateError):
+            prepare_pending_native_source(adapter)
+        assert len(state.query_searches) == 1 and state.persisted == 1
+
+
+@pytest.mark.parametrize('first_epoch,next_epoch,accepted', [(1, 2, True), (2, 1, False)])
+def test_pending_source_runtime_reopening_preserves_retained_authority_with_monotonic_fresh_epoch(monkeypatch, first_epoch, next_epoch, accepted):
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, owner):
+        state.acquisition_epoch = first_epoch
+        assert prepare_pending_native_source(adapter)
+        original = adapter.native_source_authority
+        state.acquisition_epoch = next_epoch
+        if accepted:
+            assert prepare_pending_native_source(adapter)
+            assert adapter.native_corpus_context.authority.acquisition_epoch == next_epoch
+            assert adapter.native_source_authority == original
+            assert adapter.native_source_authority.acquisition_epoch == first_epoch
+        else:
+            with pytest.raises(ValueError, match='original source authority'):
+                prepare_pending_native_source(adapter)
+        assert len(state.query_searches) == 1 and state.persisted == 1
+
+
+def test_pending_source_runtime_optional_hosted_world_binding_cannot_authorize_another_world(monkeypatch):
+    from types import SimpleNamespace
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, owner):
+        owner.principal = SimpleNamespace(role='gm', managed_world_id='foreign-world')
+        with pytest.raises(ApplicationStateError):
+            prepare_pending_native_source(adapter)
+        assert not state.source_prepares and not state.query_searches and state.persisted == 0

@@ -13,7 +13,7 @@ class PendingBuildSourcePreparation:
     def __init__(self, *, world_id, principal, app_access, prepare_source, resolve_query,
                  resolve_identity=None, reopen_query=None):
         if (not world_id or principal is None or principal.role != 'gm'
-                or principal.managed_world_id != world_id or not callable(app_access)
+                or getattr(principal, 'managed_world_id', world_id) != world_id or not callable(app_access)
                 or not callable(prepare_source) or not callable(resolve_query)):
             raise ValueError('Pending source preparation requires its authenticated host owners')
         if resolve_identity is None:
@@ -39,7 +39,7 @@ class PendingBuildSourcePreparation:
     def _authorize(self, conn, turn, prepared):
         if (type(turn.graph_context_receipt) is not BuildPendingContextReceiptV1
                 or turn.world_id != self.world_id or self.principal.role != 'gm'
-                or self.principal.managed_world_id != self.world_id
+                or getattr(self.principal, 'managed_world_id', self.world_id) != self.world_id
                 or self.app_access(conn, turn, None) is not True):
             return False
         observed = turn.graph_context_receipt.source_observation

@@ -667,3 +667,13 @@ reopening, mutation/revocation, CAS/claim/pointer/leaf and expiry failures. Fake
 transactions remain diagnostics, not PostgreSQL concurrency/rollback evidence.
 Writer/terminal, retained evidence, readers/fence and full-Send/signed-in proof
 remain the merge and activation gates.
+
+Independent source-stage review caught direct managed_world_id access on the
+local NativeGraphPrincipal, which has no World field. The owner now preserves
+existing public-source semantics: an optional principal World restriction must
+match when present; current App authorization plus the captured/current binding
+scopes local principals. Actual local_operator and local_session controls cover
+preparation and live access refusal; foreign bound principals remain refused.
+Retained reopening deliberately keeps the original stored authority/query while
+the refreshed source context can carry a greater acquisition epoch. A smaller
+fresh epoch is refused before publication, and neither case repeats search.
