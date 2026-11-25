@@ -45,3 +45,5 @@
 .buddy-prompt__collapse { display: none; margin-inline-start: .75rem; font-size: .8rem; font-weight: normal; }
 .buddy-prompt__disclosure[open] > summary > .buddy-prompt__collapse { display: inline; }
 .buddy-prompt__changes pre { white-space: pre-wrap; overflow-wrap: anywhere; max-inline-size: 100%; }
+
+.buddy-prompt__readable pre { max-height: none; overflow: visible; }

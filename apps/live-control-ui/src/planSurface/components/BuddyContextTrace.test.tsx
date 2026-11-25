@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BuddyContextTrace, type BuddyTurnContextTrace } from './BuddyContextTrace'
+import { TraceTabContext } from './ConversationReplyDetails'
 import {buddyTraceText} from './buddyTraceText'
 import type { BuddyTraceGraphResult, BuddyTraceSourcePassage } from '../../api/buddyContextTraceTypes'
 
@@ -326,3 +327,10 @@ it('keeps selected unread references and prepared writer input distinct from pro
  expect(screen.getByText('Graph references · selected, unread')).toBeInTheDocument();expect(screen.getByText('Graph references · prepared writer input')).toBeInTheDocument();expect(screen.getByText(/See provider lifecycle records for transmission and response/)).toBeInTheDocument();
  expect(buddyTraceText(captured)).toContain('writer-attempt');expect(buddyTraceText(captured)).toContain('current-revision');expect(screen.queryByText('response_received')).toBeNull();
 });
+it('shows recorded execution activity immediately in the timeline tab', () => {
+  render(<TraceTabContext.Provider value="timeline"><BuddyContextTrace replyDetails ownerActive={false}
+    trace={trace([{kind:'provider_call', sequence:0, elapsed_ms:12, provider:'example', model:'jev', outcome:'response_received'}])} />
+  </TraceTabContext.Provider>)
+  expect(screen.getByRole('list', {name:'Recorded activity'})).toBeVisible()
+  expect(screen.getByText('jev')).toBeVisible()
+})
