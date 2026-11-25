@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from apps.live_control_server.native_graph_demo import NativeGraphDemoService
-from apps.live_control_server.routes import index_graph, live, workspace_documents
+from apps.live_control_server.routes import index_graph, live, workspace_documents, play_runs
 from apps.live_control_server.services import index_graph as graph_service
 from apps.live_control_server.services.hosted_auth import install_hosted_request_boundary
 from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
@@ -20,6 +20,16 @@ def test_guest_plan_routes_are_default_off(monkeypatch):
     assert matches_guest_build_route("GET", "/api/live/workspace-documents/world-plans")
     assert matches_guest_build_route("POST", "/api/live/workspace-documents/world-plans")
     assert not matches_guest_build_route("DELETE", "/api/live/workspace-documents/world-plans")
+
+
+def test_guest_play_routes_require_both_flags(monkeypatch):
+    from apps.live_control_server.services.guest_build_access import matches_guest_build_route
+    monkeypatch.delenv("DMB_HOSTED_GUEST_PLAN_ENABLED", raising=False)
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAY_ENABLED", "1")
+    assert not matches_guest_build_route("GET", "/api/live/world-play-runs/v2")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
+    assert matches_guest_build_route("GET", "/api/live/world-play-runs/v2")
+    assert not matches_guest_build_route("DELETE", "/api/live/world-play-runs/v2")
 
 
 @pytest.fixture
@@ -44,6 +54,7 @@ def guests(application_state_dsn, monkeypatch, tmp_path):
     app.include_router(index_graph.router)
     app.include_router(workspace_documents.router)
     app.include_router(live.router)
+    app.include_router(play_runs.router)
     install_hosted_request_boundary(app)
     async def signed_out(_request):
         return None
@@ -59,6 +70,103 @@ def guests(application_state_dsn, monkeypatch, tmp_path):
         assert world.status_code == 200
         contexts.append((client, csrf, world.json()["world_id"]))
     return contexts, repo, source
+
+
+def test_guest_play_run_is_bound_to_session(guests, monkeypatch):
+    from application_state.content.service import create_world_plan, commit_plan
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN, gate_progress
+    from apps.live_control_server.services import guest_build_access
+    from apps.live_control_server.services.play_run_edition_structure import structure_signature
+    from uuid import uuid4
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAY_ENABLED", "1")
+    contexts, _, _ = guests
+    (first, token, world), (second, other_token, other_world) = contexts
+    plan = create_world_plan(title="Guest play", world_id=world)
+    plan, revision = commit_plan(str(plan.work_object_id), V2_SOURCE_MARKDOWN,
+                                 expected_world_id=world, expected_revision=plan.object_revision)
+    run = str(uuid4())
+    path = f"/api/live/world-play-runs/v2/{run}"
+    scenes = structure_signature(V2_SOURCE_MARKDOWN)["membership"]["scenes"]
+    body = {"schema_version": "dmb_world_session_create_v1", "playable_artifact_id": str(plan.work_object_id),
+            "expected_playable_revision": revision.revision_n, "expected_playable_work_revision_id": str(revision.work_revision_id),
+            "expected_playable_content_sha256": revision.content_sha256, "entry_scene_id": scenes[0]["scene_id"],
+            "encounters": [{"scene_id": scene["scene_id"], "template": None} for scene in scenes]}
+    headers = {"X-DMB-Index-Graph-CSRF": token}
+    source = {key: body[key] for key in ("playable_artifact_id", "expected_playable_revision", "expected_playable_work_revision_id", "expected_playable_content_sha256")}
+    revision_read = first.get(f"/api/live/workspace-documents/{plan.work_object_id}/committed-revision")
+    assert revision_read.status_code == 200, revision_read.text
+    preview = first.post("/api/live/world-play-runs/v2/preparation", params={"world_id": world}, headers=headers, json=source)
+    assert preview.status_code == 200, preview.text
+    assert first.put(path, params={"world_id": world}, json=body).status_code == 403
+    assert first.put(path, params={"world_id": world}, headers={**headers, "Origin": "https://bad.example"}, json=body).status_code == 403
+    assert first.get(path, params=[("world_id", world), ("world_id", world)]).status_code in (400, 403)
+    assert second.put(path, params={"world_id": world}, headers={"X-DMB-Index-Graph-CSRF": other_token}, json=body).status_code == 403
+    created = first.put(path, params={"world_id": world}, headers=headers, json=body)
+    assert created.status_code == 200, created.text
+    monkeypatch.setattr(guest_build_access, "MAX_GUEST_RUNS", 1)
+    assert first.put(path, params={"world_id": world}, headers=headers, json=body).status_code == 200
+    assert first.put(f"/api/live/world-play-runs/v2/{uuid4()}", params={"world_id": world}, headers=headers, json=body).status_code == 409
+    progress = first.put(f"{path}/progress", params={"world_id": world}, headers=headers,
+                         json={"expected_run_revision": 1, "progress": gate_progress().model_dump(mode="json")})
+    assert progress.status_code == 200, progress.text
+    assert progress.json()["progress"]["selections"]["choice:route"] == "option:fire"
+    assert first.put("/api/live/world-play-runs/v2/active", params={"world_id": world}, headers=headers,
+                     json={"run_id": run}).status_code == 200
+    reopened = first.get(path, params={"world_id": world})
+    assert reopened.status_code == 200
+    assert reopened.json()["progress"]["selections"]["choice:route"] == "option:fire"
+    assert first.get(f"{path}/reference-manifest", params={"world_id": world}).status_code == 200
+    assert first.get(f"{path}/content", params={"world_id": world}).status_code == 200
+    assert second.get(path, params={"world_id": other_world}).status_code in (403, 404)
+    assert first.post("/api/live/index-graph/reset", headers=headers).status_code == 200
+    assert first.get(path, params={"world_id": world}).status_code in (401, 403)
+
+
+def test_guest_play_creation_serializes_with_reset(guests, application_state_dsn, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from uuid import uuid4
+    import time
+    from application_state.content.service import create_world_plan, commit_plan
+    from application_state.engine import connect
+    from apps.live_control_server.services import guest_build_access
+    from apps.live_control_server.services.play_run_edition_structure import structure_signature
+    from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAY_ENABLED", "1")
+    (client, token, world), _ = guests[0]
+    plan = create_world_plan(title="Guest play", world_id=world)
+    plan, revision = commit_plan(str(plan.work_object_id), V2_SOURCE_MARKDOWN, expected_world_id=world, expected_revision=plan.object_revision)
+    scenes = structure_signature(V2_SOURCE_MARKDOWN)["membership"]["scenes"]
+    body = {"schema_version": "dmb_world_session_create_v1", "playable_artifact_id": str(plan.work_object_id),
+            "expected_playable_revision": revision.revision_n, "expected_playable_work_revision_id": str(revision.work_revision_id),
+            "expected_playable_content_sha256": revision.content_sha256, "entry_scene_id": scenes[0]["scene_id"],
+            "encounters": [{"scene_id": scene["scene_id"], "template": None} for scene in scenes]}
+    headers = {"X-DMB-Index-Graph-CSRF": token}
+    entered, release = Event(), Event()
+    original = guest_build_access.guest_play_capacity
+    def hold(*args, **kwargs):
+        original(*args, **kwargs)
+        entered.set()
+        if not release.wait(10): raise RuntimeError("guest Play race test timed out")
+    monkeypatch.setattr(guest_build_access, "guest_play_capacity", hold)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        create = pool.submit(client.put, f"/api/live/world-play-runs/v2/{uuid4()}", params={"world_id": world}, headers=headers, json=body)
+        try:
+            assert entered.wait(10)
+            reset = pool.submit(client.post, "/api/live/index-graph/reset", headers=headers)
+            deadline = time.monotonic() + 5
+            with connect(application_state_dsn) as connection:
+                while time.monotonic() < deadline:
+                    waiting = connection.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
+                    if waiting: break
+                    time.sleep(0.05)
+            assert waiting > 0
+        finally:
+            release.set()
+        assert create.result(timeout=10).status_code in (200, 401, 403)
+        assert reset.result(timeout=10).status_code == 200
 
 
 def test_guest_create_save_and_reopen_isolated_document(guests):

@@ -14,6 +14,7 @@
       "apps/live-control-ui/src/App.guestEntry.test.tsx",
       "apps/live-control-ui/src/App.guestBuild.test.tsx",
       "apps/live-control-ui/src/App.guestPlan.test.tsx",
+      "apps/live-control-ui/src/App.guestPlay.test.tsx",
       "apps/live-control-ui/src/App.surfaceInteraction.test.tsx",
       "apps/live-control-ui/src/App.test.tsx",
       "apps/live-control-ui/src/guestWorld/guestBuildSession.test.ts",
