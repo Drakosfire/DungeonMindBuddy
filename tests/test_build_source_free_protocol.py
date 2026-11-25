@@ -682,9 +682,14 @@ def pending_page_input_case():
     from application_state.agent_conversation.build_source_free import pending_app_page_selection_input
     receipt, policy, events = pending_page_phase_case()
     history = [{'user': f'User detail {i}', 'assistant': f'Already discussed detail {i}'} for i in range(60)]
-    initial = json.dumps({'model': policy.provider_roles.controller.model, 'state': {
-        'user_question': policy.action.intent.message,
-        'interaction': {'history': history, 'current_page_title': 'Current draft'}}, 'questions': {}})
+    from application_state.agent_conversation.build_intentional_response import semantic_routing_state
+    history[10]['collaboration'] = {'kind': 'lore_page', 'destination': {
+        'instruction': 'Create a page for Maelthor visitor notes', 'title': 'Maelthor visitor notes'}}
+    state = semantic_routing_state(policy.action.intent.message, {
+        'history': history, 'allowed_operations': ['answer_from_sources'],
+        'current_page': {'title': 'Current draft'}, 'page_target': None, 'working_draft': None}, None)
+    history = state['interaction']['history']
+    initial = json.dumps({'model': policy.provider_roles.controller.model, 'state': state, 'questions': {}})
     values = receipt.model_dump(mode='json', by_alias=True)
     values.pop('context_receipt_sha256')
     initial_hash = sha256(initial.encode()).hexdigest()

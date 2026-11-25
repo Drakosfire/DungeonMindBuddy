@@ -351,9 +351,19 @@ def _compile_pending_app_page_selection_input(receipt, execution, initial_reques
         if (not isinstance(row, dict) or set(row) - {'user', 'assistant', 'proposed_work'}
                 or not isinstance(row.get('user'), str) or not isinstance(row.get('assistant'), str)):
             raise ValueError('App page selection requires semantic dialogue rows')
+        proposed = None
+        if 'proposed_work' in row:
+            card = row['proposed_work']
+            # The opening already projected this card; it is not an original
+            # full lore proposal and cannot be decoded as one a second time.
+            if isinstance(card, dict) and card.get('kind') == 'lore_page':
+                if set(card) != {'kind', 'title'} or not isinstance(card['title'], str) or not card['title']:
+                    raise ValueError('App page selection requires the captured semantic lore proposal')
+                proposed = deepcopy(card)
+            else:
+                proposed = semantic_collaboration(card)
         history.append({'user': row['user'], 'assistant': row['assistant'],
-            **({'proposed_work': semantic_collaboration(row['proposed_work'])}
-               if 'proposed_work' in row else {})})
+            **({'proposed_work': proposed} if 'proposed_work' in row else {})})
     role = 'untrusted_saved_page_title_for_navigation_not_evidence'
     state = {'user_question': initial['state']['user_question'],
         'history': deepcopy(history),
