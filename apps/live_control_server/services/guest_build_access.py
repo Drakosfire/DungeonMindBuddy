@@ -47,6 +47,8 @@ MAX_GUEST_PLAY_EDITS = 256
 MAX_GUEST_PLAY_EDIT_BYTES = 16 * 1024 * 1024
 MAX_GUEST_PLAY_REVIEWS = 256
 MAX_GUEST_PLAY_REVIEW_BYTES = 16 * 1024 * 1024
+MAX_GUEST_SCENE_PROPOSALS = 16
+MAX_GUEST_PENDING_SCENE_PROPOSALS = 1
 MAX_GUEST_CONVERSATIONS = 16
 MAX_GUEST_TURNS = 100
 MAX_GUEST_TURN_BYTES = 16 * 1024
@@ -200,7 +202,8 @@ def matches_guest_build_route(method: str, path: str) -> bool:
                 or method == "PUT" and _COMBAT_RECORD.fullmatch(path)):
             return True
     if os.getenv("DMB_HOSTED_GUEST_PLAY_ENABLED") == "1" and os.getenv("DMB_HOSTED_GUEST_PLAN_ENABLED") == "1":
-        if (method == "GET" and _PLAY_PROPOSALS.fullmatch(path)
+        proposal = _PLAY_PROPOSALS.fullmatch(path)
+        if (proposal and (method == "GET" or (method == "POST" and proposal.group(2)))
                 and os.getenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED") == "1"
                 and os.getenv("DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED") == "1"):
             return True
@@ -487,6 +490,18 @@ def guest_play_capacity(request: Request, conn, world_id: str, replay: bool) -> 
         count = conn.execute("SELECT count(*) FROM play.run WHERE world_id = %s", (world_id,)).fetchone()[0]
         if count >= MAX_GUEST_RUNS:
             raise ApplicationStateConflictError("This guest World has reached its session limit")
+
+
+def guest_play_proposal_capacity(request: Request, conn, world_id: str, creating: bool) -> None:
+    """Serialize proposal writes with reset and bound new model requests."""
+    _lock_guest_session(request, conn, world_id)
+    if creating:
+        total, pending = conn.execute(
+            "SELECT count(*), count(*) FILTER (WHERE status = 'pending') "
+            "FROM play.scene_edit_proposal WHERE world_id = %s", (world_id,)
+        ).fetchone()
+        if total >= MAX_GUEST_SCENE_PROPOSALS or pending >= MAX_GUEST_PENDING_SCENE_PROPOSALS:
+            raise ApplicationStateConflictError("This guest World has reached its scene proposal limit")
 
 
 def guest_play_edit_capacity(request: Request, conn, world_id: str, content_bytes: int, replay: bool | None) -> None:

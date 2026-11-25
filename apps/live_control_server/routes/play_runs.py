@@ -628,6 +628,11 @@ async def post_world_run_scene_proposal(run_id: str, proposal_id: str, request: 
     from apps.live_control_server.config import managed_world_data_root
     from apps.live_control_server.models.play_scene_edit_proposal import PlaySceneEditProposalRequest
     from apps.live_control_server.services.play_scene_edit_proposal import propose_scene_edit
+    guest = getattr(request.state, "guest_build_world", None) == world_id
+    authorize_transaction = None
+    if guest:
+        from apps.live_control_server.services.guest_build_access import guest_play_proposal_capacity
+        authorize_transaction = lambda conn, creating: guest_play_proposal_capacity(request, conn, world_id, creating)
     raw = bytearray()
     async for chunk in request.stream():
         if len(raw) + len(chunk) > 65536:
@@ -638,7 +643,9 @@ async def post_world_run_scene_proposal(run_id: str, proposal_id: str, request: 
         if authorize_world is not None:
             authorize_world()
         proposal = await propose_scene_edit(root=managed_world_data_root(), world_id=world_id, run_id=str(UUID(run_id)),
-                                        proposal_id=UUID(proposal_id), request=body, authorize_world=authorize_world)
+                                        proposal_id=UUID(proposal_id), request=body,
+                                        authorize_world=None if guest else authorize_world,
+                                        authorize_transaction=authorize_transaction)
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ValidationError as exc:
