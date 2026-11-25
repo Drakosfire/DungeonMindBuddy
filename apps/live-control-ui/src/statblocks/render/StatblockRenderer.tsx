@@ -7,6 +7,7 @@ import type {
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 
 import "./StatblockRenderer.css";
+import { WwnSheetProjection, type WwnSheetProjectionInput } from "./WwnSheetProjection";
 
 import {
   buildStatblockViewModel,
@@ -42,7 +43,8 @@ export type StatblockRendererProps =
       mode?: StatblockRenderMode;
       chrome?: StatblockRendererChrome;
     }
-  | { candidate?: never; revision?: never; draft: DraftProjection; mode?: never; chrome?: StatblockRendererChrome };
+  | { candidate?: never; revision?: never; draft: DraftProjection; mode?: never; chrome?: StatblockRendererChrome }
+  | { candidate?: never; revision?: never; draft?: never; sheetProjection: WwnSheetProjectionInput; mode?: never; chrome?: never };
 
 /** Native bindings own image identity; this projection only admits web image URLs. */
 function SavedPortrait({asset,name}:{asset:AssetRefV1;name:string}) {
@@ -522,6 +524,9 @@ export function StatblockRenderer({
   chrome = "default",
   ...options
 }: StatblockRendererProps) {
+  if ("sheetProjection" in options) {
+    return <WwnSheetProjection {...options.sheetProjection} />;
+  }
   const draft = "draft" in options ? options.draft : undefined;
   const source = candidate ?? revision;
   if (!source && !draft) {
