@@ -279,7 +279,13 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
 
 def read_native_corpus_member(*, authority, member, principal, prepared):
     """Refresh Core source access while reusing the prepared exact Graph revision."""
+    from ...services.managed_world_graph_projection import resolve_managed_source_identity
+
     with ExitStack() as scope:
+        # Reuse the connection only. Each binding check still reads the
+        # current committed World through the production catalog resolver.
+        if prepared.resolve_identity is resolve_managed_source_identity:
+            scope.enter_context(reuse_world_read_connection())
         fresh = _refresh_native_context(prepared, authority=authority, principal=principal, scope=scope)
         evidence = fresh.access.parsed.evidence_by_id.get(member.evidence_ref_id)
         if (evidence is None or evidence.source_artifact_id != member.artifact.source_artifact_id
