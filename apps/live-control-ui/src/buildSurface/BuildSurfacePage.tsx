@@ -134,7 +134,7 @@ export function BuildSurfacePage() {
           <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} extractionTargetRef={setExtractionTarget} />
           <BuildReferenceCapability documentId={controller.activeDocumentId}>
             {!guestBuildActive() && <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} reviewTarget={reviewTarget} />}
-            <BuildSurfaceShell onEditorTools={setEditorTools} onReviewTarget={setReviewTarget} />
+            <BuildSurfaceShell onEditorTools={setEditorTools} onReviewTarget={setReviewTarget} selectDocument={controller.selectDocument} />
           </BuildReferenceCapability>
         </MarkdownCanvasSessionProvider>
       ) : (

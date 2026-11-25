@@ -1,6 +1,7 @@
 import {useRef, useState} from 'react';
 import type {SurfaceNativeCompletionV1} from '../../api/types';
 import {authenticatedApiFetch} from '../../api/liveApi';
+import {shouldInterceptPrimaryNavigationClick} from '../../chrome/appNavigation';
 
 interface Props {
   worldId: string;
@@ -9,10 +10,11 @@ interface Props {
   completion: SurfaceNativeCompletionV1;
   digest: () => Promise<string>;
   disabled: boolean;
+  selectDocument?: (id: string) => Promise<boolean>;
 }
 
 export function ConversationLorePageConfirmation({
-  worldId, conversationId, turnId, completion, digest, disabled,
+  worldId, conversationId, turnId, completion, digest, disabled, selectDocument,
 }: Props) {
   const inFlight = useRef(false);
   const [saving, setSaving] = useState(false);
@@ -71,7 +73,15 @@ export function ConversationLorePageConfirmation({
       <ul>{draft.open_questions.map((question, index) => <li key={index}>{question}</li>)}</ul>
     </section>}
     {savedId
-      ? <a href={'/build?' + new URLSearchParams({world: worldId, documentId: savedId})}>Open saved page</a>
+      ? <a href={'/build?' + new URLSearchParams({world: worldId, documentId: savedId})} onClick={event => {
+          if (!shouldInterceptPrimaryNavigationClick(event, event.currentTarget)) return;
+          event.preventDefault();
+          if (!selectDocument) { setError('The page selector is unavailable. Your current page and conversation are retained.'); return; }
+          setError(null);
+          void selectDocument(savedId).then(opened => {
+            if (!opened) setError('The saved page could not be opened. Your current page and conversation are retained.');
+          }).catch(() => setError('The saved page could not be opened. Your current page and conversation are retained.'));
+        }}>Open saved page</a>
       : <button type="button" disabled={disabled || saving} onClick={() => void confirm()}>
         {saving ? 'Working…' : preparedDigest
           ? `Confirm save of ${draft.destination.title}`

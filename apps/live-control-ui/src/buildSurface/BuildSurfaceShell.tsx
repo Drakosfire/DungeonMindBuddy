@@ -156,8 +156,8 @@ function BuildPresentableSourceView({
   </div>;
 }
 
-function BuildConversationBinding({ source, hosts, composeBridge }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts; composeBridge?: BuildComposeBridge }) {
-  usePublishWorldBuildConversation(source, hosts, composeBridge);
+function BuildConversationBinding({ source, hosts, composeBridge, selectDocument }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts; composeBridge?: BuildComposeBridge; selectDocument?: (id: string) => Promise<boolean> }) {
+  usePublishWorldBuildConversation(source, hosts, composeBridge, selectDocument);
   const session=useOptionalMarkdownCanvasSession();
   return <BuildTourObservations source={source} session={session}/>;
 }
@@ -287,7 +287,7 @@ export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loadin
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
  * Saved evidence remains separate from the directly editable working document.
  */
-export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void; onReviewTarget?: (target: HTMLDivElement | null) => void }) {
+export function BuildSurfaceShell({ onEditorTools, onReviewTarget, selectDocument }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void; onReviewTarget?: (target: HTMLDivElement | null) => void; selectDocument?: (id: string) => Promise<boolean> }) {
   const session = useMarkdownCanvasSession();
   const { rehydrateScope, publishSurfaceContext, surfaceInteractionPublication } = useAgentInteraction();
   const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
@@ -586,7 +586,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
   );
   return <div className="build-workspace-projection">
     <DocumentConversationDock surface="build" contextLabel={session.record?.title ?? "Worldbuilding source"} reader={projection}>
-      {hosts => <BuildConversationBinding source={conversationContext} hosts={hosts} composeBridge={composeBridge} />}
+      {hosts => <BuildConversationBinding source={conversationContext} hosts={hosts} composeBridge={composeBridge} selectDocument={selectDocument} />}
     </DocumentConversationDock>
   </div>;
 }
