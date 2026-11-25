@@ -4,6 +4,7 @@ Compiling this input grants no dispatch, read, sufficiency or citation authority
 The controller's later actual captured answer needs its dedicated admission owner.
 """
 from copy import deepcopy
+from .model_markdown import project_retained_source_markdown
 
 from . import types as t
 from .build_source_free import (
@@ -46,7 +47,7 @@ def pending_app_coverage_input(receipt, execution, initial_request_json):
     state.pop('saved_pages')
     state['saved_authored_pages'] = [
         {'source': f'page{index + 1}', 'title': read.page.title,
-         'role': read.role, 'markdown': read.markdown}
+         'role': read.role, 'markdown': project_retained_source_markdown(read.markdown)}
         for index, read in enumerate(reads)]
     return {'model': original['model'], 'state': state, 'questions': {
         'source_requirement': {'type': 'choice', 'instructions': COVERAGE_QUESTION,

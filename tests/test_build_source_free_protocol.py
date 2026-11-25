@@ -3458,3 +3458,28 @@ def test_pending_app_coverage_refuses_unread_or_changed_evidence_and_context(fai
         events = events[:8] + [events[8].model_copy(update={'document_ids': []})]
     with pytest.raises(ValueError):
         pending_app_coverage_input(receipt, execution.model_copy(update={'events': events}), initial)
+
+
+def test_pending_app_coverage_projects_owned_metadata_but_preserves_meaningful_authored_markdown():
+    from hashlib import sha256
+    from application_state.agent_conversation.build_pending_app_coverage import pending_app_coverage_input
+    receipt, execution, initial, _, original = pending_app_coverage_case()
+    host_id, external_id = str(uuid4()), str(uuid4())
+    raw = (f'[From Earlier notes](/build?world=world-one&documentId={host_id}) · saved revision 7, lines 5–5\n\n'
+        f'Original PDF SHA-256: `{"b" * 64}`.\n\n'
+        'Ethel dreamed of Maelthor; the password is “Remember the rain”.\n\n'
+        f'[External reference](https://example.test/build?documentId={external_id})\n\n'
+        f'```text\nOriginal PDF SHA-256: `{"c" * 64}`.\n```\n\n'
+        f'The author supplied this literal code: `{"d" * 64}`.\n')
+    read = original.model_copy(update={'markdown': raw, 'page': original.page.model_copy(update={
+        'content_sha256': sha256(raw.encode()).hexdigest()})})
+    execution = pending_execution(receipt, execution.policy, [*execution.events[:-1], read])
+    wire = pending_app_coverage_input(receipt, execution, initial)
+    projected = wire['state']['saved_authored_pages'][0]['markdown']
+    assert host_id not in projected and 'b' * 64 not in projected and 'saved revision' not in projected
+    assert 'Earlier notes' in projected and 'Remember the rain' in projected
+    assert f'https://example.test/build?documentId={external_id}' in projected
+    assert 'c' * 64 in projected and 'd' * 64 in projected
+    assert len(projected.splitlines()) == len(raw.splitlines())
+    assert execution.events[-1].markdown == raw
+    assert execution.events[-1].page.content_sha256 == sha256(raw.encode()).hexdigest()

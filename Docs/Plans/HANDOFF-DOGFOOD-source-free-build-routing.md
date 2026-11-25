@@ -1054,3 +1054,11 @@ future actual decision; it does not admit sufficiency, dispatch a model, close
 writer selection or enable a runtime path. Dedicated controller/result/SDK access
 checks and writer closure remain required, as do source-needed native continuation
 and all SQL/full-Send/deployed app gates.
+
+Independent review of4f07 found a prompt-boundary blocker: raw saved Markdown
+could contain host-owned navigation/provenance metadata. The coverage projection
+now uses the existing structural project_retained_source_markdown owner; exact
+raw reads and hashes stay unchanged. Added owned link/PDF provenance sentinels
+alongside external-link, fenced literal and authored hash preservation controls.
+This is model-context projection only, not regex scrubbing or a new evidence
+owner. Controller/result admission and runtime activation remain unfinished.
