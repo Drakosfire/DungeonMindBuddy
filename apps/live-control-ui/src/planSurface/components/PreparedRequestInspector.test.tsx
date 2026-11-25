@@ -64,3 +64,16 @@ it('keeps scalar input text and system instructions readable', () => {
   fireEvent.click(screen.getByRole('checkbox', { name: 'Exact JSON bytes' }))
   expect(screen.getByLabelText('Request details').querySelector('pre')?.textContent).toBe(input)
 })
+
+it('includes tool calls and tool result identifiers in the readable messages', () => {
+  const input = [
+    { role: 'assistant', content: null, tool_calls: [{ id: 'call-1', function: { name: 'read_graph', arguments: '{"query":"Caelynn"}' } }] },
+    { role: 'tool', tool_call_id: 'call-1', content: 'Found Caelynn' },
+  ]
+  render(<PreparedRequestInspector payloadJson={JSON.stringify({ input })} />)
+  const request = screen.getByLabelText('Captured request')
+  expect(request).toHaveTextContent('read_graph')
+  expect(request).toHaveTextContent('Caelynn')
+  expect(request).toHaveTextContent('call-1')
+  expect(request).toHaveTextContent('Found Caelynn')
+})

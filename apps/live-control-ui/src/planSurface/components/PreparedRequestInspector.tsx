@@ -60,7 +60,10 @@ export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: {
   const system = parts.find(item => item.pointer === '/instructions')
   const inputText = (value: unknown) => {
     if (value && typeof value === 'object' && !Array.isArray(value) && 'content' in value) {
-      return format((value as {content: unknown}).content, false)
+      const message = value as Record<string, unknown>
+      const details = Object.fromEntries(Object.entries(message).filter(([key]) => key !== 'role' && key !== 'content'))
+      if (Object.keys(details).length) return format({ content: message.content, ...details }, false)
+      return format(message.content, false)
     }
     return format(value, false)
   }
