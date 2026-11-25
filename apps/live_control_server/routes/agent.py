@@ -1357,6 +1357,15 @@ def _conversation_service(request: Request) -> AgentConversationService:
     return configured if configured is not None else AgentConversationService()
 
 
+def _guest_proposal_options(request: Request) -> dict[str, Any]:
+    """Reuse the guest conversation lifecycle guard for proposal storage."""
+    if getattr(request.state, "guest_conversation_world", None) is None:
+        return {}
+    conversation = _conversation_service(request)
+    return {"authorize_transaction": conversation._authorize_transaction,
+            "validate_transaction": conversation._validate_transaction}
+
+
 def _verified_world_id(world_id: str) -> str:
     try:
         _managed_world_root()
@@ -3432,10 +3441,13 @@ def list_build_document_proposals(world_id: str, conversation_id: UUID, request:
     if set(request.query_params) != {"conversation_id"} or len(request.query_params.getlist("conversation_id")) != 1:
         raise HTTPException(status_code=422, detail="one exact conversation selector is required")
     try:
-        return {"schema": "dmb_build_proposal_list_v1", "world_id": verified, "conversation_id": str(conversation_id),
-            "records": [_public(record) for record in BuildProposalService().list(verified, conversation_id)]}
+        result = {"schema": "dmb_build_proposal_list_v1", "world_id": verified, "conversation_id": str(conversation_id),
+            "records": [_public(record) for record in BuildProposalService(**_guest_proposal_options(request)).list(verified, conversation_id)]}
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": "build_proposal_unavailable"}) from exc
+    if getattr(request.state, "guest_conversation_world", None) is not None:
+        require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    return result
 
 
 @router.get("/worlds/{world_id}/build-proposals/{action_id}")
@@ -3449,7 +3461,7 @@ def get_build_document_proposal(world_id: str, action_id: UUID, request: Request
     if request.query_params:
         raise HTTPException(status_code=422, detail="Build proposal does not accept query selectors")
     try:
-        result = {"schema": "dmb_build_proposal_response_v1", "record": _public(BuildProposalService().get(verified, action_id))}
+        result = {"schema": "dmb_build_proposal_response_v1", "record": _public(BuildProposalService(**_guest_proposal_options(request)).get(verified, action_id))}
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": "build_proposal_unavailable"}) from exc
     from apps.live_control_server.services import hosted_auth
@@ -3498,9 +3510,9 @@ def report_build_document_proposal_inserted(world_id: str, action_id: UUID, requ
 
     hosted = hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
     try:
-        record = BuildProposalService().report_inserted(
+        record = BuildProposalService(**_guest_proposal_options(request)).report_inserted(
             verified, action_id, expected_revision=expected_revision,
-            **({"authorize": authorize} if hosted else {}),
+            **({"authorize": authorize} if hosted and getattr(request.state, "guest_conversation_world", None) is None else {}),
         )
         result = {"schema": "dmb_build_proposal_response_v1", "record": _public(record)}
     except ApplicationStateError as exc:

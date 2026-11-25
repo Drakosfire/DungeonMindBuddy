@@ -185,3 +185,24 @@ it('scopes Play content commands to the enabled guest session', async () => {
   clearGuestBuildSession();
   expect(guestBuildCsrf(path,'PUT')).toBeNull();
 });
+
+it('scopes proposal review transport to the current guest session', async () => {
+  vi.stubEnv('VITE_HOSTED_GUEST_BUILD_PROPOSALS', '1');
+  const world = `guest-${'a'.repeat(32)}`;
+  const other = `guest-${'b'.repeat(32)}`;
+  const action = '11111111-1111-4111-8111-111111111111';
+  vi.stubGlobal('fetch', vi.fn()
+    .mockResolvedValueOnce(Response.json({csrf_token:'guest-token'}))
+    .mockResolvedValueOnce(Response.json({world_id:world, name:'Sizzek World'})));
+  await openGuestBuildWorld(new AbortController().signal);
+  const review = `/api/live/agent/worlds/${world}/build-proposals/${action}/review`;
+  expect(guestBuildRequestEpoch(review, 'GET')).not.toBeNull();
+  expect(guestBuildRequestEpoch(review, 'POST')).not.toBeNull();
+  expect(guestBuildCsrf(review, 'POST')).toBe('guest-token');
+  expect(guestBuildCsrf(review.replace(world, other), 'POST')).toBeNull();
+  expect(guestBuildRequestEpoch(review.replace(world, other), 'GET')).toBeNull();
+  expect(guestBuildRequestEpoch(review.replace('/review', '/prompt'), 'GET')).toBeNull();
+  vi.stubEnv('VITE_HOSTED_GUEST_BUILD_PROPOSALS', '0');
+  expect(guestBuildRequestEpoch(review, 'GET')).toBeNull();
+  expect(guestBuildCsrf(review, 'POST')).toBeNull();
+});

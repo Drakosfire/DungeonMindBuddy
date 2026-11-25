@@ -71,6 +71,8 @@ def cleanup_expired_guest_conversation(session_id: str) -> None:
             conn.execute(f'DELETE FROM agent.{table} WHERE turn_id IN ({turns})', (world_id,))
         for table in ('command_resolution', 'import_receipt', 'command_receipt', 'composer_draft'):
             conn.execute(f'DELETE FROM agent.{table} WHERE world_id=%s', (world_id,))
+        conn.execute('DELETE FROM agent.build_proposal_review WHERE world_id=%s', (world_id,))
+        conn.execute('DELETE FROM agent.build_proposal WHERE world_id=%s', (world_id,))
         conn.execute('DELETE FROM agent.world_state WHERE world_id=%s', (world_id,))
         conn.execute('DELETE FROM agent.turn WHERE world_id=%s', (world_id,))
         conn.execute('DELETE FROM agent.conversation WHERE world_id=%s', (world_id,))

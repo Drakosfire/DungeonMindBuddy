@@ -38,6 +38,10 @@ _CONVERSATION_CITATION = re.compile(
     r"[0-9a-f-]{36}/(?:native-source-clauses|native-assertion-sources|native-body-excerpts|native-source-sections|source-passages)/[0-9]+$"
 )
 _CONVERSATION_MESSAGES = re.compile(r"^/api/live/agent/worlds/(guest-[0-9a-f]{32})/conversations/active/messages$")
+_BUILD_PROPOSAL = re.compile(
+    r"^/api/live/agent/worlds/(guest-[0-9a-f]{32})/build-proposals"
+    r"(?:/([0-9a-f-]{36})(/review)?)?$"
+)
 MAX_GUEST_PAGES = 32
 MAX_GUEST_REVISIONS = 256
 MAX_GUEST_SAVED_BYTES = 16 * 1024 * 1024
@@ -60,6 +64,9 @@ def matches_guest_conversation_route(method: str, path: str) -> bool:
     if method == 'POST' and path in {'/api/live/native-graph-inspection/catalog', '/api/live/native-graph-inspection/read',
                                      '/api/live/native-source-inspection/catalog', '/api/live/native-source-inspection/read'}:
         return True
+    proposal = _BUILD_PROPOSAL.fullmatch(path)
+    if proposal and os.getenv("DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED") == "1":
+        return method == "GET" or (method == "POST" and proposal.group(3) == "/review")
     match = _CONVERSATION.fullmatch(path)
     if method == "GET" and (_CONVERSATION_CITATION.fullmatch(path) or _CONVERSATION_MESSAGES.fullmatch(path)):
         return True
@@ -75,7 +82,7 @@ async def admit_guest_conversation_request(request: Request) -> str:
     if os.getenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED") != "1" or not hosted_guest_world_enabled():
         raise HTTPException(403, detail={"code": "guest_world_forbidden"})
     match = (_CONVERSATION.fullmatch(request.url.path) or _CONVERSATION_CITATION.fullmatch(request.url.path)
-             or _CONVERSATION_MESSAGES.fullmatch(request.url.path))
+             or _CONVERSATION_MESSAGES.fullmatch(request.url.path) or _BUILD_PROPOSAL.fullmatch(request.url.path))
     is_turn = request.url.path == "/api/live/agent/turn"
     if not matches_guest_conversation_route(request.method, request.url.path):
         raise HTTPException(403, detail={"code": "guest_world_forbidden"})
@@ -96,7 +103,9 @@ async def admit_guest_conversation_request(request: Request) -> str:
     if len({key for key, _ in query}) != len(query):
         raise HTTPException(400, detail={"code": "invalid_guest_request"})
     if request.method == "GET":
-        allowed_query = (set() if _CONVERSATION_CITATION.fullmatch(request.url.path)
+        proposal = _BUILD_PROPOSAL.fullmatch(request.url.path)
+        allowed_query = ({"conversation_id"} if proposal and proposal.group(2) is None
+                         else set() if proposal or _CONVERSATION_CITATION.fullmatch(request.url.path)
                          else {"limit", "before_sequence"} if _CONVERSATION_MESSAGES.fullmatch(request.url.path)
                          else {"limit", "before_sequence", "include_turn_correlation"})
         if set(key for key, _ in query) - allowed_query or await request.body():
@@ -163,6 +172,13 @@ async def admit_guest_conversation_request(request: Request) -> str:
                            and body.plan_requested_operation is None)
         if build_discussion:
             build_discussion = (await run_in_threadpool(_document_world, str(body.primary_work.object_id)) == (world_id, 'worldbuilding_source'))
+        capability = body.build_write_capability
+        proposal_authoring = (build_discussion and capability is not None
+                              and os.getenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED') == '1'
+                              and capability.reference_image_id is None
+                              and capability.basis.visibility == 'internal'
+                              and (capability.boundary_editor_json is None
+                                   or len(capability.boundary_editor_json.encode('utf-8')) <= 1_000_000))
         from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredSourceReferenceV1
         references = body.authored_references
         guest_graph_references = (plan_discussion and references is not None
@@ -172,7 +188,7 @@ async def admit_guest_conversation_request(request: Request) -> str:
         # owners are bound to the guest lifecycle.
         if (not (index_discussion or plan_discussion or build_discussion or play_discussion) or body.graph_selection is not None
                 or body.selected_knowledge is not None or body.native_statement_selection is not None
-                or body.build_write_capability is not None or body.build_image_move_capture is not None
+                or (body.build_write_capability is not None and not proposal_authoring) or body.build_image_move_capture is not None
                 or (body.build_draft_context is not None and not build_discussion) or body.build_authored_references is not None
                 or (references is not None and not guest_graph_references)
                 or body.retry_of is not None or body.reviewed_step is not None
@@ -465,8 +481,10 @@ def guest_conversation_bytes(request: Request, conn, world_id: str) -> int:
           UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.plan_execution_checkpoint x JOIN turns t USING (turn_id)
           UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.plan_execution_event x JOIN turns t USING (turn_id)
           UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.conversation_draft_revision x WHERE world_id=%s
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.build_proposal x WHERE world_id=%s
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.build_proposal_review x WHERE world_id=%s
         ) SELECT coalesce(sum(n),0) FROM sizes
-    """, (world_id,) * 9).fetchone()[0]
+    """, (world_id,) * 11).fetchone()[0]
     if total > MAX_GUEST_CONVERSATION_BYTES:
         raise ApplicationStateConflictError('This guest World has reached its conversation storage limit')
     return int(total)

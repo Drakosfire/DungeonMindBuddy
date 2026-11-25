@@ -337,6 +337,17 @@ it('accepts the distinct pending Build draft API projection without source autho
   expect(isSurfaceNativeReceipt(pendingBuild.receipt,buildWork)).toBe(false);
   expect(isBuildPendingContext(pendingBuild,work,()=>true)).toBe(false);
 });
+it('accepts only a receipt-bound pending Build proposal completion',()=>{
+  const c=structuredClone(pendingBuild) as any;
+  c.completion={schema:'dmb_build_authoring_completion_v1',context_receipt_sha256:c.receipt.context_receipt_sha256,
+    answer_basis:'prepared_page_proposal',answer_context_status:'proposal_ready',
+    answer_segments:[{kind:'connective',text:'A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.'}],
+    citation_map:null,action_id:'11111111-1111-4111-8111-111111111111',provider_attempt_id:'22222222-2222-4222-8222-222222222222',
+    reservation_sha256:'a'.repeat(64),proposal_result_sha256:'b'.repeat(64),envelope_sha256:'c'.repeat(64)};
+  expect(isBuildPendingContext(c,buildWork,()=>true)).toBe(true);
+  c.completion.context_receipt_sha256='0'.repeat(64);
+  expect(isBuildPendingContext(c,buildWork,()=>true)).toBe(false);
+});
 it.each(['world','binding','head','pointer','assembler','authority','surface','root','null','execution','citation','extra'])(
   'rejects invalid pending Build observation/completion: %s',mutation=>{
     const c=structuredClone(pendingBuild) as any;
