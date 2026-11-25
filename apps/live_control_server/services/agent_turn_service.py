@@ -1547,6 +1547,12 @@ class AgentTurnExecutionPersistencePort(Protocol):
         materialize_source: Callable[..., Any], authorize_current_access: Callable[..., bool],
     ) -> tuple[Turn, bool]: ...
 
+    def observe_pending_build_app_catalog(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, event_id: UUID,
+        discover_pages: Callable[..., Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
     def authorize_provider_attempt(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, provider_attempt_event: Any,

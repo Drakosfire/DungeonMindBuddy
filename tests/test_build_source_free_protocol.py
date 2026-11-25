@@ -255,6 +255,7 @@ def settlement_harness(monkeypatch, *, with_source=True, scope='source_lookup'):
             'revision': expected_revision + 1, 'graph_context_execution': execution}))
         return state.turn
     monkeypatch.setattr(service, '_persist_execution_append', persist)
+    state.service, state.authorize = service, authorize
     event_id = uuid4()
     def run(*, revision=2, event=event_id, attempt=1):
         return service.settle_pending_build_source(turn.world_id, turn.conversation_id, turn.turn_id,
@@ -508,3 +509,77 @@ def test_pending_app_catalog_can_precede_exact_native_source_settlement():
     execution = pending_execution(receipt, policy, [*events, catalog, settled])
     assert effective_pending_app_catalog(receipt, execution) == catalog.pages
     assert effective_pending_source(receipt, execution) == (settled.source_authority, settled.native_query)
+
+
+def app_discovery_harness(monkeypatch, *, scope='source_lookup'):
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    state, _ = settlement_harness(monkeypatch, with_source=False, scope=scope)
+    state.discovered = 0
+    state.pages = [PagePointer(world_id=state.turn.world_id, document_id=uuid4(),
+        registry_revision=1, title='Saved Maelthor', visibility='internal')]
+    def discover(current):
+        assert state.depth == 0
+        state.discovered += 1
+        if state.on_prepare:
+            state.on_prepare()
+        return state.pages
+    event_id = uuid4()
+    def run(*, event=event_id, revision=2):
+        return state.service.observe_pending_build_app_catalog(state.turn.world_id,
+            state.turn.conversation_id, state.turn.turn_id, expected_revision=revision,
+            expected_attempt=1, event_id=event, discover_pages=discover,
+            authorize_current_access=state.authorize)
+    return state, run
+
+
+def test_service_app_catalog_without_core_discovers_outside_locks_and_replays_exact_call(monkeypatch):
+    from application_state.agent_conversation.build_source_free import effective_pending_app_catalog
+    state, run = app_discovery_harness(monkeypatch)
+    updated, changed = run()
+    assert changed and updated.revision == 3 and state.discovered == state.persisted == 1
+    assert state.locks == ['world', 'conversation', 'turn'] * 2
+    assert state.access_calls == 2 and state.materialized == 0 and state.depth == 0
+    assert effective_pending_app_catalog(updated.graph_context_receipt, updated.graph_context_execution) == tuple(state.pages)
+    replay, changed = run()
+    assert replay == updated and not changed and state.discovered == state.persisted == 1
+
+
+@pytest.mark.parametrize('failure', ['pointer_after', 'access_after', 'expiry_after', 'cas_failure', 'foreign_page'])
+def test_service_app_catalog_rejects_changed_access_claim_scope_or_append(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    state, run = app_discovery_harness(monkeypatch)
+    def changed():
+        if failure == 'pointer_after':
+            state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 2})
+        elif failure == 'access_after':
+            state.denied = True
+        elif failure == 'expiry_after':
+            state.now += timedelta(hours=1)
+    state.on_prepare = changed
+    if failure == 'cas_failure':
+        state.cas_failure = True
+    elif failure == 'foreign_page':
+        state.pages = [state.pages[0].model_copy(update={'world_id': 'foreign-world'})]
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        run()
+    assert state.discovered == 1 and state.persisted == 0 and state.depth == 0
+    if failure == 'foreign_page':
+        assert state.access_calls == 1  # never pass foreign pointers to the access owner
+
+
+def test_service_anchored_work_cannot_discover_app_catalog(monkeypatch):
+    from application_state.errors import ApplicationStateValidationError
+    state, run = app_discovery_harness(monkeypatch, scope='anchored')
+    with pytest.raises(ApplicationStateValidationError):
+        run()
+    assert state.discovered == state.persisted == 0
+
+
+def test_service_app_catalog_cannot_reselect_after_discovery(monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    state, run = app_discovery_harness(monkeypatch)
+    updated, _ = run()
+    with pytest.raises(ApplicationStateConflictError):
+        run(revision=updated.revision, event=uuid4())
+    assert state.discovered == state.persisted == 1

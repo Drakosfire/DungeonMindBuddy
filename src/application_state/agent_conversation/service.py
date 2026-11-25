@@ -2812,7 +2812,7 @@ class AgentConversationService:
         )
 
     def _pending_source_turn_locked(self, conn, world_id, conversation_id, turn_id, *,
-                                    expected_revision, expected_attempt, replay_event_id=None):
+                                    expected_revision, expected_attempt, replay_event_id=None, replay_event_type=None):
         """Use reset's lock order and the actual moving claim, not a source grant."""
         from .native_context import BuildPendingContextReceiptV1
         from .native_execution import BuildPendingExecutionV1
@@ -2831,8 +2831,9 @@ class AgentConversationService:
         except ValueError as exc:
             raise ApplicationStateConflictError(str(exc)) from exc
         from .native_execution import NativeBuildSourceSettledV1
+        replay_event_type = replay_event_type or NativeBuildSourceSettledV1
         replay = (replay_event_id is not None and any(
-            type(event) is NativeBuildSourceSettledV1
+            type(event) is replay_event_type
             and event.event_id == replay_event_id
             and event.admitted_from_revision == expected_revision
             for event in turn.graph_context_execution.events))
@@ -2935,6 +2936,91 @@ class AgentConversationService:
                 expected_revision=expected_revision, execution=execution)
             if updated is None:
                 raise ApplicationStateConflictError('Pending source claim changed before append')
+            return updated, True
+
+    def observe_pending_build_app_catalog(self, world_id, conversation_id, turn_id, *,
+                                          expected_revision, expected_attempt, event_id,
+                                          discover_pages, authorize_current_access):
+        """Capture App navigation after selected lookup, independently of Core.
+
+        Both callbacks are host owners. Access is App-only under the transaction;
+        discovery runs outside row locks. No model dispatch or page body read is
+        authorized by admitting this metadata observation.
+        """
+        from . import types as t
+        from .native_execution import BuildPendingExecutionV1
+        from .build_related_pages import PagePointer
+        from .build_source_free import (BuildAppPageCatalogObservedV1,
+            pending_source_work, effective_pending_app_catalog)
+        world_id = _world_id(world_id)
+        if (type(event_id) is not UUID or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(discover_pages) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('App catalog requires its actual discovery and access owners')
+        with unit_of_work(_ready_dsn()) as conn:
+            before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt,
+                replay_event_id=event_id, replay_event_type=BuildAppPageCatalogObservedV1)
+            if authorize_current_access(conn, before, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize catalog discovery')
+            if before.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending App catalog claim expired before discovery')
+            prior = [event for event in before.graph_context_execution.events
+                     if type(event) is BuildAppPageCatalogObservedV1]
+            if prior:
+                if (len(prior) == 1 and prior[0].event_id == event_id
+                        and prior[0].admitted_from_revision == expected_revision):
+                    return before, False
+                raise ApplicationStateConflictError('Pending App catalog was already observed')
+            try:
+                work = pending_source_work(before.graph_context_execution)
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            work_event_id, sequence = work.event_id, len(before.graph_context_execution.events)
+            frozen = (before.graph_context_receipt.context_receipt_sha256,
+                      before.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(before.graph_context_execution),
+                      before.submitted_intent_fingerprint_v2)
+        pages = discover_pages(before)
+        if type(pages) not in (list, tuple) or any(type(page) not in (dict, PagePointer) for page in pages):
+            raise ApplicationStateValidationError('App discovery must return its actual page pointers')
+        try:
+            observed = BuildAppPageCatalogObservedV1.model_validate_json(json.dumps({
+                'event_id': str(event_id), 'sequence': sequence, 'work_event_id': str(work_event_id),
+                'pending_context_receipt_sha256': frozen[0], 'admitted_from_revision': expected_revision,
+                'pages': [page.model_dump(mode='json') if type(page) is PagePointer else page for page in pages]}))
+            prepared_execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                before.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                    'events': [event.model_dump(mode='json', by_alias=True)
+                               for event in [*before.graph_context_execution.events, observed]]}))
+            effective_pending_app_catalog(before.graph_context_receipt, prepared_execution)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            actual = (current.graph_context_receipt.context_receipt_sha256,
+                      current.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(current.graph_context_execution),
+                      current.submitted_intent_fingerprint_v2)
+            if actual != frozen:
+                raise ApplicationStateConflictError('Pending request or execution changed during App discovery')
+            if authorize_current_access(conn, current, observed.pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during catalog discovery')
+            if current.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending App catalog claim expired before admission')
+            try:
+                execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                    current.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                        'events': [event.model_dump(mode='json', by_alias=True)
+                                   for event in [*current.graph_context_execution.events, observed]]}))
+                effective_pending_app_catalog(current.graph_context_receipt, execution)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending App catalog claim changed before append')
             return updated, True
 
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
