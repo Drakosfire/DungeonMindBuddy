@@ -23,8 +23,8 @@ def guest_generation_lease(request, world_id):
         if not acquired:
             raise HTTPException(409, detail="An image is already being generated for this guest World.")
         try:
-            count = conn.execute("SELECT count(*) FROM media.asset WHERE owner_id = %s", (hosted_world_media_owner(world_id),)).fetchone()[0]
-            if count >= MAX_GUEST_ASSETS:
+            count, total = conn.execute("SELECT count(*), coalesce(sum(byte_length), 0) FROM media.asset WHERE owner_id = %s", (hosted_world_media_owner(world_id),)).fetchone()
+            if count >= MAX_GUEST_ASSETS or total >= MAX_GUEST_ASSET_BYTES:
                 raise HTTPException(409, detail="This guest World has reached its image limit.")
             yield
         finally:

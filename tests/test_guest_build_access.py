@@ -91,7 +91,6 @@ def test_guest_image_generation_and_document_reopen(guests, monkeypatch):
     from apps.live_control_server.services import guest_media_access
     monkeypatch.setenv("DMB_HOSTED_GUEST_MEDIA_ENABLED", "1")
     monkeypatch.setenv("FAL_KEY", "synthetic")
-    monkeypatch.setattr(guest_media_access, "MAX_GUEST_ASSETS", 1)
     image = BytesIO()
     Image.new("RGB", (4, 4), "blue").save(image, format="PNG")
     provider = SimpleNamespace(generate_image=AsyncMock(return_value=SimpleNamespace(
@@ -108,6 +107,10 @@ def test_guest_image_generation_and_document_reopen(guests, monkeypatch):
     generated = first.post(path, params={"world_id": world}, headers=headers, json=body)
     assert generated.status_code == 200, generated.text
     asset = generated.json()["images"][0]["asset_id"]
+    monkeypatch.setattr(guest_media_access, "MAX_GUEST_ASSET_BYTES", len(image.getvalue()))
+    assert first.post(path, params={"world_id": world}, headers=headers, json=body).status_code == 409
+    monkeypatch.setattr(guest_media_access, "MAX_GUEST_ASSET_BYTES", 20 * 1024 * 1024)
+    monkeypatch.setattr(guest_media_access, "MAX_GUEST_ASSETS", 1)
     assert first.post(path, params={"world_id": world}, headers=headers, json=body).status_code == 409
     provider.generate_image.assert_awaited_once()
     assert first.get(f"/api/live/media/images/{asset}/metadata").status_code == 200
