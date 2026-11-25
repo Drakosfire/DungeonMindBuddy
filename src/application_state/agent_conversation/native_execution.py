@@ -16,6 +16,7 @@ from application_state.build_proposal.image_move_capture import BuildImageMoveCa
 from . import types as t
 from .build_intentional_response import Capabilities, known_semantics
 from .build_related_pages import PagePointer
+from .build_source_free import BuildAppPageCatalogObservedV1
 from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
     SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
@@ -620,7 +621,7 @@ NATIVE_EXECUTION_EVENT_LIMIT = 2048
 BuildPendingPrefixEventV1 = Annotated[
     t.ProviderAttemptAuthorizedEventV5 | t.ProviderOutcomeEventV1
     | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
-    | NativeBuildSourceSettledV1,
+    | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1,
     Field(discriminator="kind"),
 ]
 
@@ -648,6 +649,7 @@ class BuildPendingExecutionV1(Strict):
         from .build_source_free import validate_pending_work_records
         validate_pending_work_records(self)
         settled = False
+        app_catalog_observed = False
         work_selected = False
         for event in self.events:
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
@@ -661,6 +663,15 @@ class BuildPendingExecutionV1(Strict):
                     raise ValueError("Pending controller cannot include unacquired source evidence")
             elif type(event) is t.BuildRequestedWorkResolutionV1:
                 work_selected = True
+            elif type(event) is BuildAppPageCatalogObservedV1:
+                from .build_source_free import pending_source_work
+                if app_catalog_observed or settled:
+                    raise ValueError("Pending App catalog may be observed once before native settlement")
+                work = pending_source_work(self.model_copy(update={'events': self.events[:event.sequence]}))
+                if (event.work_event_id != work.event_id
+                        or event.pending_context_receipt_sha256 != self.context_receipt_sha256):
+                    raise ValueError("Pending App catalog differs from its evidence-seeking work")
+                app_catalog_observed = True
             elif type(event) is NativeBuildSourceSettledV1:
                 work = [e for e in self.events[:event.sequence]
                         if type(e) is t.BuildRequestedWorkResolutionV1]

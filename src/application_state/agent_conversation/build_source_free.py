@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from .native_statement_input import Strict
+from .build_related_pages import PagePointer
 
 
 class BuildConversationObservationV1(Strict):
@@ -42,6 +43,25 @@ def validate_pending_conversation_pointer(receipt, pointer):
         conversation_id=captured.conversation_id)
     if actual != captured:
         raise ValueError("Pending conversation pointer changed after capture")
+
+
+class BuildAppPageCatalogObservedV1(Strict):
+    """App navigation metadata captured after lookup; never read-page evidence."""
+    kind: Literal["build_app_page_catalog_observed_v1"] = "build_app_page_catalog_observed_v1"
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    pending_context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    admitted_from_revision: int = Field(ge=1, strict=True)
+    work_event_id: UUID
+    # Use the existing exact App pointer owner; no Core binding or invented source grant.
+    pages: tuple[PagePointer, ...]
+
+    @model_validator(mode="after")
+    def unique_ordered_pages(self):
+        identifiers = [page.document_id for page in self.pages]
+        if identifiers != sorted(set(identifiers), key=str):
+            raise ValueError("Pending App page catalog must be sorted and distinct")
+        return self
 
 
 class BuildSourceBindingObservedV1(Strict):
@@ -154,6 +174,14 @@ def _join_pending_source(receipt, execution):
             if (event.record.conversation_id != captured.conversation_id
                     or event.record.expected_pointer_revision != captured.pointer_revision):
                 raise ValueError("Pending draft differs from its captured conversation pointer")
+    for event in execution.events:
+        if type(event) is BuildAppPageCatalogObservedV1:
+            if event.pending_context_receipt_sha256 != receipt.context_receipt_sha256:
+                raise ValueError("Pending App catalog differs from its captured receipt")
+            if any(page.world_id != policy.action.intent.world_id
+                   or str(page.document_id) == str(work.source_basis.document_id)
+                   for page in event.pages):
+                raise ValueError("Pending App catalog contains a foreign World or current page")
     settlements = [event for event in execution.events if type(event) is NativeBuildSourceSettledV1]
     if not settlements:
         return None
@@ -258,3 +286,15 @@ def pending_source_work(execution):
             or work.requested_work in {'review_blank_lore_page', 'clarify_request', 'clarify_creation'}):
         raise ValueError("Pending source work does not request evidence acquisition")
     return work
+
+
+def effective_pending_app_catalog(receipt, execution):
+    """Return exact observed App pointers, not evidence or an access grant.
+
+    None means discovery did not occur; an empty tuple means it ran and found
+    no eligible pages. Neither supports claims about World/source completeness.
+    """
+    receipt, execution = _pending_components(receipt, execution)
+    _join_pending_source(receipt, execution)
+    rows = [event for event in execution.events if type(event) is BuildAppPageCatalogObservedV1]
+    return rows[0].pages if rows else None

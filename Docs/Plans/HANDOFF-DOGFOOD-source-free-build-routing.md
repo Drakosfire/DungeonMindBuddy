@@ -385,3 +385,20 @@ before appending the one settlement. A reset, access change or expired claim
 during materialization discards the prepared result before any SDK dispatch.
 Do not hold App conversation locks across Core IO, fabricate authority, or treat
 mocked transaction tests as PostgreSQL isolation/rollback evidence.
+
+
+## Lazy App catalog implementation checkpoint
+
+Continue serial PR4642 with an App-owned catalog observation after the existing
+required-evidence work vote, before any native settlement or page-selection
+controller. The new pending codec records exact existing PagePointers, the work
+and receipt binding, and its admission revision. No acquired catalog is inserted
+into the frozen initial policy. No Core binding is needed for App discovery.
+An absent observation and an observed empty catalog remain distinct; titles are
+navigation only and neither state establishes completeness. Each catalog must
+be unique, sorted, in the submitted World and exclude the current primary page.
+A subsequent acquisition controller must have its own authorization; the first
+work decision stays closed. This codec step alone enables neither discovery nor
+page reads and is not runtime or SQL qualification. Existing shared catalog/Plan
+helpers are unchanged; any later exact pending dispatch there must preserve the
+old call contracts and be pinned in this lease before editing.

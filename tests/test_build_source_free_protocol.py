@@ -1,6 +1,6 @@
 """Stored pending Build codec boundary; no database, providers or source grants."""
 import json
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -399,3 +399,112 @@ def test_pending_settlement_lost_response_replay_keeps_live_access_and_claim_fen
     with pytest.raises(ApplicationStateConflictError):
         run()
     assert state.materialized == state.persisted == 1
+
+
+def pending_catalog_case(*, scope='source_lookup', pages=None, with_source=False):
+    from application_state.agent_conversation.build_source_free import BuildAppPageCatalogObservedV1
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from tests.test_build_source_free_routing import pending_work_prefix
+    receipt, policy = pending_execution_pair(with_source=with_source)  # App lookup needs no Core binding
+    primary_id = str(uuid4())
+    data = receipt.model_dump(mode='json', by_alias=True)
+    data.pop('context_receipt_sha256')
+    data['work_context']['source_basis']['document_id'] = primary_id
+    receipt = seal_pending_receipt(data)
+    intent = policy.action.intent
+    intent = intent.model_copy(update={'primary_work': intent.primary_work.model_copy(update={'object_id': primary_id})})
+    policy = policy.model_copy(update={'action': policy.action.model_copy(update={'intent': intent})})
+    events = pending_work_prefix(policy, scope=scope)
+    pages = pages if pages is not None else [PagePointer(world_id=policy.action.intent.world_id,
+        document_id=uuid4(), registry_revision=1, title='Maelthor', visibility='internal')]
+    catalog = BuildAppPageCatalogObservedV1(event_id=uuid4(), sequence=len(events),
+        admitted_from_revision=2, pending_context_receipt_sha256=receipt.context_receipt_sha256,
+        work_event_id=events[-1].event_id, pages=tuple(pages))
+    return receipt, policy, events, catalog
+
+
+def test_pending_app_catalog_without_core_is_navigation_not_source_authority():
+    from application_state.agent_conversation.build_source_free import effective_pending_app_catalog, effective_pending_source
+    receipt, policy, events, catalog = pending_catalog_case()
+    assert receipt.source_observation.binding is None
+    before = pending_execution(receipt, policy, events)
+    assert effective_pending_app_catalog(receipt, before) is None
+    execution = pending_execution(receipt, policy, [*events, catalog])
+    assert effective_pending_app_catalog(receipt, execution) == catalog.pages
+    assert effective_pending_source(receipt, execution) is None
+    assert execution.policy.action.related_page_catalog is None
+    assert 'markdown' not in type(catalog.pages[0]).model_fields
+    empty = catalog.model_copy(update={'pages': ()})
+    assert effective_pending_app_catalog(receipt, pending_execution(receipt, policy, [*events, empty])) == ()
+
+
+@pytest.mark.parametrize('change', ['world', 'current_page', 'receipt', 'work', 'twice', 'before_work'])
+def test_pending_app_catalog_cannot_cross_its_work_receipt_or_world(change):
+    from application_state.agent_conversation.build_source_free import effective_pending_app_catalog
+    receipt, policy, events, catalog = pending_catalog_case()
+    if change in {'world', 'current_page'}:
+        values = ({'world_id': 'another-world'} if change == 'world' else
+                  {'document_id': UUID(receipt.work_context.source_basis.document_id)})
+        catalog = catalog.model_copy(update={'pages': (catalog.pages[0].model_copy(update=values),)})
+    elif change == 'receipt':
+        catalog = catalog.model_copy(update={'pending_context_receipt_sha256': 'a' * 64})
+    elif change == 'work':
+        catalog = catalog.model_copy(update={'work_event_id': uuid4()})
+    elif change == 'twice':
+        events.append(catalog)
+        catalog = catalog.model_copy(update={'event_id': uuid4(), 'sequence': len(events)})
+    else:
+        events = []
+        catalog = catalog.model_copy(update={'sequence': 0})
+    expected = {'world': 'foreign World or current page', 'current_page': 'foreign World or current page',
+        'receipt': 'differs from its evidence-seeking work', 'work': 'differs from its evidence-seeking work',
+        'twice': 'may be observed once', 'before_work': 'must be unique'}
+    with pytest.raises(ValueError, match=expected[change]):
+        effective_pending_app_catalog(receipt, pending_execution(receipt, policy, [*events, catalog]))
+
+
+def test_pending_anchored_work_cannot_discover_an_app_catalog():
+    receipt, policy, events, catalog = pending_catalog_case(scope='anchored')
+    with pytest.raises(ValueError, match='does not request evidence acquisition'):
+        pending_execution(receipt, policy, [*events, catalog])
+
+
+def test_pending_app_catalog_rejects_duplicate_and_unsorted_pointers():
+    from application_state.agent_conversation.build_source_free import BuildAppPageCatalogObservedV1
+    _, _, _, catalog = pending_catalog_case()
+    values = catalog.model_dump(mode='json', by_alias=True)
+    with pytest.raises(ValueError, match='sorted and distinct'):
+        BuildAppPageCatalogObservedV1.model_validate_json(json.dumps(values | {'pages': [values['pages'][0]] * 2}))
+    pages = [values['pages'][0] | {'document_id': str(uuid4())} for _ in range(2)]
+    pages.sort(key=lambda p: p['document_id'], reverse=True)
+    with pytest.raises(ValueError, match='sorted and distinct'):
+        BuildAppPageCatalogObservedV1.model_validate_json(json.dumps(values | {'pages': pages}))
+
+
+def test_pending_app_catalog_roundtrips_through_the_actual_stored_turn_decoder():
+    from application_state.agent_conversation.build_source_free import BuildAppPageCatalogObservedV1, effective_pending_app_catalog
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from tests.test_build_source_free_routing import pending_work_prefix
+    sub = pending_submission()
+    receipt, initial = sub.graph_context_receipt, sub.graph_context_execution
+    events = pending_work_prefix(initial.policy)
+    catalog = BuildAppPageCatalogObservedV1(event_id=uuid4(), sequence=len(events),
+        admitted_from_revision=2, pending_context_receipt_sha256=receipt.context_receipt_sha256,
+        work_event_id=events[-1].event_id, pages=(PagePointer(world_id=sub.world_id,
+            document_id=uuid4(), registry_revision=1, title='Existing saved page', visibility='internal'),))
+    execution = pending_execution(receipt, initial.policy, [*events, catalog])
+    from tests.test_surface_native_execution import BUILD_TURN_ID
+    turn = retained(sub, turn_id=BUILD_TURN_ID, status='running', revision=3, attempt=1, graph_context_execution=execution)
+    row, references = stored_row(turn)
+    restored = repository._turn_from_row(None, row, references=references)
+    assert effective_pending_app_catalog(restored.graph_context_receipt, restored.graph_context_execution) == catalog.pages
+
+
+def test_pending_app_catalog_can_precede_exact_native_source_settlement():
+    from application_state.agent_conversation.build_source_free import effective_pending_app_catalog, effective_pending_source
+    from tests.test_build_source_free_routing import pending_settlement
+    receipt, policy, events, catalog = pending_catalog_case(with_source=True)
+    settled = pending_settlement(receipt, policy, events[-1]).model_copy(update={'sequence': 5})
+    execution = pending_execution(receipt, policy, [*events, catalog, settled])
+    assert effective_pending_app_catalog(receipt, execution) == catalog.pages
+    assert effective_pending_source(receipt, execution) == (settled.source_authority, settled.native_query)
