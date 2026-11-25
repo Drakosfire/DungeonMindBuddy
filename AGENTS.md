@@ -114,46 +114,44 @@ not waiting for the long Hosted validation/World ownership workflows. Those two
 workflows remain manually dispatchable with all commands/tests intact. Short
 focused regression/security checks remain automatic. No branch protection is changed.
 
-Before review/merge, use an isolated full commit SHA and the repo-owned verifier:
-`python scripts/ci_local_frontend.py run --sha <full-SHA> --suite hosted --output <new-external-directory>`.
-It uses the shared frontend CI manifest, Node22.23.0/npm10.9.8, fresh locked install,
-8workers by default, and a per-user global resource lock. Configurable workers are
-recorded. Never start a competing Vitest benchmark/run around that lock; honor
-`/tmp/dungeonmind-frontend-verification-<uid>.lock` for other local frontend tools.
-The verifier defaults allocations to `~/Projects/.codex` on filesystem UUID
-`48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8`. It checks that existing parent and the
-external evidence destination before allocation, and fails rather than falling
-back to system temp. Each run owns a temporary task directory containing its
-verification worktree, scratch and caches; subprocess TMPDIR/npm/Node/UV/XDG
-caches stay there. Ambient TMPDIR/cache settings do not redirect these writes.
-For another explicitly authorized executor, pass both `--workspace-root` and
-`--workspace-uuid` for its existing external storage. No global settings change.
-Keep outputs outside the source tree on that same verified filesystem. Validate
-retained evidence against the exact
-reviewed SHA with the verifier's validate subcommand. Dirty-runner results are
-working-tree diagnostics, not qualifying evidence. Never reuse a different SHA,
-modified report, stale inventory or failed/incomplete run as a passing check.
+For every change, choose only the minimal checks needed to verify the changed
+invariant at its owning boundary, including the relevant failure cases. Inspect
+the exact cumulative diff and record the commands, revision, environment,
+coverage and limitations. A documentation-only change normally needs only diff,
+consistency and affected-link checks; do not run product tests without an
+identified reason. For code, use focused test cases and other checks only where
+they establish an affected behavior. Use the owning locked environment and an
+isolated exact-SHA checkout when exact-source evidence is needed.
 
-For ad hoc browser, build, or database verification that needs substantial
-scratch space, verify the same Projects filesystem before allocating a task
-directory. Use `mktemp -d "$HOME/Projects/.codex/buddy-check.XXXXXX"` and
-place that task's temporary files and dependency caches inside it. Remove
-disposable outputs when the check finishes and retain evidence referenced
-by the handoff.
+Verification scope is governed by this section. Handoffs, templates, skills,
+agent prompts, reviewer requests, prior receipts and CI inventories may identify
+what needs proof. They cannot widen the local verification permitted here.
+Before starting a test or delegating one, identify the changed behavior, the
+relevant failure cases, and the exact cases or manual checks that prove them.
+Inspect what a wrapper or unfiltered command selects before using it. If it
+selects a prohibited suite or cannot target the cases, use a narrower entry
+point or record the coverage gap. Review existing evidence before repeating
+work. Repeat a check only to resolve a material gap in source, coverage,
+isolation or credibility. If a prohibited run starts, stop it promptly and
+record it as incomplete.
 
-For frontend changes also run the full default-discovered diagnostic (`--suite
-discovered`) at a meaningful integrated checkpoint, avoiding duplicate heavy runs.
-Keep known legacy failures visibly red with exact IDs/source/environment/results;
-a passing hosted-contract safety sample does not make that diagnostic green or
-establish release qualification. New failures, collection omissions, build errors
-or uncertain baseline comparisons block acceptance until scoped resolution or an
-independently approved contract/retirement change. Do not delete tests merely for
-speed. Existing verified benchmark artifacts can inform worker choice, not stand
-in for exact-current-source verification.
+Do not run an entire named backend contract, a full frontend hosted or discovered
+suite, or a blanket full-project test run for local agent verification. Membership
+of a focused test in a broad contract is not a reason to run the contract. Preserve
+required auth, principal, CAS, rollback, history and graph draft-loss protections
+with focused checks when affected. Do not delete or disable tests to make checks
+pass. If separate full-suite evidence is required for release, record it as
+missing; focused checks do not satisfy it and no gate is bypassed or claimed green.
 
-Run affected backend contracts locally in an isolated exact-SHA checkout using
-`scripts/ci_contract.py run <contract>` and the owning locked Python environment.
-Database contracts use one explicitly owned disposable App clone per workstream,
+Honor `/tmp/dungeonmind-frontend-verification-<uid>.lock` for focused local
+frontend tools. For browser, build, or database checks needing substantial scratch,
+verify the Projects filesystem before allocating a task directory. Use
+`mktemp -d "$HOME/Projects/.codex/buddy-check.XXXXXX"` and keep that task's scratch
+and caches there. Remove disposable outputs when finished and retain evidence
+referenced by the handoff. Never reuse evidence from a different SHA or represent
+an incomplete, stale or failed check as passing.
+
+Database checks use one explicitly owned disposable App clone per workstream,
 reused across serial cases and retries. Prepare/reset fixture state between cases;
 close workers and connections before final exact-clone teardown after acceptance
 or abandonment. Use the existing read-only Core snapshot where required. Never
@@ -211,9 +209,9 @@ requested behavior. A shipped route or passing component test alone does
 not establish ordinary workflow proof.
 
 When a change affects which action Buddy should choose or when it may act,
-use the [benchmark catalog](evals/README.md) to identify the owning suite
-and update its coverage in the same PR. Follow that suite’s fixture,
-scoring, and verification requirements. Apply the state-settlement rule
+use the [benchmark catalog](evals/README.md) to identify the owning benchmark
+and update its coverage in the same PR. Use its fixture and scoring rules for
+the selected cases and apply the local verification scope above. Apply the state-settlement rule
 above when new evidence arrives after merge.
 
 ## Efficient investigation

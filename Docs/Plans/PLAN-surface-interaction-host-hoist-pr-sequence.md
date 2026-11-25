@@ -614,7 +614,7 @@ Before each PR:
 4. write the PR handoff with exact base SHA and allowlist;
 5. characterize current tests on base;
 6. implement only the named sole capability;
-7. run focused owning-boundary tests, full frontend suite when feasible, typecheck,
+7. run only focused owning-boundary checks and include typecheck when it establishes an affected contract,
    build, and `git diff --check`;
 8. compare failures against the exact base;
 9. include a demolition declaration;

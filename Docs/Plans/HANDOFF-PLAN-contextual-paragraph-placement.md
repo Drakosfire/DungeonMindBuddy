@@ -324,7 +324,9 @@ Canonical credentials load once before fixtures; fixture DSNs are then reasserte
 and dotenv reloads disabled. Dedicated writer credentials are process-only; no key
 or serving configuration is changed or printed.
 
-Use isolated exact-SHA backend `scripts/ci_contract.py run query-and-answer`,
+The following historical command requirements applied to this merged slice. Future work follows the [root verification policy](../../AGENTS.md#local-verification-standard-and-hosted-pause).
+
+Original plan: use isolated exact-SHA backend `scripts/ci_contract.py run query-and-answer`,
 relevant additional owner contracts, and the repo frontend verifier's hosted suite
 plus retained-evidence validation. Honor the global frontend resource flock;
 release any queue handle before the verifier takes its own lock. Use external

@@ -14,21 +14,27 @@ server and external owners where applicable. For example, the
 the [source map](GUIDE-source-ingestion-and-evidence.md) distinguishes Buddy
 source storage from DungeonMind admission and publication.
 
-The named [CI contract catalog](../../ci/contracts.json) and
-[contract runner](../../scripts/ci_contract.py) show reusable commands:
+Select only the minimal checks that verify the changed invariant at its owning
+boundary. Inspect the cumulative diff and identify concrete affected behaviors
+and failure cases. A documentation-only change normally needs a diff review and
+checks of the affected links or mirrors, not product tests. For code, run focused
+cases with the locked environment and an isolated exact-SHA checkout when exact
+source matters. Record commands, coverage and omissions. Do not run a full named
+backend contract, full frontend suite or full-project test run for local agent
+verification. If separate full-suite evidence is required for release, record it
+as missing rather than claiming focused checks qualify it.
 
-```sh
-python scripts/ci_contract.py commands
-python scripts/ci_contract.py run <contract-name>
-```
+Before running or delegating a command, inspect what it selects. If it cannot
+select the relevant cases, use a narrower entry point or record the gap. Apply
+the root policy to handoffs, reviewer requests and inherited commands. Reuse
+sound evidence when it covers the reviewed revision and behavior. Record the
+owner and outstanding evidence for any separate release gate.
 
-The second command runs the selected contract; use the repository's locked
-Python environment and choose the contract that owns the invariant. The
-`inventory` action classifies discovered test **files**; it does not run the
-suite, establish case-level coverage or select PR tests. Read the contract and
-its tests before treating its result as evidence for a particular behavior.
-Database contracts require the disposable, uniquely owned isolation described
-in [AGENTS.md](../../AGENTS.md#local-verification-standard-and-hosted-pause).
+The [CI contract catalog](../../ci/contracts.json) is an inventory, not a test
+selection instruction. A test's inclusion in a large named contract does not
+require running every other test in it. The `inventory` action classifies test
+**files**; it does not establish case-level coverage. Focused database tests
+require the disposable isolation in [AGENTS.md](../../AGENTS.md#local-verification-standard-and-hosted-pause).
 Never use operator or live data as test fixtures.
 
 Database CI uses one owned App clone for the complete serial workstream, including
@@ -41,18 +47,11 @@ fixture borrowing it never drops it. After an interruption, inspect the existing
 receipt and workers before starting another run. Reuse the existing read-only
 Core snapshot for cases that need Core; these fixtures allocate no Core database.
 
-Run related named contracts in one command, for example:
-
-```sh
-python scripts/ci_contract.py run world-and-content ingestion-and-review query-and-answer saved-page-readers
-```
-
-The aggregate runner holds the owner around every selected suite, runs them
-serially even if an earlier suite fails, and returns the first failure. It waits
-for the exact worker process group to close before returning to its owner. The
-App fixture prepares a migrated pristine dump once per pytest session and resets
-that same database before and after each case. A lock refuses overlapping cases
-or pytest sessions, and open connections refuse a reset. Predecessor migrations,
+The App fixture prepares a migrated pristine dump once per pytest session and
+restores the owned database before and after each case. Those resets can dominate
+runtime, so select only the cases needed to verify the affected boundary. Never
+skip a reset required for isolation. A lock refuses overlapping cases or pytest
+sessions, and open connections refuse a reset. Predecessor migrations,
 empty-schema bootstrap and recovery rehearsals use serial empty states in that
 same owned database. Recovery saves the expected fingerprint and offline backup
 before reset, then proves restored output/parity; it does not claim simultaneous
@@ -73,12 +72,11 @@ failure evidence; omit credentials and connection strings from reports.
 ## Frontend and exact-source evidence
 
 The [frontend guide](../../apps/live-control-ui/README.md#commands) lists local
-iteration commands. Before review or merge, follow the exact-SHA local verifier
-and evidence-validation procedure in [AGENTS.md](../../AGENTS.md#local-verification-standard-and-hosted-pause),
-including the shared resource lock and external storage requirements. Frontend
-changes also need the policy's discovered-suite diagnostic. A working-tree run
-helps debugging but is not exact-commit evidence; a local result is not a
-GitHub-hosted status or a release-qualification claim.
+iteration commands. Select focused tests only for affected frontend behavior and
+honor the shared resource lock and scratch requirements in
+[AGENTS.md](../../AGENTS.md#local-verification-standard-and-hosted-pause).
+A working-tree run helps debugging but is not exact-commit evidence; a local
+result is not a GitHub-hosted status or a release-qualification claim.
 
 Record the tested revision, commands, environment, isolation, failures and
 limits. Choose additional owning-boundary tests for the change and distinguish

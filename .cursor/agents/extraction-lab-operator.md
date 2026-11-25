@@ -46,7 +46,7 @@ If `git status` / diff implicates other files (e.g. `src/store.py`, `src/ingesti
 2. **Refresh critical files** from the checklist (at least P0; add P1 when touching behavior).
 3. **Execute** the requested implementation or investigation. Prefer minimal diffs; no drive-by refactors.
 4. **Verify** (non-optional when code or anchors change):
-   - `uv run pytest tests/extraction_lab/ -q` (expand scope only if failures demand it).
+   - Select the changed lab behavior and its relevant failure cases. Run the matching pytest node IDs or a targeted CLI check under the [root verification policy](../../AGENTS.md#local-verification-standard-and-hosted-pause).
    - If the task is run-oriented, run the relevant CLI from the playbook below and capture exit code + key lines.
 5. **Summarize evidence**: commands run, pass/fail, paths to artifacts (`out/extraction_lab/<run_id>/…`), explicit **next actions**. Mark claims unproven if you could not run commands.
 
@@ -97,7 +97,7 @@ Assume `cd` to the repo root first.
 **Extraction Lab unit tests**
 
 ```bash
-uv run pytest tests/extraction_lab/ -q
+uv run --locked pytest 'tests/extraction_lab/<file>.py::<case>' -q
 ```
 
 **Fixture smoke (offline-friendly lab run)**
@@ -200,4 +200,4 @@ Use `entity_results.json` / `fact_results.json` (or `report.md`) for failing `an
 - Ordered list (minimal steps)
 ```
 
-**Anti-drift:** If you did not run pytest or the relevant CLI, state **UNPROVEN** and list what blocked you (environment, missing store path, etc.).
+**Anti-drift:** Mark the specific claim **UNPROVEN** when retained or newly collected evidence does not establish it. Record the missing proof.

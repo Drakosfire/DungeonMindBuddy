@@ -1,6 +1,9 @@
 # CI: local exact-source verification and bounded hosted pause
 
-Status: ACTIVE under Alan's explicit local-standard/GitHub-pause request. Branch
+Status: historical record of the local verifier and hosted workflow pause.
+Verification selection is governed by [the root policy](../../AGENTS.md#local-verification-standard-and-hosted-pause). The commands below document the original cutover.
+
+Branch
 codex/ci-local-frontend-verification, isolated checkout from actual main
 c93fe15abeb3b19adf3fd901ca8ec5ae558d43ab. This contains no retained2288/2298 edits.
 Their denied commits800a/550975 remain on their original local branches; no retry
@@ -44,9 +47,7 @@ Full regression/qualification remains an explicitly red diagnostic with owning
 backlog, not release-qualified. Applicable local tests and independent exact-head
 review remain mandatory; newly introduced failures or unproven baseline comparisons
 block acceptance. Backend isolation and auth/CAS/rollback/history/graph draft safety
-are not replaced by frontend-only evidence. Full discovered diagnostics remain
-available and required at meaningful frontend checkpoints; avoid duplicate full-load
-benchmarks. Benchmark worker01a1c105's reported8/16trial is context (about120s at8,
+are not replaced by frontend-only evidence. Full discovered diagnostics remain available for separate release qualification. Benchmark worker01a1c105's reported8/16trial is context (about120s at8,
 no meaningful16improvement), not exact-current-source evidence collected by this lane.
 
 Before reporting cutover complete: independent cumulative review, verifier regression
