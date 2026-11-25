@@ -5,6 +5,12 @@ side effects, in addition to whether Buddy produces a useful response. Use the
 existing Plan authoring contract and retained APP turn evidence. Keep the
 assessment local.
 
+## Action catalog
+
+| Action | Strongest verified boundary | Remaining proof |
+| --- | --- | --- |
+| Resolve an ambiguous Build paragraph placement | [Ordinary Build HTTP regression](../tests/test_surface_native_build_ordinary.py) covers the saved question and an inert proposal after the workbook submits the answer with the original request. | Verify the serving build in Chrome, including unchanged editor and saved page before acceptance. |
+
 ## Plan authoring and conversation-only cohort
 
 | Case | Request and starting state | Required result |
