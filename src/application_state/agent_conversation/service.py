@@ -1748,8 +1748,10 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             from .native_execution import BuildPendingExecutionV1
             from .build_related_pages import RelatedPagesSelection, RelatedPageRead
+            from .types import BuildPriorBodyEvidenceAdmittedV1
             if type(turn.graph_context_execution) is BuildPendingExecutionV1 and isinstance(event, (
-                    ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead)):
+                    ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead,
+                    BuildPriorBodyEvidenceAdmittedV1)):
                 raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
@@ -2551,6 +2553,44 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             producer=observe_read, event_id=event_id, authorization_event_id=authorization_event_id,
             reads=reads, unavailable_ids=unavailable_ids)
+
+    def admit_pending_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorize_current_access):
+        """Freeze existing App conversation under its current pointer and claim."""
+        from . import types as t
+        from .native_corpus import prior_conversation_work
+        from .build_source_free import pending_conversation_route_can_admit
+        from .retained_conversation import capture
+        world_id = _world_id(world_id)
+        if (type(event_id) is not UUID or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending retained context requires its exact host and App access owner')
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize retained conversation')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending claim expired before retained capture')
+            execution, receipt = turn.graph_context_execution, turn.graph_context_receipt
+            work = prior_conversation_work(execution.events, allow_discussion=True)
+            if work is None or not pending_conversation_route_can_admit(receipt, execution):
+                raise ApplicationStateValidationError('Pending retained context requires source-free conversation work')
+            prior = [event for event in execution.events if type(event) is t.BuildPriorBodyEvidenceAdmittedV3]
+            if prior:
+                if len(prior) != 1 or prior[0].event_id != event_id or prior[0].work_event_id != work.event_id:
+                    raise ApplicationStateConflictError('Pending conversation already has its retained closure')
+                return turn, False
+            try:
+                turns, seed = repo.list_retained_build_turns(conn, turn)
+                event = capture(turn, turns, seed=seed, event_id=event_id, work_event_id=work.event_id,
+                    pointer_revision=receipt.conversation_observation.pointer_revision, discussion=True)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access changed during retained capture')
+            return self._append_pending_checked(conn, turn, event, expected_revision)
 
     def admit_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):

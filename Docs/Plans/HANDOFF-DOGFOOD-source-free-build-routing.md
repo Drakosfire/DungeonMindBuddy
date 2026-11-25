@@ -223,6 +223,13 @@ explicit adapter/initial-driver branches currently being implemented:
   server adapter constructor pending source-preparation field and root pending-only
   factory injection; harness _native_completion exact pending preparation branch.
   No Plan source factory, query resolver, Core or existing reader lease is added.
+- native_corpus.conversation_route_can_admit and writer_evidence_selection.native_build:
+  exact pending receipt/execution delegation only; existing native codecs stay owned
+  by their current branches. native_execution pending prefix: retained V3 event and
+  structural join only. build_source_free pending retained binding helpers;
+  service.admit_pending_build_prior_body_evidence and its generic-bypass guard;
+  build_pending_retained.py host admission plus harness pending pre-acquisition call.
+  Existing retained_conversation.capture is reused read-only, not reimplemented.
 - This handoff.
 
 **Released now:** native_corpus.py, native_writer.py,
@@ -677,3 +684,25 @@ preparation and live access refusal; foreign bound principals remain refused.
 Retained reopening deliberately keeps the original stored authority/query while
 the refreshed source context can carry a greater acquisition epoch. A smaller
 fresh epoch is refused before publication, and neither case repeats search.
+
+
+## Pending retained-conversation runtime checkpoint
+
+The pending harness admits source-free conversation work through a dedicated
+World/pointer/conversation/claim/leaf/access-checked App transaction before App
+or Core acquisition. It reuses retained_conversation.capture unchanged to freeze
+all existing dialogue, authored material and admitted native material in the
+current full V3 closure. A subsequent entry checks current access and reuses the
+one closure without recapture. Exact pending structural and Turn identity joins
+cover producing World/conversation/turn/attempt/sequence/pointer. Generic append
+cannot admit this event, and retained admission blocks new App/native scope.
+The existing conversation terminal recognizes the exact pending Build family;
+this is writer readiness only, not accepted writer output.
+
+Sixteen focused working controls passed2.53s with the real claim/service/capture
+owners and fake App transactions. They cover60-turn preservation, late correction,
+deduplicated authored occurrences, local model aliases, no acquisition, re-entry,
+foreign history, lookup substitution, identity mutation, pointer/claim/leaf/access
+revocation, expiry, CAS and generic append closure. This does not prove SQL races,
+writer generation, terminal acceptance, reader compatibility or signed-in app
+behavior. Those remain required in this same serial PR before merge/deploy.

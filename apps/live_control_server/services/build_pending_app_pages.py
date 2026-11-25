@@ -42,6 +42,8 @@ async def acquire_pending_app_pages(adapter, harness):
     if type(adapter._broker_receipt()) is not BuildPendingContextReceiptV1:
         return
     execution = adapter._broker_execution()
+    if any(type(event) is ledger.BuildPriorBodyEvidenceAdmittedV3 for event in execution.events):
+        return
     work = [event for event in execution.events if type(event) is ledger.BuildRequestedWorkResolutionV1]
     if len(work) != 1:
         raise ValueError('Pending App navigation requires one admitted work decision')

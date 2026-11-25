@@ -267,8 +267,12 @@ def host_basis(state, *, semantic=False):
 
 
 def native_build(turn):
-    from .native_execution import SurfaceNativeExecutionV1, NativeBuildActionV1
+    from .native_execution import SurfaceNativeExecutionV1, NativeBuildActionV1, BuildPendingExecutionV1
+    from .native_context import BuildPendingContextReceiptV1
     execution = turn.graph_context_execution
+    if type(execution) is BuildPendingExecutionV1:
+        return (type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+                and type(execution.policy.action) is NativeBuildActionV1)
     return (type(execution) is SurfaceNativeExecutionV1
             and type(execution.policy.action) is NativeBuildActionV1)
 

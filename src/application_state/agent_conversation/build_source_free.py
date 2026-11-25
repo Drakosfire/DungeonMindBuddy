@@ -261,6 +261,14 @@ def _join_pending_turn(turn):
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
     _join_pending_turn_fields(receipt, execution, turn.provenance,
         turn.submitted_intent_fingerprint_v2, turn.completion, turn.assistant_text)
+    from .retained_conversation import validate_binding
+    for event in execution.events:
+        if type(event) is t.BuildPriorBodyEvidenceAdmittedV3:
+            validate_binding(event, world_id=turn.world_id, conversation_id=turn.conversation_id,
+                turn_id=turn.turn_id, attempt=turn.attempt)
+            if (event.conversation_sequence != turn.sequence
+                    or event.pointer_revision != receipt.conversation_observation.pointer_revision):
+                raise ValueError('Pending retained context differs from its captured turn or pointer')
     intent = execution.policy.action.intent
     if (turn.submitted_intent_fingerprint_v1 is not None
             or turn.world_id != intent.world_id or turn.user_text != intent.message
@@ -299,6 +307,8 @@ def pending_source_work(execution):
                 or set(choices[0].document_ids) != read_pages):
             raise ValueError('Pending App page acquisition must resolve before native source preparation')
     work, = rows
+    if any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events):
+        raise ValueError('Pending retained conversation cannot acquire another source scope')
     if (work.resolution.get('barrier') is not None
             or work.resolution.get('source_scope') not in {'source_lookup', 'uncertain'}
             or work.requested_work in {'review_blank_lore_page', 'clarify_request', 'clarify_creation'}):
@@ -448,3 +458,31 @@ def validate_pending_app_page_selection_result(receipt, execution, selection, pr
     if selected != selection.document_ids:
         raise ValueError('Pending App choices differ from the actual read/skip votes')
     return tuple(selected)
+
+
+def pending_conversation_route_can_admit(receipt, execution):
+    """A pending Build may reuse its conversation, never new acquisition."""
+    from . import types as t
+    from .native_execution import NativeBuildSourceSettledV1
+    receipt, execution = _pending_components(receipt, execution)
+    _join_pending_source(receipt, execution)
+    return not any(type(event) in (NativeBuildSourceSettledV1, BuildAppPageCatalogObservedV1,
+        t.RelatedPagesSelection, t.RelatedPageRead) for event in execution.events)
+
+
+def validate_pending_retained_admission(execution, event):
+    """Structural closure; only the locked capture owner can create this event."""
+    from . import types as t
+    from .native_corpus import prior_conversation_work
+    from .native_execution import NativeBuildSourceSettledV1
+    if type(event) is not t.BuildPriorBodyEvidenceAdmittedV3:
+        raise ValueError('Pending retained context requires its full current closure codec')
+    prefix = execution.events[:event.sequence]
+    work = prior_conversation_work(prefix, allow_discussion=True)
+    if (work is None or work.event_id != event.work_event_id
+            or event.world_id != execution.policy.action.intent.world_id
+            or event.presentation_policy != 'retained_conversation_semantic_v3'
+            or any(isinstance(prior, t.BuildPriorBodyEvidenceAdmittedV1)
+                or type(prior) in (NativeBuildSourceSettledV1, BuildAppPageCatalogObservedV1,
+                    t.RelatedPagesSelection, t.RelatedPageRead) for prior in prefix)):
+        raise ValueError('Pending retained context requires unique source-free conversation work')

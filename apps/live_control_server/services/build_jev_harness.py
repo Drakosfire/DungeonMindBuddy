@@ -540,6 +540,8 @@ class BuildJevHarness:
                 guidance.get(placement.disposition, "Which existing paragraph should I use, and should I insert before or after it?"),
                 code="build_contextual_placement_unresolved", status_code=409,
             )
+        from .build_pending_retained import admit_pending_conversation
+        admit_pending_conversation(adapter)
         from .build_pending_app_pages import acquire_pending_app_pages
         asyncio.run(acquire_pending_app_pages(adapter, self))
         from .build_pending_source import prepare_pending_native_source

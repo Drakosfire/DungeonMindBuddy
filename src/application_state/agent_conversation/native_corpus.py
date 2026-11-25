@@ -727,6 +727,10 @@ def prior_conversation_work(events, *, allow_discussion=False):
 
 
 def conversation_route_can_admit(receipt, execution):
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_source_free import pending_conversation_route_can_admit
+        return pending_conversation_route_can_admit(receipt, execution)
     from .native_context import NativeBuildQueryPendingV1
     from .native_execution import NativeBuildActionV1, NativeBuildQuerySettledV1
     from .native_plan_statements import NativePlanQueryUnavailableV1

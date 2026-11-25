@@ -141,6 +141,8 @@ def prepare_pending_native_source(adapter):
     execution = adapter._broker_execution()
     stored = effective_pending_source(adapter._broker_receipt(), execution)
     if stored is None:
+        if any(type(event) is ledger.BuildPriorBodyEvidenceAdmittedV3 for event in execution.events):
+            return False
         work = [event for event in execution.events if type(event) is ledger.BuildRequestedWorkResolutionV1]
         if len(work) != 1:
             raise ValueError('Pending preparation requires one admitted work decision')
