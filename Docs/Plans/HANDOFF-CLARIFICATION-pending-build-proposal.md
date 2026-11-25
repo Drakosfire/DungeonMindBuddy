@@ -24,8 +24,8 @@ including cold reopen of the pending proposal. Leave the proposal unaccepted.
 ## Serving port
 
 The source slices merged as #4721 and #4722, with serving ports #4724 and
-#4727 and #4751 and #4754. This serial port targets `codex/sizzek-play-edit-base` at verified live
-source `65f8b33b06e4aaf559cdaff090b42bfb87a038aa`. It preserves the live App 0213
+#4727 and #4751 and #4754. This serial port targets `codex/sizzek-review-latest-base` at verified live
+source `675495998fbcd888525c7e66eaaf574646c21e73`. It preserves the live App 0213
 retained-citation fence and carries both placement record formats in App 0214.
 Recheck the serving identity, qualify recovery from App 0213 to 0214, and use
 the protected Actions App-fence packet for cutover.
