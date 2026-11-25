@@ -11,6 +11,8 @@ assessment local.
 | --- | --- | --- |
 | Resolve an ambiguous Build paragraph placement | The [ordinary Build HTTP regression](../tests/test_surface_native_build_ordinary.py) checks that Build conversation saves the inline question and resumes the original request to stage an inert proposal. The [editor regression](../apps/live-control-ui/src/buildSurface/buildComposeBridge.test.ts) exercises Build proposal review after plain Markdown reload discards temporary block IDs. | In the deployed app, verify that the answered request resumes, the proposal reopens at the intended paragraph, and the editor and saved page remain unchanged until acceptance. |
 
+| Generate, preview, and save artwork | Guest Build uses the existing Image Studio with a session-owned private library when enabled. [Guest scope and tests](../Docs/Plans/HANDOFF-ONBOARD-guest-inline-media.md) | Fake-provider HTTP and mocked-transport Build tests cover placement, save and reopen. Verify the complete workflow with the real provider in production. |
+
 ## Plan authoring and conversation-only cohort
 
 | Case | Request and starting state | Required result |

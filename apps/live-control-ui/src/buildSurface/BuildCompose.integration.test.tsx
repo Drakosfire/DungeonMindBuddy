@@ -15,6 +15,7 @@ import * as proposals from '../api/buildDocumentProposalApi';
 import type { WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponse } from '../api/types';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { mediaMarkdown } from '../media/mediaReferences';
+import * as guestSession from '../guestWorld/guestBuildSession';
 vi.mock('../selectedWorld/SelectedWorldContext', async original => ({
   ...await original<typeof import('../selectedWorld/SelectedWorldContext')>(),
   useSelectedWorld: () => ({ kind: 'managed', worldId: 'elderwyld' }),
@@ -227,6 +228,37 @@ function ExposeBuildBridge(){const registry=useWorldAgentConversationState();exp
 function ImagePlacementHarness(){return <AgentInteractionProvider><WorldAgentConversationProvider worldId="elderwyld">
  <BuildCanvasTestProvider documentId={DOC}><BuildSurfaceShell/><Controls/><ExposeBuildBridge/></BuildCanvasTestProvider>
  </WorldAgentConversationProvider></AgentInteractionProvider>;}
+it('generates and places artwork through the guest Build studio, then saves and reopens',async()=>{
+ const guest=vi.spyOn(guestSession,'guestBuildActive').mockReturnValue(true);
+ const asset='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
+ const request=vi.spyOn(api,'authenticatedApiFetch').mockImplementation(async path=>{
+  const url=String(path);
+  const payload=url.includes('/capabilities')?{configured:true,library_ready:true,storage_configured:false,models:[{id:'flux-2-pro',label:'Flux',formats:['png'],controls:[]}],default_model_id:'flux-2-pro'}
+   :url.includes('/generate?')?{images:[{asset_id:asset,state:'staged',data_url:'data:image/png;base64,iVBORw0KGgo=',media_type:'image/png'}],model:'flux-2-pro',prompt:'Blue lantern'}
+   :url.endsWith('/metadata')?{asset_id:asset,state:'staged'}:null;
+  return {response:Response.json(payload,{status:payload?200:404}),csrf:null,requestEpoch:0};
+ });
+ const view=render(<ImagePlacementHarness/>);
+ await waitFor(()=>expect(session.phase).toBe('ready_clean'));
+ act(()=>{window.dispatchEvent(new CustomEvent('dmb:build-studio-action',{detail:'image'}));});
+ const prompt=await screen.findByLabelText('What would you like to see?');
+ fireEvent.change(prompt,{target:{value:'Blue lantern'}});
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Generate image'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Place on page'}));
+ const editor=session.editor!;
+ vi.spyOn(editor.view,'posAtCoords').mockReturnValue({pos:2,inside:1});
+ fireEvent.pointerUp(editor.view.dom,{clientX:10,clientY:10});
+ await waitFor(()=>expect(session.dirty).toBe(true));
+ fireEvent.click(screen.getByRole('button',{name:'Save test page'}));
+ await waitFor(()=>expect(session.dirty).toBe(false));
+ expect(stored.markdown).toContain(`dmb-media:${asset}`);
+ view.unmount();localStorage.clear();render(<ImagePlacementHarness/>);
+ await waitFor(()=>expect(session.phase).toBe('ready_clean'));
+ expect(tiptapJsonToSemanticMarkdown(session.editor!.getJSON())).toContain(`dmb-media:${asset}`);
+ expect(request.mock.calls.some(([path])=>String(path).includes('/generate?'))).toBe(true);
+ request.mockRestore();guest.mockRestore();
+},15000);
 it('preserves the clicked paragraph when placing, saving and reopening a Build image',async()=>{
  const asset='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
  const view=render(<ImagePlacementHarness/>);

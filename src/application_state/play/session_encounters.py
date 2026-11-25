@@ -123,7 +123,7 @@ def capture(conn, *, world_id, request):
     return admitted, membership, {'scenes': snapshots}
 
 
-def create_session(*, world_id: str, run_id: UUID | str, request: WorldSessionCreateRequest):
+def create_session(*, world_id: str, run_id: UUID | str, request: WorldSessionCreateRequest, authorize_creation=None):
     from application_state.play.service import _require_world_id, _as_uuid, _derive_manifest_document, EMPTY_PROGRESS
     from apps.live_control_server.services.play_run_registry import derive_v2_opening_beat_id
     world_id = _require_world_id(world_id)
@@ -133,6 +133,8 @@ def create_session(*, world_id: str, run_id: UUID | str, request: WorldSessionCr
         _lock_creation(conn, run_id)
         receipt = _receipt(conn, world_id, run_id, request)
         if receipt is not None:
+            if authorize_creation is not None:
+                authorize_creation(conn, world_id, True)
             return _result(conn, world_id, run_id, receipt)
         if _canceled(conn, world_id, run_id, request):
             raise ApplicationStateConflictError('Session creation was canceled')
@@ -150,6 +152,8 @@ def create_session(*, world_id: str, run_id: UUID | str, request: WorldSessionCr
             if scene['scene_id'] == request.entry_scene_id), None) if request.entry_scene_id else derive_v2_opening_beat_id(revision.markdown)
         if progress['current_beat_id'] is None:
             raise ApplicationStateValidationError('Session source has no authored entry Beat')
+        if authorize_creation is not None:
+            authorize_creation(conn, world_id, False)
         run = repo.insert_run(conn, PlayRun(run_id=run_id, campaign_id=None, world_id=world_id,
             playable_work_object_id=request.playable_artifact_id, playable_revision_n=revision.revision_n,
             playable_work_revision_id=revision.work_revision_id, playable_content_sha256=revision.content_sha256,
