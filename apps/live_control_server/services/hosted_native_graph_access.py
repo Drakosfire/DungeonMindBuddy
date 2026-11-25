@@ -1092,6 +1092,10 @@ def require_hosted_saved_artwork(request: Request, asset_id: UUID) -> str:
     if binding is None or binding[0] != str(asset_id):
         raise _denied()
     world_id = binding[1]
+    if getattr(request.state, "guest_build_world", None) is not None:
+        from apps.live_control_server.services.guest_build_access import require_guest_build_world
+        require_guest_build_world(request, world_id)
+        return hosted_world_media_owner(world_id)
     _owned_world(_hosted_subject(request), world_id)
     return hosted_world_media_owner(world_id)
 
