@@ -147,6 +147,10 @@ export function SelectedWorldProvider({
     : admission, [admission, loaded, selectionScope, principalKey, selection.explicit, selection.worldId]);
 
   useLayoutEffect(() => {
+    if (loaded?.value.kind === "managed" && loaded.principalKey !== principalKey) {
+      setLoaded(null);
+      return;
+    }
     if (loaded?.retainedWorld && (!selection.explicit || selection.worldId !== loaded.retainedWorld.worldId
         || loaded.principalKey !== principalKey)) {
       setLoaded(null);

@@ -282,6 +282,9 @@ describe('World lifetime and incoming page admission',()=>{
   view.rerender(<SelectedWorldProvider locationSnapshot={`/build?world=${world.world_id}&documentId=new-doc`}><AdmissionProbe/></SelectedWorldProvider>);
   expect(screen.getByTestId('identity')).not.toHaveTextContent(`managed:${world.world_id}:`);
   expect(screen.getByTestId('admission')).toHaveTextContent('loading');
+  auth.mockReturnValue({status:'authenticated',subject:'first',displayName:null,refreshWarning:false});
+  view.rerender(<SelectedWorldProvider locationSnapshot={`/build?world=${world.world_id}&documentId=new-doc`}><AdmissionProbe/></SelectedWorldProvider>);
+  expect(screen.getByTestId('identity')).not.toHaveTextContent(`managed:${world.world_id}:`);
   view.unmount();auth.mockRestore();
  });
  it('retains only same verified World identity while a new document is pending, then rejects a mismatch',async()=>{
