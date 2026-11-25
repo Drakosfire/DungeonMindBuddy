@@ -93,3 +93,22 @@ it("starts a guest session from an existing saved Plan", async () => {
   expect(new Headers(request?.[1]?.headers).get("X-DMB-Index-Graph-CSRF")).toBe("guest-csrf");
   await waitFor(() => expect(window.location.pathname).toBe("/play"));
 }, 20000);
+
+it("opens the prepared guest session from bare Play", async () => {
+  vi.stubEnv("PROD",true); vi.stubEnv("VITE_HOSTED_GUEST_BUILD","1"); vi.stubEnv("VITE_HOSTED_GUEST_PLAN","1"); vi.stubEnv("VITE_HOSTED_GUEST_PLAY","1");
+  const worldId=`guest-${'b'.repeat(32)}`;
+  const helper=await import('./playSurface/guestAdventureSession');
+  const open=vi.spyOn(helper,'guestAdventureSession').mockResolvedValue('11111111-1111-4111-8111-111111111111');
+  vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>{
+    const path=String(input);
+    if(path==='/api/auth/session')return response(401,{status:'signed_out'});
+    if(path==='/api/live/index-graph/session')return response(200,{csrf_token:'guest-csrf'});
+    if(path==='/api/live/index-graph/world')return response(200,{world_id:worldId,name:'Sizzek World'});
+    if(path.startsWith('/api/live/world-play-runs/v2/active?'))return response(200,{schema_version:'dmb_world_play_active_run_v2',world_id:worldId,run_id:null,selected_at:null});
+    if(path.startsWith('/api/live/world-play-runs/v2?'))return response(200,{schema_version:'dmb_world_play_runs_list_v2',world_id:worldId,records:[],source_titles:{}});
+    return response(404,{detail:'Not found'});
+  }));
+  window.history.replaceState({},'','/play'); render(<App/>);
+  await waitFor(()=>expect(open).toHaveBeenCalled(),{timeout:10000});
+  await waitFor(()=>expect(new URLSearchParams(window.location.search).get('run')).toBe('11111111-1111-4111-8111-111111111111'));
+},15000);

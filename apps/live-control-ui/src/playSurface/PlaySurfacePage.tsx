@@ -1,3 +1,5 @@
+import { guestBuildActive } from "../guestWorld/guestBuildSession";
+import { guestAdventureSession } from "./guestAdventureSession";
 import {matchesNavigationTarget,useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
 import type {TourDispatchScope} from '../guidedTour/GuidedTour';
 import {runPins} from '../guidedTour/ownerPins';
@@ -464,6 +466,21 @@ function PlayChooser({
     }).catch(() => { /* The heading retains its fallback title. */ });
     return () => { cancelled = true; };
   }, [initialPlanId, selectedWorldId, status, titles, trashInventoryVersion]);
+
+  useEffect(() => {
+    if (!guestBuildActive() || !selectedWorldId || status !== "ready" || initialPlanId || continuityWarning) return;
+    const params = new URLSearchParams(window.location.search);
+    if ([...params.keys()].some(key => key !== "world")) return;
+    let cancelled = false;
+    const current = () => !cancelled && window.location.pathname === "/play"
+      && ![...new URLSearchParams(window.location.search).keys()].some(key => key !== "world");
+    void guestAdventureSession(selectedWorldId, records, current).then(runId => {
+      if (runId && current()) navigateToRun(runId);
+    }).catch(error => {
+      if (current()) setDetail(error instanceof Error ? error.message : "The prepared session could not be opened.");
+    });
+    return () => { cancelled = true; };
+  }, [selectedWorldId, status, initialPlanId, continuityWarning, records]);
 
   const ordered = [...records].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   const matching = initialPlanId ? ordered.filter(record => record.playable_artifact_id === initialPlanId) : ordered;
