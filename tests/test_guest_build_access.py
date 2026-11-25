@@ -338,6 +338,43 @@ def test_guest_reset_revokes_prepared_native_graph_read(guests, tmp_path, monkey
         read_selected(context, authorization, principal)
 
 
+def test_guest_reset_during_authored_reference_read_discards_result(guests, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from uuid import UUID
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredReferencesV2
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    from apps.live_control_server.services import native_graph_reads
+    from tests.test_source_statements import make_lane
+    from tests.test_native_plan_assertions import publish
+    from tests.test_surface_native_authored_references import human_grant
+
+    (client, csrf, world), _ = guests[0]
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    publish(lane)
+    session_id = str(UUID(world.removeprefix('guest-')))
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world, guest_build_session=session_id))
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id=world, session_id=session_id, request=request)
+    binding = SimpleNamespace(managed_world_id=world, native_world_id=lane.world.world_id,
+                              binding_version=1, provisioning_id=None)
+    selected = AuthoredReferencesV2(references=(AuthoredGraphReferenceV1(managed_world_id=world,
+        native_world_id=lane.world.world_id, binding_version=1,
+        graph_revision=lane.repo.get_head(lane.world.world_id).head_revision_id,
+        node_id=lane.ids['B'], label='B'),))
+    context, _ = native_graph_reads.prepare_query(world, 'What did B do?', principal,
+        repository=lane.repo, resolve_binding=lambda _: binding, authored_references=selected)
+    authorization = human_grant(context, selected)
+    original = native_graph_reads._read_assertions
+    def reset_after_read(*args, **kwargs):
+        result = original(*args, **kwargs)
+        assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+        return result
+    monkeypatch.setattr(native_graph_reads, '_read_assertions', reset_after_read)
+    with pytest.raises(ApplicationStateConflictError):
+        native_graph_reads.read_authored_reference(context, authorization, principal)
+
+
 @pytest.mark.parametrize('reset_during_direct_read', [False, True])
 def test_guest_reset_revokes_prepared_native_source_body(guests, tmp_path, monkeypatch, reset_during_direct_read):
     from types import SimpleNamespace
@@ -538,6 +575,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
                'references': [{**reference, 'managed_world_id': 'foreign-world'}]}}
     assert client.post('/api/live/agent/turn', headers=headers, json=foreign).status_code in (400, 403, 422)
     for invalid in ({**reference, 'native_world_id': lane.world.world_id},
+                    {**reference, 'binding_version': binding.binding_version + 1},
                     {**reference, 'graph_revision': 'rev:missing'}):
         invalid_payload = {**payload, 'turn_id': str(uuid4()),
                            'authored_references': {'schema': 'dmb_authored_references_v2', 'references': [invalid]}}
