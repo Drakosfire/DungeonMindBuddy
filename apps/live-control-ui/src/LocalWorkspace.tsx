@@ -29,7 +29,7 @@ export function LocalWorkspace({ route, pageAdmitted, children }: {
 }) {
   const selectedWorld = useSelectedWorld();
   const guestBuild = guestBuildActive();
-  const buddyAvailable = !guestBuild || (import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" && route !== "play"
+  const buddyAvailable = !guestBuild || (import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" && (route !== "play" || import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === "1")
     && (route !== "build" || import.meta.env.VITE_HOSTED_GUEST_BUILD_BUDDY === "1"));
   const auth = useHostedAuthStatus();
   const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
