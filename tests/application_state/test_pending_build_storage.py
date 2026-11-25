@@ -52,7 +52,7 @@ def test_pending_shape_sql_admission_readback_and_crossed_family_refusal(applica
 def test_pending_schema_head_refuses_previous_reader(application_state_dsn, monkeypatch):
     with psycopg.connect(application_state_dsn) as conn:
         cli.assert_connection_at_head(conn)
-        monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0212')
+        monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0213')
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_connection_at_head(conn)
 
@@ -84,7 +84,7 @@ def test_completed_pending_sdk_reply_survives_real_sql_checks(application_state_
         assert repository._turn_from_row(None, stored, references=references) == turn
 
 
-def test_pending_anchored_placement_saves_the_question_without_retrieval(application_state_dsn, tmp_path, monkeypatch):
+def test_pending_anchored_placement_saves_the_question_and_stages_the_answered_proposal(application_state_dsn, tmp_path, monkeypatch):
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
     from apps.live_control_server.services import build_pending_app_pages, plan_source_turn
     from tests.test_source_statements import make_lane
@@ -108,7 +108,7 @@ def test_pending_anchored_placement_saves_the_question_without_retrieval(applica
         return client.post('/api/live/agent/turn', json=body)
 
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True,
-        contextual='ambiguous', source_need='anchored', dispatch=send, continue_placement=False,
+        contextual='ambiguous', source_need='anchored', dispatch=send,
         message='After the orchid paragraph, add a line about a copper lamp.')
 
 
