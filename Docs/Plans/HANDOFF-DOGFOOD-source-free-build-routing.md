@@ -866,3 +866,24 @@ changed semantic contracts, acquired source settlement, forged terminal and
 factual-lookup substitution are refused. Synthetic HTTP/fake App evidence is not
 SQL, actual Jev selection, page review/create or signed-in acceptance. Those gates
 and current strict API/UI readers/source-backed completion remain open.
+
+
+## Captured page-review continuation
+
+ACTIVE same serial slice: extend only focused pending protocol fixtures and
+repair any pending-specific writer/completion branch those cases expose. Capture
+real lore review capability and current titled request before admission; exercise
+60-turn retained closure through SDK draft output/stored readback without new
+acquisition. This is not author-save/UI acceptance. Existing ordinary output
+grammar and capability owners must remain unchanged.
+
+Page-review contract evidence:8 focused checks passed3.78s, including a real
+captured lore_page capability, titled current Maelthor request,60-turn retained
+V3 closure, actual SDK lore_page_response output, final completion and stored
+readback. Early authored material and late correction remain in writer input;
+writer reasoning is none and acquisition count is zero. Bare discussion/null
+draft and an unbound citation are refused without completing the Turn. Existing
+retained and source-free SDK completions remain covered. The response is synthetic:
+this does not prove model semantic quality, Jev selection, physical catalog SQL,
+author save, HTTP/UI delivery or signed-in acceptance. No production code change
+was required for this retained page-review branch.
