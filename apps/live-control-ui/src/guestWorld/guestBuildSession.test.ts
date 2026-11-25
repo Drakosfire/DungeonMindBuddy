@@ -170,6 +170,10 @@ it('scopes Play content commands to the enabled guest session', async () => {
   expect(guestBuildCsrf(path,'POST')).toBeNull();
   expect(guestBuildRequestEpoch(path,'POST')).toBeNull();
   expect(guestBuildRequestEpoch(`/api/live/world-play-runs/v2/${run}/content/proposals`,'GET')).toBeNull();
+  vi.stubEnv('VITE_HOSTED_GUEST_PLAY_BUDDY', '1');
+  expect(guestBuildRequestEpoch(`/api/live/world-play-runs/v2/${run}/content/proposals`,'GET')).not.toBeNull();
+  expect(guestBuildRequestEpoch(`/api/live/world-play-runs/v2/${run}/content/proposals/${command}`,'GET')).not.toBeNull();
+  expect(guestBuildRequestEpoch(`/api/live/world-play-runs/v2/${run}/content/proposals/${command}`,'POST')).toBeNull();
   const review=`/api/live/world-play-runs/v2/${run}/review?world_id=${world}`;
   const reviewCommand=`/api/live/world-play-runs/v2/${run}/review/commands/${command}?world_id=${world}`;
   expect(guestBuildRequestEpoch(review,'GET')).not.toBeNull();

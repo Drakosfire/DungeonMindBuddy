@@ -1988,6 +1988,18 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     assert created.json()['run']['progress']['current_scene_id'] == 'scene:contract'
     assert first.put(run_path, params={'world_id': world}, headers=headers, json=preview.json()['request']).status_code == 200
     assert second.get(run_path, params={'world_id': world}).status_code == 403
+    proposals_path = f'{run_path}/content/proposals'
+    assert first.get(proposals_path, params={'world_id': world}).status_code == 401
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED', '1')
+    proposals = first.get(proposals_path, params={'world_id': world})
+    assert proposals.status_code == 200 and proposals.json()['proposals'] == []
+    assert second.get(proposals_path, params={'world_id': world}).status_code == 403
+    missing_proposal = f'{proposals_path}/11111111-1111-4111-8111-111111111111'
+    assert first.get(missing_proposal, params={'world_id': world}).status_code == 404
+    assert second.get(missing_proposal, params={'world_id': world}).status_code == 403
+    assert first.get(proposals_path, params=[('world_id', world), ('world_id', world)]).status_code in (400, 403)
+    assert first.post(f'{proposals_path}/11111111-1111-4111-8111-111111111111', params={'world_id': world}, headers=headers, json={}).status_code == 401
     content_path = f'{run_path}/content'
     content = first.get(content_path, params={'world_id': world})
     assert content.status_code == 200, content.text
@@ -2120,6 +2132,7 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
         assert resetting.result(timeout=15).status_code == 200
     assert first.get(content_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(review_path, params={'world_id': world}).status_code in (401, 403)
+    assert first.get(proposals_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(run_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(f"{combat_path}/{encounter['encounter_id']}", params={'world_id': world}).status_code in (401, 403)
     assert second.get(f"{combat_path}/{other_records[0]['encounter_id']}", params={'world_id': other_world}).status_code in (401, 403)
