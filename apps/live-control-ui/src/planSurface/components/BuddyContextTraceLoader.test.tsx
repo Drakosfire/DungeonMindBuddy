@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BuddyTurnContextTrace, WorldAgentTurnContextTraceResponse } from '../../api/buddyContextTraceTypes'
 import { BuddyContextTraceLoader as TraceView } from './BuddyContextTraceLoader'
@@ -125,10 +125,14 @@ describe('opt-in turn trace read', () => {
     const earlier = await screen.findByText('Earlier trace attempts')
     const [latest] = await screen.findAllByRole('region', { name: 'How Buddy built this reply' })
     expect(latest!.compareDocumentPosition(earlier) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    earlier.closest('details')!.open = true
-    screen.getByText('Attempt 1').closest('details')!.open = true
-    expect(await screen.findByRole('alert')).toHaveTextContent('This attempt stopped before completing a reply.')
+    const latestTrace = latest!.closest<HTMLElement>('section.buddy-context-trace')!
+    const earlierAttempts = earlier.closest('details')!
+    expect(within(latestTrace).queryByRole('alert')).not.toBeInTheDocument()
+    expect(earlierAttempts.open).toBe(false)
+    earlierAttempts.open = true
+    const firstAttempt = within(earlierAttempts).getByText('Attempt 1').closest('details')!
+    firstAttempt.open = true
+    expect(await within(firstAttempt).findByRole('alert')).toHaveTextContent('This attempt stopped before completing a reply.')
   })
 
   it('shows an ended turn with an unclosed capture as incomplete without background polling', async () => {
