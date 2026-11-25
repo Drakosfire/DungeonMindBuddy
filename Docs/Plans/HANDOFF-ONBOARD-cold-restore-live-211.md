@@ -1,0 +1,9 @@
+# ONBOARD: carry Build proposal cold restore onto current production
+
+Status: ACTIVE under the owner's Sizzek delivery and merge/deployment authority. Serial serving integration branch `codex/onboard-cold-restore-live-211`, based on observed production source `1fec1277cf987630fe0f6b860f54bde6c80ab29b` (merged #4697). The previously staged #4681 image targets `928cfbc75cba30bdee2a4a0666cbcc8151ac0f8c`, which is no longer live; it must not be activated. #4697 introduces schema 211 and its handoff warns prior schema-210 readers cannot safely serve it. Recheck live runtime and any concurrent deployment before merge, publication or staging.
+
+Outcome: carry the existing #4681 cold proposal restore delta, preserving the current production Build/context changes, schema and guest settings. Scope is the exact #4681 source delta, this handoff and necessary integration fixes only. No production state, provider, migration, additional database or deployment setting is leased for implementation. Subsequent #4686/#4687/#4693/#4696 serving integrations need rebasing on the actual merged deployed predecessor; do not claim they are deployed.
+
+Validate cumulative delta, focused mounted cold-restore and relevant review authorization/HTTP tests, preserving reset and isolation at affected boundaries; get Bugbot review on exact head. Use the already owned disposable App database serially if required. Open a serving PR against the current serving branch; publishing/staging must bind the actual live parent and compatible schema. Production activation and signed-out Sizzek acceptance remain separate.
+
+Working-tree focused evidence: eight mounted editor restore/recovery cases and the existing HTTP review authorization/reopen test pass. This is not an actual signed-in or guest production smoke, live-provider proof, or proof that the older staged image is safe to activate.
