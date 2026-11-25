@@ -2336,7 +2336,7 @@ class AgentConversationService:
                 *([section_inclusion] if section_inclusion is not None else []),
                 *([play_body_inclusion] if play_body_inclusion is not None else [])]
             try:
-                if isinstance(execution, SurfaceNativeExecutionV1):
+                if type(execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1):
                     with measure("first_jev_send_prospective_validation"):
                         updated_execution = self._bind_execution_append(turn.graph_context_receipt,
                             execution.model_copy(update={"events": events}))

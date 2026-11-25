@@ -82,3 +82,45 @@ def test_completed_pending_sdk_reply_survives_real_sql_checks(application_state_
         with conn.cursor(row_factory=dict_row) as cur:
             stored = cur.execute('SELECT ' + repository._TURN_COLS_T + ' FROM pending_completed_sql t').fetchone()
         assert repository._turn_from_row(None, stored, references=references) == turn
+
+
+def test_fresh_pending_build_post_clarifies_without_source_preparation(application_state_dsn, tmp_path, monkeypatch):
+    import httpx
+    from tests.test_source_statements import make_lane
+    from tests.test_surface_native_build_ordinary import _fresh_case
+    from apps.live_control_server.services import build_jev_runtime as factory
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    calls = []
+    def reply(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        candidate = {'answer_segments': [{'kind': 'discussion', 'text': 'One detail will help me draft this page.'}], 'limitations': []}
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = {'kind': 'questions', 'questions': [{'text': 'What should the new page describe?'}]}
+        return httpx.Response(200, request=request, json={'id': 'resp_post_pending', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{'type': 'message',
+                'id': 'msg_post_pending', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    original = factory.BuildJevHarness
+    class Harness(original):
+        def __init__(self, **kwargs):
+            kwargs['writer_transport'] = httpx.MockTransport(reply)
+            super().__init__(**kwargs)
+    monkeypatch.setattr(factory, 'BuildJevHarness', Harness)
+    monkeypatch.setattr(native_corpus_source, 'prepare_native_source_context',
+        lambda **kwargs: pytest.fail('Clarification must not prepare native sources'))
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **kwargs: lane.repo)
+    def send(client, world, body):
+        body['build_authored_references'] = None
+        return client.post('/api/live/agent/turn', json=body)
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False, dispatch=send,
+        requested_work='clarify_creation', source_need='uncertain', source_answer_output='capture_pending',
+        message='Please make a new page. Ask me what it should describe.')
+    assert case.response.status_code == 200, case.response.text
+    assert case.turn.graph_context_receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
+    assert case.turn.status == 'completed' and case.turn.completion.collaboration.questions[0].text == 'What should the new page describe?'
+    assert len(case.decisions.calls) == len(calls) == 1
+    replay = case.client.post('/api/live/agent/turn', json=case.request)
+    assert replay.status_code == 200 and replay.json()['knowledge_context']['delivery_replay'] is True
+    assert len(case.decisions.calls) == len(calls) == 1
