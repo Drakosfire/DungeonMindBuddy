@@ -4,6 +4,7 @@ import type {
   StatblockRevisionResourceV1,
   ValidationReceiptV1,
 } from "../contracts/dungeonbuddy-statblocks-v1/client";
+import type { PagePresentation } from "../tiptap/pageComposer/presentation";
 
 export type SurfaceSlot = "main" | "sidebar" | "bottom" | "overlay";
 
@@ -791,7 +792,7 @@ export interface WorldPlanGraphContextFailureV1 {
 export interface WorldPlanAgentTurnRequestV1 {
   plan_requested_operation?: "discuss" | "write_current_page";
   authored_references?: AuthoredReferencesV2;
-  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanOriginalAuthoringCapture | null;
+  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanOpeningCapture | null;
   plan_placement_catalog?: import("./planAuthoringReviewApi").PlanPlacementCatalog | null;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
@@ -853,10 +854,13 @@ export type ReviewedStepReference = {conversation_id:string;source_turn_id:strin
 /** Build retains a verified saved basis and separately captured authored working context. */
 export interface WorldBuildAgentTurnRequestV1 {
   build_authored_references?: AuthoredReferenceInput;
+  build_image_move_capture?: import("./buildImageMoveReviewApi").BuildImageMoveCapture;
   retry_of?: {turn_id:string;revision:number;retained_snapshot_sha256?:string};
   reviewed_step?: ReviewedStepReference;
   build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
-  build_write_capability?: Omit<import("./buildDocumentProposalApi").BuildProposalRequest, "instruction" | "origin">;
+  build_write_capability?: Omit<import("./buildDocumentProposalApi").BuildProposalRequest, "instruction" | "origin"> & {
+    boundary_editor_json?: string;
+  };
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
   turn_id: string;
@@ -1259,7 +1263,7 @@ export interface SurfaceNativeCompletionV1 {
 }
 export interface AgentSurfaceNativeContextResponseV1 {
   schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
-  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
+  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|WorldBuildGraphReferenceCompletionV1|WorldBuildImageMoveCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
   deferred_build_citations?:DeferredBuildCitationMembership;
 }
 export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
@@ -1466,6 +1470,28 @@ export interface AgentSourcePassageReadResponseV1 {
     world_id: string; turn_id: string; citation_index: number};
   citation: WorldBuildSourcePassageCitationV1 | (WorldBuildSourcePassageCitationV1 & {source_name:string});
   content: string;
+}
+
+export interface WorldBuildGraphReferenceCompletionV1 {
+  schema: "dmb_build_graph_reference_completion_v1";
+  context_receipt_sha256: string;
+  disposition: "ready" | "discussion" | "new_object" | "different_page" | "ambiguous_identity" | "wrong_kind"
+    | "missing_identity" | "ambiguous_boundary" | "missing_boundary" | "unresolved";
+  action_id: string | null;
+  placement_sha256: string | null;
+  answer_segments?: never;
+  answer_context_status?: never;
+}
+
+export interface WorldBuildImageMoveCompletionV1 {
+  schema: "dmb_build_image_move_completion_v1";
+  context_receipt_sha256: string;
+  disposition: "ready" | "discussion" | "ambiguous" | "missing" | "different_row" | "unsupported"
+    | "unresolved" | "occupied" | "unavailable" | "changes_reading_order";
+  action_id: string | null;
+  placement_sha256: string | null;
+  answer_segments?: never;
+  answer_context_status?: never;
 }
 
 export interface WorldBuildAuthoringCompletionV1 {
@@ -2663,6 +2689,8 @@ export interface WorldOwnedPlanSnapshotV2 {
   file_fingerprint: string;
   file_exists: boolean;
   loaded_revision: number;
+  page_presentation?: PagePresentation;
+  page_presentation_sha256?: string;
 }
 
 export interface WorldContainerRecord {
@@ -2716,6 +2744,7 @@ export interface WorkspaceDocumentRevisionRequest {
 }
 
 export interface WorkspaceDocumentSnapshot {
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   schema_version: "dmb_workspace_document_snapshot_v1";
   record: WorkspaceDocumentRecord;
   /** Saved Page body; null means no committed Page revision. Editor body remains separate. */
@@ -2983,6 +3012,7 @@ export type PlayRunReferenceManifest =
   | PlayRunReferenceManifestV2;
 
 export interface TiptapMarkdownWritePrepareRequest {
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   title?: string;
   document_id: string;
   markdown: string;
@@ -3014,6 +3044,7 @@ export interface TiptapMarkdownWritePrepareResponse {
 }
 
 export interface TiptapMarkdownWriteCommitRequest {
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   title?: string;
   document_id: string;
   markdown: string;
@@ -3026,6 +3057,7 @@ export interface TiptapMarkdownWriteCommitRequest {
 }
 
 export interface TiptapMarkdownWriteCommitResponse {
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   schema_version: "dmb_tiptap_markdown_write_commit_v1" | "dmb_tiptap_markdown_write_commit_v2";
   scope_mode?: "world" | null;
   world_id?: string | null;

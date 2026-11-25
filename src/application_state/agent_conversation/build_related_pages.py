@@ -94,8 +94,8 @@ def question_text(page, *, semantic=False):
 
 def catalog(policy):
     if getattr(policy, 'policy_version', None) == 'surface_native_execution_v1':
-        from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1, NativePlanActionV2
-        if type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) in (NativeBuildActionV1, NativePlanActionV2):
+        from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1, NativePlanActionV2, NativePlanActionV3
+        if type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) in (NativeBuildActionV1, NativePlanActionV2, NativePlanActionV3):
             return policy.action.related_page_catalog
         return None
     if getattr(policy, "related_page_context_policy", None) != POLICY:
@@ -184,8 +184,8 @@ def project(execution):
 
 
 def is_plan_catalog(execution):
-    from .native_execution import NativePlanActionV2
-    return type(getattr(execution.policy,'action',None)) is NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
+    return type(getattr(execution.policy,'action',None)) in (NativePlanActionV2, NativePlanActionV3)
 
 
 def plan_read_enabled(execution):

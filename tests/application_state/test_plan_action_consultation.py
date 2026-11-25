@@ -27,8 +27,6 @@ from application_state.agent_conversation.types import (
     ConversationCommand,
 )
 from application_state.agent_conversation.service import AgentConversationService
-from application_state.cli import upgrade_to_head
-from application_state.config import APPLICATION_STATE_DSN_ENV
 from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
 from application_state.plan_action_dialogue.graph_consultation import (
     build_consultation_receipt, consultation_result_digest,
@@ -42,41 +40,30 @@ from application_state.plan_action_dialogue.types import (
     PlanActionRecord, PlanActionReservation,
     PlanActionSelectionAnchorV1,
 )
-from tests.application_state.conftest import _admin_dsn, _create_database, _drop_database, _replace_database
 
 
 def _owner_id(world_id: str):
     return uuid5(NAMESPACE_DNS, f"plan-action-test:{world_id}")
 
 
-@pytest.fixture
-def application_state_dsn(monkeypatch):
-    """Use the repository test-admin configuration, with a new action DB per test."""
-    admin = _admin_dsn()
-    name = "prime_action_consultation_" + uuid4().hex[:12]
-    _create_database(admin, name)
-    dsn = _replace_database(admin, name)
-    monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
-    try:
-        upgrade_to_head(dsn=dsn)
-        with psycopg.connect(dsn) as conn:
-            for world_id in ("synthetic-world", "indexed-world", "other-world"):
-                conn.execute(
-                    "INSERT INTO agent.conversation (conversation_id, world_id, status, revision, "
-                    "next_turn_sequence, created_at, updated_at) "
-                    "VALUES (%s, %s, 'active', 1, 1, clock_timestamp(), clock_timestamp())",
-                    (_owner_id(world_id), world_id),
-                )
-                conn.execute(
-                    "INSERT INTO agent.world_state "
-                    "(world_id, active_conversation_id, pointer_revision, updated_at) "
-                    "VALUES (%s, %s, 1, clock_timestamp())",
-                    (world_id, _owner_id(world_id)),
-                )
-        yield dsn
-    finally:
-        monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
-        _drop_database(admin, name)
+@pytest.fixture(autouse=True)
+def action_worlds(application_state_dsn):
+    """Seed these Worlds inside the standard serial App fixture state."""
+    dsn = application_state_dsn
+    with psycopg.connect(dsn) as conn:
+        for world_id in ("synthetic-world", "indexed-world", "other-world"):
+            conn.execute(
+                "INSERT INTO agent.conversation (conversation_id, world_id, status, revision, "
+                "next_turn_sequence, created_at, updated_at) "
+                "VALUES (%s, %s, 'active', 1, 1, clock_timestamp(), clock_timestamp())",
+                (_owner_id(world_id), world_id),
+            )
+            conn.execute(
+                "INSERT INTO agent.world_state "
+                "(world_id, active_conversation_id, pointer_revision, updated_at) "
+                "VALUES (%s, %s, 1, clock_timestamp())",
+                (world_id, _owner_id(world_id)),
+            )
 
 
 def reservation(

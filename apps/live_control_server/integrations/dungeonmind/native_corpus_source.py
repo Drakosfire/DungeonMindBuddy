@@ -1,7 +1,7 @@
 """Trusted, read-only native corpus composition through existing Core access."""
 from __future__ import annotations
 
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass, replace
 from functools import cached_property
 from types import MappingProxyType
@@ -22,6 +22,7 @@ from application_state.agent_conversation.native_corpus import (
     NativeCorpusAuthorityV1,
     NativeCorpusMemberV1,
 )
+from application_state.world_catalog.service import reuse_world_read_connection
 from graph_memory.vnext.domain_runtime import GM_LABEL, PLAYER_LABEL, resolve_dungeonbuddy_descriptors
 from . import native_registry_source as native
 
@@ -47,6 +48,7 @@ class NativeCorpusContext:
     resolve_identity: Callable
     principal: Any
     repository: Any
+    selective_query: Any = None
 
     @cached_property
     def source_presentation(self):
@@ -73,7 +75,8 @@ class NativeSourceHeadUnavailable(ValueError):
 
 
 def prepare_native_source_context(*, managed_world_id, principal, revision_id=None,
-                                  repository=None, resolve_identity=None, parsed_cache=None):
+                                  repository=None, resolve_identity=None, parsed_cache=None,
+                                  open_access=None):
     """Freeze membership in R and one coherent acquisition epoch, never latest IDs.
 
     Dependencies are trusted host/test seams. No request supplies a repository,
@@ -103,7 +106,8 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
         return domain
 
     try:
-        access = open_native_text_source_access_context(repository=repo, space_id=space,
+        opener = open_access or open_native_text_source_access_context
+        access = opener(repository=repo, space_id=space,
             revision_id=revision_id, domain_contract=resolve_domain,
             audience_labels=(GM_LABEL, PLAYER_LABEL), parsed_cache=parsed_cache,
             prefer_verified_source_rows=True)
@@ -225,34 +229,40 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
                 and evidence.source_span_ref_id is not None
                 and evidence.can_open_source and evidence.can_highlight_span):
             pairs.setdefault((evidence.source_artifact_id, evidence.source_revision_id), []).append(evidence)
-    opened_members = []
-    unavailable = 0
-    if pairs:
-        with access.source_view.read_scope() as source_view:
-            scoped_access = replace(access, source_view=source_view)
-            for pair, candidates in sorted(pairs.items()):
-                for evidence in sorted(candidates, key=lambda row: row.evidence_ref_id):
-                    opened = open_admitted_native_text(scoped_access, evidence.evidence_ref_id)
-                    if opened.status == "available":
-                        if prepared.resolve_identity(managed_world_id) != prepared.binding:
-                            raise ValueError("Native source ownership changed during opening")
-                        opened_members.append((pair, evidence, opened))
-                        break
-                else:
-                    unavailable += 1
-            if opened_members:
-                snapshot = source_view.get_provenance_snapshot(
-                    artifact_ids=sorted({pair[0] for pair, _, _ in opened_members}),
-                    revision_ids=sorted({pair[1] for pair, _, _ in opened_members}),
-                )
-    members, bodies = [], {}
-    for pair, evidence, opened in opened_members:
-        member, text = _build_native_corpus_member(prepared, evidence, opened, snapshot)
-        members.append(member)
-        bodies[pair] = text
-    if prepared.resolve_identity(managed_world_id) != prepared.binding:
-        raise ValueError("Native source ownership changed during capture")
-    return NativeCorpusCapture(authority, tuple(members), MappingProxyType(bodies), unavailable)
+    from ...services.managed_world_graph_projection import resolve_managed_source_identity
+
+    # Only the production catalog resolver uses the App connection.
+    scope = (reuse_world_read_connection() if pairs and prepared.resolve_identity is resolve_managed_source_identity
+             else nullcontext())
+    with scope:
+        opened_members = []
+        unavailable = 0
+        if pairs:
+            with access.source_view.read_scope() as source_view:
+                scoped_access = replace(access, source_view=source_view)
+                for pair, candidates in sorted(pairs.items()):
+                    for evidence in sorted(candidates, key=lambda row: row.evidence_ref_id):
+                        opened = open_admitted_native_text(scoped_access, evidence.evidence_ref_id)
+                        if opened.status == "available":
+                            if prepared.resolve_identity(managed_world_id) != prepared.binding:
+                                raise ValueError("Native source ownership changed during opening")
+                            opened_members.append((pair, evidence, opened))
+                            break
+                    else:
+                        unavailable += 1
+                if opened_members:
+                    snapshot = source_view.get_provenance_snapshot(
+                        artifact_ids=sorted({pair[0] for pair, _, _ in opened_members}),
+                        revision_ids=sorted({pair[1] for pair, _, _ in opened_members}),
+                    )
+        members, bodies = [], {}
+        for pair, evidence, opened in opened_members:
+            member, text = _build_native_corpus_member(prepared, evidence, opened, snapshot)
+            members.append(member)
+            bodies[pair] = text
+        if prepared.resolve_identity(managed_world_id) != prepared.binding:
+            raise ValueError("Native source ownership changed during capture")
+        return NativeCorpusCapture(authority, tuple(members), MappingProxyType(bodies), unavailable)
 
 
 def read_native_corpus_member(*, authority, member, principal, prepared):

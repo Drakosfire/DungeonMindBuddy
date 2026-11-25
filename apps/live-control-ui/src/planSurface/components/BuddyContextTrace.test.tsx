@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BuddyContextTrace, type BuddyTurnContextTrace } from './BuddyContextTrace'
 import {buddyTraceText} from './buddyTraceText'
@@ -22,6 +22,30 @@ const emptyResult: BuddyTraceGraphResult = {outcome:'denied', graph_revision:'re
   total_counts:{nodes:0, relationships:0, claims:0, evidence_refs:0}, omission_codes:[]}
 
 describe('Buddy context trace', () => {
+  it('distinguishes writer evidence from other captured excerpts in reply Details', () => {
+    const writer = passage('Excerpt sent to the writer.')
+    const retrieved = { ...passage('Another excerpt.'), sequence: 1, source_name: 'Other recap' }
+    render(<BuddyContextTrace ownerActive={false} replyDetails trace={{
+      ...trace([writer, retrieved]), writer_evidence_sequences: [0],
+    }} />)
+    const section = screen.getByRole('region', { name: 'Sent to the answer writer' })
+    expect(within(section).getByText('Session source')).toBeVisible()
+    expect(within(section).queryByText('Other recap')).not.toBeInTheDocument()
+    expect(screen.getByText('Other excerpts recorded during retrieval')).toBeVisible()
+  })
+
+  it('keeps missing capture and failed replies readable without exposing failure identifiers', () => {
+    render(<BuddyContextTrace ownerActive={false} replyDetails trace={{
+      ...trace([{ kind: 'failure', sequence: 0, elapsed_ms: 1, phase: 'provider', code: 'private_failure_code' }]),
+      terminal_status: 'failed', capture_status: 'incomplete', capture_failure_code: 'capture_gap',
+    }} />)
+    const overview = screen.getByRole('region', { name: 'How Buddy built this reply' })
+    expect(within(overview).getByText('Some activity is missing from this trace.')).toBeVisible()
+    expect(within(overview).getByText('This trace does not identify evidence sent to the answer writer.')).toBeVisible()
+    expect(screen.getByRole('alert')).toHaveTextContent('This attempt stopped before completing a reply.')
+    for (const code of screen.getAllByText('private_failure_code')) expect(code).not.toBeVisible()
+  })
+
   it('describes structural history retention without inventing a semantic relevance decision', () => {
     render(<BuddyContextTrace ownerActive={true} trace={trace([{kind:'context_decision', sequence:0, elapsed_ms:1,
       action:'retained', item_ids:['message:1'], reason_code:'question_relevance', policy_version:'conversation_routes_v1'}])} />)
@@ -326,3 +350,41 @@ it('keeps selected unread references and prepared writer input distinct from pro
  expect(screen.getByText('Graph references · selected, unread')).toBeInTheDocument();expect(screen.getByText('Graph references · prepared writer input')).toBeInTheDocument();expect(screen.getByText(/See provider lifecycle records for transmission and response/)).toBeInTheDocument();
  expect(buddyTraceText(captured)).toContain('writer-attempt');expect(buddyTraceText(captured)).toContain('current-revision');expect(screen.queryByText('response_received')).toBeNull();
 });
+
+
+it('distinguishes a raw retrieval fallback vote from an effective host action', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([
+    {kind:'context_snapshot',stage:'after',sequence:0,elapsed_ms:1,
+      materials:[{item_id:'unvalidated-native-retrieval-result:attempt',state:'model_context',role:'assistant',text:'{\"operation\":\"finish_retrieval\"}'}]},
+  ])} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.getByRole('note')).toHaveTextContent('effective host selection is not available')
+})
+
+
+it('shows the recorded host selection for its matching raw decision', () => {
+  const captured = trace([{kind:'context_snapshot',stage:'after',sequence:0,elapsed_ms:1,
+    materials:[{item_id:'unvalidated-native-retrieval-result:attempt',state:'model_context',role:'assistant',text:'{}'}]}])
+  captured.effective_retrieval_selections = [{sequence:18,controller_attempt_id:'attempt',operation:'select_candidates',selected_count:12}]
+  render(<BuddyContextTrace ownerActive={false} trace={captured} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.getByRole('note')).toHaveTextContent('Recorded host selection: select_candidates · 12 selected')
+})
+
+
+it('matches a retained Plan Jev response to its recorded selection', () => {
+  const captured = trace([{kind:'context_snapshot',stage:'after',sequence:0,elapsed_ms:1,
+    materials:[{item_id:'unvalidated-plan-jev-result:plan-attempt',state:'model_context',role:'assistant',text:'{}'}]}])
+  captured.effective_retrieval_selections = [{sequence:5,controller_attempt_id:'plan-attempt',operation:'finish_retrieval',selected_count:0}]
+  render(<BuddyContextTrace ownerActive={false} trace={captured} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.getByRole('note')).toHaveTextContent('Recorded host selection: finish_retrieval · 0 selected')
+})
+
+
+it('does not label a Plan author-scope response as a retrieval decision', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([{kind:'context_snapshot',stage:'after',sequence:0,elapsed_ms:1,
+    materials:[{item_id:'unvalidated-plan-jev-result:scope-attempt',state:'model_context',role:'assistant',text:'{}'}]}])} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.queryByRole('note')).toBeNull()
+})

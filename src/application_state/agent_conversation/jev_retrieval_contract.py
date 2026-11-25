@@ -113,6 +113,14 @@ class NativePlanBatchDecisionInputV3(NativeRetrievalDecisionInputV2):
     """Readonly Plan may prospectively designate its successful final batch."""
     schema_: Literal["dmb_native_plan_batch_decision_input_v3"] = Field(
         default="dmb_native_plan_batch_decision_input_v3", alias="schema")
+    bounded_continuation: UUID | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+
+
+    expanded_relevance_version: Literal["v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    graph_relevance_version: Literal["v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):
@@ -147,8 +155,15 @@ _NATIVE_TYPES = {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInp
 
 def parse_native_retrieval_input(raw, *, surface_id):
     """One exact codec reader for native selection and its selected Rules offer."""
-    from .native_plan_opening import NativePlanOpeningInputV1
-    codec = (NativePlanOpeningInputV1
+    from .native_plan_opening import (
+        NATIVE_PLAN_OPENING_INPUT_TYPES, NativePlanOpeningInputV1,
+        NativePlanOpeningInputV2, NativePlanOpeningInputV3,
+    )
+    codec = (NativePlanOpeningInputV3
+        if isinstance(raw, dict) and raw.get('schema') == 'dmb_native_plan_opening_input_v3'
+        else NativePlanOpeningInputV2
+        if isinstance(raw, dict) and raw.get('schema') == 'dmb_native_plan_opening_input_v2'
+        else NativePlanOpeningInputV1
         if isinstance(raw, dict) and raw.get('schema') == 'dmb_native_plan_opening_input_v1'
         else NativePlanBatchDecisionInputV3
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_batch_decision_input_v3"
@@ -164,7 +179,7 @@ def parse_native_retrieval_input(raw, *, surface_id):
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
         else NativeRetrievalDecisionInputV1)
     parent = codec.model_validate(raw)
-    if type(parent) in (NativePlanBatchDecisionInputV3, NativePlanOpeningInputV1) and surface_id != 'plan':
+    if type(parent) in (NativePlanBatchDecisionInputV3, *NATIVE_PLAN_OPENING_INPUT_TYPES) and surface_id != 'plan':
         raise ValueError('Prospective read batches belong only to readonly Plan')
     if isinstance(parent, NativeBuildRetrievalDecisionInputV2) and surface_id != "build":
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
@@ -205,8 +220,8 @@ class PlannedRetrievalSelection(RetrievalSelection):
 def _planned_input(request):
     if type(request) is NativePlanBatchDecisionInputV3:
         return True
-    from .native_plan_opening import NativePlanOpeningInputV1
-    return type(request) is NativePlanOpeningInputV1
+    from .native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES
+    return type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES
 
 
 def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
@@ -243,6 +258,15 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                 'that the selected sections are unlikely to cover, or further navigation is required. '
                 'This does not claim unseen evidence is complete. A failed, unsupported, or navigation-only selection requires review. '
                 'If every relevance vote excludes, the separate fallback question alone decides what happens.')))
+    navigation_kinds = {
+        "Explicit admitted full-source read; metadata choice, not evidence",
+        "Select passage from inspected source",
+    }
+    expanded_relevance = (
+        type(request) is NativePlanBatchDecisionInputV3
+        and request.expanded_relevance_version == "v1"
+        and any(candidate.kind in navigation_kinds for candidate in request.candidates)
+    )
     for index, _candidate in enumerate(request.candidates):
         if (_candidate.kind.startswith("Expand to all other admitted native sources")
                 and _planned_input(request)):
@@ -258,11 +282,27 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                     "Apply keyword_selection_guidance; include for source-content topics, exclude source scope, "
                     "grammar and future creative instructions. This independent metadata vote does not authorize a read.")))
             continue
+        guidance = "Apply relevance_guidance." if shared_relevance else "Apply relevance_guidance: " + _SHARED_RELEVANCE
+        if expanded_relevance and (_candidate.kind in navigation_kinds or _candidate.kind == "Exact source section"):
+            guidance += (
+                " Include this passage or navigation step only if its description gives a "
+                "specific reason to expect it will supply evidence for a part of the user’s "
+                "request that the acquired material does not establish. A shared term alone "
+                "is insufficient. Prefer an exact section when it targets the same detail; "
+                "open a broader source only when it has a distinct evidence need."
+            )
+        if (type(request) is NativePlanBatchDecisionInputV3
+                and request.graph_relevance_version == "v1"
+                and _candidate.kind.startswith("Native Graph object")):
+            guidance += (
+                " Include this Graph object only when it is likely to add a requested relationship, "
+                "identity, or qualification that the acquired material does not already establish. "
+                "A named subject or general topic match alone is insufficient. Include a promising "
+                "Graph object when a requested detail is still unresolved."
+            )
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
-            question=(f"Use {_candidate.label} ({_candidate.kind}) for user's question? "
-                      + ("Apply relevance_guidance." if shared_relevance else
-                         "Apply relevance_guidance: " + _SHARED_RELEVANCE))))
+            question=f"Use {_candidate.label} ({_candidate.kind}) for user's question? " + guidance))
     state = {"question": request.question,
              "relevance_guidance": (
                  "Judge usefulness for the current requested details, not general relatedness. "
@@ -382,7 +422,10 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
 def retrieval_exclusions_for_replay(request, result, *, requested_work=None):
     """Project explicit votes from the same validated decision used by retrieval."""
     from .neighborhood_replay import ExcludedReplayCandidate, RetrievalExclusionReplay
+    from .native_plan_opening import NativePlanOpeningInputV2, NativePlanOpeningInputV3
 
+    if type(request) in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) and requested_work != "discuss":
+        return None
     if requested_work is not None and requested_work not in {"discuss", "clarify"}:
         return None
     excluded = [

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { GuestReleaseSelection } from "./GuestReleaseSelection";
@@ -7,9 +7,12 @@ afterEach(() => vi.unstubAllGlobals());
 
 it("requires explicit fields and evidence before staging the exact selection", async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const body = String(input).endsWith("/selection-media/list") ? { assets: [{ id: "image", width: 2, height: 2, created_at: "2026-11-20T00:00:00Z" }], next: null }
+    const body = String(input).endsWith("/selection-context") ? { graph_revision: "rev", next_offset: null, sources: [
+      { option_id: "recap", document_id: "recap-doc", document_title: "Recap", visibility: "internal", revision_n: 1,
+        sha256: "c".repeat(64), start: 0, end: 8, excerpt: "outcomes", evidence_id: "recap-evidence", evidence_role: "context" }] }
+      : String(input).endsWith("/selection-media/list") ? { assets: [{ id: "image", width: 2, height: 2, created_at: "2026-11-20T00:00:00Z" }], next: null }
       : init?.method === "POST" ? { release_id: "candidate", digest: "digest" } : {
-      graph_revision: "rev", fields: [
+      graph_revision: "rev", context_documents: [{ document_id: "recap-doc", title: "Recap" }], fields: [
         { assertion_id: "name", entity_id: "entity", kind: "name", value: "Sizzek", predicate: "dnd5e:name", target_id: null, temporal: "unknown", basis: "inferred", source_option_ids: ["option"] },
         { assertion_id: "kind", entity_id: "entity", kind: "classification", value: "character", predicate: "dnd5e:classification", target_id: null, temporal: "unknown", basis: "inferred", source_option_ids: ["option2"] },
       ], sources: [{ option_id: "option", document_id: "doc", document_title: "Apprentice", visibility: "internal", revision_n: 1,
@@ -32,7 +35,7 @@ it("requires explicit fields and evidence before staging the exact selection", a
   expect(button).toBeDisabled();
   const sourceSelects = screen.getAllByRole("combobox", { name: "Source excerpt" });
   await user.selectOptions(sourceSelects[0], "option"); await user.selectOptions(sourceSelects[1], "option2");
-  expect(screen.getByText("clue")).toBeInTheDocument();
+  expect(screen.getAllByText("clue").length).toBeGreaterThan(0);
   expect(screen.getByRole("heading", { name: /context, not direct support/ })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Load World images" }));
   const image = await screen.findByRole("img", { name: "World image 1" });
@@ -41,11 +44,20 @@ it("requires explicit fields and evidence before staging the exact selection", a
   fireEvent.load(image);
   await user.click(imageChoice);
   await user.click(screen.getByRole("checkbox", { name: "Include an owner-authored saved example" }));
+  await user.selectOptions(screen.getByLabelText("Source document"), "recap-doc");
+  await user.click(screen.getByRole("button", { name: "Load source excerpts" }));
+  expect(await screen.findByText("outcomes")).toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: /Recap · private source · context/ }));
   expect(button).toBeDisabled();
   await user.type(screen.getByLabelText("Example title"), "Saved scene");
   await user.type(screen.getByLabelText("Scene text"), "A scene");
   await user.click(screen.getByRole("checkbox", { name: /Apprentice · context/ }));
   await user.click(screen.getByRole("checkbox", { name: /Carnival · support/ }));
+  await user.click(screen.getByRole("checkbox", { name: /Recap · context/ }));
+  await user.click(screen.getByRole("checkbox", { name: /Recap · private source · context/ }));
+  expect(button).toBeDisabled();
+  expect(screen.getByText(/no longer included; remove this reference/)).toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: /Recap · private source · context/ }));
   await user.click(kind);
   expect(button).toBeDisabled();
   expect(screen.getByText(/no longer included; remove this reference/)).toBeInTheDocument();
@@ -54,12 +66,63 @@ it("requires explicit fields and evidence before staging the exact selection", a
   await user.selectOptions(screen.getAllByRole("combobox", { name: "Source excerpt" })[1], "option2");
   await user.selectOptions(screen.getByLabelText("Inline image"), "image");
   await user.type(screen.getByLabelText("Describe the image for guests"), "A red tent");
+  await user.click(screen.getByRole("checkbox", { name: "Include a prewritten guest choice" }));
+  expect(button).toBeDisabled();
+  expect(screen.getByText(/Both outcomes will be public/)).toBeInTheDocument();
+  await user.type(screen.getByLabelText("Choice prompt"), "What next");
+  await user.type(screen.getByLabelText("Option 1 label"), "Enter");
+  await user.type(screen.getByLabelText("Option 1 outcome"), "A bell rings");
+  await user.type(screen.getByLabelText("Option 2 label"), "Wait");
+  await user.type(screen.getByLabelText("Option 2 outcome"), "A lantern flickers");
+  await user.click(screen.getByRole("checkbox", { name: "Include an editor-authored saved answer" }));
+  await user.type(screen.getByLabelText("Question"), "What happened");
+  let passage = screen.getByRole("group", { name: "Answer passage 1" });
+  await user.type(within(passage).getByLabelText("Passage"), "A plan");
+  await user.click(within(passage).getByRole("checkbox", { name: /Carnival · support/ }));
+  await user.click(screen.getByRole("button", { name: "Add answer passage" }));
+  passage = screen.getByRole("group", { name: "Answer passage 2" });
+  await user.type(within(passage).getByLabelText("Passage"), "A recap");
+  await user.click(within(passage).getByRole("checkbox", { name: /Recap · context/ }));
   await user.click(button);
   expect(await screen.findByRole("status")).toHaveTextContent("Copy prepared");
   expect(prepared).toHaveBeenCalledOnce();
-  const posted = fetchMock.mock.calls.find(([input, init]) => init?.method === "POST" && !String(input).endsWith("/selection-media/list"));
+  const posted = fetchMock.mock.calls.find(([input, init]) => init?.method === "POST" && !String(input).endsWith("/selection-media/list") && !String(input).endsWith("/selection-context"));
   expect(JSON.parse(String(posted?.[1]?.body))).toMatchObject({ graph_revision: "rev", nodes: [{ entity_id: "entity",
     name_assertion_id: "name", kind_assertion_id: "kind", name_source_index: 0, kind_source_index: 1 }],
-    sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }, { document_id: "doc2" }], relationships: [], asset_ids: ["image"],
-    saved_example: { title: "Saved scene", body: "A scene", source_indexes: [0, 1], asset_id: "image", image_description: "A red tent" } });
+    sources: [{ document_id: "doc", excerpt: "clue", evidence_id: "evidence" }, { document_id: "doc2" },
+      { document_id: "recap-doc", excerpt: "outcomes", evidence_id: "recap-evidence" }], relationships: [], asset_ids: ["image"],
+    saved_example: { title: "Saved scene", body: "A scene", source_indexes: [0, 1, 2], asset_id: "image", image_description: "A red tent" },
+    saved_choice: { prompt: "What next", options: [{ label: "Enter", outcome: "A bell rings" }, { label: "Wait", outcome: "A lantern flickers" }] },
+    saved_answer: { question: "What happened", passages: [{ text: "A plan", source_indexes: [1] }, { text: "A recap", source_indexes: [2] }] } });
+});
+
+it("accumulates pages by document without exposing another document's unselected excerpts", async () => {
+  const source = (id: string, document: string) => ({ option_id: id, document_id: document, document_title: document,
+    visibility: "internal", revision_n: 1, sha256: "a".repeat(64), start: 0, end: 1, excerpt: id,
+    evidence_id: id, evidence_role: "context" });
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = init?.body ? JSON.parse(String(init.body)) : null;
+    const body = String(input).endsWith("selection-context") ? {
+      graph_revision: "rev", sources: [source(request.document_id + request.offset, request.document_id)],
+      next_offset: request.offset === 0 ? 100 : null,
+    } : { graph_revision: "rev", fields: [], sources: [], source_options_truncated: false,
+      context_documents: [{ document_id: "doc-a", title: "A" }, { document_id: "doc-b", title: "B" }] };
+    return new Response(JSON.stringify(body), { status: 200 });
+  }));
+  const user = userEvent.setup();
+  render(<GuestReleaseSelection worldId="world" onPrepared={() => {}} />);
+  await user.click(screen.getByRole("button", { name: "Load selection options" }));
+  await user.selectOptions(await screen.findByLabelText("Source document"), "doc-a");
+  await user.click(screen.getByRole("button", { name: "Load source excerpts" }));
+  await screen.findByText("doc-a0");
+  await user.click(screen.getByRole("checkbox", { name: /doc-a · private source · context.*doc-a0/ }));
+  await user.click(screen.getByRole("button", { name: "Load source excerpts" }));
+  await screen.findByText("doc-a100");
+  await user.selectOptions(screen.getByLabelText("Source document"), "doc-b");
+  expect(screen.getByText("doc-a0")).toBeInTheDocument();
+  expect(screen.queryByText("doc-a100")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Load source excerpts" }));
+  expect(await screen.findByText("doc-b0")).toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: /doc-a · private source · context.*doc-a0/ }));
+  expect(screen.queryByText("doc-a0")).not.toBeInTheDocument();
 });

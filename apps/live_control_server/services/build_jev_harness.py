@@ -24,9 +24,9 @@ from generationengine.text_dispatch import TextDispatchGate
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
 from application_state.agent_conversation.build_authoring import completion_for_proposal
-from application_state.build_proposal.types import BuildProposalOrigin
+from application_state.build_proposal.types import BuildProposalOrigin, explicit_build_page_target
 from apps.live_control_server.models.build_document_proposal import (
-    BuildDocumentProposalRequest,
+    BuildContextualProposalRequest, BuildDocumentProposalRequest,
 )
 from .agent_runtime import AgentRuntimeDescriptor
 from .plan_jev_dispatch import decision_client
@@ -247,6 +247,46 @@ class BuildJevHarness:
             )
             if driver._selection_intent is not None:
                 asyncio.run(self._decide(adapter, driver))
+            if hasattr(driver, "image_move_opening_proof"):
+                from application_state.errors import ApplicationStateConflictError
+                from .agent_turn_service import AgentTurnServiceError
+
+                principal = getattr(adapter.native_query_context, "principal", None)
+                if principal is None or principal.role != "gm":
+                    raise AgentTurnServiceError("Image movement requires World edit access.",
+                                                code="build_image_move_forbidden", status_code=403)
+                turn = adapter.fence.turn
+                def admit_image_move(_conn, review):
+                    if review.placement.basis.world_id != adapter.native_source_authority.managed_world_id:
+                        raise ApplicationStateConflictError("The image move changed the authorized World")
+
+                try:
+                    adapter.turn = adapter.service.complete_build_image_move_turn(
+                        world_id=turn.world_id, conversation_id=turn.conversation_id, turn_id=turn.turn_id,
+                        expected_revision=turn.revision, **driver.image_move_opening_proof,
+                        admit=admit_image_move,
+                    )
+                    return adapter.turn
+                except ApplicationStateConflictError as exc:
+                    raise AgentTurnServiceError(str(exc), code="build_image_move_conflict", status_code=409) from exc
+            if getattr(driver.selection, "typed_graph_reference", None) == "place_existing_reference":
+                from application_state.agent_conversation.jev_retrieval_contract import RetrievalDialogue
+                from application_state.errors import ApplicationStateConflictError
+                from .agent_turn_service import AgentTurnServiceError
+                from .build_graph_reference import BuildGraphReferenceDriver, prepare_build_graph_reference_decision
+
+                try:
+                    dialogue = tuple(RetrievalDialogue(role=role, content=row[role])
+                                     for row in history for role in ("user", "assistant"))
+                    nomination = prepare_build_graph_reference_decision(
+                        adapter._broker_execution(), adapter.native_query_context.principal,
+                        title=driver._interaction["current_page"]["title"], dialogue=dialogue,
+                    )
+                    reference_driver = BuildGraphReferenceDriver(adapter, nomination)
+                    asyncio.run(self._decide(adapter, reference_driver))
+                    return reference_driver.completed
+                except ApplicationStateConflictError as exc:
+                    raise AgentTurnServiceError(str(exc), code="build_graph_reference_conflict", status_code=409) from exc
             capability = adapter.request.build_write_capability
             if capability is not None and capability.reference_image_id is not None and (
                 driver.operation != "propose_build_insertion" or adapter.native_source_authority is None
@@ -482,6 +522,21 @@ class BuildJevHarness:
 
     def _native_completion(self, adapter, work_driver):
         """Continue real Build work through the shared native read and writer owners."""
+        placement = getattr(work_driver.selection, "paragraph_placement", None)
+        if (work_driver.operation == "propose_build_insertion" and placement is not None
+                and placement.target is None
+                and explicit_build_page_target(adapter.request.build_write_capability, work_driver.selection) is None):
+            from .agent_turn_service import AgentTurnServiceError
+
+            guidance = {
+                "ambiguous": "That passage appears more than once. Which section should I use?",
+                "missing": "I couldn't find that passage in the requested section. Which existing passage should I use?",
+                "different_destination": "This request names a different page. Open that page before asking for an edit.",
+            }
+            raise AgentTurnServiceError(
+                guidance.get(placement.disposition, "Which existing paragraph should I use, and should I insert before or after it?"),
+                code="build_contextual_placement_unresolved", status_code=409,
+            )
         from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
         from .plan_jev_rules_runtime import PlanRulesRuntime
         from .plan_jev_driver import PlanJevDriver
@@ -568,7 +623,8 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
-        prepare_deferred_query = getattr(adapter, "prepare_deferred_build_query", None)
+        prepare_deferred_query = (None if getattr(plan, "host_phase", None) == "graph_reference"
+                                  else getattr(adapter, "prepare_deferred_build_query", None))
         pending_query = None
         opening_dispatched = False
         wait_for_work = False
@@ -578,7 +634,7 @@ class BuildJevHarness:
             try:
                 explicit_lore_page_witness(adapter.request.message)
             except ValueError:
-                pass
+                wait_for_work = getattr(driver, "image_move", None) is not None
             else:
                 wait_for_work = any(q.name == "requested_work" for q in intent.questions)
 
@@ -630,12 +686,27 @@ class BuildJevHarness:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
                 conversation_only = False
                 if wait_for_work:
-                    from application_state.agent_conversation.build_intentional_response import selected, source_need
+                    from application_state.agent_conversation.build_intentional_response import (
+                        UnresolvedDiscussionSource, opening_image_choice, opening_work,
+                    )
                     from application_state.agent_conversation.native_corpus import is_prior_conversation_work
+                    from application_state.build_proposal.graph_reference_decision import resolve_graph_reference_opening
 
                     response = result.model_dump(mode="json")
                     request = json.loads(adapter._prepared_build_decision.body)
-                    conversation_only = is_prior_conversation_work(selected(response), source_need(request, response))
+                    image_opening = (driver.image_move.opening_answers(request, result)
+                                     if getattr(driver, "image_move", None) is not None else None)
+                    policy = adapter._broker_execution().policy
+                    image_choice = opening_image_choice(policy, response, image_opening, adapter.request.message)
+                    if (image_choice not in {"move_existing", "unresolved"}
+                            and resolve_graph_reference_opening(request, result) != "place_existing_reference"):
+                        try:
+                            conversation_only = is_prior_conversation_work(
+                                *opening_work(policy, request, response, image_choice),
+                            )
+                        except UnresolvedDiscussionSource:
+                            # The driver emits the checked clarification without admitting work.
+                            conversation_only = True
                 if not conversation_only:
                     if pending_query is None:
                         pending_query = asyncio.get_running_loop().run_in_executor(
@@ -896,8 +967,21 @@ class BuildJevHarness:
             broker_operation_id=selection.broker_operation_id,
             arguments_sha256=selection.arguments_sha256,
         )
-        request = BuildDocumentProposalRequest(
-            **capability.model_dump(exclude={"instruction", "origin"}),
+        values = capability.model_dump(exclude={"instruction", "origin", "boundary_editor_json"})
+        request_type = BuildDocumentProposalRequest
+        if capability.boundary_editor_json is not None:
+            placement = getattr(selection, "paragraph_placement", None)
+            if placement is None or native_rules is None:
+                raise ValueError("Contextual Build placement requires an admitted boundary decision")
+            if placement.target is not None:
+                values.pop("page_body_offer", None)
+                values.pop("page_end_offer", None)
+                values["prose_target"] = placement.target
+                request_type = BuildContextualProposalRequest
+            elif explicit_build_page_target(capability, selection) is None:
+                raise ValueError("Contextual Build placement requires an admitted boundary decision")
+        request = request_type(
+            **values,
             instruction=adapter.request.message,
             origin=origin,
         )

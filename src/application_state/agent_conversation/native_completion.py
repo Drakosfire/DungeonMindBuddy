@@ -192,7 +192,7 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
     evidence = verify_input_records(receipt,execution,authorization,prepared_request_json,
         provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
         world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
-        play_context_receipt=play_context_receipt)
+        play_context_receipt=play_context_receipt, retained_build_proof=True)
     responses = [e for e in execution.events if isinstance(e,t.ProviderOutcomeEventV1)
         and e.provider_attempt_id == authorization.provider_attempt_id and e.outcome == 'response_received']
     if (len(responses) != 1 or not responses[0].request_id
@@ -350,10 +350,15 @@ def _apply_statblock_rule_edits(base, proposal):
     definition = deepcopy(base)
     rules = definition["rule_elements"]
     inherited = {rule["key"]: index for index, rule in enumerate(rules)}
-    edited = set()
     for field in ("replace_rules", "add_rules"):
         if not isinstance(proposal[field], list):
             raise ValueError("Statblock rule edits must be arrays")
+    available_keys = inherited.keys() | {
+        raw["key"] for raw in proposal["add_rules"]
+        if isinstance(raw, dict) and isinstance(raw.get("key"), str)
+    }
+    edited = set()
+    for field in ("replace_rules", "add_rules"):
         for raw in proposal[field]:
             rule = RuleElementInput.model_validate(raw).model_dump(mode="json")
             # The statblock service uses an empty cost list for a rule with no costs.
@@ -364,6 +369,18 @@ def _apply_statblock_rule_edits(base, proposal):
                 raise ValueError("Statblock rule edit key conflicts with the saved base")
             edited.add(key)
             if field == "replace_rules":
+                original = rules[inherited[key]]
+                mechanic = rule["mechanic"]
+                if (
+                    original["mechanic"]["kind"] == "human_adjudicated"
+                    and rule["automation_support"] == "manual"
+                    and mechanic["kind"] == "multiattack"
+                    and len(mechanic["sequences"]) == 1
+                    and mechanic["sequences"][0]["element_key"] not in available_keys
+                ):
+                    # A summon can name a separate creature in its rules text.
+                    # The sequence field can target only local rule elements.
+                    rule["mechanic"] = original["mechanic"]
                 rules[inherited[key]] = rule
             else:
                 mechanic = rule["mechanic"]
@@ -387,6 +404,20 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     Mixed Rules responses have one captured outer body. Their base partition
     uses this same algorithm without manufacturing a second provider response.
     """
+    from .plan_contextual_targets import is_question
+    if is_question(execution):
+        from .plan_contextual_questions import decode_question
+        text = decode_question(candidate, execution)
+        segment = t.PlanWorldGraphProposalSegmentV1(kind='proposal', label='invented_idea', text=text)
+        completion = SurfaceNativeCompletionV1(surface_id='plan',
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            producing_provider_attempt_id=authorization.provider_attempt_id,
+            answer_context_status=status_for([segment]), answer_segments=[segment], collaboration=None,
+            saved_source_citations=[], native_body_citations=[], native_clause_citations=[], native_assertion_citations=[])
+        _validate_citations(completion, receipt, execution, authorization, evidence)
+        from .surface_evidence_answer import validate_authored_owners
+        validate_authored_owners(completion, receipt)
+        return completion
     from .build_intentional_response import native_review_enabled, normalize_native_review
     from .plan_jev_decision import connected_page_review_enabled
     plan_review=connected_page_review_enabled(execution)
@@ -473,6 +504,15 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         )
     if review_enabled and not segments and collaboration is None:
         raise ValueError('Empty intentional response')
+    # A host retrieval footer cannot stand in for an actual clarification.
+    from .native_execution import NATIVE_PLAN_ACTION_TYPES
+    from .plan_placement import PlanPlacementCatalogV2
+    action = execution.policy.action
+    if (isinstance(action, NATIVE_PLAN_ACTION_TYPES)
+            and type(action.placement_catalog) is PlanPlacementCatalogV2
+            and evidence.work_frame.get('requested_work') == 'clarify'
+            and not segments):
+        raise ValueError('Plan placement clarification requires nonempty reply content')
     # Missing native capability does not make an available authored page
     # unavailable. Only native claims inherit that native retrieval qualification.
     local_authored=(execution.policy.action.surface_id in {'build','plan'}
@@ -518,11 +558,71 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
     _join_retained_completion(completion, receipt, execution, producer, bindings)
 
 
+def _join_build_graph_reference_completion(completion, receipt, execution, producer, claims):
+    from .native_execution import NativeBuildActionV1
+
+    binding = execution.events[-1] if execution.events else None
+    if (not isinstance(execution.policy.action, NativeBuildActionV1)
+            or type(binding) is not t.BuildGraphReferenceCompletionBindingV1
+            or claims != {} or binding.claim_graph_event_ids != {}
+            or binding.provider_attempt_id != producer
+            or binding.completion_sha256 != t.canonical_sha256(completion)
+            or completion.context_receipt_sha256 != receipt.context_receipt_sha256):
+        raise ValueError("Graph reference result differs from its retained decision binding")
+    opening = next((event for event in execution.events if (
+        isinstance(event, t.BuildRequestedWorkResolutionV1) and event.event_id == binding.opening_event_id
+    )), None)
+    if opening is None or opening.typed_graph_reference != "place_existing_reference":
+        raise ValueError("Graph reference result requires its typed opening choice")
+    authorization = next((event for event in execution.events if (
+        isinstance(event, t.ProviderAttemptAuthorizedEventV1) and event.provider_attempt_id == producer
+    )), None)
+    response = execution.events[-2] if len(execution.events) >= 2 else None
+    if (type(authorization) is not t.ProviderAttemptAuthorizedEventV5
+            or authorization.context_phase != "graph_reference" or authorization.sequence <= opening.sequence
+            or (authorization.provider, authorization.model, authorization.api_mode)
+                != execution.policy.provider_roles.controller.identity()
+            or not isinstance(response, t.ProviderOutcomeEventV1)
+            or response.provider_attempt_id != producer or response.outcome != "response_received"):
+        raise ValueError("Graph reference result requires the final acknowledged nomination")
+
+
+def _join_build_image_move_completion(completion, receipt, execution, producer, claims):
+    from .native_execution import NativeBuildActionV1
+
+    action = execution.policy.action
+    binding = execution.events[-1] if execution.events else None
+    if (not isinstance(action, NativeBuildActionV1) or action.image_move_capture is None
+            or type(binding) is not t.BuildImageMoveCompletionBindingV1
+            or claims != {} or binding.claim_graph_event_ids != {}
+            or binding.provider_attempt_id != producer
+            or binding.completion_sha256 != t.canonical_sha256(completion)
+            or completion.context_receipt_sha256 != receipt.context_receipt_sha256):
+        raise ValueError("Image move result differs from its retained native decision")
+    opening = next((event for event in execution.events if isinstance(event, t.BuildRequestedWorkResolutionV1)
+                    and event.event_id == binding.opening_event_id), None)
+    if (opening is None or opening.typed_image_move not in {"move_existing", "unresolved"}
+            or opening.controller_attempt_id != producer
+            or (opening.typed_image_move != "move_existing" and completion.disposition == "ready")):
+        raise ValueError("Image move result requires its acknowledged opening choice")
+
+
 def _join_retained_completion(completion, receipt, execution, producer, bindings):
     """Check the completion against an already validated context and execution."""
     from .native_execution import NATIVE_WRITER_TYPES, _validate_owned_context_binding
     from .native_writer import _model_frame_from_validated_prefix, read_evidence_records
     from .surface_evidence_answer import validate_authored_owners
+
+    if type(completion) is t.BuildGraphReferenceCompletionV1:
+        _join_build_graph_reference_completion(completion, receipt, execution, producer, bindings)
+        return
+    if any(type(event) is t.BuildGraphReferenceCompletionBindingV1 for event in execution.events):
+        raise ValueError("A Graph reference binding requires its exact typed completion")
+    if type(completion) is t.BuildImageMoveCompletionV1:
+        _join_build_image_move_completion(completion, receipt, execution, producer, bindings)
+        return
+    if any(type(event) is t.BuildImageMoveCompletionBindingV1 for event in execution.events):
+        raise ValueError("An image move binding requires its exact typed completion")
 
     if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
         from .build_authoring import validate_native_authoring_binding

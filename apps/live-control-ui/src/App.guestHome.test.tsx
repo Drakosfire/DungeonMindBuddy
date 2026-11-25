@@ -65,6 +65,7 @@ it("shows the saved example at signed-out Home without private reads", async () 
   const copy = { ...manifest, manifest: { ...manifest.manifest,
     sources: [...manifest.manifest.sources, { id: "s2", text: "Another reference", evidence_role: "context" }],
     saved_example: { version: "owner_saved_scene_v1", title: "Saved scene", body: "An owner-authored example", references: ["s", "s2"], image: null },
+    saved_choice: { version: "owner_saved_choice_v1", prompt: "What next", options: [{ label: "Enter", outcome: "A bell rings" }, { label: "Wait", outcome: "A lantern flickers" }] },
   } };
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/auth/session" ? reply(401) : reply(200, copy));
   vi.stubGlobal("fetch", fetchMock);
@@ -72,6 +73,10 @@ it("shows the saved example at signed-out Home without private reads", async () 
   expect(await screen.findByRole("heading", { name: "Saved scene" })).toBeInTheDocument();
   expect(screen.getByText("An owner-authored example")).toBeInTheDocument();
   expect(screen.getByText(/Your temporary additions were not used/)).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Enter" }));
+  expect(screen.getByText("A bell rings")).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Reset choice" }));
+  expect(screen.queryByText("A bell rings")).not.toBeInTheDocument();
   expect(screen.queryByTestId("private-world-provider")).not.toBeInTheDocument();
   expect(fetchMock.mock.calls.map(call => String(call[0])).sort()).toEqual(["/api/auth/session", `/api/live/guest-releases/${publicId}`].sort());
 });

@@ -9,27 +9,35 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from copy import deepcopy
+from dataclasses import dataclass, field
 from datetime import timedelta
+from typing import Callable
+from uuid import UUID
 from enum import Enum
 from threading import RLock
 
 from pydantic import BaseModel, TypeAdapter
 
-from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
+from application_state.errors import ApplicationStateValidationError, ApplicationStateConflictError, ApplicationStateIntegrityError
 from application_state.unit_of_work import unit_of_work
 from . import repository as repo
 from .native_execution import (
-    NativePlanActionV2, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeEvent,
+    NativePlanActionV2, NativePlanActionV3, NATIVE_PLAN_WORK_SELECTION_TYPES, NativeWriterAuthorizedV1, SurfaceNativeEvent,
     SurfaceNativeExecutionV1, _join_turn_fields, _join_turn_lifecycle,
-    _validate_owned_context_binding,
+    _locked_plan_read_turn, _validate_owned_context_binding,
 )
+from .native_record_execution import _OwnedRecordPrefix
 from .service import AgentConversationService, _ready_dsn, _validate_turn_claim_lease
+from .types import ProviderAttemptAuthorizedEventV1
 
 
 class PlanSessionCommand(str, Enum):
+    WRITER = 'authorize_native_writer'
     CONTROLLER = 'authorize_plan_jev_provider'
     OUTCOME = 'record_provider_outcome'
     SELECTION = 'record_plan_jev_retrieval_selection'
+    OPENING_SELECTION = 'record_plan_requested_work_selection'
+    SCOPE_OBSERVATION = 'record_plan_author_scope_observation'
     BATCH_CONCLUSION = 'conclude_native_read_batch'
     RECORD_GRANT = 'authorize_native_read'
     RECORD_OBSERVATION = 'observe_native_read'
@@ -48,7 +56,15 @@ class PlanSessionCommand(str, Enum):
     RELATED_PAGE = 'record_build_related_pages'
 
 
+_OPENING_COMMANDS = frozenset({
+    PlanSessionCommand.CONTROLLER, PlanSessionCommand.OUTCOME,
+    PlanSessionCommand.REQUEST_SEARCH_GRANT, PlanSessionCommand.BODY_SEARCH_OBSERVATION,
+    PlanSessionCommand.SCOPE_OBSERVATION, PlanSessionCommand.OPENING_SELECTION,
+})
+
+
 _EVENT = TypeAdapter(SurfaceNativeEvent)
+_EVENT_ID = TypeAdapter(UUID)
 
 
 def _owned_event(event):
@@ -60,13 +76,34 @@ def _owned_event(event):
 def eligible(turn):
     from .types import PlanRequestedWorkSelectedV2
     execution = getattr(turn, 'graph_context_execution', None)
+    from .plan_contextual_targets import is_question
+    if type(execution) is SurfaceNativeExecutionV1 and is_question(execution):
+        return False
     choices = ([] if type(execution) is not SurfaceNativeExecutionV1 else
         [e for e in execution.events if isinstance(e, PlanRequestedWorkSelectedV2)])
     return (type(execution) is SurfaceNativeExecutionV1
-        and type(execution.policy.action) is NativePlanActionV2
+        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
         and turn.status == 'running'
         and len(choices) == 1 and type(choices[0]) in NATIVE_PLAN_WORK_SELECTION_TYPES
         and choices[0].requested_work in {'discuss', 'clarify'})
+
+
+def eligible_opening(turn):
+    from .authored_graph_references import native_references
+    from .native_context import NativePlanRequestAdmissionV1
+    from .native_corpus import NativeBodySearchObservedV1, NativePlanRequestSearchAuthorizedV1
+
+    execution = turn.graph_context_execution
+    if (type(execution) is not SurfaceNativeExecutionV1
+            or type(execution.policy.action) is not NativePlanActionV3
+            or type(turn.graph_context_receipt.assembled_input) is not NativePlanRequestAdmissionV1
+            or turn.status != "running"
+            or tuple(type(event) for event in execution.events) not in (
+                (), (NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1),
+            )):
+        return False
+    references = native_references(execution)
+    return references is None or not references.references
 
 
 class _SessionAdmission(AgentConversationService):
@@ -92,7 +129,13 @@ class _SessionAdmission(AgentConversationService):
         # Only existing, closed read producers inspect the private materialized
         # prefix. Those owners detach each value passed to an external callback;
         # no generic callback receives the Turn, and no whole-history copy is needed.
-        produced = materialize(conn, turn)
+        if turn is not self._owner._committed:
+            raise ApplicationStateIntegrityError('Native read requires the guarded Plan Turn')
+        token = _locked_plan_read_turn.set(turn)
+        try:
+            produced = materialize(conn, turn)
+        finally:
+            _locked_plan_read_turn.reset(token)
         return tuple(_owned_event(e) for e in produced) if type(produced) is tuple else _owned_event(produced)
 
     def _bind_execution_append(self, context, execution):
@@ -113,15 +156,22 @@ class _SessionAdmission(AgentConversationService):
         candidate = execution.model_copy(update={'events': [*prior.events,
             *(_owned_event(event) for event in execution.events[count:])]})
         with self._owner._measure("plan_append_binding"):
-            return _validate_owned_context_binding(context, candidate)
+            return _validate_owned_context_binding(
+                context, candidate, record_prefix=self._owner._record_prefix)
 
     def _persist_execution_append(self, conn, *, world_id, turn_id, expected_revision, execution):
         owner = self._owner
         if expected_revision != owner._committed.revision:
             raise ApplicationStateConflictError('Session append has a stale revision')
+        if type(execution.events[-1]) is NativeWriterAuthorizedV1:
+            settled = repo._persist_plan_writer_frontier(conn, owner._committed, execution, owner._image)
+            if settled is not None:
+                owner._pending = settled, None
+            return settled
         with owner._measure("plan_append_storage_write_ack"):
-            image = repo._update_plan_session_execution(conn, world_id=world_id,
-                turn_id=turn_id, before=owner._image, execution=execution)
+            image = repo._append_plan_session_events(conn, world_id=world_id,
+                turn_id=turn_id, before=owner._image, execution=execution,
+                prior_count=len(owner._committed.graph_context_execution.events))
         if image is None:
             return None
         root = dict(image[0])
@@ -138,25 +188,53 @@ class _SessionAdmission(AgentConversationService):
         return candidate
 
 
+@dataclass(frozen=True)
+class PlanSessionClaim:
+    world_id: str
+    conversation_id: UUID
+    turn_id: UUID
+    revision: int
+    attempt: int
+    snapshot: Callable[[], object] = field(repr=False, compare=False)
+
+
+@dataclass(frozen=True)
+class PlanExecutionCheckpoint:
+    sequence: int
+    context_receipt_sha256: str
+    execution_policy_sha256: str
+
+
+@dataclass(frozen=True)
+class PlanProviderCheckpoint:
+    sequence: int
+    identity: tuple[str, str, str]
+    writer_identity: tuple[str, str, str] | None
+
+
 class NativePlanSession:
     """One nonescaping materialization, serialized with the runtime claim fence."""
 
-    def __init__(self, expected, *, measure=None):
+    def __init__(self, expected, *, measure=None, opening=False):
+        self.opening = opening
+        accepts = eligible_opening if opening else eligible
         self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
+        self._record_prefix = _OwnedRecordPrefix()
         self._committed = self._image = self._pending = None
         self._sealed = False
         self._busy = False
         with unit_of_work(_ready_dsn()) as conn:
             image = repo._lock_plan_session_image(conn, expected.world_id, expected.turn_id)
             current = repo.lock_turn(conn, expected.world_id, expected.turn_id)
-            if (current is None or not eligible(current)
+            if (current is None or not accepts(current)
                     or (current.conversation_id, current.revision, current.attempt)
                     != (expected.conversation_id, expected.revision, expected.attempt)
                     or current.claim_expires_at is None
                     or current.claim_expires_at <= repo.database_clock(conn)
                     or repo._lock_plan_session_image(conn, expected.world_id, expected.turn_id) != image):
                 raise ApplicationStateConflictError('Readonly session requires its current classified Plan claim')
+            self._checkpoint_base_count = repo._activate_plan_checkpoint(conn, current)
         self._committed, self._image = current, image
         self._admission = _SessionAdmission(self)
 
@@ -176,10 +254,12 @@ class NativePlanSession:
         current = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
         if current != self._image:
             raise ApplicationStateIntegrityError('Plan session differs from current locked storage')
+        repo._verify_plan_checkpoint(conn, turn, self._checkpoint_base_count)
         return current
 
     def _seal(self):
         self._sealed = True
+        self._record_prefix.clear()
         self._committed = self._image = self._pending = None
 
     def abort(self):
@@ -188,11 +268,93 @@ class NativePlanSession:
             self._seal()
 
     def execute(self, command: PlanSessionCommand, *, expected_revision, expected_attempt, **fields):
+        return self._execute(command, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields=fields)
+
+    def matches_verified_execution(self, receipt, execution) -> bool:
+        """Recognize an exact detached snapshot of the committed Plan execution."""
+        with self._lock:
+            turn = self._committed
+            if turn is None or self._sealed or self._busy:
+                return False
+            return (type(receipt) is type(turn.graph_context_receipt)
+                and type(execution) is type(turn.graph_context_execution)
+                and receipt == turn.graph_context_receipt
+                and execution == turn.graph_context_execution)
+
+    def execution_checkpoint(self) -> PlanExecutionCheckpoint:
+        with self._lock:
+            self._require_live()
+            execution = self._committed.graph_context_execution
+            return PlanExecutionCheckpoint(len(execution.events), execution.context_receipt_sha256,
+                execution.execution_policy_sha256)
+
+    def provider_checkpoint(self, attempt_id: UUID) -> PlanProviderCheckpoint:
+        with self._lock:
+            self._require_live()
+            execution = self._committed.graph_context_execution
+            authorization = next((event for event in reversed(execution.events)
+                if isinstance(event, ProviderAttemptAuthorizedEventV1)
+                and event.provider_attempt_id == attempt_id), None)
+            if authorization is None:
+                raise ApplicationStateConflictError('Plan provider attempt has no committed authorization')
+            roles = getattr(execution.policy, 'provider_roles', None)
+            return PlanProviderCheckpoint(len(execution.events),
+                (authorization.provider, authorization.model, authorization.api_mode),
+                roles.writer.identity() if roles is not None else None)
+
+    def record_provider_outcome(self, *, expected_revision, expected_attempt, outcome):
+        return self._execute(PlanSessionCommand.OUTCOME, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields={'outcome': outcome}, export_claim=True)
+
+    def source_coordinates(self):
+        with self._lock:
+            self._require_live()
+            return self._committed.world_id, self._committed.user_text
+
+    def source_batch_catalog(self, catalog_sha256):
+        from .native_corpus import NativeBodySearchObservedV1
+        from .plan_jev_decision import current_selection
+
+        with self._lock:
+            self._require_live()
+            turn = self._committed
+            search = next(event for event in turn.graph_context_execution.events
+                          if isinstance(event, NativeBodySearchObservedV1))
+            catalog = next(row for row in search.catalogs if row.catalog_sha256 == catalog_sha256)
+            return search.event_id, tuple(current_selection(turn).selected_handles), deepcopy(catalog)
+
+    def covers_source_selection(self, handle):
+        from .native_corpus import selected_batch_covering_reads
+        from .plan_jev_decision import current_selection
+
+        with self._lock:
+            self._require_live()
+            turn = self._committed
+            execution = turn.graph_context_execution
+            return bool(selected_batch_covering_reads(execution, current_selection(turn), handle,
+                require_passage=type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)))
+
+    def execute_source_events(self, command: PlanSessionCommand, *, expected_revision, expected_attempt, **fields):
+        return self._execute(command, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, fields=fields, export_source=True)
+
+    def _execute(self, command, *, expected_revision, expected_attempt, fields, export_source=False, export_claim=False):
         with self._lock:
             try:
                 self._enter()
                 if type(command) is not PlanSessionCommand:
                     raise ApplicationStateIntegrityError('Session requires a closed native command')
+                if self.opening:
+                    if command not in _OPENING_COMMANDS:
+                        raise ApplicationStateConflictError("Plan opening cannot execute this command")
+                    if command is PlanSessionCommand.CONTROLLER:
+                        from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
+
+                        if type(fields.get("authorization")) not in (
+                            NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1,
+                        ):
+                            raise ApplicationStateConflictError("Plan opening requires its scope or opening decision")
                 turn = self._committed
                 if (expected_revision, expected_attempt) != (turn.revision, turn.attempt):
                     raise ApplicationStateConflictError('Session command crossed its claim fence')
@@ -200,6 +362,17 @@ class NativePlanSession:
                 for name in ('authorization', 'outcome', 'selection', 'event'):
                     if name in owned:
                         owned[name] = _owned_event(owned[name])
+                export_ids = None
+                if export_source:
+                    if command in (PlanSessionCommand.BODY_GRANTS, PlanSessionCommand.DIRECT_GRANTS):
+                        rows = owned['grants']
+                    elif command is PlanSessionCommand.BODY_OBSERVATIONS:
+                        rows = owned['reads']
+                    elif command is PlanSessionCommand.DIRECT_OBSERVATION:
+                        rows = (owned,)
+                    else:
+                        raise ApplicationStateIntegrityError('Session source export requires a supported native read command')
+                    export_ids = tuple(_EVENT_ID.validate_python(row['event_id']) for row in rows)
                 self._pending = None
                 # This dispatch is closed over APP methods, not an arbitrary
                 # caller-supplied method name or a new admission implementation.
@@ -209,15 +382,42 @@ class NativePlanSession:
                     expected_attempt=expected_attempt, **owned)
                 if type(fresh) is not bool:
                     raise ApplicationStateIntegrityError('Session admission returned an invalid disposition')
+                if command is PlanSessionCommand.WRITER:
+                    if not fresh or self._pending is None or self._pending[0] is not updated:
+                        raise ApplicationStateIntegrityError('Plan writer requires its fresh settled execution')
+                    self._seal()
+                    return updated, fresh
                 # Service return occurs only after its transaction commits.
                 if fresh:
                     if self._pending is None or updated is not self._pending[0]:
                         raise ApplicationStateIntegrityError('Session append has no committed successor')
                     self._committed, self._image = self._pending
+                    if command is PlanSessionCommand.OPENING_SELECTION and eligible(updated):
+                        self.opening = False
                 elif updated is not self._committed or self._pending is not None:
                     raise ApplicationStateIntegrityError('Session replay changed its committed generation')
                 self._pending = None
+                if export_ids is not None:
+                    committed = self._committed
+                    matches = {}
+                    for event in reversed(committed.graph_context_execution.events):
+                        if event.event_id in export_ids:
+                            matches[event.event_id] = event
+                            if len(matches) == len(export_ids):
+                                break
+                    return (PlanSessionClaim(committed.world_id, committed.conversation_id,
+                        committed.turn_id, committed.revision, committed.attempt, lambda: deepcopy(committed)),
+                        deepcopy(tuple(matches[event_id] for event_id in export_ids)))
+                if export_claim:
+                    committed = self._committed
+                    return PlanSessionClaim(committed.world_id, committed.conversation_id,
+                        committed.turn_id, committed.revision, committed.attempt,
+                        lambda: deepcopy(committed)), fresh
                 return deepcopy(self._committed), fresh
+            except ApplicationStateValidationError:
+                if not self.opening:
+                    self._seal()
+                raise
             except BaseException:
                 self._seal()
                 raise
@@ -232,6 +432,7 @@ class NativePlanSession:
                 with unit_of_work(_ready_dsn()) as conn:
                     self._guard_locked(conn)
                     turn = self._committed
+                    repo._finish_plan_checkpoint(conn, turn)
                     return repo.lock_turn(conn, turn.world_id, turn.turn_id)
             finally:
                 self._seal()

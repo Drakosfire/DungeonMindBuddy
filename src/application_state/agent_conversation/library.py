@@ -184,11 +184,20 @@ def _reply_object(turn, world, conversation):
 
 def _reply_object_projection(completion, provenance, world, conversation, turn_id):
     """One display descriptor owner for full and lightweight saved messages."""
-    from .types import BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1
+    from .types import BuildCollaborationCompletionV1, BuildGraphReferenceCompletionV1, BuildImageMoveCompletionV1, BuildIntentionalResponseCompletionV1
     from .native_completion import SurfaceNativeCompletionV1
     codecs=(BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1,SurfaceNativeCompletionV1)
     work=provenance.primary_work
     surface=provenance.surface_id
+    if isinstance(completion, (BuildGraphReferenceCompletionV1, BuildImageMoveCompletionV1)):
+        if (surface != 'build' or provenance.surface_resolution != 'resolved' or provenance.world_id != world
+                or work.resolution != 'resolved' or work.kind != 'build' or not work.object_id
+                or completion.disposition != 'ready' or completion.action_id != turn_id):
+            return None
+        kind = 'build_image_move' if isinstance(completion, BuildImageMoveCompletionV1) else 'build_graph_reference'
+        return {'kind': kind, 'placement_sha256': completion.placement_sha256,
+                'source': {'world_id': world, 'conversation_id': str(conversation), 'turn_id': str(turn_id),
+                           'document_id': work.object_id, 'surface_id': surface}}
     if (surface not in {'build','plan'} or provenance.surface_resolution!='resolved' or work.resolution!='resolved' or provenance.world_id!=world
             or work.kind!=surface or not work.object_id or not isinstance(completion,codecs)
             or isinstance(completion,SurfaceNativeCompletionV1) and completion.surface_id!=surface
@@ -209,16 +218,21 @@ def _reply_object_projection(completion, provenance, world, conversation, turn_i
 def _message_reply_object(row, provenance, conversation):
     """Parse stored completion only; opening the review still reads its exact Turn."""
     if row['status']!='completed':return None
-    from .types import BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1
+    from .types import BuildCollaborationCompletionV1, BuildGraphReferenceCompletionV1, BuildImageMoveCompletionV1, BuildIntentionalResponseCompletionV1
     from .native_completion import SurfaceNativeCompletionV1
     from pydantic import ValidationError
     raw=row['completion']
     codecs={cls.model_fields['schema_'].default:cls for cls in (
-        BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1,SurfaceNativeCompletionV1)}
+        BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1,SurfaceNativeCompletionV1,
+        BuildGraphReferenceCompletionV1, BuildImageMoveCompletionV1)}
     codec=codecs.get(raw.get('schema')) if isinstance(raw,dict) else None
     if codec is None:return None
     try:completion=codec.model_validate(raw)
     except (ValidationError,ValueError,TypeError):return None
+    if isinstance(completion, (BuildGraphReferenceCompletionV1, BuildImageMoveCompletionV1)) and (
+        row['answer_composition_kind'] != 'base' or row['assistant_text'] != completion.answer_segments[0].text
+    ):
+        return None
     try:
         from .rules_authority_reads import validate_base_composition_summary,read_completed_binding_summary
         if row['answer_composition_kind']=='base':

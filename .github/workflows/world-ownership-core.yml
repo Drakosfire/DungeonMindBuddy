@@ -13,20 +13,16 @@ concurrency:
 
 jobs:
   world-ownership-suites:
-    name: Ownership boundary tests (${{ matrix.suite }})
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: [world-and-content, ingestion-and-review, query-and-answer, saved-page-readers]
+    name: Serial ownership boundary tests
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ matrix.suite == 'saved-page-readers' && 45 || 30 }}
+    timeout-minutes: 120
     services:
       postgres:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: dungeonmind
           POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_DB: postgres
+          POSTGRES_DB: dungeonbuddy_app_state_test_seed
         ports:
           - 54329:5432
         options: >-
@@ -36,6 +32,8 @@ jobs:
           --health-retries 12
     env:
       DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
+      DMB_CI_APP_TEMPLATE_DATABASE: dungeonbuddy_app_state_test_seed
+      DMB_CI_WORKSTREAM_ROOT: ${{ runner.temp }}/buddy-ci-app
     steps:
       - name: Checkout complete source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,15 +45,19 @@ jobs:
 
       - uses: ./.github/actions/install-locked-python
 
+      - name: Install matching PostgreSQL clients
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+
       - name: Inventory and validate CI contracts
-        if: matrix.suite == 'world-and-content'
         run: |
           uv run --locked python scripts/ci_contract.py inventory
           uv run --locked pytest -q tests/test_ci_contract.py
           uv run --locked ruff check scripts/ci_contract.py tests/test_ci_contract.py
 
       - name: Lint ownership and binding changes
-        if: matrix.suite == 'world-and-content'
         run: >-
           uv run --locked ruff check
           scripts/ownership_ci_partition.py
@@ -109,21 +111,8 @@ jobs:
           tests/test_live_world_containers.py
           tests/test_local_graph_launch_profile.py
 
-      - name: Run World and Content ownership tests
-        if: matrix.suite == 'world-and-content'
-        run: uv run --locked python scripts/ci_contract.py run world-and-content
-
-      - name: Run ingestion and reviewed publication tests
-        if: matrix.suite == 'ingestion-and-review'
-        run: uv run --locked python scripts/ci_contract.py run ingestion-and-review
-
-      - name: Run query answer-authority regressions
-        if: matrix.suite == 'query-and-answer'
-        run: uv run --locked python scripts/ci_contract.py run query-and-answer
-
-      - name: Run saved-page owner and semantic-reader tests
-        if: matrix.suite == 'saved-page-readers'
-        run: uv run --locked python scripts/ci_contract.py run saved-page-readers
+      - name: Run all ownership suites serially on one App clone
+        run: uv run --locked python scripts/ci_contract.py run world-and-content ingestion-and-review query-and-answer saved-page-readers
 
 
   world-ownership-tests:

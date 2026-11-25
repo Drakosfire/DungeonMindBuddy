@@ -137,7 +137,8 @@ def _advance(state, query, events):
             keys = {(assertion, identity) for identity in ids}
             if (writer or not response_received or selection is None
                     or not selection.select_candidates or event.provider_attempt_id != provider
-                    or not isinstance(query, NativePlanQueryV1) or event.query_sha256 != query.sha256
+                    or not isinstance(query, NativePlanQueryV1)
+                    or event.query_sha256 != (catalog.query_sha256 if catalog is not None else query.sha256)
                     or not set(ids) <= set(matches) or attempted & keys
                     or not selected_closure):
                 raise ValueError('Native selected read lacks its exact current controller/query grant')
@@ -160,6 +161,28 @@ def _advance(state, query, events):
     return _RecordState(provider=provider, response_received=response_received, selection=selection,
         grants=tuple(grants.values()), observations=tuple(observations.values()),
         attempted=frozenset(attempted), pending_object_reads=frozenset(pending), writer=writer)
+
+
+class _OwnedRecordPrefix:
+    """Incremental fold for a single APP-owned, nonescaping execution."""
+
+    def __init__(self):
+        self._checkpoint = None
+
+    def validate(self, query, execution):
+        events = execution.events
+        state = _RecordState()
+        offset = 0
+        if self._checkpoint is not None:
+            known_query, known_events, known_state = self._checkpoint
+            if (query is known_query and len(events) >= len(known_events)
+                    and all(old is new for old, new in zip(known_events, events))):
+                state, offset = known_state, len(known_events)
+        next_state = _advance(state, query, events[offset:])
+        self._checkpoint = query, tuple(events), next_state
+
+    def clear(self):
+        self._checkpoint = None
 
 
 def validate(query, execution):

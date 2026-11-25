@@ -119,23 +119,18 @@ def test_ingest_unavailable_when_configured_app_state_dsn_unreachable(
 def test_ingest_not_ready_when_ingest_schema_behind(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    application_state_dsn: str,
+    application_state_database,
 ) -> None:
     import psycopg
-    import uuid
     from alembic import command
 
     from application_state.cli import _current_and_head, alembic_config
-    from tests.application_state.conftest import (
-        _admin_dsn, _create_database, _drop_database, _replace_database,
-    )
+    from tests.application_state.conftest import empty_app_state
 
     monkeypatch.delenv(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, raising=False)
-    admin = _admin_dsn()
-    name = f"dungeonbuddy_app_state_test_{uuid.uuid4().hex[:12]}"
-    application_state_dsn = _replace_database(admin, name)
-    _create_database(admin, name)
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, application_state_dsn)
-    try:
+    with empty_app_state(application_state_database):
         command.upgrade(alembic_config(), "20260825_0004")
         current, head = _current_and_head(application_state_dsn)
         assert current == "20260825_0004"
@@ -150,8 +145,6 @@ def test_ingest_not_ready_when_ingest_schema_behind(
         assert ingest.status == "NOT_READY"
         assert report.status == "NOT READY"
         assert "behind" in ingest.summary.lower()
-    finally:
-        _drop_database(admin, name)
 
 
 def test_ingest_empty_when_schema_current_and_zero_runs(

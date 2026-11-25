@@ -1,3 +1,4 @@
+import { guestBuildCsrf, guestBuildEpochCurrent, guestBuildRequestEpoch } from "../guestWorld/guestBuildSession";
 import type { PdfLocator } from "./retainedPdfRegions";
 import {verifyNativeThreatReply,type NativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from './nativeThreatCreation';
 import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
@@ -410,7 +411,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/lore-pages\/(?:review|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/turns\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-approval$/i.test(pathname)) return true;
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(?:confirm|saved))?)?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(?:confirm|saved(?:\/portrait)?))?)?$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/active\/messages$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/(?:name|turns|messages|resume|trash|restore))?$/i.test(pathname)) return true;
   if (/^\/api\/live\/connected-pages\/(?:prepare|confirm|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i.test(pathname)) return true;
@@ -436,7 +437,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
       || pathname === "/api/live/source-statements/extend-evidence") return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
-  if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/graph-preview\/build-(?:recap|worldbuilding)-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
   if (pathname === "/api/live/graph-preview/extraction-runs") return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/usage$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)) return true;
@@ -461,6 +462,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/related-pages\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted|review))?)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/build-image-moves\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(pathname)
     || pathname === "/api/live/agent/turn"
     || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)
@@ -625,6 +627,17 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/build-proposals\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/review$/.test(path)) {
     return (method === "GET" && init?.body == null)
       || (method === "POST" && isRecord(requestBodyRecord(init?.body)));
+  }
+  if (/^\/api\/live\/agent\/worlds\/[a-z0-9][a-z0-9_-]{0,62}\/build-image-moves\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(path)) {
+    if (method === "GET") return init?.body == null;
+    const command = requestBodyRecord(init?.body);
+    if (method !== "POST" || typeof command?.claim_id !== "string"
+      || !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(command.claim_id)) return false;
+    return command.operation === "confirm" && Object.keys(command).length === 2
+      || command.operation === "claim" && Object.keys(command).length === 5
+        && typeof command.expected_revision === "number" && Number.isSafeInteger(command.expected_revision)
+        && command.expected_revision > 0 && typeof command.editor_json === "string"
+        && typeof command.after_editor_json === "string";
   }
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(path)) {
     if (method === "GET") return init?.body == null;
@@ -1002,8 +1015,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
     return method === "GET" && init?.body == null;
   }
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/turns\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-approval$/i.test(path)) return method === "GET" && init?.body == null;
-  const variantReview = /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(confirm|saved))?$/i.exec(path);
+  const variantReview = /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/drafts\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/variant-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/(confirm|saved\/portrait|saved(?:\?portrait_operation_id=[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?))?$/i.exec(path);
   if (variantReview) {
+    if (variantReview[1] === "saved/portrait") {
+      return method === "POST" && !!requestBodyRecord(init?.body);
+    }
     if (variantReview[1]) {
       return init?.body == null && method === (variantReview[1] === "confirm" ? "POST" : "GET");
     }
@@ -1121,14 +1137,14 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && body.expected_revision > 0 && typeof body.expected_content_sha256 === "string"
       && /^(?:sha256:)?[a-f0-9]{64}$/.test(body.expected_content_sha256);
   }
-  if (path === "/api/live/graph-preview/build-recap-launches") {
+  if ((path === "/api/live/graph-preview/build-recap-launches" || path === "/api/live/graph-preview/build-worldbuilding-launches")) {
     const body = requestBodyRecord(init?.body);
     const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
     return method === "POST" && typeof body?.document_id === "string" && uuid.test(body.document_id)
       && typeof body.request_id === "string" && uuid.test(body.request_id)
       && typeof body.managed_world_id === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(body.managed_world_id);
   }
-  const recapRecovery = /^\/api\/live\/graph-preview\/build-recap-launches\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
+  const recapRecovery = /^\/api\/live\/graph-preview\/build-(?:recap|worldbuilding)-launches\/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\?([^#]+)$/.exec(path);
   if (recapRecovery) {
     const query = new URLSearchParams(recapRecovery[1]);
     const documentId = query.get("document_id");
@@ -1363,7 +1379,8 @@ function hostedGraphHeaders(path: string, headers: Record<string, string>): Reco
   // this cookie-authenticated request. Ownership comes only from the server.
   return Object.fromEntries(Object.entries(headers).filter(([key]) =>
     ["accept", "content-type"].includes(key.toLowerCase())
-      || (key.toLowerCase() === "x-pdf-created-at" && HOSTED_PDF_UPLOAD_PATH.test(path))));
+      || (key.toLowerCase() === "x-pdf-created-at" && HOSTED_PDF_UPLOAD_PATH.test(path))
+      || (key.toLowerCase() === "x-buddy-reply-stream" && path === "/api/live/agent/turn")));
 }
 
 function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
@@ -1605,19 +1622,44 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
     }
     const requestEpoch = nativeGraphSessionEpoch;
     const usedBearer = Boolean(nativeGraphAccessToken);
+    const method = (frozenInit.method ?? "GET").toUpperCase();
+    const guestEpoch = !baseUrl ? guestBuildRequestEpoch(path, method) : null;
+    const guestCsrf = guestEpoch !== null ? guestBuildCsrf(path, method) : null;
     const response = await fetch(target.url, {
       ...frozenInit,
       ...(target.localGraphRequest || target.hostedGraphRequest
         ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
       ...(target.hostedGraphRequest ? { cache: "no-store" as const, mode: "same-origin" as const } : {}),
-      headers: target.hostedGraphRequest ? hostedGraphHeaders(path, {
-        ...(HOSTED_PDF_UPLOAD_PATH.test(path) ? {} : { "Content-Type": "application/json" }),
-        ...frozenInit.headers,
-      }) : nativeGraphHeaders(path, frozenInit.body, {
-        "Content-Type": "application/json", ...frozenInit.headers,
-        ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
-      }),
+      headers: {
+        ...(target.hostedGraphRequest ? hostedGraphHeaders(path, {
+          ...(HOSTED_PDF_UPLOAD_PATH.test(path) ? {} : { "Content-Type": "application/json" }),
+          ...frozenInit.headers,
+        }) : nativeGraphHeaders(path, frozenInit.body, {
+          "Content-Type": "application/json", ...frozenInit.headers,
+          ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
+        })),
+        ...(guestCsrf ? { "X-DMB-Index-Graph-CSRF": guestCsrf } : {}),
+      },
     });
+    if (guestEpoch !== null && !guestBuildEpochCurrent(guestEpoch)) {
+      throw new LiveApiError("The guest session changed during this request.", 401, { code: "guest_session_changed" });
+    }
+    if (guestCsrf && (response.status === 401 || response.status === 403)) {
+      const payload: unknown = await response.clone().json().catch(() => null);
+      if (isRecord(payload) && isRecord(payload.detail)
+          && ["csrf_rejected", "session_expired", "session_unknown", "session_required"].includes(String(payload.detail.code))) {
+        throw new LiveApiError("Your guest session changed. Copy any unsaved text, then reload Build to open the current session.",
+          response.status, { code: "guest_session_changed" });
+      }
+    }
+    if (guestEpoch !== null) {
+      const assertGuestCurrent = () => {
+        if (!guestBuildEpochCurrent(guestEpoch) || frozenInit.signal?.aborted) {
+          throw new LiveApiError("The guest session changed during this request.", 401, { code: "guest_session_changed" });
+        }
+      };
+      return { response: admittedReadResponse(response, assertGuestCurrent), csrf: null, requestEpoch, usedBearer: false };
+    }
     if (target.hostedGraphRequest) {
       const assertCurrent = () => {
         if (requestEpoch !== nativeGraphSessionEpoch || frozenInit.signal?.aborted) {
@@ -2786,11 +2828,14 @@ export async function postWorldPlayAgentTurn(
 }
 
 export async function postWorldBuildAgentTurn(request: import("./types").WorldBuildAgentTurnRequestV1,
-  onProgress:(progress:BuildObjectConstructionProgress)=>void=()=>undefined): Promise<WorldPlanAgentTurnResponse> {
+  onProgress:(progress:BuildObjectConstructionProgress)=>void=()=>undefined,
+  onReply?:(event:import("./buildConstructionStream").BuildReplyEvent)=>void): Promise<WorldPlanAgentTurnResponse> {
   try{
     return await apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn",
-      {method:"POST",body:JSON.stringify(request),headers:{Accept:"text/event-stream"}},
-      (response,assertCurrent)=>readBuildConstructionStream(response,request,onProgress,assertCurrent));
+      {method:"POST",body:JSON.stringify(request),headers: {
+        Accept:"text/event-stream", ...(onReply ? {"X-Buddy-Reply-Stream": "1"} : {}),
+      }},
+      (response,assertCurrent)=>readBuildConstructionStream(response,request,onProgress,assertCurrent,onReply));
   }catch(reason){
     if(reason instanceof ConstructionStreamError){
       const detail=reason.detail as {message?:unknown;code?:unknown}|null;
@@ -3883,12 +3928,25 @@ export async function prepareTiptapMarkdownWrite(
 }
 
 export async function commitTiptapMarkdownWrite(
-  request: TiptapMarkdownWriteCommitRequest,
+  { canRetryExactPageCommit, ...request }: TiptapMarkdownWriteCommitRequest & {
+    canRetryExactPageCommit?: () => boolean;
+  },
 ): Promise<TiptapMarkdownWriteCommitResponse> {
-  return apiFetch<TiptapMarkdownWriteCommitResponse>(
-    "/api/live/tiptap/markdown-write/commit",
-    { method: "POST", body: JSON.stringify(request) },
+  const body = JSON.stringify(request);
+  const commit = () => apiFetch<TiptapMarkdownWriteCommitResponse>(
+    "/api/live/tiptap/markdown-write/commit", { method: "POST", body },
   );
+  const accessGeneration = nativeGraphSessionEpoch;
+  const origin = baseUrl;
+  try {
+    return await commit();
+  } catch (error) {
+    // The Page owner admits only the same token and predecessor revision on
+    // replay. Reuse the serialized request and never prepare a second save.
+    if (!(error instanceof TypeError) || accessGeneration !== nativeGraphSessionEpoch
+      || origin !== baseUrl || !canRetryExactPageCommit?.()) throw error;
+    return commit();
+  }
 }
 
 export async function commitWorldOwnedPlanMarkdownWrite(

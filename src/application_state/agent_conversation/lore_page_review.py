@@ -10,7 +10,7 @@ from .collaboration import Closed
 
 _PAGE_REQUEST = re.compile(
     r'(?:^|(?<=[.!?])\s+|(?<=[,;])\s+then\s+)(?P<request>(?:please\s+)?(?:create|open|make)\s+'
-    r'(?:a\s+)?(?P<modifiers>(?:(?:new|blank|standalone|lore)\s+)*)page\s+'
+    r'(?:(?:a|the)\s+)?(?P<modifiers>(?:(?:new|blank|standalone|lore)\s+)*)page\s+'
     r'(?P<relation>for|about|called|named|titled)\s+'
     r"""(?P<subject>"[^"\r\n]+"|“[^”\r\n]+”|'[^'\r\n]+'|[^,.!?;\r\n]+))""",
     re.IGNORECASE,

@@ -55,7 +55,7 @@ def semantic_frame(host, execution):
             view['current_page_draft']['uses_committed_plan'] = True
     if 'focused_edit_target' in host:
         target = host['focused_edit_target']
-        if set(target) - {'kind', 'location', 'selected_text', 'playable_body'}:
+        if set(target) - {'kind', 'location', 'selected_text', 'playable_body', 'fragment_scope'}:
             raise ValueError('Unclassified Plan edit target fields')
         view['focused_edit_target'] = deepcopy(target)
     from .authored_graph_references import model_reference_choices
@@ -66,6 +66,19 @@ def semantic_frame(host, execution):
         view['related_authored_pages'] = {'role': host['related_authored_pages']['role'],
             'pages': [{'read_id': f'page{i}', 'title': row['page']['title'], 'markdown': row['markdown']}
                 for i,row in enumerate(host['related_authored_pages']['pages'])]}
+    return view
+
+
+def compact_editor_prose(view):
+    """Omit editor metadata when the saved Plan already supplies the whole draft."""
+    draft = view.get("current_page_draft", {})
+    if (view["requested_work"] in {"discuss", "clarify"}
+            and draft.get("state") == "same_as_committed"
+            and draft.get("uses_committed_plan") is True
+            and "markdown" not in draft
+            and view.get("focused_edit_target") == {"kind": "insert_at_caret"}):
+        return {key: value for key, value in view.items()
+                if key not in {"current_page_draft", "focused_edit_target"}}
     return view
 
 

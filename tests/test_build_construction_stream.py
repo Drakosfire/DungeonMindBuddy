@@ -164,6 +164,10 @@ def test_stream_route_authenticates_before_starting_owned_execution(monkeypatch)
     def execute(body, request):
         calls.append(body.turn_id)
         stream.observe({'sequence':1})
+        reply = stream.reply_sink.get()
+        if reply is not None:
+            reply(None)
+            reply("Answer")
         return {'answer':'saved'}
     monkeypatch.setattr(agent,'_execute_agent_turn',execute)
     monkeypatch.setattr(agent,'enforce_native_graph_gm',lambda request:SimpleNamespace(subject='test'))
@@ -177,9 +181,144 @@ def test_stream_route_authenticates_before_starting_owned_execution(monkeypatch)
             assert response.status_code==200, response.text
             frames=[json.loads(line[6:]) for line in response.text.splitlines() if line.startswith('data: ')]
             assert frames[-1]['kind']=='result' and calls==[payload['turn_id']]
+            assert [frame["kind"] for frame in frames] == ["construction", "result"]
+            enabled = await client.post('/agent/turn', json=payload,
+                headers={'accept': 'text/event-stream', 'x-buddy-reply-stream': '1'})
+            assert enabled.status_code == 200
+            frames = [json.loads(line[6:]) for line in enabled.text.splitlines() if line.startswith('data: ')]
+            assert [frame["kind"] for frame in frames] == [
+                "construction", "reply_context_ready", "reply_text", "result",
+            ]
             def deny(_):
                 raise HTTPException(403,detail='forbidden')
             monkeypatch.setattr(agent,'enforce_native_graph_gm',deny)
             refused=await client.post('/agent/turn',json=payload,headers={'accept':'text/event-stream'})
-            assert refused.status_code==403 and len(calls)==1
+            assert refused.status_code==403 and len(calls)==2
+    asyncio.run(run())
+
+
+def test_opt_in_reply_text_is_ordered_and_does_not_replace_construction_or_result():
+    async def run():
+        release = threading.Event()
+
+        def work():
+            stream.observe({"sequence": 1})
+            reply = stream.reply_sink.get()
+            if reply is not None:
+                reply(None)
+                reply("A lantern")
+                release.wait(2)
+                reply(" lights the path.")
+            return {"answer": "The canonical saved reply", "citations": ["saved"]}
+
+        def parse(frame):
+            return json.loads(frame.removeprefix("data: "))
+
+        old = [parse(frame) async for frame in stream.turn_stream(work, "turn").body_iterator]
+        assert [frame["kind"] for frame in old] == ["construction", "result"]
+
+        reader = stream.turn_stream(work, "turn", include_reply=True).body_iterator
+        first = [parse(await asyncio.wait_for(anext(reader), 2)) for _ in range(3)]
+        assert [frame["kind"] for frame in first] == ["construction", "reply_context_ready", "reply_text"]
+        assert first[2]["sequence"] == 1 and first[2]["text"] == "A lantern"
+        release.set()
+        rest = [parse(frame) async for frame in reader]
+        assert [(frame["kind"], frame.get("sequence")) for frame in rest] == [
+            ("reply_text", 2), ("result", None),
+        ]
+        assert rest[0]["text"] == " lights the path."
+        assert rest[1]["response"] == {"answer": "The canonical saved reply", "citations": ["saved"]}
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_guarded_sdk_projects_only_the_assistant_final_answer_item(failed):
+    import httpx
+    from generationengine import GenerationClient, GenerationEngineError, TextRequest
+    from generationengine.text_dispatch import TextDispatchGate
+    from apps.live_control_server.services.build_reply_writer import BuildAnswerObserver, generate_build_reply
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+
+    commentary = '{"answer_segments":[{"text":"Private commentary"}]}'
+    chunks = ['{"answer_segments":[{"text":"The lantern', ' lit the gate."}]}']
+    model = "gpt-6-luna"
+    answer = dict(type="message", role="assistant", id="answer", status="in_progress",
+                  phase="final_answer", content=[])
+    comment = dict(type="message", role="assistant", id="comment", status="in_progress",
+                   phase="commentary", content=[])
+    output = [
+        {**item, "status": "completed", "content": [
+            {"type": "output_text", "text": text, "annotations": []},
+        ]}
+        for item, text in [(comment, commentary), (answer, "".join(chunks))]
+    ]
+
+    async def run():
+        observed = []
+        lifecycle = []
+        requests = []
+
+        class Events(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                frames = [
+                    ("response.output_item.added", dict(item=comment, output_index=0)),
+                    ("response.output_text.delta", dict(item_id="comment", output_index=0,
+                                                       content_index=0, delta=commentary)),
+                    ("response.output_item.added", dict(item=answer, output_index=1)),
+                    *[("response.output_text.delta", dict(item_id="answer", output_index=1,
+                                                         content_index=0, delta=text)) for text in chunks],
+                ]
+                for index, (kind, fields) in enumerate(frames):
+                    yield ("data: " + json.dumps(dict(type=kind, sequence_number=index, **fields))
+                           + "\n\n").encode()
+                assert observed == ["The lantern", " lit the gate."]  # Before provider completion.
+                if not failed:
+                    result = dict(id="rsp", object="response", created_at=1, status="completed",
+                                  model=model, output=output)
+                    yield ("data: " + json.dumps(dict(type="response.completed",
+                                                       sequence_number=len(frames), response=result))
+                           + "\n\n").encode()
+
+        async def authorize(prepared):
+            assert json.loads(prepared.body)["stream"] is True
+            lifecycle.append("authorized")
+            return True
+
+        async def record(event):
+            lifecycle.append(event.outcome)
+            return True
+
+        def handle(request):
+            requests.append(request)
+            return httpx.Response(200, headers={"content-type": "text/event-stream"}, stream=Events())
+
+        provider = PlanWriterProvider(api_key="synthetic", transport=httpx.MockTransport(handle),
+            dispatch_gate=TextDispatchGate(authorize, record),
+            sdk_event_observer=BuildAnswerObserver(observed.append))
+        client = GenerationClient(text_providers={"openai": provider})
+        schema = {
+            "type": "object", "additionalProperties": False, "required": ["answer_segments"],
+            "properties": {"answer_segments": {"type": "array", "items": {
+                "type": "object", "additionalProperties": False, "required": ["text"],
+                "properties": {"text": {"type": "string"}},
+            }}},
+        }
+        request = TextRequest(provider="openai", model=model, json_schema=schema, schema_name="reply_test",
+                              user_prompt='[{"role":"user","content":"Test"}]',
+                              max_transport_retries=0, max_conformance_retries=0)
+        try:
+            if failed:
+                with pytest.raises(GenerationEngineError):
+                    await generate_build_reply(client, request)
+                assert provider.actual_response is None
+            else:
+                result = await generate_build_reply(client, request)
+                assert result.text == "".join(chunks)
+                assert provider.consume_completed_text(provider.actual_response, model) == result.text
+            assert len(requests) == 1 and lifecycle[:2] == ["authorized", "sending"]
+            assert observed == ["The lantern", " lit the gate."]
+        finally:
+            await client.aclose()
+
     asyncio.run(run())

@@ -69,12 +69,16 @@ class NativeCorpusMemberV1(Strict):
 
     @model_validator(mode="after")
     def exact_source_pair(self):
-        if canonical(self.artifact) != self.artifact_json or canonical(self.revision) != self.revision_json:
+        artifact = self.artifact
+        if canonical(artifact) != self.artifact_json:
             raise ValueError("Native corpus metadata requires canonical immutable bytes")
-        if (self.artifact.status != "active"
-                or self.artifact.source_artifact_id != self.revision.source_artifact_id
-                or self.artifact.current_revision_id != self.revision.source_revision_id
-                or self.revision.body_storage != "dm_native_utf8_body_v1"
+        revision = self.revision
+        if canonical(revision) != self.revision_json:
+            raise ValueError("Native corpus metadata requires canonical immutable bytes")
+        if (artifact.status != "active"
+                or artifact.source_artifact_id != revision.source_artifact_id
+                or artifact.current_revision_id != revision.source_revision_id
+                or revision.body_storage != "dm_native_utf8_body_v1"
                 or self.access_start_byte >= self.access_end_byte):
             raise ValueError("Native corpus member requires its exact active source pair")
         return self
@@ -316,18 +320,18 @@ class NativePlanRequestSearchAuthorizedV1(NativeBodyEvent):
 
 def request_source_discovery_enabled(context, execution):
     from .native_context import NativePlanRequestAdmissionV1, SurfaceNativeContextReceiptV1
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     return (type(context) is SurfaceNativeContextReceiptV1
         and type(context.assembled_input) is NativePlanRequestAdmissionV1
-        and type(execution.policy.action) is NativePlanActionV2)
+        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3))
 
 
 def validate_request_source_search(execution, grant):
     from . import types as t
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     prefix = execution.events[:grant.sequence]
     action = execution.policy.action
-    if (type(action) is not NativePlanActionV2
+    if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
             or grant.context_receipt_sha256 != execution.context_receipt_sha256
             or grant.execution_policy_sha256 != execution.execution_policy_sha256
             or t.canonical_sha256(grant.authority) != execution.policy.source_authority_sha256
@@ -338,20 +342,23 @@ def validate_request_source_search(execution, grant):
 
 
 def initial_source_discovery_enabled(execution):
-    from .native_execution import NativePlanActionV2, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeExecutionV1
+    from .plan_contextual_targets import is_question
+    if is_question(execution):
+        return False
+    from .native_execution import NativePlanActionV2, NativePlanActionV3, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeExecutionV1
     return (type(execution) is SurfaceNativeExecutionV1
-        and type(execution.policy.action) is NativePlanActionV2
+        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
         and any(type(event) in NATIVE_PLAN_WORK_SELECTION_TYPES
             and event.requested_work in {"discuss", "clarify"} for event in execution.events))
 
 
 def validate_initial_source_search(execution, grant):
-    from .native_execution import NativePlanActionV2, NativePlanRequestedWorkSelectedV3
+    from .native_execution import NativePlanActionV2, NativePlanActionV3, NativePlanRequestedWorkSelectedV3
     from .native_retrieval import NativeRetrievalAuthorizedV1
     action = execution.policy.action
     prefix = execution.events[:grant.sequence]
     work = next((event for event in prefix if event.event_id == grant.work_selection_event_id), None)
-    if (type(action) is not NativePlanActionV2
+    if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
             or type(work) is not NativePlanRequestedWorkSelectedV3
             or work.requested_work not in {"discuss", "clarify"}
             or grant.context_receipt_sha256 != execution.context_receipt_sha256
@@ -714,10 +721,38 @@ def prior_conversation_work(events):
 
 def conversation_route_can_admit(receipt, execution):
     from .native_context import NativeBuildQueryPendingV1
-    from .native_execution import NativeBuildQuerySettledV1
+    from .native_execution import NativeBuildActionV1, NativeBuildQuerySettledV1
+    from .native_plan_statements import NativePlanQueryUnavailableV1
 
-    return (isinstance(getattr(receipt, "native_query", None), NativeBuildQueryPendingV1)
-            and not any(isinstance(event, NativeBuildQuerySettledV1) for event in execution.events))
+    if any(isinstance(event, NativeBuildQuerySettledV1) for event in execution.events):
+        return False
+    query = getattr(receipt, "native_query", None)
+    if isinstance(query, NativeBuildQueryPendingV1):
+        return True
+
+    source = getattr(receipt, "source_authority", None)
+    action = getattr(execution.policy, "action", None)
+    if (type(query) is not NativePlanQueryUnavailableV1
+            or query.reason != "native_graph_binding_unavailable"
+            or type(source) is not NativeCorpusAuthorityV1
+            or type(action) is not NativeBuildActionV1):
+        return False
+    intent = action.intent
+    if (query.managed_world_id != source.managed_world_id
+            or intent.world_id != source.managed_world_id
+            or intent.reviewed_step is not None
+            or getattr(intent, "authored_references", None) is not None
+            or getattr(intent.graph_request, "revision_pin", None) is not None):
+        return False
+
+    # Unavailable queries bypass the pending-query validator. Preserve its
+    # no-acquisition invariant here, including checks after prior admission.
+    from . import types as t
+    from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
+
+    return not any(isinstance(event, (*t.NATIVE_BODY_EVENTS, NativeRetrievalAuthorizedV1,
+        NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, t.RelatedPageRead))
+        for event in execution.events)
 
 
 def resolve_prior_body_citation(current, prior, reference, *, history_turn_ids):
@@ -752,9 +787,9 @@ def selected_batch_covering_reads(execution, selection, handle, *, before_sequen
         return ()
     events = execution.events if before_sequence is None else execution.events[:before_sequence]
     searches = [e for e in events if isinstance(e, NativeBodySearchObservedV1)]
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
 
-    plan = type(getattr(getattr(execution, "policy", None), "action", None)) is NativePlanActionV2
+    plan = type(getattr(getattr(execution, "policy", None), "action", None)) in (NativePlanActionV2, NativePlanActionV3)
     catalogs = acquired_body_catalogs(execution)
     candidates = searches[0].catalogs if searches else ()
     if plan:

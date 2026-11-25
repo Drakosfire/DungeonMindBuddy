@@ -7,10 +7,21 @@ from uuid import uuid4
 
 import pytest
 
-from application_state.agent_conversation.plan_authoring import text_digest
+from application_state.agent_conversation.plan_authoring import (
+    PlanActionAuthoringResultV1,
+    PlanAuthoringSlotBoundaryCaptureV1,
+    text_digest,
+)
 from application_state.content import repository as content
-from application_state.content.service import current_committed_revision, get_plan
-from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
+from application_state.content.markdown_source_blocks import source_block_spans
+from application_state.content.page_presentation import PagePresentation
+from application_state.content.service import commit_plan, current_committed_revision, get_plan, snapshot_content
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateNotFoundError,
+    ApplicationStateValidationError,
+)
+from application_state.plan_action_dialogue import repository as actions
 from application_state.plan_action_dialogue import authoring_review as owner
 from application_state.unit_of_work import unit_of_work
 from tests.test_hosted_native_graph_access import hosted, recap_lane  # noqa: F401
@@ -465,3 +476,230 @@ def test_structural_capture_survives_review_edit_save_and_exact_confirmation_rep
     assert committed.work_revision.content_sha256==application.after_draft_sha256
     assert committed.work_revision.markdown==application.after_markdown
     assert proposal.model_dump(mode="json",by_alias=True)==generated
+
+
+def composed_plan(left, right, ending):
+    blocks = [*left, *right, ending]
+    markdown = "\n\n".join(text for _, text in blocks) + "\n"
+    raw = markdown.encode("utf-8")
+    bindings = {
+        identity: dict(kind="block", id=identity, byte_start=start, byte_end=end,
+            sha256=text_digest(raw[start:end].decode("utf-8")))
+        for (identity, _), (start, end) in zip(blocks, source_block_spans(markdown), strict=True)
+    }
+    layout = PagePresentation.model_validate({
+        "markdown_sha256": text_digest(markdown),
+        "items": [
+            {"kind": "row", "id": "row", "min_height": 160, "line_mode": "border", "slots": [
+                {"id": "left", "width": 7, "blocks": [bindings[identity] for identity, _ in left]},
+                {"id": "right", "width": 5, "blocks": [bindings[identity] for identity, _ in right]},
+            ]},
+            bindings[ending[0]],
+        ],
+    }).checked(markdown)
+
+    def paragraph(pair):
+        identity, text = pair
+        if text.startswith("## "):
+            return {"type": "heading", "attrs": {"pageBlockId": identity, "level": 2},
+                "content": [{"type": "text", "text": text[3:]}]}
+        return {"type": "paragraph", "attrs": {"pageBlockId": identity},
+            "content": [{"type": "text", "text": text}]}
+
+    editor = {"type": "doc", "content": [
+        {"type": "pageRow", "attrs": {"id": "row", "min_height": 160, "line_mode": "border"}, "content": [
+            {"type": "pageSlot", "attrs": {"id": "left", "width": 7}, "content": list(map(paragraph, left))},
+            {"type": "pageSlot", "attrs": {"id": "right", "width": 5}, "content": list(map(paragraph, right))},
+        ]},
+        paragraph(ending),
+    ]}
+    return markdown, layout, json.dumps(editor, separators=(",", ":"))
+
+
+LEFT = ("left-block", "The gate is locked.")
+RIGHT = ("right-block", "The gate is locked.")
+ENDING = ("ending", "## Retain the unrelated closing heading")
+INSERTION = ("new-warning", "Keep a lantern ready.")
+
+
+@pytest.fixture
+def composed_proposal(completed_proposal, application_state_dsn, request):
+    """Seed the successor's terminal payload. Runtime Send is intentionally inactive."""
+    from psycopg.types.json import Jsonb
+
+    proposal = completed_proposal
+    old = proposal.capture
+    markdown, layout, editor = composed_plan([LEFT], [RIGHT], ENDING)
+    obj, revision = commit_plan(old.document_id, markdown,
+        expected_revision=old.base_revision, expected_world_id=old.world_id, page_presentation=layout)
+    basis = proposal.origin.basis.model_copy(update={
+        "object_revision": obj.object_revision,
+        "work_revision_id": revision.work_revision_id,
+        "revision_n": revision.revision_n,
+        "content_sha256": revision.content_sha256,
+    })
+    capture = PlanAuthoringSlotBoundaryCaptureV1.model_validate(old.model_dump(mode="python", by_alias=True) | {
+        "schema": "dmb_plan_authoring_slot_boundary_capture_v1",
+        "target_kind": "insert_at_slot_boundary",
+        "base_revision": obj.object_revision,
+        "base_content_sha256": revision.content_sha256,
+        "draft_markdown": markdown, "draft_sha256": text_digest(markdown),
+        "editor_json": editor, "editor_sha256": text_digest(editor),
+        "slot_address": {"row_index": 0, "row_id": "row", "slot_index": 1, "slot_id": "right",
+            "child_index": 0, "block_id": "right-block", "relation": getattr(request, "param", "after")},
+        "base_page_presentation_sha256": layout.fingerprint(),
+        "draft_page_presentation": layout, "draft_page_presentation_sha256": layout.fingerprint(),
+    })
+    with unit_of_work(application_state_dsn) as conn:
+        old_action = actions._get_by_id(conn, proposal.origin.action_id, lock=True)
+        stored = PlanActionAuthoringResultV1.model_validate(old_action.authoring_origin.model_dump(mode="python", by_alias=True) | {
+            "basis": basis, "capture": capture, "capture_sha256": capture.sha256,
+        })
+        conn.execute("""
+            UPDATE plan_action.action
+            SET object_revision=%s, work_revision_id=%s, revision_n=%s, content_sha256=%s,
+                draft_sha256=%s, target_kind='insert_at_slot_boundary', authoring_origin=%s
+            WHERE action_id=%s
+        """, (basis.object_revision, basis.work_revision_id, basis.revision_n, basis.content_sha256,
+            capture.draft_sha256, Jsonb(stored.model_dump(mode="json", by_alias=True)), proposal.origin.action_id))
+    return stored.proposal
+
+
+def edit_slot_review(proposal):
+    return execute(proposal, command(proposal, opened(proposal), "save", markdown=INSERTION[1]))
+
+
+def slot_prepare_command(proposal, review, *, left=None, right=None, ending=ENDING, **overrides):
+    default_right = [RIGHT, INSERTION] if proposal.capture.slot_address.relation == "after" else [INSERTION, RIGHT]
+    markdown, layout, editor = composed_plan(
+        [LEFT] if left is None else left, default_right if right is None else right, ending,
+    )
+    return command(proposal, review, "prepare_slot", **({
+        "application_id": uuid4(), "after_editor_json": editor, "after_editor_sha256": text_digest(editor),
+        "after_markdown": markdown, "after_draft_sha256": text_digest(markdown), "after_title": "Reviewed slot",
+        "after_page_presentation": layout, "after_page_presentation_sha256": layout.fingerprint(),
+    } | overrides))
+
+
+@pytest.mark.parametrize("composed_proposal", ["before", "after"], indirect=True)
+def test_composed_slot_review_http_commits_only_the_addressed_slot(composed_proposal, monkeypatch):
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as routes
+
+    proposal = composed_proposal
+    review = edit_slot_review(proposal)
+    payload = slot_prepare_command(proposal, review)
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setattr(routes, "enforce_native_graph_gm", lambda request: None)
+    monkeypatch.setattr(routes, "_verified_world_id", lambda world: world)
+    path = f"/api/live/agent/worlds/{proposal.capture.world_id}/plan-proposals/{proposal.origin.action_id}/review"
+    with TestClient(create_app(), base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
+        prepare_body = owner.command_adapter.validate_python(payload).model_dump(mode="json", by_alias=True)
+        prepared = client.post(path, json=prepare_body)
+        assert prepared.status_code == 200, prepared.text
+        assert client.post(path, json=prepare_body).json() == prepared.json()
+        assert client.post(path, json=prepare_body | {"after_title": "Different retry"}).status_code == 409
+        pending = owner.PlanAuthoringReviewV1.model_validate(prepared.json())
+        assert client.get(path).json()["review"]["applications"] == prepared.json()["applications"]
+        app = pending.applications[-1]
+        assert isinstance(app, owner.PlanSlotReviewApplicationV1)
+        assert app.after_page_presentation == payload["after_page_presentation"]
+        confirm = command(proposal, pending, "confirm", application_id=app.application_id)
+        body = owner.command_adapter.validate_python(confirm).model_dump(mode="json", by_alias=True)
+        saved = client.post(path, json=body)
+        assert saved.status_code == 200, saved.text
+        assert client.post(path, json=body).json() == saved.json()
+        assert client.get(path).json()["review"] == saved.json()
+    snapshot = snapshot_content(proposal.capture.document_id)
+    assert snapshot.markdown == payload["after_markdown"]
+    assert snapshot.page_presentation == payload["after_page_presentation"]
+    assert str(snapshot.work_object.current_revision_id) == saved.json()["applications"][-1]["saved_work_revision_id"]
+    with pytest.raises(ApplicationStateNotFoundError):
+        owner.read_review("unrelated-world", proposal.origin.action_id)
+    row, ending = snapshot.page_presentation.items
+    newer_layout = snapshot.page_presentation.model_copy(update={"items": [
+        row.model_copy(update={"min_height": 168}), ending,
+    ]})
+    commit_plan(proposal.capture.document_id, snapshot.markdown,
+        expected_revision=snapshot.loaded_revision, expected_world_id=proposal.capture.world_id,
+        page_presentation=newer_layout)
+    assert execute(proposal, confirm).model_dump(mode="json", by_alias=True) == saved.json()
+    assert snapshot_content(proposal.capture.document_id).page_presentation == newer_layout
+
+
+def test_composed_slot_rejects_other_slot_source_and_unbound_layout(composed_proposal):
+    proposal = composed_proposal
+    review = edit_slot_review(proposal)
+    before = snapshot_content(proposal.capture.document_id)
+    original = proposal.capture.model_dump(mode="python", by_alias=True)
+    counterfeit = json.loads(original["editor_json"])
+    counterfeit["content"][0]["content"][0]["content"][0]["content"][0]["text"] = "False neighboring text."
+    counterfeit_source = json.dumps(counterfeit)
+    with pytest.raises(ValueError, match="exact Markdown"):
+        PlanAuthoringSlotBoundaryCaptureV1.model_validate(original | {
+            "editor_json": counterfeit_source, "editor_sha256": text_digest(counterfeit_source),
+        })
+    with pytest.raises(ValueError, match="selection witness"):
+        PlanAuthoringSlotBoundaryCaptureV1.model_validate(original | {"from": 99, "to": 99})
+    metadata = json.loads(original["editor_json"])
+    metadata["content"][-1]["attrs"]["playableElementId"] = "scene:forged"
+    metadata_source = json.dumps(metadata)
+    with pytest.raises(ValueError, match="metadata absent"):
+        PlanAuthoringSlotBoundaryCaptureV1.model_validate(original | {
+            "editor_json": metadata_source, "editor_sha256": text_digest(metadata_source),
+        })
+    invalid = [
+        slot_prepare_command(proposal, review, left=[LEFT, INSERTION], right=[RIGHT]),
+        slot_prepare_command(proposal, review, ending=(ENDING[0], "Changed unrelated source.")),
+        slot_prepare_command(proposal, review, after_page_presentation_sha256="1" * 64),
+    ]
+    forged = slot_prepare_command(proposal, review)
+    editor = json.loads(forged["after_editor_json"])
+    editor["content"][0]["content"][1]["content"][1]["content"][0]["text"] = "Unreviewed local wording."
+    forged_editor = json.dumps(editor)
+    invalid.append(forged | {"after_editor_json": forged_editor, "after_editor_sha256": text_digest(forged_editor)})
+    for payload in invalid:
+        with pytest.raises(ValueError):
+            execute(proposal, payload)
+    old_payload = slot_prepare_command(proposal, review)
+    old_payload.update(operation="prepare")
+    del old_payload["after_page_presentation"], old_payload["after_page_presentation_sha256"]
+    with pytest.raises(ApplicationStateValidationError, match="captured layout type"):
+        execute(proposal, old_payload)
+    assert snapshot_content(proposal.capture.document_id) == before
+    assert owner.read_review(review.world_id, review.action_id).review == review
+
+
+def test_composed_slot_rejects_stale_layout_and_rolls_back_receipt_failure(composed_proposal, monkeypatch):
+    proposal = composed_proposal
+    capture = proposal.capture
+    review = edit_slot_review(proposal)
+    stale_capture = capture.model_copy(update={"base_page_presentation_sha256": "1" * 64})
+    with pytest.raises(ApplicationStateConflictError, match="saved Plan layout changed"):
+        execute(proposal, command(proposal, review, "move", capture=stale_capture))
+    pending = execute(proposal, slot_prepare_command(proposal, review))
+    confirm = command(proposal, pending, "confirm", application_id=pending.applications[-1].application_id)
+    before = snapshot_content(capture.document_id)
+    with monkeypatch.context() as failure:
+        def reject_slot_receipt(conn, action, next_review, **kwargs):
+            assert next_review.state == "applied"
+            raise RuntimeError("receipt failed after composed Content update")
+
+        failure.setattr(owner, "_persist_review", reject_slot_receipt)
+        with pytest.raises(RuntimeError, match="receipt failed"):
+            execute(proposal, confirm)
+    assert snapshot_content(capture.document_id) == before
+    assert owner.read_review(review.world_id, review.action_id).review == pending
+    row, ending = before.page_presentation.items
+    changed_row = row.model_copy(update={"min_height": 168})
+    concurrent = before.page_presentation.model_copy(update={"items": [changed_row, ending]})
+    commit_plan(capture.document_id, before.markdown, expected_revision=capture.base_revision,
+        expected_world_id=capture.world_id, page_presentation=concurrent)
+    with pytest.raises(ApplicationStateConflictError, match="saved Plan changed"):
+        execute(proposal, confirm)
+    latest = snapshot_content(capture.document_id)
+    assert latest.markdown == before.markdown
+    assert latest.page_presentation == concurrent
+    assert owner.read_review(review.world_id, review.action_id).review == pending

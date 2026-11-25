@@ -70,6 +70,9 @@ _GUEST_UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 _GUEST_READ_PATH = re.compile(
     rf"/api/live/guest-releases/{_GUEST_UUID}(?:/releases/{_GUEST_UUID}/assets/{_GUEST_UUID})?"
 )
+_GUEST_GRAPH_PATH = re.compile(
+    rf"/api/live/index-graph/(?:session|graph|world|prepare|confirm|reset|operations/{_GUEST_UUID}|nodes/[^/]{{1,256}}/sources)"
+)
 
 
 def deployment_environment(environ: Mapping[str, str] | None = None) -> str:
@@ -569,6 +572,19 @@ def install_hosted_request_boundary(
             response.headers["X-Content-Type-Options"] = "nosniff"
             return response
 
+        # The route enforces its own secure cookie, origin and CSRF checks.
+        if (os.environ.get("DMB_HOSTED_GUEST_GRAPH_ENABLED") == "1"
+                and _GUEST_GRAPH_PATH.fullmatch(request.url.path)
+                and ((request.method == "GET" and (request.url.path.endswith("/graph")
+                                                   or "/operations/" in request.url.path
+                                                   or request.url.path.endswith("/sources")))
+                     or (request.method == "POST" and request.url.path.rsplit("/", 1)[-1]
+                         in {"session", "world", "prepare", "confirm", "reset"}))):
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            return response
+
         # Logout is intentionally allowed to clear an expired session. Its
         # route still enforces DMS's exact Origin contract before proxying.
         if (
@@ -597,6 +613,21 @@ def install_hosted_request_boundary(
             else:
                 principal = await resolver(request)
             if principal is None:
+                from apps.live_control_server.services.guest_build_access import (
+                    admit_guest_build_request, matches_guest_build_route, require_guest_build_world,
+                )
+                from application_state.index_graph.sessions import hosted_guest_world_enabled
+                if hosted_guest_world_enabled() and matches_guest_build_route(request.method, request.url.path):
+                    try:
+                        guest_world = await admit_guest_build_request(request)
+                        response = await call_next(request)
+                        await run_in_threadpool(require_guest_build_world, request, guest_world)
+                        response.headers["Cache-Control"] = "no-store"
+                        response.headers["X-Content-Type-Options"] = "nosniff"
+                        return response
+                    except HTTPException as exc:
+                        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail},
+                                            headers={"Cache-Control": "no-store"})
                 return JSONResponse(
                     status_code=401,
                     headers={"WWW-Authenticate": "Session"},

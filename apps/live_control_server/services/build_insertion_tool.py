@@ -44,6 +44,8 @@ class BuildInsertionTool:
         args = message.get("arguments")
         operation_id = message.get("operationId")
         try:
+            if capability.boundary_editor_json is not None:
+                raise ValueError("build_contextual_placement_requires_native_decision")
             if (message.get("toolName") != TOOL_NAME or not isinstance(args, dict)
                     or set(args) != {"instruction"} or not isinstance(args["instruction"], str)
                     or not args["instruction"].strip()

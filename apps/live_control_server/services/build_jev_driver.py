@@ -105,6 +105,16 @@ def freeze_interaction(adapter):
             "The conversation changed since this request was prepared. Send the question again to use the current editor context. Your source was not changed.",
             code="build_editor_context_changed", status_code=409, provider_dispatched=False,
         )
+    image_capture = adapter.request.build_image_move_capture
+    if image_capture is not None and (
+        image_capture.conversation_id != conversation_id
+        or image_capture.expected_pointer_revision != pointer.revision
+    ):
+        from .agent_turn_service import AgentTurnServiceError
+        raise AgentTurnServiceError(
+            "The conversation changed while the image move was captured. Send again.",
+            code="build_image_move_context_changed", status_code=409, provider_dispatched=False,
+        )
     draft = adapter.request.build_draft_context
     if draft is not None and (draft.conversation_id != conversation_id
         or draft.expected_pointer_revision != pointer.revision):
@@ -231,6 +241,7 @@ class BuildJevDriver:
         ):
             raise ValueError("Driver must be created once before first authorization")
         self._adapter = adapter
+        self.image_move = None
         self._assessment_receipt = None
         self._native = adapter.native_source_authority is not None
         if self._native:
@@ -490,15 +501,54 @@ class BuildJevDriver:
         state = dict(user_question=a.request.message, interaction=self._interaction,
             rules=decision_instructions(), requested_work_policy=POLICY)
         fresh = a.submitted_intent.reviewed_step is None
+        from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+        from application_state.build_proposal.prose_decision import build_boundary_opening
+
+        self._boundary_catalog = catalog_for_build_capability(a.request.build_write_capability)
+        if self._boundary_catalog is not None and not fresh:
+            raise ValueError("A reviewed Build action cannot acquire a contextual paragraph offer")
         if fresh:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
-            state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references)
+            state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
+                write_capability=a.request.build_write_capability)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=decision_instructions(),options=tuple(WORK)),)
+        capture = a.request.build_image_move_capture
+        if capture is not None:
+            from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
+            from .agent_turn_service import AgentTurnServiceError
+
+            source = a.work.build_source
+            try:
+                if source.visibility_state != "internal" or source.page_presentation is None:
+                    raise ValueError("Image movement requires the current internal composed Page")
+                self.image_move = BuildImageMoveDecision.from_saved(
+                    capture, a.request.message, source.markdown, source.page_presentation,
+                )
+            except ValueError as exc:
+                raise AgentTurnServiceError(
+                    "The saved Page and editor capture differ. Reopen the Page and send again.",
+                    code="build_image_move_context_changed", status_code=409, provider_dispatched=False,
+                ) from exc
+            state["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
+            questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
+                               for q in self.image_move.questions())
         if fresh:
             from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS
 
             questions += (DecisionQuestion(name="source_need", kind="choice",
                                            question=SOURCE_NEED_GUIDANCE, options=SOURCE_NEED_OPTIONS),)
+        if self._boundary_catalog is not None:
+            _, placement_questions = build_boundary_opening(
+                a.request.message, self._interaction["current_page"]["title"], self._boundary_catalog,
+                caret=a.request.build_write_capability.basis.caret,
+            )
+            questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
+                               for q in placement_questions)
+            if a.request.build_write_capability.basis.visibility == "internal":
+                from application_state.build_proposal.graph_reference_decision import GRAPH_REFERENCE_OPENING
+
+                q = GRAPH_REFERENCE_OPENING
+                questions += (DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options),)
         if 'related_page_catalog' in self._interaction:
             from application_state.agent_conversation.build_related_pages import PagePointer, question_name, question_text
             questions += tuple(DecisionQuestion(name=question_name(i),kind='choice',
@@ -1066,7 +1116,11 @@ class BuildJevDriver:
             if self.reviewed_binding is None:
                 from application_state.agent_conversation.build_intentional_response import semantic_routing_state,semantic_request_id
                 from .agent_turn_service import _turn_idempotency_key
-                expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references)
+                expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references,
+                    write_capability=a.request.build_write_capability)
+                if self.image_move is not None:
+                    from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
+                    expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
                 if (plan.host_phase!='select' or plan.state()!=expected
                     or plan.host_interaction_json!=canonical(self._interaction)
                     or plan.questions()!=wire_questions(self.step)
@@ -1212,21 +1266,44 @@ class BuildJevDriver:
                 self._pending = None
                 return self.step
             if (a.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
-                from application_state.agent_conversation.build_intentional_response import selected as requested_work, resolution_for, operation_id, MENU_DIGEST, RESOLVER_DIGEST
+                from application_state.agent_conversation.build_intentional_response import (
+                    MENU_DIGEST, RESOLVER_DIGEST, UnresolvedDiscussionSource,
+                    opening_image_choice, opening_work, operation_id, resolution_for,
+                )
                 from generationengine.types import DecisionResult
                 from uuid import uuid4
-                from application_state.agent_conversation.build_intentional_response import source_need
+                from application_state.agent_conversation.build_intentional_response import paragraph_placement_for
+                from application_state.build_proposal.prose_decision import OPENING_QUESTION_PREFIX
+                from application_state.build_proposal.graph_reference_decision import (
+                    GRAPH_REFERENCE_OPENING, resolve_graph_reference_opening,
+                )
 
                 expected_answers = {question.name for question in self._selection_intent.questions
-                                    if question.name in {"requested_work", "source_need"}}
+                                    if question.name in {"requested_work", "source_need", GRAPH_REFERENCE_OPENING.name}
+                                    or question.name.startswith(OPENING_QUESTION_PREFIX)}
+                if self.image_move is not None:
+                    expected_answers.update(q.name for q in self.image_move.questions())
                 if (model != self._selection_intent.model or set(answers) != expected_answers
                     or not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response).get('requested_work') != answers['requested_work']):
                     raise ValueError('Semantic selection requires its actual complete SDK response')
                 raw = canonical(actual_response.model_dump(mode='json'))
-                label = requested_work(json.loads(raw))
                 execution = a._broker_execution()
-                resolution = resolution_for(execution.policy, label,
-                    source_scope=source_need(json.loads(prepared.body), json.loads(raw)))
+                request = json.loads(prepared.body)
+                graph_reference = resolve_graph_reference_opening(request, actual_response)
+                image_move = (opening_image_choice(
+                    execution.policy, json.loads(raw),
+                    self.image_move.opening_answers(request, actual_response), a.request.message,
+                ) if self.image_move is not None else None)
+                image_terminal = image_move in {"move_existing", "unresolved"}
+                try:
+                    label, source_scope = opening_work(execution.policy, request, json.loads(raw), image_move)
+                except UnresolvedDiscussionSource as exc:
+                    from .agent_turn_service import AgentTurnServiceError
+                    raise AgentTurnServiceError(
+                        str(exc), code="build_discussion_source_uncertain", status_code=409,
+                    ) from exc
+                resolution = resolution_for(execution.policy, label, source_scope=source_scope)
+                placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
                 selected = resolution['operation']
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
                 event = ledger.BuildRequestedWorkResolutionV1(kind='build_requested_work_resolved_v1', event_id=uuid4(), sequence=len(execution.events),
@@ -1234,6 +1311,9 @@ class BuildJevDriver:
                     controller_response_sha256=hashlib.sha256(raw.encode()).hexdigest(), machine_request_id=plan.request_id,
                     requested_work=label, intent_family=resolution['intent_family'], menu_sha256=MENU_DIGEST, resolver_sha256=RESOLVER_DIGEST,
                     response_capabilities_sha256=(digest(asdict(execution.policy.action.capabilities)) if self._native else execution.policy.response_capabilities_sha256), resolution=resolution,
+                    paragraph_placement=placement,
+                    typed_graph_reference=graph_reference,
+                    typed_image_move=image_move,
                     operation=selected, broker_operation_id=operation_id(a.turn, plan.request_id, label),
                     capability_sha256=self._interaction['capability_sha256'],
                     arguments_sha256=digest({'instruction': a.request.message} if selected != 'answer_from_sources' else {}))
@@ -1241,6 +1321,14 @@ class BuildJevDriver:
                 a.turn = _require_fresh_execution_append(a.fence.append('record_build_requested_work_resolution', 'selection', event,
                     producer_proof={'request_json': prepared.body.decode(), 'response_json': raw}))
                 self.operation, self.selection = selected, event
+                if image_terminal:
+                    self.image_move_opening_proof = {
+                        "request_json": prepared.body.decode(), "response_json": raw,
+                    }
+                if image_terminal or graph_reference == "place_existing_reference":
+                    self._selection_intent = None
+                    self._pending = None
+                    return self.step
                 from application_state.agent_conversation.build_intentional_response import is_anchored_discussion
                 from application_state.agent_conversation.build_intentional_response import is_variant_approval
                 from application_state.agent_conversation.build_related_pages import is_anchored_conversation_draft

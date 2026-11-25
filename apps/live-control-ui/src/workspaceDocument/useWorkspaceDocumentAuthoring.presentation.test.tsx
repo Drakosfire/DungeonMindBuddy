@@ -1,13 +1,16 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { Editor, JSONContent } from '@tiptap/core';
+import { Editor, type JSONContent } from '@tiptap/core';
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../tiptap/MarkdownEditorCore';
+import { PAGE_COMPOSER_EXTENSIONS } from '../tiptap/pageComposer/PageRow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { commitTiptapMarkdownWrite, getWorkspaceDocumentSnapshot, prepareTiptapMarkdownWrite } from '../api/liveApi';
 import type { WorkspaceDocumentSnapshot } from '../api/types';
 import { fixtureWorkspaceDocumentRecord } from '../planSurface/config/planSessionDescriptor';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { admittedPresentationBlocks, hydratePresentation, projectPresentation, presentationFingerprint, presentationSha256, type PagePresentation } from '../tiptap/pageComposer/presentation';
-import { readWorkspaceDocumentLocalState, workspaceDocumentStorageKey } from '../tiptap/state/tiptapLocalState';
+import { protectedLayoutDraftKey, readWorkspaceDocumentLocalState, workspaceDocumentStorageKey } from '../tiptap/state/tiptapLocalState';
 import { useWorkspaceDocumentAuthoring } from './useWorkspaceDocumentAuthoring';
+import { requireManualSave, requiresManualSave } from './draftSavePolicy';
 vi.mock('../api/liveApi', () => ({
  NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT:'dmb:native-graph-access-token-changed', getNativeGraphAccessGeneration:vi.fn(()=>0),
  getWorkspaceDocumentSnapshot:vi.fn(), prepareTiptapMarkdownWrite:vi.fn(), commitTiptapMarkdownWrite:vi.fn(),
@@ -23,6 +26,58 @@ function snap(width=6,revision=1):WorkspaceDocumentSnapshot {
 function mount(){return renderHook(()=>useWorkspaceDocumentAuthoring({documentId:id,kind:'worldbuilding_source',surface:'build'}));}
 beforeEach(()=>{vi.clearAllMocks();localStorage.clear();});
 describe('Page layout authoring boundary',()=>{
+ it('retains a held layout across an old writer and explicitly commits its profile',async()=>{
+  const initial=snap();
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(initial);
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const legacyKey=workspaceDocumentStorageKey(id);
+  const heldKey=protectedLayoutDraftKey(id);
+  const moved=composed(8);
+  const editor={getJSON:()=>moved} as Editor;
+  requireManualSave(editor);
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(moved,editor,{programmatic:false});});
+  await waitFor(()=>expect(localStorage.getItem(heldKey)).toContain('"manual_save_required":true'));
+  const held=localStorage.getItem(heldKey);
+  localStorage.setItem(legacyKey,JSON.stringify({...JSON.parse(localStorage.getItem(legacyKey)!),title:'Old client draft'}));
+  expect(localStorage.getItem(heldKey)).toBe(held);
+  h.unmount();
+  const r=mount();await waitFor(()=>expect(r.result.current.manualSaveRequired).toBe(true));
+  expect(r.result.current.dirty).toBe(true);
+  const layout=JSON.parse(held!).page_presentation as PagePresentation;
+  const saved:WorkspaceDocumentSnapshot={...initial,layout_writer_profile:'dmb_page_layout_writer_v1',
+   loaded_revision:2,record:{...initial.record,revision:2},page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)};
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(saved);
+  vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+  vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:saved.record,
+   normalized_content_sha256:saved.content_sha256,file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:saved.page_presentation_sha256,
+   layout_writer_profile:'dmb_page_layout_writer_v1'} as never);
+  act(()=>r.result.current.setEditor(editor));
+  await act(()=>r.result.current.saveMarkdown());
+  for(const write of [prepareTiptapMarkdownWrite,commitTiptapMarkdownWrite])
+   expect(write).toHaveBeenCalledWith(expect.objectContaining({layout_writer_profile:'dmb_page_layout_writer_v1'}));
+  await waitFor(()=>expect(r.result.current.manualSaveRequired).toBe(false));
+  expect(localStorage.getItem(legacyKey)).toContain('Old client draft');
+  expect(localStorage.getItem(heldKey)).toContain('dmb_page_layout_writer_v1');
+  expect(localStorage.getItem(heldKey)).not.toContain('manual_save_required');
+  r.unmount();
+ });
+ it('preserves a clean Undo hold across reopen and releases it on discard',async()=>{
+  vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snap());
+  const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+  const editor={getJSON:()=>composed()} as Editor;
+  requireManualSave(editor);
+  act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(composed(),editor,{programmatic:false});});
+  await waitFor(()=>expect(localStorage.getItem(protectedLayoutDraftKey(id))).toContain('"manual_save_required":true'));
+  expect(h.result.current.dirty).toBe(false);
+  h.unmount();
+  const reopened=mount();await waitFor(()=>expect(reopened.result.current.manualSaveRequired).toBe(true));
+  expect(reopened.result.current.dirty).toBe(false);
+  act(()=>reopened.result.current.setEditor(editor));
+  await act(()=>reopened.result.current.discardLocalDraft());
+  expect(reopened.result.current.manualSaveRequired).toBe(false);
+  expect(requiresManualSave(editor)).toBe(false);
+  reopened.unmount();
+ });
  it('does not enroll a legacy plain page during ordinary Save',async()=>{
   vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue({...snap(),page_presentation:null,page_presentation_sha256:null});
   vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:false,warnings:[],diagnostics:[]} as never);
@@ -299,4 +354,28 @@ describe('Page layout authoring boundary',()=>{
   vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(stackSnap('top-left',2));const r=mount();await waitFor(()=>expect(r.result.current.phase).toBe('conflict'));expect(JSON.stringify(readWorkspaceDocumentLocalState(localStorage,id)?.tiptap_json)).toContain('bottom-right');
  });
 
+});
+
+it('carries empty paragraphs through Build save and a fresh snapshot',async()=>{
+ const initial={...snap(),page_presentation:null,page_presentation_sha256:null};
+ vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(initial);
+ const h=mount();await waitFor(()=>expect(h.result.current.phase).toBe('ready_clean'));
+ const editor=new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],content:plain});
+ act(()=>{editor.commands.insertContentAt(editor.state.doc.content.size,{type:'paragraph'});});
+ const edited=editor.getJSON();
+ expect(edited.content?.every(node=>typeof node.attrs?.pageBlockId==='string')).toBe(true);
+ act(()=>{h.result.current.setEditor(editor);h.result.current.handleEditorUpdate(edited,editor,{programmatic:false});});
+ await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,id)?.page_presentation?.schema_version).toBe('dmb_page_presentation_v2'));
+ const local=readWorkspaceDocumentLocalState(localStorage,id)!;
+ const saved={...initial,markdown:local.exported_markdown,content_sha256:presentationSha256(local.exported_markdown),loaded_revision:2,record:{...initial.record,revision:2},page_presentation:local.page_presentation,page_presentation_sha256:presentationFingerprint(local.page_presentation),layout_writer_profile:'dmb_page_layout_writer_v1' as const};
+ vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(saved);
+ vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({writer_ok:true,writer_confirm_token:'token'} as never);
+ vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({document_id:id,committed_revision:2,committed_record:saved.record,normalized_content_sha256:saved.content_sha256,file_fingerprint:'postgres',writer_ok:true,page_presentation_sha256:saved.page_presentation_sha256,layout_writer_profile:saved.layout_writer_profile} as never);
+ await act(()=>h.result.current.saveMarkdown());
+ expect(prepareTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({page_presentation:saved.page_presentation}));
+ expect(commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({page_presentation:saved.page_presentation}));
+ h.unmount(); localStorage.clear();
+ const reopened=mount();await waitFor(()=>expect(reopened.result.current.phase).toBe('ready_clean'));
+ expect((reopened.result.current.editorContent as JSONContent).content?.map(n=>n.content?.length??0)).toEqual([1,1,0]);
+ editor.destroy();
 });

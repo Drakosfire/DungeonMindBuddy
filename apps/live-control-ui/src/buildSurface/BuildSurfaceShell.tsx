@@ -311,6 +311,8 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     editor: session.editor, worldId: conversationContext.worldId, documentId: conversationContext.documentId,
     revision: conversationContext.revision, contentSha256: conversationContext.contentSha256,
     visibility: session.record?.visibility_state === "player_safe" ? "player_safe" : "internal",
+    pagePresentation: session.snapshot?.page_presentation,
+    savedMarkdown: session.snapshot?.markdown,
     draftGeneration: composeGeneration.current.draft, selectionGeneration: composeGeneration.current.selection,
     canEdit: Boolean(session.lookupAdmission("editable").ok) && !session.activeCommand,
   } : null;
@@ -324,7 +326,8 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
   }, [session.editor]);
   const composeBridge = useMemo(() => createBuildComposeBridge(() => composeCurrent.current,
     editor => composeChanged.current(editor.getJSON(), editor, { programmatic: false }),
-    (basis,afterEditor,afterDraft,savedProjection)=>saveBuildProposal(()=>saveOwner.current,basis,afterEditor,afterDraft,savedProjection)), []);
+    (basis,afterEditor,afterDraft,savedProjection,proseTarget)=>saveBuildProposal(
+      ()=>saveOwner.current,basis,afterEditor,afterDraft,savedProjection,proseTarget)), []);
   const acceptedDocumentCampaignId = session.record?.campaign_id
     && (session.record.campaign_id === session.record.world_id
       || getWorldIdForCampaign(session.record.campaign_id) === session.record.world_id)

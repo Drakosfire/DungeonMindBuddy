@@ -76,6 +76,10 @@ function ContextSnapshot({ event, trace, passages }: { event: Extract<BuddyTrace
       : event.snapshot_kind === 'compaction_output' && !!event.comparison_id
         && item.snapshot_kind === 'compaction_input' && item.comparison_id === event.comparison_id)).at(-1)
   const label = traceSnapshotLabel(event)
+  const retrievalMaterial = event.materials.find(item => /^(unvalidated-native-retrieval-result|unvalidated-plan-jev-result):/.test(item.item_id))
+  const retrievalAttempt = retrievalMaterial?.item_id.split(':')[1]
+  const effective = retrievalAttempt ? trace.effective_retrieval_selections?.find(item => item.controller_attempt_id === retrievalAttempt) : undefined
+  const showRetrievalNote = !!effective || !!retrievalMaterial?.item_id.startsWith('unvalidated-native-retrieval-result:')
   const changes = previous ? [...new Set([...previous.materials.map(item => item.item_id), ...event.materials.map(item => item.item_id)])].flatMap(id => {
     const before = previous.materials.find(item => item.item_id === id)
     const now = event.materials.find(item => item.item_id === id)
@@ -84,6 +88,7 @@ function ContextSnapshot({ event, trace, passages }: { event: Extract<BuddyTrace
   }) : []
   return <details><summary>{label}</summary>
     <p className="buddy-context-trace__muted">Captured material inventory. When captured, the composed input includes the exact instructions and request envelope.</p>
+    {showRetrievalNote && <p role="note">A finish-retrieval vote in this raw model response can be a fallback when no eligible candidates are selected. {effective ? <>Recorded host selection: <strong>{effective.operation}</strong> · {effective.selected_count} selected.</> : <>The effective host selection is not available in this trace.</>}</p>}
     {!event.snapshot_kind && <p className="buddy-context-trace__muted">This historical snapshot did not record its purpose. No context changes are inferred.</p>}
     {event.snapshot_kind === 'provider_response' && <p className="buddy-context-trace__muted">Raw returned response, before validation. This is not an inventory of what the provider received.</p>}
     {previous && <div aria-label="Context changes">{changes.length ? changes.map(change =>
@@ -196,6 +201,48 @@ function RetrievalReplayDetails({ trace, initialOpen }: { trace: BuddyTurnContex
   </details>
 }
 
+function ReplyTraceOverview({ trace, passages, ownerActive }: {
+  trace: BuddyTurnContextTrace; passages: BuddyTraceSourcePassage[]; ownerActive: boolean
+}) {
+  const searches = [...new Set(trace.observations.flatMap(event =>
+    event.kind === 'graph_tool' && event.request.operation === 'search' && event.request.query_text.trim()
+      ? [event.request.query_text.trim()] : []))]
+  const writerSequences = new Set(trace.writer_evidence_sequences ?? [])
+  const writerPassages = passages.filter(passage => writerSequences.has(passage.sequence))
+  const otherPassages = passages.filter(passage => !writerSequences.has(passage.sequence))
+  const writerGraph = trace.native_assertion_steps?.some(step => step.writer_evidence)
+    || trace.observations.some(event => event.kind === 'graph_tool' && writerSequences.has(event.sequence))
+  const incomplete = trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at)
+  const openPassage = (passage: BuddyTraceSourcePassage) => <BuddyHistoricalSourcePassage
+    key={passage.sequence} graphRevision={passage.graph_revision}
+    label={passage.source_name?.trim() || 'Open recorded source excerpt'}
+    reference={{
+      schema: 'dmb_trace_historical_source_ref_v1', world_id: trace.world_id,
+      conversation_id: trace.conversation_id, turn_id: trace.turn_id, attempt: trace.attempt,
+      trace_id: trace.trace_id, source_read_event_id: passage.source_read_event_id,
+      source_read_id: passage.source_read_id, content_sha256: passage.content_sha256,
+    }} />
+
+  return <section aria-label="How Buddy built this reply">
+    <h4>How Buddy built this reply</h4>
+    {incomplete && <p>Some activity is missing from this trace.</p>}
+    {searches.length > 0
+      ? <p>Buddy searched the World Graph for {searches.map(query => `“${query}”`).join(', ')}.</p>
+      : trace.native_discovery_replay && <p>Buddy explored recorded connections in the World Graph.</p>}
+    {writerGraph || writerPassages.length > 0
+      ? <section aria-label="Sent to the answer writer">
+        <h5>Sent to the answer writer</h5>
+        {writerGraph && <p>The trace records World Graph evidence sent to the writer.</p>}
+        {writerPassages.map(openPassage)}
+      </section>
+      : <p>This trace does not identify evidence sent to the answer writer.</p>}
+    {otherPassages.length > 0 && <details>
+      <summary>Other excerpts recorded during retrieval</summary>
+      {otherPassages.map(openPassage)}
+    </details>}
+  </section>
+}
+
 export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean; replyDetails?: boolean }) {
   const [promptOpen, setPromptOpen] = useState(false)
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
@@ -216,13 +263,16 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
         {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
           <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
       </div></li>)}</ol></details>
-  const traceHeader = <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
+  const traceHeader = <header><div><h4>{failed ? 'Reply error report' : replyDetails ? 'Capture information' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
       {!replyDetails && copy}
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
   return <section className="buddy-context-trace" aria-label="Buddy context trace">
-    {replyDetails && <RetrievalReplayDetails trace={trace} initialOpen />}
+    {replyDetails && <ReplyTraceOverview trace={trace} passages={passages} ownerActive={ownerActive} />}
     {!replyDetails && traceHeader}
-    {failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
+    {replyDetails && failed && <p role="alert">This attempt stopped before completing a reply.</p>}
+    {replyDetails && <RetrievalReplayDetails trace={trace} initialOpen={false} />}
+    {replyDetails && <details><summary>Diagnostics</summary>{traceHeader}{copy}{diagnostics}{timeline}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</details>}
+    {!replyDetails && failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
       <h5>This attempt stopped before completing a reply.</h5>
       {failure ? <><p>{failure.code === 'build_source_name_missing' ? 'A retrieved passage has no verified source name. Buddy stopped while assembling source context.' : 'Recorded failure:'} <code>{failure.code}</code></p><p>Stage: {failure.stage ?? failure.phase}</p>
         {failure.exception_type && <p>Exception: {failure.exception_type}{failure.cause_type && failure.cause_type !== failure.exception_type ? ` · caused by ${failure.cause_type}` : ''}</p>}
@@ -231,8 +281,8 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
         : <p>The specific cause was not recorded for this attempt. The timeline shows recorded activity, not an explanation of why it stopped.</p>}
       <p>Trace capture status is separate from whether the reply succeeded.</p>
     </section>}
-    {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
+    {!replyDetails && trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
     {!replyDetails && <RetrievalReplayDetails trace={trace} initialOpen={false} />}
-    {replyDetails ? <details><summary>Diagnostics</summary>{traceHeader}{copy}{diagnostics}{timeline}</details> : timeline}
+    {!replyDetails && timeline}
   </section>
 }

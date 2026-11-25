@@ -127,7 +127,9 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
 
 def model_input_frame(receipt,execution):
     from .native_evidence_view import semantic_frame
-    return semantic_frame(model_frame(receipt,execution))
+    from .native_execution import NativeBuildActionV1
+    return semantic_frame(model_frame(receipt,execution),
+        project_managed_images=isinstance(execution.policy.action, NativeBuildActionV1))
 
 
 @dataclass(frozen=True)
@@ -207,6 +209,22 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
     raise ValueError('Native writer requires its actual surface work owner')
 
 
+def _build_paragraph_work(action, selected):
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+
+    placement = getattr(selected, "paragraph_placement", None)
+    if placement is None or placement.target is None:
+        return None
+    catalog = catalog_for_build_capability(action.write_capability)
+    alias, _, _ = placement.target.alias.partition(":")
+    passage = next(item for item in catalog.passages if item.alias == alias)
+    return {
+        "relation": "before" if placement.target.operation == "insert_before" else "after",
+        "existing_passage": passage.passage,
+        "section": list(passage.headings),
+    }
+
+
 def authoring_input(native_context, capability, instruction, operation):
     """Host-only producer material; actual APP admission still joins locked state."""
     if not isinstance(native_context,tuple) or len(native_context)!=3:
@@ -218,11 +236,22 @@ def authoring_input(native_context, capability, instruction, operation):
         raise ValueError('Native authoring requires the actual Build action')
     action=execution.policy.action
     selected=selected_action(execution)
+    from application_state.build_proposal.types import explicit_build_page_target
+    explicit_target = explicit_build_page_target(action.write_capability, selected)
+    paragraph_work = _build_paragraph_work(action, selected)
+    exclusions = {"instruction", "origin"}
+    if explicit_target is not None and operation == "propose_build_insertion":
+        exclusions.add("boundary_editor_json")
+    if paragraph_work is not None:
+        exclusions.update({"boundary_editor_json", "page_body_offer", "page_end_offer", "prose_target"})
+        if (getattr(capability, "prose_target", None) != selected.paragraph_placement.target
+                or capability.page_body_offer is not None or capability.page_end_offer is not None):
+            raise ValueError("Native paragraph authoring must use only its selected boundary")
     if (operation not in {'propose_build_insertion','prepare_build_image'}
             or selected.operation!=operation or action.write_capability is None
             or instruction!=action.intent.message
-            or capability.model_dump(mode='json',exclude={'instruction','origin'})
-                !=action.write_capability.model_dump(mode='json',exclude={'instruction','origin'})):
+            or capability.model_dump(mode='json',exclude=exclusions)
+                !=action.write_capability.model_dump(mode='json',exclude=exclusions)):
         raise ValueError('Native authoring differs from its selected operation or captured editor')
     if operation=='propose_build_insertion':
         origin=capability.origin
@@ -233,6 +262,7 @@ def authoring_input(native_context, capability, instruction, operation):
             raise ValueError('Native proposal origin differs from its actual selected action')
     from .native_build_work_view import semantic_frame as build_work_view
     return dict(native_evidence=model_input_frame(receipt,execution),
+        **({"paragraph_placement": paragraph_work} if paragraph_work is not None else {}),
         surface_work=build_work_view(model_work_frame(receipt,execution,**work),execution))
 
 
@@ -255,12 +285,12 @@ def _input_frames(raw,execution,work_schema, *, prose_frame=None, prose_work=Non
             work = play_frame(strict_json(raw))
         elif work_schema == PLAN_WORK_SCHEMA:
             work = frame_in_request(strict_json(raw))
-            from .native_execution import NativePlanActionV2
+            from .native_execution import NativePlanActionV2, NativePlanActionV3
             if prose_work is not None:
                 if work is not None:
                     raise ValueError('Ambiguous Plan writer work')
                 work = prose_work
-            if type(execution.policy.action) is NativePlanActionV2 and work is None:
+            if type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3) and work is None:
                 raise ValueError('Current Plan saved-page work requires its semantic producer frame')
         else:
             from .native_build_work_view import frame_in_request as build_frame
@@ -288,9 +318,13 @@ def _input_frames(raw,execution,work_schema, *, prose_frame=None, prose_work=Non
         raise ValueError('Native authoring cannot mix historical and current work carriers')
     if 'task' in packet:
         allowed={'task','recent_dialogue','source_class','source_title','instruction',
-            'native_evidence','surface_work','rules_evidence','page_body_offer','page_end_offer'}
+            'native_evidence','surface_work','rules_evidence','page_body_offer','page_end_offer','paragraph_placement'}
         if set(packet)-allowed:
             raise ValueError('Unclassified semantic Build authoring fields')
+        paragraph_work = _build_paragraph_work(execution.policy.action, selected)
+        if (("paragraph_placement" in packet) != (paragraph_work is not None)
+                or packet.get("paragraph_placement") != paragraph_work):
+            raise ValueError("Native Build writer paragraph differs from the admitted boundary")
     if packet.get('instruction')!=execution.policy.action.intent.message:
         raise ValueError('Native authoring instruction differs from selected work')
     if any(key in packet for key in ('source_basis','draft_markdown','captured_capability',
@@ -300,7 +334,8 @@ def _input_frames(raw,execution,work_schema, *, prose_frame=None, prose_work=Non
 
 
 def verify_input_records(receipt, execution, authorization, raw, *, provenance, idempotency_key,
-                         work_proof, world_id, conversation_id, turn_id, attempt, play_context_receipt=None):
+                         work_proof, world_id, conversation_id, turn_id, attempt, play_context_receipt=None,
+                         retained_build_proof=False):
     """Bind one shared native frame to the exact stored producing SDK request."""
     if ((type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1)
             or type(authorization) not in NATIVE_WRITER_TYPES):
@@ -318,22 +353,38 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         play_context_receipt=play_context_receipt)
     from .build_proposal_input import proposal_packet_text
     from .native_evidence_view import PLAN_EVIDENCE_HEADING, render_plan_evidence, semantic_frame
-    from .native_execution import NativePlanActionV2
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     body = strict_json(raw)
     messages = body.get('input')
     prose_host = prose_frame = prose_work = None
-    if type(prefix.policy.action) is NativePlanActionV2 and isinstance(messages, list):
+    if type(prefix.policy.action) in (NativePlanActionV2, NativePlanActionV3) and isinstance(messages, list):
         prose = [message.get('content') for message in messages
                  if isinstance(message, dict) and isinstance(message.get('content'), str)
                  and message['content'].startswith(PLAN_EVIDENCE_HEADING)]
         if prose:
-            prose_host = model_frame(receipt, prefix, passages_only=True)
+            # model_work_frame above checked this exact receipt and prefix.
+            prose_host = _model_frame_from_validated_prefix(receipt, prefix, passages_only=True)
             prose_frame = semantic_frame(prose_host)
-            from .native_plan_work_view import semantic_frame as plan_work_view
+            from .native_plan_work_view import compact_editor_prose, semantic_frame as plan_work_view
             prose_work = plan_work_view(expected_work, prefix)
-            expected_message = {'role': 'user', 'content': render_plan_evidence(prose_frame, prose_work)}
+            if authorization.compact_plan_editor_prose:
+                compact = compact_editor_prose(prose_work)
+                if compact is prose_work:
+                    raise ValueError('Plan compact editor prose requires a redundant editor view')
+                prose_work = compact
+            if authorization.compact_plan_graph_qualifications and not (
+                    prose_frame.get("native_assertions") or {}).get("assertions"):
+                raise ValueError("Compact Graph qualifications require admitted assertions")
+            expected_message = {'role': 'user', 'content': render_plan_evidence(
+                prose_frame, prose_work,
+                compact_graph_qualifications=authorization.compact_plan_graph_qualifications,
+                deduplicate_recap_prose=authorization.deduplicate_plan_recap_prose,
+            )}
             if len(prose) != 1 or messages[-1] != expected_message:
                 raise ValueError('Plan writer prose differs from its exact admitted evidence')
+    if (authorization.compact_plan_editor_prose or authorization.compact_plan_graph_qualifications
+            or authorization.deduplicate_plan_recap_prose) and prose_work is None:
+        raise ValueError('Plan compact prose markers require native Plan prose')
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'],prose_frame=prose_frame, prose_work=prose_work)
     has_image = isinstance(body.get("input"), list) and proposal_packet_text(body) is not None
     from .native_execution import NativeBuildActionV1
@@ -361,7 +412,12 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         host = model_frame(receipt, prefix)
     else:
         host = model_frame(receipt, prefix, schema=frame.get('schema'))
-    expected = expected_semantic_frame(host, frame) if is_semantic_frame(frame) else host
+    expected = host
+    if is_semantic_frame(frame):
+        project_build_images = isinstance(prefix.policy.action, NativeBuildActionV1)
+        expected = expected_semantic_frame(host, frame, project_managed_images=project_build_images)
+        if project_build_images and retained_build_proof and expected != frame:
+            expected = expected_semantic_frame(host, frame)
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
     from .native_play_work import is_semantic_frame as semantic_play, semantic_frame as play_work_view
@@ -378,9 +434,18 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         variant_edits=variant_edits, variant_passage_review=variant_passage_review,
         bind_lore_page="lore_page_destination" in work_frame["build_work"]) if build_local
         else play_work_view(expected_work) if play_local
+        else prose_work if prose_work is not None
         else plan_work_view(expected_work,prefix) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
-        raise ValueError('Native writer changed or omitted its exact surface work')
+        if not build_local or not retained_build_proof:
+            raise ValueError('Native writer changed or omitted its exact surface work')
+        retained_work = build_work_view(
+            expected_work, prefix, include_variant=variant_format, variant_edits=variant_edits,
+            variant_passage_review=variant_passage_review,
+            bind_lore_page="lore_page_destination" in work_frame["build_work"], retained_raw_markdown=True,
+        )
+        if t.canonical_sha256(work_frame) != t.canonical_sha256(retained_work):
+            raise ValueError('Native writer changed or omitted its exact surface work')
     from .native_execution import NativeWriterEstimatedBudgetV1
     if isinstance(execution.policy.writer_context_budget, NativeWriterEstimatedBudgetV1):
         # Trusted host estimation has the same boundary as controller accounting.

@@ -101,3 +101,33 @@ it('observes required selected booleans and rejects missing, coerced or rewritte
  ],1),planRequest,seen)).toEqual(result);
  expect(seen.mock.calls.map(c=>c[0].steps.map((r:{selected:boolean})=>r.selected))).toEqual([[true],[true,false]]);
 });
+
+it('delivers ordered answer fragments independently of the authoritative result', async () => {
+  const seen = vi.fn();
+  const result = {answer: {text: "Saved text", citations: ["saved"]}};
+  const wire = response([
+    frame("reply_context_ready", {}),
+    frame("reply_text", {sequence: 1, text: "A lantern"}),
+    frame("reply_text", {sequence: 2, text: " lights the path."}),
+    frame("result", {response: result}),
+  ], 3);
+  expect(await readBuildConstructionStream(wire, request, vi.fn(), undefined, seen)).toEqual(result);
+  expect(seen.mock.calls.flat()).toEqual([
+    {kind: "context_ready"},
+    {kind: "text", sequence: 1, text: "A lantern"},
+    {kind: "text", sequence: 2, text: " lights the path."},
+  ]);
+});
+
+it('stops observing malformed answer deltas without losing a readable saved result', async () => {
+  const seen = vi.fn();
+  const result = {answer: {text: "Saved text"}};
+  const wire = response([
+    frame("reply_context_ready", {}),
+    frame("reply_text", {sequence: 2, text: "Missing prior delta"}),
+    frame("reply_text", {sequence: 1, text: "Retired delta"}),
+    frame("result", {response: result}),
+  ]);
+  expect(await readBuildConstructionStream(wire, request, vi.fn(), undefined, seen)).toEqual(result);
+  expect(seen.mock.calls.flat()).toEqual([{kind: "context_ready"}]);
+});

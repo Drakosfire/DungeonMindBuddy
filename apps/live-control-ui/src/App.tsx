@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { HostedAuthGate, useHostedAuthStatus } from "./auth/HostedAuthGate";
 import { getAppLocationSnapshot, subscribeAppLocation } from "./chrome/appNavigation";
-import { SELECTED_WORLD_LOCATION_CHANGED_EVENT, SelectedWorldProvider } from "./selectedWorld/SelectedWorldContext";
+import { SELECTED_WORLD_LOCATION_CHANGED_EVENT, GuestBuildWorldProvider, SelectedWorldProvider } from "./selectedWorld/SelectedWorldContext";
 import { deferredComponent } from "./ui/deferredComponent";
 
 const SharedBuddyApp = deferredComponent(
@@ -11,6 +11,10 @@ const SharedBuddyApp = deferredComponent(
 const GuestReleasePage = deferredComponent(
   () => import("./guestRelease/GuestReleasePage").then(module => ({ default: module.GuestReleasePage })),
   "shared World",
+);
+const GuestProductGraph = deferredComponent(
+  () => import("./guestRelease/GuestProductGraph").then(module => ({ default: module.GuestProductGraph })),
+  "shared Graph",
 );
 
 function guestReleaseId(locationSnapshot: string): string | null {
@@ -48,7 +52,8 @@ function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
     const url = new URL(locationSnapshot, "http://localhost");
     const homeAnchor = url.pathname === "/" && (["", "#buddy-about", "#buddy-home-main"].includes(url.hash)
       || Boolean(guestHomeId()) && isGuestHomeLocation(locationSnapshot));
-    return url.search === "" && (homeAnchor || url.pathname === "/graph" && url.hash === "");
+    const guestBuild = import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" && url.pathname === "/build";
+    return guestBuild || url.search === "" && (homeAnchor || url.pathname === "/graph" && url.hash === "");
   } catch {
     return false;
   }
@@ -57,9 +62,18 @@ function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
 function HomeOrWorld({ locationSnapshot }: { locationSnapshot: string }) {
   const auth = useHostedAuthStatus();
   const publicId = guestHomeId();
-  if (auth.status === "signed_out" && publicId && isGuestHomeLocation(locationSnapshot)) {
+  const interactiveGuest = import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1";
+  if (!interactiveGuest && auth.status === "signed_out" && publicId && isGuestHomeLocation(locationSnapshot)) {
     return <GuestReleasePage publicId={publicId} home />;
   }
+  if (!interactiveGuest && auth.status === "signed_out" && publicId && locationSnapshot === "/graph") {
+    return <GuestProductGraph publicId={publicId} />;
+  }
+  const isGuestBuild = auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_BUILD === "1"
+    && new URL(locationSnapshot, "http://localhost").pathname === "/build";
+  if (isGuestBuild) return <GuestBuildWorldProvider locationSnapshot={locationSnapshot}>
+    <SharedBuddyApp locationSnapshot={locationSnapshot} />
+  </GuestBuildWorldProvider>;
   return <SelectedWorldProvider locationSnapshot={locationSnapshot}>
     <SharedBuddyApp locationSnapshot={locationSnapshot} />
   </SelectedWorldProvider>;

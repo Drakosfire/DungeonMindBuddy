@@ -3,7 +3,10 @@
 This module creates no request runner and opens no document body. Its output is
 host-only authority for the existing claim/authorization and navigation owners.
 """
+from contextlib import ExitStack
+from dataclasses import replace
 from hashlib import sha256
+from functools import lru_cache
 import json
 
 from application_state.agent_conversation import types as t
@@ -38,6 +41,66 @@ def prepare(managed_world_id, principal, *, revision_id=None, repository=None, r
     return context, context.authority
 
 
+@lru_cache(maxsize=1)
+def _selective_plan_fact_cache():
+    from dungeonmind.infrastructure.postgres.selective_query import SelectiveFactCache
+
+    return SelectiveFactCache()
+
+
+def prepare_selective_query(managed_world_id, principal, resolve_query, *,
+                            revision_id=None, phase, repository=None, resolve_identity=None):
+    """Compose source authority and Graph query before releasing the Core scope."""
+    from dungeonmind.application.vnext import open_native_text_source_access_context
+    from dungeonmind.application.vnext.admission import AlwaysAdmitPolicy
+    from dungeonmind.infrastructure.postgres.selective_query import open_selective_source_query
+    from graph_memory.vnext.domain_runtime import (
+        DUNGEONBUDDY_POLICY_ID, DungeonBuddyVNextProjectionInput,
+        build_dungeonbuddy_projection_request, resolve_dungeonbuddy_descriptors,
+    )
+
+    def resolve_descriptors(domain_ref, profile_ref):
+        return resolve_dungeonbuddy_descriptors(domain_ref=domain_ref, profile_ref=profile_ref)
+
+    def open_access(*, repository, space_id, revision_id, audience_labels, domain_contract, **_):
+        nonlocal reader
+        projection = DungeonBuddyVNextProjectionInput(
+            world_id=space_id, revision_id=revision_id, role=principal.role, scope_mode='world',
+        )
+        opened = stack.enter_context(open_selective_source_query(
+            repository,
+            request=build_dungeonbuddy_projection_request(projection),
+            resolve_descriptors=resolve_descriptors,
+            domain_policy=AlwaysAdmitPolicy(policy_id=DUNGEONBUDDY_POLICY_ID),
+            source_audience_labels=audience_labels,
+            fact_cache=_selective_plan_fact_cache(),
+        ))
+        if opened is None:
+            stack.close()
+            return open_native_text_source_access_context(
+                repository=repository, space_id=space_id, revision_id=revision_id,
+                domain_contract=domain_contract, audience_labels=audience_labels,
+                parsed_cache=turn_parsed_revision_cache, prefer_verified_source_rows=True,
+            )
+        source, reader = opened
+        return source
+
+    reader = None
+    with ExitStack() as stack:
+        try:
+            with phase("plan_native_source_authority"):
+                prepared = prepare_native_source_context(
+                    managed_world_id=managed_world_id, principal=principal, revision_id=revision_id,
+                    repository=repository if repository is not None else turn_source_repository(),
+                    resolve_identity=resolve_identity, open_access=open_access,
+                )
+        except NativeSourceHeadUnavailable:
+            return None
+        with phase("plan_native_statement_query"):
+            query_context, query = resolve_query(replace(prepared, selective_query=reader))
+    return prepared, prepared.authority, query_context, query
+
+
 def _plan_basis(work):
     basis = work.content_basis
     return t.PlanAskContextBasis(world_id=basis.world_id, document_id=basis.document_id,
@@ -45,14 +108,51 @@ def _plan_basis(work):
         revision_n=basis.revision_n, content_sha256=basis.content_sha256)
 
 
+def _contextual_document_title(basis, composed_capture=None):
+    """Read metadata only when it still belongs to this exact captured basis."""
+    from application_state.content.service import get_plan, snapshot_plan
+    from application_state.errors import ApplicationStateConflictError
+    if composed_capture is not None:
+        snapshot = snapshot_plan(str(basis.document_id))
+        obj = snapshot.work_object
+        if (
+            snapshot.page_presentation is None
+            or snapshot.page_presentation.fingerprint() != composed_capture.base_page_presentation_sha256
+            or snapshot.content_sha256 != basis.content_sha256
+            or snapshot.from_working_copy
+        ):
+            raise ApplicationStateConflictError('Plan layout changed before composed request admission')
+    else:
+        obj = get_plan(str(basis.document_id))
+    if (str(obj.work_object_id) != str(basis.document_id)
+            or obj.world_id != basis.world_id or obj.status != 'active'
+            or obj.object_revision != basis.object_revision
+            or str(obj.current_revision_id) != str(basis.work_revision_id)):
+        raise ApplicationStateConflictError('Plan metadata changed before contextual request admission')
+    return obj.title
+
+
 def _native_plan_parts(request, basis, playable_target, submitted_intent):
     from application_state.agent_conversation.native_context import PlanWorkContextV1
-    from application_state.agent_conversation.native_execution import NativePlanActionV2
+    from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
+    from application_state.agent_conversation.plan_composed_targeting import ComposedPlanPlacementCatalogV1
     from .build_related_pages import discover
+    composed = type(request.plan_placement_catalog) is ComposedPlanPlacementCatalogV1
+    contextual_capture = composed or (type(request.plan_placement_catalog) is PlanPlacementCatalogV2
+        and request.plan_authoring_capture.target_kind in {'insert_at_caret', 'replace_selection'})
+    action_type = NativePlanActionV3 if contextual_capture else NativePlanActionV2
+    contextual = {}
+    if composed:
+        contextual["document_title"] = _contextual_document_title(
+            basis, request.plan_authoring_capture,
+        )
+    elif contextual_capture:
+        contextual["document_title"] = _contextual_document_title(basis)
     return (PlanWorkContextV1(plan_basis=basis, plan_context_policy=request.plan_context_policy,
             playable_target=playable_target),
-        NativePlanActionV2(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
-            placement_catalog=request.plan_placement_catalog, related_page_catalog=discover(request)))
+        action_type(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
+            placement_catalog=request.plan_placement_catalog, related_page_catalog=discover(request), **contextual))
 
 
 def freeze_plan_request(request, work, playable_target, budget, *, authority, native_query,
@@ -194,6 +294,7 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
     related = actions.get('related_page_catalog')
     related = None if related is None else tuple(PagePointer.model_validate(row) for row in related)
     action = NativeBuildActionV1(intent=submitted_intent, write_capability=request.build_write_capability,
+        image_move_capture=request.build_image_move_capture,
         capabilities=caps, related_page_catalog=related,
         saved_source_char_count=len(basis.markdown), requested_work_menu_sha256=MENU_DIGEST,
         response_resolver_sha256=RESOLVER_DIGEST)
@@ -203,11 +304,23 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
         from application_state.agent_conversation.build_intentional_response import semantic_routing_state, semantic_request_id, digest
         from .agent_turn_service import _turn_idempotency_key
         host = json.loads(projection.host_interaction_json)
+        expected_state = semantic_routing_state(request.message, host, request.build_authored_references,
+                                                write_capability=request.build_write_capability)
+        if action.image_move_capture is not None:
+            from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
+
+            if basis.visibility_state != "internal" or basis.page_presentation is None:
+                raise ValueError("Build image movement requires the current internal composed Page")
+            move = BuildImageMoveDecision.from_saved(
+                action.image_move_capture, request.message, basis.markdown, basis.page_presentation,
+            )
+            move.require_opening_offer(body)
+            expected_state["interaction"][OPENING_STATE_KEY] = move.semantic_state()
         if (host['current_page']!={'document_id':basis.document_id,'title':basis.title}
             or host['allowed_operations']!=list(caps.operations)
             or host['capability_sha256']!=(digest(request.build_write_capability.model_dump(mode='json')) if request.build_write_capability is not None else None)
             or host.get('related_page_catalog')!=actions.get('related_page_catalog')
-            or body['state']!=semantic_routing_state(request.message,host,request.build_authored_references)
+            or body['state']!=expected_state
             or projection.request_id!=semantic_request_id(body['state'],world_id=basis.world_id,
                 client_thread_id=request.client_thread_id,idempotency_key=_turn_idempotency_key(basis.world_id,request.turn_id))):
             raise ValueError('Semantic Build input differs from its captured work and capability')

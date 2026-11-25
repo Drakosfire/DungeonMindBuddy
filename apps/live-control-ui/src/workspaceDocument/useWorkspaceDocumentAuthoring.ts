@@ -1,5 +1,6 @@
+import { requiresManualSave, releaseManualSave } from "./draftSavePolicy";
 import "../tiptap/pageComposer/apiPresentation";
-import { hydratePresentation, flattenPresentation, hasPresentation, projectPresentation, presentationFingerprint, composerDisabledReason, type PagePresentation } from "../tiptap/pageComposer/presentation";
+import { hydratePresentation, flattenPresentation, hasPresentation, hasEmptyParagraphs, projectPresentation, presentationFingerprint, composerDisabledReason, type PagePresentation } from "../tiptap/pageComposer/presentation";
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {WorkspaceDraftCoordinator, type DraftPersistenceStatus} from "./workspaceDraftCoordinator";
 import { conflictCopiesKey, preserveConflictCopies, type WorkspaceConflictRecovery, type WorkspaceConflictReview } from "./workspaceConflictRecovery";
@@ -22,6 +23,8 @@ import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/sem
 import { preserveLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import {
   buildInitialWorkspaceDocumentLocalState,
+  MANUAL_SAVE_DRAFT_SCHEMA,
+  protectedLayoutDraftStorage,
   readWorkspaceDocumentLocalState,
   type WorkspaceDocumentLocalKind,
   type WorkspaceDocumentLocalSurface,
@@ -79,6 +82,7 @@ export interface WorkspaceDocumentAuthoringValue {
   editorContent: unknown;
   documentKey: string;
   dirty: boolean;
+  manualSaveRequired?: boolean;
   /** True while Save must wait for re-import/discard of a sealed source projection. */
   exportedMarkdownAuthoritative: boolean;
   pageComposerEnabled: boolean;
@@ -162,6 +166,10 @@ function applyCommitReceiptToLocalState(args: {
       now,
     }),
     base_page_presentation_sha256: args.receipt.page_presentation_sha256 ?? null,
+    ...(args.receipt.layout_writer_profile ? {
+      schema_version: MANUAL_SAVE_DRAFT_SCHEMA,
+      layout_writer_profile: args.receipt.layout_writer_profile,
+    } : {}),
     ...(args.presentation !== undefined ? {page_presentation: args.presentation} : {}),
     tiptap_json: args.tiptapJson,
     exported_markdown: args.markdown,
@@ -183,6 +191,10 @@ function applyCommitReceiptBaseRetainingEditorContent(args: {
     base_revision: args.receipt.committed_revision,
     base_content_sha256: args.receipt.normalized_content_sha256,
     base_page_presentation_sha256: args.receipt.page_presentation_sha256 ?? null,
+    ...(args.receipt.layout_writer_profile ? {
+      schema_version: MANUAL_SAVE_DRAFT_SCHEMA,
+      layout_writer_profile: args.receipt.layout_writer_profile,
+    } : {}),
     dirty: true,
     updated_at: now,
     last_local_save_at: now,
@@ -192,7 +204,11 @@ function applyCommitReceiptBaseRetainingEditorContent(args: {
 export function useWorkspaceDocumentAuthoring(
   args: UseWorkspaceDocumentAuthoringArgs,
 ): WorkspaceDocumentAuthoringValue {
-  const storage = args.storage ?? window.localStorage;
+  const rawStorage = args.storage ?? window.localStorage;
+  const useProtectedLayoutStorage = args.kind === "worldbuilding_source" && args.surface === "build";
+  const storage = useMemo(() => useProtectedLayoutStorage
+    ? protectedLayoutDraftStorage(rawStorage, args.documentId)
+    : rawStorage, [rawStorage, args.documentId, useProtectedLayoutStorage]);
   const requestedDocument = useRef(args.documentId);
   requestedDocument.current = args.documentId;
   const [machine, setMachine] = useState<WorkspaceDocumentAuthoringMachineState>(
@@ -279,6 +295,9 @@ export function useWorkspaceDocumentAuthoring(
       const stored = options?.clearLocalFirst
         ? null
         : readWorkspaceDocumentLocalState(storage, args.documentId);
+      if (!options?.clearLocalFirst && useProtectedLayoutStorage && admittedRaw !== null && !stored) {
+        throw new Error("This browser draft is unreadable or needs a newer editor. Its stored bytes were kept.");
+      }
       const opened = openWorkspaceDocumentAuthoringState({
         documentId: args.documentId,
         snapshot: nextSnapshot,
@@ -327,6 +346,7 @@ export function useWorkspaceDocumentAuthoring(
         `${args.documentId}:${nextSnapshot.loaded_revision}:${opened.localState.dirty ? "dirty" : "clean"}`,
       );
       dispatch({ type: "OPEN_READY", dirty: opened.localState.dirty });
+      return true;
     } catch (loadError) {
       if (openGeneration !== openGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       expectedRevisionRef.current = null;
@@ -338,7 +358,7 @@ export function useWorkspaceDocumentAuthoring(
         message: loadError instanceof Error ? loadError.message : "Unable to load workspace document.",
       });
     }
-  }, [args.documentId, args.kind, args.surface, dispatch, emptyMarkdownFallback, storage,draftWriter]);
+  }, [args.documentId, args.kind, args.surface, dispatch, emptyMarkdownFallback, storage,draftWriter,useProtectedLayoutStorage]);
 
   useEffect(() => {
     void openFromSnapshot({ useInitialSnapshot: true });
@@ -354,13 +374,14 @@ export function useWorkspaceDocumentAuthoring(
     dispatch({type:"EDIT"});
   },[dispatch,queueLocalState]);
 
-  const persistEditorState = useCallback((tiptapJson: JSONContent) => {
+  const persistEditorState = useCallback((tiptapJson: JSONContent, manualSave = false) => {
     const current = localStateRef.current;
     if (!current) return;
     const snap = snapshotRef.current;
-    const retainedPlainBase = snap?.page_presentation != null && snap.page_presentation.items.every(item => item.kind === "block");
+    const retainedPlainBase = snap?.layout_writer_profile !== undefined
+      || (snap?.page_presentation != null && snap.page_presentation.items.every(item => item.kind === "block"));
     const composing = args.kind === "worldbuilding_source" && args.surface === "build"
-      && (retainedPlainBase || current.page_presentation !== undefined || hasPresentation(tiptapJson));
+      && (retainedPlainBase || current.page_presentation !== undefined || hasPresentation(tiptapJson) || hasEmptyParagraphs(tiptapJson));
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     let projectionError: unknown;
     try { if (composing) projected = projectPresentation(tiptapJson, current.exported_markdown, current.page_presentation_pending ? markdownToTiptapDoc(current.exported_markdown).doc : current.tiptap_json as JSONContent, current.page_presentation, retainedPlainBase); }
@@ -393,6 +414,9 @@ export function useWorkspaceDocumentAuthoring(
     const now = new Date().toISOString();
     const next: WorkspaceDocumentLocalState = {
       ...current,
+      ...((manualSave || current.manual_save_required) && useProtectedLayoutStorage
+        ? {schema_version: MANUAL_SAVE_DRAFT_SCHEMA, manual_save_required: true as const}
+        : {}),
       page_presentation_pending: projectionPending,
       ...(projected ? {page_presentation: projected.presentation} : {}),
       tiptap_json: tiptapJson,
@@ -414,7 +438,7 @@ export function useWorkspaceDocumentAuthoring(
     } else if (wasDirty) {
       dispatch({ type: "OPEN_READY", dirty: false });
     }
-  }, [dispatch, storage,queueLocalState,args.kind,args.surface]);
+  }, [dispatch, storage,queueLocalState,args.kind,args.surface,useProtectedLayoutStorage]);
 
   const handleSetEditor = useCallback((nextEditor: Editor | null) => {
     setEditor(nextEditor);
@@ -427,7 +451,7 @@ export function useWorkspaceDocumentAuthoring(
   ) => {
     if (meta.programmatic) return;
     editorMutationGenerationRef.current += 1;
-    persistEditorState(json);
+    persistEditorState(json, requiresManualSave(_nextEditor));
   }, [persistEditorState]);
 
   const reimportFromAuthoritativeMarkdown = useCallback(() => {
@@ -706,7 +730,8 @@ export function useWorkspaceDocumentAuthoring(
       return;
     }
 
-    const retainedPlainBase = snapshot.page_presentation != null && snapshot.page_presentation.items.every(item => item.kind === "block");
+    const retainedPlainBase = snapshot.layout_writer_profile !== undefined
+      || (snapshot.page_presentation != null && snapshot.page_presentation.items.every(item => item.kind === "block"));
     const tiptapJson = editor.getJSON();
     const serializationDiagnostics = semanticMarkdownSerializationDiagnostics(flattenPresentation(tiptapJson));
     if (serializationDiagnostics.length > 0) {
@@ -720,7 +745,7 @@ export function useWorkspaceDocumentAuthoring(
     let projected: {markdown: string; presentation: PagePresentation | null} | undefined;
     try {
       if (args.kind === "worldbuilding_source" && args.surface === "build"
-        && (retainedPlainBase || localState.page_presentation !== undefined || hasPresentation(tiptapJson))) {
+        && (retainedPlainBase || localState.page_presentation !== undefined || hasPresentation(tiptapJson) || hasEmptyParagraphs(tiptapJson))) {
         projected = projectPresentation(tiptapJson, localState.exported_markdown, localState.page_presentation_pending ? markdownToTiptapDoc(localState.exported_markdown).doc : localState.tiptap_json as JSONContent, localState.page_presentation, retainedPlainBase);
       }
     } catch (error) {
@@ -729,7 +754,13 @@ export function useWorkspaceDocumentAuthoring(
     }
     const editableBody = tiptapJsonToSemanticMarkdown(flattenPresentation(tiptapJson));
     const markdown = projected?.markdown ?? preserveLeadingYamlFrontmatter(snapshot.markdown, editableBody);
-    const presentationFields = projected ? {page_presentation: projected.presentation} : {};
+    const profile = snapshot.layout_writer_profile ?? ((localState.manual_save_required || projected?.presentation?.schema_version === "dmb_page_presentation_v2")
+      && projected?.presentation && presentationFingerprint(projected.presentation) !== snapshot.page_presentation_sha256
+      ? "dmb_page_layout_writer_v1" as const : undefined);
+    const presentationFields = {
+      ...(projected ? {page_presentation: projected.presentation} : {}),
+      ...(profile ? {layout_writer_profile: profile} : {}),
+    };
     if (!editableBody.trim()) {
       dispatch({ type: "SAVE_FAILED", message: "Document is empty; add content before saving." });
       return;
@@ -762,10 +793,20 @@ export function useWorkspaceDocumentAuthoring(
         ...presentationFields,
         writer_confirm_token: prepared.writer_confirm_token,
         expected_revision: expectedRevision,
+        ...(args.surface === "build" && args.kind === "worldbuilding_source" ? {
+          canRetryExactPageCommit: () =>
+            recoveryMounted.current && requestedDocument.current === args.documentId
+            && saveGeneration === saveGenerationRef.current && snapshotRef.current === snapshot
+            && mutationGenerationAtSaveStart === editorMutationGenerationRef.current && !editor.isDestroyed,
+        } : {}),
       });
       if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       setLastCommitReceipt(committed);
-      if (projected && (retainedPlainBase || localState.page_presentation?.items.every(item => item.kind === 'block'))
+      if (profile !== committed.layout_writer_profile) {
+        dispatch({type: "VERIFICATION_MISMATCH", reason: "The Save receipt did not confirm the layout writer profile. Your local draft was kept."});
+        return;
+      }
+      if (projected && (profile || retainedPlainBase || localState.page_presentation?.items.every(item => item.kind === 'block'))
         && presentationFingerprint(projected.presentation) !== (committed.page_presentation_sha256 ?? null)) {
         dispatch({type: "VERIFICATION_MISMATCH", reason: "The Save receipt does not retain the submitted page presentation. Your local draft was kept."});
         return;
@@ -783,6 +824,7 @@ export function useWorkspaceDocumentAuthoring(
           ? applyCommitReceiptBaseRetainingEditorContent({receipt:committed,current})
           : {...applyCommitReceiptToLocalState({receipt:committed,surface:args.surface,kind:args.kind,tiptapJson,markdown,presentation:projected?.presentation}),dirty:editedDuringSave};
         writeVerifiedLocalState(storage,next);
+        if (!editedDuringSave) releaseManualSave(editor);
         localStateRef.current=next;localDirtyRef.current=next.dirty;setLocalState(next);
       },{refusedSnapshot:localStateRef.current??undefined});
 
@@ -828,6 +870,10 @@ export function useWorkspaceDocumentAuthoring(
           return;
         }
         const verification = verifyCommitReceiptAgainstSnapshot(receiptForThisSave, refreshed);
+        if (profile !== refreshed.layout_writer_profile) {
+          dispatch({type: "VERIFICATION_MISMATCH", reason: "The reopened Page did not retain its layout writer profile."});
+          return;
+        }
         if (!verification.ok) {
           dispatch({ type: "VERIFICATION_MISMATCH", reason: verification.reason });
           return;
@@ -859,8 +905,8 @@ export function useWorkspaceDocumentAuthoring(
   }, [args.documentId, args.kind, args.surface, dispatch, editor, localState, snapshot, storage,draftWriter,queueLocalState]);
 
   const discardLocalDraft = useCallback(async () => {
-    await openFromSnapshot({ clearLocalFirst: true });
-  }, [openFromSnapshot]);
+    if (await openFromSnapshot({ clearLocalFirst: true }) && editor) releaseManualSave(editor);
+  }, [editor,openFromSnapshot]);
 
   const reloadFromSnapshot = useCallback(async () => {
     dispatch({ type: "RELOAD_STARTED" });
@@ -1003,6 +1049,7 @@ export function useWorkspaceDocumentAuthoring(
 
   return {
     status: legacyStatus,
+    manualSaveRequired: localState?.manual_save_required === true,
     phase,
     error: machine.error,
     snapshot,

@@ -659,8 +659,13 @@ def _ordinary_native_case(
             output_schema = output_format['schema']
             base_schema = output_schema.get('$defs', {}).get('Base', output_schema)
             assert base_schema['properties']['schema']['const'] == NATIVE_ANSWER_POLICY
-            if not authoring and not connected_review:
+            if authoring:
+                assert 'copy all Markdown outside the requested change verbatim' in body['instructions']
+                assert 'existing callout titles and bodies, prose, tables, and artwork references' in body['instructions']
+                assert 'requested material as a separate block' in body['instructions']
+            elif not connected_review:
                 assert NATIVE_ANSWER_POLICY not in body['instructions']
+                assert 'copy all Markdown outside the requested change verbatim' not in body['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
             if prose is not None:
@@ -677,7 +682,7 @@ def _ordinary_native_case(
                 else:
                     assert summary is not None
                     mode = 'belief' if qualified else 'fact'
-                    assert f'claim mode: dungeonbuddy.claim:{mode}' in prose
+                    assert f'claim mode: {mode};' in prose
                     segments.append(dict(kind='native_assertion_claim', text='A reports that B fled; uncertain.',
                         assertion_handles=[summary[1]]))
                 if authored:
@@ -1476,10 +1481,12 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     assert intervals and len({span['trace_id'] for span in intervals}) == 1
     assert all(detail['start_monotonic_ns'] <= span['start_monotonic_ns']
                <= span['end_monotonic_ns'] <= detail['end_monotonic_ns'] for span in intervals)
-    assert {'execution_append', 'native_source_append', 'plan_session_finish_before_writer',
+    names = {span['name'] for span in intervals}
+    assert {'execution_append', 'native_source_append',
             'native_writer_authorization_persistence', 'route_auth', 'first_jev_transport_entry',
             'plan_retrieval_complete', 'plan_writer_composition', 'writer_sdk_preparation',
-            'plan_opening_candidate_preparation', 'plan_opening_selection_apply'} <= {span['name'] for span in intervals}
+            'plan_opening_candidate_preparation', 'plan_opening_selection_apply'} <= names
+    assert 'plan_session_finish_before_writer' not in names
     tampered = deepcopy(transport_stop)
     tampered['transport_sink']['body_hex'] += '20'
     with pytest.raises(ValueError, match='Writer transport bytes'):
@@ -1554,6 +1561,58 @@ def _prepared_query_source(lane):
     context = prepare_native_source_context(managed_world_id=lane.world.world_id,
         principal=GM, repository=lane.repo, resolve_identity=lambda _: binding)
     return context, binding
+
+
+def test_selective_plan_fallback_keeps_the_already_resolved_head(lane, monkeypatch):
+    from contextlib import contextmanager, nullcontext
+
+    from apps.live_control_server.services.plan_source_turn import prepare_selective_query
+    from dungeonmind.application import vnext
+    from dungeonmind.infrastructure.postgres import selective_query
+
+    publish(lane, qualified=True)
+    existing, binding = _prepared_query_source(lane)
+    repo = lane.repo
+    head = repo.get_head(binding.native_world_id)
+    assert head.head_revision_id == existing.authority.revision_id
+    observed = []
+    probe_exited = False
+    ordinary_opener = vnext.open_native_text_source_access_context
+
+    def moving_head(space_id):
+        assert space_id == binding.native_world_id
+        if observed:
+            return SimpleNamespace(head_revision_id="rev:published-after-the-probe")
+        return head
+
+    @contextmanager
+    def inactive(repository, *, request, **fields):
+        assert repository is repo
+        nonlocal probe_exited
+        observed.append(request.revision_id)
+        yield None
+        probe_exited = True
+
+    def open_ordinary(**options):
+        assert probe_exited, "fallback retained a transaction for an inactive projection"
+        return ordinary_opener(**options)
+
+    def compose(source):
+        assert source.selective_query is None
+        return prepare_query(lane.world.world_id, "What did B do?", GM, source_context=source,
+                             resolve_binding=lambda _: binding)
+
+    monkeypatch.setattr(repo, "get_head", moving_head)
+    monkeypatch.setattr(selective_query, "open_selective_source_query", inactive)
+    monkeypatch.setattr(vnext, "open_native_text_source_access_context", open_ordinary)
+    prepared, authority, context, query_result = prepare_selective_query(
+        lane.world.world_id, GM, compose, phase=lambda _: nullcontext(), repository=repo,
+        resolve_identity=lambda _: binding,
+    )
+    assert observed == [head.head_revision_id]
+    assert prepared.authority == authority
+    assert authority.revision_id == query_result.authority.revision_id == head.head_revision_id
+    assert context.repository is repo
 
 
 def test_prepared_native_query_reuses_core_revision_and_preserves_exact_catalog(lane, monkeypatch):

@@ -624,6 +624,49 @@ describe("NativeGraphDemo", () => {
     expect(await navbar.findByText("Review ready · partial read")).toBeInTheDocument();
   });
 
+  it.each([false, true])("shows the loaded empty graph's available action (readOnly=%s)", async (readOnly) => {
+    const pending = deferred<NativeGraph>();
+    const api = makeApi({ readGraph: vi.fn().mockReturnValue(pending.promise) });
+    renderEmbeddedDemo({ api, readOnly, mode: "managed", worldTitle: "Empty World", stateScopeId: "managed:empty", openBuildHref: "/build?world=empty" });
+    expect(screen.getByText("Opening the DungeonMind graph…")).toBeVisible();
+    expect(screen.queryByText(/This World has no objects yet/)).not.toBeInTheDocument();
+
+    await act(async () => pending.resolve({ ...graph, nodes: [], edges: [] }));
+    expect(screen.getByText(readOnly
+      ? "This World has no objects yet. Use the World picker to choose another World."
+      : "This World has no objects yet. Add an object to begin.")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Open Build" })).not.toBeInTheDocument();
+
+    if (readOnly) {
+      fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
+      expect(screen.queryByRole("button", { name: "Add object" })).not.toBeInTheDocument();
+    } else {
+      expect(graphAction("Add object")).toBeEnabled();
+    }
+  });
+
+  it("offers same-World Build on Graph failure and keeps the retry working", async () => {
+    const failed = deferred<NativeGraph>();
+    const readGraph = vi.fn().mockReturnValueOnce(failed.promise).mockResolvedValueOnce(graph);
+    renderEmbeddedDemo({ api: makeApi({ readGraph }), mode: "managed", stateScopeId: "managed:pilot", openBuildHref: "/build?world=pilot" });
+    expect(screen.queryByRole("link", { name: "Open Build" })).not.toBeInTheDocument();
+
+    await act(async () => failed.reject(new Error("Graph read unavailable")));
+    expect(screen.getByRole("link", { name: "Open Build" })).toHaveAttribute("href", "/build?world=pilot");
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(readGraph).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/Latest graph revision loaded/)).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Open Build" })).not.toBeInTheDocument();
+  });
+
+  it("keeps denied Graph access separate from a retryable failure", async () => {
+    const api = makeApi({ readGraph: vi.fn().mockRejectedValue(new NativeGraphDemoApiError("World access required", "owned_world_access_required", 403)) });
+    renderEmbeddedDemo({ api, mode: "managed", stateScopeId: "managed:pilot", openBuildHref: "/build?world=pilot" });
+    expect(await screen.findByRole("heading", { name: "Graph access unavailable" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Open Build" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/This World has no objects yet/)).not.toBeInTheDocument();
+  });
+
   it("hides authoring in the Tool menu when the hosted read-only boundary is active", async () => {
     const api = makeApi();
     const user = userEvent.setup();

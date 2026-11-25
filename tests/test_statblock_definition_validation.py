@@ -128,6 +128,62 @@ def test_validate_definition_service_maps_transport_failure() -> None:
     assert result.validation_receipt is None
 
 
+def test_variant_review_reports_transport_failure_without_private_details(caplog) -> None:
+    from apps.live_control_server.services.conversation_variant_save import validate_variant_review
+
+    class FakeClient:
+        def validate_definition(self, body):
+            raise StatblockIntegrationError(category="downstream_timeout", message="private detail")
+
+    assert validate_variant_review(_definition(), client=FakeClient()) is None
+    assert "category=downstream_timeout" in caplog.text
+    assert "private detail" not in caplog.text
+
+
+@pytest.mark.parametrize("add_local_target", [False, True])
+def test_manual_rule_replacement_resolves_only_local_multiattack_targets(add_local_target) -> None:
+    from application_state.agent_conversation.native_completion import _apply_statblock_rule_edits
+
+    definition = _definition().model_dump(mode="json")
+    original = definition["rule_elements"][0]
+    original["automation_support"] = "manual"
+    original["mechanic"] = {"kind": "human_adjudicated", "adjudication_tags": ["summon"]}
+    replacement = {
+        **original,
+        "rules_text": "Three summoned creatures emerge from the floor.",
+        "mechanic": {
+            "kind": "multiattack",
+            "sequences": [{"element_key": "minion", "count": 3, "choice_group": None}],
+        },
+    }
+    additions = [{**original, "key": "minion"}] if add_local_target else []
+    edited = _apply_statblock_rule_edits(
+        definition, {"replace_rules": [replacement], "add_rules": additions}
+    )["rule_elements"][0]
+    assert edited["mechanic"] == (replacement if add_local_target else original)["mechanic"]
+    assert edited["rules_text"] == replacement["rules_text"]
+    assert definition["rule_elements"][0]["mechanic"]["kind"] == "human_adjudicated"
+
+
+def test_variant_name_correction_requires_exact_reviewed_name() -> None:
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.conversation_variant_save import (
+        CorrectConversationVariant, apply_variant_text_corrections,
+    )
+
+    definition = _definition().model_dump(mode="json")
+    name = definition["identity"]["name"]
+    correction = CorrectConversationVariant(
+        expected_revision=1,
+        replacements=[{"field": "name", "replace_exact": name, "with_text": "Edge Meat Mind"}],
+    )
+    edited = apply_variant_text_corrections(definition, correction.replacements)
+    assert edited.identity.name == "Edge Meat Mind"
+    assert definition["identity"]["name"] == name
+    with pytest.raises(ApplicationStateConflictError):
+        apply_variant_text_corrections(edited.model_dump(mode="json"), correction.replacements)
+
+
 def test_validate_definition_service_maps_constructor_misconfigured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

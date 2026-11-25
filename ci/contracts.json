@@ -165,13 +165,18 @@
         "tests/test_plan_authored_references.py",
         "tests/test_play_authored_source_references.py",
         "tests/test_plan_jev_authoring.py::test_current_shared_plan_caller_keeps_routing_and_action_ownership",
+        "tests/test_plan_jev_authoring.py::test_author_scope_input_admission_joins_exact_native_turn_without_granting_work",
+        "tests/test_plan_jev_authoring.py::test_source_blind_sdk_records_only_its_actual_native_scope_observation",
         "tests/application_state/test_plan_placement.py",
+        "tests/application_state/test_plan_author_location.py",
+        "tests/application_state/test_plan_contextual_targets.py",
         "tests/test_plan_jev_authoring.py::test_under_heading_selection_survives_actual_dispatch_reservation_and_retained_replay",
         "tests/test_native_reference_navigation.py",
         "tests/test_native_assertion_source_locators.py",
         "tests/test_surface_native_execution.py",
         "tests/test_native_object_retrieval.py",
         "tests/test_jev_retrieval_contract.py",
+        "tests/test_build_prose_catalog.py",
         "tests/test_build_decision_context.py",
         "tests/test_surface_native_build_decision.py",
         "tests/test_native_writer_projection.py",
@@ -252,9 +257,16 @@
       "cwd": ".",
       "argv": [
         "{python}", "-m", "pytest", "-q", "--tb=short", "--show-capture=no",
+        "tests/test_guest_build_access.py",
+        "tests/test_guest_managed_world.py",
+        "tests/test_hosted_index_graph_boundary.py",
+        "tests/test_index_graph.py",
+        "tests/test_index_graph_storage.py",
+        "tests/test_native_graph_demo.py",
         "tests/test_guest_release_assertions.py",
         "tests/test_guest_release_evidence.py",
         "tests/test_guest_release_integration.py",
+        "tests/test_guest_release_image_config.py",
         "tests/test_guest_release_media.py",
         "tests/test_guest_release_media_selection.py",
         "tests/test_guest_release_native_graph.py",
@@ -284,8 +296,10 @@
             "--",
             "src/localWorld",
             "src/App.guestHome.test.tsx",
+            "src/App.guestBuild.test.tsx",
             "src/App.guestRelease.test.tsx",
             "src/guestRelease",
+            "src/guestWorld/guestBuildSession.test.ts",
             "src/media/MediaImageWizard.test.tsx",
             "src/statblocks/render/StatblockRenderer.test.tsx",
             "src/auth/HostedAuthGate.test.tsx",
@@ -363,6 +377,29 @@
             "build"
           ]
         }
+      ]
+    },
+    "rules-only-runtime": {
+      "cwd": ".",
+      "argv": [
+        "{python}",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_rules_only_parent.py",
+        "--durations=10"
+      ]
+    },
+    "agent-legacy-import": {
+      "cwd": ".",
+      "argv": [
+        "{python}",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_agent_legacy_import_intent.py",
+        "tests/application_state/test_agent_conversation_service.py::test_verified_legacy_import_is_bounded_exact_world_and_idempotent",
+        "tests/application_state/test_agent_conversation_service.py::test_failed_import_does_not_leave_partial_conversation_or_turns"
       ]
     }
   }

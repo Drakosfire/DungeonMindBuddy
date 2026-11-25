@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from application_state.agent_conversation.reviewed_action import ReviewedStepReference
-from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1, PlanAuthoredProposalV1
+from application_state.agent_conversation.plan_authoring import PlanAuthoredProposalV1
 
 from application_state.agent_conversation.identifier_limits import (
     GRAPH_EVIDENCE_REF_ID_MAX_CHARS,
@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from application_state.agent_conversation.context_trace import TurnContextTraceV1, TraceHistoricalSourceReferenceV1, TraceSourcePassage
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
+from application_state.build_proposal.image_move_capture import BuildImageMoveCapture
 from application_state.agent_conversation.build_draft_context import BuildDraftContextRequestV1
 
 from application_state.agent_conversation.rules_authority_types import RulesAcceptedBinding, canonical_sha256
@@ -32,6 +33,8 @@ from application_state.agent_conversation.types import (
     BuildRelationshipReviewCompletionV1, BuildNamedGraphCompletionV3, BuildDraftContextCompletionV1, BuildRelatedPageCompletionV1, BuildCollaborationCompletionV1, BuildConnectedPageReviewCompletionV1,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
+    BuildGraphReferenceCompletionV1,
+    BuildImageMoveCompletionV1,
     BuildImagePreparationCompletionV1,
     BuildSourcePassageCitationV1,
     SurfaceSourcePassageCitationV1,
@@ -247,7 +250,9 @@ class AgentTurnGraphSelection(BaseModel):
 
 from application_state.agent_conversation.authored_graph_references import AuthoredReferenceInput, AuthoredReferencesV2
 
-from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
+from application_state.agent_conversation.plan_placement import PlanPlacementCatalog, PlanPlacementCatalogV2
+from application_state.agent_conversation.plan_authoring import PlanAuthoringComposedSnapshotV1, PlanAuthoringOpeningCapture
+from application_state.agent_conversation.plan_composed_targeting import ComposedPlanPlacementCatalogV1
 
 class AgentTurnRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -266,6 +271,7 @@ class AgentTurnRequest(BaseModel):
     selected_knowledge: AgentKnowledgeSelection | None = None
     native_statement_selection: NativeStatementSelectionV1 | None = None
     build_write_capability: BuildWriteCapability | None = None
+    build_image_move_capture: BuildImageMoveCapture | None = None
     build_draft_context: BuildDraftContextRequestV1 | None = None
     build_authored_references: AuthoredReferenceInput | None = None
     authored_references: AuthoredReferencesV2 | None = None
@@ -273,8 +279,8 @@ class AgentTurnRequest(BaseModel):
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1 | None = None
-    plan_authoring_capture: PlanAuthoringCaptureV1 | None = None
-    plan_placement_catalog: PlanPlacementCatalogV1 | None = None
+    plan_authoring_capture: PlanAuthoringOpeningCapture | None = None
+    plan_placement_catalog: PlanPlacementCatalog | None = None
     message: str = Field(min_length=1)
 
     @field_validator("client_thread_id", "turn_id", mode="before")
@@ -337,10 +343,20 @@ class AgentTurnRequest(BaseModel):
                 or self.owner_scope.kind != 'world' or self.graph_request.mode != 'world'):
                 raise ValueError('Authored references require the current Build page and World context')
             self.build_authored_references.require_world(self.owner_scope.world_id)
+        if type(self.plan_authoring_capture) is PlanAuthoringComposedSnapshotV1:
+            expected_catalog = ComposedPlanPlacementCatalogV1.freeze(self.plan_authoring_capture)
+            if self.plan_placement_catalog is not None and self.plan_placement_catalog != expected_catalog:
+                raise ValueError("Composed Plan catalog differs from its complete captured page")
+            self.plan_placement_catalog = expected_catalog
         if self.plan_placement_catalog is not None:
             if self.plan_authoring_capture is None:
                 raise ValueError("Plan placement catalog requires its original capture")
-            self.plan_placement_catalog.require_original(self.plan_authoring_capture)
+            if type(self.plan_placement_catalog) is PlanPlacementCatalogV2:
+                # The browser proposes offsets, but the frozen editor determines
+                # which occurrences exist and therefore which can be ambiguous.
+                self.plan_placement_catalog.require_original(self.plan_authoring_capture, complete=True)
+            else:
+                self.plan_placement_catalog.require_original(self.plan_authoring_capture)
         if self.plan_authoring_capture is not None:
             capture = self.plan_authoring_capture
             work = self.primary_work
@@ -351,6 +367,19 @@ class AgentTurnRequest(BaseModel):
                     or work.expected_revision != capture.base_revision
                     or work.expected_content_sha256 != capture.base_content_sha256):
                 raise ValueError("Plan authoring capture requires its exact current Plan and World")
+        image_capture = self.build_image_move_capture
+        if image_capture is not None:
+            basis = image_capture.basis
+            work = self.primary_work
+            if (self.surface.surface_id != "build" or self.client_work_state != "saved_clean"
+                    or self.owner_scope is None or self.owner_scope.kind != "world"
+                    or basis.world_id != self.owner_scope.world_id
+                    or work is None or work.kind != "build" or work.object_id != basis.document_id
+                    or work.expected_revision != basis.registry_revision
+                    or work.expected_content_sha256 != basis.content_sha256
+                    or self.graph_request.mode != "world"
+                    or self.reviewed_step is not None or self.retry_of is not None):
+                raise ValueError("Image movement requires an ordinary turn on its exact saved Build Page and World")
         draft = self.build_draft_context
         if draft is not None:
             snapshot = draft.snapshot
@@ -821,7 +850,7 @@ class AgentSurfaceNativeContextResponseV1(BaseModel):
     schema_: Literal['dmb_agent_surface_native_context_response_v1'] = Field(
         default='dmb_agent_surface_native_context_response_v1',alias='schema')
     receipt: SurfaceNativeContextReceiptV1
-    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
+    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | BuildGraphReferenceCompletionV1 | BuildImageMoveCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
     deferred_build_citations: DeferredBuildCitationMembership | None = Field(

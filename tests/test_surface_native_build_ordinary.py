@@ -50,6 +50,131 @@ def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_pa
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
 
+@pytest.mark.parametrize("boundary_scope", ["unique", "mixed", "caret", "ambiguous", "missing", "different", "stale", "foreign", "page_end", "page_body"])
+def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, monkeypatch, boundary_scope):
+    location = {"ambiguous": "", "missing": " in North"}.get(boundary_scope, " in East")
+    message = {
+        "caret": "Add two ordinary paragraphs about how the station maintains this road.",
+        "page_end": "Append a line about a copper lamp at the end of this page.",
+        "page_body": "Replace the whole page with a paragraph about a copper lamp.",
+        "different": "On the separate Lanterns page, add a line after the orchid paragraph in East.",
+    }.get(boundary_scope, f"After the orchid paragraph{location}, add a line about a copper lamp.")
+    proposal_markdown = {
+        "mixed": (
+            "> [!READ-ALOUD] Watchtower\n> A copper lamp glows in the window.\n\n"
+            "> [!GM-NOTE] Signal\n> Keep its meaning private."
+        ),
+        "caret": (
+            "The station replaces loose planks at dawn.\n\n"
+            "Its crew checks the supports where the marsh runs deepest."
+        ),
+    }.get(boundary_scope)
+    _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, True, contextual=boundary_scope,
+        message=message, proposal_markdown=proposal_markdown,
+    )
+
+
+@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "different_page", "remapped_inventory"])
+def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, monkeypatch, disposition):
+    request = ("Insert a reference to the selected object on the separate Lanterns page."
+               if disposition == "different_page"
+               else "Insert a reference to the selected object after the orchid paragraph in East.")
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
+                message=request,
+                graph_reference=disposition)
+
+
+@pytest.mark.parametrize(("message", "disposition"), [
+    ("Move the Harbour map to the empty slot on its right.", "ready"),
+    ("What would happen if we moved the Harbour map to the right?", "discussion"),
+    ("Move the Harbour map to the right slot in the Watchtower row.", "different_row"),
+    ("Move the Harbour map to the slot on its right.", "foreign_capture"),
+    ("Move the Harbour map to the slot on its right.", "forged_editor"),
+    ("What would happen if we moved the Harbour map to the next slot?", "other_discussion"),
+    ("How would it look in the empty slot?", "other_discussion"),
+    ("How would it look in the empty slot?", "other_discussion_tied_work"),
+    ("Move the Harbour map to the empty slot on its right.", "tied_menu"),
+    ("Move the Harbour map beside the departure advice to the empty slot on its right.", "duplicate_context"),
+])
+def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
+    _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+                message=message, image_move=disposition)
+
+
+def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_path, monkeypatch):
+    _fresh_case(
+        lane, tmp_path, monkeypatch, "discussion_source_tie", False, False, False,
+        message="Describe what the image shows and how it relates to the surrounding notes.",
+        requested_work="discuss",
+    )
+
+
+def test_deferred_image_advice_clarifies_before_graph_preparation(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+
+    def inspect(adapter, provider):
+        assert provider == "typesafe"
+        assert callable(adapter.prepare_deferred_build_query)
+
+    def unexpected_graph_settlement(*args):
+        raise AssertionError("Source-scope clarification must precede Graph settlement")
+
+    monkeypatch.setattr(_PolicyExecutionAdapter, "settle_deferred_build_query", unexpected_graph_settlement)
+
+    _fresh_case(
+        lane, tmp_path, monkeypatch, "discussion_source_tie", False, False, False,
+        message="How would the Harbour map look in the slot to its right?",
+        requested_work="discuss", image_move="other_discussion", before_provider=inspect,
+    )
+
+
+def test_graph_nomination_preparation_uses_the_admitted_build_capture(lane, tmp_path, monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services import build_graph_reference
+
+    message = "After the orchid paragraph in East, add a line about a copper lamp."
+    prepared = []
+
+    def inspect(adapter, provider):
+        if provider != "typesafe" or prepared:
+            return
+        execution = adapter.fence.turn.graph_context_execution
+        principal = adapter.native_query_context.principal
+        selected = build_graph_reference.captured_build_graph_reference(execution)
+        assert selected is not None
+
+        def admitted_candidates(world_id, caller):
+            assert world_id == lane.world.world_id
+            assert caller is principal
+            return (build_graph_reference.BuildGraphReferenceCandidate(reference=selected, entity_kind="threat"),)
+
+        monkeypatch.setattr(build_graph_reference, "read_build_graph_reference_candidates", admitted_candidates)
+        decision = build_graph_reference.prepare_build_graph_reference_decision(
+            execution, principal, title="Edge", dialogue=(),
+        )
+        assert decision.question == message
+        assert decision.basis == execution.policy.action.write_capability.basis
+        assert decision.author_selected == selected
+        state = decision.request().state
+        assert state["author_selected_object"] == "object1"
+        assert state["graph_objects"]["object1"]["name"] == selected.label
+        assert selected.node_id not in decision.request().model_dump_json()
+        with monkeypatch.context() as patch:
+            changed = selected.model_copy(update={"graph_revision": "changed"})
+            candidate = build_graph_reference.BuildGraphReferenceCandidate(reference=changed, entity_kind="threat")
+            patch.setattr(build_graph_reference, "read_build_graph_reference_candidates", lambda *_: (candidate,))
+            with pytest.raises(ApplicationStateConflictError, match="identity changed"):
+                build_graph_reference.prepare_build_graph_reference_decision(
+                    execution, principal, title="Edge", dialogue=(),
+                )
+        prepared.append(decision)
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True,
+                contextual="unique", message=message, before_provider=inspect)
+    assert len(prepared) == 1
+
+
 @pytest.mark.parametrize("reference_image", ["saved", "unbound", "wrong_same_page", "saved_large"])
 def test_build_selected_revision_uses_only_the_bound_saved_image(lane, tmp_path, monkeypatch, reference_image):
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, reference_image=reference_image)
@@ -60,7 +185,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -138,8 +263,59 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             + f"![Bath house map](dmb-media:{asset['asset_id']})\n\n")
     save_page(tmp_path, page.document_id, '# Working page\n\n'
         + (image_markdown if reference_image in {"saved", "wrong_same_page", "saved_large"} else '') + 'A proposed conversation.\n')
+    if image_move:
+        from io import BytesIO
+        from PIL import Image
+        from application_state import media
+        from application_state.content import pages
+        from application_state.content.markdown_source_blocks import source_block_spans
+        from application_state.content.page_presentation import BlockBinding, PagePresentation, Row, Slot
+
+        picture = BytesIO()
+        Image.new("RGB", (30, 20), (48, 75, 65)).save(picture, "PNG")
+        asset_id = str(media.stage_image(picture.getvalue(), "local_operator", {"fixture": "Harbour map"})["asset_id"])
+        media_markdown = f"![Harbour map](dmb-media:{asset_id})"
+        rows = [("harbour-row", "left-slot", "right-slot", [("map-block", media_markdown)])]
+        if image_move == "duplicate_context":
+            rows[0][3].insert(0, ("when-block", "Leave after sunset and the third bell."))
+            rows.append(("inn-row", "inn-left", "inn-right", [
+                ("coat-block", "Borrow a dry coat from the innkeeper."),
+                ("repeat-map", media_markdown),
+            ]))
+        markdown = "\n\n".join(text for _, _, _, row in rows for _, text in row) + "\n"
+        raw = markdown.encode()
+        bindings = {
+            block_id: BlockBinding(id=block_id, byte_start=start, byte_end=end, sha256=sha256(raw[start:end]).hexdigest())
+            for block_id, (start, end) in zip(
+                (block_id for _, _, _, row in rows for block_id, _ in row), source_block_spans(markdown), strict=True,
+            )
+        }
+        layout = PagePresentation(markdown_sha256=sha256(raw).hexdigest(), items=[
+            Row(id=row_id, min_height=16, line_mode="border", slots=[
+                Slot(id=left_id, width=7, blocks=[bindings[key] for key, _ in row]),
+                Slot(id=right_id, width=5, blocks=[]),
+            ]) for row_id, left_id, right_id, row in rows
+        ])
+        saved_basis = pages.committed_page(page.document_id, world_id=world)
+        pages.commit_page(page.document_id, markdown, world_id=world,
+                          expected_revision=saved_basis.page.object_revision,
+                          expected_working_copy_revision=saved_basis.working_copy_revision,
+                          page_presentation=layout)
+        image_editor = json.dumps({"type": "doc", "content": [{
+            "type": "pageRow", "attrs": {"id": row_id, "min_height": 16, "line_mode": "border"},
+            "content": [
+                {"type": "pageSlot", "attrs": {"id": left_id, "width": 7}, "content": [{
+                    "type": "paragraph", "attrs": {"pageBlockId": key}, "content": [
+                        {"type": "mediaImage", "attrs": {"assetId": asset_id, "alt": "Harbour map"}}
+                        if text == media_markdown else {"type": "text", "text": text},
+                    ],
+                } for key, text in row]},
+                {"type": "pageSlot", "attrs": {"id": right_id, "width": 5}},
+            ],
+        } for row_id, left_id, right_id, row in rows]})
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
+    editor_json = None
     if with_draft:
         from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1, BuildDraftContextRequestV1
         from tests.application_state.test_agent_conversation_postgres import _new
@@ -147,9 +323,28 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         conversation = _new(service,world)
         pointer = service.get_world_pointer(world)
         text = image_markdown + 'An unsaved orchid possibility. Never a played fact. 🌸'
+        if contextual:
+            def block(kind, content, **attrs):
+                node = {"type": kind, "content": [{"type": "text", "text": content}]}
+                return node | ({"attrs": attrs} if attrs else {})
+
+            protected = []
+            protected_markdown = ""
+            if contextual in {"mixed", "caret"}:
+                protected = [{
+                    "type": "callout", "attrs": {"kind": "gm-note", "label": "Keep hidden"},
+                    "content": [block("paragraph", "Do not reveal the orchid.")],
+                }]
+                protected_markdown = "> [!GM-NOTE] Keep hidden\n> Do not reveal the orchid.\n\n"
+            editor_json = json.dumps({"type": "doc", "content": [
+                block("heading", "West", level=2), block("paragraph", text),
+                *protected, block("heading", "East", level=2), block("paragraph", text),
+            ]}, ensure_ascii=False)
+            text = f"## West\n\n{text}\n\n{protected_markdown}## East\n\n{text}\n"
         snapshot = BuildDraftSnapshotV1(world_id=world,document_id=page.document_id,
             registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility='internal',
-            draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),editor_sha256='c'*64,draft_generation=3)
+            draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),
+            editor_sha256=sha256(editor_json.encode()).hexdigest() if editor_json else 'c'*64,draft_generation=3)
         draft = BuildDraftContextRequestV1(snapshot=snapshot,conversation_id=conversation.conversation_id,
             expected_pointer_revision=pointer.revision)
     selected = AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
@@ -227,6 +422,31 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     admit_unrelated(lane, 'after-human-pick-before-http')
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
+    if graph_reference:
+        from apps.live_control_server.services import build_graph_reference
+
+        reference = selected.references[0].model_copy(update={"graph_revision": current_revision})
+        selected = selected.model_copy(update={"references": (reference,)})
+        identities = [{"node_id": reference.node_id, "label": reference.label, "kind": "threat", "selectable": True}]
+        if graph_reference == "remapped_inventory":
+            from dataclasses import replace
+
+            identities.append({"node_id": "fixture-other", "label": "Other threat", "kind": "threat", "selectable": True})
+            original_complete = AgentConversationService.complete_build_graph_reference_turn
+
+            def complete_with_remap(service, *, decision, **kwargs):
+                first, second = decision.candidates
+                remapped = second.model_copy(update={"reference": second.reference.model_copy(update={"node_id": "fixture-remapped"})})
+                altered = replace(decision, candidates=(first, remapped))
+                assert altered.request() == decision.request()
+                return original_complete(service, decision=altered, **kwargs)
+
+            monkeypatch.setattr(AgentConversationService, "complete_build_graph_reference_turn", complete_with_remap)
+        monkeypatch.setattr(build_graph_reference, "authoring_identities", lambda scope, principal: {
+            "scope": {"managed_world_id": world, "native_world_id": world, "binding_version": 1,
+                      "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
+            "identities": identities,
+        })
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
@@ -295,10 +515,56 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
+                if name == "source_need" and failure == "discussion_source_tie":
+                    answers[name] = dict(type="choice", choice="uncertain", confidence=.07,
+                                         probabilities={"anchored": .24, "source_lookup": .38, "uncertain": .38})
+                    continue
+                if name.startswith("image_move_"):
+                    assert image_move and "Harbour map" in str(body["state"]["interaction"]["image_move"])
+                    assert asset_id not in json.dumps(body)
+                    assert all(value not in json.dumps(body) for value in ("map-block", "harbour-row", "left-slot"))
+                    advice = image_move in {"other_discussion", "other_discussion_tied_work"}
+                    chosen = {"image_move_intent": "other" if advice else "move_existing",
+                              "image_move_destination": "same_row_right", "image_move_occurrence": "image1",
+                              "image_move_affirmation": "description_or_discussion" if advice or image_move == "discussion"
+                                  else "author_requests_move", "image_move_contextual_identity": "image1"}[name]
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                                         probabilities={key: float(key == chosen) for key in choices})
+                    continue
+                if name == "requested_work" and image_move in {"tied_menu", "other_discussion_tied_work"}:
+                    voting = {"discuss": .4, "clarify_request": .4, "other_creation": .2}
+                    answers[name] = dict(type="choice", choice="other_creation", confidence=.2,
+                                         probabilities={key: voting.get(key, 0) for key in choices})
+                    continue
+                if name == "typed_graph_reference":
+                    chosen = "place_existing_reference" if graph_reference else "other_work"
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                                         probabilities={key: float(key == chosen) for key in choices})
+                    continue
+                if "reference_intent" in body["questions"]:
+                    chosen = {"work": "place_paragraph", "destination": "current_page", "relation": "after",
+                              "anchor_occurrence": "passage2",
+                              "reference_nomination": "object1",
+                              "scope": "named", "text0": "include", "scope0": "exclude", "scope1": "include",
+                              "reference_intent": "different_page" if graph_reference == "different_page" else "place_existing",
+                              "object1": "include", "object2": "exclude",
+                              "reference_kind_constraint": "requires_or_excludes_type",
+                              "reference_kind": "other_kind" if graph_reference == "wrong_kind" else "class1"}[name]
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                                         probabilities={key: float(key == chosen) for key in choices})
+                    continue
                 chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else (source_need(writer.adapter.request.message) if callable(source_need) else source_need) if name=='source_need'
                     else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else "read" if read_optional_page and name.startswith("related_page_")
+                    else {"paragraph_work": f"explicit_{contextual}" if contextual in {"page_end", "page_body"} else "place_paragraph",
+                          "paragraph_destination": "different_page" if contextual == "different" else "current_page",
+                          "paragraph_insertion_location": "unstated",
+                          "paragraph_relation": "unresolved" if contextual == "caret" else "after",
+                          "paragraph_scope": "unscoped" if contextual in {"ambiguous", "caret"} else "named",
+                          "paragraph_text0": "exclude" if contextual == "caret" else "include", "paragraph_scope0": "exclude",
+                          "paragraph_scope1": "include" if contextual in {"unique", "mixed", "different"} else "exclude"}[name]
+                    if name.startswith("paragraph_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
@@ -415,14 +681,23 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     "working_draft_context": {"draft_markdown": draft.snapshot.draft_markdown},
                 })
             elif with_draft:
-                assert work['current_draft']['markdown']==draft.snapshot.draft_markdown
+                expected_draft = draft.snapshot.draft_markdown
+                if reference_image:
+                    expected_draft = expected_draft.replace(
+                        f"![Other artwork](dmb-media:{wrong['asset_id']})", "[Image: Other artwork]",
+                    ).replace(
+                        f"![Bath house map](dmb-media:{asset['asset_id']})", "[Image: Bath house map]",
+                    )
+                    assert all(str(row['asset_id']) not in req.content.decode() for row in (asset, wrong))
+                assert work['current_draft']['markdown'] == expected_draft
                 if mode:
-                    assert body['input'].count(json.dumps(draft.snapshot.draft_markdown,ensure_ascii=False)[1:-1])==1
+                    assert body['input'].count(json.dumps(expected_draft, ensure_ascii=False)[1:-1]) == 1
                 else:
-                    assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
+                    assert sum(expected_draft in row['content'] for row in body['input']) == 1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only'
+                    or image_move == "other_discussion"
                     or current_work in {"review_lore_page", "review_lore_page_from_conversation"})
             assert 'DISPLAY ONLY' not in str(frame)
             if saved_statblock:
@@ -449,7 +724,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if saved:
                 assert read_ids and 'A proposed conversation.' in str(work)
             if mode:
-                candidate=dict(destination='current_page',target='captured',replacement_markdown=proposal_markdown or 'A proposed copper lamp.',
+                target = contextual if contextual in {"page_end", "page_body"} else "prose_target" if contextual else "captured"
+                candidate=dict(destination='current_page',target=target,replacement_markdown=proposal_markdown or 'A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
                 if failure == 'target_unavailable' and len(self.calls) == 1:
                     candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
@@ -469,6 +745,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if image_move == "other_discussion":
+                candidate["answer_segments"] = [
+                    dict(kind="discussion", text="The image would sit to the right of the nearby material."),
+                ]
             if saved_statblock in {"associated", "by-name"}:
                 candidate["answer_segments"] = [dict(kind="statblock_pdf_claim",
                     source="pdf0:0", quote="Hit Points 41")]
@@ -656,16 +936,51 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         graph_request=dict(mode='world', world_id=world, campaign_id=None, revision_pin=None,
             focus=dict(kind='none', session_id=None, campaign_id=None)), graph_selection=None,
         build_authored_references=None if saved_statblock == 'by-name' or failure == 'deferred_graph_citation' else selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
+    if image_move:
+        from application_state.build_proposal.image_move_decision import BuildImageMoveCapture
+        from tests.application_state.test_agent_conversation_postgres import _new
+
+        service = AgentConversationService()
+        conversa = _new(service, world)
+        pointer = service.get_world_pointer(world)
+        capture = BuildImageMoveCapture(
+            basis=dict(world_id=world, document_id=page.document_id, registry_revision=source.loaded_revision,
+                       content_sha256=source.content_sha256, draft_sha256=source.content_sha256,
+                       editor_sha256=sha256(image_editor.encode()).hexdigest(), visibility="internal",
+                       draft_generation=0, selection_generation=0, caret=1),
+            editor_json=image_editor, conversation_id=conversa.conversation_id, expected_pointer_revision=pointer.revision,
+        )
+        body["build_image_move_capture"] = capture.model_dump(mode="json")
+        if image_move == "foreign_capture":
+            body["build_image_move_capture"]["basis"]["world_id"] = "foreign-world"
+        elif image_move == "forged_editor":
+            edited = image_editor.replace("Harbour map", "Forged map")
+            body["build_image_move_capture"]["editor_json"] = edited
+            body["build_image_move_capture"]["basis"]["editor_sha256"] = sha256(edited.encode()).hexdigest()
+        body["build_authored_references"] = None
     if draft is not None:
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
     if proposal or capture_write:
         from application_state.build_proposal.types import BuildWriteCapability
+        offers = {}
+        caret = 1
+        if contextual == "caret":
+            from application_state.agent_conversation.plan_slot_layout import prose_editor_node_size
+
+            before_caret = json.loads(editor_json)["content"][:2]
+            caret = sum(prose_editor_node_size(node) for node in before_caret) - 1
+        if contextual in {"page_body", "page_end"}:
+            from application_state.agent_conversation.plan_slot_layout import prose_editor_node_size
+
+            end = sum(prose_editor_node_size(node) for node in json.loads(editor_json)["content"])
+            offers = {"page_end_offer": {"end": end}, "page_body_offer": {"end": end}}
         cap=BuildWriteCapability(idempotency_key=uuid4(),conversation_id=draft.conversation_id,
             expected_pointer_revision=draft.expected_pointer_revision,draft_markdown=draft.snapshot.draft_markdown,
+            boundary_editor_json=editor_json,
             basis=dict(**{k:getattr(draft.snapshot,k) for k in ('world_id','document_id','registry_revision',
                 'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},
-                caret=1,selection_generation=0))
+                caret=caret,selection_generation=0), **offers)
         body['build_write_capability']=cap.model_dump(mode='json')
         if reference_image:
             body['build_write_capability']['reference_image_id'] = str((wrong if reference_image == 'wrong_same_page' else asset)['asset_id'])
@@ -892,7 +1207,138 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert original==failed
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
+    if contextual == "stale":
+        save_page(tmp_path, page.document_id, source.markdown + "\nA newer saved paragraph.\n")
+    elif contextual == "foreign":
+        body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    if image_move and failure != "discussion_source_tie":
+        from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
+        from application_state.errors import ApplicationStateNotFoundError
+
+        if image_move == "other_discussion":
+            assert response.status_code == 200, response.text
+            context = response.json()["knowledge_context"]
+            assert context["completion"]["schema"] != "dmb_build_image_move_completion_v1"
+            assert "The image would sit to the right" in str(context["completion"])
+            assert len(writer.calls) == 1
+            with pytest.raises(ApplicationStateNotFoundError):
+                BuildImageMoveReviewService().get(world, writer.adapter.turn.turn_id)
+            counts = len(decisions.calls), len(writer.calls)
+            replay = client.post("/api/live/agent/turn", json=body)
+            assert replay.status_code == 200 and replay.json()["knowledge_context"]["delivery_replay"] is True
+            assert (len(decisions.calls), len(writer.calls)) == counts
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            assert lane.repo.get_head(world).head_revision_id == current_revision
+            return
+        if image_move in {"foreign_capture", "forged_editor"}:
+            assert response.status_code == (422 if image_move == "foreign_capture" else 409), response.text
+            assert not decisions.calls and not writer.calls
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
+        assert response.status_code == 200, response.text
+        completion = response.json()["knowledge_context"]["completion"]
+        expected = {"tied_menu": "ready", "duplicate_context": "ready",
+                    "other_discussion_tied_work": "discussion"}.get(image_move, image_move)
+        assert completion["disposition"] == expected
+        turn_id = writer.adapter.turn.turn_id
+        if expected == "ready":
+            review = BuildImageMoveReviewService().get(world, turn_id)
+            assert completion["action_id"] == str(turn_id) and review.state == "editing"
+            assert review.placement.image_block_id == "map-block"
+            assert review.placement.destination_slot_id == "right-slot"
+            feed = client.get(f"/api/live/agent/worlds/{world}/conversations/active/messages")
+            assert feed.status_code == 200, feed.text
+            row = next(row for row in feed.json()["messages"] if row["turn_id"] == str(turn_id))
+            assert row["reply_object"] == {
+                "kind": "build_image_move", "placement_sha256": completion["placement_sha256"],
+                "source": {"world_id": world, "conversation_id": str(review.conversation_id),
+                           "document_id": page.document_id, "turn_id": str(turn_id), "surface_id": "build"},
+            }
+            endpoint = f"/api/live/agent/worlds/{world}/build-image-moves/{turn_id}/review"
+            fetched = client.get(endpoint)
+            assert fetched.status_code == 200 and fetched.json() == {
+                "review": review.model_dump(mode="json"), "issued": False,
+            }
+            modified = json.loads(image_editor)
+            left, right = modified["content"][0]["content"]
+            right["content"] = [left["content"].pop()]
+            if not left["content"]:
+                del left["content"]
+            claim = {"operation": "claim", "expected_revision": review.revision, "claim_id": str(uuid4()),
+                     "editor_json": image_editor, "after_editor_json": json.dumps(modified)}
+            invalid = client.post(endpoint, json={**claim, "after_editor_json": image_editor})
+            assert invalid.status_code == 409, invalid.text
+            claimed = client.post(endpoint, json=claim)
+            assert claimed.status_code == 200 and claimed.json()["issued"], claimed.text
+            duplicate = client.post(endpoint, json=claim)
+            assert duplicate.status_code == 200 and duplicate.json() == claimed.json() | {"issued": False}, duplicate.text
+            premature = client.post(endpoint, json={"operation": "confirm", "claim_id": claim["claim_id"]})
+            assert premature.status_code == 409, premature.text
+        else:
+            assert completion["action_id"] is None
+            with pytest.raises(ApplicationStateNotFoundError):
+                BuildImageMoveReviewService().get(world, turn_id)
+        replay = client.post("/api/live/agent/turn", json=body)
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["knowledge_context"]["completion"] == completion
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 1
+        assert not writer.calls
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        return
+    if graph_reference:
+        from application_state.build_proposal.graph_reference_review import BuildGraphReferenceReviewService
+        from application_state.errors import ApplicationStateNotFoundError
+
+        store = BuildGraphReferenceReviewService()
+        if graph_reference == "remapped_inventory":
+            assert response.status_code == 503, response.text
+            assert len(decisions.calls) == 2 and not writer.calls
+            with pytest.raises(ApplicationStateNotFoundError):
+                store.get(world, writer.adapter.turn.turn_id)
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
+        assert response.status_code == 200, response.text
+        completion = response.json()["knowledge_context"]["completion"]
+        assert completion["disposition"] == graph_reference
+        assert len(decisions.calls) == 2 and not writer.calls
+        turn = writer.adapter.turn
+        assert turn.status == "completed"
+        if graph_reference == "ready":
+            review = store.get(world, turn.turn_id)
+            assert completion["action_id"] == str(review.action_id)
+            assert review.state == "editing" and review.placement.reference == selected.references[0]
+        else:
+            assert completion["action_id"] is None
+            with pytest.raises(ApplicationStateNotFoundError):
+                store.get(world, turn.turn_id)
+        messages = client.get(f"/api/live/agent/worlds/{world}/conversations/active/messages")
+        assert messages.status_code == 200, messages.text
+        saved = next(row for row in messages.json()["messages"] if row["turn_id"] == str(turn.turn_id))
+        if graph_reference == "ready":
+            assert saved["reply_object"] == {
+                "kind": "build_graph_reference", "placement_sha256": completion["placement_sha256"],
+                "source": {"world_id": world, "conversation_id": str(turn.conversation_id),
+                           "document_id": page.document_id, "turn_id": str(turn.turn_id), "surface_id": "build"},
+            }
+        else:
+            assert saved["reply_object"] is None
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        replay = client.post('/api/live/agent/turn', json=body)
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["knowledge_context"]["completion"] == completion
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 2
+        return
+    if contextual in {"stale", "foreign"}:
+        from application_state.build_proposal.service import BuildProposalService
+
+        assert response.status_code == (409 if contextual == "stale" else 422), response.text
+        assert not decisions.calls and not writer.calls
+        assert BuildProposalService().list(world, cap.conversation_id) == []
+        committed = get_workspace_document_snapshot(tmp_path, page.document_id)
+        assert committed.markdown == (source.markdown + "\nA newer saved paragraph.\n"
+                                      if contextual == "stale" else source.markdown)
+        return
     if failure in {"deferred_settlement_drift", "deferred_provider_failure"}:
         from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
         assert response.status_code == 503, response.text
@@ -987,6 +1433,16 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert not decisions.calls and not writer.calls and not classic_calls
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
+    if failure == "discussion_source_tie":
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == {
+            "code": "build_discussion_source_uncertain",
+            "message": "Should I answer from this Page alone, or look for other sources?",
+        }
+        assert len(decisions.calls) == 1 and not writer.calls and not classic_calls
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        assert lane.repo.get_head(world).head_revision_id == current_revision
         return
     if failure in {'section_scope','selection_text'}:
         assert response.status_code==503,response.text
@@ -1091,6 +1547,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert not writer.calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
+    if contextual in {"ambiguous", "missing", "different"}:
+        from application_state.build_proposal.service import BuildProposalService
+
+        assert response.status_code == 409, response.text
+        detail = response.json()["detail"]
+        assert detail["code"] == "build_contextual_placement_unresolved"
+        assert {
+            "ambiguous": "appears more than once",
+            "missing": "in the requested section",
+            "different": "names a different page",
+        }[contextual] in detail["message"]
+        assert len(decisions.calls) == 1 and not writer.calls
+        assert BuildProposalService().list(world, cap.conversation_id) == []
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        return
     assert response.status_code == 200, response.text + str(classic_calls)
     assert not classic_calls and len(writer.calls) == 1
     payload = response.json()
@@ -1145,7 +1616,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         captured = next(e for e in turn.graph_context_execution.events if isinstance(e,t.BuildDraftContextCapturedV1))
         assert captured.record.snapshot==draft.snapshot
         assert captured.sequence < next(e.sequence for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
-        assert all('unsaved orchid' not in req.content.decode() for req in decisions.calls)
+        if contextual:
+            assert "unsaved orchid" in decisions.calls[0].content.decode()
+            assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[1:])
+            assert all("boundary_editor_json" not in req.content.decode() for req in decisions.calls)
+        else:
+            assert all('unsaved orchid' not in req.content.decode() for req in decisions.calls)
     assert not any(isinstance(e,(t.BuildDraftProviderInclusionV1,t.BuildSectionProviderInclusionV1))
         for e in turn.graph_context_execution.events)
     captures = [event for event in turn.graph_context_execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
@@ -1169,6 +1645,23 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         else:
             record=BuildProposalService().get(world,cap.idempotency_key)
             assert record.state=='proposed' and record.proposal.replacement_markdown==(proposal_markdown or 'A proposed copper lamp.')
+            if contextual in {"unique", "mixed"}:
+                assert record.reservation.prose_target.alias == "passage2:insert_after"
+                assert record.reservation.basis.caret == 1
+                assert record.reservation.prose_target.operation == "insert_after"
+                packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+                assert packet["paragraph_placement"]["section"] == ["East"]
+            if contextual == "caret":
+                assert record.reservation.prose_target.alias == "passage1:insert_after"
+                assert record.reservation.prose_target.from_ == caret + 1
+                assert record.reservation.basis.caret == caret
+                packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+                assert packet["paragraph_placement"]["section"] == ["West"]
+            if contextual in {"page_end", "page_body"}:
+                assert record.proposal.target == contextual
+                assert record.reservation.basis.caret == 1
+                packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+                assert not {"page_body_offer", "page_end_offer"} & packet.keys()
             authorization=record.authorization
             assert context['completion']['schema']=='dmb_build_authoring_completion_v1'
         assert context['completion']['action_id']==str(record.action_id)
@@ -1200,8 +1693,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
         if proposal_markdown is not None:
-            assert record.reservation.basis.caret == 1
-            edited = proposal_markdown + "\n\n" + draft.snapshot.draft_markdown
+            assert record.reservation.basis.caret == caret
+            if contextual == "caret":
+                before, protected_note, after = draft.snapshot.draft_markdown.partition("> [!GM-NOTE] Keep hidden")
+                assert protected_note
+                edited = before + proposal_markdown + "\n\n" + protected_note + after
+            else:
+                edited = proposal_markdown + "\n\n" + draft.snapshot.draft_markdown
             save_page(tmp_path, page.document_id, edited)
             reopened = get_workspace_document_snapshot(tmp_path, page.document_id)
             assert reopened.markdown == edited
@@ -1646,6 +2144,35 @@ def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(l
 @pytest.mark.parametrize('selection',['section','full_document','source_only'])
 def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(lane,tmp_path,monkeypatch,selection):
     _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source=selection)
+
+
+def test_ordinary_build_source_status_guidance_reaches_the_provider(lane, tmp_path, monkeypatch):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+                       authored_source="full_document")
+    assert len(case.writer.calls) == 1
+    request = json.loads(case.writer.calls[0].content)
+    assert "next-session pickup or resume instruction" in request["instructions"]
+    assert "Report supported completed events as completed" in request["instructions"].replace("\n", " ")
+    assert case.turn.completion is not None
+
+
+def test_ordinary_build_projects_managed_images_in_both_sdk_requests(lane, tmp_path, monkeypatch):
+    asset = "5086d264-54f6-4411-846b-a59cbf0abcde"
+    image = f"![Harbor survey](dmb-media:{asset})"
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        native_body="direct_support",
+        native_source_text=f"# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode.\n{image}\n",
+    )
+    decisions = [request.content.decode() for request in case.decisions.calls]
+    writers = [request.content.decode() for request in case.writer.calls]
+    assert any("[Image: Harbor survey]" in request for request in decisions)
+    assert len(writers) == 1 and "[Image: Harbor survey]" in writers[0]
+    assert all(asset not in request for request in decisions + writers)
+    from application_state.agent_conversation.native_corpus import acquired_body_reads
+    reads = acquired_body_reads(case.turn.graph_context_execution)
+    assert any(image in read.excerpt.text for read in reads)
+    assert case.turn.completion.native_body_citations
 
 
 def test_build_dialogue_cache_checks_same_revision_storage_drift(lane, tmp_path, monkeypatch):
@@ -2500,14 +3027,18 @@ def test_anchored_lore_label_on_eager_graph_route_preserves_related_context(lane
     assert not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events)
 
 
-@pytest.mark.parametrize("carry", [None, "anchored", "uncertain"])
-def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry):
+@pytest.mark.parametrize("carry,synthesis", [
+    (None, "Create a page for Glass Regent."),
+    ("anchored", "Create a page for Glass Regent."),
+    ("uncertain", "Create a page for Glass Regent."),
+    ("anchored", "Create the page about Glass Regent"),
+])
+def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path, monkeypatch, carry, synthesis):
     from application_state.agent_conversation.native_corpus import acquired_body_reads
 
     from evals.buddy_benchmark import workflow
 
     thread_id, template = str(uuid4()), {}
-    synthesis = "Create a page for Glass Regent."
 
     def first(client, world, body):
         body["client_thread_id"] = thread_id

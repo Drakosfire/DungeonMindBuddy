@@ -72,6 +72,15 @@ Test required migrations against the restored copies. Before applying them to pr
 
 Provision a protected Compose environment file outside the checkout with the variables required by the [production Compose example](../../deploy/production/compose.production.yaml). Use the approved DMS HTTPS origin, trust `https://buddy.dungeonmind.net`, and configure the approved World assignments and both database URLs. Set the private statblock API origin as reachable from the Buddy container and put its internal API key in this same protected file. Host loopback inside the container is the container itself. Set `BUDDY_PERSISTENT_ROOT` to the absolute path of the approved durable host directory. Create its `managed`, `artifacts`, `sessions`, and `worldgraph` directories with access for container UID/GID 10001.
 
+Guest release switches are independent and default to `0`. When the approved
+deployment must serve and prepare the Sizzek guest copy, set
+`DMB_GUEST_RELEASE_ENABLED=1`, `DMB_GUEST_RELEASE_PREPARE_ENABLED=1`, and
+`DMB_GUEST_RELEASE_PUBLIC_ENABLED=1` in the protected Compose environment file.
+Preserve these settings in each release's effective container configuration;
+the guest-enabled frontend build alone does not enable the backend routes.
+Before a recreation, verify the selected Compose configuration and, after it,
+check the anonymous public manifest and an anonymous private-World denial.
+
 For PDF extraction, run the GenerationEngine private OCR worker at
 `3e4f34ee5e6c99517c0cb7163d782a7695199071` on the approved GPU host. Record
 the CUDA environment, GPU UUID, checkpoint revision and checksums, and private

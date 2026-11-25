@@ -70,13 +70,15 @@ export function WarmWorldGraphProvider({ worldId, children }: {
   </WarmWorldGraph.Provider>;
 }
 
-export function ManagedWorldGraph({ worldTitle, stateScopeId }: {
-  readonly worldTitle: string; readonly stateScopeId: string;
+export function ManagedWorldGraph({ worldTitle, stateScopeId, openBuildHref }: {
+  readonly worldTitle: string;
+  readonly stateScopeId: string;
+  readonly openBuildHref: string;
 }) {
   const auth = useHostedAuthStatus();
   const api = useContext(WarmWorldGraph);
   return api
-    ? <NativeGraphDemo api={api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} entityOnlyDetails={auth.status === "authenticated"} readOnly={auth.status === "authenticated"} />
+    ? <NativeGraphDemo api={api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} openBuildHref={openBuildHref} entityOnlyDetails={auth.status === "authenticated"} readOnly={auth.status === "authenticated"} />
     : <main className="app-status" role="status">Loading World graph…</main>;
 }
 

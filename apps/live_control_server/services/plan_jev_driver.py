@@ -63,8 +63,6 @@ class PlanJevDriver:
                 f"saved-statblock:{index}": entry for index, entry in enumerate(entries)
             }
         self.finished = False
-        self.continuation_candidates = None
-        self.continuation_reviewed = False
         self.calls = []
         self.gaps = []
         self.current = None
@@ -141,7 +139,7 @@ class PlanJevDriver:
             )
         )
 
-    def offered(self):
+    def offered(self, *, object_catalog=None):
         if self.finished or self._variant_approval():
             return ()
         if self._anchored_variant_draft():
@@ -164,7 +162,7 @@ class PlanJevDriver:
         from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
         query = getattr(self.adapter, 'native_query', None)
         if isinstance(query, NativeGraphQueryV4):
-            result.extend(self._native_object_candidates())
+            result.extend(self._native_object_candidates(catalog=object_catalog))
         elif isinstance(query, NativePlanQueryV1):
             result.extend(RetrievalCandidate(handle=selection_handle(query, match), label=match.label,
                 kind='Qualified native source statement; select to open its complete attributed support')
@@ -224,11 +222,11 @@ class PlanJevDriver:
         return self._apply_admitted(dispatch, dispatch.selection)
 
     def apply_opening(self, dispatch):
-        from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
-        from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
+        from application_state.agent_conversation.native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES
+        from application_state.agent_conversation.native_execution import NATIVE_PLAN_OPENING_SELECTION_TYPES
         event = dispatch.selection_event
-        if (self.finished or self.current is not None or type(dispatch.parent) is not NativePlanOpeningInputV1
-                or type(event) is not NativePlanOpeningSelectedV1 or event.operation is None
+        if (self.finished or self.current is not None or type(dispatch.parent) not in NATIVE_PLAN_OPENING_INPUT_TYPES
+                or type(event) not in NATIVE_PLAN_OPENING_SELECTION_TYPES or event.operation is None
                 or current_selection(self.adapter.fence.turn).event_id != event.event_id):
             raise ValueError('Opening acquisition requires its actual active atomic selection')
         self._refresh_related_catalog()  # Actual work now narrows conditional metadata.
@@ -352,12 +350,6 @@ class PlanJevDriver:
             turn = self.adapter.fence.turn
             if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
                     admitted.event_id) is not None:
-                if not self.continuation_reviewed:
-                    continuation = self.native_sources.continuation_offers()
-                    if continuation:
-                        self.continuation_reviewed = True
-                        self.continuation_candidates = {candidate.handle for candidate in continuation}
-                        return
                 from uuid import uuid4
                 self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
                     event_id=uuid4(), selection_event_id=admitted.event_id)
@@ -635,11 +627,12 @@ class PlanJevDriver:
         if unavailable:
             self.gaps.append(f"native_{record_kind}_support_unavailable")
 
-    def _native_object_candidates(self, *, examined=False, opened=()):
+    def _native_object_candidates(self, *, examined=False, opened=(), catalog=None):
         from application_state.agent_conversation.native_plan_assertions import object_record_catalog
-        query = self.adapter.native_query
+        if catalog is None:
+            catalog = object_record_catalog(self.adapter.native_query)
         result = []
-        for unit in object_record_catalog(query).units:
+        for unit in catalog.units:
             statement_ids, assertion_ids = unit.statement_ids, unit.assertion_ids
             if not statement_ids and not assertion_ids:
                 continue  # Query gap codes retain unavailable/empty discovery status.
@@ -654,7 +647,7 @@ class PlanJevDriver:
                     'Native Graph object; open its complete admitted statement and assertion support')))
         return tuple(result)
 
-    def _native_object_examined(self):
+    def _native_object_examined(self, *, catalog=None):
         """Navigation only after both record families settle under the frozen owner."""
         from application_state.agent_conversation.native_plan_assertions import (
             NativeGraphQueryV4, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1)
@@ -665,7 +658,9 @@ class PlanJevDriver:
         if a.fence is None or not isinstance(getattr(a, 'native_query', None), NativeGraphQueryV4):
             return ()
         receipt, execution = a.fence.turn.graph_context_receipt, a._broker_execution()
-        validate_execution_binding(receipt, execution)
+        verified = getattr(a.fence, 'matches_verified_plan_execution', None)
+        if verified is None or verified(receipt, execution) is not True:
+            validate_execution_binding(receipt, execution)
         from application_state.agent_conversation.native_execution import effective_native_query
         if effective_native_query(receipt, execution).sha256 != a.native_query.sha256:
             raise ValueError('Native controller query differs from its frozen receipt')
@@ -685,7 +680,7 @@ class PlanJevDriver:
             assertion = field == 'assertion_ids'
             opened.update((assertion, r.assertion.assertion_id if assertion else r.support.statement_id)
                 for e in observed for r in e.reads)
-        return self._native_object_candidates(examined=True, opened=opened)
+        return self._native_object_candidates(examined=True, opened=opened, catalog=catalog)
 
     def _native_assertion_examined(self):
         from application_state.agent_conversation.native_plan_assertions import (
@@ -774,21 +769,28 @@ class PlanJevDriver:
                 if isinstance(event, BuildSavedStatblockReadV1) and event.handle in self.saved_statblocks
             )
         examined.extend(self.native_sources.examined())
-        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
-        if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
-            examined.extend(self._native_object_examined())
+        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4, object_record_catalog
+        query = getattr(self.adapter, 'native_query', None)
+        object_catalog = None
+        if isinstance(query, NativeGraphQueryV4):
+            if self.adapter.fence is not None:
+                object_catalog = object_record_catalog(query)
+            examined.extend(self._native_object_examined(catalog=object_catalog))
         else:
             examined.extend(self._native_statement_examined())
             examined.extend(self._native_assertion_examined())
-        candidates = self.offered()
-        if self.continuation_candidates is not None:
-            candidates = tuple(candidate for candidate in candidates
-                               if candidate.handle in self.continuation_candidates)
-            operations = ('select_candidates', 'finish_retrieval')
+        candidates = self.offered() if object_catalog is None else self.offered(object_catalog=object_catalog)
         return dict(candidates=candidates, dialogue=self.dialogue,
             examined_candidates=examined, allowed_operations=operations)
 
     async def run(self, *, transport=None, api_key=None):
+        from application_state.agent_conversation.plan_contextual_targets import is_question
+        fence = getattr(self.adapter, 'fence', None)
+        if fence is not None and is_question(fence.turn.graph_context_execution):
+            if self.current is not None:
+                raise ValueError('Question-only work cannot carry an active retrieval dispatch')
+            self.finished = True
+            return self.proof()
         if self.finished:
             return self.proof()
         trace = getattr(self.adapter, "trace", None)
@@ -856,8 +858,8 @@ class PlanJevDriver:
         if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanAuthoringPolicyV1):
             capture = a.request.plan_authoring_capture
             if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanPlacementAuthoringPolicyV1):
-                from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1
-                from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
+                from application_state.agent_conversation.plan_authoring import parse_opening_capture
+                from application_state.agent_conversation.plan_placement import decode_plan_placement_catalog
                 choices=[event for event in a.fence.turn.graph_context_execution.events
                     if isinstance(event,t.PlanRequestedWorkSelectedV2)]
                 if len(choices)!=1:
@@ -865,10 +867,10 @@ class PlanJevDriver:
                 choice=choices[0]
                 proof['original_authoring_capture']=choice.original_capture
                 proof['placement_catalog']=choice.placement_catalog
-                capture=PlanAuthoringCaptureV1.model_validate(choice.original_capture) if choice.original_capture is not None else None
+                capture=parse_opening_capture(choice.original_capture) if choice.original_capture is not None else None
                 if choice.requested_work=='write_current_page':
                     if capture is None or choice.placement_catalog is None or choice.placement_selector is None:
                         raise ValueError('Plan writing has no resolved offered target')
-                    capture=PlanPlacementCatalogV1.model_validate(choice.placement_catalog).resolve(capture,choice.placement_selector)
+                    capture=decode_plan_placement_catalog(choice.placement_catalog).resolve(capture,choice.placement_selector)
             proof['authoring_capture']=(capture.model_dump(mode='json',by_alias=True) if capture is not None else None)
         return proof

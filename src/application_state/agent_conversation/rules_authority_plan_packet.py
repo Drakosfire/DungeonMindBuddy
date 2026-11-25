@@ -311,7 +311,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     evidence = verify_input_records(receipt,graph_execution,writer,prepared_request_json,
         provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
         world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
-        play_context_receipt=play_context_receipt)
+        play_context_receipt=play_context_receipt, retained_build_proof=allow_retained_format)
     scope, action = execution.scope, graph_execution.policy.action
     capability = rules_capability(graph=True)
     if (execution.state != 'active'
@@ -329,14 +329,19 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     body, frame, outputs, supports = packet_input_records(execution,prepared_request_json,
         expected_envelope_sha256=expected_envelope_sha256,allow_build=isinstance(action,NativeBuildActionV1))
     from .build_intentional_response import selected_action
-    operation=selected_action(graph_execution).operation if isinstance(action,NativeBuildActionV1) else None
+    selected=selected_action(graph_execution) if isinstance(action,NativeBuildActionV1) else None
+    operation=selected.operation if selected is not None else None
     creative=operation in {'propose_build_insertion','prepare_build_image'}
     if creative:
-        from application_state.build_proposal.types import BuildComposeOutput,ImageDirectionV2
+        from application_state.build_proposal.types import BuildComposeOutput, BuildProseBoundaryOutput, ImageDirectionV2
         if execution.budget_use.calls or execution.supports or frame.lookups:
             raise ValueError('Used Rules cannot be silently omitted from Build authoring')
+        placement = getattr(selected, "paragraph_placement", None)
+        schema = ImageDirectionV2 if operation == "prepare_build_image" else BuildComposeOutput
+        if operation == "propose_build_insertion" and placement is not None and placement.target is not None:
+            schema = BuildProseBoundaryOutput
         output_format=dict(type='json_schema',name='build_image_direction' if operation=='prepare_build_image' else 'build_document_proposal',
-            schema=(ImageDirectionV2 if operation=='prepare_build_image' else BuildComposeOutput).model_json_schema(),strict=True)
+            schema=schema.model_json_schema(),strict=True)
     else:
         # Historical grammar is read-only: fresh admission never opts into it.
         retained = (allow_retained_format and body.get('text', {}).get('format', {}).get('name')
@@ -373,7 +378,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
             ):
                 version = 7
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
-            build_local=evidence.build_local,format_version=version)
+            build_local=evidence.build_local,format_version=version,execution=graph_execution)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

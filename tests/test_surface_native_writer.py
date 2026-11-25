@@ -1022,3 +1022,71 @@ def test_writer_section_vote_recovers_bounded_passage_from_covering_read():
     assert (extent.byte_start, extent.byte_end) == (section.byte_start, section.byte_end)
 
     assert bodies.writer_passage_supports(SimpleNamespace(events=(search, full_read)), lambda _: "unused") == ()
+
+
+def test_compact_plan_graph_prose_keeps_facts_and_nonempty_qualifications():
+    from application_state.agent_conversation.native_evidence_view import render_plan_evidence
+
+    qualifications = {
+        'q0': dict(claim_mode='dungeonbuddy.claim:observed_event', domain_metadata=[],
+                   epistemic_basis='asserted', standing='provisional'),
+        'q1': dict(claim_mode='other:report', domain_metadata=[{'source': 'a narrated plan'}],
+                   standing='asserted'),
+    }
+    frame = dict(
+        input_status='complete', user_question='What happened?',
+        native_body_evidence={'source_access': 'available', 'excerpts': []},
+        native_statements={'statements': []},
+        native_assertions={
+            'qualifications': qualifications,
+            'assertions': [
+                {'assertion_handle': 'assertion0', 'assertion': {
+                    'qualification': 'q0', 'subject': 'party', 'predicate': 'graph:visited',
+                    'value': {'kind': 'entity_ref', 'entity': 'Forest'},
+                }},
+                {'assertion_handle': 'assertion1', 'assertion': {
+                    'qualification': 'q1', 'subject': 'party', 'predicate': 'graph:planned',
+                    'value': {'kind': 'entity_ref', 'entity': 'Village'},
+                }},
+            ],
+        },
+    )
+    work = dict(committed_plan_blocks=[], session_evidence=[], dialogue_reference=[])
+    retained = render_plan_evidence(frame, work)
+    compact = render_plan_evidence(frame, work, compact_graph_qualifications=True)
+    assert compact == retained.replace(
+        'claim mode: dungeonbuddy.claim:observed_event; domain metadata: ; ',
+        'claim mode: observed_event; ',
+    )
+    assert '[assertion0] party · visited · Forest' in compact
+    assert 'other:report; domain metadata: source: a narrated plan' in compact
+    assert qualifications['q0']['domain_metadata'] == []
+    assert render_plan_evidence(frame, work) == retained
+
+
+def test_plan_recap_deduplication_preserves_source_labels_and_historical_prose():
+    from application_state.agent_conversation.native_evidence_view import render_plan_evidence
+
+    def excerpt(handle, name, text, **fields):
+        return dict(excerpt_handle=handle, source_name=name, line_start=1,
+                    campaign_scope="Longmont", session_scope=None, text=text) | fields
+
+    excerpts = [
+        excerpt("body1", "Session 23 recap", "The party returned.\n", session_scope=23),
+        excerpt("body2", "Undated recap", "The party returned. \n"),
+        excerpt("body3", "GM prep", "The party returned.\n", planning_line_ranges=[(1, 1)]),
+        excerpt("body4", "Other campaign", "The party returned.\n", campaign_scope="Other"),
+        excerpt("body5", "Hard break", "The party returned.  \n"),
+    ]
+    frame = dict(input_status="complete", user_question="What happened?",
+                 native_body_evidence=dict(source_access="available", excerpts=excerpts),
+                 native_statements=dict(statements=[]), native_assertions=None)
+    work = dict(committed_plan_blocks=[], session_evidence=[], dialogue_reference=[])
+    historical = render_plan_evidence(frame, work)
+    compact = render_plan_evidence(frame, work, deduplicate_recap_prose=True)
+
+    assert compact == historical.replace(
+        "[body2] Undated recap\nThe party returned. \n",
+        "[body2] Undated recap · Same passage as [body1].",
+    )
+    assert render_plan_evidence(frame, work) == historical

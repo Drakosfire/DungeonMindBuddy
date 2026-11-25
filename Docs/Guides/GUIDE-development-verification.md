@@ -31,6 +31,45 @@ Database contracts require the disposable, uniquely owned isolation described
 in [AGENTS.md](../../AGENTS.md#local-verification-standard-and-hosted-pause).
 Never use operator or live data as test fixtures.
 
+Database CI uses one owned App clone for the complete serial workstream, including
+retries. Local runs must receive `DMB_CI_APP_OWNER_FILE` (the active owner receipt)
+and `DMB_CI_APP_DATABASE_URL` privately in their environment. The receipt pins the
+loopback endpoint, database name, OID and cluster identity and records owner,
+role and cleanup state. There is no operator database or default-port fallback.
+The owner retains the clone until the result is accepted or abandoned; a pytest
+fixture borrowing it never drops it. After an interruption, inspect the existing
+receipt and workers before starting another run. Reuse the existing read-only
+Core snapshot for cases that need Core; these fixtures allocate no Core database.
+
+Run related named contracts in one command, for example:
+
+```sh
+python scripts/ci_contract.py run world-and-content ingestion-and-review query-and-answer saved-page-readers
+```
+
+The aggregate runner holds the owner around every selected suite, runs them
+serially even if an earlier suite fails, and returns the first failure. It waits
+for the exact worker process group to close before returning to its owner. The
+App fixture prepares a migrated pristine dump once per pytest session and resets
+that same database before and after each case. A lock refuses overlapping cases
+or pytest sessions, and open connections refuse a reset. Predecessor migrations,
+empty-schema bootstrap and recovery rehearsals use serial empty states in that
+same owned database. Recovery saves the expected fingerprint and offline backup
+before reset, then proves restored output/parity; it does not claim simultaneous
+live source/target physical isolation. Product same-source and World guards stay
+unchanged. Bootstrap's database-creation decision is tested by mocked dispatch;
+real empty-schema migration and readback are tested on the owned App database.
+
+Ephemeral GitHub jobs set `DMB_CI_APP_TEMPLATE_DATABASE` to their explicit App
+seed, `DMB_APPLICATION_STATE_TEST_DATABASE_URL` to the loopback maintenance
+endpoint, and `DMB_CI_WORKSTREAM_ROOT` to their job output directory. The runner
+uses the repo-owned disposable helper once around the aggregate job, records
+acceptance or abandonment, closes workers/connections, and verifies exact clone
+removal. No per-case clones or full contents inventory scans are used. Install
+matching PostgreSQL clients on PATH; local checks may use isolated task-local
+clients. Keep the ownership receipt and qualifying output, parity, latency and
+failure evidence; omit credentials and connection strings from reports.
+
 ## Frontend and exact-source evidence
 
 The [frontend guide](../../apps/live-control-ui/README.md#commands) lists local

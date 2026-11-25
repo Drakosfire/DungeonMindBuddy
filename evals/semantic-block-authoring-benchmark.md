@@ -23,8 +23,11 @@ taking the fixture snapshots:
   from Arrival to Departure through the supported authoring flow. For P03 use
   the marked Arrival scene card itself as the selected card body. Pin both
   scene IDs and the edge, and verify the editor exposes the selected body
-  before sending. Adopt separate copies for Play. PL02 adopts the saved P01
-  result while preserving its role markers.
+  before sending. Adopt separate copies for Play. For PL02, adopt the saved
+  P01 result and remove the older First sight callout from the Play session
+  copy. Keep the new Read Aloud, private GM Note, and all playable markers.
+  Save and reopen the copy before asking Buddy. The parent Plan retains both
+  passages.
 - **G01:** Create a Location called Sealed Tower in the disposable Graph
   through its supported review flow. Pin the object identity, select that
   exact object, and snapshot the Graph before submitting the request.
@@ -57,9 +60,9 @@ needs a recorded disposition. A fixture that missed a supported route is incompl
 | P02 | Plan, select the titled First sight block inside a marked scene | “Rewrite this to emphasize the three lanterns.” | Read Aloud kind and title survive. Scene identity, edges, and sibling content stay intact. |
 | P03 | Plan, select a marked card body | “Add a private reminder that the guide waits at the gate. Leave the spoken material alone.” | A GM Note appears inside the selected body, with existing Read Aloud and protected markers preserved. |
 | PL01 | Play, current editable scene | “Add something I can read to the players as they reach the boardwalk, then a private cue to pause for their response.” | The scene edit path proposes both callouts in the current scene before review. It preserves the committed Plan and neighboring scenes. |
-| PL02 | Play, adopt the saved P01 Plan through the ordinary flow | “Read me the arrival passage from this scene here in chat.” | The scene shows the saved callouts. Chat returns the player-facing passage and omits the GM cue. No write is staged. |
+| PL02 | Play, reopened P01 session copy with only the new Read Aloud in Arrival | “Read me the arrival passage from this scene here in chat.” | The scene shows the saved callouts. Chat returns the player-facing passage and omits the GM cue. No write is staged. |
 | I01 | Ingest, retained fixture selected | “Draft the Arrival material on a new Build page. Include what I say to players and a private GM reminder.” | If the surface supports handing off authored proposals, verify the named Build destination and both blocks through save and reopen. Retained source bytes stay identical. Record unsupported capability explicitly. |
-| G01 | Graph, fixture object selected | “Give me a passage to read to players when they see this tower. Keep it here in chat.” | Player-facing prose in chat, with no page proposal or graph mutation. |
+| G01 | Graph, fixture object selected | “Give me a passage to read to players when they see this tower. Keep it here in chat.” | If Graph offers a composer for the selected object, require player-facing prose in chat with no page proposal or graph mutation. Otherwise record the unavailable composer and compare the Graph revision before and after selecting the object. |
 | H01 | Home, no page selected | “Give me a short passage to read out when the party arrives at a sealed tower. Keep it here in chat.” | If chat is offered, player-facing prose in chat with no write. Otherwise record that Home has no eligible writer. |
 | C01 | Combat Tracker, encounter open | “Add a read-aloud block to the current page about three lanterns coming on.” | If no page writer is offered, report the unavailable destination and verify no encounter mutation. If delegation is supported, require an explicit destination before staging a proposal. |
 | X01 | Build and Plan, existing private note and spoken passage on page | “What would you change about the spoken passage? Brainstorm here and leave my page alone.” | Helpful discussion with zero page proposals, write reservations, or mutations. |

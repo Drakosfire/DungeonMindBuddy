@@ -20,17 +20,25 @@ def test_workflow_retains_every_original_selector_once_except_partitioned_module
     expected["tests/test_ownership_ci_partition.py"] = 1
     expected.update([
         "tests/test_aw_action_assessment.py",
+        "tests/test_build_prose_catalog.py",
         "tests/integration/test_recap_evidence_append.py",
         "tests/test_category_candidate_graph_extractor.py",
         "tests/test_recap_object_dispositions.py",
         "tests/test_recap_quote_integrity.py",
         "tests/test_recap_semantic_candidate_correction.py",
+        "tests/application_state/test_plan_author_location.py",
+        "tests/application_state/test_plan_contextual_targets.py",
+        "tests/test_plan_jev_authoring.py::test_author_scope_input_admission_joins_exact_native_turn_without_granting_work",
+        "tests/test_plan_jev_authoring.py::test_source_blind_sdk_records_only_its_actual_native_scope_observation",
     ])
     assert actual == expected
     assert len(commands) == 4
     assert all("scripts.ownership_ci_partition" in c for c in commands)
+    aggregate = "world-and-content ingestion-and-review query-and-answer saved-page-readers"
+    assert set(aggregate.split()) == set(partition.SUITES)
+    assert f"run: uv run --locked python scripts/ci_contract.py run {aggregate}" in workflow
+    assert "matrix:" not in workflow
     for suite in partition.SUITES:
-        assert f"run: uv run --locked python scripts/ci_contract.py run {suite}" in workflow
         assert f"--ownership-suite={suite}" in contracts()[suite]["argv"]
     for suite in set(partition.BUCKET_OWNERS):
         assert partition.MODULE in contracts()[suite]["argv"]

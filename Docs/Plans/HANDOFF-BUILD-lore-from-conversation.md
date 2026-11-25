@@ -1,12 +1,15 @@
 # Build lore drafts from the conversation
 
-Active on `codex/aw10-prior-citation-runtime` under the operator's AW10 goal.
-Base for the citation resolver is `df54c12e5`. Main through `a89fee7b1` has
-no overlapping Build runtime changes. The independent benchmark definition is
-[#4310](https://github.com/Drakosfire/DungeonMindBuddy/pull/4310). Ship the
-runtime on [#4312](https://github.com/Drakosfire/DungeonMindBuddy/pull/4312)
-after the integrated turn and save pass. The citation resolver by itself
-does not qualify the runtime.
+DELIVERED to main through [#4312](https://github.com/Drakosfire/DungeonMindBuddy/pull/4312),
+merge `524609cb63a7e235224c2674dfa7dc6f2bd6de0f`. The implementation lease is
+released. Historical branch `codex/aw10-prior-citation-runtime` and resolver
+base `df54c12e5` describe that completed work, not current dispatch authority.
+The independent benchmark definition is
+[#4310](https://github.com/Drakosfire/DungeonMindBuddy/pull/4310).
+The consuming [DOGFOOD release-selection handoff](HANDOFF-DOGFOOD-aw10-release-selection.md)
+owns current serving adoption and exact candidate evidence. Main delivery does
+not establish hosted availability or latency qualification; the citation
+resolver by itself does not qualify the runtime.
 
 ## Implementation boundary
 

@@ -130,8 +130,8 @@ export function semanticMarkdownSerializationDiagnostics(
               childType,
             ));
           }
-          if (childType === "hardBreak" && (type === "heading" || parentType === "tableCell" || parentType === "tableHeader")) {
-            diagnostics.push(warning("Hard breaks in headings or table cells cannot be saved as Markdown.", childType));
+          if (childType === "hardBreak" && type === "heading") {
+            diagnostics.push(warning("Hard breaks in headings cannot be saved as Markdown.", childType));
           }
           visit(child, type);
         }

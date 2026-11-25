@@ -1,5 +1,7 @@
 from uuid import UUID, uuid4
 from types import SimpleNamespace
+from pathlib import Path
+import json
 
 import pytest
 
@@ -66,6 +68,26 @@ def test_saved_example_closes_references_and_preserves_old_copies():
         validate_example(manifest, repeated_span)
 
 
+def test_saved_answer_rejects_foreign_duplicate_and_unsafe_references():
+    first, second, page = uuid4(), uuid4(), uuid4()
+    bindings = [(first, page, 0, 0, 1, "a" * 64, 0, 4), (second, page, 0, 0, 1, "a" * 64, 5, 9)]
+    answer = {"version": "owner_saved_answer_v1", "question": "What happened", "passages": [
+        {"text": "The notes describe a plan", "references": [str(first)]},
+        {"text": "The recap reports a pickup", "references": [str(second)]}]}
+    validate_example({"saved_answer": answer}, bindings)
+    for bad in ([str(first), str(first)], [str(uuid4())], []):
+        invalid = {**answer, "passages": [{"text": "A passage", "references": bad}]}
+        with pytest.raises(ApplicationStateValidationError):
+            validate_example({"saved_answer": invalid}, bindings)
+    with pytest.raises(ApplicationStateValidationError):
+        validate_example({"saved_answer": {**answer, "question": "https://example.com"}}, bindings)
+    with pytest.raises(ApplicationStateValidationError):
+        validate_example({"saved_answer": {**answer, "extra": "hidden"}}, bindings)
+    duplicate_span = [bindings[0], (second, page, 0, 0, 1, "a" * 64, 0, 4)]
+    with pytest.raises(ApplicationStateValidationError, match="distinct spans"):
+        validate_example({"saved_answer": {**answer, "passages": [{"text": "A passage", "references": [str(first), str(second)]}]}}, duplicate_span)
+
+
 def test_preparation_localizes_saved_example_references_and_image(monkeypatch):
     monkeypatch.setattr(assembly.guest_release, "owner_generation", lambda **_: 1)
     access = SimpleNamespace(parsed=SimpleNamespace(get_evidence=lambda _: SimpleNamespace(evidence_role="context")))
@@ -83,13 +105,68 @@ def test_preparation_localizes_saved_example_references_and_image(monkeypatch):
     monkeypatch.setattr(assembly.guest_release, "stage", lambda **kwargs: staged.update(kwargs) or (uuid4(), "digest"))
     sources = [assembly.SourceSelection(document_id=doc, revision_n=1, sha256="a" * 64, start=0, end=4, excerpt="safe", evidence_id=f"e{i}") for i, doc in enumerate(documents)]
     selection = assembly.ReleaseSelection(graph_revision="revision", nodes=[], relationships=[], sources=sources, asset_ids=[image],
-        saved_example=assembly.SavedExampleSelection(title="Scene", body="A saved scene", source_indexes=[1, 0], asset_id=image, image_description="A tent"))
+        saved_example=assembly.SavedExampleSelection(title="Scene", body="A saved scene", source_indexes=[1, 0], asset_id=image, image_description="A tent"),
+        saved_choice=assembly.SavedChoiceSelection(prompt="What next", options=[
+            assembly.SavedChoiceOption(label="Enter", outcome="A bell rings"),
+            assembly.SavedChoiceOption(label="Wait", outcome="A lantern flickers")]))
     assembly._prepare_candidate(world_id="world", subject="owner", selection=selection)
     example = staged["manifest"]["saved_example"]
     assert example["references"] == [str(local_excerpts[1]), str(local_excerpts[0])]
     assert example["image"]["id"] == staged["manifest"]["assets"][0]["id"] != str(image)
     assert all(str(doc) not in str(example) for doc in documents)
+    assert staged["manifest"]["saved_choice"] == {"version": "owner_saved_choice_v1", "prompt": "What next",
+        "options": [{"label": "Enter", "outcome": "A bell rings"}, {"label": "Wait", "outcome": "A lantern flickers"}]}
     validate_example(staged["manifest"], staged["source_bindings"])
     bad = selection.model_copy(update={"saved_example": selection.saved_example.model_copy(update={"asset_id": uuid4()})})
     with pytest.raises(assembly.GuestReleasePreparationError):
         assembly._prepare_candidate(world_id="world", subject="owner", selection=bad)
+    missing_example = selection.model_copy(update={"saved_example": None})
+    with pytest.raises(assembly.GuestReleasePreparationError, match="requires a saved example"):
+        assembly._prepare_candidate(world_id="world", subject="owner", selection=missing_example)
+
+
+def test_saved_choice_is_closed_bounded_and_requires_a_valid_example():
+    first, second, page = uuid4(), uuid4(), uuid4()
+    bindings = [(first, page, 0, 0, 1, "a" * 64, 0, 4), (second, page, 0, 0, 1, "a" * 64, 5, 9)]
+    example = {"version": "owner_saved_scene_v1", "title": "Scene", "body": "A scene",
+               "references": [str(first), str(second)], "image": None}
+    choice = {"version": "owner_saved_choice_v1", "prompt": "What next", "options": [
+        {"label": "Enter", "outcome": "A bell rings"}, {"label": "Wait", "outcome": "A lantern flickers"}]}
+    manifest = {"saved_example": example, "saved_choice": choice, "assets": []}
+    validate_example(manifest, bindings)
+    invalid_choices = [None, {**choice, "version": "unknown"}, {**choice, "extra": "hidden"},
+        {**choice, "prompt": "Look at https://example.com"}, {**choice, "options": choice["options"][:1]},
+        {**choice, "options": [{"label": " Enter ", "outcome": "One"}, {"label": "enter", "outcome": "Two"}]},
+        {**choice, "options": [{"label": "Enter", "outcome": "x" * 2001}, {"label": "Wait", "outcome": "Two"}]},
+        {**choice, "options": [{"label": "Enter", "outcome": "\u202eevil"}, {"label": "Wait", "outcome": "Two"}]}]
+    for invalid in invalid_choices:
+        with pytest.raises(ApplicationStateValidationError):
+            validate_example({**manifest, "saved_choice": invalid}, bindings)
+    with pytest.raises(ApplicationStateValidationError, match="requires a saved example"):
+        validate_example({"saved_choice": choice, "assets": []}, bindings)
+
+
+def test_saved_choice_unicode_contract_matches_frontend_fixtures():
+    cases = json.loads((Path(__file__).resolve().parents[1] / "apps/live-control-ui/src/guestRelease/savedChoiceParity.json").read_text())
+    first, second, page = uuid4(), uuid4(), uuid4()
+    bindings = [(first, page, 0, 0, 1, "a" * 64, 0, 4), (second, page, 0, 0, 1, "a" * 64, 5, 9)]
+    example = {"version": "owner_saved_scene_v1", "title": "Scene", "body": "Scene", "references": [str(first), str(second)], "image": None}
+    for case in cases:
+        labels = case["labels"][:]
+        labels[0] *= case.get("repeat", 1)
+        choice = {"version": "owner_saved_choice_v1", "prompt": "What next", "options": [
+            {"label": labels[0], "outcome": "One"}, {"label": labels[1], "outcome": "Two"}]}
+        manifest = {"saved_example": example, "saved_choice": choice, "assets": []}
+        if case["valid"]:
+            validate_example(manifest, bindings)
+        else:
+            with pytest.raises(ApplicationStateValidationError):
+                validate_example(manifest, bindings)
+
+
+def test_saved_answer_text_contract_matches_shared_cases():
+    from application_state.guest_release_example import _choice_text
+    cases = json.loads((Path(__file__).parents[1] / "apps/live-control-ui/src/guestRelease/savedAnswerParity.json").read_text())
+    for case in cases:
+        value = case["text"] * case.get("repeat", 1)
+        assert _choice_text(value, case["limit"], multiline=case["multiline"]) is case["valid"], case["name"]

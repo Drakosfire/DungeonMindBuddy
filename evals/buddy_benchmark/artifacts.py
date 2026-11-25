@@ -40,7 +40,7 @@ def row_inventory(dsn, *, readonly, keys=ROW_KEYS):
 
     result = {}
     with readonly(dsn) as conn:
-        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         tables = conn.execute(
             "SELECT table_schema,table_name FROM information_schema.tables "
             "WHERE table_type='BASE TABLE' AND table_schema NOT IN "
@@ -48,19 +48,19 @@ def row_inventory(dsn, *, readonly, keys=ROW_KEYS):
         ).fetchall()
         for table in tables:
             name = table["table_schema"] + "." + table["table_name"]
-            rows = conn.execute(
-                sql.SQL("SELECT row_to_json(t)::text AS body FROM {}.{} t").format(
+            inventory = []
+            with conn.cursor(name="benchmark_inventory") as rows:
+                rows.itersize = 1
+                rows.execute(sql.SQL("SELECT row_to_json(t)::text AS body FROM {}.{} t").format(
                     sql.Identifier(table["table_schema"]),
                     sql.Identifier(table["table_name"]),
-                )
-            ).fetchall()
-            inventory = []
-            for row in rows:
-                body = json.loads(row["body"])
-                inventory.append({
-                    "sha256": sha256(row["body"].encode()).hexdigest(),
-                    "keys": {key: body[key] for key in keys if key in body},
-                })
+                ))
+                for row in rows:
+                    body = json.loads(row["body"])
+                    inventory.append({
+                        "sha256": sha256(row["body"].encode()).hexdigest(),
+                        "keys": {key: body[key] for key in keys if key in body},
+                    })
             result[name] = sorted(inventory, key=lambda row: row["sha256"])
     return result
 

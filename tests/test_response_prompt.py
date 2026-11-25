@@ -62,3 +62,13 @@ def test_conversation_task_has_a_versioned_component_without_inactive_tools(task
         assert 'only assignment' in prompt.instructions and 'siblings are context' in prompt.instructions
     with pytest.raises(ValueError):
         compose_response_prompt(task='future_unknown_task')
+
+
+def test_build_source_status_is_explicit_and_does_not_change_other_profiles():
+    base = compose_response_prompt()
+    build = compose_response_prompt(build_source_status=True)
+    assert 'next-session pickup or resume instruction' not in base.instructions
+    assert build.components[-1].name == 'build_source_status'
+    assert 'Report supported completed events as completed' in build.instructions.replace('\n', ' ')
+    with pytest.raises(ValueError):
+        compose_response_prompt(task='clarify', build_source_status=True)

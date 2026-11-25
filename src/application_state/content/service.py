@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from application_state.cli import assert_at_head, assert_connection_at_head
 from application_state.config import load_runtime_dsn
+from application_state.content import page_presentation as presentation
 from application_state.content import repository as repo
 from application_state.content.types import (
     AdmittedKind,
@@ -303,9 +304,15 @@ def snapshot_content(document_id: str) -> ContentSnapshot:
         if obj is None:
             raise ApplicationStateNotFoundError(f"workspace document not found: {document_id}")
         obj = _require_kind(obj, None)
-        markdown, digest, from_working, _copy, _committed = _snapshot_body(conn, obj)
+        markdown, digest, from_working, _copy, committed = _snapshot_body(conn, obj)
+        layout = presentation.read(conn, committed) if obj.kind == "plan" else None
+        if layout is not None and from_working:
+            raise ApplicationStateConflictError(
+                "composed Plan has a divergent Markdown-only working copy"
+            )
         return ContentSnapshot(work_object=obj, markdown=markdown, content_sha256=digest,
-                               loaded_revision=obj.object_revision, from_working_copy=from_working)
+                               loaded_revision=obj.object_revision, from_working_copy=from_working,
+                               page_presentation=layout)
 
 
 def snapshot_plan(document_id: str) -> ContentSnapshot:
@@ -437,6 +444,14 @@ def _autosave_in_connection(
         raise ApplicationStateConflictError(
             f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
         )
+    if kind == "plan" and obj.current_revision_id is not None:
+        current = repo.get_work_revision(conn, obj.current_revision_id)
+        if current is not None:
+            _require_revision_owner(obj, current)
+        if presentation.read(conn, current) is not None:
+            raise ApplicationStateValidationError(
+                "composed Plan cannot accept a Markdown-only working copy"
+            )
     existing = repo.get_working_copy(conn, work_object_id)
     wc_revision = 1 if existing is None else existing.working_copy_revision + 1
     copy = WorkingCopy(
@@ -514,6 +529,7 @@ def _commit_in_connection(
     expected_world_id: str | None = None,
     title: str | None = None,
     page_presentation_changed: bool = False,
+    plan_presentation=presentation.UNSET,
     authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[_StoredContentObject, WorkRevision]:
     """Use the caller's transaction; never commit or allocate another connection."""
@@ -540,48 +556,60 @@ def _commit_in_connection(
         raise ApplicationStateConflictError(
             f"workspace document is discarded: {document_id}"
         )
-    if expected_revision is not None and obj.object_revision != expected_revision:
-        # Identical replay: expected CAS already applied and digest matches
-        # the current revision.
-        if obj.current_revision_id is not None:
-            current = repo.get_work_revision(conn, obj.current_revision_id)
-            if current is not None:
-                _require_revision_owner(obj, current)
-            if (
-                current is not None
-                and current.content_sha256 == digest
-                and (canonical_title is None or obj.title == canonical_title)
-                and expected_revision == obj.object_revision - 1
-            ):
-                return obj, current
-        raise ApplicationStateConflictError(
-            f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
+    if plan_presentation is not presentation.UNSET and (
+        kind != "plan" or expected_world_id is None or expected_revision is None
+    ):
+        raise ApplicationStateValidationError(
+            "Plan presentation requires an exact World and revision"
         )
+    current = None
     if obj.current_revision_id is not None:
         current = repo.get_work_revision(conn, obj.current_revision_id)
         if current is not None:
             _require_revision_owner(obj, current)
-        if current is not None and current.content_sha256 == digest and not page_presentation_changed:
-            if canonical_title is not None and obj.title != canonical_title:
-                updated = obj.model_copy(
-                    update={
-                        "title": canonical_title,
-                        "object_revision": obj.object_revision + 1,
-                        "updated_at": repo.now_utc(),
-                    }
-                )
-                if authorize_world is not None:
-                    authorize_world(obj.world_id)
-                persisted = repo.update_work_object(
-                    conn, updated, expected_object_revision=obj.object_revision
-                )
-                if persisted is None:
-                    raise ApplicationStateConflictError(
-                        "revision mismatch: concurrent Plan title update"
-                    )
-                return persisted, current
-            # exact replay at current head
+    layout = current_layout = None
+    if kind == "plan":
+        current_layout = presentation.read(conn, current)
+        if current_layout is not None and (plan_presentation is None or plan_presentation is presentation.UNSET):
+            raise ApplicationStateValidationError(
+                "composed Plan requires an explicit retained presentation"
+            )
+        layout = presentation.candidate(plan_presentation, content, current_layout)
+        if layout is not None and layout.schema_version != "dmb_page_presentation_v1":
+            raise ApplicationStateValidationError("Plan does not support this presentation version")
+        page_presentation_changed = layout != current_layout
+    if expected_revision is not None and obj.object_revision != expected_revision:
+        if (
+            current is not None
+            and current.content_sha256 == digest
+            and layout == current_layout
+            and (canonical_title is None or obj.title == canonical_title)
+            and expected_revision == obj.object_revision - 1
+        ):
             return obj, current
+        raise ApplicationStateConflictError(
+            f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
+        )
+    if current is not None and current.content_sha256 == digest and not page_presentation_changed:
+        if canonical_title is not None and obj.title != canonical_title:
+            updated = obj.model_copy(
+                update={
+                    "title": canonical_title,
+                    "object_revision": obj.object_revision + 1,
+                    "updated_at": repo.now_utc(),
+                }
+            )
+            if authorize_world is not None:
+                authorize_world(obj.world_id)
+            persisted = repo.update_work_object(
+                conn, updated, expected_object_revision=obj.object_revision
+            )
+            if persisted is None:
+                raise ApplicationStateConflictError(
+                    "revision mismatch: concurrent Plan title update"
+                )
+            return persisted, current
+        return obj, current
     revision_n = repo.next_revision_n(conn, work_object_id)
     revision = WorkRevision(
         work_revision_id=uuid4(),
@@ -595,6 +623,8 @@ def _commit_in_connection(
     if authorize_world is not None:
         authorize_world(obj.world_id)
     repo.insert_work_revision(conn, revision)
+    if layout is not None:
+        presentation.insert(conn, revision, layout)
     expected = obj.object_revision
     updated = obj.model_copy(
         update={
@@ -638,6 +668,7 @@ def _commit(
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
     title: str | None = None,
+    plan_presentation=presentation.UNSET,
     authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     dsn = load_runtime_dsn()
@@ -647,6 +678,7 @@ def _commit(
             conn, document_id, markdown, kind=kind,
             expected_revision=expected_revision,
             expected_world_id=expected_world_id, title=title,
+            plan_presentation=plan_presentation,
             authorize_world=authorize_world,
         )
 
@@ -658,8 +690,10 @@ def commit_plan(
     expected_revision: int | None = None,
     expected_world_id: str | None = None,
     title: str | None = None,
+    page_presentation=presentation.UNSET,
     authorize_world: Callable[[str | None], None] | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
+    """Commit Markdown and an explicit presentation to one World Plan revision."""
     return _commit(
         document_id,
         markdown,
@@ -667,6 +701,7 @@ def commit_plan(
         expected_revision=expected_revision,
         expected_world_id=expected_world_id,
         title=title,
+        plan_presentation=page_presentation,
         authorize_world=authorize_world,
     )
 
@@ -679,6 +714,7 @@ def commit_plan_in_connection(
     expected_revision: int,
     expected_world_id: str,
     title: str | None = None,
+    page_presentation=presentation.UNSET,
 ) -> tuple[WorkObject, WorkRevision]:
     """Commit Plan content atomically with an owning command's durable receipt.
 
@@ -690,6 +726,7 @@ def commit_plan_in_connection(
         conn, document_id, markdown, kind="plan",
         expected_revision=expected_revision,
         expected_world_id=expected_world_id, title=title,
+        plan_presentation=page_presentation,
     )
 
 

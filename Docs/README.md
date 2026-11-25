@@ -18,9 +18,12 @@ describes is implemented or deployed.
 | Choose verification for a change | [Development and verification guide](Guides/GUIDE-development-verification.md), [agent policy](../AGENTS.md#review-and-verification), and the owning contract |
 | Check links in maintained entry points | [Local documentation link check](../scripts/check_docs_links.py) |
 | Determine whether a handoff or evidence is current | [Handoff and evidence navigation](Guides/GUIDE-handoff-and-evidence-navigation.md) |
+| Find Agent actions and their evidence | [Canonical action catalog](../evals/plan-authoring-benchmark.md#action-catalog) |
+| Understand decision and end-to-end benchmark coverage | [Workflow decision benchmark](../evals/plan-authoring-benchmark.md#workflow-decision-benchmark), [coverage matrix](../evals/right-action-coverage.md), and [adventure-to-follow-up benchmark](../evals/adventure-to-follow-up-benchmark.md) |
+| Find proposed ingestion and statblock reviews | [Worldbuilding ingestion refinement](Backlog/IDEA-worldbuilding-ingestion-refinement.md) and [statblock dogfood review](Backlog/IDEA-statblock-dogfood-review.md) |
 | Find experiments, fixtures, or evaluation evidence | [Lab and evaluation guide](../evals/README.md) |
 | Find the accepted ingestion baseline and historical retrieval evidence | [Baseline and retrieval history report](Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md) |
-| Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md) and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
+| Deploy or recover a system | [Production deployment](Runbooks/RUNBOOK-buddy-production-deployment.md), [manual Actions cutover](Runbooks/RUNBOOK-buddy-actions-cutover.md), and [application-state recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md) |
 
 From the repository root, run `uv run python scripts/check_docs_links.py .` to
 check the maintained entry points, domain guides, and local Play runbook named

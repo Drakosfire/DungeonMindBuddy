@@ -21,6 +21,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.context_trace import TracePromptReference, TraceProviderCall, TurnContextTraceV1
 from application_state.build_proposal.types import BuildWriteCapability
+from application_state.content.page_presentation import PagePresentation
 from application_state.agent_conversation.native_writer import json_container_count as _json_node_count
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
@@ -65,6 +66,7 @@ from application_state.agent_conversation.types import (
 )
 from application_state.errors import (
     ApplicationStateConflictError,
+    ApplicationStateValidationError,
     ApplicationStateError,
 )
 
@@ -1407,6 +1409,7 @@ class BuildSavedSourceBasis:
     authority_state: str
     visibility_state: str
     markdown: str
+    page_presentation: PagePresentation | None = None
 
     def invocation_message(self, question: str) -> str:
         # This is source data; runtime capability admission remains the permission boundary.
@@ -1630,6 +1633,17 @@ class _TurnClaimRenewer:
         self._thread = Thread(target=self._run, name="agent-turn-claim-renewer", daemon=True)
         self._thread.start()
 
+    @property
+    def _turn(self) -> Turn:
+        from application_state.agent_conversation.native_plan_session import PlanSessionClaim
+        if isinstance(self._claim, PlanSessionClaim):
+            self._claim = self._claim.snapshot()
+        return self._claim
+
+    @_turn.setter
+    def _turn(self, turn: Turn) -> None:
+        self._claim = turn
+
     def current_turn(self) -> Turn:
         with self._lock:
             return self._turn
@@ -1645,7 +1659,7 @@ class _TurnClaimRenewer:
                     return
                 try:
                     if self._session is not None:
-                        self._turn = self._session.renew(expected_revision=self._turn.revision,
+                        self._turn = self._session.renew(expected_revision=self._claim.revision,
                             lease_seconds=self._lease_seconds)
                         continue
                     self._turn = self._service.renew_turn_claim(
@@ -1694,13 +1708,62 @@ class _ClaimFence:
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
                 return self.commit(method_name, **{event_name: event}, **extras)
 
+    def matches_verified_plan_execution(self, receipt, execution) -> bool:
+        with self.renewer._lock:
+            session = self.renewer._session
+            return (self.renewer._error is None and session is not None
+                    and session.matches_verified_execution(receipt, execution))
+
+    def begin_plan_opening(self):
+        from application_state.agent_conversation.native_plan_session import NativePlanSession, eligible_opening
+
+        with self.renewer._lock:
+            if (type(self.service) is AgentConversationService and self.renewer._error is None
+                    and self.renewer._session is None and eligible_opening(self.renewer._turn)):
+                self.renewer._session = NativePlanSession(
+                    self.renewer._turn, opening=True,
+                    measure=self.trace.measure_host_work if self.trace is not None else None,
+                )
+
+    def plan_execution_checkpoint(self):
+        from application_state.agent_conversation.native_plan_session import PlanExecutionCheckpoint
+
+        with self.renewer._lock:
+            if self.renewer._session is not None:
+                return self.renewer._session.execution_checkpoint()
+            execution = self.turn.graph_context_execution
+            return PlanExecutionCheckpoint(len(execution.events), execution.context_receipt_sha256,
+                execution.execution_policy_sha256)
+
+    def plan_provider_checkpoint(self, attempt_id):
+        with self.renewer._lock:
+            if self.renewer._session is not None:
+                return self.renewer._session.provider_checkpoint(attempt_id)
+            return None
+
+    def commit_plan_provider_outcome(self, outcome):
+        with self.renewer._lock:
+            if self.renewer._session is None:
+                return False
+            with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
+                return self._commit("record_provider_outcome", outcome_only=True, outcome=outcome)
+
+    def commit_session_source_events(self, method_name, **fields):
+        with self.renewer._lock:
+            if self.renewer._session is None:
+                return None
+            return self._commit(method_name, source_events_only=True, **fields)
+
     def commit(self, method_name: str, **fields: Any
                ) -> tuple[Turn, bool] | tuple[Turn, bool, TurnContextTraceV1]:
         """One moving claim owner for controller and source-navigation writes."""
+        return self._commit(method_name, **fields)
+
+    def _commit(self, method_name, *, source_events_only=False, outcome_only=False, **fields):
         with self.renewer._lock:
             if self.renewer._error is not None:
                 raise ApplicationStateError('APP-STATE claim owner has stopped after a failed operation') from self.renewer._error
-            current = self.renewer._turn
+            current = self.renewer._claim
             session_owned = self.renewer._session is not None
             detailed_writer = (method_name == "authorize_native_writer"
                                and self.trace is not None and host_work_observer.get() is not None)
@@ -1713,19 +1776,44 @@ class _ClaimFence:
                     )
                 if self.renewer._session is not None:
                     if method_name == 'authorize_native_writer':
-                        with measure('plan_session_finish_before_writer'):
-                            current = self.renewer._session.finish()
+                        from application_state.agent_conversation.native_plan_session import PlanSessionCommand
+                        with measure("native_writer_authorization_persistence"):
+                            result = self.renewer._session.execute(
+                                PlanSessionCommand.WRITER, expected_revision=current.revision,
+                                expected_attempt=current.attempt, **fields)
                         self.renewer._session = None
-                        self.renewer._turn = current
+                    elif outcome_only:
+                        claim, fresh = self.renewer._session.record_provider_outcome(
+                            expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                        if fresh is not True:
+                            raise AgentTurnServiceError("APP-STATE did not confirm a fresh execution event.",
+                                code="turn_persistence_indeterminate", status_code=409)
+                        self.renewer._claim = claim
+                        return True
+                    elif source_events_only:
+                        from application_state.agent_conversation.native_plan_session import PlanSessionCommand
+                        claim, events = self.renewer._session.execute_source_events(
+                            PlanSessionCommand(method_name), expected_revision=current.revision,
+                            expected_attempt=current.attempt, **fields)
+                        self.renewer._claim = claim
+                        return events
                     else:
                         from application_state.agent_conversation.native_plan_session import PlanSessionCommand
                         updated, fresh = self.renewer._session.execute(PlanSessionCommand(method_name),
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                        if (method_name == "record_plan_requested_work_selection"
+                                and self.renewer._session.opening):
+                            # The append is already durable. Materialize its exact
+                            # prefix before giving authoring or clarification back
+                            # to the ordinary Turn owner.
+                            updated = self.renewer._session.finish()
+                            self.renewer._session = None
                         self.renewer._turn = updated
                         return updated, fresh
-                with measure("native_writer_authorization_persistence"):
-                    result = method(current.world_id, current.conversation_id, current.turn_id,
-                        expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                else:
+                    with measure("native_writer_authorization_persistence"):
+                        result = method(current.world_id, current.conversation_id, current.turn_id,
+                            expected_revision=current.revision, expected_attempt=current.attempt, **fields)
                 if method_name == "authorize_build_opening_with_prompt":
                     updated, fresh, _ = result
                 else:
@@ -1739,6 +1827,24 @@ class _ClaimFence:
                     session_owned = True
                     self.renewer._session = NativePlanSession(updated,
                         measure=self.trace.measure_host_work if self.trace is not None else None)
+            except ApplicationStateValidationError as exc:
+                session = self.renewer._session
+                if session is not None and session.opening:
+                    try:
+                        self.renewer._turn = session.finish()
+                        self.renewer._session = None
+                    except BaseException as settlement_error:
+                        self.renewer._session = None
+                        self.renewer._error = settlement_error
+                        self.renewer._stop.set()
+                        raise settlement_error from exc
+                elif session_owned:
+                    if session is not None:
+                        session.abort()
+                    self.renewer._session = None
+                    self.renewer._error = exc
+                    self.renewer._stop.set()
+                raise
             except BaseException as exc:
                 if session_owned:
                     if self.renewer._session is not None:
@@ -3094,7 +3200,7 @@ class _PolicyExecutionAdapter:
             build_section_bindings=source_bindings, **proof))
         return self.turn
 
-    def authorize_native_build_decision(self, prepared, view, projection):
+    def authorize_native_build_decision(self, prepared, view, projection, *, graph_reference_decision=None):
         """Admit the actual Build semantic SDK request through the existing APP owner."""
         from .build_jev_dispatch import prepared_driver_view
         from .build_jev_driver import canonical
@@ -3113,7 +3219,8 @@ class _PolicyExecutionAdapter:
                 for e in self._broker_execution().events)
             and self.last_provider_attempt_id is None)
         if (self.failure is not None or not self._is_build_turn()
-                or self.fence is not None and view.get('contextPhase')!='writer_selection' and not reviewed_auxiliary
+                or self.fence is not None and view.get('contextPhase') not in {'writer_selection', 'graph_reference'} and not reviewed_auxiliary
+                or (view.get('contextPhase') == 'graph_reference') != (graph_reference_decision is not None)
                 or self.native_source_authority is None
                 or canonical(view) != canonical(prepared_driver_view(prepared,projection,accounting=self._build_jev_accounting))):
             return False
@@ -3138,7 +3245,9 @@ class _PolicyExecutionAdapter:
             included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],
             included_graph_event_ids=[],included_source_read_event_ids=[],
             context_mode=view['contextMode'],context_phase=view['contextPhase'],
-            max_question_input_tokens=view['maxQuestionInputTokens'],dispatch_identity_sha256=view['dispatchIdentitySha256'])
+            max_question_input_tokens=view['maxQuestionInputTokens'],dispatch_identity_sha256=view['dispatchIdentitySha256'],
+            graph_reference_inventory_sha256=(graph_reference_decision.host_inventory_sha256()
+                                               if graph_reference_decision is not None else None))
         from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
         opening = view["contextPhase"] == "select" and isinstance(
             getattr(self.turn.graph_context_receipt, "native_query", None), NativeBuildQueryPendingV1,
@@ -3149,6 +3258,7 @@ class _PolicyExecutionAdapter:
             self.turn = _require_fresh_execution_append(self.fence.append(
                 'authorize_provider_attempt_v2', 'provider_attempt_event', event,
                 prepared_decision_json=view['payloadJson'],
+                **({"graph_reference_decision": graph_reference_decision} if graph_reference_decision is not None else {}),
             ))
         self.last_provider_attempt_id = event.provider_attempt_id
         self._prepared_build_decision = prepared
@@ -3225,9 +3335,11 @@ class _PolicyExecutionAdapter:
             if transition not in {"sdk_entered", "response_received", "outcome_unknown", "known_not_sent"}:
                 return False
             graph_types = _app_state_graph_execution_types()
+            checkpoint = self.fence.plan_provider_checkpoint(self.last_provider_attempt_id)
+            sequence = checkpoint.sequence if checkpoint is not None else len(self._broker_execution().events)
             event = graph_types.ProviderOutcomeEventV1(
                 event_id=uuid4(),
-                sequence=len(self._broker_execution().events),
+                sequence=sequence,
                 kind="provider_outcome",
                 provider_attempt_id=self.last_provider_attempt_id,
                 outcome=transition,
@@ -3241,19 +3353,24 @@ class _PolicyExecutionAdapter:
             if (transition == "sdk_entered" and self._is_build_turn() and self.trace is not None
                     and type(self.fence.service) is AgentConversationService):
                 record_options["measure"] = self.trace.phase_before_first_jev
-            updated = _require_fresh_execution_append(
-                self.fence.append("record_provider_outcome", "outcome", event, **record_options)
-            )
-            self.turn = updated
+            if record_options or checkpoint is None or not self.fence.commit_plan_provider_outcome(event):
+                self.turn = _require_fresh_execution_append(
+                    self.fence.append("record_provider_outcome", "outcome", event, **record_options)
+                )
+                execution = self._broker_execution()
+                auth = next(item for item in execution.events if _is_provider_authorization(item)
+                    and item.provider_attempt_id == self.last_provider_attempt_id)
+                roles = getattr(execution.policy, "provider_roles", None)
+                identity = (auth.provider, auth.model, auth.api_mode)
+                writer = roles.writer.identity() if roles is not None else None
+            else:
+                identity = checkpoint.identity
+                writer = checkpoint.writer_identity
             if self.rules_runtime is not None:
                 self.rules_runtime.outcome(transition)
-            execution = self._broker_execution()
-            auth = next(item for item in execution.events if _is_provider_authorization(item)
-                and item.provider_attempt_id == self.last_provider_attempt_id)
             if transition == "response_received":
-                roles = getattr(execution.policy, "provider_roles", None)
-                if (roles is not None and (auth.provider, auth.model, auth.api_mode) == roles.writer.identity()
-                        or roles is None and self.budget.get("apiMode") != "typesafe_decision"):
+                if (writer is not None and identity == writer
+                        or writer is None and self.budget.get("apiMode") != "typesafe_decision"):
                     self.producing_provider_attempt_id = self.last_provider_attempt_id
             if self.context_capture is not None and transition == "sdk_entered":
                 self.context_capture.bind_provider_request(
@@ -3262,7 +3379,7 @@ class _PolicyExecutionAdapter:
             if self.context_capture is not None and transition != "sdk_entered":
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": self.last_provider_attempt_id,
-                    "provider": auth.provider, "model": auth.model,
+                    "provider": identity[0], "model": identity[1],
                     # Trace is a coarse display enum; exact known_not_sent stays
                     # in the durable execution lifecycle, not an invalid trace label.
                     "outcome": ("response_received" if transition == "response_received" else
@@ -5460,6 +5577,9 @@ def _submitted_turn_intent(
             **({"authored_references": request.build_authored_references} if request.build_authored_references is not None else {}), retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
             None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
             None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))),
+            build_image_move_capture_sha256=(
+                None if request.build_image_move_capture is None else
+                _canonical_sha256(request.build_image_move_capture.model_dump(mode="json"))),
             build_reference_image_id=request.build_write_capability.reference_image_id if request.build_write_capability else None)
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":
         if request.play_target is None:
@@ -7443,14 +7563,31 @@ def execute_agent_turn(
     )
     policy_bootstrap: AgentPlanWorldGraphBootstrap | None = None
     if native_surface_sources:
-        from .plan_source_turn import prepare
+        from .plan_source_turn import prepare, prepare_selective_query
         if native_principal is None or native_principal.role != "gm":
             raise AgentTurnServiceError("Plan source inspection requires GM authority.",
                 code="native_source_access_denied", status_code=403, provider_dispatched=False)
         frozen = durable_turn.graph_context_receipt if durable_turn is not None else None
-        with trace.phase("plan_native_source_authority"):
-            native_corpus_context, native_source_authority = prepare(canonical_world_id, native_principal,
-                revision_id=getattr(frozen.source_authority, "revision_id", None) if frozen is not None else None)
+        source_revision = getattr(frozen.source_authority, "revision_id", None) if frozen is not None else None
+        selective_plan = None
+        if (os.environ.get("DMB_PLAN_SELECTIVE_QUERY") == "1"
+                and request.surface.surface_id == "plan"
+                and isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)
+                and request.authored_references is None
+                and native_graph_query_resolver is not None
+                and (frozen is None or isinstance(frozen, graph_types.PlanNativeContextReceiptV1))):
+            selective_plan = prepare_selective_query(
+                canonical_world_id, native_principal,
+                lambda source: native_graph_query_resolver(request, owner, work, frozen, source),
+                revision_id=source_revision, phase=trace.phase,
+            )
+        if selective_plan is None:
+            with trace.phase("plan_native_source_authority"):
+                native_corpus_context, native_source_authority = prepare(
+                    canonical_world_id, native_principal, revision_id=source_revision,
+                )
+        else:
+            native_corpus_context, native_source_authority, native_query_context, native_query = selective_plan
         # The source owner is established first. A provisioning-only World has
         # no Graph capability; missing Graph cannot suppress source/Rules work.
         frozen_graph = frozen.graph_capability if isinstance(frozen, graph_types.PlanSourceContextReceiptV1) else None
@@ -7483,7 +7620,7 @@ def execute_agent_turn(
                         if fresh.authority != native_source_authority:
                             raise ValueError("Build source authority changed before Graph settlement")
                         return native_graph_query_resolver(request, owner, work, frozen, fresh)
-            if prepare_deferred_build_query is None:
+            if selective_plan is None and prepare_deferred_build_query is None:
                 with trace.phase('plan_native_statement_query'):
                     native_query_context, native_query = native_graph_query_resolver(
                         request, owner, work, frozen, native_corpus_context)

@@ -16,7 +16,7 @@ vi.mock('../selectedWorld/SelectedWorldContext',()=>({useSelectedWorld:()=>selec
 const hash='b'.repeat(64), candidate='a'.repeat(64);
 const document={document_id:'doc-a',title:'Edge',world_id:'world-a'} as WorkspaceDocumentRecord;
 const run={schema_version:'dmb_extraction_run_v1',version:'1.0',run_id:'run-a',source_artifact_id:'source-a',
-  source_domain:'worldbuilding',status:'reviewable',revision:7,components:{candidate_graph:{kind:'candidate_graph',uri:'candidate.json',exists:true,sha256:candidate},source_span_index:{kind:'source_span_index',uri:'spans.json',exists:true,sha256:'e'.repeat(64)}}} as ExtractionRunRecord;
+  source_domain:'worldbuilding',profile_id:'worldbuilding_shepherds_flock_v0@0.1',status:'reviewable',revision:7,components:{candidate_graph:{kind:'candidate_graph',uri:'candidate.json',exists:true,sha256:candidate},source_span_index:{kind:'source_span_index',uri:'spans.json',exists:true,sha256:'e'.repeat(64)}}} as ExtractionRunRecord;
 const handoff={href:'/build?documentId=doc-a&revision=2&sourceArtifactId=source-a&extractionRunId=run-a',
   extraction_run_id:'run-a',source_artifact_id:'source-a',document_id:'doc-a',document_revision:2};
 const review:ExactRunReviewPackage={schema:'dmb_extract_promote_exact_run_review_v1',runId:'run-a',sourceDomain:'worldbuilding',
@@ -58,7 +58,7 @@ it('reads one exact run, shows frozen revision, and reuses owner decisions witho
   const prepare=vi.spyOn(nativePublication,'prepareNativeWorldbuilding').mockRejectedValue(new Error('Prepared operation deliberately stopped in test'));
   const confirm=vi.spyOn(nativePublication,'confirmNativeWorldbuilding');
   render(<BuildRunReview {...props()}/>);
-  expect(await screen.findByRole('group',{name:'Review provisional GM facts'})).toBeEnabled();
+  expect(await screen.findByRole('group',{name:'Review GM facts'})).toBeEnabled();
   expect(extract.getExactRunReviewPackage).toHaveBeenCalledExactlyOnceWith('run-a');
   expect(context).toHaveBeenCalledExactlyOnceWith({managed_world_id:'world-a',run_id:'run-a',source_artifact_id:'source-a',source_sha256:hash});
   expect(screen.getByText(/editor has newer changes/)).toHaveTextContent('Edge');
@@ -372,4 +372,18 @@ it('mounts manual recovery even when the independent exact-run review read fails
  expect(manual.mounted.mock.calls.at(-1)?.[0]).toMatchObject({worldId:'world-a',review:null,run,handoff});
  fireEvent.click(screen.getByRole('button',{name:'Retained manual recovery'}));await waitFor(()=>expect(selected.onBusyChange).toHaveBeenLastCalledWith(true));
  expect(screen.getByRole('button',{name:'Close review'})).toBeDisabled();
+});
+
+
+it('shows Gazetteer evidence warnings without invoking unsupported correction or publication',async()=>{
+  const invalid=structuredClone(review);invalid.inspectionStatus='invalid_evidence';
+  invalid.assertions[0].evidence[0].anchorQuotes=['bad quote'];invalid.assertions[0].evidence[0].invalidAnchorQuotes=['bad quote'];
+  vi.mocked(extract.getExactRunReviewPackage).mockResolvedValue(invalid);
+  const p=props();p.run={...p.run,profile_id:'worldbuilding_gazetteer_v1@1.10'};
+  render(<BuildRunReview {...p}/>);
+  expect(await screen.findByText(/Inline quote correction is not available/)).toBeInTheDocument();
+  expect(screen.getAllByText(/bad quote/).length).toBeGreaterThan(0);
+  expect(extract.getWorldbuildingFrozenSpans).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button',{name:'Prepare selected facts'})).not.toBeInTheDocument();
+  expect(extract.correctExactRunEvidence).not.toHaveBeenCalled();
 });

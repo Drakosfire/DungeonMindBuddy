@@ -313,6 +313,28 @@ def test_semantic_plan_request_codec_has_no_historical_fallback(mutation):
         verify_input_records(context, stored, auth, raw, **work)
 
 
+def test_compact_plan_editor_view_preserves_real_drafts_and_selection():
+    from application_state.agent_conversation.native_plan_work_view import compact_editor_prose
+
+    view = {
+        "requested_work": "discuss",
+        "committed_plan_blocks": [{"selection_id": "work0", "text": "Saved text."}],
+        "current_page_draft": {
+            "state": "same_as_committed", "primary_authoring_context": True, "uses_committed_plan": True,
+        },
+        "focused_edit_target": {"kind": "insert_at_caret"},
+    }
+    compact = compact_editor_prose(view)
+    assert compact == {key: view[key] for key in ("requested_work", "committed_plan_blocks")}
+    assert "current_page_draft" in view
+    for edited in (
+        view | {"requested_work": "write_current_page"},
+        view | {"focused_edit_target": {"kind": "replace_selection", "selected_text": "Saved"}},
+        view | {"current_page_draft": {"state": "unsaved_working_draft", "markdown": "Unsaved text."}},
+    ):
+        assert compact_editor_prose(edited) is edited
+
+
 def test_plan_view_keeps_host_looking_literals_and_duplicate_text_as_distinct_blocks():
     from application_state.agent_conversation.native_plan_work_view import semantic_frame
     from tests.test_surface_native_work_input import work_case

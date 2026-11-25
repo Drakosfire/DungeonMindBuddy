@@ -569,12 +569,38 @@ it.each([
   expect(reopened.doc).toEqual(original.doc);
 });
 
-it('keeps hard breaks in headings and table-cell paragraphs blocked', () => {
+it('keeps hard breaks in headings blocked while allowing table-cell breaks', () => {
   const line = [{type:'text',text:'Before'},{type:'hardBreak'},{type:'text',text:'After'}];
   const heading = {type:'doc',content:[{type:'heading',attrs:{level:2},content:line}]};
   const table = {type:'doc',content:[{type:'table',content:[{type:'tableRow',content:[{type:'tableCell',content:[{type:'paragraph',content:line}]}]}]}]};
   expect(semanticMarkdownSerializationDiagnostics(heading).some(item=>item.nodeType==='hardBreak')).toBe(true);
-  expect(semanticMarkdownSerializationDiagnostics(table).some(item=>item.nodeType==='hardBreak')).toBe(true);
+  expect(semanticMarkdownSerializationDiagnostics(table).some(item=>item.nodeType==='hardBreak')).toBe(false);
+});
+
+it('preserves table-cell breaks, adjacent formatting and links through save and reopen', () => {
+  const source = '| Name<br>header | Details |\n| --- | --- |\n| Winter | **Before**<br>Middle<br> [Link](https://example.com) |\n';
+  const original = markdownToTiptapDoc(source);
+  expect(original.diagnostics).toEqual([]);
+  expect(semanticMarkdownSerializationDiagnostics(original.doc)).toEqual([]);
+  const saved = tiptapJsonToSemanticMarkdown(original.doc);
+  const reopened = markdownToTiptapDoc(saved);
+  expect(reopened.diagnostics).toEqual([]);
+  expect(reopened.doc).toEqual(original.doc);
+});
+
+it('continues to protect unrelated HTML, including breaks outside tables', () => {
+  expect(markdownToTiptapDoc('Before<br>After').diagnostics.some(d => d.level === 'warning')).toBe(true);
+  expect(markdownToTiptapDoc('| A |\n| --- |\n| <img src="x"> |').diagnostics.some(d => d.level === 'warning')).toBe(true);
+  expect(markdownToTiptapDoc('| A |\n| --- |\n| x<br onclick="bad()">y |').diagnostics.some(d => d.level === 'warning')).toBe(true);
+});
+
+it('retains escaped pipes next to a table-cell break', () => {
+  const source = '| Label |\n| --- |\n| A\\|B<br>C |\n';
+  const original = markdownToTiptapDoc(source);
+  expect(original.diagnostics).toEqual([]);
+  const reopened = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(original.doc));
+  expect(reopened.diagnostics).toEqual([]);
+  expect(reopened.doc).toEqual(original.doc);
 });
 
 

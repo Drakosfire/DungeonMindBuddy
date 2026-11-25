@@ -185,6 +185,46 @@ def test_nonliteral_or_unchanged_replacement_cannot_seal(monkeypatch, tmp_path, 
     assert not children
 
 
+def test_gazetteer_child_uses_its_own_profile_and_preserves_parent(monkeypatch, tmp_path):
+    from graph_memory.extraction import extraction_profile
+    parent, parent_bytes, sha, span_id, children = _fixture(monkeypatch, tmp_path)
+    parent.profile_id = correction.GAZETTEER_TRADE_CONTEXT_PROFILE.qualified_id
+    selected = []
+    original = extraction_profile.get_extraction_profile
+
+    def record_profile(profile_id, profile_version):
+        selected.append((profile_id, profile_version))
+        return original(profile_id, profile_version)
+
+    monkeypatch.setattr(extraction_profile, "get_extraction_profile", record_profile)
+    response = correction.correct_exact_run_evidence(_request(sha, span_id))
+    assert selected == [("worldbuilding_gazetteer_v1", "1.10")]
+    assert children[response.run_id].profile_id == parent.profile_id
+    assert children[response.run_id].status == ExtractionRunStatus.REVIEWABLE
+    assert (tmp_path / "parent.json").read_bytes() == parent_bytes
+    assert correction.correct_exact_run_evidence(_request(sha, span_id)) == response
+
+
+def test_gazetteer_profile_validation_blocks_invalid_child(monkeypatch, tmp_path):
+    from graph_memory.extraction import extraction_profile
+    parent, _, sha, span_id, children = _fixture(monkeypatch, tmp_path)
+    parent.profile_id = correction.GAZETTEER_TRADE_CONTEXT_PROFILE.qualified_id
+    monkeypatch.setattr(extraction_profile, "get_extraction_profile", lambda *_: SimpleNamespace(
+        post_extraction_validator=lambda _payload: ["gazetteer-specific invalid candidate"],
+    ))
+    with pytest.raises(correction.ExtractPromoteError, match="gazetteer-specific invalid candidate"):
+        correction.correct_exact_run_evidence(_request(sha, span_id))
+    assert not children
+
+
+def test_gazetteer_nonliteral_replacement_is_rejected(monkeypatch, tmp_path):
+    parent, _, sha, span_id, children = _fixture(monkeypatch, tmp_path)
+    parent.profile_id = correction.GAZETTEER_TRADE_CONTEXT_PROFILE.qualified_id
+    with pytest.raises(correction.ExtractPromoteError):
+        correction.correct_exact_run_evidence(_request(sha, span_id, "elsewhere"))
+    assert not children
+
+
 def test_stale_parent_sha_and_wrong_profile_fail_before_child(monkeypatch, tmp_path):
     parent, _, sha, span_id, children = _fixture(monkeypatch, tmp_path)
     with pytest.raises(correction.ExtractPromoteError):

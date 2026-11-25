@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-from contextlib import ExitStack, contextmanager, nullcontext
+from contextlib import ExitStack, closing, contextmanager, nullcontext
+from contextvars import ContextVar
+from functools import cache
+from threading import get_ident
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
+from psycopg.pq import TransactionStatus
 
 from application_state.agent_conversation import repository as repo
 from application_state.agent_conversation.context_trace import (
@@ -102,6 +106,7 @@ from application_state.errors import (
     ApplicationStateNotFoundError,
     ApplicationStateValidationError,
 )
+from application_state.engine import connect
 from application_state.unit_of_work import unit_of_work
 
 if TYPE_CHECKING:
@@ -271,13 +276,38 @@ def _ready_dsn() -> str:
     return dsn
 
 
+_source_append_connection = ContextVar("_source_append_connection", default=None)
+
+
 @contextmanager
-def _measure_provider_append_transaction(measure):
+def reuse_source_append_connection():
+    """Lease one App connection for synchronous source appends in a selection."""
+    with ExitStack() as scope:
+        @cache
+        def open_connection():
+            return scope.enter_context(closing(connect(load_runtime_dsn())))
+
+        token = _source_append_connection.set((get_ident(), open_connection))
+        try:
+            yield
+        finally:
+            _source_append_connection.reset(token)
+
+
+@contextmanager
+def _execution_append_transaction(measure, *, source_append=False):
     with ExitStack() as stack:
-        with measure("first_jev_send_schema_check"):
-            dsn = _ready_dsn()
         with measure("first_jev_send_transaction_open"):
-            conn = stack.enter_context(unit_of_work(dsn))
+            lease = _source_append_connection.get() if source_append else None
+            if lease is not None and lease[0] == get_ident():
+                conn = lease[1]()
+                if conn.info.transaction_status != TransactionStatus.IDLE:
+                    raise ApplicationStateIntegrityError("Source append connection is not idle")
+                stack.enter_context(conn.transaction())
+            else:
+                conn = stack.enter_context(unit_of_work(load_runtime_dsn()))
+        with measure("first_jev_send_schema_check"):
+            assert_connection_at_head(conn)
         yield conn
         with measure("first_jev_send_commit_and_close"):
             stack.close()
@@ -586,6 +616,37 @@ class AgentConversationService:
             return find_save(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, revision=revision, create_request=create_request,
+            )
+
+    def read_variant_portrait(self, world_id, conversation_id, turn_id, *, review_id, operation_id):
+        from .variant_portrait import read
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return read(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, operation_id=operation_id,
+            )
+
+    def claim_variant_portrait(self, world_id, conversation_id, turn_id, *, review_id, operation_id,
+                               intent, append_request):
+        from .variant_portrait import claim
+
+        with unit_of_work(_ready_dsn()) as conn:
+            return claim(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, operation_id=operation_id,
+                intent=intent, append_request=append_request,
+            )
+
+    def settle_variant_portrait(self, world_id, conversation_id, turn_id, *, review_id, operation_id,
+                                receipt=None, refusal=None):
+        from .variant_portrait import settle
+
+        with unit_of_work(_ready_dsn()) as conn:
+            settle(
+                conn, world_id=_world_id(world_id), conversation_id=conversation_id,
+                turn_id=turn_id, review_id=review_id, operation_id=operation_id,
+                receipt=receipt, refusal=refusal,
             )
 
     def claim_conversation_variant_save(
@@ -1683,6 +1744,7 @@ class AgentConversationService:
         authored_prepared_request_json=None,
         plan_authoring_reservation=None,
         prepared_decision_json=None,
+        graph_reference_decision=None,
         native_writer_proof=None,
         opening_authorization=None,
         _connection=None,
@@ -1693,10 +1755,10 @@ class AgentConversationService:
         measure = _measure or (lambda _name: nullcontext())
         if _connection is not None:
             transaction = nullcontext(_connection)
-        elif _measure is not None:
-            transaction = _measure_provider_append_transaction(measure)
         else:
-            transaction = unit_of_work(_ready_dsn())
+            transaction = _execution_append_transaction(
+                measure, source_append=native_source_materializer is not None,
+            )
         with transaction as conn:
             action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
                 conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
@@ -1845,6 +1907,10 @@ class AgentConversationService:
                 raise ApplicationStateValidationError('Native authored event requires its immutable read transaction owner')
             from .native_corpus import NATIVE_BODY_EVENTS
             from .types import BuildPriorBodyEvidenceAdmittedV1
+            from .native_retrieval import NativeReadBatchConcludedV1
+            if (native_source_materializer is None and type(event) is NativeReadBatchConcludedV1
+                    and event.exhausted_continuation):
+                raise ApplicationStateValidationError("Exhausted continuation requires its fenced completion owner")
             if native_source_materializer is None and isinstance(event, (*NATIVE_BODY_EVENTS, BuildPriorBodyEvidenceAdmittedV1)):
                 raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
             from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
@@ -1940,6 +2006,30 @@ class AgentConversationService:
                         and is_semantic_build_input(turn.graph_context_receipt)
                         and not any(isinstance(e,ProviderAttemptAuthorizedEventV5) for e in execution.events))
                     host_phase = 'select' if fresh_select else None
+                    if event.context_phase == "graph_reference":
+                        from application_state.build_proposal.graph_reference_decision import BuildGraphReferenceDecision
+                        from .native_execution import effective_native_query
+                        from .source_writer_output import strict_json
+
+                        if (not native_build_decision or type(graph_reference_decision) is not BuildGraphReferenceDecision
+                                or event.graph_reference_inventory_sha256 != graph_reference_decision.host_inventory_sha256()
+                                or not any(isinstance(e, BuildRequestedWorkResolutionV1)
+                                           and e.typed_graph_reference == "place_existing_reference" for e in execution.events)
+                                or any(isinstance(e, ProviderAttemptAuthorizedEventV5)
+                                       and e.context_phase == "graph_reference" for e in execution.events)):
+                            raise ValueError("Graph nomination requires its unique admitted typed opening")
+                        query = effective_native_query(turn.graph_context_receipt, execution)
+                        authority = getattr(query, "authority", None)
+                        if authority is None or authority.scope_mode != "world" or any(
+                            (item.reference.managed_world_id, item.reference.native_world_id,
+                             item.reference.binding_version, item.reference.graph_revision) != (
+                                authority.managed_world_id, authority.native_world_id,
+                                authority.binding_version, authority.revision_id,
+                            ) for item in graph_reference_decision.candidates
+                        ):
+                            raise ValueError("Graph nomination inventory differs from the admitted World Graph pin")
+                        graph_reference_decision.require_wire_request(strict_json(prepared_decision_json))
+                        host_phase = "graph_reference"
                     if native_build_decision and event.context_phase=='writer_selection':
                         from .writer_evidence_selection import validate_prepared_selection, is_semantic_state
                         captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()
@@ -2012,7 +2102,9 @@ class AgentConversationService:
                         "Plan packet final writer forbids later Graph reads or providers"
                     )
             from .types import PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1
-            if isinstance(event, (PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1)):
+            from .native_plan_opening import NativePlanAuthorScopeObservedV1
+            if isinstance(event, (PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1,
+                    NativePlanAuthorScopeObservedV1)):
                 from .plan_jev_decision import verify_selection
                 try:
                     captured = conn.execute(
@@ -2116,6 +2208,15 @@ class AgentConversationService:
             source_batch = None
             if native_source_materializer is not None:
                 event = self._materialize_execution_source(native_source_materializer, conn, turn)
+                if type(event) is NativeReadBatchConcludedV1 and event.exhausted_continuation:
+                    from .rules_authority_store import load_turn_rules_locked
+                    from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+                    rules = load_turn_rules_locked(conn, turn)
+                    if rules is not None:
+                        calls = {item.call_id for item in rules.execution.events if isinstance(item, RulesToolAuthorizedV1)}
+                        observed = {item.call_id for item in rules.execution.events if isinstance(item, RulesQueryObservedV1)}
+                        if calls != observed:
+                            raise ApplicationStateValidationError("Plan retrieval cannot finish with an unresolved Rules read")
                 if isinstance(event, (tuple, list)):
                     from .native_corpus import NativeDirectSourceAuthorizedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1
                     from .native_reads import (_NativeReadOperation, authorize_direct_sources_locked,
@@ -2237,10 +2338,22 @@ class AgentConversationService:
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             with measure("first_jev_send_update_and_readback"):
-                updated = self._persist_execution_append(
-                    conn, world_id=world_id, turn_id=turn_id,
-                    expected_revision=expected_revision, execution=updated_execution,
-                )
+                from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
+
+                if (
+                    type(self) is AgentConversationService and type(turn) is Turn
+                    and turn.completion is None and type(event) is ProviderOutcomeEventV1
+                    and event.outcome in {"sdk_entered", "response_received"}
+                    and any(type(auth) in (NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1)
+                            and auth.provider_attempt_id == event.provider_attempt_id
+                            for auth in execution.events)
+                ):
+                    updated = repo.acknowledge_plan_opening_outcome(conn, turn, updated_execution)
+                else:
+                    updated = self._persist_execution_append(
+                        conn, world_id=world_id, turn_id=turn_id,
+                        expected_revision=expected_revision, execution=updated_execution,
+                    )
             if (
                 updated is not None and isinstance(event, ValidatedSourceReadEventV2)
                 and trace_active and source_observations
@@ -2336,6 +2449,15 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key='event_id', plan_jev_selection_proof=producer_proof)
+
+    def record_plan_author_scope_observation(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, observation, producer_proof):
+        from .native_plan_opening import NativePlanAuthorScopeObservedV1
+        if type(observation) is not NativePlanAuthorScopeObservedV1:
+            raise ApplicationStateValidationError('Typed Plan author-scope observation required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=observation, duplicate_key='event_id', plan_jev_selection_proof=producer_proof)
 
     def record_build_jev_action_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection):
@@ -2571,11 +2693,13 @@ class AgentConversationService:
             authorization_event_id=authorization_event_id, read=read)
 
     def conclude_native_read_batch(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, selection_event_id):
+            expected_revision, expected_attempt, event_id, selection_event_id,
+            exhausted_continuation=None):
         from .native_batch_completion import conclude_selected_batch
         return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            producer=conclude_selected_batch, event_id=event_id, selection_event_id=selection_event_id)
+            producer=conclude_selected_batch, event_id=event_id, selection_event_id=selection_event_id,
+            exhausted_continuation=exhausted_continuation)
 
     def authorize_initial_native_source_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
@@ -2970,12 +3094,14 @@ class AgentConversationService:
         expected_revision: int, expected_attempt: int,
         provider_attempt_event: ProviderAttemptAuthorizedEventV2,
         prepared_decision_json: str | None = None,
+        graph_reference_decision=None,
     ) -> tuple[Turn, bool]:
         """Authorize a V2 provider envelope that may include validated source reads."""
         return self._append_graph_execution_event(
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=provider_attempt_event,
             duplicate_key="provider_attempt_id", prepared_decision_json=prepared_decision_json,
+            graph_reference_decision=graph_reference_decision,
         )
 
     def authorize_build_opening_with_prompt(
@@ -3073,6 +3199,196 @@ class AgentConversationService:
         """Accept a captured native answer and close its unused Rules scope atomically."""
         return self._complete_turn(result, prepared_recovery=False,
             native_output_proof=output_proof, expected_rules_revision=expected_rules_revision,native_work_proof=work_proof)
+
+    def complete_build_graph_reference_turn(self, *, world_id, conversation_id, turn_id,
+                                            expected_revision, provider_attempt_id, decision,
+                                            request_json, response_json, authorize_placement):
+        """Commit the acknowledged Jev nomination and any inert Review atomically."""
+        from generationengine.types import DecisionResult
+        from application_state.build_proposal.graph_reference_decision import BuildGraphReferenceDecision
+        from application_state.build_proposal.graph_reference_review import BuildGraphReferenceReviewService
+        from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+        from . import types as t
+        from .authored_graph_references import object_selections
+        from .native_execution import NativeBuildActionV1, SurfaceNativeExecutionV1
+        from .retry import require_leaf
+        from .rules_authority_store import close_unused_locked
+        from .source_writer_output import strict_json
+
+        world_id = _world_id(world_id)
+        response_digest = hashlib.sha256(response_json.encode()).hexdigest()
+        with unit_of_work(_ready_dsn()) as conn:
+            _lock_pointer(conn, world_id)
+            turn = _ordinary_mutation_turn(repo.lock_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError("Build reference turn not found in its World conversation")
+            execution = turn.graph_context_execution
+            if not isinstance(execution, SurfaceNativeExecutionV1) or not isinstance(execution.policy.action, NativeBuildActionV1):
+                raise ApplicationStateValidationError("Graph reference requires a native Build turn")
+            if turn.status == "completed":
+                binding = execution.events[-1]
+                if (type(binding) is t.BuildGraphReferenceCompletionBindingV1
+                        and binding.provider_attempt_id == provider_attempt_id
+                        and binding.decision_response_sha256 == response_digest
+                        and turn.revision == expected_revision + 1):
+                    return turn
+                raise ApplicationStateConflictError("The Build turn has a different completed result")
+            require_leaf(conn, turn)
+            if turn.status != "running" or turn.revision != expected_revision:
+                raise ApplicationStateConflictError("The Build turn claim changed before Graph reference review")
+            action = execution.policy.action
+            capability = action.write_capability
+            if (type(decision) is not BuildGraphReferenceDecision or capability is None
+                    or capability.conversation_id != conversation_id or decision.basis != capability.basis
+                    or decision.question != turn.user_text or decision.catalog != catalog_for_build_capability(capability)):
+                raise ApplicationStateValidationError("Graph nomination differs from the admitted Build capture")
+            captured = next((event for event in execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)), None)
+            selections = object_selections(captured.references if captured is not None else None)
+            if selections != (() if decision.author_selected is None else (decision.author_selected,)):
+                raise ApplicationStateValidationError("Graph nomination changed the admitted author selection")
+            opening = next((event for event in execution.events if isinstance(event, t.BuildRequestedWorkResolutionV1)), None)
+            authorization = next((event for event in execution.events if isinstance(event, t.ProviderAttemptAuthorizedEventV1)
+                                  and event.provider_attempt_id == provider_attempt_id), None)
+            if (opening is None or opening.typed_graph_reference != "place_existing_reference"
+                    or type(authorization) is not t.ProviderAttemptAuthorizedEventV5
+                    or authorization.context_phase != "graph_reference"
+                    or authorization.graph_reference_inventory_sha256 != decision.host_inventory_sha256()
+                    or authorization.envelope_sha256 != hashlib.sha256(request_json.encode()).hexdigest()):
+                raise ApplicationStateValidationError("Graph nomination has no exact authorized request")
+            trace_row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                                     (turn.turn_id, turn.attempt)).fetchone()
+            trace = trace_row[0] if trace_row else {}
+            responses = [m.get("text") for observation in trace.get("observations", [])
+                         if observation.get("kind") == "context_snapshot"
+                         for m in observation.get("materials", [])
+                         if m.get("item_id", "").startswith(f"unvalidated-controller-decision:{provider_attempt_id}:")]
+            if responses != [response_json]:
+                raise ApplicationStateValidationError("Graph nomination lacks the actual captured response")
+            try:
+                decision.require_wire_request(strict_json(request_json))
+                nomination = decision.resolve(DecisionResult.model_validate(strict_json(response_json)))
+                placement = nomination.placement
+                completion = t.BuildGraphReferenceCompletionV1(
+                    context_receipt_sha256=execution.context_receipt_sha256,
+                    disposition=nomination.disposition, action_id=turn_id if placement is not None else None,
+                    placement_sha256=t.canonical_sha256(placement) if placement is not None else None,
+                )
+                binding = t.BuildGraphReferenceCompletionBindingV1(
+                    kind="build_graph_reference_completion_binding_v1", event_id=uuid4(), sequence=len(execution.events),
+                    provider_attempt_id=provider_attempt_id, completion_sha256=t.canonical_sha256(completion),
+                    claim_graph_event_ids={}, opening_event_id=opening.event_id, decision_response_sha256=response_digest,
+                )
+                execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                    execution.model_dump(mode="json", by_alias=True) | {
+                        "events": [e.model_dump(mode="json", by_alias=True) for e in [*execution.events, binding]],
+                    }))
+                validate_execution_completion(completion, turn.graph_context_receipt, execution, provider_attempt_id, {})
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if placement is not None:
+                BuildGraphReferenceReviewService().stage_in_transaction(
+                    conn, turn_id, conversation_id, capability.expected_pointer_revision,
+                    placement, capability.boundary_editor_json, capability.draft_markdown,
+                    admit=lambda _conn, review: authorize_placement(review),
+                )
+            close_unused_locked(conn, turn)
+            updated = repo.complete_claimed_turn(
+                conn, world_id=world_id, turn_id=turn_id, expected_revision=expected_revision,
+                expected_attempt=turn.attempt, assistant_text=completion.answer_segments[0].text,
+                completion=completion, graph_context_execution=execution,
+            )
+            if updated is None:
+                raise ApplicationStateConflictError("The Build turn claim expired before Graph reference review")
+            return updated
+
+    def complete_build_image_move_turn(self, *, world_id, conversation_id, turn_id, expected_revision,
+                                       request_json, response_json, admit):
+        """Reconstruct the nomination against the locked saved Page and stage an inert Review."""
+        from generationengine.types import DecisionResult
+        from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, admitted_image_move_choice
+        from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
+        from application_state.content import pages
+        from . import types as t
+        from .native_execution import NativeBuildActionV1, SurfaceNativeExecutionV1
+        from .retry import require_leaf
+        from .rules_authority_store import close_unused_locked
+        from .source_writer_output import strict_json
+
+        world_id = _world_id(world_id)
+        response_digest = hashlib.sha256(response_json.encode()).hexdigest()
+        request_digest = hashlib.sha256(request_json.encode()).hexdigest()
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = _lock_pointer(conn, world_id)
+            turn = _ordinary_mutation_turn(repo.lock_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError("Image move turn is unavailable")
+            execution = turn.graph_context_execution
+            if not isinstance(execution, SurfaceNativeExecutionV1):
+                raise ApplicationStateValidationError("Image movement requires native Build")
+            action = execution.policy.action
+            opening = next((event for event in execution.events if isinstance(event, t.BuildRequestedWorkResolutionV1)), None)
+            if (not isinstance(action, NativeBuildActionV1) or action.image_move_capture is None
+                    or opening is None or opening.typed_image_move not in {"move_existing", "unresolved"}
+                    or opening.controller_envelope_sha256 != request_digest
+                    or opening.controller_response_sha256 != response_digest):
+                raise ApplicationStateValidationError("Image movement requires its exact admitted opening")
+            if (turn.status == "completed" and turn.revision == expected_revision + 1
+                    and type(execution.events[-1]) is t.BuildImageMoveCompletionBindingV1):
+                return turn
+            require_leaf(conn, turn)
+            if turn.status != "running" or turn.revision != expected_revision:
+                raise ApplicationStateConflictError("The Build turn claim changed before image move Review")
+            capture = action.image_move_capture
+            if (capture.conversation_id != conversation_id or pointer.active_conversation_id != conversation_id
+                    or pointer.revision != capture.expected_pointer_revision):
+                raise ApplicationStateConflictError("The captured image move conversation changed")
+            basis = capture.basis
+            state = pages._state(conn, basis.document_id, world_id, lock=True)
+            saved = pages._committed_snapshot(conn, state)
+            if (state.page.status != "active" or state.metadata.visibility_state != "internal"
+                    or state.page.object_revision != basis.registry_revision or saved.revision is None
+                    or saved.revision.content_sha256 != basis.content_sha256 or saved.presentation is None):
+                raise ApplicationStateConflictError("The captured Page changed before image move Review")
+            try:
+                decision = BuildImageMoveDecision.from_saved(capture, turn.user_text, saved.revision.markdown, saved.presentation)
+                answers = decision.opening_answers(
+                    strict_json(request_json), DecisionResult.model_validate(strict_json(response_json)),
+                    allow_retained=True,
+                )
+                if admitted_image_move_choice(answers, turn.user_text) != opening.typed_image_move:
+                    raise ValueError("The image move choice differs from its admitted response")
+                nomination = decision.resolve(answers)
+                placement = nomination.placement
+                completion = t.BuildImageMoveCompletionV1(
+                    context_receipt_sha256=execution.context_receipt_sha256, disposition=nomination.disposition,
+                    action_id=turn_id if placement is not None else None,
+                    placement_sha256=t.canonical_sha256(placement) if placement is not None else None,
+                )
+                binding = t.BuildImageMoveCompletionBindingV1(
+                    kind="build_image_move_completion_binding_v1", event_id=uuid4(), sequence=len(execution.events),
+                    provider_attempt_id=opening.controller_attempt_id, completion_sha256=t.canonical_sha256(completion),
+                    claim_graph_event_ids={}, opening_event_id=opening.event_id,
+                )
+                execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                    execution.model_dump(mode="json", by_alias=True) | {
+                        "events": [event.model_dump(mode="json", by_alias=True) for event in [*execution.events, binding]],
+                    }))
+                validate_execution_completion(completion, turn.graph_context_receipt, execution, opening.controller_attempt_id, {})
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if placement is not None:
+                BuildImageMoveReviewService().stage_in_transaction(
+                    conn, turn_id, conversation_id, capture.expected_pointer_revision, placement, capture.editor_json, admit=admit,
+                )
+            close_unused_locked(conn, turn)
+            updated = repo.complete_claimed_turn(
+                conn, world_id=world_id, turn_id=turn_id, expected_revision=expected_revision,
+                expected_attempt=turn.attempt, assistant_text=completion.answer_segments[0].text,
+                completion=completion, graph_context_execution=execution,
+            )
+            if updated is None:
+                raise ApplicationStateConflictError("The Build turn claim expired before image move Review")
+            return updated
 
     def complete_plan_authoring_turn(self,result:TurnResult,*,proposal,output_proof,expected_rules_revision:int,work_proof=None):
         """Native evidence acceptance and the Plan result share one transaction."""

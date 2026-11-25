@@ -36,21 +36,29 @@ jobs:
         env:
           POSTGRES_USER: dungeonmind
           POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_DB: postgres
+          POSTGRES_DB: dungeonbuddy_app_state_test_seed
         ports: ['54329:5432']
         options: >-
           --health-cmd "pg_isready -U dungeonmind -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
+      DMB_CI_APP_TEMPLATE_DATABASE: dungeonbuddy_app_state_test_seed
+      DMB_CI_WORKSTREAM_ROOT: ${{ runner.temp }}/buddy-ci-app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-toolchain
       - uses: ./.github/actions/install-locked-python
+
+      - name: Install matching PostgreSQL clients
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
       - name: Verify import contract, original idempotence and atomic rollback
         run: |
-          uv run --locked pytest -q tests/test_agent_legacy_import_intent.py tests/application_state/test_agent_conversation_service.py::test_verified_legacy_import_is_bounded_exact_world_and_idempotent tests/application_state/test_agent_conversation_service.py::test_failed_import_does_not_leave_partial_conversation_or_turns
+          uv run --locked python scripts/ci_contract.py run agent-legacy-import
           uv run --locked python scripts/ci_contract.py inventory
           uv run --locked ruff check src/application_state/agent_conversation/repository.py tests/test_agent_legacy_import_intent.py

@@ -30,6 +30,7 @@ from application_state.errors import (
 )
 from application_state.unit_of_work import unit_of_work
 from .native_replay import native_assertion_steps, native_discovery_replay
+from .neighborhood_replay import effective_retrieval_selections
 from .neighborhood_replay import replay_exclusion_steps
 
 
@@ -192,7 +193,8 @@ def close_context_trace_locked(
             return
         raise ApplicationStateConflictError("context trace is already closed")
     execution_row = conn.execute(
-        "SELECT graph_context_execution FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+        "SELECT agent.reconstruct_plan_execution(turn_id, revision, attempt, graph_context_execution) "
+        "FROM agent.turn WHERE world_id=%s AND turn_id=%s",
         (world_id, turn_id),
     ).fetchone()
     execution = execution_row[0] if execution_row is not None else None
@@ -258,7 +260,7 @@ def begin_context_trace_locked(
     """Start capture inside the caller's transaction under the existing claim fence."""
     turn = conn.execute(
         "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
-        "clock_timestamp() AS now, graph_context_execution FROM agent.turn "
+        "clock_timestamp() AS now FROM agent.turn "
         "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
         (world_id, turn_id),
     ).fetchone()
@@ -275,11 +277,16 @@ def begin_context_trace_locked(
         if trace.trace_id != trace_id or trace.started_at != started_at:
             raise ApplicationStateConflictError("context trace attempt identity changed")
         return trace
+    execution = conn.execute(
+        "SELECT agent.reconstruct_plan_execution(turn_id, revision, attempt, graph_context_execution) "
+        "FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+        (world_id, turn_id),
+    ).fetchone()[0]
     trace = TurnContextTraceV1(
         trace_id=trace_id, world_id=world_id, conversation_id=conversation_id,
         turn_id=turn_id, attempt=attempt, started_at=started_at,
         execution_start_sequence=(
-            len(turn[6].get("events", [])) if isinstance(turn[6], dict) else 0
+            len(execution.get("events", [])) if isinstance(execution, dict) else 0
         ),
         observations=[],
     )
@@ -312,17 +319,14 @@ class TurnContextTraceStore:
     ) -> TurnContextTraceV1:
         from application_state.agent_conversation.service import _ready_dsn
 
+        prompt_attempt = (str(observation.provider_attempt_id)
+                          if type(observation) is TracePromptReference else None)
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
                 "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
-                "clock_timestamp() AS now, "
-                "CASE WHEN %s THEN graph_context_execution ELSE NULL END, sequence "
-                "FROM agent.turn "
+                "clock_timestamp() AS now, sequence FROM agent.turn "
                 "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
-                # Only these exact observation types never inspect execution.
-                # Keep it available for all other and future validators.
-                (type(observation) not in {TraceProviderCall, TraceContextDecision},
-                 world_id, turn_id),
+                (world_id, turn_id),
             ).fetchone()
             if turn is None or turn[0] != conversation_id:
                 raise ApplicationStateNotFoundError("trace turn is unavailable in this World conversation")
@@ -331,6 +335,16 @@ class TurnContextTraceStore:
                 or turn[3] != attempt or turn[4] is None or turn[4] <= turn[5]
             ):
                 raise ApplicationStateConflictError("trace append is fenced by a stale or expired claim")
+            execution = None
+            if type(observation) not in {TraceProviderCall, TraceContextDecision}:
+                # After waiting for the claim lock, take a fresh statement snapshot
+                # so the row and any ordered events are from the same revision.
+                execution = conn.execute(
+                    "SELECT agent.reconstruct_plan_execution("
+                    "turn_id, revision, attempt, graph_context_execution, %s) "
+                    "FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+                    (prompt_attempt, world_id, turn_id),
+                ).fetchone()[0]
             row = _trace_row(conn, turn_id, attempt)
             if row is None:
                 raise ApplicationStateNotFoundError("context trace was not started")
@@ -340,7 +354,7 @@ class TurnContextTraceStore:
             if trace.closed_at is not None:
                 raise ApplicationStateConflictError("context trace is already closed")
             if isinstance(observation, TraceAuthoredGraphReferenceV1):
-                validate_authored_reference_observation(observation, turn[6], trace)
+                validate_authored_reference_observation(observation, execution, trace)
             if observation.sequence < len(trace.observations):
                 if trace.observations[observation.sequence] == observation:
                     return trace
@@ -352,14 +366,14 @@ class TurnContextTraceStore:
                     "source passage observations must be committed with their validated source-read event"
                 )
             if isinstance(observation, TracePromptReference):
-                validate_prompt_authorization(observation, turn[6], trace.execution_start_sequence)
+                validate_prompt_authorization(observation, execution, trace.execution_start_sequence)
                 if any(isinstance(item, TracePromptReference) and item.provider_attempt_id == observation.provider_attempt_id
                        for item in trace.observations):
                     raise ApplicationStateValidationError("provider request already has a prompt reference")
             if isinstance(observation, TraceGraphTool):
-                _validate_graph_tool_observation(observation, turn[6])
+                _validate_graph_tool_observation(observation, execution)
             if isinstance(observation, TraceContextSnapshot):
-                if not _historical_sources_available(conn, trace, observation, turn[7], turn[6]):
+                if not _historical_sources_available(conn, trace, observation, turn[6], execution):
                     incomplete = TurnContextTraceV1.model_validate({
                         **trace.model_dump(mode="python"),
                         "capture_status": "incomplete",
@@ -463,7 +477,8 @@ class TurnContextTraceStore:
 
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
-                "SELECT graph_context_execution, conversation_id, graph_context_receipt FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+                "SELECT agent.reconstruct_plan_execution(turn_id, revision, attempt, graph_context_execution), "
+                "conversation_id, graph_context_receipt FROM agent.turn WHERE world_id=%s AND turn_id=%s",
                 (world_id, turn_id),
             ).fetchone()
             if turn is None:
@@ -501,6 +516,7 @@ class TurnContextTraceStore:
                 }
             traces[index] = trace.model_copy(update={
                 "writer_evidence_sequences": _writer_evidence_sequences(trace, turn[0], next_start),
+                "effective_retrieval_selections": effective_retrieval_selections(turn[0], start=trace.execution_start_sequence, stop=next_start) or None,
                 "native_assertion_steps": native_steps or None,
                 "native_discovery_replay": native_discovery_replay(turn[2], turn[0], stop=next_start) if trace.attempt == 1 else None,
                 "retrieval_exclusion_steps": exclusion_steps or None,
@@ -681,7 +697,8 @@ def _validate_graph_tool_observation(observation: TraceGraphTool, execution: obj
 def validate_prompt_authorization(observation: TracePromptReference, execution: object, start_sequence: int) -> None:
     events = execution.get("events", []) if isinstance(execution, dict) else []
     matches = [event for event in events if isinstance(event, dict)
-        and event.get("kind") in {"provider_attempt_authorized", "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2", "plan_native_writer_authorized_v1", "plan_native_writer_authorized_v2", "native_writer_authorized_v1", "native_build_writer_authorized_v2", "native_retrieval_authorized_v1", "native_plan_opening_authorized_v1"}
+        and event.get("kind") in {"provider_attempt_authorized", "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2", "plan_native_writer_authorized_v1", "plan_native_writer_authorized_v2", "native_writer_authorized_v1", "native_build_writer_authorized_v2", "native_retrieval_authorized_v1", "native_plan_opening_authorized_v1",
+            "native_plan_author_scope_authorized_v1"}
         and event.get("provider_attempt_id") == str(observation.provider_attempt_id)
         and event.get("sequence", -1) >= start_sequence]
     if len(matches) != 1 or any(matches[0].get(key) != expected for key, expected in {

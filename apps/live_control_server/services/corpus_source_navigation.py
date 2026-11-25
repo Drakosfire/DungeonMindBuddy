@@ -1,6 +1,6 @@
 """One explicitly selected corpus scan; no prose is added to model context."""
 from hashlib import sha256
-from contextlib import nullcontext
+from contextlib import ExitStack, closing, nullcontext
 from collections import Counter
 from types import SimpleNamespace
 from uuid import uuid4
@@ -339,23 +339,20 @@ class NativeBodyNavigation:
         self._require_metadata_selection(handle, parent=parent)
 
     def expansion_handle(self):
-        from application_state.agent_conversation.native_retrieval import scope_digest
-        turn = self.adapter.fence.turn
-        return 'native-corpus-expand:' + t.canonical_sha256({
-            'scope': scope_digest(turn), 'query': sha256(turn.user_text.encode()).hexdigest()})
+        from application_state.agent_conversation.native_retrieval import source_expansion_handle
+        return source_expansion_handle(self.adapter.fence.turn)
 
     def _expanded(self):
-        from application_state.agent_conversation.native_retrieval import native_selection_types
-        handle = self.expansion_handle()
-        return any(type(event) in native_selection_types() and
-            event.operation == 'select_candidates' and handle in event.selected_handles
-            for event in self.adapter.fence.turn.graph_context_execution.events)
+        from application_state.agent_conversation.native_retrieval import source_expansion_selected
+        return source_expansion_selected(self.adapter.fence.turn)
 
     def _scoped_offers(self, rows, search):
         turn = self.adapter.fence.turn
         if type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1:
             return tuple(rows)
-        from .native_source_candidate_scope import post_cutoff_source_pairs, preferred_source_pairs
+        from .native_source_candidate_scope import (
+            post_cutoff_source_pairs, post_named_recap_source_pairs, preferred_source_pairs,
+        )
         self._source_choices()
         from application_state.agent_conversation.native_corpus import (
             NativeAuthoredSourceReadV1, request_source_discovery_enabled,
@@ -372,7 +369,13 @@ class NativeBodyNavigation:
                         and request_source_discovery_enabled(
                             turn.graph_context_receipt, turn.graph_context_execution))
         excluded = post_cutoff_source_pairs(turn.user_text, self._source_display)
-        if pairs is None and not keywords and not rank_opening and not excluded:
+        excluded |= post_named_recap_source_pairs(
+            getattr(turn.graph_context_receipt.native_query, "named_recap_bound", None),
+            self._source_display,
+        )
+        focus = (getattr(turn.graph_context_receipt.native_query, "episode_campaign_focus", None)
+                 if search is not None else None)
+        if pairs is None and not keywords and not rank_opening and not excluded and focus is None:
             return tuple(rows)
         addresses = {handle: pair for handle, (pair, _, _) in self._direct_sources.items()}
         if search is not None:
@@ -461,6 +464,13 @@ class NativeBodyNavigation:
                 # The existing expansion action still exposes full-document navigation.
                 narrowed = [row for row in narrowed
                             if row.handle in section_handles or row.handle not in addresses]
+        if focus is not None and (focus.source_artifact_id, focus.source_revision_id) in addresses.values():
+            from .native_source_candidate_scope import episode_campaign_source_pairs
+            deferred = episode_campaign_source_pairs(focus, self._source_display)
+            narrowed = [
+                row for row in narrowed
+                if row.kind != "Exact source section" or addresses.get(row.handle) not in deferred
+            ]
         if len(narrowed) != len(rows):
             narrowed.append(RetrievalCandidate(handle=self.expansion_handle(),
                 label='Expand source search if the currently offered passages cannot establish the requested details',
@@ -567,12 +577,12 @@ class NativeBodyNavigation:
                 rows.append(RetrievalCandidate(handle=handle,
                     label='Read full document: ' + source_display_name(display, 'Admitted source'),
                     kind='Explicit admitted full-source read; metadata choice, not evidence'))
-        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
         from application_state.agent_conversation.native_retrieval import native_selection_types
         execution = turn.graph_context_execution
         reviewed = {handle for selection in execution.events if isinstance(selection, native_selection_types())
                     for handle in selection.selected_handles}
-        if type(getattr(getattr(execution, "policy", None), "action", None)) is NativePlanActionV2:
+        if type(getattr(getattr(execution, "policy", None), "action", None)) in (NativePlanActionV2, NativePlanActionV3):
             for read, catalog in acquired:
                 if read.excerpt.selector_policy != "native_full_document_v1":
                     continue
@@ -627,57 +637,6 @@ class NativeBodyNavigation:
                     label="Read full document: " + name + " · matched terms: " + ", ".join(terms),
                     kind="Explicit full-document read"))
         return self._scoped_offers(rows, search)
-
-    def continuation_offers(self):
-        """Existing unread section choices in the best opened recap's next session."""
-        import math
-        import re
-        from application_state.agent_conversation.corpus_source_search import terms
-        from application_state.agent_conversation.native_corpus import native_body_handle
-
-        turn = self.adapter.fence.turn
-        _, search, _, _ = self._events()
-        if search is None:
-            return ()
-        query = set(terms(turn.user_text))
-        acquired = self._acquired_extents()
-        opened = {(c.source.registered_campaign_id, c.source.session_scope) for _, c in acquired}
-        offered = {c.handle: c for c in self.offered() if c.kind == "Exact source section"}
-        by_session = {}
-        for catalog in search.catalogs:
-            member = catalog.source
-            key = (member.registered_campaign_id, member.session_scope)
-            if key in opened:
-                continue
-            for section in catalog.sections:
-                handle = native_body_handle(catalog.catalog_sha256, section.section_id)
-                if handle in offered:
-                    by_session.setdefault(key, []).append(offered[handle])
-
-        scores = {}
-        for read, catalog in acquired:
-            member = catalog.source
-            if not member.registered_campaign_id or not isinstance(member.session_scope, int):
-                continue
-            excerpt = read.excerpt
-            if excerpt.selector_policy != "markdown_sections_v1" or excerpt.planning_ranges is None:
-                continue
-            key = (member.registered_campaign_id, member.session_scope + 1)
-            if key not in by_session:
-                continue
-            planning = excerpt.planning_ranges.lines
-            words = Counter(re.findall(r"\w+", "\n".join(
-                line for i, line in enumerate(excerpt.text.splitlines(), excerpt.section.line_start)
-                if not any(start <= i <= end for start, end in planning)).casefold()))
-            if len(query & words.keys()) < 2:
-                continue
-            score = sum(math.log1p(words[word]) for word in query) / math.sqrt(words.total())
-            scores[key] = max(score, scores.get(key, 0))
-        if not scores:
-            return ()
-        best = max(scores.values())
-        winners = [key for key, score in scores.items() if score == best]
-        return tuple(by_session[winners[0]]) if len(winners) == 1 else ()
 
     def examined(self):
         from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1, native_corpus_search_handle
@@ -737,6 +696,11 @@ class NativeBodyNavigation:
                             return _materialize(*args, **kwargs)
                     fields[name] = measured
         with trace.measure_host_work("native_source_append") if trace is not None else nullcontext():
+            if method in {'authorize_native_body_reads', 'authorize_native_direct_sources',
+                          'observe_native_body_reads', 'observe_native_direct_source'}:
+                events = a.fence.commit_session_source_events(method, **fields)
+                if events is not None:
+                    return events[0] if method == 'observe_native_direct_source' else events
             result = a.fence.commit(method, **fields)
         a.turn = result[0]
         if method in {'authorize_native_direct_sources', 'authorize_native_body_reads', 'observe_native_body_reads'}:
@@ -753,15 +717,27 @@ class NativeBodyNavigation:
         """
         from application_state.agent_conversation.plan_jev_decision import current_selection
         from application_state.agent_conversation.native_corpus import selected_batch_covering_reads
-        turn = self.adapter.fence.turn
-        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        owner = self.adapter.fence.renewer
+        with owner._lock:
+            if owner._session is not None:
+                return owner._session.covers_source_selection(handle)
+            turn = self.adapter.fence.turn
+        from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
         execution = turn.graph_context_execution
         return bool(selected_batch_covering_reads(
             execution, current_selection(turn), handle,
-            require_passage=type(getattr(execution.policy, "action", None)) is NativePlanActionV2,
+            require_passage=type(getattr(execution.policy, "action", None)) in (NativePlanActionV2, NativePlanActionV3),
         ))
 
     def select(self, handles):
+        # Close Core's read transport separately from the APP commit's exception
+        # handling. Each observation still owns its original durable boundary.
+        from application_state.agent_conversation.service import reuse_source_append_connection
+
+        with reuse_source_append_connection(), closing(ExitStack()) as source_session:
+            return self._select_with_read_session(handles, source_session)
+
+    def _select_with_read_session(self, handles, source_session):
         from application_state.agent_conversation.native_corpus import native_corpus_search_handle
         from ..integrations.dungeonmind.native_corpus_source import (
             NativeCorpusContext, capture_native_sources, read_native_corpus_member, read_direct_native_source,
@@ -770,6 +746,18 @@ class NativeBodyNavigation:
         context = getattr(a, "native_corpus_context", None)
         if not isinstance(context, NativeCorpusContext) or context.authority != a.fence.turn.graph_context_receipt.source_authority:
             raise ValueError("Native navigation requires its original trusted source context")
+        reuse_connection = getattr(context.repository, "reuse_native_source_read_connection", None)
+
+        def read_member(authority, member):
+            nonlocal reuse_connection
+            if reuse_connection is not None:
+                # This runs inside the existing authorized read callback.
+                source_session.enter_context(reuse_connection())
+                reuse_connection = None
+            return read_native_corpus_member(
+                authority=authority, member=member, principal=context.principal, prepared=context,
+            )
+
         offered = {row.handle for row in self.offered()}
         if (not handles or len(set(handles)) != len(handles)
                 or any(handle not in offered and not self._fulfilled_in_current_selection(handle) for handle in handles)):
@@ -781,8 +769,11 @@ class NativeBodyNavigation:
             if handle in completed_body_handles or handle not in offered or self._fulfilled_in_current_selection(handle):
                 continue  # Its exact text was already read in this selected batch.
             with a.fence.renewer._lock:
-                turn = a.fence.renewer._turn
-                is_search = handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest())
+                session = a.fence.renewer._session
+                turn = a.fence.renewer._turn if session is None else None
+                world_id, user_text = ((turn.world_id, turn.user_text) if turn is not None
+                                       else session.source_coordinates())
+                is_search = handle == native_corpus_search_handle(sha256(user_text.encode()).hexdigest())
                 is_direct = handle.startswith('native-direct-source:')
                 if is_direct:
                     choices = self._source_choices()
@@ -803,16 +794,21 @@ class NativeBodyNavigation:
                 elif is_search:
                     auth = self._commit("authorize_native_body_search", event_id=uuid4())
                     operation = 'source_search'
-                    label = turn.user_text  # Exact query used by the native lexical-search owner.
+                    label = user_text  # Exact query used by the native lexical-search owner.
                 else:
-                    _, search, _, _ = self._events(turn)
                     if handle.startswith("native-full-document:"):
                         catalog_sha, section, kind = handle.removeprefix("native-full-document:"), None, "full_document"
                     else:
                         catalog_sha, section = handle.removeprefix("native-body:").split(":", 1)
                         kind = "section"
                     from application_state.agent_conversation.plan_jev_decision import current_selection
-                    selection_handles = current_selection(turn).selected_handles
+                    if turn is not None:
+                        _, search, _, _ = self._events(turn)
+                        search_event_id = search.event_id
+                        selection_handles = current_selection(turn).selected_handles
+                        catalog = next(row for row in search.catalogs if row.catalog_sha256 == catalog_sha)
+                    else:
+                        search_event_id, selection_handles, catalog = session.source_batch_catalog(catalog_sha)
                     group_handles = [handle]
                     if kind == 'section' and 'native-full-document:' + catalog_sha not in selection_handles:
                         position = selection_handles.index(handle)
@@ -823,11 +819,10 @@ class NativeBodyNavigation:
                                 break
                             group_handles.append(following)
                     grants = self._commit('authorize_native_body_reads', grants=tuple(dict(
-                        event_id=uuid4(), search_event_id=search.event_id, catalog_sha256=catalog_sha,
+                        event_id=uuid4(), search_event_id=search_event_id, catalog_sha256=catalog_sha,
                         retrieval_kind=kind, section_id=None if kind == 'full_document' else h.removeprefix('native-body:').split(':', 1)[1])
                         for h in group_handles))
                     operation = 'source_document_read' if kind == 'full_document' else 'source_section_read'
-                    catalog = next(row for row in search.catalogs if row.catalog_sha256 == catalog_sha)
                     body_group = tuple((h, g, self._read_label(catalog, g.section_id))
                         for h, g in zip(group_handles, grants, strict=True))
             if not is_direct and not is_search:
@@ -836,8 +831,7 @@ class NativeBodyNavigation:
                 with a.fence.renewer._lock:
                     results = self._commit('observe_native_body_reads', reads=tuple(dict(
                         event_id=uuid4(), authorization_event_id=g.event_id) for _, g, _ in body_group),
-                        read=lambda authority, member: read_native_corpus_member(authority=authority, member=member,
-                            principal=context.principal, prepared=context))
+                        read=read_member)
                 for (h, _, label), result in zip(body_group, results, strict=True):
                     observe_native_retrieval(a, operation, h, label=label, completed=True,
                         unavailable=result.excerpt is None)
@@ -854,7 +848,7 @@ class NativeBodyNavigation:
                             content_sha256=grant.content_sha256))
                 elif is_search:
                     result = self._commit("observe_native_body_search", event_id=uuid4(), authorization_event_id=auth.event_id,
-                        capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
+                        capture=lambda: capture_native_sources(managed_world_id=world_id,
                             principal=context.principal, prepared=context))
             observe_native_retrieval(a, operation, handle, label=label, completed=True,
                 unavailable=not is_search and result.excerpt is None)

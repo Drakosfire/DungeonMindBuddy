@@ -200,9 +200,16 @@ def _build_work_resolver(body: AgentTurnRequest, owner: Mapping[str, Any] | None
         or record.authority_state not in {"draft", "reviewed", "canonical"}
         or record.visibility_state not in {"internal", "player_safe"}):
         raise AgentTurnServiceError("The saved Build source changed or is not available in this World", code="build_source_unavailable", status_code=409)
+    if body.build_image_move_capture is not None and (
+        record.visibility_state != "internal" or snapshot.page_presentation is None
+    ):
+        raise AgentTurnServiceError(
+            "Image movement requires the current internal composed Page.",
+            code="build_image_move_context_changed", status_code=409, provider_dispatched=False,
+        )
     basis = BuildSavedSourceBasis(record.document_id, str(owner["id"]), record.revision, digest,
         record.title, record.source_domain, record.document_class, record.authority_state,
-        record.visibility_state, snapshot.markdown)
+        record.visibility_state, snapshot.markdown, page_presentation=snapshot.page_presentation)
     return AgentTurnResolvedWork(kind="build", object_id=record.document_id, revision=record.revision,
         changed_since_expected=False, owner_kind="world", owner_id=str(owner["id"]),
         world_id=str(owner["id"]), build_source=basis,
@@ -515,10 +522,19 @@ def _historical_work_resolver(
             None if target_session is None else normalize_session_id(target_session)
         ),
         world_id=str(owner["id"]),
-        # The historical reference does not store editor divergence. The
-        # immutable pin is sufficient to reconstruct runtime input, not that
-        # transient response boolean.
-        content_basis=None,
+        content_basis=(
+            AgentTurnContentBasis(
+                world_id=str(owner["id"]),
+                document_id=reference.object_id,
+                object_revision=reference.object_revision,
+                work_revision_id=str(reference.work_revision_id),
+                revision_n=reference.revision_n,
+                content_sha256=reference.content_sha256,
+                committed_status="committed",
+                has_divergent_working_copy=False,
+            )
+            if body.plan_context_policy is not None else None
+        ),
         plan_markdown=committed.markdown,
         session_evidence=_planning_session_evidence(body,owner,provenance),
     )
@@ -765,6 +781,7 @@ def _plan_context_resolver(
         try:
             context, query = prepare_query(work.world_id, body.message, native_principal,
                 source_context=native_source_context,
+                resolve_event_source_scope=body.surface.surface_id == 'plan' and frozen_receipt is None,
                 measure_work=trace.measure_host_work if trace is not None else None,
                 authored_references=body.build_authored_references if body.surface.surface_id == 'build' else body.authored_references,
                 revision_id=frozen_query.authority.revision_id if isinstance(frozen_query, NativePlanQueryV1) else None)
@@ -773,12 +790,16 @@ def _plan_context_resolver(
                 code='native_graph_query_rejected',status_code=409,provider_dispatched=False) from exc
         if type(frozen_query) is NativePlanQueryV1 and isinstance(query, NativePlanQueryV1):
             from dataclasses import replace
-            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches','discovery_hops'}) | {'schema': 'dmb_native_plan_query_v1'})
+            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches','discovery_hops','named_recap_bound','episode_campaign_focus'}) | {'schema': 'dmb_native_plan_query_v1'})
             context = replace(context, query=query)
         elif hasattr(query, 'discovery_hops') and isinstance(frozen_query, NativePlanQueryV1):
             from dataclasses import replace
             # Retry reopens the original retrieval rather than recording a new discovery.
-            query = query.model_copy(update={'discovery_hops': getattr(frozen_query, 'discovery_hops', ())})
+            query = query.model_copy(update={
+                'discovery_hops': getattr(frozen_query, 'discovery_hops', ()),
+                'named_recap_bound': getattr(frozen_query, 'named_recap_bound', None),
+                'episode_campaign_focus': getattr(frozen_query, 'episode_campaign_focus', None),
+            })
             context = replace(context, query=query)
         return context, query
 
@@ -1712,9 +1733,13 @@ def correct_conversation_variant_review(
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+from apps.live_control_server.services.conversation_variant_save import SaveConversationVariantPortrait
+
+
 @router.get(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}/saved")
 def get_saved_conversation_variant(
     world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID, request: Request,
+    portrait_operation_id: UUID | None = None,
 ):
     from apps.live_control_server.services.conversation_variant_save import open_saved_variant
 
@@ -1722,6 +1747,30 @@ def get_saved_conversation_variant(
     try:
         return open_saved_variant(
             _conversation_service(request), verified, conversation_id, turn_id, review_id=review_id,
+            portrait_operation_id=portrait_operation_id,
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post(_CONVERSATION_DRAFT_PATH + "/variant-reviews/{review_id}/saved/portrait")
+def save_saved_conversation_variant_portrait(
+    world_id: str, conversation_id: UUID, turn_id: UUID, review_id: UUID,
+    body: SaveConversationVariantPortrait, request: Request,
+):
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.conversation_variant_save import save_variant_portrait
+    from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
+
+    verified = _conversation_draft_access(request, world_id)
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        owner = enforce_native_graph_gm(request).subject
+    else:
+        owner = hosted_world_media_owner(verified)
+    try:
+        return save_variant_portrait(
+            _conversation_service(request), verified, conversation_id, turn_id,
+            review_id=review_id, command=body, media_owner=owner,
         )
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -2450,7 +2499,8 @@ def post_agent_turn(body: AgentTurnRequest, request: Request):
         if getattr(body.primary_work, "kind", None) != "build":
             raise HTTPException(422, detail="Construction streaming requires Build work")
         from apps.live_control_server.services.build_construction_stream import turn_stream
-        return turn_stream(lambda: _execute_agent_turn(body, request), body.turn_id)
+        return turn_stream(lambda: _execute_agent_turn(body, request), body.turn_id,
+                           include_reply=request.headers.get("x-buddy-reply-stream") == "1")
     return _execute_agent_turn(body, request)
 
 
@@ -3440,4 +3490,6 @@ def report_build_document_proposal_inserted(world_id: str, action_id: UUID, requ
 
 # Review is a separate owner from immutable generated proposal/provider evidence.
 from .build_proposal_reviews import router as build_proposal_review_router
+from .build_image_move_reviews import router as build_image_move_review_router
 router.include_router(build_proposal_review_router)
+router.include_router(build_image_move_review_router)

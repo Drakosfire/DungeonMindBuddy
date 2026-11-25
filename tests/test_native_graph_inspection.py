@@ -1069,7 +1069,17 @@ def test_managed_projection_reads_revision_and_source_once_reuses_parse_after_wi
     assert {k: v for k, v in case.repo.__dict__.items() if k != "_lock"} == before
 
 @pytest.mark.parametrize("depth", [1, 2])
-def test_native_neighborhood_citation_round_trip(inspection, depth):
+def test_native_neighborhood_citation_round_trip(inspection, depth, monkeypatch):
+    from dungeonmind.application.vnext import EntityReadService
+
+    batch = EntityReadService.get_entities
+    presented = []
+
+    def read_batch(self, context, ids):
+        presented.append(tuple(ids))
+        return batch(self, context, ids)
+
+    monkeypatch.setattr(EntityReadService, "get_entities", read_batch)
     x = inspection
     historical_pin = catalog(
         x, scope_mode="campaign", campaign_id=x.lane.run.campaign_id
@@ -1123,6 +1133,7 @@ def test_native_neighborhood_citation_round_trip(inspection, depth):
     assert historical.json()["scope"] == historical_pin
     assert historical.json()["node_ids"] == [seed, x.objects["endpoint"]]
     assert len(historical.json()["relationships"]) == 1
+    assert presented == [tuple(expected), (seed,), (seed, x.objects["endpoint"])]
     edges = packet["relationships"]
     assert len(edges) == depth
     assert [edge["edgeId"] for edge in edges] == sorted(edge["edgeId"] for edge in edges)

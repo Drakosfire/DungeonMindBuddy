@@ -62,6 +62,7 @@ vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({
   usePublishAgentSurfaceContext: () => undefined,
 }));
 
+import * as hostedAuth from "../auth/HostedAuthGate";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { WorldAgentConversationProvider, useWorldAgentConversationState } from "../agentInteraction/WorldAgentConversation";
 import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
@@ -1467,6 +1468,32 @@ const cardEditScope: Partial<ConversationTestProps> = {
 };
 
 describe("World Plan conversation consumer", () => {
+
+  it.each(["authenticated", "local_operator"] as const)(
+    "loads legacy Plan action projections only for the local operator (%s)",
+    async (status) => {
+      vi.spyOn(hostedAuth, "useHostedAuthStatus").mockReturnValue({
+        status, refreshWarning: false, subject: status === "authenticated" ? "pilot-owner" : null,
+        displayName: null,
+      });
+      const api = setupApi(history("conversation-a", 4, []));
+      const documentActions = vi.mocked(liveApi.getWorldPlanDocumentEditActions);
+      const conversationActions = vi.mocked(liveApi.getWorldPlanConversationActions);
+
+      await mountComponent();
+      await waitForConversationReady();
+      expect(api.getMessages).toHaveBeenCalledWith(worldId, undefined, expect.any(AbortSignal));
+
+      if (status === "local_operator") {
+        expect(documentActions).toHaveBeenCalledWith(worldId, documentId);
+        await waitFor(() => expect(conversationActions).toHaveBeenCalledWith(worldId, "conversation-a"));
+      } else {
+        expect(documentActions).not.toHaveBeenCalled();
+        expect(conversationActions).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it.each(["failed", "indeterminate", "pending"] as const)("mounts lazy evidence inspection for a %s saved Action without an Ask identity", async (status) => {
     setupApi(history("conversation-a", 4, []));
     const action = {
@@ -6321,7 +6348,7 @@ it('shows saved text immediately but keeps Send gated until a retained pending r
   expect(postAsk).toHaveBeenCalledTimes(1);
 });
 
-it.each(['accepted','running'] as const)('keeps live activity bound to admitted metadata while full receipt refreshes are pending · %s',async lifecycle=>{
+it.each(['accepted','running'] as const)('keeps live activity bound to admitted metadata without hydrating pending receipts · %s',async lifecycle=>{
   const api=setupApi(history('conversation-a',4,[]),false);
   const pending=deferred<ReturnType<typeof agentResponse>>();
   const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockReturnValue(pending.promise as any);
@@ -6339,7 +6366,7 @@ it.each(['accepted','running'] as const)('keeps live activity bound to admitted 
   const row={...makeTurn(1,durable,request.message,''),assistant_text:null,lifecycle_status:lifecycle,
     idempotency_key:await expectedHistoryCorrelationKey(worldId,request.turn_id)};
   api.setCurrent(await historyV3('conversation-a',4,[row]));
-  api.getHistory.mockReturnValue(new Promise(()=>{}));
+  api.getHistory.mockClear();
   fireEvent.click(screen.getByRole('button',{name:'Refresh activity fixture'}));
   const read=vi.mocked(liveApi.getWorldAgentTurnContextTrace);
   await waitFor(()=>expect(read).toHaveBeenCalledWith(worldId,durable,expect.any(AbortSignal)));
@@ -6357,6 +6384,7 @@ it.each(['accepted','running'] as const)('keeps live activity bound to admitted 
   const reads=read.mock.calls.length;
   await waitFor(()=>expect(read.mock.calls.length).toBeGreaterThan(reads),{timeout:3500});
   expect(post).toHaveBeenCalledTimes(1);
+  expect(api.getHistory).not.toHaveBeenCalled();
 });
 
 

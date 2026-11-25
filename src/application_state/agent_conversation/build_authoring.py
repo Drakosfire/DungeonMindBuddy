@@ -3,7 +3,7 @@
 from hashlib import sha256
 import json
 
-from application_state.build_proposal.types import BuildProposalRecord
+from application_state.build_proposal.types import BuildProposalRecord, decode_build_markdown_proposal
 from application_state.errors import ApplicationStateIntegrityError
 from .types import (
     BuildAuthoringCompletionV1,
@@ -101,7 +101,7 @@ def normalize_native_authoring(conn,turn,rules_execution,proof,*,trace,work_proo
         completion=completion_for_image(record,turn.graph_context_receipt)
         text=BUILD_IMAGE_READY_TEXT
     else:
-        record=BuildProposalRecord.model_validate(row[0] if row else None)
+        record=decode_build_markdown_proposal(row[0] if row else None)
         if record.raw_response!=proof.raw_output_json:
             raise ValueError('Native proposal differs from its sealed producing output')
         completion=completion_for_proposal(record,turn.graph_context_receipt)
@@ -132,7 +132,7 @@ def validate_stored_proposal(conn, turn, completion, *, proposal_payloads=None):
     try:
         if payload is None:
             raise ValueError("Proposal owner record is missing")
-        record = BuildProposalRecord.model_validate(payload)
+        record = decode_build_markdown_proposal(payload)
         reservation, receipt = record.reservation, turn.graph_context_receipt
         origin, auth = reservation.origin, record.authorization
         basis = reservation.basis
@@ -189,16 +189,33 @@ def validate_stored_proposal(conn, turn, completion, *, proposal_payloads=None):
                 )
         if shared:
             from .build_intentional_response import selected_action
-            from application_state.build_proposal.types import normalize_proposal_output
+            from application_state.build_proposal.types import (
+                BuildProseBoundaryReservation, explicit_build_page_target, normalize_boundary_proposal_output, normalize_proposal_output,
+            )
             selected=selected_action(turn.graph_context_execution)
             validate_native_authoring_binding(completion,receipt,turn.graph_context_execution,completion.provider_attempt_id,{})
             capability=turn.graph_context_execution.policy.action.write_capability
+            excluded = {"instruction", "origin"}
+            if isinstance(reservation, BuildProseBoundaryReservation):
+                placement = getattr(selected, "paragraph_placement", None)
+                if placement is None or placement.target != reservation.prose_target:
+                    raise ValueError("Native proposal result differs from its admitted paragraph boundary")
+                output = normalize_boundary_proposal_output(record.raw_response)
+                excluded.update({"page_body_offer", "page_end_offer", "prose_target", "boundary_editor_json"})
+            else:
+                required_target = explicit_build_page_target(capability, selected)
+                if capability.boundary_editor_json is not None and required_target is None:
+                    raise ValueError("Native contextual proposal requires its selected target")
+                if required_target is not None:
+                    excluded.add("boundary_editor_json")
+                output = normalize_proposal_output(record.raw_response,reservation.page_body_offer,reservation.page_end_offer,
+                                                   required_target=required_target)
             if (origin.broker_operation_id!=selected.broker_operation_id
                     or origin.arguments_sha256!=selected.arguments_sha256
-                    or reservation.model_dump(mode='json',exclude={'instruction','origin'})
-                        !=capability.model_dump(mode='json',exclude={'draft_markdown','instruction','origin'})
+                    or reservation.model_dump(mode='json',exclude=excluded)
+                        !=capability.model_dump(mode='json',exclude=excluded | {"draft_markdown"})
                     or reservation.instruction!=turn.user_text
-                    or normalize_proposal_output(record.raw_response,reservation.page_body_offer,reservation.page_end_offer)!=record.proposal):
+                    or output!=record.proposal):
                 raise ValueError('Native proposal result differs from its captured action/editor/output')
             responses=[e for e in turn.graph_context_execution.events if e.kind=='provider_outcome'
                 and e.provider_attempt_id==completion.provider_attempt_id and e.outcome=='response_received']
@@ -270,7 +287,7 @@ def validate_prepared_native_authoring(conn,turn,result,*,trace):
         record=BuildImagePreparation.model_validate(row[0] if row else None)
         raw=record.writer_proof.raw_response
     else:
-        record=BuildProposalRecord.model_validate(row[0] if row else None)
+        record=decode_build_markdown_proposal(row[0] if row else None)
         raw=record.raw_response
     producer=result.producing_provider_attempt_id
     capture,_=sealed_native_producer(turn,current.execution,

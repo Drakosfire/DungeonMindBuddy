@@ -54,7 +54,7 @@ export function reconcileLocalDraft(
     };
   }
 
-  if (localState.dirty) {
+  if (localState.dirty || localState.manual_save_required) {
     if (hasUnknownMigratedBase(localState)) {
       return {
         kind: "conflict",

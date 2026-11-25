@@ -18,7 +18,7 @@ def test_installed_lifecycle_retains_object_only_turn_and_rejects_empty_or_histo
     )
     with psycopg.connect(application_state_dsn) as conn:
         installed = conn.execute(
-            "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='agent.turn'::regclass AND conname='agent_turn_lifecycle_check'"
+            "SELECT pg_get_functiondef('agent.validate_turn_graph_write()'::regprocedure)"
         ).fetchone()[0]
         assert c.COMPLETION in installed
         row = conn.execute(

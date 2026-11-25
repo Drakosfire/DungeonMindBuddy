@@ -641,6 +641,12 @@ def worldbuilding_review_context(request, principal):
         "binding": bound,
         "source_artifact_id": artifact.source_artifact_id,
         "source_sha256": artifact.content_sha256,
+        "native_source": {
+            "admission_id": admitted.admission_id,
+            "source_artifact_id": admitted.source_artifact_id,
+            "source_revision_id": admitted.source_revision_id,
+            "body_sha256": admitted.body_sha256,
+        },
         "source_support": sorted(evidence, key=lambda row: row["evidence_ref_id"]),
         "records": [
             {"kind": "node", "record_id": row.node_id, "label": row.label,

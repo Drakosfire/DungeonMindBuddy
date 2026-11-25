@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from collections.abc import Iterator
 from urllib.parse import urlparse
 
@@ -25,8 +26,7 @@ from application_state.errors import ApplicationStateUnavailableError
 from application_state.naming import database_name_from_dsn
 from tests.application_state.conftest import (
     _admin_dsn,
-    _create_database,
-    _drop_database,
+    empty_app_state,
     _replace_database,
 )
 from tests.application_state.play_runtime_helpers import RUN_ID_A
@@ -72,11 +72,13 @@ def provisionable_dsn(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[str, st
     name = f"dungeonbuddy_application_state_{uuid.uuid4().hex[:12]}"
     dsn = _replace_database(admin, name)
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
-    try:
-        yield dsn, name, admin
-    finally:
-        if _database_exists(admin, name):
-            _drop_database(admin, name)
+    yield dsn, name, admin
+
+
+@pytest.fixture
+def empty_owned_dsn(application_state_dsn, application_state_database):
+    with empty_app_state(application_state_database) as dsn:
+        yield dsn, database_name_from_dsn(dsn), _admin_dsn()
 
 
 def _committed_runbook() -> WorkObject:
@@ -204,10 +206,9 @@ def test_check_reports_missing_database_without_creating(
 
 
 def test_check_reports_schema_missing_without_migrating(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    empty_owned_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    dsn, name, admin = provisionable_dsn
-    _create_database(admin, name)
+    dsn, name, admin = empty_owned_dsn
     code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
@@ -263,19 +264,25 @@ def test_apply_unsafe_dsn_makes_zero_mutation(
     assert "PLAY READINESS: BLOCKED" in output
 
 
-def test_apply_creates_standard_suffix_database(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_apply_dispatches_standard_suffix_database_creation(
+    provisionable_dsn: tuple[str, str, str], monkeypatch, capsys
 ) -> None:
+    # Exercise the public command's decision and safe dispatch without allocating
+    # another database. Real migrations on an empty owned App are tested below.
     dsn, name, admin = provisionable_dsn
-    assert _database_exists(admin, name) is False
-    check_code = bootstrap.main(["check"], load_env=False)
-    capsys.readouterr()
-    assert check_code == 2
-    assert _database_exists(admin, name) is False
+    assert not _database_exists(admin, name)
+    created = []
+    upgraded = []
+    monkeypatch.setattr(bootstrap, "_probe_target_database", lambda _: (False, True, None))
+    monkeypatch.setattr(bootstrap, "_create_logical_database", lambda value: created.append(value))
+    monkeypatch.setattr(bootstrap, "upgrade_to_head", lambda **kwargs: upgraded.append(kwargs) or ("head", "head"))
+    monkeypatch.setattr(bootstrap, "count_startable_runbooks", lambda: 0)
     code = bootstrap.main(["apply"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
-    assert _database_exists(admin, name) is True
+    assert created == [dsn]
+    assert upgraded == [{"dsn": dsn}]
+    assert not _database_exists(admin, name)
     assert "created: yes" in output
     assert "Play content: NOT READY" in output
     assert "active startable Runbooks: 0" in output
@@ -289,15 +296,11 @@ def test_apply_refuses_arbitrary_custom_database_name(
     name = f"buddy_custom_df0_{uuid.uuid4().hex[:10]}"
     dsn = _replace_database(admin, name)
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
-    try:
-        code = bootstrap.main(["apply"], load_env=False)
-        output = capsys.readouterr().out
-        assert code == 2
-        assert "will not create an arbitrary" in output
-        assert _database_exists(admin, name) is False
-    finally:
-        if _database_exists(admin, name):
-            _drop_database(admin, name)
+    code = bootstrap.main(["apply"], load_env=False)
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "will not create an arbitrary" in output
+    assert _database_exists(admin, name) is False
 
 
 def test_apply_uses_existing_safe_database_without_drop(
@@ -316,10 +319,9 @@ def test_apply_uses_existing_safe_database_without_drop(
 
 
 def test_apply_upgrades_schema_missing_to_head(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    empty_owned_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    dsn, name, admin = provisionable_dsn
-    _create_database(admin, name)
+    dsn, name, admin = empty_owned_dsn
     current, _head, status = bootstrap._schema_status(dsn)
     assert current is None
     assert status == "missing"
@@ -356,10 +358,10 @@ def test_second_apply_does_not_mutate_existing_run(
 
 
 def test_bootstrap_then_normal_content_to_native_ready_play(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    empty_owned_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    dsn, name, admin = provisionable_dsn
-    assert not _database_exists(admin, name)
+    dsn, name, admin = empty_owned_dsn
+    assert _database_exists(admin, name)
     assert bootstrap.main(["apply"], load_env=False) == 2
     assert "Play content: NOT READY" in capsys.readouterr().out
     record = _committed_runbook()

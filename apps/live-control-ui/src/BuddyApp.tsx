@@ -1,7 +1,7 @@
 import "./statblocks/render/statblockCampaignTheme.css";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { createBuddyIndexGraphApi } from "./nativeGraphDemo/buddyIndexGraphApi";
+import { createBuddyIndexGraphApi, type GuestSource } from "./nativeGraphDemo/buddyIndexGraphApi";
 import { AppChrome } from "./chrome/AppChrome";
 import {
   appRouteFromLocationSnapshot,
@@ -15,8 +15,9 @@ import {
   useSelectedWorldAdmission,
   useSelectedWorld,
 } from "./selectedWorld/SelectedWorldContext";
+import { worldScopedSurfaceHref } from "./selectedWorld/worldSelectionNavigation";
 import { WorldSelector } from "./selectedWorld/WorldSelector";
-import { GuestReleaseReview } from "./guestRelease/GuestReleaseReview";
+import { GuestReleaseDrawer } from "./guestRelease/GuestReleaseDrawer";
 
 import { IsolatedEntry, ManagedWorldGraph, NativeGraphDemo } from "./appEntryShared";
 
@@ -47,6 +48,19 @@ function BuddyLandingPage() {
   );
 }
 
+function GuestNodeSources({ nodeId, read }: { readonly nodeId: string; readonly read: (id: string) => Promise<readonly GuestSource[]> }) {
+  const [sources, setSources] = useState<readonly GuestSource[] | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setSources(null);
+    setError(false);
+    void read(nodeId).then(value => { if (active) setSources(value); }).catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [nodeId, read]);
+  return <section aria-label="Node sources"><h3>Sources</h3>{error ? <p role="alert">Sources are unavailable.</p> : sources === null ? <p>Opening sources…</p> : sources.length === 0 ? <p>No source excerpts are linked to this node.</p> : sources.map((source, index) => <details key={index}><summary>{source.role === "context" ? "Context" : "Source evidence"}: {source.claim}</summary><p>{source.qualification}</p><blockquote>{source.text}</blockquote></details>)}</section>;
+}
+
 function BuddyGraphPage({
   localOnlyNavigation = false,
   locationSnapshot,
@@ -62,14 +76,31 @@ function BuddyGraphPage({
     ? JSON.stringify(["hosted", auth.subject, managedWorldId])
     : `managed:${managedWorldId}`;
   const playgroundApi = useMemo(() => createBuddyIndexGraphApi(), []);
+  const [guestGeneration, setGuestGeneration] = useState(0);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
   const [legacyWorldsOpen, setLegacyWorldsOpen] = useState(false);
 
   let explorer: ReactNode;
   if (managedWorldId && selectedWorld.kind === "managed") {
     explorer = <ManagedWorldGraph key={stateScopeId}
-      worldTitle={selectedWorld.name} stateScopeId={stateScopeId} />;
+      worldTitle={selectedWorld.name} stateScopeId={stateScopeId}
+      openBuildHref={worldScopedSurfaceHref("/build", managedWorldId)} />;
   } else if (auth.status === "local_operator") {
     explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
+  } else if (auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_GRAPH === "1") {
+    explorer = <>
+      <div><button type="button" disabled={resetting} onClick={() => {
+        if (!window.confirm("Reset your Sizzek World changes?")) return;
+        setResetting(true);
+        setResetError("");
+        void playgroundApi.reset().then(() => setGuestGeneration(value => value + 1))
+          .catch(() => setResetError("The reset outcome could not be confirmed. Refresh to reopen your session."))
+          .finally(() => setResetting(false));
+      }}>Reset guest World</button>{resetError && <span role="alert">{resetError}</span>}</div>
+      {resetting ? <p role="status">Resetting your World…</p> :
+        <NativeGraphDemo key={guestGeneration} api={playgroundApi} embedded mode="playground" worldTitle="Sizzek World" renderGuestNodeDetails={id => <GuestNodeSources key={id} nodeId={id} read={playgroundApi.readSources} />} />}
+    </>;
   } else if (auth.status === "signed_out") {
     explorer = <main className="app-status" aria-labelledby="buddy-playground-title">
       <p className="module-muted">BUDDY · PLAYGROUND</p>
@@ -89,7 +120,7 @@ function BuddyGraphPage({
     <AppChrome activeRoute="graph" localOnlyNavigation={localOnlyNavigation} workspaceLayout="bounded">
       {explorer}
       {import.meta.env.VITE_GUEST_RELEASE_REVIEW === "1" && auth.status === "authenticated" && managedWorldId &&
-        <GuestReleaseReview key={stateScopeId} worldId={managedWorldId} />}
+        <GuestReleaseDrawer key={stateScopeId} worldId={managedWorldId} />}
       {auth.status === "local_operator" && !managedWorldId && <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
         <summary>Existing browser-only Worlds and notes</summary>
         <p>These older Worlds stay in this browser and remain separate from the private DungeonMind graph above. Opening them does not migrate or publish them.</p>
@@ -107,19 +138,20 @@ export function BuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
   const retrySelectedWorld = useRetrySelectedWorld();
   const admission = useSelectedWorldAdmission();
   const route = appRouteFromLocationSnapshot(locationSnapshot);
+  const guestBuild = auth.status === "signed_out" && route === "build" && import.meta.env.VITE_HOSTED_GUEST_BUILD === "1";
   if (route === "index") return <IsolatedEntry><BuddyLandingPage /></IsolatedEntry>;
   if (selectedWorld.kind === "loading") {
-    return <main className="app-status" role="status">Verifying World selection…</main>;
+    const loading = <main className="app-status" role="status">Verifying World selection…</main>;
+    return guestBuild ? <IsolatedEntry><AppChrome activeRoute="build" localOnlyNavigation>{loading}</AppChrome></IsolatedEntry> : loading;
   }
   if (selectedWorld.kind === "error") {
-    return (
-      <main className="app-status app-error" role="alert">
-        <h1>World selection unavailable</h1>
-        <p>{selectedWorld.message}</p>
-        <button type="button" onClick={retrySelectedWorld}>Retry selection</button>
-        <WorldSelector />
-      </main>
-    );
+    const error = <main className="app-status app-error" role="alert">
+      <h1>World selection unavailable</h1>
+      <p>{selectedWorld.message}</p>
+      <button type="button" onClick={retrySelectedWorld}>Retry selection</button>
+      {!guestBuild && <WorldSelector />}
+    </main>;
+    return guestBuild ? <IsolatedEntry><AppChrome activeRoute="build" localOnlyNavigation>{error}</AppChrome></IsolatedEntry> : error;
   }
   if (auth.status === "authenticated" && selectedWorld.kind !== "managed") {
     return <IsolatedEntry>

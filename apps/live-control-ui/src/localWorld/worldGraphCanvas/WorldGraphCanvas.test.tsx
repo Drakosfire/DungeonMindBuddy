@@ -361,7 +361,9 @@ describe("WorldGraphCanvas", () => {
 
     const emptyRecord = { ...record, snapshot: { ...record.snapshot, objects: [], relationships: [] } };
     const emptyView = render(<WorldGraphCanvas record={emptyRecord} showSummaryCounts={false} />);
-    expect(emptyView.container.querySelector(".world-graph-canvas__feedback")).toHaveTextContent("This World has no objects yet. Add an object to begin.");
+    expect(screen.getByText("This World has no objects yet. Choose another World to explore.")).toBeVisible();
+    emptyView.rerender(<WorldGraphCanvas record={emptyRecord} showSummaryCounts={false} onCreateObject={vi.fn()} />);
+    expect(screen.getByText("This World has no objects yet. Add an object to begin.")).toBeVisible();
   });
 
   it("captures connector-dot drags, previews a curve and emits only real-node drops", async () => {
@@ -1362,7 +1364,7 @@ describe("loaded relationship density", () => {
     const view = render(<WorldGraphCanvas {...props} />);
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(0);
     expect(screen.getByText(/No connected objects in the loaded snapshot/)).toBeVisible();
-    expect(screen.queryByText("This World has no objects yet. Add an object to begin.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/This World has no objects yet/)).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /Show objects without listed relationships \(4 hidden\)/ })).not.toBeChecked();
     fireEvent.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(4);

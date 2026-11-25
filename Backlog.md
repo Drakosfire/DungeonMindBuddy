@@ -36,6 +36,8 @@ This is a document reconciliation anchor, not fresh acceptance of every retained
 [ROADMAP-demo.md](Docs/Roadmaps/ROADMAP-demo.md) is the sole Buddy product
 sequencing owner. It records the delivered local authoring/Play baseline,
 remaining acceptance and candidates currently under operator discussion.
+The next product goal is [streaming Buddy’s reply text](Docs/Roadmaps/ROADMAP-demo.md#next-product-goal--stream-buddys-reply-text),
+tracked in [#3838](https://github.com/Drakosfire/DungeonMindBuddy/issues/3838).
 The old demo-ready roadmap and 2026-09-08 dispatch snapshot are historical.
 Do not infer a current blocker or READY assignment from them.
 
@@ -47,7 +49,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | Idea | Next useful slice or decision |
 | --- | --- |
 | [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
-| [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Audit every surface and identify the right empty canvas and next action. |
+| [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Loaded-empty Graph guidance shipped. Audit setup, unavailable, and optional-Graph states across surfaces. |
 | [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
 | [Shared agent actions across surfaces](#idea-shared-agent-actions-across-surfaces) | Prove one inline text edit in Build and Plan through their native saves; then test a sourced Graph relationship. |
 | [Agent page-formatting benchmarks](#idea-agent-page-formatting-benchmarks) | Compare Buddy on repeatable Build formatting tasks; preserve content and prove the saved rendered result. |
@@ -63,11 +65,20 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Step through Buddy's work](Docs/Backlog/IDEA-conversation-search-replay.md) | Merged local replay mechanisms; retain hosted and broader trace acceptance gaps. |
 | [AW workflow capabilities](Docs/Backlog/IDEA-aw-workflow-capabilities.md) | Draft/variant/link/Combat mechanisms merged; ordinary live qualification remains open. |
 | [Campaign recap contributor](Docs/Backlog/IDEA-recap-contributor.md) | One campaign, two accounts, GM publication, and a spoiler-isolation witness. |
+| [Delete the current Build page](#idea-delete-the-current-build-page--captured-2026-11-19) | Verify the existing direct deletion controls on hosted Build. |
 | [Deeper Build document hierarchy](Docs/Backlog/IDEA-build-document-hierarchy.md) | Retain only if dogfood shows a navigation gap after the merged picker and recap browser. |
 | [Independent source archive and restore](#deferred-define-independent-source-artifact-archive-and-restore) | Define what discovery and old citations do before designing controls. |
 | [Background relationship suggestions](#deferred-background-suggestions-for-missing-world-graph-relationships) | One opt-in, source-backed suggested relationship with duplicate suppression. |
 | [Create a campaign inside an existing World](#deferred-create-a-campaign-inside-an-existing-world) | Define membership ownership and prove ordinary scoped creation. |
 | [Propose edits to a related page](#deferred-propose-edits-to-an-existing-related-page-from-the-current-workspace) | Target one existing passage without leaving or corrupting the current draft. |
+
+## [IDEA] Delete the current Build page — captured 2026-11-19
+
+**Context:** Current source provides direct controls to trash a saved Build page and delete a saved statblock from Build. Hosted behavior still needs a direct witness.
+
+**Action:** On a disposable hosted World, check the direct controls from the open item and confirm the return to Build after deletion.
+
+**Exit proof:** Open a saved page and a saved statblock in Build, then delete each directly from its navbar without opening the picker. Verify the correct item is removed and check page restoration through World Trash. Record statblock deletion behavior separately.
 
 ## [IDEA] Delightful Buddy landing page — captured 2026-11-16
 
@@ -78,7 +89,8 @@ One row per product idea. These rows are pointers, not separate status records. 
 ## [IDEA] Inviting canvases with no graph loaded — captured 2026-11-16
 
 **Context:** Hosted dogfood reached Buddy with no graph available to load.
-**Action:** Audit Home, Graph, Plan, Play, Ingest, Build, and Combat Tracker without a loaded graph. For each surface, check that the canvas feels open and inviting and offers the next action appropriate to that surface. Where a graph is optional, check that users can still start working. Check loading, access denial, and failure separately so those states remain understandable.
+**Shipped:** [#4626](https://github.com/Drakosfire/DungeonMindBuddy/pull/4626) added permission-aware guidance after an empty Graph loads. Both permission states passed tests on the deployed source. Hosted smoke checks distinguished an unavailable Graph from Pilot’s filtered one-object Graph. A disposable hosted World with a loaded-empty Graph is still needed for direct browser verification.
+**Remaining:** Audit Home, Graph, Plan, Play, Ingest, Build, and Combat Tracker before Graph publication or when a graph cannot load. Give each surface an available next action and let users start working wherever Graph is optional. Keep loading, setup, access denial, and failure distinct. In managed Graph, check whether the unavailable view can offer the selected World’s Build workspace alongside retry.
 **Surfaces when:** Reviewing shared navigation, World selection, or empty states across Buddy.
 
 ## Dated evidence pointers — 2026-11-17
@@ -388,7 +400,8 @@ a prototype is not a new durable authority.
 
 **Context:** Buddy Cloud Pilot could save Build and Plan documents while Graph, Play, and Combat Tracker exposed internal Graph provisioning and publication states.
 **Insight:** Provisional state is useful for backend lifecycle management and provenance. A user should see a World and the actions available in it. An empty World should feel ready to start.
-**Action:** Audit World creation, navigation, and empty states across Buddy. Keep provisioning and provenance in backend records and operator diagnostics. Hide provisional labels and internal publication states from the normal workspace. When setup prevents an action, show the next step the user can take, or explain when to retry.
+**Shipped:** [#4631](https://github.com/Drakosfire/DungeonMindBuddy/pull/4631) renamed the shared Build and Plan fieldset to “Review GM facts.” Hosted Pilot verified the visible and accessible label and reached confirmation with a saved supporting excerpt.
+**Remaining:** Audit World creation, navigation, extraction, and first-Graph setup for internal lifecycle labels. Start with Build’s source admission status and retry controls. Describe what the user can do or when to retry. Keep lifecycle state and provenance in backend records and operator diagnostics.
 **Verification:** Open a new World before and after its first Graph publication. Check that user-facing surfaces show an inviting empty state or actionable feedback and that operators can still inspect the underlying state and provenance.
 **Surfaces when:** World onboarding, first Graph publication, or empty states across Buddy are being changed.
 

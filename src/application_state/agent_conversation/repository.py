@@ -81,10 +81,29 @@ _TURN_COLS = (
     + ", answer_composition_kind, "
     + _rules_summary_select("agent.turn")
 )
+# Running Plan execution must use a fresh statement after the root lock.
+_TURN_LOCK_COLS = _TURN_COLS.replace(
+    "graph_context_execution, play_context_receipt",
+    "CASE WHEN surface_id = 'plan' AND status = 'running' THEN NULL "
+    "ELSE graph_context_execution END AS graph_context_execution, play_context_receipt",
+)
+# The inline base and ordered suffix must share the SELECT snapshot.
+_TURN_READ_COLS = _TURN_COLS.replace(
+    "graph_context_execution, play_context_receipt",
+    "CASE WHEN surface_id = 'plan' AND status = 'running' THEN "
+    "agent.reconstruct_plan_execution(turn_id, revision, attempt, graph_context_execution) "
+    "ELSE graph_context_execution END AS graph_context_execution, play_context_receipt",
+)
 _TURN_COLS_T = (
     ", ".join(f"t.{column.strip()}" for column in _TURN_BASE_COLS.split(","))
     + ", t.answer_composition_kind, "
     + _rules_summary_select("t")
+)
+_TURN_READ_COLS_T = _TURN_COLS_T.replace(
+    "t.graph_context_execution, t.play_context_receipt",
+    "CASE WHEN t.surface_id = 'plan' AND t.status = 'running' THEN "
+    "agent.reconstruct_plan_execution(t.turn_id, t.revision, t.attempt, t.graph_context_execution) "
+    "ELSE t.graph_context_execution END AS graph_context_execution, t.play_context_receipt",
 )
 _DRAFT_COLS = """
     world_id, conversation_id, draft_id, revision, body, request_fingerprint,
@@ -162,7 +181,7 @@ def _lock_plan_session_image(conn, world_id, turn_id):
         f"pg_catalog.jsonb_send({name}) AS {name}" if name in json_columns else name
         for name in (*columns, "answer_composition_kind", "request_fingerprint",
                      "idempotency_fingerprint", "submitted_intent_schema"))
-    with conn.cursor(row_factory=dict_row) as cur:
+    with conn.cursor(row_factory=dict_row, binary=True) as cur:
         cur.execute(f"SELECT {selected} FROM agent.turn "
                     "WHERE world_id=%s AND turn_id=%s FOR UPDATE", (world_id, turn_id))
         row = cur.fetchone()
@@ -202,46 +221,210 @@ def _lock_plan_session_image(conn, world_id, turn_id):
             None if rules is None else tuple((name, scalar(value)) for name, value in rules.items()))
 
 
-def _update_plan_session_execution(conn, *, world_id, turn_id, before, execution):
-    """Persist an admitted complete execution and verify its exact storage ACK.
+def _activate_plan_checkpoint(conn, turn):
+    count = len(turn.graph_context_execution.events)
+    conn.execute(
+        "INSERT INTO agent.plan_execution_checkpoint "
+        "(turn_id, revision, attempt, base_count, event_count) VALUES (%s,%s,%s,%s,%s) "
+        "ON CONFLICT (turn_id) DO NOTHING",
+        (turn.turn_id, turn.revision, turn.attempt, count, count),
+    )
 
-    Only the session admission owner may call this with its freshly locked image.
-    No success is published here: the transaction still has to commit. A trigger
-    changing any other root/child field causes refusal and caller rollback.
-    """
+
+    checkpoint = conn.execute(
+        "SELECT base_count FROM agent.plan_execution_checkpoint WHERE turn_id=%s",
+        (turn.turn_id,),
+    ).fetchone()
+    _verify_plan_checkpoint(conn, turn, checkpoint[0])
+    return checkpoint[0]
+
+
+def _verify_plan_checkpoint(conn, turn, base_count):
+    actual = conn.execute(
+        "SELECT revision, attempt, base_count, event_count "
+        "FROM agent.plan_execution_checkpoint WHERE turn_id=%s",
+        (turn.turn_id,),
+    ).fetchone()
+    expected = (turn.revision, turn.attempt, base_count, len(turn.graph_context_execution.events))
+    if actual != expected:
+        raise ApplicationStateIntegrityError("Plan session differs from current event checkpoint")
+
+
+def _read_plan_checkpoint(conn, turn_id, revision, attempt):
+    return conn.execute(
+        "SELECT agent.reconstruct_plan_execution(turn_id,%s,%s,graph_context_execution) "
+        "FROM agent.turn WHERE turn_id=%s",
+        (revision, attempt, turn_id),
+    ).fetchone()[0]
+
+
+def _retire_plan_checkpoint(conn, turn_id, revision, attempt):
+    removed = conn.execute(
+        "DELETE FROM agent.plan_execution_checkpoint WHERE turn_id=%s "
+        "RETURNING revision, attempt", (turn_id,),
+    ).fetchone()
+    if removed is not None and removed != (revision, attempt):
+        raise ApplicationStateIntegrityError("Plan settlement crossed its checkpoint claim")
+    return removed is not None
+
+
+def _settle_plan_checkpoint(conn, row, *, prior_revision, prior_attempt):
+    """Restore the canonical inline execution under the caller's root lock."""
+    if row["surface_id"] != "plan":
+        return
+    # Rows with no checkpoint need no reconstruction or rewrite.
+    if conn.execute(
+        "SELECT 1 FROM agent.plan_execution_checkpoint WHERE turn_id=%s",
+        (row["turn_id"],),
+    ).fetchone() is None:
+        return
+    execution = _read_plan_checkpoint(conn, row["turn_id"], prior_revision, prior_attempt)
+    world_id = row["world_id"]
+    before = _lock_plan_session_image(conn, world_id, row["turn_id"])
+    stored = conn.execute(
+        "WITH expected AS (SELECT %s::jsonb AS execution) "
+        "UPDATE agent.turn SET graph_context_execution=expected.execution FROM expected "
+        "WHERE turn_id=%s AND revision=%s AND attempt=%s "
+        "RETURNING pg_catalog.jsonb_send(agent.turn.graph_context_execution), "
+        "pg_catalog.jsonb_send(expected.execution)",
+        (Jsonb(execution), row["turn_id"], row["revision"], row["attempt"]),
+    ).fetchone()
+    if stored is None or stored[0] != stored[1]:
+        raise ApplicationStateIntegrityError("Plan settlement changed its execution")
+    after = _lock_plan_session_image(conn, world_id, row["turn_id"])
+    expected_root = dict(before[0]) | {"graph_context_execution": bytes(stored[1])}
+    if after is None or dict(after[0]) != expected_root or after[1:] != before[1:]:
+        raise ApplicationStateIntegrityError("Plan settlement changed its locked storage image")
+    if not _retire_plan_checkpoint(conn, row["turn_id"], prior_revision, prior_attempt):
+        raise ApplicationStateIntegrityError("Plan settlement lost its checkpoint")
+    row["graph_context_execution"] = execution
+
+
+def _finish_plan_checkpoint(conn, turn):
+    row = {"surface_id": "plan", "turn_id": turn.turn_id,
+           "world_id": turn.world_id,
+           "revision": turn.revision, "attempt": turn.attempt}
+    _settle_plan_checkpoint(conn, row, prior_revision=turn.revision, prior_attempt=turn.attempt)
+    if row.get("graph_context_execution") != turn.graph_context_execution.model_dump(mode="json", by_alias=True):
+        raise ApplicationStateIntegrityError("Plan writer frontier differs from its committed events")
+
+
+def _append_plan_session_events(conn, *, world_id, turn_id, before, execution, prior_count):
+    """Advance the existing claim and acknowledge only the newly admitted events."""
     prior = dict(before[0])
     if (prior["world_id"], prior["turn_id"], prior["status"]) != (world_id, turn_id, "running"):
-        raise ApplicationStateIntegrityError("Session execution ACK requires its running locked root")
+        raise ApplicationStateIntegrityError("Plan event append requires its running locked root")
+    if len(execution.events) <= prior_count:
+        raise ApplicationStateIntegrityError("Plan event append requires a nonempty suffix")
+    checkpoint = conn.execute(
+        "SELECT revision, attempt, base_count, event_count "
+        "FROM agent.plan_execution_checkpoint WHERE turn_id=%s FOR UPDATE",
+        (turn_id,),
+    ).fetchone()
+    if (checkpoint is None or checkpoint[:2] != (prior["revision"], prior["attempt"])
+            or checkpoint[3] != prior_count):
+        raise ApplicationStateIntegrityError("Plan event append differs from its checkpoint")
     started = database_clock(conn)
-    with conn.cursor(row_factory=dict_row) as cur:
-        # One parameter owns both the actual update and expected PostgreSQL
-        # encoding. Do not compare JSONB semantic equality or Python JSON hashes.
-        cur.execute("WITH expected AS (SELECT %s::jsonb AS execution) "
-                    "UPDATE agent.turn SET graph_context_execution=expected.execution, "
-                    "revision=revision+1,updated_at=clock_timestamp() FROM expected "
-                    "WHERE world_id=%s AND turn_id=%s AND status='running' "
-                    "AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp() "
-                    "RETURNING pg_catalog.jsonb_send(agent.turn.graph_context_execution) AS actual, "
-                    "pg_catalog.jsonb_send(expected.execution) AS expected",
-                    (Jsonb(execution.model_dump(mode="json", by_alias=True)),
-                     world_id, turn_id, prior["revision"], prior["attempt"]))
-        acknowledgement = cur.fetchone()
-    if acknowledgement is None:
+    root_ack = conn.execute(
+        "UPDATE agent.turn SET revision = revision + 1, updated_at = clock_timestamp() "
+        "WHERE world_id=%s AND turn_id=%s AND status='running' AND revision=%s "
+        "AND attempt=%s AND claim_expires_at>clock_timestamp() RETURNING revision, updated_at",
+        (world_id, turn_id, prior["revision"], prior["attempt"]),
+    ).fetchone()
+    if root_ack is None:
         return None
-    if bytes(acknowledgement["actual"]) != bytes(acknowledgement["expected"]):
-        raise ApplicationStateIntegrityError("Session execution differs from its actual SQL acknowledgement")
+    suffix = Jsonb([event.model_dump(mode="json", by_alias=True)
+                    for event in execution.events[prior_count:]])
+    suffix_ack = conn.execute(
+        """
+        WITH expected AS (
+            SELECT (payload->>'sequence')::integer AS sequence, payload
+            FROM jsonb_array_elements(%s::jsonb) AS item(payload)
+        ), stored AS (
+            INSERT INTO agent.plan_execution_event(turn_id, sequence, payload)
+            SELECT %s, sequence, payload FROM expected RETURNING turn_id, sequence, payload
+        )
+        SELECT count(*), bool_and(stored.turn_id=%s
+                   AND pg_catalog.jsonb_send(stored.payload)=pg_catalog.jsonb_send(expected.payload))
+        FROM stored JOIN expected USING (sequence)
+        """,
+        (suffix, turn_id, turn_id),
+    ).fetchone()
+    if suffix_ack != (len(execution.events) - prior_count, True):
+        raise ApplicationStateIntegrityError("Plan event suffix differs from its SQL acknowledgement")
+    marker_ack = conn.execute(
+        "UPDATE agent.plan_execution_checkpoint SET revision=%s,event_count=%s "
+        "WHERE turn_id=%s AND revision=%s AND attempt=%s AND event_count=%s "
+        "RETURNING turn_id, revision, attempt, base_count, event_count",
+        (prior["revision"] + 1, len(execution.events), turn_id,
+         prior["revision"], prior["attempt"], prior_count),
+    ).fetchone()
+    if marker_ack != (turn_id, prior["revision"] + 1, prior["attempt"],
+                       checkpoint[2], len(execution.events)):
+        raise ApplicationStateIntegrityError("Plan event checkpoint differs from its SQL acknowledgement")
     after = _lock_plan_session_image(conn, world_id, turn_id)
     finished = database_clock(conn)
-    if after is None:
-        raise ApplicationStateIntegrityError("Session root disappeared after execution acknowledgement")
-    current = dict(after[0])
-    expected = prior | {"revision": prior["revision"] + 1,
-                        "updated_at": current["updated_at"],
-                        "graph_context_execution": bytes(acknowledgement["expected"])}
-    if (current != expected or after[1:] != before[1:]
-            or not started <= current["updated_at"] <= finished):
-        raise ApplicationStateIntegrityError("Session execution acknowledgement changed its locked storage image")
+    if (after is None or after[1:] != before[1:] or root_ack[0] != prior["revision"] + 1
+            or dict(after[0]) != prior | {"revision": root_ack[0], "updated_at": root_ack[1]}
+            or not started <= root_ack[1] <= finished):
+        raise ApplicationStateIntegrityError("Plan event acknowledgement changed its locked storage image")
     return after
+
+
+def _persist_plan_writer_frontier(conn, turn, execution, session_image):
+    """Settle the ordered checkpoint with its newly admitted writer event."""
+    prior_count = len(turn.graph_context_execution.events)
+    if len(execution.events) != prior_count + 1:
+        raise ApplicationStateIntegrityError("Plan writer settlement requires one admitted event")
+    before = _lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+    if before is None or before[:2] != session_image[:2]:
+        raise ApplicationStateIntegrityError("Plan writer admission changed its locked root or provenance")
+    prior = dict(before[0])
+    started = database_clock(conn)
+    with conn.cursor(row_factory=dict_row, binary=True) as cursor:
+        cursor.execute(
+            "WITH expected AS (SELECT %s::jsonb AS execution) "
+            "UPDATE agent.turn SET graph_context_execution=expected.execution, "
+            "revision=revision+1, updated_at=clock_timestamp() FROM expected "
+            "WHERE world_id=%s AND turn_id=%s AND status='running' "
+            "AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp() "
+            "AND pg_catalog.jsonb_send(agent.reconstruct_plan_execution("
+            "turn_id, revision, attempt, graph_context_execution)) = "
+            "pg_catalog.jsonb_send(jsonb_set(expected.execution, '{events}', "
+            "(expected.execution->'events') - (-1))) "
+            "RETURNING revision, updated_at, "
+            "pg_catalog.jsonb_send(graph_context_execution) = "
+            "pg_catalog.jsonb_send(expected.execution) AS exact, "
+            "pg_catalog.jsonb_send(expected.execution) AS expected",
+            (Jsonb(execution.model_dump(mode="json", by_alias=True)), turn.world_id,
+             turn.turn_id, turn.revision, turn.attempt),
+        )
+        ack = cursor.fetchone()
+    if ack is None:
+        return None
+    if ack["revision"] != turn.revision + 1 or ack["exact"] is not True:
+        raise ApplicationStateIntegrityError("Plan writer settlement differs from its SQL acknowledgement")
+    if not _retire_plan_checkpoint(conn, turn.turn_id, turn.revision, turn.attempt):
+        raise ApplicationStateIntegrityError("Plan writer settlement lost its checkpoint")
+    after = _lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+    expected = prior | {"revision": ack["revision"], "updated_at": ack["updated_at"],
+                        "graph_context_execution": bytes(ack["expected"])}
+    if (after is None or dict(after[0]) != expected or after[1:] != before[1:]
+            or not started <= ack["updated_at"] <= database_clock(conn)):
+        raise ApplicationStateIntegrityError("Plan writer settlement changed its locked storage image")
+    # The writer admission already ran the full prospective execution codec.
+    # The final locked image proves all other Turn fields and provenance stayed
+    # byte-identical, apart from the Postgres-acknowledged revision and clock.
+    from .native_execution import _join_turn_fields, _join_turn_lifecycle
+
+    settled = turn.model_copy(update={
+        "revision": ack["revision"], "updated_at": ack["updated_at"],
+        "graph_context_execution": execution,
+    })
+    _join_turn_fields(settled.graph_context_receipt, execution,
+                      settled.completion, settled.assistant_text)
+    _join_turn_lifecycle(settled)
+    return settled
 
 
 def _references_from_rows(rows):
@@ -848,7 +1031,7 @@ def get_turn_by_world_key(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT {_TURN_COLS}, request_fingerprint, idempotency_fingerprint
+            SELECT {_TURN_READ_COLS}, request_fingerprint, idempotency_fingerprint
             FROM agent.turn WHERE world_id = %s AND idempotency_key = %s
             """,
             (world_id, idempotency_key),
@@ -870,7 +1053,7 @@ def get_turn_by_world_key(
 def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnReadModel | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"SELECT {_TURN_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s",
+            f"SELECT {_TURN_READ_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s",
             (world_id, turn_id),
         )
         row = cur.fetchone()
@@ -880,10 +1063,20 @@ def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnRead
 def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> TurnReadModel | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"SELECT {_TURN_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s FOR UPDATE",
+            f"SELECT {_TURN_LOCK_COLS} FROM agent.turn WHERE world_id = %s AND turn_id = %s FOR UPDATE",
             (world_id, turn_id),
         )
         row = cur.fetchone()
+        if row is not None and row["surface_id"] == "plan" and row["status"] == "running":
+            # A lock waiter can receive an updated root while still holding its
+            # original statement snapshot. Read the suffix after taking the lock.
+            cur.execute(
+                "SELECT agent.reconstruct_plan_execution(turn_id, revision, attempt, "
+                "graph_context_execution) AS execution FROM agent.turn "
+                "WHERE world_id=%s AND turn_id=%s",
+                (world_id, turn_id),
+            )
+            row["graph_context_execution"] = cur.fetchone()["execution"]
     return None if row is None else _turn_from_row(conn, row)
 
 
@@ -916,7 +1109,7 @@ def _turn_page_inputs(conn, world_id, conversation_id, *, limit, before_sequence
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT {_TURN_COLS} FROM agent.turn
+            SELECT {_TURN_READ_COLS} FROM agent.turn
             WHERE {" AND ".join(clauses)} ORDER BY sequence DESC LIMIT %s
             """,
             params,
@@ -1042,7 +1235,7 @@ def list_retry_attempt_page(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT {_TURN_COLS_T}
+            SELECT {_TURN_READ_COLS_T}
             FROM (
                 SELECT successor_id AS turn_id FROM agent.turn_retry
                 WHERE root_id = %s AND world_id = %s AND conversation_id = %s
@@ -1465,6 +1658,8 @@ def claim_turn(
             (lease_seconds, world_id, turn_id, expected_revision),
         )
         row = cur.fetchone()
+    if row is not None:
+        _settle_plan_checkpoint(conn, row, prior_revision=expected_revision, prior_attempt=row["attempt"] - 1)
     return None if row is None else _turn_from_row(conn, row)
 
 
@@ -1490,6 +1685,23 @@ def renew_turn_claim(
             (lease_seconds, world_id, turn_id, expected_revision),
         )
         row = cur.fetchone()
+    if row is not None and row["surface_id"] == "plan":
+        checkpoint = conn.execute(
+            "SELECT revision, attempt FROM agent.plan_execution_checkpoint WHERE turn_id=%s FOR UPDATE",
+            (turn_id,),
+        ).fetchone()
+        if checkpoint is not None:
+            if checkpoint != (expected_revision, row["attempt"]) or row["revision"] != expected_revision + 1:
+                raise ApplicationStateIntegrityError("Plan renewal crossed its checkpoint claim")
+            ack = conn.execute(
+                "UPDATE agent.plan_execution_checkpoint SET revision=%s WHERE turn_id=%s "
+                "RETURNING revision, attempt",
+                (row["revision"], turn_id),
+            ).fetchone()
+            if ack != (row["revision"], row["attempt"]):
+                raise ApplicationStateIntegrityError("Plan renewal changed its checkpoint")
+            row["graph_context_execution"] = _read_plan_checkpoint(
+                conn, turn_id, row["revision"], row["attempt"])
     return None if row is None else _turn_from_row(conn, row)
 
 
@@ -1517,6 +1729,8 @@ def complete_claimed_turn(
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
               AND revision = %s AND attempt = %s
               AND claim_expires_at > clock_timestamp()
+            AND NOT EXISTS (SELECT 1 FROM agent.plan_execution_checkpoint
+                  WHERE plan_execution_checkpoint.turn_id = agent.turn.turn_id)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -1567,6 +1781,8 @@ def complete_prepared_build_turn(
                 completed_at = clock_timestamp(), updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status IN ('running', 'interrupted')
               AND revision = %s AND attempt = %s
+            AND NOT EXISTS (SELECT 1 FROM agent.plan_execution_checkpoint
+                  WHERE plan_execution_checkpoint.turn_id = agent.turn.turn_id)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -1619,6 +1835,8 @@ def update_graph_execution(
                 updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
               AND revision = %s AND claim_expires_at > clock_timestamp()
+            AND NOT EXISTS (SELECT 1 FROM agent.plan_execution_checkpoint
+                  WHERE plan_execution_checkpoint.turn_id = agent.turn.turn_id)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -1630,6 +1848,75 @@ def update_graph_execution(
         )
         row = cur.fetchone()
     return None if row is None else _turn_from_row(conn, row)
+
+
+def acknowledge_plan_opening_outcome(conn, turn, execution):
+    """Read back an ordinary Plan outcome without decoding an identical Turn."""
+    from .native_execution import _join_turn_fields, _join_turn_lifecycle
+    from .rules_authority_reads import validate_base_composition_summary
+
+    changed = {"revision", "updated_at", "graph_context_execution"}
+    columns = [name.strip() for name in _TURN_BASE_COLS.split(",")]
+    stable = [name for name in columns if name not in changed] + ["answer_composition_kind"]
+    exact_json = {"graph_context_receipt", "completion", "play_context_receipt"}
+    previous = ", ".join(stable)
+
+    def comparable_fields(alias):
+        return ", ".join(
+            f"pg_catalog.jsonb_send({alias}.{name})" if name in exact_json else f"{alias}.{name}"
+            for name in stable
+        )
+
+    before_fields = comparable_fields("prior")
+    after_fields = comparable_fields("t")
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            WITH prior AS MATERIALIZED (
+                SELECT {previous}, revision FROM agent.turn
+                WHERE world_id=%s AND turn_id=%s AND revision=%s
+            ), payload AS (SELECT %s::jsonb AS execution)
+            UPDATE agent.turn t SET graph_context_execution=payload.execution,
+                revision=prior.revision+1, updated_at=clock_timestamp()
+            FROM prior,payload
+            WHERE t.world_id=prior.world_id AND t.turn_id=prior.turn_id
+              AND t.revision=prior.revision AND t.attempt=%s
+              AND t.status='running' AND t.claim_expires_at>clock_timestamp()
+              AND NOT EXISTS (
+                  SELECT 1 FROM agent.plan_execution_checkpoint c WHERE c.turn_id=t.turn_id)
+            RETURNING t.ctid::text AS tuple_id, t.revision, t.updated_at,
+                ROW({after_fields}) IS NOT DISTINCT FROM ROW({before_fields})
+                AND pg_catalog.jsonb_send(t.graph_context_execution)
+                    = pg_catalog.jsonb_send(payload.execution) AS exact
+            """,
+            (turn.world_id, turn.turn_id, turn.revision,
+             Jsonb(execution.model_dump(mode="json", by_alias=True)), turn.attempt),
+        )
+        ack = cur.fetchone()
+        if ack is None:
+            return None
+        if ack["revision"] != turn.revision + 1 or ack["exact"] is not True:
+            raise ApplicationStateIntegrityError("Plan outcome changed its acknowledged Turn")
+        # AFTER triggers run after the RETURNING projection. With the root lock
+        # still held, verify that the acknowledged tuple is the actual final row.
+        cur.execute(
+            f"""SELECT ctid::text=%s AS exact, {_rules_summary_select("agent.turn")}
+                FROM agent.turn WHERE world_id=%s AND turn_id=%s""",
+            (ack["tuple_id"], turn.world_id, turn.turn_id),
+        )
+        final = cur.fetchone()
+    if final is None or final["exact"] is not True:
+        raise ApplicationStateIntegrityError("Plan outcome changed after SQL acknowledgement")
+    validate_base_composition_summary(final["rules_summary"])
+    refs = _turn_references(conn, turn.turn_id)
+    provenance = turn.provenance
+    if refs != (provenance.primary_work, list(provenance.supporting_work), provenance.selected_object):
+        raise ApplicationStateIntegrityError("Plan outcome changed its historical references")
+    updated = turn.model_copy(update=dict(revision=ack["revision"], updated_at=ack["updated_at"],
+                                          graph_context_execution=execution))
+    _join_turn_fields(updated.graph_context_receipt, execution, updated.completion, updated.assistant_text)
+    _join_turn_lifecycle(updated)
+    return updated
 
 
 def interrupt_expired_graph_execution(
@@ -1666,6 +1953,8 @@ def interrupt_expired_graph_execution(
         )
         row = cur.fetchone()
     if row is not None:
+        if row["surface_id"] == "plan":
+            _retire_plan_checkpoint(conn, turn_id, expected_revision, expected_attempt)
         close_context_trace_locked(
             conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
             status="interrupted", closed_at=row["completed_at"],
@@ -1702,6 +1991,7 @@ def fail_claimed_turn(
         )
         row = cur.fetchone()
     if row is not None:
+        _settle_plan_checkpoint(conn, row, prior_revision=expected_revision, prior_attempt=expected_attempt)
         close_context_trace_locked(
             conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
             status=status, closed_at=row["completed_at"],
@@ -2077,6 +2367,8 @@ def complete_mixed_claimed_turn(
             completion=%s,graph_context_execution=%s,answer_composition_kind='rules_mixed_v1',claim_expires_at=NULL,
             completed_at=clock_timestamp(),updated_at=clock_timestamp()
             WHERE world_id=%s AND turn_id=%s AND status='running' AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp()
+            AND NOT EXISTS (SELECT 1 FROM agent.plan_execution_checkpoint
+                  WHERE plan_execution_checkpoint.turn_id = agent.turn.turn_id)
             RETURNING {_TURN_COLS}""",
             (
                 assistant_text,
@@ -2122,6 +2414,9 @@ def interrupt_expired_rules_claim(
         row = cur.fetchone()
     if row is None:
         return None
+    _settle_plan_checkpoint(
+        conn, row, prior_revision=expected_revision, prior_attempt=expected_attempt,
+    )
     close_context_trace_locked(
         conn,
         world_id=world_id,

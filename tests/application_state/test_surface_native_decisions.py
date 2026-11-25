@@ -80,13 +80,33 @@ def test_plan_session_storage_image_covers_root_and_locked_provenance(applicatio
                 assert changed != before
                 assert dict(changed[0])['revision'] == turn.revision
             assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        repo._activate_plan_checkpoint(conn, turn)
+        execution = turn.graph_context_execution
+        count = len(execution.events)
+        event = execution.events[-1].model_copy(update={"sequence": count})
+        candidate = execution.model_copy(update={"events": [*execution.events, event]})
+        append_fields = dict(world_id=turn.world_id, turn_id=turn.turn_id,
+            before=before, execution=candidate, prior_count=count)
         with conn.transaction(force_rollback=True):
-            acknowledged = repo._update_plan_session_execution(conn,
-                world_id=turn.world_id, turn_id=turn.turn_id, before=before,
-                execution=turn.graph_context_execution)
+            acknowledged = repo._append_plan_session_events(conn, **append_fields)
             assert dict(acknowledged[0])['revision'] == turn.revision + 1
+            assert dict(acknowledged[0])['graph_context_execution'] == dict(before[0])['graph_context_execution']
             assert acknowledged[1:] == before[1:]
+            assert repo.update_graph_execution(conn, world_id=turn.world_id, turn_id=turn.turn_id,
+                expected_revision=turn.revision + 1, execution=candidate) is None
+            for change in (
+                "UPDATE agent.plan_execution_event SET payload=payload WHERE turn_id=%s",
+                "DELETE FROM agent.plan_execution_event WHERE turn_id=%s",
+            ):
+                with pytest.raises(psycopg.errors.CheckViolation), conn.transaction():
+                    conn.execute(change, (turn.turn_id,))
+            assert repo._read_plan_checkpoint(conn, turn.turn_id, turn.revision + 1, turn.attempt) == (
+                candidate.model_dump(mode="json", by_alias=True)
+            )
         assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        assert repo._read_plan_checkpoint(conn, turn.turn_id, turn.revision, turn.attempt) == (
+            execution.model_dump(mode="json", by_alias=True)
+        )
         with conn.transaction(force_rollback=True):
             conn.execute("CREATE FUNCTION pg_temp.change_session_ack() RETURNS trigger "
                          "LANGUAGE plpgsql AS $$ BEGIN NEW.request_fingerprint := repeat('f',64); "
@@ -95,8 +115,7 @@ def test_plan_session_storage_image_covers_root_and_locked_provenance(applicatio
                          "FOR EACH ROW EXECUTE FUNCTION pg_temp.change_session_ack()")
             from application_state.errors import ApplicationStateIntegrityError
             with pytest.raises(ApplicationStateIntegrityError, match='acknowledgement changed'):
-                repo._update_plan_session_execution(conn, world_id=turn.world_id,
-                    turn_id=turn.turn_id, before=before, execution=turn.graph_context_execution)
+                repo._append_plan_session_events(conn, **append_fields)
         assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
         conn.rollback()
 
@@ -107,13 +126,20 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
     case = sdk_case(application_state_dsn, native='current', readonly_session=True)
     assert eligible(case.turn)
     session = NativePlanSession(case.turn)
+    old_receipt, old_execution = case.turn.graph_context_receipt, case.turn.graph_context_execution
+    assert session.matches_verified_execution(old_receipt, old_execution)
     step = case.steps[-1]
     updated, fresh = session.execute(PlanSessionCommand.SELECTION,
         expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
         selection=step.selection, producer_proof=step.proof)
     assert fresh
     revision = updated.revision
+    receipt, execution = updated.graph_context_receipt, updated.graph_context_execution
+    assert session.matches_verified_execution(receipt, execution)
+    assert not session.matches_verified_execution(old_receipt, old_execution)
+    assert not session.matches_verified_execution(receipt.model_copy(update={'context_receipt_sha256': '0' * 64}), execution)
     updated.graph_context_execution.events.clear()
+    assert not session.matches_verified_execution(receipt, execution)
     updated.user_text = 'changed public export'
     replay, fresh = session.execute(PlanSessionCommand.SELECTION,
         expected_revision=revision, expected_attempt=case.turn.attempt,
@@ -123,12 +149,72 @@ def test_readonly_session_commits_detached_views_and_finishes_through_real_codec
     final = session.finish()
     assert final == case.service.inspect_turn(world_id=final.world_id, turn_id=final.turn_id)
     assert final == replay
+    assert not session.matches_verified_execution(final.graph_context_receipt, final.graph_context_execution)
     with pytest.raises(ApplicationStateConflictError, match='sealed'):
         session.execute(PlanSessionCommand.SELECTION, expected_revision=revision,
             expected_attempt=final.attempt, selection=step.selection, producer_proof=step.proof)
 
 
-def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(application_state_dsn):
+def test_locked_plan_waiter_reconstructs_suffix_committed_while_waiting(application_state_dsn):
+    from concurrent.futures import ThreadPoolExecutor
+    from time import monotonic, sleep
+
+    import psycopg
+    from psycopg.types.json import Jsonb
+
+    from application_state.agent_conversation import repository as repo
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    turn = case.turn
+    execution = turn.graph_context_execution
+    event = execution.events[-1]
+    base = execution.model_dump(mode='json', by_alias=True)
+    base['events'].pop()
+
+    def read(waiter):
+        return repo.lock_turn(waiter, turn.world_id, turn.turn_id)
+
+    with ThreadPoolExecutor(max_workers=1) as worker:
+        with (
+            psycopg.connect(application_state_dsn) as writer,
+            psycopg.connect(application_state_dsn) as waiter,
+        ):
+            writer.execute(
+                'UPDATE agent.turn SET revision=revision+1, graph_context_execution=%s WHERE turn_id=%s',
+                (Jsonb(base), turn.turn_id),
+            )
+            writer.execute(
+                'INSERT INTO agent.plan_execution_checkpoint '
+                '(turn_id, revision, attempt, base_count, event_count) VALUES (%s,%s,%s,%s,%s)',
+                (turn.turn_id, turn.revision + 1, turn.attempt, event.sequence, event.sequence + 1),
+            )
+            writer.execute(
+                'INSERT INTO agent.plan_execution_event (turn_id, sequence, payload) VALUES (%s,%s,%s)',
+                (turn.turn_id, event.sequence, Jsonb(event.model_dump(mode='json', by_alias=True))),
+            )
+            waiting = worker.submit(read, waiter)
+            try:
+                deadline = monotonic() + 5
+                while monotonic() < deadline:
+                    blockers = writer.execute(
+                        'SELECT pg_blocking_pids(%s)', (waiter.info.backend_pid,),
+                    ).fetchone()[0]
+                    if writer.info.backend_pid in blockers:
+                        break
+                    sleep(0.01)
+                else:
+                    pytest.fail('Reader did not wait on the Plan root lock')
+            finally:
+                writer.commit()
+            locked = waiting.result(timeout=5)
+            assert locked.revision == turn.revision + 1
+            assert locked.graph_context_execution == execution
+
+
+@pytest.mark.parametrize('project_outcomes', [False, True])
+def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(
+    application_state_dsn, project_outcomes, monkeypatch,
+):
     from contextlib import ExitStack
     from apps.live_control_server.services.agent_turn_service import _ClaimFence
 
@@ -137,8 +223,39 @@ def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(
             fence = _ClaimFence(service, turn)
             cleanup.callback(fence.stop)
             return fence
+        def assert_refused_outcomes(case, outcome):
+            from contextlib import contextmanager
+            from application_state.agent_conversation import service as service_owner
+            from application_state.agent_conversation.native_plan_session import NativePlanSession
+
+            before = case.turn
+            fields = dict(expected_revision=before.revision, expected_attempt=before.attempt, outcome=outcome)
+            stale = NativePlanSession(before)
+            with pytest.raises(ApplicationStateConflictError, match='claim fence'):
+                stale.record_provider_outcome(**(fields | {'expected_revision': before.revision - 1}))
+
+            original = service_owner.unit_of_work
+
+            @contextmanager
+            def rollback(dsn):
+                with original(dsn) as conn:
+                    yield conn
+                    raise RuntimeError('provider outcome rollback')
+
+            session = NativePlanSession(before)
+            with monkeypatch.context() as patch:
+                patch.setattr(service_owner, 'unit_of_work', rollback)
+                with pytest.raises(RuntimeError, match='provider outcome rollback'):
+                    session.record_provider_outcome(**fields)
+            with pytest.raises(ApplicationStateConflictError, match='sealed'):
+                session.record_provider_outcome(**fields)
+            assert AgentConversationService().inspect_turn(
+                world_id=before.world_id, turn_id=before.turn_id,
+            ) == before
+
         case = sdk_case(application_state_dsn, native='current', readonly_session=True,
-            fence_factory=make_fence)
+            fence_factory=make_fence, project_outcomes=project_outcomes,
+            before_projected_outcome=assert_refused_outcomes if project_outcomes else None)
         assert case.fence.renewer._session is not None
         assert append(case)
         assert not append(case)
@@ -179,6 +296,42 @@ def test_session_commit_failure_seals_without_publishing_or_replaying(applicatio
         session.execute(PlanSessionCommand.SELECTION, **fields)
     actual = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
     assert actual.revision == case.turn.revision + (phase == 'after_commit')
+
+
+def test_session_reuses_work_context_only_inside_guarded_read(application_state_dsn, monkeypatch):
+    from application_state.agent_conversation import native_context, native_execution
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+    from application_state.agent_conversation.native_retrieval import owner
+    from application_state.errors import ApplicationStateValidationError
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    session = NativePlanSession(case.turn)
+    validate_work = native_context.validate_work_context
+    join_request = native_execution._join_request_identity
+    verified_outside = []
+
+    def check_work(*args, **kwargs):
+        assert native_execution._locked_plan_read_turn.get() is None
+        verified_outside.append(True)
+        return validate_work(*args, **kwargs)
+
+    def check_request(receipt, execution, turn):
+        if native_execution._locked_plan_read_turn.get() is turn:
+            raise ValueError('synthetic request binding rejection')
+        return join_request(receipt, execution, turn)
+
+    monkeypatch.setattr(native_context, 'validate_work_context', check_work)
+    monkeypatch.setattr(native_execution, '_join_request_identity', check_request)
+    with pytest.raises(ApplicationStateValidationError, match='request binding rejection'):
+        session.execute(PlanSessionCommand.RECORD_GRANT, event_id=uuid4(),
+            record_kind='statement', record_ids=('invalid',), expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt)
+    assert native_execution._locked_plan_read_turn.get() is None
+    owner(case.turn)
+    assert verified_outside
+    actual = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+    assert actual.revision == case.turn.revision
+    assert actual.graph_context_execution == case.turn.graph_context_execution
 
 
 def test_session_refuses_unchanged_revision_storage_corruption(application_state_dsn):
@@ -326,6 +479,8 @@ def sdk_case(
     examined=None,
     readonly_session=False,
     fence_factory=None,
+    project_outcomes=False,
+    before_projected_outcome=None,
     post_read_plan=None,
     sent=None,
 ):
@@ -541,7 +696,23 @@ def sdk_case(
                 outcome=transition,
             )
             if getattr(case, 'fence', None) is not None:
-                case.turn, fresh = case.fence.append('record_provider_outcome', 'outcome', outcome)
+                checkpoint = case.fence.plan_provider_checkpoint(outcome.provider_attempt_id) if project_outcomes else None
+                if checkpoint is None:
+                    case.turn, fresh = case.fence.append('record_provider_outcome', 'outcome', outcome)
+                else:
+                    assert checkpoint.sequence == outcome.sequence
+                    if before_projected_outcome is not None:
+                        before_projected_outcome(case, outcome)
+                    fresh = case.fence.commit_plan_provider_outcome(outcome)
+                    from application_state.agent_conversation.native_plan_session import PlanSessionClaim
+                    assert isinstance(case.fence.renewer._claim, PlanSessionClaim)
+                    after = case.fence.plan_execution_checkpoint()
+                    assert after.sequence == outcome.sequence + 1
+                    case.turn = case.fence.turn
+                    assert case.turn.graph_context_execution.events[-1] == outcome
+                    assert AgentConversationService().inspect_turn(
+                        world_id=case.turn.world_id, turn_id=case.turn.turn_id,
+                    ) == case.turn
             else:
                 case.turn, fresh = case.service.record_provider_outcome(
                     case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,
@@ -849,3 +1020,112 @@ def test_current_plan_shared_guidance_sdk_admission_replay_and_codec_refusal(app
     sent=len(case.sent)
     assert not append(case) and len(case.sent)==sent
     assert case.service.inspect_turn(world_id=case.turn.world_id,turn_id=case.turn.turn_id)==case.turn
+
+
+def test_execution_append_checks_schema_on_its_own_connection(application_state_dsn, monkeypatch):
+    from contextlib import contextmanager
+
+    from application_state.agent_conversation import service as service_owner
+    from application_state.errors import ApplicationStateMigrationError
+
+    case = sdk_case(application_state_dsn, native="current")
+    before = case.turn
+    original = service_owner.unit_of_work
+
+    @contextmanager
+    def different_schema(dsn):
+        with original(dsn) as conn:
+            conn.execute("UPDATE application_state.schema_migrations SET version_num='fixture-stale'")
+            yield conn
+
+    with monkeypatch.context() as patch:
+        patch.setattr(service_owner, "unit_of_work", different_schema)
+        with pytest.raises(ApplicationStateMigrationError, match="behind Alembic head"):
+            append(case)
+    assert case.service.inspect_turn(world_id=before.world_id, turn_id=before.turn_id) == before
+    assert append(case)
+
+
+def test_graph_write_guard_validates_final_rows_and_restores_checks(application_state_dsn):
+    from importlib import import_module
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    import psycopg
+    from sqlalchemy import create_engine
+    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.engine import make_url
+
+    migration = import_module(
+        "application_state.migrations.versions.20261123_0195_turn_graph_write_guards"
+    )
+    lifecycle = import_module("application_state.migrations.versions.20261123_0196_turn_lifecycle_write_guard")
+    case = sdk_case(application_state_dsn, native="current")
+    turn_id = case.turn.turn_id
+    url = make_url(application_state_dsn).set(drivername="postgresql+psycopg")
+    engine = create_engine(url)
+    try:
+        with engine.connect() as conn, Operations.context(MigrationContext.configure(conn)):
+            enabled = conn.exec_driver_sql("""
+                SELECT tgname, tgenabled FROM pg_trigger WHERE tgrelid = 'agent.turn'::regclass
+                AND tgname LIKE 'turn_graph_validate_%%' ORDER BY tgname
+            """).all()
+            assert enabled == [(name, "A") for name in migration._TRIGGERS]
+            conn.exec_driver_sql("UPDATE agent.turn SET revision=revision+1 WHERE turn_id=%s", (turn_id,))
+            lifecycle.downgrade()
+            assert conn.exec_driver_sql("""
+                SELECT convalidated FROM pg_constraint WHERE conrelid='agent.turn'::regclass
+                AND conname='agent_turn_lifecycle_check'
+            """).scalar_one()
+            migration.downgrade()
+            restored = conn.exec_driver_sql("""
+                SELECT conname FROM pg_constraint WHERE conrelid='agent.turn'::regclass
+                AND conname = ANY(%s) AND convalidated ORDER BY conname
+            """, (list(migration._CHECKS),)).scalars().all()
+            assert restored == list(migration._CHECKS)
+            migration.upgrade()
+            original_lifecycle = conn.exec_driver_sql("""
+                SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='agent.turn'::regclass
+                AND conname='agent_turn_lifecycle_check'
+            """).scalar_one()
+            # Isolate the target predicate so overlapping lifecycle checks
+            # cannot account for the rejection in this rollback-only test.
+            conn.exec_driver_sql("ALTER TABLE agent.turn DROP CONSTRAINT agent_turn_lifecycle_check")
+            conn.exec_driver_sql("""
+                CREATE FUNCTION pg_temp.bad_graph() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    NEW.graph_context_execution := '[]'::jsonb;
+                    NEW.graph_context_receipt := '[]'::jsonb;
+                    RETURN NEW;
+                END; $$
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER bad_graph BEFORE UPDATE OF revision ON agent.turn
+                FOR EACH ROW EXECUTE FUNCTION pg_temp.bad_graph()
+            """)
+            with pytest.raises(IntegrityError) as failure, conn.begin_nested():
+                conn.exec_driver_sql("UPDATE agent.turn SET revision=revision+1 WHERE turn_id=%s", (turn_id,))
+            assert isinstance(failure.value.orig, psycopg.errors.CheckViolation)
+            assert failure.value.orig.diag.constraint_name in migration._CHECKS
+            conn.exec_driver_sql("DROP TRIGGER bad_graph ON agent.turn")
+            conn.exec_driver_sql(
+                f"ALTER TABLE agent.turn ADD CONSTRAINT agent_turn_lifecycle_check {original_lifecycle}"
+            )
+            lifecycle.upgrade()
+            conn.exec_driver_sql("""
+                CREATE FUNCTION pg_temp.bad_lifecycle() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    NEW.user_text := NEW.user_text || ' changed by before trigger';
+                    RETURN NEW;
+                END; $$
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER bad_lifecycle BEFORE UPDATE OF revision ON agent.turn
+                FOR EACH ROW EXECUTE FUNCTION pg_temp.bad_lifecycle()
+            """)
+            with pytest.raises(IntegrityError) as failure, conn.begin_nested():
+                conn.exec_driver_sql("UPDATE agent.turn SET revision=revision+1 WHERE turn_id=%s", (turn_id,))
+            assert isinstance(failure.value.orig, psycopg.errors.CheckViolation)
+            assert failure.value.orig.diag.constraint_name == lifecycle._LIFECYCLE
+    finally:
+        engine.dispose()

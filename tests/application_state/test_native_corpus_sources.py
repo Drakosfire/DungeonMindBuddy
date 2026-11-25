@@ -1063,12 +1063,16 @@ def test_native_search_refuses_stale_claim_before_core_capture(application_state
 
 
 @pytest.mark.parametrize("whole_document", [False, True])
-def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(application_state_dsn, lane, monkeypatch, whole_document):
+@pytest.mark.parametrize("read_failure", [False, True])
+def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(
+    application_state_dsn, lane, monkeypatch, whole_document, read_failure,
+):
+    from contextlib import contextmanager
     from threading import RLock
     from types import SimpleNamespace
     from application_state.agent_conversation.native_corpus import NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
-    from apps.live_control_server.services import corpus_source_navigation as old_navigation
+    from apps.live_control_server.integrations.dungeonmind import corpus_source_inventory, world_graph_reads
     from apps.live_control_server.services.native_source_navigation import navigator
     body = "# Source\n\nThe party learned source context in the guarded room.\n" if whole_document else None
     if body is not None:
@@ -1077,9 +1081,25 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(ap
     from tests.test_native_corpus_source_access import GM, BODY
     context = owner.prepare_native_source_context(managed_world_id="managed", principal=GM,
         repository=lane.repo, resolve_identity=lambda _: lane.bound)
-    renewer = SimpleNamespace(_turn=fixture.current, _lock=RLock())
+    renewer = SimpleNamespace(_turn=fixture.current, _lock=RLock(), _session=None)
+    transport_events = []
+
+    @contextmanager
+    def read_session():
+        assert isinstance(renewer._turn.graph_context_execution.events[-1], NativeBodyReadAuthorizedV1)
+        transport_events.append("opened")
+        try:
+            yield
+        finally:
+            transport_events.append("closed")
+
+    monkeypatch.setattr(lane.repo, "reuse_native_source_read_connection", read_session, raising=False)
     class Fence:
         def __init__(self): self.renewer = renewer
+
+        def commit_session_source_events(self, method, **fields):
+            return None
+
         @property
         def turn(self): return self.renewer._turn
         def commit(self, method, **fields):
@@ -1092,8 +1112,8 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(ap
         native_corpus_context=context, context_capture=None)
     def obsolete(*args, **kwargs):
         raise AssertionError("Native source navigation dispatched the obsolete classic registry")
-    monkeypatch.setattr(old_navigation, "collect_source_view", obsolete)
-    monkeypatch.setattr(old_navigation, "direct_services_from_config", obsolete)
+    monkeypatch.setattr(corpus_source_inventory, "collect_source_view", obsolete)
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config", obsolete)
     opened = []
     original_open = owner.open_admitted_native_text
     def tracked_open(*args, **kwargs):
@@ -1105,6 +1125,7 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(ap
     assert len(initial) == 1 and not opened
     result = nav.select([initial[0].handle])
     assert result["body_text_exposed"] is False and opened
+    assert not transport_events
     offers = nav.offered()
     assert (not any(row.kind == "Exact source section" for row in offers)) == whole_document
     assert BODY not in repr(offers)
@@ -1115,7 +1136,20 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(ap
     renewer._turn = fixture.seed([*adapter.fence.turn.graph_context_execution.events,
         *fixture.ledger.events[original_search.sequence+1:original_read.sequence]])
     before = len(opened)
+    if read_failure:
+        def fail_read(**_kwargs):
+            assert transport_events == ["opened"]
+            raise LookupError("exact physical read failed")
+
+        monkeypatch.setattr(owner, "read_native_corpus_member", fail_read)
+        with pytest.raises(LookupError, match="exact physical read failed"):
+            nav.select([selected.handle])
+        assert transport_events == ["opened", "closed"]
+        assert isinstance(adapter.fence.turn.graph_context_execution.events[-1], NativeBodyReadAuthorizedV1)
+        assert len(opened) == before
+        return
     result = nav.select([selected.handle])
+    assert transport_events == ["opened", "closed"]
     assert len(opened) == before + 1 and result["body_text_exposed"] is False
     read = adapter.fence.turn.graph_context_execution.events[-1]
     assert read.excerpt.text == (body if whole_document else BODY + "\n")

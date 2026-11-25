@@ -219,7 +219,11 @@ SOURCE_NEED_GUIDANCE = _RETAINED_SOURCE_NEED_GUIDANCE + (
 )
 
 
-def source_need(request, response):
+class UnresolvedDiscussionSource(ValueError):
+    """The read-only work choice is settled, but its evidence scope is tied."""
+
+
+def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=False):
     question = request["questions"].get("source_need")
     if question is None:
         return None
@@ -227,15 +231,49 @@ def source_need(request, response):
     if question not in (expected | {"instructions": guidance}
                         for guidance in (SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
         raise ValueError("Build source scope differs from its offered decision")
-    return _selected_choice(response["answers"]["source_need"], SOURCE_NEED_OPTIONS)
+    return _selected_choice(
+        response["answers"]["source_need"], SOURCE_NEED_OPTIONS,
+        tie_fallback=tie_fallback, clarify_uncertain_tie=clarify_uncertain_tie,
+    )
 
 
-def selected(response, *, menu=None):
+def selected(response, *, menu=None, tie_fallback=None):
     options = WORK if menu is None else _menu_work(menu)
-    return _selected_choice(response["answers"]["requested_work"], options)
+    return _selected_choice(response["answers"]["requested_work"], options, tie_fallback=tie_fallback)
 
 
-def _selected_choice(answer, options):
+def opening_image_choice(policy, response, answers, question):
+    from application_state.build_proposal.image_move_decision import (
+        IMAGE_MOVE_AFFIRMATION, admitted_image_move_choice,
+    )
+
+    choice = admitted_image_move_choice(answers, question)
+    if choice != "unresolved" or answers.get(IMAGE_MOVE_AFFIRMATION.name) != "description_or_discussion":
+        return choice
+    if answers["image_move_intent"] != "other":
+        return choice
+    _, _, menu, _ = _captured_semantics(policy)
+    try:
+        if selected(response, menu=menu) == "discuss":
+            return "other"
+    except ValueError:
+        pass  # An invalid or tied general vote cannot route ordinary discussion.
+    return choice
+
+
+def opening_work(policy, request, response, image_choice):
+    _, _, menu, _ = _captured_semantics(policy)
+    # An independently admitted image choice does not use otherwise valid
+    # general work/source ties. Keep the same checks for all malformed votes.
+    terminal = image_choice in {"move_existing", "unresolved"}
+    label = selected(response, menu=menu, tie_fallback="discuss" if terminal else None)
+    return label, source_need(
+        request, response, tie_fallback="anchored" if terminal else None,
+        clarify_uncertain_tie=not terminal and label == "discuss",
+    )
+
+
+def _selected_choice(answer, options, *, tie_fallback=None, clarify_uncertain_tie=False):
     label, probabilities = answer["selected"], answer["probabilities"]
     if (
         label not in options
@@ -249,9 +287,18 @@ def _selected_choice(answer, options):
             for x in probabilities.values()
         )
         or abs(sum(probabilities.values()) - 1) > 0.02
-        or probabilities[label] != max(probabilities.values())
-        or sum(x == probabilities[label] for x in probabilities.values()) != 1
     ):
+        raise ValueError("Invalid actual semantic selection")
+    maximum = max(probabilities.values())
+    tied = sum(value == maximum for value in probabilities.values()) != 1
+    if tied and clarify_uncertain_tie and label == "uncertain" and probabilities[label] == maximum:
+        raise UnresolvedDiscussionSource("Should I answer from this Page alone, or look for other sources?")
+    if tied and tie_fallback is not None:
+        # This ranking has no unique winner. For an already admitted typed
+        # image action, discard the unused general label and record the host's
+        # neutral route. The actual label and probabilities remain in proof.
+        return tie_fallback
+    if tied or probabilities[label] != maximum:
         raise ValueError("Invalid actual semantic selection")
     return label
 
@@ -614,6 +661,25 @@ def validate_resolution_metadata(event, policy):
             or event.response_capabilities_sha256 != digest(asdict(caps))
             or event.menu_sha256 != menu or event.resolver_sha256 != resolver):
         raise ValueError('Semantic event differs from its frozen response contract')
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+
+    write_capability = getattr(getattr(policy, "action", None), "write_capability", None)
+    catalog = catalog_for_build_capability(write_capability)
+    if event.typed_graph_reference is not None and (
+        catalog is None or write_capability.basis.visibility != "internal"
+    ):
+        raise ValueError("Retained Graph reference opening requires an internal native page capture")
+    capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
+    if (capture is None) != (event.typed_image_move is None):
+        raise ValueError("Retained image move choice requires its exact Build capture")
+    placement = event.paragraph_placement
+    if (catalog is None) != (placement is None):
+        raise ValueError("Build paragraph placement differs from its frozen capability")
+    if placement is not None and placement.target is not None:
+        alias, _, _ = placement.target.alias.partition(":")
+        if (event.requested_work != "write_current_page"
+                or placement.target != catalog.target(alias, placement.target.operation)):
+            raise ValueError("Retained Build paragraph target is outside the exact editor capture")
 
 
 def operation_id(turn, request_id, label):
@@ -690,8 +756,13 @@ def validate_native_action_events(execution):
             validate_resolution_metadata(event,execution.policy)
             selection=event
         elif isinstance(event,t.ProviderAttemptAuthorizedEventV1):
-            if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity() and selection is None:
-                raise ValueError('Build writer requires its unique retained semantic resolution')
+            if getattr(selection, "typed_image_move", None) in {"move_existing", "unresolved"}:
+                raise ValueError("Typed image movement cannot authorize another provider call")
+            if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity():
+                if selection is None:
+                    raise ValueError('Build writer requires its unique retained semantic resolution')
+                if getattr(selection, "typed_graph_reference", None) == "place_existing_reference":
+                    raise ValueError("Typed Graph reference placement cannot authorize a writer")
             latest,outcome=event,None
         elif isinstance(event,t.ProviderOutcomeEventV1) and latest is not None and event.provider_attempt_id==latest.provider_attempt_id:
             outcome=event.outcome
@@ -706,6 +777,8 @@ def validate_selection(turn, event, proof, trace):
 
 
 def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt, semantic_input=False, idempotency_key=None):
+    from application_state.build_proposal.graph_reference_decision import resolve_graph_reference_opening
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
     from .source_writer_output import strict_json
     from generationengine.types import DecisionResult
     from . import types as t
@@ -719,9 +792,66 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError("Semantic selection requires its exact producing proof")
     request = strict_json(proof["request_json"])
     raw_response = strict_json(proof["response_json"])
-    label = selected(raw_response, menu=menu)
     response = DecisionResult.model_validate(raw_response)
-    resolution = resolution_for(policy, label, source_scope=source_need(request, raw_response))
+    capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
+    from application_state.build_proposal.image_move_decision import (
+        CONTEXTUAL_IDENTITY, IMAGE_MOVE_AFFIRMATION, OPENING_STATE_KEY,
+        admitted_image_move_choice, contextual_identity_question,
+    )
+    image_offer = request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY)
+    image_answers = {name: value for name, value in response.answers.items() if name.startswith("image_move_")}
+    if capture is None:
+        if event.typed_image_move is not None or image_answers or image_offer is not None:
+            raise ValueError("Image move choices require a captured Build Page")
+    else:
+        from .jev_retrieval_contract import validated_choice_answers
+
+        names = {"image_move_intent", "image_move_destination", "image_move_occurrence"}
+        affirmation = IMAGE_MOVE_AFFIRMATION
+        if affirmation.name in request.get("questions", {}):
+            if request["questions"][affirmation.name] != {
+                "type": "choice", "instructions": affirmation.question,
+                "criteria": dict.fromkeys(affirmation.options),
+            }:
+                raise ValueError("Image move affirmation differs from the exact admitted offer")
+            names.add(affirmation.name)
+        contextual = None
+        if CONTEXTUAL_IDENTITY in request.get("questions", {}):
+            aliases = image_offer.get("existing_occurrences") if isinstance(image_offer, dict) else None
+            if affirmation.name not in names or not isinstance(aliases, dict) or len(aliases) < 2:
+                raise ValueError("Image move contextual identity requires an affirmative opening with occurrences")
+            contextual = contextual_identity_question(aliases)
+            if request["questions"][CONTEXTUAL_IDENTITY] != {
+                "type": "choice", "instructions": contextual.question,
+                "criteria": dict.fromkeys(contextual.options),
+            }:
+                raise ValueError("Image move contextual identity differs from the exact admitted offer")
+            names.add(CONTEXTUAL_IDENTITY)
+        projected = response.model_copy(update={"answers": image_answers})
+        choices = validated_choice_answers(projected, names)
+        if affirmation.name in names and choices[affirmation.name] not in affirmation.options:
+            raise ValueError("The image move affirmation is outside its offered choices")
+        if contextual is not None and choices[CONTEXTUAL_IDENTITY] not in contextual.options:
+            raise ValueError("The image move contextual identity is outside its offered choices")
+        choice = choices["image_move_intent"]
+        retained = event.typed_image_move
+        if (not semantic_input or not isinstance(image_offer, dict) or
+                (retained != choice and not (
+                    retained == "unresolved" and choice == "other"
+                    and admitted_image_move_choice(choices, user_text) == retained
+                ))):
+            raise ValueError("Image move choice differs from its actual native selection")
+    graph_reference = resolve_graph_reference_opening(request, response)
+    if graph_reference != event.typed_graph_reference or (graph_reference is not None and (
+        not semantic_input or capability is None
+        or catalog_for_build_capability(policy.action.write_capability) is None
+        or policy.action.write_capability.basis.visibility != "internal"
+    )):
+        raise ValueError("Build Graph reference opening differs from its actual native selection")
+    label, source_scope = opening_work(policy, request, raw_response, event.typed_image_move)
+    resolution = resolution_for(policy, label, source_scope=source_scope)
+    if event.paragraph_placement != paragraph_placement_for(policy, request, response, user_text, label):
+        raise ValueError("Build paragraph placement differs from its actual opening selection")
     prior = [
         e
         for e in execution.events
@@ -1292,7 +1422,7 @@ def semantic_collaboration(card):
     return {key: deepcopy(card[key]) for key in card if key in fields}
 
 
-def semantic_routing_state(question, interaction, references):
+def semantic_routing_state(question, interaction, references, *, write_capability=None):
     """Project typed parent context, never scrub arbitrary user/source strings."""
     from .dialogue_projection import expand_dialogue
     from .authored_graph_references import AuthoredSourceReferenceV1
@@ -1312,7 +1442,37 @@ def semantic_routing_state(question, interaction, references):
             for ref in references.references]
     if "related_page_catalog" in interaction:
         context["related_page_labels"] = [page["title"] for page in interaction["related_page_catalog"]]
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+    from application_state.build_proposal.prose_decision import OPENING_STATE_KEY, build_boundary_opening
+
+    catalog = catalog_for_build_capability(write_capability)
+    if catalog is not None:
+        context[OPENING_STATE_KEY], _ = build_boundary_opening(
+            question, context["current_page_title"], catalog, caret=write_capability.basis.caret)
+        context["page_target"] = {"kind": "contextual_paragraph"}
     return {"user_question": question, "interaction": context}
+
+
+def paragraph_placement_for(policy, request, response, question, requested_work):
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+    from application_state.build_proposal.prose_decision import (
+        OPENING_QUESTION_PREFIX, OPENING_STATE_KEY, resolve_build_boundary_opening,
+    )
+
+    capability = getattr(getattr(policy, "action", None), "write_capability", None)
+    catalog = catalog_for_build_capability(capability)
+    interaction = request.get("state", {}).get("interaction", {})
+    if catalog is None:
+        if OPENING_STATE_KEY in interaction or any(
+            name.startswith(OPENING_QUESTION_PREFIX) for name in request["questions"]
+        ):
+            raise ValueError("Build placement requires a captured paragraph catalog")
+        return None
+    if interaction.get("page_target") != {"kind": "contextual_paragraph"}:
+        raise ValueError("Build opening must describe the captured paragraph target")
+    return resolve_build_boundary_opening(catalog, request, response, question=question,
+                                          title=interaction["current_page_title"], requested_work=requested_work,
+                                          caret=capability.basis.caret)
 
 
 def semantic_request_id(state, *, world_id, client_thread_id, idempotency_key):

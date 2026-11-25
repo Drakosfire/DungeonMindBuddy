@@ -8,6 +8,27 @@ This queue holds the maintenance items explicitly transferred out of the root pr
 | --- | --- | --- |
 | Give retained PDF shortcuts a browser storage lifecycle | Buddy Build frontend | [#3380](https://github.com/Drakosfire/DungeonMindBuddy/pull/3380) shipped removal and passed 19 focused tests. In a synthetic Chrome run with 50 selected-World shortcuts and 200 reads per scenario, scans averaged 0.034, 0.104 and 0.518 ms across 100, 1,000 and 5,000 storage keys. A simulated World-scoped lookup averaged about 0.01 ms and serialized 50 entries in 9,991 ASCII bytes. Revisit indexing when representative profiles show a user-visible preview delay or report quota pressure. Any storage change must preserve legacy shortcuts and cross-tab updates and verify World isolation. |
 
+### Bounded retirement audit: non-World Plan proposals
+
+Assess whether the old `/api/live/plan-document-edit/propose` producer and
+its client wrapper can be retired. [#2104](https://github.com/Drakosfire/DungeonMindBuddy/pull/2104)
+contains the earlier proposal and tests, but is not an accepted current-source
+deletion plan.
+
+At the 2026-11-24 source inspection, the non-World wrapper had no other
+in-repository callers. The separate World proposal endpoint still had a Plan
+conversation caller, and existing tests covered historical proposal readback
+and retries. Repository search cannot rule out external clients or establish
+the contents and recovery needs of real retained histories.
+
+Before proposing retirement, re-anchor and verify in-repository and outside
+callers, route exposure and compatibility expectations; trace historic
+non-World and World proposal data, recovery, retry and replay; and prove the
+World endpoint, current authoring and retained histories remain intact at their
+owning boundaries. Decide the intended response for a retired endpoint and
+keep any unresolved evidence explicit. This is an audit, not authorization to
+delete routes, data or tests.
+
 ### Operational follow-ups
 
 Linked issues own status and next actions. The pinned links preserve the exact original rows and measurements; they are evidence, not parallel queues.
@@ -43,6 +64,10 @@ The shipped demolition and verification record is [pinned here](https://github.c
 - **Extraction lab outputs:** preserve the production recap runner, pinned restores, active-provider evidence and unique inputs. The exact original record contains the storage sizes, restore evidence and downstream references.
 - **Corpus and adopted World evidence:** preserve exact bytes, provenance and replay proof. [#3579](https://github.com/Drakosfire/DungeonMindBuddy/issues/3579) records verified recovery and retirement of one checkout duplicate; it does not authorize changes to other evidence.
 - **Legacy import CI:** retain until the contract retires or replacement coverage proves parity, idempotence and rollback.
+
+## Resolved dispositions — 2026-11-24
+
+- **Hosted Build Recap HTTP 405:** [#4613](https://github.com/Drakosfire/DungeonMindBuddy/pull/4613) mounted launch and recovery on the production Build extraction router. On [serving release #4624](https://github.com/Drakosfire/DungeonMindBuddy/pull/4624) at `6bb6241a`, a signed-in Buddy Cloud Pilot launch reached reviewable and **Check saved extraction** reopened the same run after reload. The server recorded one launch and HTTP 200 recovery. The ungranted World and developer preview route returned HTTP 403.
 
 ## Resolved dispositions — 2026-11-18
 

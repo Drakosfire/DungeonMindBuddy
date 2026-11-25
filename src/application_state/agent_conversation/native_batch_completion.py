@@ -7,7 +7,25 @@ from . import types as t
 from .native_retrieval import NativeReadBatchConcludedV1
 
 
-def selected_read_closure(receipt, execution, selection_event_id, *, before_sequence=None):
+def selected_read_closure(receipt, execution, selection_event_id, *, before_sequence=None,
+                          exhausted_continuation=None):
+    """Require the real controller's prospective finish plan."""
+    if exhausted_continuation:
+        from .native_retrieval import NativeRetrievalSelectedV2
+
+        events = execution.events[:before_sequence]
+        selection = next((event for event in reversed(events)
+                          if isinstance(event, t.PlanJevRetrievalSelectionV1)), None)
+        if (type(selection) is not NativeRetrievalSelectedV2
+                or selection.exhausted_continuation_offer is not True):
+            return None
+    plan = 'review_after_reads' if exhausted_continuation else 'finish_if_selected_reads_succeed'
+    return _settled_read_batch(receipt, execution, selection_event_id,
+        before_sequence=before_sequence, required_plan=plan)
+
+
+def _settled_read_batch(receipt, execution, selection_event_id, *, before_sequence, required_plan):
+    """Check grants and observations for the caller's already validated closure policy."""
     from .native_corpus import (
         initial_source_discovery_enabled, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
         NativeDirectSourceAuthorizedV1, native_direct_source_handle, native_body_handle,
@@ -26,13 +44,14 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
     from .native_retrieval import prospective_selection_types
     if (type(selection) not in prospective_selection_types() or selection.event_id != selection_event_id
             or selection.operation != 'select_candidates'
-            or selection.post_read_plan != 'finish_if_selected_reads_succeed'):
+            or selection.post_read_plan != required_plan):
         return None
     before, after = events[:selection.sequence], events[selection.sequence + 1:]
     if any(isinstance(e, (t.ProviderAttemptAuthorizedEventV1, NativeReadBatchConcludedV1)) for e in after):
         return None
     handles = tuple(selection.selected_handles)
-    supported = ('native-object:', 'native-direct-source:', 'native-body:', 'native-full-document:')
+    supported = ('native-object:', 'native-direct-source:', 'native-body:',
+                 'native-full-document:', 'saved-authored-page:')
     if not handles or any(not h.startswith(supported) for h in handles):
         return None  # Metadata/discovery/Rules/unknown choices still require review.
     reads = set()
@@ -71,9 +90,30 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
             if not any(catalog.record_ids((handle,), assertion=assertion, attempted=attempted)
                     for assertion, attempted in expected_by_family):
                 return None  # An empty or already attempted target is not a new successful read.
+    saved_handles = {h for h in handles if h.startswith('saved-authored-page:')}
+    if saved_handles:
+        from .build_related_pages import RelatedPageRead, catalog as page_catalog, plan_handle, plan_read_enabled
+
+        if not plan_read_enabled(execution):
+            return None
+        offered = {plan_handle(page): page for page in page_catalog(execution.policy)}
+        fulfilled = set()
+        for read in after:
+            if not isinstance(read, RelatedPageRead):
+                continue
+            handle = plan_handle(read.page)
+            pointer = offered.get(handle)
+            if (handle not in saved_handles or handle in fulfilled or pointer is None
+                    or read.selection_event_id != selection.event_id
+                    or read.page.model_dump(exclude={'content_sha256'}) != pointer.model_dump()):
+                return None
+            fulfilled.add(handle)
+            reads.add(read.event_id)
+        if fulfilled != saved_handles:
+            return None
     grants = [e for e in after if isinstance(e, (NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))]
     for handle in handles:
-        if handle.startswith('native-object:'):
+        if handle.startswith(('native-object:', 'saved-authored-page:')):
             continue
         matched = []
         for grant in grants:
@@ -110,16 +150,20 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
     return tuple(sorted(reads, key=str)) if reads else None
 
 
-def conclude_selected_batch(turn, *, event_id, selection_event_id):
+def conclude_selected_batch(turn, *, event_id, selection_event_id, exhausted_continuation=None):
     from .native_retrieval import owner
     receipt, execution = owner(turn)
     prior = next((e for e in execution.events if e.event_id == event_id), None)
     if prior is not None:
-        if type(prior) is not NativeReadBatchConcludedV1 or prior.selection_event_id != selection_event_id:
+        if (type(prior) is not NativeReadBatchConcludedV1
+                or prior.selection_event_id != selection_event_id
+                or prior.exhausted_continuation != exhausted_continuation):
             raise ValueError('Read-batch conclusion replay changed identity')
         return prior
-    reads = selected_read_closure(receipt, execution, selection_event_id)
+    reads = selected_read_closure(receipt, execution, selection_event_id,
+        exhausted_continuation=exhausted_continuation)
     if reads is None:
         raise ValueError('Selected read batch has no proven prospective completion')
     return NativeReadBatchConcludedV1(event_id=event_id, sequence=len(execution.events),
-        selection_event_id=selection_event_id, read_event_ids=reads)
+        selection_event_id=selection_event_id, read_event_ids=reads,
+        exhausted_continuation=exhausted_continuation)

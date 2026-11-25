@@ -121,18 +121,24 @@ def project_work_records(basis, provenance, idempotency_key, *, markdown, sessio
 
 def resolve_writer_placement(original, catalog, choice, *, original_wire, catalog_wire):
     """Reuse the offered placement owner; a selection never invents an edit range."""
+    from .plan_composed_targeting import ComposedPlanPlacementCatalogV1
     if catalog is not None:
         catalog.require_original(original)
     if (canonical_bytes(choice.original_capture) != canonical_bytes(original_wire)
             or canonical_bytes(choice.placement_catalog) != canonical_bytes(catalog_wire)):
         raise ValueError('Plan writer placement proof differs from the retained decision event')
     if choice.requested_work != 'write_current_page':
+        if isinstance(catalog, ComposedPlanPlacementCatalogV1):
+            return None, None
         return original, None
     if catalog is None or original is None or choice.placement_selector is None:
         raise ValueError('Plan writer has no resolved offered page location')
     resolved=catalog.resolve(original,choice.placement_selector)
     if resolved.sha256 != choice.target_capture_sha256:
         raise ValueError('Plan writer target differs from the admitted placement')
+    if isinstance(catalog, ComposedPlanPlacementCatalogV1):
+        place = catalog.paragraph_for(resolved.slot_address)
+        return resolved, f"Immediately {resolved.slot_address.relation} the paragraph in its {place.column}"
     return resolved,next(entry.label for entry in catalog.entries if entry.selector==choice.placement_selector)
 
 
@@ -167,9 +173,61 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
             capture.base_revision,capture.base_content_sha256) != (provenance.world_id,conversation_id,
                 basis.document_id,basis.object_revision,basis.content_sha256):
         raise ValueError('Native Plan working draft differs from its actual conversation and saved basis')
-    return {**project_work_records(basis,provenance,submission_idempotency_key,
+    frame = {**project_work_records(basis,provenance,submission_idempotency_key,
         markdown=proof['plan_markdown'],sessions=proof['session_evidence'],dialogue=proof['dialogue'],
         capture=capture,placement_label=label), 'requested_work':choices[0].requested_work}
+    from .native_execution import NativePlanActionV3
+    from .plan_composed_targeting import ComposedPlanPlacementCatalogV1
+    if (
+        capture is not None
+        and capture.playable_target is not None
+        and choices[0].requested_work == 'write_current_page'
+    ):
+        frame['focused_edit_target']['fragment_scope'] = {
+            'operation': 'replace_playable_body',
+            'instruction': (
+                "Return the complete edited playable body exactly once across all answer segments. "
+                "Keep unchanged blocks in their original order. Do not repeat the body as a second draft."
+            ),
+        }
+    elif type(action) is NativePlanActionV3 and choices[0].requested_work == 'write_current_page':
+        replace = capture.target_kind == 'replace_selection'
+        fragment_scope = dict(
+            operation='replace_selected_text' if replace else 'insert_new_content',
+            instruction=("Rewrite only the captured selected text. Retain its words when the user "
+                "asks to keep them. Return one replacement, with preserved text appearing only once "
+                "across all answer segments unless repetition was explicitly requested. Do not "
+                "emit both an unchanged excerpt and a revised draft that repeats the same excerpt. "
+                "Do not repeat unselected surrounding context."
+                if replace else "Only the new fragment is inserted. The named anchor paragraph "
+                "remains in the page. Do not copy it as context or repeat it unless the user "
+                "explicitly requests restatement. Return only the requested new content.") +
+                " Requested fictional additions are authored possibilities, not unsupported factual "
+                "details. Mark gaps only for requested existing facts that lack support.")
+        if isinstance(catalog, ComposedPlanPlacementCatalogV1):
+            fragment_scope['existing_paragraph_text'] = catalog.paragraph_for(capture.slot_address).text
+            fragment_scope['instruction'] += (
+                " Return only one or more new prose paragraphs for the existing slot. Keep the "
+                "anchor and layout as they are. Headings, lists, images and new typed references "
+                "are outside this insertion."
+            )
+        elif choices[0].requested_placement_relation in {'before_paragraph', 'after_paragraph'}:
+            from .plan_contextual_targets import anchor_groups
+            selector = choices[0].placement_selector
+            paragraph = next(row['text'] for row, entries in anchor_groups(original, catalog)
+                if row['kind'] == 'paragraph' and any(entry.selector == selector for entry in entries))
+            fragment_scope['existing_paragraph_text'] = paragraph
+            fragment_scope['instruction'] += (
+                " The existing_paragraph_text field identifies the exact passage in the current working draft. "
+                "If the author explicitly requests a copy of this paragraph, include its complete literal text "
+                "as an editable paragraph at the requested point. Use this passage even when saved Plan blocks "
+                "differ. Include the author's requested new material separately as part of the editable fragment. "
+                "If the author asks for a new note, reminder, recommendation or caution without specifying "
+                "the wording, draft a short editable proposal based on the nearby working text. The request "
+                "to draft it does not itself identify a missing fact. Avoid adding unsupported specifics. "
+                "A duplicate of the existing paragraph alone does not satisfy a request for new content.")
+        frame['focused_edit_target']['fragment_scope'] = fragment_scope
+    return frame
 
 
 def project(turn, proof, trace):
@@ -187,15 +245,15 @@ def project(turn, proof, trace):
     capture=None
     placement_label=None
     if isinstance(execution.policy,t.PlanAuthoringPolicyV1):
-        from .plan_authoring import PlanAuthoringCaptureV1, parse_authoring_capture
+        from .plan_authoring import parse_authoring_capture, parse_opening_capture
         raw=proof['authoring_capture']
         capture=parse_authoring_capture(raw) if raw is not None else None
         expected_capture_sha=execution.policy.plan_authoring_capture_sha256
         placement_label=None
         if isinstance(execution.policy,t.PlanPlacementAuthoringPolicyV1):
-            from .plan_placement import PlanPlacementCatalogV1
-            original=PlanAuthoringCaptureV1.model_validate(proof["original_authoring_capture"]) if proof["original_authoring_capture"] is not None else None
-            catalog=PlanPlacementCatalogV1.model_validate(proof["placement_catalog"]) if proof["placement_catalog"] is not None else None
+            from .plan_placement import decode_plan_placement_catalog
+            original=parse_opening_capture(proof["original_authoring_capture"]) if proof["original_authoring_capture"] is not None else None
+            catalog=decode_plan_placement_catalog(proof["placement_catalog"]) if proof["placement_catalog"] is not None else None
             if ((original.sha256 if original is not None else None)!=expected_capture_sha
                     or (catalog.sha256 if catalog is not None else None)!=execution.policy.placement_catalog_sha256):
                 raise ValueError("Plan writer original page/catalog differs from its frozen intent")

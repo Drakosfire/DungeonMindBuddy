@@ -1,10 +1,18 @@
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import * as api from '../api/liveApi';
+import * as variantApi from '../api/conversationDraftApi';
 import fixture from '../../../../tests/fixtures/statblocks/v1/exact-revision-response.json';
 import type {OpenSavedMechanicsVersion} from './revision/savedMechanicsRevisionTypes';
 import {SavedStatblockFullView,StatblockPage} from './StatblockPage';
 vi.mock('../api/liveApi',()=>({getThreatDraft:vi.fn(),openSavedMechanicsVersion:vi.fn(),listSavedMechanicsVersions:vi.fn(),saveMechanicsRevision:vi.fn()}));
+vi.mock('../api/conversationDraftApi',()=>({openSavedConversationVariant:vi.fn(),saveConversationVariantPortrait:vi.fn()}));
+vi.mock('../media/DeferredMediaImageWizard',()=>({DeferredMediaImageWizard:({onChoose}:{
+ onChoose:(image:{asset_id:string},result:undefined,placement:{signal:AbortSignal})=>void;
+})=><button onClick={()=>onChoose(
+ {asset_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'},undefined,{signal:new AbortController().signal}
+)}>Choose saved test portrait</button>}));
+vi.mock('../media/SavedMediaImage',()=>({SavedMediaImage:()=>null}));
 vi.mock('../chrome/AppChrome',()=>({AppChrome:({children}:{children:React.ReactNode})=><>{children}</>}));
 vi.mock('../selectedWorld/SelectedWorldContext',()=>({useSelectedWorld:()=>({kind:'managed',worldId:'test-world'})}));
 const target={worldId:'test-world',draftId:'draft-a',revisionId:fixture.revision_id};
@@ -60,4 +68,32 @@ it('places the retained PDF portrait inside the left column of the saved statblo
  const portrait = await screen.findByRole('img', {name: `Source artwork for ${fixture.definition.identity.name}`});
  expect(portrait).toHaveAttribute('src', 'data:image/jpeg;base64,retained-jpeg');
  expect(container.querySelector('.statblock-campaign-grid > .statblock-campaign-col')).toContainElement(portrait);
+});
+
+it('retains the exact portrait command until the new revision reopens',async()=>{
+ const review='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ const url=`/statblock?world=test-world&conversation=${review}&turn=${review}&variantReview=${review}`;
+ window.history.replaceState({},'',url);
+ const {locator,resource}=packet();
+ const illustrated={...locator,revision_id:'rev_portrait'};
+ vi.mocked(variantApi.openSavedConversationVariant)
+  .mockResolvedValueOnce({locator,revision:resource})
+  .mockRejectedValueOnce(new Error('Revision temporarily unavailable'))
+  .mockResolvedValue({locator:illustrated,revision:{...resource,revision_id:illustrated.revision_id}});
+ vi.mocked(variantApi.saveConversationVariantPortrait).mockResolvedValue(illustrated);
+ render(<StatblockPage/>);
+ const picker=await screen.findByRole('button',{name:'Generate or choose portrait'});
+ await waitFor(()=>expect(picker).toBeEnabled());
+ fireEvent.click(picker);
+ fireEvent.click(await screen.findByRole('button',{name:'Choose saved test portrait'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Save new portrait version'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Revision temporarily unavailable');
+ const command=vi.mocked(variantApi.saveConversationVariantPortrait).mock.calls[0][2];
+ expect(command.base).toEqual(locator);
+ fireEvent.click(screen.getByRole('button',{name:'Retry portrait Save'}));
+ await waitFor(()=>expect(window.location.search).toContain(`variantPortrait=${command.operation_id}`));
+ expect(vi.mocked(variantApi.saveConversationVariantPortrait).mock.calls[1][2]).toEqual(command);
+ expect(variantApi.openSavedConversationVariant).toHaveBeenLastCalledWith(
+  expect.objectContaining({reviewId:review,portraitOperationId:command.operation_id}),review,command.operation_id,
+ );
 });

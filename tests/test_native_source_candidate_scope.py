@@ -86,3 +86,168 @@ def test_opened_reference_hint_preserves_explicit_scope_and_broad_requests(quest
 def test_missing_or_unavailable_reference_metadata_does_not_narrow(reference):
     rows={'other':display(), 'unknown':dict(display(),status='unavailable')}
     assert preferred_source_pairs('What happened?',rows,opened_reference_pairs=reference) is None
+
+def test_event_backed_cutoff_retains_earlier_and_other_campaign_sources():
+    from application_state.agent_conversation.native_plan_assertions import NativeNamedRecapBoundV1
+    from apps.live_control_server.services.native_source_candidate_scope import post_named_recap_source_pairs
+
+    bound = NativeNamedRecapBoundV1(event_id="event", source_artifact_id="artifact", source_revision_id="revision")
+    stale = display("longmont-c2", "session-31")
+    stale["origin_matches_current_metadata"] = False
+    rows = {
+        ("artifact", "revision"): display("longmont-c2", "session-27"),
+        ("earlier", "rev"): display("longmont-c2", "session-25"),
+        ("later", "rev"): display("longmont-c2", "session-29"),
+        ("other", "rev"): display("longmont-c1", "session-29"),
+        ("stale", "rev"): stale,
+    }
+    assert post_named_recap_source_pairs(bound, rows) == {("later", "rev")}
+    assert post_named_recap_source_pairs(bound, {key: value for key, value in rows.items()
+        if key != ("artifact", "revision")}) == set()
+    assert post_named_recap_source_pairs(None, rows) == set()
+
+
+@pytest.mark.parametrize(("request_text", "words"), [
+    ("Was it done by the end of the warehouse-collapse recap?", ("warehouse", "collapse")),
+    ("By the end of the Wandering Forest recap.", ("wandering", "forest")),
+    ("What happened at the end of the Harvest recap?", ("harvest",)),
+    ("At the end of Session 10, what did the party know?", ()),
+])
+def test_named_recap_endpoint_words(request_text, words):
+    from apps.live_control_server.services.native_graph_reads import _named_recap_words
+
+    assert _named_recap_words(request_text) == words
+
+
+def test_named_recap_requires_ordered_close_event_name():
+    from apps.live_control_server.services.native_graph_reads import _named_recap_matches
+
+    assert _named_recap_matches(("warehouse", "collapse"), "Ironveil Warehouse wall collapse")
+    assert _named_recap_matches(("wandering", "forest"), "Return to the Wandering Forest")
+    assert not _named_recap_matches(("warehouse", "collapse"), "Collapse near the warehouse")
+    assert not _named_recap_matches(("warehouse", "collapse"), "Warehouse evacuates after distant collapse")
+
+
+def test_episode_focus_defers_only_other_verified_campaign_recaps():
+    from apps.live_control_server.services.native_source_candidate_scope import episode_campaign_source_pairs
+    from application_state.agent_conversation.native_plan_assertions import NativeEpisodeCampaignFocusV1
+
+    focus = NativeEpisodeCampaignFocusV1(
+        predecessor_id="before", successor_id="after", relationship_id="precedes",
+        source_artifact_id="artifact", source_revision_id="revision",
+    )
+    anchor = ("artifact", "revision")
+    rows = {
+        anchor: display("longmont-c2", "session-27"),
+        ("earlier", "rev"): display("longmont-c2", "session-25"),
+        ("other", "rev"): display("longmont-c1", "session-8"),
+        ("unknown", "rev"): display(None, "session-8"),
+    }
+    assert episode_campaign_source_pairs(focus, rows) == {("other", "rev")}
+    assert episode_campaign_source_pairs(focus, {}) == set()
+    rows[anchor]["origin_matches_current_metadata"] = False
+    assert episode_campaign_source_pairs(focus, rows) == set()
+
+
+def test_episode_request_requires_arrival_without_explicit_campaign_scope():
+    from apps.live_control_server.services.native_graph_reads import _episode_request
+
+    shape = "What did they hear before taking shelter, and what did they see when they reached Old Ferry?"
+    assert _episode_request(shape)[1] == ("old", "ferry")
+    assert _episode_request("Compare Campaign 1 and Campaign 2. " + shape) is None
+    assert _episode_request("At the end of Session 10, what did they know?") is None
+
+
+@pytest.mark.parametrize("fault", [None, "authored_edge", "self_edge", "ambiguous", "missing_support", "different_recap"])
+def test_episode_resolver_requires_one_observed_edge_with_shared_exact_support(fault):
+    from types import SimpleNamespace as Row
+    from apps.live_control_server.services.native_graph_reads import _resolve_episode_campaign_focus
+
+    edge_kind = "dungeonbuddy.custom:precedes"
+    observed = "dungeonbuddy.claim:observed_event"
+    anchor = Row(schema_term="dungeonbuddy.time:fictional_anchor_v1")
+    actual = Row(claim_mode=observed, temporal_scope=anchor)
+    start = Row(subject_entity_id="start", assertion_id="name-a", metadata=actual,
+                predicate="dnd5e:name", value=Row(value="Group hears fighting west"))
+    finish = Row(subject_entity_id="finish", assertion_id="name-b", metadata=actual,
+                 predicate="dnd5e:name", value=Row(value="Group reaches Old Ferry"))
+    edge = Row(subject_entity_id="start", assertion_id="edge", predicate=edge_kind,
+               value=Row(entity_id="start" if fault == "self_edge" else "finish"),
+               metadata=Row(claim_mode="dungeonbuddy.claim:plan", temporal_scope=anchor)
+               if fault == "authored_edge" else actual)
+    complete = Row(status="complete")
+    support = Row(source_artifact_id="recap", source_revision_id="rev", evidence_role="support")
+
+    class Core:
+        def get_entity_claims(self, entities):
+            rows = {"start": (edge, start), "finish": (finish,)}
+            return tuple(Row(found=True, completeness=complete, assertions=rows[entity]) for entity in entities)
+
+        def get_assertions_evidence(self, ids):
+            assert ids == ("name-a", "edge", "name-b")
+            edge_support = (support,)
+            if fault == "missing_support":
+                edge_support = ()
+            elif fault == "different_recap":
+                edge_support = (Row(source_artifact_id="unrelated", source_revision_id="rev", evidence_role="support"),)
+            return tuple(Row(available=True, completeness=complete, evidence=refs)
+                         for refs in ((support,), edge_support, (support,)))
+
+    objects = [Row(entity_id="start", label=start.value.value)]
+    rows = [Row(subject_entity_id="start", label=f"{start.value.value} · {edge_kind}")]
+    if fault == "ambiguous":
+        objects.append(Row(entity_id="other", label=start.value.value))
+        rows.append(Row(subject_entity_id="other", label=f"{start.value.value} · {edge_kind}"))
+    result = _resolve_episode_campaign_focus(
+        ({"fighting", "west"}, ("old", "ferry")), objects, rows, None, selective=Core(),
+    )
+    if fault is None:
+        assert (result.predecessor_id, result.successor_id, result.relationship_id) == ("start", "finish", "edge")
+        assert (result.source_artifact_id, result.source_revision_id) == ("recap", "rev")
+    else:
+        assert result is None
+
+
+def test_episode_navigation_stays_focused_until_existing_expansion(monkeypatch):
+    from types import SimpleNamespace as Row
+    from application_state.agent_conversation import native_corpus
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+    from application_state.agent_conversation.native_plan_assertions import NativeEpisodeCampaignFocusV1
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+
+    anchor = ("artifact-a", "revision-a")
+    other = ("artifact-b", "revision-b")
+    focus = NativeEpisodeCampaignFocusV1(
+        predecessor_id="before", successor_id="after", relationship_id="edge",
+        source_artifact_id=anchor[0], source_revision_id=anchor[1],
+    )
+    receipt = SurfaceNativeContextReceiptV1.model_construct(native_query=Row(episode_campaign_focus=focus))
+    turn = Row(graph_context_receipt=receipt, user_text="What happened?", graph_context_execution=Row(events=()))
+    nav = NativeBodyNavigation.__new__(NativeBodyNavigation)
+    nav.adapter = Row(fence=Row(turn=turn))
+    nav._source_display = {anchor: display("first", "session-2"), other: display("second", "session-3")}
+    nav._direct_sources = {}
+    nav._source_choices = lambda: {}
+    nav.expansion_handle = lambda: "expand"
+    nav._expanded = lambda: False
+    nav._selected_keywords = lambda: set()
+    monkeypatch.setattr(native_corpus, "request_source_discovery_enabled", lambda *_: True)
+
+    catalogs, matches, candidates = [], [], []
+    for index, pair in enumerate((anchor, other)):
+        digest, section = str(index) * 64, "a" * 64
+        catalogs.append(Row(catalog_sha256=digest, sections=(Row(section_id=section),),
+            source=Row(artifact=Row(source_artifact_id=pair[0]), revision=Row(source_revision_id=pair[1]))))
+        matches.append(Row(catalog_sha256=digest, section_id=section, matched_terms=("happened",), distinctiveness_rank=1))
+        candidates.append(RetrievalCandidate(handle=native_corpus.native_body_handle(digest, section),
+            label=pair[0], kind="Exact source section"))
+    search = Row(catalogs=catalogs, matches=matches)
+    expected = {candidates[0].handle, "expand"}
+    assert {row.handle for row in nav._scoped_offers(candidates, search)} == expected
+    monkeypatch.setattr(native_corpus, "request_source_discovery_enabled", lambda *_: False)
+    assert {row.handle for row in nav._scoped_offers(candidates, search)} == expected
+    nav._selected_keywords = lambda: {"unmatched"}
+    assert {row.handle for row in nav._scoped_offers(candidates, search)} == expected
+    nav._expanded = lambda: True
+    assert nav._scoped_offers(candidates, search) == tuple(candidates)

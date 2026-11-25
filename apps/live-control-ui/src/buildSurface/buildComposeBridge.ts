@@ -1,27 +1,54 @@
 import {readSavedConversationVariantTarget,savedConversationVariantHref,type SavedConversationVariantTarget} from "../statblocks/savedStatblockLocation";
 import {workPlanFence,workPlanBelongsTo,parseWorkPlanFence,workPlanIdentity,type WorkPlanReference} from '../surface/workPlans/workPlanReference';
 import { pickMediaInsertion,pickDocumentInsertion } from '../documentEditing/pickMediaInsertion';
-import type { Editor } from '@tiptap/core';
+import type { Editor, JSONContent } from '@tiptap/core';
+import {closeHistory} from '@tiptap/pm/history';
+import {Fragment} from '@tiptap/pm/model';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
+import type { BuildGraphReferenceApply, BuildGraphReferencePlacement } from '../api/buildGraphReferenceReviewApi';
+import type { BuildImageMoveCapture, BuildImageMovePlacement } from '../api/buildImageMoveReviewApi';
 import { TextSelection } from '@tiptap/pm/state';
 import {pageBodyReferences,preservePageBodyReferences} from './pageBodyTarget';
-import type { BuildProposalBasis, BuildPageBodyTarget, BuildPageEndTarget } from '../api/buildDocumentProposalApi';
+import {isBuildProseBoundaryTarget,type BuildProposalBasis,type BuildPageBodyTarget,type BuildPageEndTarget,type BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
 import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
 import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/semanticMarkdownSafety';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
-import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
+import { admitMarkdownInsertion, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
+import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
+import {flattenPresentation,hasPresentation,hasEmptyParagraphs,hydratePresentation,presentationFingerprint,projectPresentation,type PagePresentation} from '../tiptap/pageComposer/presentation';
+import {preserveLeadingYamlFrontmatter,stripLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
+import {
+  applyAgentImageMove, captureAgentImageMoves, matchAgentImageMove, preservePlainReviewBlockIdentities,
+  previewAgentImageMove, selectedAgentImageBlock, type CapturedAgentImageMoves,
+} from '../tiptap/pageComposer/PageRow';
+import {isValidGraphNodeId,normalizeRunbookReferenceAttrs} from '../tiptap/references/runbookReferences';
 
 export interface BuildComposeEditorState {
   editor: Editor; worldId: string; documentId: string; revision: number; contentSha256: string;
   visibility: 'internal' | 'player_safe'; draftGeneration: number; selectionGeneration: number; canEdit: boolean;
+  pagePresentation?: PagePresentation | null;
+  savedMarkdown?: string;
 }
 export interface CapturedBuildInsertion {
   pageBodyOffer?:BuildPageBodyTarget; pageBodyTarget?:BuildPageBodyTarget;
   pageEndOffer?:BuildPageEndTarget; pageEndTarget?:BuildPageEndTarget;
+  proseTarget?:BuildProseBoundaryTarget;
+  contextualProse?:true;
   basis: BuildProposalBasis; draftMarkdown: string; editor: Editor; editorJson: string;
 }
 export interface PreparedBuildProposal {
   captured: CapturedBuildInsertion; markdown: string; afterEditorSha256: string; afterDraftSha256: string;
+}
+export interface PreparedBuildGraphReference {
+  captured: CapturedBuildInsertion;
+  placement: BuildGraphReferencePlacement;
+  afterEditorJson: string;
+  afterDraft: string;
+  postimage: Omit<BuildGraphReferenceApply,'apply_id'>;
+}
+export interface PreparedBuildImageMove {
+  editorJson: string;
+  afterEditorJson: string;
 }
 export interface PreparedWorkPlanPlacement {
   captured:CapturedBuildInsertion;reference:WorkPlanReference;afterEditorJson:string;afterEditorSha256:string;afterDraftSha256:string;
@@ -36,6 +63,15 @@ export interface ProposalInspection {
   savedProjection?:SavedProposalProjection;
 }
 export interface BuildComposeBridge {
+  captureImageMoves?: () => CapturedAgentImageMoves;
+  applyImageMove?: (capture: CapturedAgentImageMoves, alias: string) => void;
+  captureImageMoveTurn?: (conversationId: string, pointerRevision: number) => Promise<BuildImageMoveCapture | null>;
+  canReviewImageMove?: (placement: BuildImageMovePlacement) => boolean;
+  prepareImageMove?: (placement: BuildImageMovePlacement) => Promise<PreparedBuildImageMove>;
+  applyPreparedImageMove?: (prepared: PreparedBuildImageMove) => void;
+  canReviewGraphReference?: (worldId: string, documentId: string) => boolean;
+  prepareGraphReference?: (placement: BuildGraphReferencePlacement) => Promise<PreparedBuildGraphReference>;
+  applyGraphReference?: (prepared: PreparedBuildGraphReference) => void;
   pickWorkPlanInsertion?: (options:{signal:AbortSignal;operationId:string})=>Promise<CapturedBuildInsertion>;
   observeWorkPlan?: (reference:WorkPlanReference,onPresence:(present:boolean)=>void)=>()=>void;
   prepareWorkPlan?: (captured:CapturedBuildInsertion,reference:WorkPlanReference)=>Promise<PreparedWorkPlanPlacement>;
@@ -47,9 +83,12 @@ export interface BuildComposeBridge {
   placeSavedVariantLink?: (captured: CapturedBuildInsertion, variant: SavedConversationVariantTarget) => Promise<PreparedBuildProposal>;
   prepareProposal: (captured: CapturedBuildInsertion, markdown: string) => Promise<PreparedBuildProposal>;
   applyPrepared: (prepared: PreparedBuildProposal) => void;
-  saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection) => Promise<void>;
-  inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<ProposalInspection>;
-  restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget) => Promise<CapturedBuildInsertion>;
+  saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection,
+    proseTarget?: BuildProseBoundaryTarget) => Promise<void>;
+  inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string,
+    proseTarget?: BuildProseBoundaryTarget) => Promise<ProposalInspection>;
+  restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget,
+    proseTarget?:BuildProseBoundaryTarget) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
 async function sha256(value: string) {
@@ -91,6 +130,93 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       // Callers independently check the complete editor document and anchor.
       || (allowExactSave && current.revision > basis.registry_revision && current.contentSha256 === basis.draft_sha256);
   }
+  const boundProse = new WeakSet<CapturedBuildInsertion>();
+  const preparedGraphs = new WeakSet<PreparedBuildGraphReference>();
+  function proseState() {
+    const now = getCurrent();
+    return now ? {editor: now.editor, canEdit: now.canEdit, draftGeneration: now.draftGeneration,
+      scopeKey: JSON.stringify([now.worldId, now.documentId, now.revision, now.contentSha256, now.visibility])} : null;
+  }
+  async function bindProse(captured: CapturedBuildInsertion, proof: BuildProseBoundaryTarget) {
+    if (!isBuildProseBoundaryTarget(proof) || captured.basis.selection || captured.pageBodyTarget || captured.pageEndTarget)
+      throw new Error('This suggestion does not have one exact Build paragraph boundary.');
+    const catalog = captureProseTargetCatalog(proseState);
+    const offered = catalog.choices.find(choice => choice.selector === proof.alias);
+    const [catalogSha, passageSha] = await Promise.all([
+      sha256(JSON.stringify(catalog.choices)), offered ? sha256(offered.passage) : Promise.resolve(null),
+    ]);
+    const target = resolveProseTarget(catalog, proof.alias, proseState);
+    if (target.from !== proof.from || target.to !== proof.to || target.operation !== proof.operation
+      || target.editorJson !== captured.editorJson || catalogSha !== proof.catalog_sha256 || passageSha !== proof.before_text_sha256)
+      throw new Error('The exact offered passage differs. Ask again on the current page.');
+    assertSame(captured, true);
+    const saved = getCurrent()?.savedMarkdown;
+    if (saved !== undefined && stripLeadingYamlFrontmatter(saved).markdown !== captured.draftMarkdown)
+      throw new Error('The saved source differs from the exact editable Markdown. Save or recover the current page before requesting a paragraph insertion.');
+    const result = {...captured, proseTarget:Object.freeze({...proof})};
+    boundProse.add(result);
+    return result;
+  }
+  function proseTransaction(captured: CapturedBuildInsertion, content: JSONContent[]) {
+    const isProse = (node: JSONContent) => node.type === 'paragraph'
+      && (node.content ?? []).every(child => child.type === 'text' || child.type === 'hardBreak');
+    const isCallout = (node: JSONContent) => node.type === 'callout'
+      && Boolean(node.content?.length) && (node.content ?? []).every(isProse);
+    if (content.length === 0 || !content.every(node => isProse(node) || isCallout(node)))
+      throw new Error('This Build suggestion must add prose or semantic callouts at the offered root boundary.');
+    return rootBoundaryTransaction(captured, content, 'page-prose');
+  }
+  function graphParagraph(placement: BuildGraphReferencePlacement): JSONContent {
+    const {basis,reference}=placement;
+    if (basis.visibility !== 'internal' || basis.world_id !== reference.managed_world_id
+      || !isValidGraphNodeId(reference.node_id) || !reference.label.trim())
+      throw new Error('Review the exact Graph identity on its original internal page.');
+    return {type:'paragraph',content:[{type:'runbookReference',attrs:normalizeRunbookReferenceAttrs({
+      kind:'ref',refType:'graph-node',refId:reference.node_id,label:reference.label,
+    })}]};
+  }
+  function rootBoundaryTransaction(captured: CapturedBuildInsertion, content: JSONContent[], idPrefix: string) {
+    const proof = captured.proseTarget;
+    const editor = captured.editor;
+    if (!proof || !boundProse.has(captured) || !editor.isEditable || editor.state.doc.resolve(proof.from).depth !== 0)
+      throw new Error('This Build suggestion must use the offered root boundary.');
+    const original = JSON.parse(captured.editorJson) as JSONContent;
+    const current = getCurrent();
+    const presentation = current?.pagePresentation;
+    const retainPlain = presentation?.items.every(item => item.kind === 'block') === true;
+    const retainsIds = hasPresentation(original) || retainPlain;
+    const baseId = `${idPrefix}-${proof.catalog_sha256.slice(0,32)}-${proof.from}`;
+    const inserted = content.map((node, index) => {
+      if (!retainsIds) return editor.schema.nodeFromJSON(node);
+      if (!node.type || !editor.schema.nodes[node.type]?.spec.attrs?.pageBlockId)
+        throw new Error('This page editor cannot retain block identities.');
+      const pageBlockId = index === 0 ? baseId : `${baseId}-${index}`;
+      return editor.schema.nodeFromJSON({...node, attrs: {...node.attrs, pageBlockId}});
+    });
+    const transaction = editor.state.tr.insert(proof.from, Fragment.fromArray(inserted));
+    if (!retainsIds) preservePlainReviewBlockIdentities(transaction);
+    const after = transaction.doc.toJSON() as JSONContent;
+    const before = original.content ?? [];
+    const index = editor.state.doc.resolve(proof.from).index(0);
+    if (after.content?.length !== before.length + inserted.length || before.some((node,i) =>
+      JSON.stringify(node) !== JSON.stringify(after.content?.[i < index ? i : i + inserted.length])))
+      throw new Error('The insertion would change an unrelated block.');
+    const flatAfter = flattenPresentation(after);
+    const body = tiptapJsonToSemanticMarkdown(flatAfter);
+    const savedMarkdown = current?.savedMarkdown ?? captured.draftMarkdown;
+    const projectedBefore = presentation ? hydratePresentation(savedMarkdown, presentation) : original;
+    const projection = retainsIds ? projectPresentation(after, savedMarkdown, projectedBefore, presentation, retainPlain) : null;
+    const reopened = projection?.presentation ? hydratePresentation(projection.markdown, projection.presentation) : markdownToTiptapDoc(body).doc;
+    const reopenedJson = editor.schema.nodeFromJSON(reopened).toJSON() as JSONContent;
+    // Plain Markdown saves strip block IDs assigned by paste. The transaction
+    // above still checks every existing block, including its live editor ID.
+    const savedAfter = retainsIds ? after : flatAfter;
+    const savedReopened = retainsIds ? reopenedJson : flattenPresentation(reopenedJson);
+    if (semanticMarkdownSerializationDiagnostics(flatAfter).length
+      || JSON.stringify(savedReopened) !== JSON.stringify(savedAfter))
+      throw new Error('Saving this insertion would change existing structure or block identities.');
+    return {transaction, after, body, projection, savedMarkdown};
+  }
   function assertSame(captured: CapturedBuildInsertion, originalAnchor = false) {
     const now = getCurrent(); const basis = captured.basis;
     if (!now?.canEdit || now.editor.isDestroyed || now.editor !== captured.editor
@@ -129,7 +255,92 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     return basis.selection ? {from:basis.caret,to:basis.selection.end} : basis.caret;
   }
   const applied = new WeakSet<CapturedBuildInsertion>();
+  function imageMoveScope() {
+    const current = getCurrent();
+    if (!current || current.visibility !== "internal" || !current.pagePresentation?.items.some(item => item.kind === "row")) {
+      throw new Error("Image movement requires an existing saved internal layout.");
+    }
+    return current;
+  }
+  const preparedImageMoves = new WeakMap<PreparedBuildImageMove, {capture: CapturedAgentImageMoves; alias: string}>();
+  function savedImageMoveScope(current: BuildComposeEditorState) {
+    if (!current.canEdit || !current.pagePresentation || current.savedMarkdown === undefined) {
+      throw new Error('Open the saved editable composed Page.');
+    }
+    const initial = hydratePresentation(current.savedMarkdown, current.pagePresentation);
+    const projection = projectPresentation(current.editor.getJSON(), current.savedMarkdown, initial, current.pagePresentation);
+    if (projection.markdown !== current.savedMarkdown
+      || presentationFingerprint(projection.presentation) !== presentationFingerprint(current.pagePresentation)) {
+      throw new Error('Save the current Page before asking to move an image.');
+    }
+  }
   const bridge: BuildComposeBridge = {
+    captureImageMoves: () => captureAgentImageMoves(imageMoveScope()),
+    applyImageMove: (capture, alias) => applyAgentImageMove(imageMoveScope(), capture, alias),
+    async captureImageMoveTurn(conversationId, pointerRevision) {
+      const live = getCurrent();
+      if (!live?.canEdit || live.visibility !== 'internal' || live.editor.isDestroyed
+        || !live.pagePresentation?.items.some(item => item.kind === 'row')) return null;
+      const start = {...live};
+      const capture = captureAgentImageMoves(start);
+      if (!capture.offers.length) return null;
+      savedImageMoveScope(start);
+      const editorJson = JSON.stringify(start.editor.getJSON());
+      const selected = selectedAgentImageBlock(capture);
+      const editorDigest = await sha256(editorJson);
+      const current = imageMoveScope();
+      if (current.editor !== start.editor || current.documentId !== start.documentId || current.worldId !== start.worldId
+        || current.revision !== start.revision || current.contentSha256 !== start.contentSha256
+        || current.draftGeneration !== start.draftGeneration || current.selectionGeneration !== start.selectionGeneration
+        || JSON.stringify(current.editor.getJSON()) !== editorJson) {
+        throw new Error('The editor changed while its image context was captured. Send again.');
+      }
+      return {
+        conversation_id: conversationId, expected_pointer_revision: pointerRevision, editor_json: editorJson,
+        author_selected_block_id: selected, basis: {
+          world_id: start.worldId, document_id: start.documentId, registry_revision: start.revision,
+          content_sha256: start.contentSha256, visibility: 'internal', draft_sha256: start.contentSha256,
+          editor_sha256: editorDigest, caret: start.editor.state.selection.from,
+          draft_generation: start.draftGeneration, selection_generation: start.selectionGeneration,
+        },
+      };
+    },
+    async prepareImageMove(placement) {
+      const current = imageMoveScope(), basis = placement.basis;
+      if (current.worldId !== basis.world_id || current.documentId !== basis.document_id
+        || current.revision !== basis.registry_revision || current.contentSha256 !== basis.content_sha256
+        || current.draftGeneration !== basis.draft_generation
+        || presentationFingerprint(current.pagePresentation) !== placement.presentation_sha256) {
+        throw new Error('The Page changed before the image move. Send the request again.');
+      }
+      savedImageMoveScope(current);
+      const capture = captureAgentImageMoves(current);
+      const alias = matchAgentImageMove(capture, placement);
+      const editorJson = JSON.stringify(current.editor.getJSON());
+      if (await sha256(editorJson) !== basis.editor_sha256) throw new Error('The editor no longer matches the image Review.');
+      const afterEditorJson = previewAgentImageMove(imageMoveScope(), capture, alias);
+      const prepared = {editorJson, afterEditorJson};
+      preparedImageMoves.set(prepared, {capture, alias});
+      return prepared;
+    },
+    canReviewImageMove(placement) {
+      const current = getCurrent(), basis = placement.basis;
+      return Boolean(current?.canEdit && !current.editor.isDestroyed && current.visibility === 'internal'
+        && current.worldId === basis.world_id && current.documentId === basis.document_id
+        && current.revision === basis.registry_revision && current.contentSha256 === basis.content_sha256
+        && current.draftGeneration === basis.draft_generation);
+    },
+    applyPreparedImageMove(prepared) {
+      const bound = preparedImageMoves.get(prepared);
+      if (!bound) throw new Error('The prepared image move is unavailable.');
+      preparedImageMoves.delete(prepared);
+      applyAgentImageMove(imageMoveScope(), bound.capture, bound.alias);
+    },
+    canReviewGraphReference(worldId, documentId) {
+      const current = getCurrent();
+      return Boolean(current?.canEdit && !current.editor.isDestroyed && current.visibility === 'internal'
+        && current.worldId === worldId && current.documentId === documentId);
+    },
     observeWorkPlan(reference,onPresence){
       const now=getCurrent();if(!now||!workPlanBelongsTo(reference,{worldId:now.worldId,documentId:now.documentId}))return ()=>{};
       const editor=now.editor;
@@ -159,6 +370,10 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
           editor_sha256: await sha256(editorJson), caret, draft_generation: draftGeneration, selection_generation: selectionGeneration,
           ...(!selection.empty ? {selection:{end:selection.to,text:selectedText}} : {}) } };
       assertSame(captured);
+      if (selection.empty && supportsRootProse(now.editor.getJSON()) &&
+          canonicalProjection(now.editor, draftMarkdown, true)) {
+        captured.contextualProse = true;
+      }
       try{
         admitMarkdownInsertion(draftMarkdown);
         pageBodyReferences(JSON.parse(editorJson));
@@ -206,15 +421,43 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     async prepareProposal(captured, markdown) {
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
-      const result = prepareReviewedMarkdownAtAnchor(captured.editor,target(captured),admitted.content,captured.editorJson);
+      const prose = captured.proseTarget ? proseTransaction(captured, admitted.content) : null;
+      const result = prose?.after ?? prepareReviewedMarkdownAtAnchor(captured.editor,target(captured),admitted.content,captured.editorJson);
       if(captured.pageBodyTarget)preservePageBodyReferences(JSON.parse(captured.editorJson),result);
       if(captured.pageEndTarget)preservePrefix(JSON.parse(captured.editorJson),result);
       const prepared = {captured, markdown: admitted.markdown, afterEditorSha256: await sha256(JSON.stringify(result)),
-        afterDraftSha256: await sha256(tiptapJsonToSemanticMarkdown(result))};
+        afterDraftSha256: await sha256(prose?.body ?? tiptapJsonToSemanticMarkdown(result))};
       assertSame(captured, true);
       return prepared;
     },
     applyPrepared(prepared) { bridge.insertProposal(prepared.captured,prepared.markdown); },
+    async prepareGraphReference(placement) {
+      const captured = await bridge.restore(placement.basis, undefined, undefined, placement.boundary);
+      const result = rootBoundaryTransaction(captured, [graphParagraph(placement)], 'page-graph-ref');
+      const afterEditorJson = JSON.stringify(result.after);
+      const [editor_sha256,draft_sha256,content_sha256] = await Promise.all([
+        sha256(afterEditorJson), sha256(result.body),
+        sha256(result.projection?.markdown ?? preserveLeadingYamlFrontmatter(result.savedMarkdown,result.body)),
+      ]);
+      assertSame(captured,true);
+      const prepared = Object.freeze({captured,placement,afterEditorJson,afterDraft:result.body,postimage:Object.freeze({
+        editor_sha256,draft_sha256,content_sha256,presentation_sha256:presentationFingerprint(result.projection?.presentation),
+      })});
+      preparedGraphs.add(prepared);
+      return prepared;
+    },
+    applyGraphReference(prepared) {
+      const {captured,placement} = prepared;
+      assertSame(captured,true);
+      if (!preparedGraphs.delete(prepared) || applied.has(captured))
+        throw new Error('This reference placement is no longer available. Review the current page.');
+      const result = rootBoundaryTransaction(captured,[graphParagraph(placement)],'page-graph-ref');
+      if (JSON.stringify(result.after) !== prepared.afterEditorJson || result.body !== prepared.afterDraft)
+        throw new Error('The prepared Graph reference changed. Review the current page.');
+      captured.editor.view.dispatch(closeHistory(result.transaction));
+      applied.add(captured);
+      changed(captured.editor);
+    },
     async prepareWorkPlan(captured,reference){
       assertSame(captured,true);
       if(captured.basis.selection||!workPlanBelongsTo(reference,{worldId:captured.basis.world_id,documentId:captured.basis.document_id}))
@@ -234,16 +477,18 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       insertReviewedMarkdownAtAnchor(captured.editor,captured.basis.caret,content,captured.editorJson);
       applied.add(captured);changed(captured.editor);
     },
-    async saveProposal(basis,afterEditor,afterDraft,savedProjection) {
+    async saveProposal(basis,afterEditor,afterDraft,savedProjection,proseTarget) {
       if(!persist)throw new Error('Page saving is unavailable. Your insertion is retained for recovery.');
-      await persist(basis,afterEditor,afterDraft,savedProjection);
+      if (proseTarget) await persist(basis,afterEditor,afterDraft,savedProjection,proseTarget);
+      else await persist(basis,afterEditor,afterDraft,savedProjection);
     },
-    async inspectProposal(basis,afterEditor,afterDraft) {
+    async inspectProposal(basis,afterEditor,afterDraft,proseTarget) {
       const now=getCurrent();
       if(!now?.canEdit||now.editor.isDestroyed||now.worldId!==basis.world_id||now.documentId!==basis.document_id
         ||now.visibility!==basis.visibility||now.revision<basis.registry_revision)return {state:'changed'};
       const start={...now};
-      const json=JSON.stringify(now.editor.getJSON());const markdown=tiptapJsonToSemanticMarkdown(now.editor.getJSON());
+      const doc=now.editor.getJSON(),json=JSON.stringify(doc);
+      const markdown=tiptapJsonToSemanticMarkdown(proseTarget ? flattenPresentation(doc) : doc);
       function assertCurrent(){
         const current=getCurrent();
         if(!current?.canEdit||current.editor.isDestroyed||current.editor!==start.editor||current.worldId!==start.worldId
@@ -263,12 +508,12 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
         &&savedPageMatches(now,basis,true))return {state:'before'};
       return {state:'changed'};
     },
-    async restore(basis,pageBodyTarget,pageEndTarget) {
+    async restore(basis,pageBodyTarget,pageEndTarget,proseTarget) {
       if (!basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Open the original editable Build page first.');
       const editorJson = JSON.stringify(now.editor.getJSON());
-      const draftMarkdown = tiptapJsonToSemanticMarkdown(now.editor.getJSON());
+      const draftMarkdown = tiptapJsonToSemanticMarkdown(proseTarget ? flattenPresentation(now.editor.getJSON()) : now.editor.getJSON());
       const captured: CapturedBuildInsertion = {editor: now.editor, editorJson, draftMarkdown, pageBodyTarget, pageEndTarget,
         basis: {...basis, draft_generation: now.draftGeneration, selection_generation: now.selectionGeneration}};
       if (await sha256(editorJson) !== basis.editor_sha256 || await sha256(draftMarkdown) !== basis.draft_sha256
@@ -276,6 +521,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
         throw new Error('This page has changed since the proposal. Nothing was inserted.');
       }
       assertSame(captured, true);
+      if (proseTarget) return bindProse(captured, proseTarget);
       target(captured);
       return captured;
     },
@@ -284,6 +530,11 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       if (applied.has(captured)) throw new Error('This proposal has already been inserted.');
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
+      if (captured.proseTarget) {
+        captured.editor.view.dispatch(closeHistory(proseTransaction(captured, admitted.content).transaction));
+        applied.add(captured);changed(captured.editor);
+        return;
+      }
       const range=target(captured);
       if(captured.pageBodyTarget||captured.pageEndTarget){
         const result=prepareReviewedMarkdownAtAnchor(captured.editor,range,admitted.content,captured.editorJson);
@@ -315,7 +566,52 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       if (applied.has(captured)) throw new Error('This proposal has already been inserted.');
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured);
-      insertReviewedMarkdown(captured.editor, captured.basis.caret, admitted.content, captured.editorJson);
+      const block = admitted.content.length === 1 ? admitted.content[0] : null;
+      if (block?.type !== 'paragraph' || block.content?.length !== 1 || block.content[0]?.type !== 'mediaImage')
+        throw new Error('Choose a saved image to place on this page.');
+      const editor = captured.editor;
+      const original = JSON.parse(captured.editorJson) as JSONContent;
+      const position = editor.state.doc.resolve(captured.basis.caret);
+      const anchor = position.depth > 0 ? position.after(1) : captured.basis.caret;
+      const current = getCurrent(); const presentation = current?.pagePresentation;
+      const retainPlain = presentation?.items.every(item => item.kind === 'block') === true;
+      const retainsIds = hasPresentation(original) || retainPlain || presentation?.schema_version === 'dmb_page_presentation_v2' || hasEmptyParagraphs(original);
+      if (retainsIds && !editor.schema.nodes.paragraph?.spec.attrs?.pageBlockId)
+        throw new Error('This page editor cannot retain image block identities.');
+      const imageBlock = retainsIds ? {...block,attrs:{...block.attrs,pageBlockId:`page-image-${crypto.randomUUID()}`}} : block;
+      const transaction = editor.state.tr.insert(anchor,editor.schema.nodeFromJSON(imageBlock));
+      if (!retainsIds) preservePlainReviewBlockIdentities(transaction);
+      const after = transaction.doc.toJSON() as JSONContent;
+      const before = original.content ?? [];
+      const index = editor.state.doc.resolve(anchor).index(0);
+      if (after.content?.length !== before.length + 1 || before.some((node,i) =>
+        JSON.stringify(node) !== JSON.stringify(after.content?.[i < index ? i : i+1])))
+        throw new Error('The image would change an unrelated block.');
+      const body = tiptapJsonToSemanticMarkdown(flattenPresentation(after));
+      const savedMarkdown = current?.savedMarkdown ?? captured.draftMarkdown;
+      const projectedBefore = presentation ? hydratePresentation(savedMarkdown,presentation) : original;
+      const projection = retainsIds ? projectPresentation(after,savedMarkdown,projectedBefore,presentation,retainPlain) : null;
+      const reopened = projection?.presentation ? hydratePresentation(projection.markdown,projection.presentation) : markdownToTiptapDoc(body).doc;
+      const reopenedJson = editor.schema.nodeFromJSON(reopened).toJSON() as JSONContent;
+      // Enrollment gives previously anonymous plain blocks stable IDs. Compare
+      // them as anonymous only when the live block truly had no ID; every
+      // existing ID and all other structure must still match exactly.
+      if (projection?.presentation?.schema_version === 'dmb_page_presentation_v2' && !hasPresentation(after)) {
+        (reopenedJson.content ?? []).forEach((node, i) => {
+          const live = after.content?.[i];
+          if (live?.attrs?.pageBlockId == null && node.attrs) node.attrs.pageBlockId = null;
+        });
+      }
+      if (semanticMarkdownSerializationDiagnostics(flattenPresentation(after)).length
+        || JSON.stringify(reopenedJson) !== JSON.stringify(after))
+        throw new Error('Saving this image would change existing structure or block identities.');
+      closeHistory(transaction);
+      // Installed editor plugins must be pure and deterministic: this preview and
+      // the subsequent dispatch both run their transaction hooks.
+      const simulated = editor.state.applyTransaction(transaction);
+      if (!simulated.transactions.length || !simulated.state.doc.eq(transaction.doc))
+        throw new Error('The editor cannot apply this image without changing the page.');
+      editor.view.dispatch(transaction);
       applied.add(captured); changed(captured.editor);
     },
   };
@@ -323,13 +619,42 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
 }
 
 /** A representable current projection cannot hide dropped nodes or attributes. */
-function canonicalProjection(editor:Editor,markdown:string):boolean {
+function supportsRootProse(doc: JSONContent): boolean {
+  const prose = (node: JSONContent) => !!node.content?.some(child => child.type === 'text' && child.text?.trim())
+    && node.content.every(child => child.type === 'hardBreak' ||
+      child.type === 'text' && (child.marks ?? []).every(mark =>
+        ['bold', 'italic', 'strike', 'code', 'underline', 'link'].includes(mark.type ?? '')));
+  const protectedParagraph = (node: JSONContent) => node.type === 'paragraph'
+    && (!node.content?.length || prose(node));
+  return doc.type === 'doc' && !!doc.content?.length && doc.content.every(node => {
+    if (node.type === 'callout') {
+      return !!node.content?.length && node.content.every(protectedParagraph);
+    }
+    if (node.type === 'table') {
+      return !!node.content?.length && node.content.every(row => row.type === 'tableRow'
+        && !!row.content?.length && row.content.every(cell => cell.content?.length === 1
+          && protectedParagraph(cell.content[0])));
+    }
+    // Canonical projection binds the artwork and its attributes. The server
+    // independently checks the exact image reference before computing offsets.
+    if (node.type === 'paragraph' && node.content?.length === 1
+      && node.content[0].type === 'mediaImage') return true;
+    if (Object.entries(node.attrs ?? {}).some(([key, value]) =>
+      value != null && key !== 'pageBlockId' && key !== 'level')) return false;
+    if (node.type === 'horizontalRule') return !node.content?.length;
+    return (node.type === 'paragraph' || node.type === 'heading') && prose(node);
+  });
+}
+
+function canonicalProjection(editor:Editor,markdown:string,ignorePageBlockIds=false):boolean {
   try{
     const json=editor.getJSON(),parsed=markdownToTiptapDoc(markdown);
     if(semanticMarkdownSerializationDiagnostics(json).length || parsed.diagnostics.some(issue=>issue.level==='warning'))return false;
     const reopened=editor.schema.nodeFromJSON(parsed.doc).toJSON();
     const stable=(value:unknown):unknown=>Array.isArray(value)?value.map(stable)
-      :value&&typeof value==='object'?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,stable(item)])):value;
+      :value&&typeof value==='object'?Object.fromEntries(Object.entries(value)
+        .filter(([key])=>!ignorePageBlockIds || key!=='pageBlockId')
+        .sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,stable(item)])):value;
     return JSON.stringify(stable(json))===JSON.stringify(stable(reopened)) && tiptapJsonToSemanticMarkdown(reopened)===markdown;
   }catch{return false;}
 }

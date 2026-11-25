@@ -1,5 +1,5 @@
-import type {AdoptMechanicsRequest,MechanicsAdoptionOutcome} from './combatTypes';
-export interface PendingMechanicsAdoption {schema:'dmb_pending_combat_adoption_v1';worldId:string;encounterId:string;request:AdoptMechanicsRequest;afterDigest:string}
+import type {CombatAdoptionRequest,MechanicsAdoptionOutcome} from './combatTypes';
+export interface PendingMechanicsAdoption {schema:'dmb_pending_combat_adoption_v1';worldId:string;encounterId:string;request:CombatAdoptionRequest;afterDigest:string}
 function ordered(value:unknown):unknown {
   if(Array.isArray(value))return value.map(ordered);
   if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered((value as Record<string,unknown>)[key])]));
@@ -53,7 +53,7 @@ export async function verifyAdoptionOutcome(pending:PendingMechanicsAdoption,out
     ||receipt.world_id!==pending.worldId||receipt.encounter_id!==pending.encounterId
     ||encounter.world_id!==pending.worldId||encounter.encounter_id!==pending.encounterId
     ||receipt.request_digest!==await adoptionRequestDigest(pending)||receipt.expected_revision!==request.expected_revision
-    ||!sameAdoptionValue(receipt.source,request.locator))throw new Error('Adoption acknowledgment differs from the retained request. Recover its original outcome.');
+    ||!sameAdoptionValue(receipt.source,'source' in request?request.source.locator:request.locator))throw new Error('Adoption acknowledgment differs from the retained request. Recover its original outcome.');
   if(receipt.state==='canceled'){
     if(receipt.committed_revision!==null||receipt.transitions.length||outcome.advanced_since_apply)throw new Error('Cancellation acknowledgment claims actor changes.');
     return;
@@ -78,7 +78,8 @@ export function readPendingAdoption(raw:string|null,worldId:string,encounterId:s
   if(!raw)return null;
   const parsed=JSON.parse(raw) as PendingMechanicsAdoption;
   if(parsed.schema!=='dmb_pending_combat_adoption_v1'||parsed.worldId!==worldId||parsed.encounterId!==encounterId
-    ||parsed.request?.schema!=='dmb_combat_mechanics_adoption_request_v1'||!Array.isArray(parsed.request.actors)
+    ||(parsed.request?.schema!=='dmb_combat_mechanics_adoption_request_v1'
+      &&parsed.request?.schema!=='dmb_combat_conversation_portrait_adoption_v1')||!Array.isArray(parsed.request.actors)
     ||!parsed.request.actors.length||typeof parsed.request.operation_id!=='string'||typeof parsed.afterDigest!=='string')
     throw new Error('Pending adoption could not be verified; it remains retained in this browser.');
   return parsed;

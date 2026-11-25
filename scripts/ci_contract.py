@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
+import signal
+import os
 from collections import Counter
 import json
 from pathlib import Path
@@ -14,6 +17,8 @@ import time
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(ROOT))
 LANES = {"fast", "domain-integration", "qualification"}
 
 
@@ -95,6 +100,73 @@ def emit(report: dict) -> None:
     print(json.dumps(report, sort_keys=True), flush=True)
 
 
+def _group_live(group: int) -> bool:
+    for path in Path("/proc").iterdir():
+        if not path.name.isdigit():
+            continue
+        try:
+            fields = (path / "stat").read_text().split(") ", 1)[1].split()
+        except (OSError, IndexError):
+            continue
+        if fields[2] == str(group) and fields[0] != "Z":
+            return True
+    return False
+
+
+def _run_worker(argv: list[str], cwd: Path) -> int:
+    child = subprocess.Popen(argv, cwd=cwd, start_new_session=True)
+    interrupted = False
+    while True:
+        try:
+            result = child.wait()
+            while _group_live(child.pid):
+                time.sleep(0.1)
+            break
+        except KeyboardInterrupt:
+            interrupted = True
+            if _group_live(child.pid):
+                try:
+                    os.killpg(child.pid, signal.SIGINT)
+                except ProcessLookupError:
+                    pass
+            # Repeated interrupts cannot release the database owner while its
+            # exact child or descendants are still alive.
+    if interrupted:
+        raise KeyboardInterrupt
+    return result
+
+
+class _ContractFailed(Exception):
+    def __init__(self, code: int):
+        self.code = code
+
+
+def run_contracts(names: list[str], root: Path = ROOT) -> int:
+    """One App owner around all selected serial suites, never one clone per step."""
+    catalog = contracts(root)
+    needs_app = "full-regression" in names or any(
+        "pytest" in step["argv"]
+        for name in names if name in catalog
+        for step in catalog[name].get("steps", [catalog[name]])
+    )
+    from scripts.ci_app_database import app_workstream, assignment_environment
+    try:
+        with app_workstream() if needs_app else nullcontext(None) as assignment:
+            with assignment_environment(assignment) if assignment else nullcontext():
+                failed = 0
+                for name in names:
+                    result = execute(name, root, catalog=catalog)
+                    if result and not failed:
+                        failed = result
+                if failed:
+                    raise _ContractFailed(failed)
+    except _ContractFailed as failure:
+        for note in getattr(failure, "__notes__", []):
+            print(note, file=sys.stderr)
+        return failure.code
+    return 0
+
+
 def execute(name: str, root: Path = ROOT, *, catalog: dict | None = None) -> int:
     if catalog is None:
         catalog = contracts(root)
@@ -115,7 +187,7 @@ def execute(name: str, root: Path = ROOT, *, catalog: dict | None = None) -> int
         started = time.monotonic()
         emit({"sha": revision, "contract": name, "argv": argv, "cwd": step["cwd"], "event": "start"})
         try:
-            result = subprocess.run(argv, cwd=root / step["cwd"], check=False).returncode
+            result = _run_worker(argv, root / step["cwd"])
         except OSError as error:
             print(str(error), file=sys.stderr)
             result = 127
@@ -128,7 +200,7 @@ def execute(name: str, root: Path = ROOT, *, catalog: dict | None = None) -> int
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["inventory", "commands", "run"])
-    parser.add_argument("contract", nargs="?")
+    parser.add_argument("contract", nargs="*")
     args = parser.parse_args()
     if args.action == "inventory":
         started = time.monotonic()
@@ -145,9 +217,9 @@ def main() -> int:
                 print(name, step["cwd"], shlex.join(step["argv"]), sep="\t")
         return 0
     catalog = contracts()
-    if args.contract not in {*catalog, "full-regression"}:
+    if not args.contract or any(name not in {*catalog, "full-regression"} for name in args.contract):
         parser.error("run requires a named contract (see commands) or full-regression")
-    return execute(args.contract, catalog=catalog)
+    return run_contracts(args.contract)
 
 
 if __name__ == "__main__":

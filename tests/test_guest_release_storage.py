@@ -119,16 +119,36 @@ def test_saved_example_is_reviewed_as_immutable_release_data(application_state_d
                     {"id": str(second), "text": "second", "evidence_role": "context"}],
         "assets": [{"id": str(asset), "mime_type": "image/png", "sha256": hashlib.sha256(b"image").hexdigest()}],
         "saved_example": {"version": "owner_saved_scene_v1", "title": "Scene", "body": "A scene",
-                          "references": [str(first), str(second)], "image": {"id": str(asset), "description": "A tent"}}}
+                          "references": [str(first), str(second)], "image": {"id": str(asset), "description": "A tent"}},
+        "saved_choice": {"version": "owner_saved_choice_v1", "prompt": "What next", "options": [
+            {"label": "Enter", "outcome": "A bell rings"}, {"label": "Wait", "outcome": "A lantern flickers"}]},
+        "saved_answer": {"version": "owner_saved_answer_v1", "question": "What do the notes say", "passages": [
+            {"text": "A plan", "references": [str(first)]}, {"text": "A recap", "references": [str(second)]}]}}
     args = dict(world_id=world, subject="owner", expected_owner_generation=guest_release.owner_generation(world_id=world, subject="owner"),
         manifest=manifest, assets=[(asset, "image/png", b"image")], source_bindings=[binding(first, 0, 5), binding(second, 6, 12)], **graph)
     invalid = copy.deepcopy(manifest)
     invalid["saved_example"]["references"][1] = str(uuid4())
     with pytest.raises(ApplicationStateValidationError):
         guest_release.stage(**{**args, "manifest": invalid})
+    invalid = copy.deepcopy(manifest)
+    invalid["saved_answer"]["passages"][0]["references"] = [str(uuid4())]
+    with pytest.raises(ApplicationStateValidationError):
+        guest_release.stage(**{**args, "manifest": invalid})
+    invalid = copy.deepcopy(manifest)
+    invalid["saved_choice"]["options"][1]["label"] = " enter "
+    with pytest.raises(ApplicationStateValidationError):
+        guest_release.stage(**{**args, "manifest": invalid})
     release_id, digest = guest_release.stage(**args)
     changed = copy.deepcopy(manifest)
     changed["saved_example"]["body"] = "Another scene"
+    _, changed_digest = guest_release.stage(**{**args, "manifest": changed})
+    assert changed_digest != digest
+    changed = copy.deepcopy(manifest)
+    changed["saved_answer"]["passages"][0]["text"] = "A different plan"
+    _, changed_digest = guest_release.stage(**{**args, "manifest": changed})
+    assert changed_digest != digest
+    changed = copy.deepcopy(manifest)
+    changed["saved_choice"]["options"][1]["outcome"] = "The lantern fades"
     _, changed_digest = guest_release.stage(**{**args, "manifest": changed})
     assert changed_digest != digest
     assert guest_release.review(world_id=world, subject="owner", release_id=release_id) == (manifest, digest)

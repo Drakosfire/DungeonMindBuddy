@@ -43,7 +43,7 @@ it("requires explicit confirmation of the displayed review", async () => {
     revision: 2, markdown: "Draft", variant_review_ids: ["review"],
   });
   vi.mocked(openVariantReview).mockResolvedValueOnce({
-    revision: 2, definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+    revision: 2, definition: { identity: { name: "Meat Mind" }, rule_elements: [] } as Awaited<ReturnType<typeof openVariantReview>>["definition"],
   });
   vi.mocked(confirmVariantReview).mockResolvedValueOnce({ revision_id: "saved" });
   render(<ConversationDraftEditor scope={scope} />);
@@ -72,7 +72,7 @@ it("reopens the link for a previously saved variant without confirming again", a
   });
   vi.mocked(openVariantReview).mockResolvedValueOnce({
     revision: 2, saved: true,
-    definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+    definition: { identity: { name: "Meat Mind" }, rule_elements: [] } as Awaited<ReturnType<typeof openVariantReview>>["definition"],
   });
 
   render(<ConversationDraftEditor scope={scope} />);
@@ -91,7 +91,7 @@ it("retries saving a variant link without applying the insertion again", async (
   });
   vi.mocked(openVariantReview).mockResolvedValueOnce({
     revision: 2, saved: true,
-    definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+    definition: { identity: { name: "Meat Mind" }, rule_elements: [] } as Awaited<ReturnType<typeof openVariantReview>>["definition"],
   });
   const captured = { basis: { document_id: "edge", world_id: "world", visibility: "internal" }, draftMarkdown: "Existing page" };
   const bridge = {
@@ -121,7 +121,7 @@ it("opens the producing review from the approval turn and waits for confirmation
     revision: 2, markdown: "Reviewed draft", variant_review_ids: ["review"],
   });
   vi.mocked(openVariantReview).mockResolvedValueOnce({
-    revision: 2, definition: {} as Awaited<ReturnType<typeof openVariantReview>>["definition"],
+    revision: 2, definition: { identity: { name: "Meat Mind" }, rule_elements: [] } as Awaited<ReturnType<typeof openVariantReview>>["definition"],
   });
 
   render(<ConversationVariantApproval scope={scope} />);
@@ -150,7 +150,7 @@ it("stages a bounded rule correction and confirms only the successor review", as
   vi.mocked(openConversationDraft)
     .mockResolvedValueOnce({ revision: 1, markdown: "Original", variant_review_ids: ["old"] })
     .mockResolvedValueOnce({ revision: 2, markdown: "Updated", variant_review_ids: ["new"] });
-  const definition = { rule_elements: [{
+  const definition = { identity: { name: "Meat Mind" }, rule_elements: [{
     key: "rain", name: "Rain", rules_text: "Any hostile action starts the rain.", activation: {},
   }] } as Awaited<ReturnType<typeof openVariantReview>>["definition"];
   vi.mocked(openVariantReview)
@@ -162,6 +162,9 @@ it("stages a bounded rule correction and confirms only the successor review", as
   fireEvent.click(screen.getByRole("button", { name: "Open draft" }));
   fireEvent.click(await screen.findByRole("button", { name: "Review statblock variant" }));
   fireEvent.click(await screen.findByText("Correct reviewed rules"));
+  fireEvent.change(screen.getByRole("textbox", { name: "Statblock name" }), {
+    target: { value: "Edge Meat Mind" },
+  });
   fireEvent.change(screen.getByRole("textbox", { name: "Rule text" }), {
     target: { value: "Qualifying violence starts the rain." },
   });
@@ -169,6 +172,8 @@ it("stages a bounded rule correction and confirms only the successor review", as
   fireEvent.click(screen.getByRole("button", { name: "Stage corrected review" }));
   expect(await screen.findByDisplayValue("Updated")).toBeInTheDocument();
   expect(correctVariantReview).toHaveBeenCalledWith(scope, "old", 1, [{
+    field: "name", replace_exact: "Meat Mind", with_text: "Edge Meat Mind",
+  }, {
     rule_key: "rain", field: "rules_text",
     replace_exact: "Any hostile action starts the rain.", with_text: "Qualifying violence starts the rain.",
   }]);
@@ -183,7 +188,7 @@ it("stages a bounded rule correction and confirms only the successor review", as
 it("recovers from a lost correction response without carrying approval to the new review", async () => {
   const scope = { worldId: "world", conversationId: "conversation", turnId: "approval" };
   const producer = { ...scope, turnId: "producer" };
-  const definition = { rule_elements: [{
+  const definition = { identity: { name: "Meat Mind" }, rule_elements: [{
     key: "rain", name: "Rain", rules_text: "Any hostile action starts rain.", activation: {},
   }] } as Awaited<ReturnType<typeof openVariantReview>>["definition"];
   vi.mocked(confirmVariantReview).mockClear();

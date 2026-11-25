@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { createHash, webcrypto } from "node:crypto";
 import { StrictMode,useLayoutEffect, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import type { Editor } from "@tiptap/core";
+import { presentationFingerprint, projectPresentation } from "../tiptap/pageComposer/presentation";
 
 vi.mock("../api/buildDocumentProposalApi", async original => ({
   ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: async () => [],
@@ -1958,6 +1960,65 @@ it("keeps a late World A create acknowledgement in A's recovery journal after na
   expect(commit).not.toHaveBeenCalled();
 });
 
+it.each(["matching", "changed-text", "changed-title", "matching-layout", "changed-layout"] as const)(
+  "reopens a newer committed Plan with an older %s recovery draft",
+  async (variant) => {
+    const hasLayout = variant === "matching-layout" || variant === "changed-layout";
+    const markdown = hasLayout ? "Travel pace is set by the GM.\n\nSecond paragraph.\n"
+      : "# Arrival\n\n> [!RULES]\n> Travel pace is set by the GM.\n";
+    const record = mockSavedPlanForAgent(savedAgentPlanId, 8, 8, markdown);
+    const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+    let savedLayoutFields = {};
+    let localLayoutFields = {};
+    if (hasLayout) {
+      const layoutFields = (width: number) => {
+        const doc = { type: "doc", content: [{ type: "pageRow", attrs: { id: "row" }, content: [
+          { type: "pageSlot", attrs: { id: "left", width }, content: [
+            { type: "paragraph", attrs: { pageBlockId: "first" }, content: [{ type: "text", text: "Travel pace is set by the GM." }] },
+          ] },
+          { type: "pageSlot", attrs: { id: "right", width: 12 - width }, content: [
+            { type: "paragraph", attrs: { pageBlockId: "second" }, content: [{ type: "text", text: "Second paragraph." }] },
+          ] },
+        ] }] };
+        const presentation = projectPresentation(doc, markdown, doc).presentation;
+        expect(presentation).not.toBeNull();
+        return { page_presentation: presentation, page_presentation_sha256: presentationFingerprint(presentation) };
+      };
+      savedLayoutFields = layoutFields(7);
+      localLayoutFields = layoutFields(variant === "changed-layout" ? 6 : 7);
+      const snapshot = await liveApi.getWorldOwnedPlanSnapshot(record.document_id);
+      vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({ ...snapshot, ...savedLayoutFields });
+    }
+    const localMarkdown = variant === "changed-text" ? markdown + "\nPrivate unsaved note.\n" : markdown;
+    const localTitle = variant === "changed-title" ? "Unsaved Plan title" : record.title;
+    localStorage.setItem(key, JSON.stringify({
+      schema_version: "dmb_plan_promotion_recovery_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: record.document_id,
+      title: localTitle,
+      markdown: localMarkdown,
+      revision: 7,
+      edit_generation: 2,
+      ...localLayoutFields,
+    }));
+    const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+    const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+    render(<SelectedWorldProvider locationSnapshot={location}><VerifiedPlanPage /></SelectedWorldProvider>);
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect(surface).toHaveTextContent("Travel pace is set by the GM."));
+    const conflict = screen.queryByRole("button", { name: "Use saved Plan version" });
+    if (variant === "matching" || variant === "matching-layout") {
+      expect(conflict).not.toBeInTheDocument();
+      expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({ revision: 8, markdown, ...savedLayoutFields });
+    } else {
+      expect(conflict).toBeInTheDocument();
+      expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({ revision: 7, title: localTitle, markdown: localMarkdown, ...localLayoutFields });
+    }
+    expect(prepare).not.toHaveBeenCalled();
+  },
+);
+
 it("persists the prepared revision before commit and retries against that exact revision", async () => {
   const documentId = "prepared-revision-plan";
   const record = worldPlanRecord(documentId, worldId, 1);
@@ -3193,7 +3254,7 @@ it("reverts an editor transaction that the semantic Markdown serializer cannot p
   fireEvent.keyDown(proseMirror, { key: "Enter", code: "Enter", shiftKey: true });
 
   expect(await screen.findByRole("alert")).toHaveTextContent(/edit was reverted to protect the saved Plan/i);
-  expect(screen.getByRole("alert")).toHaveTextContent(/Hard breaks in headings or table cells/i);
+  expect(screen.getByRole("alert")).toHaveTextContent(/Hard breaks in headings/i);
   expect(localStorage.getItem(recoveryKey)).toBe(originalRecovery);
   const restoredEditor = editorSurface.querySelector(".ProseMirror") as HTMLElement;
   expect(restoredEditor).not.toBe(proseMirror);
@@ -4227,6 +4288,64 @@ it('opens the current scene encounter tool while retaining the mounted Plan edit
 });
 
 
+it.each(["saved", "applying", "different-revision"] as const)(
+  "recovers only a verified saved Plan application when the receipt is %s",
+  async variant => {
+    const reviewApi = await import("../api/planAuthoringReviewApi");
+    const markdown = "# Arrival\n\n> [!RULES]\n> Travel pace is set by the GM.\n";
+    const record = mockSavedPlanForAgent(savedAgentPlanId, 8, 8, markdown);
+    const committed = await liveApi.getWorldOwnedPlanCommittedRevision(record.document_id);
+    const getCommitted = vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...committed, has_divergent_working_copy: false,
+    });
+    getCommitted.mockClear();
+    const hold = {
+      world_id: worldId,
+      document_id: record.document_id,
+      action_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      application_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    };
+    const key = `dmb:plan-application-hold:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(record.document_id)}:${hold.action_id}:${hold.application_id}`;
+    localStorage.setItem(key, JSON.stringify(hold));
+    const application = {
+      application_id: hold.application_id,
+      capture: { world_id: worldId, document_id: record.document_id },
+      outcome: variant === "applying" ? "applying" : "saved",
+      after_markdown: markdown,
+      after_draft_sha256: committed.content_sha256,
+      after_title: record.title,
+      saved_revision_n: variant === "different-revision" ? committed.revision_n - 1 : committed.revision_n,
+      saved_work_revision_id: committed.work_revision_id,
+    } as import("../api/planAuthoringReviewApi").PlanReviewApplication;
+    const read = vi.spyOn(reviewApi, "readPlanAuthoringReview").mockResolvedValue({
+      schema: "dmb_plan_authoring_review_snapshot_v1",
+      world_id: worldId,
+      action_id: hold.action_id,
+      origin_sha256: "a".repeat(64),
+      review: { applications: [application] } as import("../api/planAuthoringReviewApi").PlanAuthoringReview,
+    });
+    const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+    const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+    const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+    render(<SelectedWorldProvider locationSnapshot={location}><VerifiedPlanPage /></SelectedWorldProvider>);
+    const editor = await screen.findByTestId("world-owned-plan-markdown-editor");
+    await waitFor(() => expect(read).toHaveBeenCalledWith(worldId, hold.action_id));
+    if (variant === "saved") {
+      await waitFor(() => expect(localStorage.getItem(key)).toBeNull());
+      expect(screen.getByText("Suggestion saved to this Plan.")).toBeInTheDocument();
+    } else {
+      if (variant === "different-revision") {
+        await waitFor(() => expect(getCommitted).toHaveBeenCalledWith(record.document_id));
+      }
+      expect(localStorage.getItem(key)).toBe(JSON.stringify(hold));
+    }
+    expect(screen.queryByRole("button", { name: "Use saved Plan version" })).not.toBeInTheDocument();
+    expect(editor).toHaveTextContent("Travel pace is set by the GM.");
+    expect(prepare).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+  },
+);
+
 it('fences ordinary Plan Save during proposal apply, uncertain confirmation and reload',async()=>{
   const nativeNavigator=navigator;let lockTail:Promise<unknown>=Promise.resolve();
   const locks={request:(_name:string,work:()=>unknown)=>{const turn=lockTail.then(work);lockTail=turn.catch(()=>undefined);return turn;}};
@@ -4344,10 +4463,27 @@ it('serializes two mounted Plan hosts so only one pending application can mutate
   first.unmount();second.unmount();
 });
 
-it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lost_confirm','lost_confirm_newer','lost_before_commit','newer_draft','move'] as const)('ordinary first Send stages an editable Plan object, saves once and reloads it without drafting in chat (%s)',async mode=>{
+it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lost_confirm','lost_confirm_newer','lost_before_commit','newer_draft','move','composed','composed_lost_ack'] as const)('ordinary first Send stages an editable Plan object, saves once and reloads it without drafting in chat (%s)',async mode=>{
   const nativeNavigator=navigator;
   vi.stubGlobal('navigator',new Proxy(nativeNavigator,{get:(target,key)=>key==='locks'?{request:async(_name:string,work:()=>unknown)=>work()}:Reflect.get(target,key,target)}));
-  const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,'# Plan\n\nOriginal preparation.\n');
+  const composed = mode === 'composed' || mode === 'composed_lost_ack';
+  const source = composed ? 'Original préparation.\n\nOriginal préparation.\n\n## Retained heading\n'
+    : '# Plan\n\nOriginal preparation.\n';
+  const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,source);
+  if (composed) {
+    const block = (text: string, id: string) => ({type:'paragraph',attrs:{pageBlockId:id},content:[{type:'text',text}]});
+    const doc = {type:'doc',content:[{type:'pageRow',attrs:{id:'row',min_height:160,line_mode:'border'},content:[
+      {type:'pageSlot',attrs:{id:'left',width:7},content:[block('Original préparation.','left-block')]},
+      {type:'pageSlot',attrs:{id:'right',width:5},content:[block('Original préparation.','right-block')]},
+    ]},{type:'heading',attrs:{pageBlockId:'retained-heading',level:2},content:[{type:'text',text:'Retained heading'}]}]};
+    const layout = projectPresentation(doc, source, doc).presentation!;
+    const digest = createHash('sha256').update(source).digest('hex');
+    const snapshot = await liveApi.getWorldOwnedPlanSnapshot(savedAgentPlanId);
+    const revision = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({...snapshot,content_sha256:digest,
+      page_presentation:layout,page_presentation_sha256:presentationFingerprint(layout)});
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({...revision,content_sha256:digest});
+  }
   const reviewApi=await import('../api/planAuthoringReviewApi');
   const conversationId='11111111-1111-4111-8111-111111111111';let conversationReady=false;
   serverHistorySnapshot = () => ({schema:'dmb_agent_conversation_history_v3',world_id:worldId,
@@ -4364,8 +4500,21 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
   let proposal:any,review:any=null,originHash='',lostConfirm=false;
   const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockImplementation(async request=>{
     expect(conversationReady).toBe(true);expect(request.plan_authoring_capture).toBeDefined();
+    if (composed) {
+      expect(request.plan_placement_catalog).toBeUndefined();
+      expect(request.plan_authoring_capture).toMatchObject({schema:'dmb_plan_authoring_composed_snapshot_v1',
+        target_kind:'offer_slot_placement',selected_paragraph:null,selection_witness_text:''});
+    } else {
+      expect(request.plan_placement_catalog?.schema).toBe('dmb_plan_placement_catalog_v2');
+      expect(request.plan_placement_catalog?.entries.some(entry=>entry.kind==='after_paragraph')).toBe(true);
+    }
     const response:any=worldPlanAgentResponse(request);
     let capture: any = request.plan_authoring_capture!;
+    if (composed) {
+      const {selected_paragraph: _selection, ...opening} = capture;
+      capture = {...opening, schema:'dmb_plan_authoring_slot_boundary_capture_v1',target_kind:'insert_at_slot_boundary',
+        slot_address:{row_index:0,row_id:'row',slot_index:1,slot_id:'right',child_index:0,block_id:'right-block',relation:'after'}};
+    }
     if (mode === 'offered_boundary' || mode === 'altered_boundary') {
       const placement = request.plan_placement_catalog!.entries.find(entry => entry.kind === 'end_page')!;
       capture = {...capture, schema:'dmb_plan_authoring_boundary_capture_v1', target_kind:'insert_at_boundary',
@@ -4374,7 +4523,8 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
     }
     expect(capture.conversation_id).toBe(conversationId);expect(capture.expected_pointer_revision).toBe(1);
     expect(capture.idempotency_key).toBe(historyCorrelationKey(request));
-    const markdown='## Proposed visitors\n\nA traveling keeper may ask about the lantern.\n';
+    const markdown=composed?'A traveling keeper may ask about the lantern.\n'
+      :'## Proposed visitors\n\nA traveling keeper may ask about the lantern.\n';
     const origin={schema:'dmb_plan_jev_proposal_origin_v1',action_id:action,idempotency_key:capture.idempotency_key,
       action_request_fingerprint:'c'.repeat(64),action_fence:1,basis:structuredClone(response.plan_context.receipt.plan_basis),
       conversation_id:conversationId,turn_id:turn,product_attempt:1,expected_pointer_revision:1,
@@ -4391,12 +4541,13 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
   vi.spyOn(reviewApi,'readPlanAuthoringReview').mockImplementation(async()=>({schema:'dmb_plan_authoring_review_snapshot_v1',
     world_id:worldId,action_id:action,origin_sha256:originHash,review}));
   const commands=vi.spyOn(reviewApi,'commandPlanAuthoringReview').mockImplementation(async(_world,_action,command)=>{
+    if (mode==='composed_lost_ack' && command.command_id===review?.last_command_id) return review;
     expect(command.expected_revision).toBe(review?.revision??0);expect(command.origin_sha256).toBe(originHash);
     if(command.operation==='open')review={schema:'dmb_plan_authoring_review_v1',world_id:worldId,action_id:action,origin_sha256:originHash,
       revision:0,state:'editing',markdown:proposal.replacement_markdown,markdown_sha256:hash(proposal.replacement_markdown),capture:proposal.capture,applications:[]};
     if(command.operation==='move')review={...review,capture:command.capture};
     if(command.operation==='save')review={...review,markdown:command.markdown,markdown_sha256:hash(command.markdown)};
-    if(command.operation==='prepare')review={...review,state:'applying',applications:[{...command,capture:review.capture,
+    if(command.operation==='prepare'||command.operation==='prepare_slot')review={...review,state:'applying',applications:[{...command,capture:review.capture,
       markdown:review.markdown,markdown_sha256:review.markdown_sha256,base_work_revision_id:proposal.origin.basis.work_revision_id,
       base_revision_n:4,outcome:'applying',saved_work_revision_id:null,saved_revision_n:null}]};
     if(command.operation==='confirm'&&mode==='lost_before_commit'&&!lostConfirm){lostConfirm=true;throw new Error('Lost confirmation before commit');}
@@ -4404,13 +4555,15 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
       const application=review.applications.at(-1),updated={...record,revision:8};
       const previous=await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
       vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({schema_version:'dmb_workspace_document_snapshot_v2',record:updated,
-        markdown:application.after_markdown,content_sha256:application.after_draft_sha256,file_fingerprint:'postgres',file_exists:true,loaded_revision:8});
+        markdown:application.after_markdown,content_sha256:application.after_draft_sha256,file_fingerprint:'postgres',file_exists:true,loaded_revision:8,
+        ...(composed?{page_presentation:application.after_page_presentation,
+          page_presentation_sha256:application.after_page_presentation_sha256}:{})});
       vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({...previous,object_revision:8,revision_n:5,
         work_revision_id:'00000000-0000-4000-8000-000000000005',markdown:application.after_markdown,content_sha256:application.after_draft_sha256});
       review={...review,state:'applied',applications:[{...application,outcome:'saved',saved_work_revision_id:'00000000-0000-4000-8000-000000000005',saved_revision_n:5}]};
     }
     review={...review,revision:review.revision+1,last_command_id:command.command_id,last_command_sha256:'a'.repeat(64),updated_at:'2026-10-26T00:00:00Z'};
-    if(command.operation==='confirm'&&(mode==='lost_confirm'||mode==='lost_confirm_newer')&&!lostConfirm){lostConfirm=true;throw new Error('Lost confirmation after commit');}
+    if(command.operation==='confirm'&&(mode==='lost_confirm'||mode==='lost_confirm_newer'||mode==='composed_lost_ack')&&!lostConfirm){lostConfirm=true;throw new Error('Lost confirmation after commit');}
     return review;
   });
   const ordinary=vi.spyOn(liveApi,'prepareTiptapMarkdownWrite');
@@ -4419,7 +4572,9 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
   const editor=(screen.getByTestId('world-owned-plan-markdown-editor').querySelector('.ProseMirror') as any).editor;
   act(()=>editor.commands.setTextSelection(editor.state.doc.content.size-1));
   const conversation=savedWorldPlanConversation();
-  fireEvent.change(messageDungeonBuddyField(conversation),{target:{value:'Invent a short section of possible visitors and put it on this Plan.'}});
+  fireEvent.change(messageDungeonBuddyField(conversation),{target:{value:composed
+    ?'Insert a note about visitors after the preparation in the right column.'
+    :'Invent a short section of possible visitors and put it on this Plan.'}});
   const send=within(conversation).getByRole('button',{name:'Send message',exact:true});
   await waitFor(()=>expect(send).toBeEnabled());fireEvent.click(send);
   await waitFor(()=>expect(post,conversation.textContent??'').toHaveBeenCalledTimes(1));
@@ -4458,6 +4613,24 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
   act(()=>{suggestionEditor.commands.setTextSelection(suggestionEditor.state.doc.content.size-1);suggestionEditor.commands.insertContent(' Keep this cue.');});
   const region=screen.getByRole('region',{name:'Suggestion review'});
   fireEvent.click(within(region).getByRole('button',{name:'Save',exact:true}));
+  if(mode==='composed_lost_ack'){
+    await waitFor(()=>expect(document.body.textContent).toContain('Lost confirmation'));
+    vi.spyOn(editor.view, 'scrollToSelection').mockImplementation(()=>{});
+    act(()=>editor.commands.undo());
+    await openPlanConversation();
+    const details=await screen.findByText('Details',{selector:'summary'});
+    if(!details.closest('details')?.open)fireEvent.click(details);
+    const retry=screen.queryByRole('button',{name:'Retry exact confirm operation'});
+    if(retry)fireEvent.click(retry);
+    const acknowledge=await screen.findByRole('button',{name:'Acknowledge saved result'});
+    fireEvent.click(acknowledge);
+    await waitFor(()=>expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:plan-application-hold:'))).toHaveLength(0));
+    await act(async()=>{await new Promise(resolve=>setTimeout(resolve,800));});
+    expect(ordinary).not.toHaveBeenCalled();
+    expect(await liveApi.getWorldOwnedPlanSnapshot(savedAgentPlanId)).toMatchObject({markdown:expect.stringContaining('Keep this cue.')});
+    expect(screen.getByTestId('world-owned-plan-markdown-editor')).not.toHaveTextContent('Keep this cue.');
+    mounted.unmount();return;
+  }
   if(mode==='lost_confirm'||mode==='lost_confirm_newer'||mode==='lost_before_commit'){
     await waitFor(()=>expect(document.body.textContent).toContain('Lost confirmation'));
     expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:plan-application-hold:'))).toHaveLength(1);
@@ -4481,6 +4654,21 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
   expect(commands.mock.calls.filter(call=>call[2].operation==='confirm')).toHaveLength(mode==='lost_before_commit'?2:1);
   if(mode==='lost_before_commit')expect(new Set(commands.mock.calls.filter(call=>call[2].operation==='confirm').map(call=>call[2].command_id)).size).toBe(1);
   expect(ordinary).not.toHaveBeenCalled();
+  if (composed) {
+    const slotPrepare = commands.mock.calls.find(call => call[2].operation === 'prepare_slot')?.[2];
+    expect(slotPrepare?.operation).toBe('prepare_slot');
+    if (slotPrepare?.operation !== 'prepare_slot') throw new Error('Missing composed Prepare.');
+    expect(slotPrepare.after_markdown).toBe(source.replace('\n\n## Retained heading',
+      '\n\nA traveling keeper may ask about the lantern. Keep this cue.\n\n## Retained heading'));
+    expect(slotPrepare.after_page_presentation.items[0]).toMatchObject({id:'row',min_height:160,slots:[
+      {id:'left',width:7,blocks:[{id:'left-block'}]}, {id:'right',width:5,blocks:[{id:'right-block'}, {kind:'block'}]},
+    ]});
+    vi.spyOn(editor.view, 'scrollToSelection').mockImplementation(()=>{});
+    act(()=>editor.commands.undo());
+    expect(screen.getByTestId('world-owned-plan-markdown-editor')).not.toHaveTextContent('Keep this cue.');
+    act(()=>editor.commands.redo());
+    expect(screen.getByTestId('world-owned-plan-markdown-editor')).toHaveTextContent('Keep this cue.');
+  }
   mounted.unmount();mounted=render(tree());await screen.findByTestId('world-owned-plan-markdown-editor');
   expect(screen.getByTestId('world-owned-plan-markdown-editor')).toHaveTextContent('Keep this cue.');
   expect(post).toHaveBeenCalledTimes(1);expect(commands.mock.calls.filter(call=>call[2].operation==='confirm')).toHaveLength(mode==='lost_before_commit'?2:1);
@@ -4712,4 +4900,148 @@ it.each(['restart','step'])('cancels a pending guided routed Plan after %s befor
  await act(async()=>release(original));await screen.findByText(/Guided navigation canceled/);
  expect(screen.queryByDisplayValue(original.markdown)).not.toBeInTheDocument();expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
  expect(committed.document_id).toBe(savedAgentPlanId);
+});
+it.each(["exact", "altered prepare", "altered commit", "lost acknowledgement", "lost acknowledgement then Undo"] as const)(
+  "handles a %s receipt for a layout-only Plan row", async receipt => {
+  const markdown = "First paragraph.\n\nSecond paragraph.\n";
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, markdown);
+  const digest = createHash("sha256").update(markdown).digest("hex");
+  const path = record.target_relpath!;
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockImplementation(async request => ({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: savedAgentPlanId,
+    title: record.title,
+    target_relpath: path,
+    target_display_path: path,
+    registry_revision: request.expected_revision ?? 7,
+    page_presentation_sha256: receipt === "altered prepare" ? "f".repeat(64)
+      : presentationFingerprint(request.page_presentation) ?? undefined,
+    file_exists: true,
+    writer_ok: true,
+    writer_confirm_token: "layout-confirmation",
+    warnings: [],
+    diagnostics: [],
+  }));
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request => {
+    const revision = (request.expected_revision ?? 7) + 1;
+    const saved = { ...record, revision };
+    const fingerprint = presentationFingerprint(request.page_presentation) ?? undefined;
+    const priorCommitted = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...priorCommitted, object_revision: revision, content_sha256: digest, has_divergent_working_copy: false,
+    });
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({
+      schema_version: "dmb_workspace_document_snapshot_v2", record: saved, markdown,
+      content_sha256: digest, loaded_revision: revision, file_exists: true, file_fingerprint: "postgres",
+      page_presentation: request.page_presentation, page_presentation_sha256: fingerprint,
+    });
+    if (receipt.startsWith("lost acknowledgement") && revision === 8) {
+      throw new Error("Network disconnected after the write.");
+    }
+    return {
+      schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
+      document_id: savedAgentPlanId, title: record.title, target_relpath: path, target_display_path: path,
+      registry_revision: revision, committed_revision: revision, committed_record: saved,
+      normalized_content_sha256: digest, page_presentation_sha256: receipt === "altered commit" ? "f".repeat(64) : fingerprint,
+      writer_ok: true, diagnostics: [],
+    };
+  });
+  const tree = <SelectedWorldProvider locationSnapshot={window.location.pathname + window.location.search}>
+    <AgentEnabledPlanPage />
+  </SelectedWorldProvider>;
+  const surface = () => screen.getByTestId("world-owned-plan-markdown-editor");
+  const mounted = render(tree);
+  const compose = await screen.findByRole("button", { name: "Compose layout" });
+  fireEvent.click(compose);
+  const twoColumns = await screen.findByRole("button", { name: "Two-column row" });
+  await waitFor(() => expect(twoColumns).toBeEnabled());
+  fireEvent.click(twoColumns);
+  const editor = (surface().querySelector(".ProseMirror") as HTMLElement & { editor: Editor }).editor;
+  expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
+  const rowBeforeUndo = editor.state.doc.firstChild?.toJSON();
+  if (receipt === "exact") {
+    fireEvent.click(screen.getByRole("button", { name: "New Plan" }));
+    expect(screen.getByText("Save or resolve this Plan’s layout draft before opening another Plan.")).toBeInTheDocument();
+    expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).document_id).toBe(savedAgentPlanId);
+  }
+  act(() => { editor.commands.undo(); });
+  expect(surface().querySelector("[data-page-row]")).toBeNull();
+  act(() => { editor.commands.redo(); });
+  expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1);
+  expect(editor.state.doc.firstChild?.toJSON()).toEqual(rowBeforeUndo);
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  if (receipt === "altered prepare" || receipt === "altered commit") {
+    await screen.findByText(receipt === "altered prepare"
+      ? "Plan write could not be prepared." : "Commit receipt did not preserve World-owned Plan scope.");
+    expect(commit).toHaveBeenCalledTimes(receipt === "altered prepare" ? 0 : 1);
+    expect(screen.queryByText("Saved to this World.")).not.toBeInTheDocument();
+    const recovery = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!);
+    expect(recovery.page_presentation.items[0].kind).toBe("row");
+    expect(recovery.pending_write.page_presentation_sha256).toBe(recovery.page_presentation_sha256);
+    return;
+  }
+  if (receipt.startsWith("lost acknowledgement")) {
+    await screen.findByText("Network disconnected after the write.");
+    if (receipt === "lost acknowledgement then Undo") {
+      act(() => { editor.commands.undo(); });
+      expect(surface().querySelector("[data-page-row]")).toBeNull();
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  }
+  await screen.findByText("Saved to this World.");
+  if (receipt === "lost acknowledgement then Undo") {
+    expect(commit).toHaveBeenCalledTimes(2);
+    const initialRow = commit.mock.calls[0][0].page_presentation?.items[0];
+    const wrapperFree = commit.mock.calls[1][0].page_presentation?.items;
+    expect(initialRow?.kind).toBe("row");
+    const initialIds = initialRow?.kind === "row" ? initialRow.slots.flatMap(slot => slot.blocks.map(block => block.id)) : [];
+    expect(wrapperFree?.map(block => block.id)).toEqual(initialIds);
+    expect(wrapperFree?.map(block => block.kind)).toEqual(["block", "block"]);
+    expect(commit.mock.calls[1][0]).toMatchObject({ markdown, expected_revision: 8 });
+    return;
+  }
+  expect(commit).toHaveBeenCalledTimes(1);
+  const layout = commit.mock.calls[0][0].page_presentation;
+  expect(layout?.items[0]).toMatchObject({ kind: "row", slots: [{ width: 6 }, { width: 6 }] });
+  expect(prepare).toHaveBeenCalledWith(expect.objectContaining({
+    document_id: savedAgentPlanId, markdown, expected_revision: 7, page_presentation: layout,
+  }));
+  expect(commit).toHaveBeenCalledWith(expect.objectContaining({
+    document_id: savedAgentPlanId, markdown, expected_revision: 7, page_presentation: layout,
+  }));
+  mounted.unmount();
+  localStorage.clear();
+  const cold = render(tree);
+  await waitFor(() => expect(surface().querySelectorAll("[data-page-row]")).toHaveLength(1));
+  expect(surface().querySelector("[data-page-row]")).toHaveTextContent("First paragraph.Second paragraph.");
+  if (receipt === "exact") {
+    cold.unmount();
+    const composed = await liveApi.getWorldOwnedPlanSnapshot(savedAgentPlanId);
+    const other = worldPlanRecord("other-plain-plan", worldId, 1);
+    const prior = { ...composed, record: other, loaded_revision: other.revision,
+      page_presentation: undefined, page_presentation_sha256: undefined };
+    vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async id =>
+      id === savedAgentPlanId ? composed : prior);
+    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world", world_id: worldId, records: [composed.record, other],
+    });
+    const reopen = `/plan?world=${worldId}&documentId=${other.document_id}`;
+    window.history.replaceState({}, "", reopen);
+    localStorage.clear();
+    // Use a fresh mount so the other Plan starts in its ordinary editor schema.
+    const sourceView = render(<SelectedWorldProvider locationSnapshot={reopen}><AgentEnabledPlanPage /></SelectedWorldProvider>);
+    const scoped = within(sourceView.container);
+    const source = await scoped.findByRole("button", { name: "Markdown", exact: true });
+    await waitFor(() => expect(source).toBeEnabled());
+    fireEvent.click(source);
+    await scoped.findByRole("textbox", { name: "Plan Markdown" });
+    fireEvent.change(scoped.getByLabelText("Plan document"), { target: { value: savedAgentPlanId } });
+    await waitFor(() => expect(scoped.getByTestId("world-owned-plan-markdown-editor").querySelector("[data-page-row]")).not.toBeNull());
+    expect(scoped.getByRole("button", { name: "Markdown", exact: true })).toBeDisabled();
+    expect(scoped.queryByRole("textbox", { name: "Plan Markdown" })).not.toBeInTheDocument();
+  }
 });

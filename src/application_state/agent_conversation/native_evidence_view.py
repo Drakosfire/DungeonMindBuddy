@@ -93,7 +93,7 @@ def _domain_meaning(entries):
     return result
 
 
-def semantic_frame(host):
+def semantic_frame(host, *, project_managed_images=False):
     """Explicit projection of an owner-reconstructed current native host frame.
 
     Literal/domain payloads are context and never recursively scrubbed. Only typed
@@ -232,6 +232,8 @@ def semantic_frame(host):
             )
         )
     bodies = []
+    from .model_markdown import project_model_markdown
+
     for i, row in enumerate(host["native_body_evidence"]["excerpts"]):
         bodies.append(
             dict(
@@ -251,6 +253,8 @@ def semantic_frame(host):
                 },
             )
         )
+        if project_managed_images:
+            bodies[-1]["text"] = project_model_markdown(row["text"])
         if "prior_claim" in row:
             bodies[-1]["prior_claim"] = row["prior_claim"]
         if "planning_line_ranges" in row:
@@ -377,13 +381,13 @@ def world_context_representation(frame):
     return next(iter(forms), "current")
 
 
-def expected_semantic_frame(host, actual):
+def expected_semantic_frame(host, actual, *, project_managed_images=False):
     """Reconstruct retained producing bytes by their closed actual slot shape.
 
     Current producers always use semantic_frame. This reader does not try hashes
     or emit alternate prompts; original request and frame bindings remain exact.
     """
-    expected = semantic_frame(host)
+    expected = semantic_frame(host, project_managed_images=project_managed_images)
     actual_collection = actual.get('native_assertions')
     if actual_collection is not None and 'qualifications' not in actual_collection:
         expected = _inline_qualifications(expected)
@@ -401,7 +405,25 @@ def expected_semantic_frame(host, actual):
 PLAN_EVIDENCE_HEADING = "# Plan evidence\n\n"
 
 
-def render_plan_evidence(frame, work):
+def _recap_prose_key(row):
+    if row.get("planning_line_ranges") or "prior_claim" in row:
+        return None
+    text = row["text"]
+    lines = text.splitlines(keepends=True)
+    # Only isolated trailing spaces in plain prose may compare as identical.
+    # Keep indentation, Markdown hard breaks, code, and all source bytes intact.
+    if not any(mark in text for mark in ("`", "<", "\\", "~~~")) and not any(
+        line.startswith(("    ", "\t")) for line in lines
+    ):
+        text = "".join(
+            line[:-2] + "\n"
+            if line.endswith(" \n") and len(line) > 2 and not line[-3].isspace()
+            else line for line in lines
+        )
+    return row["campaign_scope"], text
+
+
+def render_plan_evidence(frame, work, *, compact_graph_qualifications=False, deduplicate_recap_prose=False):
     """Render the admitted evidence with the same aliases as the output schema."""
     def words(value):
         if isinstance(value, dict):
@@ -420,6 +442,7 @@ def render_plan_evidence(frame, work):
     sessions = {}
     for row in bodies["excerpts"]:
         sessions.setdefault((row["campaign_scope"], row["session_scope"]), []).append(row)
+    first_passages = {}
     for (campaign, session), rows in sorted(
         sessions.items(), key=lambda entry: (str(entry[0][0]),
             entry[0][1] if isinstance(entry[0][1], int) else float("inf"))
@@ -433,6 +456,12 @@ def render_plan_evidence(frame, work):
                 ranges = ", ".join(f"{start}–{stop}" for start, stop in planning)
                 label += f" (planning on source lines {ranges}; excerpt starts at line {row['line_start']})"
             prior = f"Earlier cited claim: {row['prior_claim']}\n" if "prior_claim" in row else ""
+            key = _recap_prose_key(row) if deduplicate_recap_prose else None
+            if key is not None:
+                first = first_passages.setdefault(key, row["excerpt_handle"])
+                if first != row["excerpt_handle"]:
+                    parts.append(f"{label} · Same passage as [{first}].")
+                    continue
             parts.append(f"{label}\n{prior}{row['text']}")
     statements = frame["native_statements"]["statements"]
     if statements:
@@ -447,7 +476,15 @@ def render_plan_evidence(frame, work):
             claim = row["assertion"]
             groups.setdefault(claim["qualification"], []).append(row)
         for qualification, rows in groups.items():
-            parts.append(words(graph["qualifications"][qualification]))
+            rendered = graph["qualifications"][qualification]
+            if compact_graph_qualifications:
+                rendered = rendered.copy()
+                if rendered.get("domain_metadata") == []:
+                    del rendered["domain_metadata"]
+                mode = rendered.get("claim_mode")
+                if isinstance(mode, str):
+                    rendered["claim_mode"] = mode.removeprefix("dungeonbuddy.claim:")
+            parts.append(words(rendered))
             for row in rows:
                 claim = row["assertion"]
                 predicate = claim["predicate"].split(":")[-1].replace("_", " ")

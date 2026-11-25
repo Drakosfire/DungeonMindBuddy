@@ -46,7 +46,7 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
     handoff,
     run,
     launch,
-    refresh, pendingRecap, recoverRecap, savedRecapRequests, setAsideRecap, restoreRecap,
+    refresh, pendingWorldbuilding, recoverWorldbuilding, setAsideWorldbuilding, restoreWorldbuilding, savedWorldbuildingRequests, pendingRecap, recoverRecap, savedRecapRequests, setAsideRecap, restoreRecap,
   } = useBuildExtraction({ documentId, profile, worldId, recap:mode==="recap"?{worldId:worldId??"",campaignId,session:Number(session),evidence}:null });
 
   const content = (
@@ -64,6 +64,15 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
           <option value="gazetteer">Gazetteer — places, people and setting details</option>
         </select>
       </label>}
+      {pendingWorldbuilding&&<div role="status"><p>A saved Worldbuilding extraction needs recovery. Checking its status does not start another extraction.</p>
+        <button disabled={launching||reviewBusy} onClick={()=>void recoverWorldbuilding()}>Check saved Worldbuilding extraction</button>
+        <button disabled={launching||reviewBusy} onClick={()=>void recoverWorldbuilding(true)}>Retry saved Worldbuilding request</button>
+        <p>Setting this request aside does not cancel it; it stays saved in this browser.</p>
+        <button disabled={launching||reviewBusy} onClick={setAsideWorldbuilding}>Set aside saved Worldbuilding request</button></div>}
+      {savedWorldbuildingRequests.length>0&&<details><summary>Saved Worldbuilding requests</summary>
+        {savedWorldbuildingRequests.map(item=><button key={item.index} disabled={launching||reviewBusy||pendingWorldbuilding}
+          onClick={()=>restoreWorldbuilding(item.index)}>Recover {item.label}</button>)}
+      </details>}
       {pendingRecap&&<div role="status"><p>A saved Recap request needs recovery. Checking its status does not start another extraction.</p>
         <button disabled={launching||reviewBusy} onClick={()=>void recoverRecap()}>Check saved extraction</button>
         <button disabled={launching||reviewBusy} onClick={()=>void recoverRecap(true)}>Retry saved extraction request</button>
@@ -76,12 +85,14 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
       <div className="build-ingest-toolbar-row">
         <p data-testid="build-native-source-status" aria-live="polite">
           {nativeSource.loading
-            ? "Native World source: checking…"
+            ? "Checking whether the source is ready for World reviews…"
             : nativeSource.status?.state === "admitted"
-              ? "Native World source: admitted"
+              ? "Source saved and ready to use as evidence in World reviews."
               : nativeSource.status?.state === "pending"
-                ? "Source saved; native World admission pending"
-                : "Native World source status unavailable"}
+                ? nativeSource.status.code === "native_admission_pending"
+                  ? "Source saved. It isn’t ready to use as evidence in World reviews yet."
+                  : "Source saved. Buddy couldn’t check whether it’s ready for World reviews."
+                : "Couldn’t check whether the source is ready for World reviews."}
         </p>
         <div className="build-ingest-toolbar-actions">
           {nativeSource.status?.state === "pending" ? (
@@ -91,7 +102,7 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
               onClick={() => void nativeSource.retry()}
               disabled={nativeSource.retrying || nativeSource.loading}
             >
-              {nativeSource.retrying ? "Admitting…" : "Retry World admission"}
+              {nativeSource.retrying ? "Preparing source…" : "Retry source preparation"}
             </button>
           ) : null}
           <button
@@ -100,7 +111,7 @@ export function BuildIngestToolbar({ documentId, target, reviewTarget }: BuildIn
             onClick={() => void nativeSource.reload()}
             disabled={nativeSource.loading || nativeSource.retrying}
           >
-            Refresh World status
+            Check source status
           </button>
         </div>
       </div>

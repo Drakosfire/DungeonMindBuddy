@@ -1,6 +1,9 @@
 """Genuine source owner + guarded SDK + durable APP result; synthetic HTTP only."""
 from generationengine import GenerationEngineError
-from application_state.build_proposal.types import normalize_proposal_output
+from application_state.build_proposal.types import (
+    normalize_boundary_proposal_output,
+    normalize_proposal_output,
+)
 from tests.page_fixtures import create_page_fixture, save_page
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import asyncio
@@ -10,6 +13,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
 from application_state.build_proposal.service import BuildProposalService
@@ -20,6 +24,45 @@ from apps.live_control_server.services.world_container_registry import create_wo
 from apps.live_control_server.services.workspace_document_registry import (get_workspace_document_snapshot)
 
 TABLE = '| NPC | Job | Detail |\n| --- | --- | --- |\n| Nia | Baker | Keeps a blue lantern |'
+
+
+BOUNDARY_CALLOUT = "> [!READ-ALOUD] Crossing\n> A second lantern lights up."
+
+
+@pytest.mark.parametrize("markdown", [
+    "The station replaces loose planks.\n\nIts crew checks the supports.",
+    BOUNDARY_CALLOUT,
+    "One moment later.\n\n" + BOUNDARY_CALLOUT
+    + "\n>\n> The reeds part.\n\n> [!GM-NOTE] Wait\n> Keep the gate closed.",
+])
+def test_build_boundary_output_accepts_prose_and_callout_fragments(markdown):
+    assert normalize_boundary_proposal_output(_boundary_output(markdown)).replacement_markdown == markdown
+
+
+@pytest.mark.parametrize("markdown", [
+    "> [!READ-ALOUD] Empty\n>",
+    "> [!GM NOTE] Noncanonical\n> Keep the gate closed.",
+    BOUNDARY_CALLOUT + "\nUnquoted line.",
+    BOUNDARY_CALLOUT + "\n> - A list item.",
+    BOUNDARY_CALLOUT + "\n\n> Generic quotation.",
+    BOUNDARY_CALLOUT + "\n\n## New heading",
+    BOUNDARY_CALLOUT + "\n\n" + TABLE,
+    BOUNDARY_CALLOUT + "\n\n![Image](https://example.com/art.png)",
+    BOUNDARY_CALLOUT + "\n\n[Graph object](dmb-node:fake)",
+    "Ordinary prose.\n\n- A list item.",
+    "Ordinary prose.\n\n" + TABLE,
+    "Ordinary prose.\n\n![Image](https://example.com/art.png)",
+])
+def test_build_boundary_output_rejects_unsupported_fragments(markdown):
+    with pytest.raises(ValidationError, match="build_compose_(?:boundary|unsupported)"):
+        normalize_boundary_proposal_output(_boundary_output(markdown))
+
+
+def _boundary_output(markdown):
+    return json.dumps(dict(
+        target="prose_target", destination="current_page", replacement_markdown=markdown,
+        summary="Synthetic fixture.", assumptions=[],
+    ))
 
 
 @pytest.fixture

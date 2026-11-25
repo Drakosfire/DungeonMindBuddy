@@ -416,7 +416,7 @@ def test_last_explicit_selection_wins_without_cas(
     assert count_active_run_rows(application_state_dsn) == 1
 
 
-def test_active_run_latency_samples(tmp_path: Path, application_state_dsn: str) -> None:
+def test_active_run_latency_samples(tmp_path: Path, application_state_dsn: str, application_state_database) -> None:
     snapshot = create_committed_runbook(tmp_path, name="latency")
     create_run(tmp_path, snapshot, run_id=RUN_ID_A)
     create_run(tmp_path, create_committed_runbook(tmp_path, name="latency-b"), run_id=RUN_ID_B)
@@ -441,7 +441,7 @@ def test_active_run_latency_samples(tmp_path: Path, application_state_dsn: str) 
         assert committed.revision_n == run.playable_revision
 
     resume_p50, resume_p95, _ = measure_ms(resume_chain)
-    baseline = measure_file_backed_active_run_latency()
+    baseline = measure_file_backed_active_run_latency(application_state_database)
     print(
         "AS4 latency file-backed AS3 baseline vs head "
         f"get_p50={baseline['get_p50_ms']:.1f}->{get_p50:.1f} "

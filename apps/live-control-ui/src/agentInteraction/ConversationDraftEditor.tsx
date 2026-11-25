@@ -66,7 +66,8 @@ export function ConversationVariantApproval({ scope, placement }: {
     </section>;
 }
 
-function VariantCorrectionFields({ rules, busy, onStage, onDirty }: {
+function VariantCorrectionFields({ name, rules, busy, onStage, onDirty }: {
+  name: string;
   rules: ConversationVariantReview["definition"]["rule_elements"];
   busy: boolean;
   onStage: (replacements: VariantTextReplacement[]) => void;
@@ -74,23 +75,25 @@ function VariantCorrectionFields({ rules, busy, onStage, onDirty }: {
 }) {
   const [selected, setSelected] = useState(rules[0]?.key ?? "");
   const [edits, setEdits] = useState<Record<string, VariantTextReplacement>>({});
-  const dirty = Object.keys(edits).length > 0;
+  const [revisedName, setRevisedName] = useState(name);
+  const nameChanged = revisedName.trim() !== name;
+  const dirty = nameChanged || Object.keys(edits).length > 0;
   useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
   const rule = rules.find(item => item.key === selected);
-  if (!rule) return null;
-
-  const slots: [VariantRuleField, string, string | null | undefined][] = [
+  const slots: [VariantRuleField, string, string | null | undefined][] = rule ? [
     ["rules_text", "Rule text", rule.rules_text],
     ["timing_text", "Timing", rule.activation.timing_text],
     ["condition_text", "Trigger condition", rule.activation.trigger?.condition_text],
-  ];
+  ] : [];
   return <details>
     <summary>Correct reviewed rules</summary>
-    <label>Rule <select value={selected} disabled={busy} onChange={event => setSelected(event.target.value)}>
+    <label>Statblock name <input disabled={busy} value={revisedName}
+      onChange={event => setRevisedName(event.target.value)} /></label>
+    {rule && <label>Rule <select value={selected} disabled={busy} onChange={event => setSelected(event.target.value)}>
       {rules.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}
-    </select></label>
+    </select></label>}
     {slots.map(([field, label, value]) => {
-      if (!value) return null;
+      if (!rule || !value) return null;
       const key = rule.key + ":" + field;
       return <label key={key}>{label}
         <textarea disabled={busy} value={edits[key]?.with_text ?? value} onChange={event => {
@@ -105,9 +108,15 @@ function VariantCorrectionFields({ rules, busy, onStage, onDirty }: {
       </label>;
     })}
     <button type="button"
-      disabled={busy || !dirty || Object.values(edits).some(edit => !edit.with_text.trim())}
-      onClick={() => onStage(Object.values(edits))}>Stage corrected review</button>
-    {dirty && <button type="button" disabled={busy} onClick={() => setEdits({})}>Discard corrections</button>}
+      disabled={busy || !dirty || !revisedName.trim() || Object.values(edits).some(edit => !edit.with_text.trim())}
+      onClick={() => onStage([
+        ...(nameChanged ? [{field: "name" as const, replace_exact: name, with_text: revisedName}] : []),
+        ...Object.values(edits),
+      ])}>Stage corrected review</button>
+    {dirty && <button type="button" disabled={busy} onClick={() => {
+      setRevisedName(name);
+      setEdits({});
+    }}>Discard corrections</button>}
   </details>;
 }
 
@@ -278,8 +287,8 @@ export function ConversationDraftEditor({ scope, placement, initialReview }: {
                 hitPoints: summary => summary,
                 ruleEditor: () => null,
               }} />
-              {!savedVariant && review.data.definition.rule_elements?.length > 0 &&
-                <VariantCorrectionFields key={review.id} rules={review.data.definition.rule_elements}
+              {!savedVariant &&
+                <VariantCorrectionFields key={review.id} name={review.data.definition.identity.name} rules={review.data.definition.rule_elements ?? []}
                   busy={busy} onDirty={setCorrectionDirty} onStage={replacements => void correctVariant(replacements)} />}
               <button type="button" disabled={busy || savedVariant || correctionDirty} onClick={() => void confirmVariant()}>
                 Confirm and save as new statblock

@@ -1,6 +1,7 @@
 # ONBOARD: saved guest Build example
 
-Status: ACTIVE, serial successor to guest graph sandbox PR #4304, merged at
+Status: MERGED in PR #4318 at `42fab090985407f32b237bf34685a4cdda734268`;
+the capability remains disabled pending release qualification. This was the serial successor to guest graph sandbox PR #4304, merged at
 `b84831800c7d00e549bb73ea496633e1bd46d370`. The owner's onboarding goal
 authorizes implementation, Bugbot review, merge and deployment subject to the
 applicable release and verification gates. Bugbot independently critiqued the

@@ -1,16 +1,30 @@
 import userEvent from '@testing-library/user-event';
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
-import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {webcrypto} from 'node:crypto';
 import {Editor} from '@tiptap/core';
 import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../tiptap/MarkdownEditorCore';
 import {tiptapJsonToSemanticMarkdown} from '../tiptap/markdown/calloutMarkdown';
 import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
-import {createBuildComposeBridge,type BuildComposeEditorState} from './buildComposeBridge';
+import {createBuildComposeBridge,type BuildComposeBridge,type BuildComposeEditorState,type PreparedBuildGraphReference} from './buildComposeBridge';
 import {BuildPageProposal} from './BuildPageProposal';
+import {BuildGraphReferenceReview} from './BuildGraphReferenceReview';
+import {BuildImageMoveReview} from './BuildImageMoveReview';
+import {imageMoveReview,type BuildImageMoveReviewRecord} from '../api/buildImageMoveReviewApi';
+import {BuildGraphReferenceReviewError,graphReferenceReview,type BuildGraphReferenceReviewRecord} from '../api/buildGraphReferenceReviewApi';
 import {proposalReview,type BuildProposalReview} from '../api/buildProposalReviewApi';
-import type {BuildProposalRecord} from '../api/buildDocumentProposalApi';
+import type {BuildProposalRecord,BuildProseBoundaryTarget} from '../api/buildDocumentProposalApi';
+import {captureProseTargetCatalog,resolveProseTarget} from '../documentEditing/proseTargetCatalog';
+import {canonical} from '../shared/sourcePassageProtocol';
 vi.mock('../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
+vi.mock('../api/buildGraphReferenceReviewApi',async importOriginal=>({
+  ...await importOriginal<typeof import('../api/buildGraphReferenceReviewApi')>(),
+  graphReferenceReview:vi.fn(),
+}));
+vi.mock('../api/buildImageMoveReviewApi',async importOriginal=>({
+  ...await importOriginal<typeof import('../api/buildImageMoveReviewApi')>(),
+  imageMoveReview:vi.fn(),
+}));
 let editor:Editor;let state:BuildComposeEditorState;let bridge:ReturnType<typeof createBuildComposeBridge>;
 let record:BuildProposalRecord;let saved:BuildProposalReview;let lostAck=false;let lostPrepare=false;
 const status=vi.fn();const complete=vi.fn();
@@ -44,7 +58,7 @@ beforeEach(async()=>{
     retired_placements:[...(saved.retired_placements??[]),{basis:{...(saved.placement?.basis??record.reservation.basis),caret:saved.placement_caret},markdown:saved.markdown,
       markdown_sha256:saved.markdown_sha256,apply:saved.apply,command_id:saved.placement?.command_id??null,
       disposition:saved.apply?'superseded_unresolved':'superseded_unapplied'}]};
-  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{...(saved.page_body_target?{page_body_target:saved.page_body_target}:{}),...(saved.page_end_target?{page_end_target:saved.page_end_target}:{}),placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
+  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{...(saved.page_body_target?{page_body_target:saved.page_body_target}:{}),...(saved.page_end_target?{page_end_target:saved.page_end_target}:{}),...(saved.prose_target?{prose_target:saved.prose_target}:{}),placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
    after_editor_sha256:command.after_editor_sha256!,after_draft_sha256:command.after_draft_sha256!,reviewed_sha256:saved.markdown_sha256}};
   if(command.operation==='prepare'&&lostPrepare)throw new Error('Prepared outcome unavailable');
   if(command.operation==='confirm'){if(lostAck)throw new Error('Acknowledgment unavailable');saved={...saved,revision:saved.revision+1,state:'applied'};}
@@ -54,6 +68,54 @@ beforeEach(async()=>{
 afterEach(()=>{cleanup();editor.destroy();editor.view.dom.remove();Reflect.deleteProperty(Range.prototype,'getClientRects');Reflect.deleteProperty(Range.prototype,'getBoundingClientRect');Reflect.deleteProperty(document,'elementFromPoint');});
 async function writeSuggestion(value:string){const box=await screen.findByRole('textbox',{name:'Suggestion text'});await userEvent.clear(box);await userEvent.type(box,value);}
 function Review({source='doc:1',request=0}:{source?:string;request?:number}){return <BuildPageProposal record={record} bridge={bridge} sourceKey={source} requestKey={request} onStatus={status} onComplete={complete} inspector={<p>Exact captured prompt</p>}/>;}
+it('sends the offered Build boundary to Prepare and saves only after author review',async()=>{
+ editor.commands.setTextSelection(1);
+ const original=await bridge.capture();
+ const context=()=>({editor,scopeKey:'test',draftGeneration:0,canEdit:true});
+ const catalog=captureProseTargetCatalog(context);
+ const offered=catalog.choices.find(choice=>choice.passage==='After'&&choice.operation==='insert_after')!;
+ const found=resolveProseTarget(catalog,offered.selector,context);
+ const proof:BuildProseBoundaryTarget={schema:'dmb_build_prose_boundary_target_v1',
+  alias:offered.selector,operation:offered.operation,from:found.from,to:found.to,
+  catalog_sha256:await digest(JSON.stringify(catalog.choices)),before_text_sha256:await digest(offered.passage)};
+ const markdown='A lantern guard waits.\n';
+ record={...record,schema_version:'dmb_build_document_proposal_v3',
+  reservation:{...record.reservation,basis:original.basis,prose_target:proof},
+  proposal:{target:'prose_target',replacement_markdown:markdown,summary:'A proposed lookout.',assumptions:[]}};
+ saved={...saved,schema:'dmb_build_proposal_review_v5',placement_caret:1,prose_target:proof,markdown,markdown_sha256:await digest(markdown)};
+ const persist=vi.spyOn(bridge,'saveProposal'),before=editor.getJSON();
+ render(<Review/>);
+ const button=await screen.findByRole('button',{name:'Save',exact:true});
+ expect(screen.queryByRole('button',{name:'Move',exact:true})).not.toBeInTheDocument();
+ expect(editor.getJSON()).toEqual(before);
+ expect(persist).not.toHaveBeenCalled();
+ fireEvent.click(button);
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(vi.mocked(proposalReview).mock.calls.find(([, ,cmd])=>cmd?.operation==='prepare')?.[2]).toMatchObject({prose_target:proof});
+ expect(persist).toHaveBeenCalledExactlyOnceWith(original.basis,saved.apply!.after_editor_sha256,saved.apply!.after_draft_sha256,undefined,proof);
+ expect(saved.apply?.placement_caret).toBe(1);
+ expect(editor.getJSON().content?.slice(0,-1)).toEqual(before.content);
+ expect(editor.getText()).toBe('Before\n\nAfter\n\nA lantern guard waits.');
+});
+it('previews callouts after the paragraph that ends at the captured caret',async()=>{
+ const markdown='> [!READ-ALOUD] Arrival\n> Three lanterns light the boardwalk.\n\n> [!GM-NOTE]\n> Wait for the players to choose.';
+ saved={...saved,markdown,markdown_sha256:await digest(markdown)};
+ const before=editor.getJSON();
+ render(<Review/>);
+
+ const proposal=await screen.findByRole('region',{name:'Proposed page change'});
+ expect(proposal.previousElementSibling).toHaveTextContent('Before');
+ expect(proposal.nextElementSibling).toHaveTextContent('After');
+ expect(editor.getJSON()).toEqual(before);
+
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ const children=editor.getJSON().content!;
+ expect(children[0]).toEqual(before.content![0]);
+ expect(children).toHaveLength(4);
+ expect(tiptapJsonToSemanticMarkdown({type:'doc',content:children.slice(1,3)}).trim()).toBe(markdown);
+ expect(children[3]).toEqual(before.content![1]);
+});
 it('stages outside editor JSON, edits and keeps once at its original position with one Undo',async()=>{
  const before=editor.getJSON();render(<Review/>);
  await screen.findByRole('region',{name:'Proposed page change'});
@@ -304,6 +366,8 @@ it('waits for verified page persistence before confirming and recovers a failed 
  fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
  await waitFor(()=>expect(persist).toHaveBeenCalledTimes(1));
  expect(saved.state).toBe('applying');expect(complete).not.toHaveBeenCalled();
+ expect(screen.getByRole('status')).toHaveTextContent('Saving suggestion…');
+ expect(screen.queryByRole('button',{name:'Check insertion'})).not.toBeInTheDocument();
  expect(vi.mocked(proposalReview).mock.calls.some(([, ,command])=>command?.operation==='confirm')).toBe(false);
  await act(async()=>rejectSave(new Error('The page save was not verified.')));
  await screen.findByRole('button',{name:'Check insertion'});expect(saved.state).toBe('applying');
@@ -495,4 +559,175 @@ it('refuses a returned review that drops the immutable page-end target',async()=
  await screen.findByText('The saved review differs from the captured page-end target.');
  expect(editor.getJSON()).toEqual(before);
  expect(vi.mocked(proposalReview).mock.calls.some(([, ,cmd])=>cmd?.operation==='prepare')).toBe(false);
+});
+
+describe('typed Graph reference Review', () => {
+  const digest = 'a'.repeat(64);
+  const action = 'reference-action';
+  const world = 'observatory';
+  const editing: BuildGraphReferenceReviewRecord = {
+    schema:'dmb_build_graph_reference_review_v1', action_id:action, revision:1, state:'editing', apply:null, saved_revision:null,
+    placement:{
+      basis:{world_id:world,document_id:'moon-gallery',registry_revision:1,content_sha256:digest,visibility:'internal',
+        caret:1,draft_sha256:digest,editor_sha256:digest,draft_generation:0,selection_generation:0},
+      boundary:{schema:'dmb_build_prose_boundary_target_v1',alias:'passage1:insert_after',operation:'insert_after',
+        from:9,to:9,catalog_sha256:digest,before_text_sha256:digest},
+      reference:{schema:'dmb_authored_graph_reference_v1',managed_world_id:world,native_world_id:'native-vol',
+        binding_version:1,graph_revision:'rev:current',node_id:'threat:lurker',label:'Moon Lurker'},
+      entity_kind:'threat',
+    },
+  };
+
+  function bridgeFixture() {
+    const prepared = {
+      captured:{editorJson:'before editor',draftMarkdown:'before draft'},
+      placement:editing.placement,afterEditorJson:'after editor',afterDraft:'after draft',
+      postimage:{editor_sha256:digest,draft_sha256:digest,content_sha256:digest,presentation_sha256:null},
+    } as PreparedBuildGraphReference;
+    return {
+      prepareGraphReference:vi.fn().mockResolvedValue(prepared), applyGraphReference:vi.fn(),
+      inspectProposal:vi.fn().mockResolvedValue({state:'before'}), saveProposal:vi.fn().mockResolvedValue(undefined),
+    } satisfies Partial<BuildComposeBridge>;
+  }
+
+  beforeEach(() => vi.mocked(graphReferenceReview).mockReset());
+
+  it('requires the current editable internal Build page before mounting Review', () => {
+    expect(bridge.canReviewGraphReference?.(state.worldId,state.documentId)).toBe(true);
+    expect(bridge.canReviewGraphReference?.(state.worldId,'different-page')).toBe(false);
+    state.canEdit=false;
+    expect(bridge.canReviewGraphReference?.(state.worldId,state.documentId)).toBe(false);
+  });
+
+  it.each(['conversation','document','placement'])('refuses Review from a mismatched %s before exposing Save', async mismatch=>{
+    const bridge=bridgeFixture();
+    const bytes=new TextEncoder().encode(canonical(editing.placement));
+    const expectedHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),
+      byte=>byte.toString(16).padStart(2,'0')).join('');
+    vi.mocked(graphReferenceReview).mockResolvedValue({...editing,conversation_id:'conversation-one'});
+    render(<BuildGraphReferenceReview world={world} action={action} bridge={bridge as unknown as BuildComposeBridge}
+      conversationId={mismatch==='conversation'?'foreign':'conversation-one'}
+      documentId={mismatch==='document'?'different-page':'moon-gallery'} placementSha256={mismatch==='placement'?digest:expectedHash}/>);
+    expect(await screen.findByRole('alert')).toHaveTextContent('does not match this conversation and page');
+    expect(screen.queryByRole('button',{name:'Insert and save reference'})).not.toBeInTheDocument();
+    expect(bridge.prepareGraphReference).not.toHaveBeenCalled();
+  });
+
+  it('withholds Save and Discard when the original page is read-only', async () => {
+    const bridge={...bridgeFixture(),canReviewGraphReference:()=>false};
+    const bytes=new TextEncoder().encode(canonical(editing.placement));
+    const expectedHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),
+      byte=>byte.toString(16).padStart(2,'0')).join('');
+    vi.mocked(graphReferenceReview).mockResolvedValue({...editing,conversation_id:'conversation-one'});
+    render(<BuildGraphReferenceReview world={world} action={action} bridge={bridge as unknown as BuildComposeBridge}
+      conversationId="conversation-one" documentId="moon-gallery" placementSha256={expectedHash}/>);
+    expect(await screen.findByText('Moon Lurker',{exact:true})).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('opens an inert review and refuses a changed Graph before applying or saving', async () => {
+    const bridge = bridgeFixture();
+    vi.mocked(graphReferenceReview).mockImplementation(async (_world,_action,command) => {
+      if (!command) return editing;
+      if (command.operation === 'prepare') return {...editing,state:'applying',revision:2,apply:command.apply};
+      throw new BuildGraphReferenceReviewError(409);
+    });
+    render(<BuildGraphReferenceReview world={world} action={action} bridge={bridge as unknown as BuildComposeBridge} />);
+    const insert = await screen.findByRole('button',{name:'Insert and save reference'});
+    expect(screen.getByText('Moon Lurker')).toBeTruthy();
+    expect(graphReferenceReview).toHaveBeenCalledTimes(1);
+    expect(bridge.prepareGraphReference).not.toHaveBeenCalled();
+    fireEvent.click(insert);
+    expect(await screen.findByRole('alert')).toHaveTextContent('page or Graph reference changed');
+    expect(bridge.applyGraphReference).not.toHaveBeenCalled();
+    expect(bridge.saveProposal).not.toHaveBeenCalled();
+  });
+
+  it('recovers a dropped prepare reply using its same apply ID and saves once', async () => {
+    const bridge = bridgeFixture();
+    const onComplete = vi.fn();
+    let current = editing;
+    let committed = false;
+    bridge.saveProposal.mockImplementation(async () => { committed = true; });
+    const prepareIds: string[] = [];
+    vi.mocked(graphReferenceReview).mockImplementation(async (_world,_action,command) => {
+      if (!command) return current;
+      if (command.operation === 'prepare') {
+        prepareIds.push(command.apply.apply_id);
+        current = {...editing,state:'applying',revision:2,apply:command.apply};
+        if (prepareIds.length === 1) throw new Error('The prepare acknowledgement was interrupted.');
+        return current;
+      }
+      if (command.operation === 'authorize_save') return current;
+      if (command.operation !== 'confirm') throw new Error('Unexpected Review command');
+      if (!committed) throw new BuildGraphReferenceReviewError(409);
+      return {...current,state:'applied',revision:3,saved_revision:2};
+    });
+    render(<BuildGraphReferenceReview world={world} action={action} bridge={bridge as unknown as BuildComposeBridge} onComplete={onComplete} />);
+    fireEvent.click(await screen.findByRole('button',{name:'Insert and save reference'}));
+    const finish = await screen.findByRole('button',{name:'Finish saving reference'});
+    await waitFor(() => expect(finish).not.toBeDisabled());
+    expect(bridge.applyGraphReference).not.toHaveBeenCalled();
+    fireEvent.click(finish);
+    expect(await screen.findByRole('status')).toHaveTextContent('Graph reference saved.');
+    expect(prepareIds).toHaveLength(2);
+    expect(prepareIds[0]).toBe(prepareIds[1]);
+    expect(bridge.applyGraphReference).toHaveBeenCalledTimes(1);
+    expect(bridge.saveProposal).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledExactlyOnceWith('applied');
+  });
+
+  it('confirms an already committed legacy postimage without writing a new editor serialization', async () => {
+    const bridge = bridgeFixture();
+    const applying: BuildGraphReferenceReviewRecord = {...editing,state:'applying',revision:2,apply:{
+      apply_id:'legacy-apply',editor_sha256:digest,draft_sha256:'b'.repeat(64),
+      content_sha256:'b'.repeat(64),presentation_sha256:null,
+    }};
+    vi.mocked(graphReferenceReview).mockImplementation(async (_world,_action,command) => {
+      if (!command) return applying;
+      expect(command).toEqual({operation:'confirm',apply_id:'legacy-apply'});
+      return {...applying,state:'applied',revision:3,saved_revision:2};
+    });
+    render(<BuildGraphReferenceReview world={world} action={action} bridge={bridge as unknown as BuildComposeBridge} />);
+    fireEvent.click(await screen.findByRole('button',{name:'Finish saving reference'}));
+    expect(await screen.findByRole('status')).toHaveTextContent('Graph reference saved.');
+    expect(bridge.prepareGraphReference).not.toHaveBeenCalled();
+    expect(bridge.saveProposal).not.toHaveBeenCalled();
+  });
+});
+
+it('reconciles a lost image claim acknowledgment without applying or issuing a new claim', async () => {
+  const placement = {
+    basis:{...record.reservation.basis,draft_sha256:record.reservation.basis.content_sha256},
+    presentation_sha256:'2'.repeat(64),row_id:'row',source_slot_id:'left',
+    destination_slot_id:'right',image_block_id:'map',
+  };
+  const action = 'test-image-action';
+  let stored: BuildImageMoveReviewRecord = {
+    schema:'dmb_build_image_move_review_v1',action_id:action,conversation_id:'conversation',
+    expected_pointer_revision:1,placement,after_editor_sha256:'3'.repeat(64),
+    after_presentation_sha256:'4'.repeat(64),state:'editing',claim_id:null,saved_revision:null,
+    revision:1,updated_at:'',
+  };
+  const commandBridge = {
+    ...bridge,
+    canReviewImageMove:() => true,
+    prepareImageMove:vi.fn().mockResolvedValue({editorJson:'before',afterEditorJson:'after'}),
+    applyPreparedImageMove:vi.fn(),
+  };
+  vi.mocked(imageMoveReview).mockImplementation(async (_world,_action,command) => {
+    if (command?.operation === 'claim') {
+      stored = {...stored,state:'claimed',claim_id:command.claim_id,revision:2};
+      throw new Error('Claim acknowledgment unavailable.');
+    }
+    return {review:stored,issued:false};
+  });
+  render(<BuildImageMoveReview world="world" action={action} conversation="conversation"
+    documentId="doc" savedRevision={1} bridge={commandBridge} placementSha256={await digest(canonical(placement))}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Apply image move'}));
+  expect(await screen.findByRole('status')).toHaveTextContent('already claimed');
+  expect(screen.queryByRole('button',{name:'Apply image move'})).not.toBeInTheDocument();
+  expect(commandBridge.applyPreparedImageMove).not.toHaveBeenCalled();
+  expect(imageMoveReview).toHaveBeenCalledTimes(3);
+  expect(vi.mocked(imageMoveReview).mock.calls.filter(call=>call[2]?.operation==='claim')).toHaveLength(1);
 });

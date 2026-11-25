@@ -113,6 +113,27 @@ def find_saved_version(root, *, world_id, name, client=None):
 
 
 
+def verify_append_result(result, *, base, expected_digest, request_body):
+    """Check the producer receipt against the exact submitted append."""
+    verify_exact_revision_mechanics_integrity(result)
+    accepted_through = (result.provenance or {}).get('accepted_through')
+    if (
+        result.statblock_id != base.statblock_id
+        or getattr(result.parent_revision_id, "root", result.parent_revision_id) != base.revision_id
+        or result.definition_digest != expected_digest
+        or result.validation_receipt.status == ValidationStatus.invalid
+        or any(issue.severity == ValidationSeverity.error for issue in result.validation_receipt.issues or [])
+        or accepted_through != request_body['accepted_through']
+        or result.definition.model_dump(mode='json')['ruleset'] != request_body['definition']['ruleset']
+        or [binding.model_dump(mode='json', exclude_none=True) for binding in result.asset_bindings or []]
+        != [
+            AssetBindingV1Input.model_validate(binding).model_dump(mode='json', exclude_none=True)
+            for binding in request_body['asset_bindings']
+        ]
+    ):
+        raise ApplicationStateIntegrityError('Appended result differs from its exact saved intent')
+
+
 def _resume(record,client,authorize=None):
     if authorize is not None:authorize()
     if record.state in {'committed','refused'}:return record
@@ -120,19 +141,10 @@ def _resume(record,client,authorize=None):
     if authorize is not None:authorize()
     try:
         result=client.append_revision(record.base.statblock_id,record.request_body)
-        verify_exact_revision_mechanics_integrity(result)
-        accepted_through=(result.provenance or {}).get('accepted_through')
-        if (result.statblock_id!=record.base.statblock_id or getattr(result.parent_revision_id,"root",result.parent_revision_id)!=record.base.revision_id
-            or result.definition_digest!=record.definition_digest
-            or result.validation_receipt.status==ValidationStatus.invalid
-            or any(issue.severity==ValidationSeverity.error for issue in result.validation_receipt.issues or [])
-            or not isinstance(accepted_through,dict)
-            or accepted_through.get('buddy_manual_revision')!=str(record.operation_id)
-            or accepted_through!=record.request_body['accepted_through']
-            or result.definition.model_dump(mode='json')['ruleset']!=record.request_body['definition']['ruleset']
-            or [b.model_dump(mode='json',exclude_none=True) for b in result.asset_bindings or []]
-                != [AssetBindingV1Input.model_validate(b).model_dump(mode='json',exclude_none=True) for b in record.request_body['asset_bindings']]):
-            raise ApplicationStateIntegrityError('Appended result differs from its exact saved intent')
+        verify_append_result(
+            result, base=record.base, expected_digest=record.definition_digest,
+            request_body=record.request_body,
+        )
         locator=MechanicsLocator.model_validate(locator_from_exact_revision(result).model_dump())
         return operations.settle(record,state='committed',result=locator)
     except StatblockIntegrationError as exc:
@@ -145,7 +157,7 @@ def _resume(record,client,authorize=None):
         return record
 
 
-def _asset_bindings(exact,asset_id,owner):
+def admitted_portrait_bindings(exact, asset_id, owner):
     bindings=list(exact.asset_bindings or [])
     if asset_id is None:
         return [binding.model_dump(mode='json') for binding in bindings]
@@ -186,7 +198,7 @@ def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None,au
         exact=_exact(active,base)
         if exact.definition.ruleset is not None and request.definition.ruleset != exact.definition.ruleset:
             raise ApplicationStateConflictError('Manual revision cannot change the creature ruleset')
-        bindings=_asset_bindings(exact,request.portrait_asset_id,media_owner)
+        bindings=admitted_portrait_bindings(exact,request.portrait_asset_id,media_owner)
         validation=validate_definition(definition=request.definition,client=active)
         if validation.outcome!='success' or validation.validation_receipt is None:
             raise ApplicationStateUnavailableError('Mechanics validation is unavailable. Your edits are retained; try again when it is available.')

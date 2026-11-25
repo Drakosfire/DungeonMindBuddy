@@ -28,6 +28,17 @@ import { insertPlanStructure, planStructureActions, promotePlanHeading } from ".
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
+import { PAGE_COMPOSER_EXTENSIONS, PageComposerTools, pageComposerActions } from "../tiptap/pageComposer/PageRow";
+import { LAYOUT_EDITABILITY_EVENT } from "../tiptap/pageComposer/contextualLayout";
+import {
+  composerDisabledReason,
+  flattenPresentation,
+  hydratePresentation,
+  presentationCanonicalJson,
+  presentationFingerprint,
+  projectPresentation,
+  type PagePresentation,
+} from "../tiptap/pageComposer/presentation";
 
 import {
   commitWorldOwnedPlanMarkdownWrite,
@@ -76,6 +87,9 @@ import {
   captureWorldPlanEditTarget,
   captureWorldPlanAuthoringTarget,
   sealWorldPlanAuthoringTarget,
+  freezeComposedPlanAuthoring,
+  inspectComposedAuthoringTarget,
+  applyComposedPlanAuthoring,
   restorePlanAuthoringTarget,
   preparePlanAuthoringApplication,
   previewWorldPlanEditProposal,
@@ -180,7 +194,21 @@ export function PlanSurfacePage() {
   );
 }
 
-interface WorldPlanLocalDraftV2 {
+interface PlanPresentationFields {
+  page_presentation?: PagePresentation | null;
+  page_presentation_sha256?: string | null;
+}
+
+function checkedPlanPresentation(markdown: string, fields: PlanPresentationFields): PagePresentation | null {
+  const presentation = fields.page_presentation ?? null;
+  if (presentationFingerprint(presentation) !== (fields.page_presentation_sha256 ?? null)) {
+    throw new Error("The Plan layout fingerprint could not be verified.");
+  }
+  if (presentation !== null) hydratePresentation(markdown, presentation);
+  return presentation;
+}
+
+interface WorldPlanLocalDraftV2 extends PlanPresentationFields {
   schema_version: "dmb_plan_promotion_recovery_v2";
   scope_mode: "world";
   world_id: string;
@@ -205,6 +233,8 @@ interface WorldPlanLocalDraftV2 {
     markdown: string;
     title?: string;
     base_title?: string;
+    base_page_presentation_sha256?: string | null;
+    page_presentation_sha256?: string | null;
     edit_generation: number;
   } | null;
 }
@@ -273,6 +303,8 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
       local_draft_id: localDraftId,
       title: value.title,
       markdown: value.markdown,
+      page_presentation: value.page_presentation,
+      page_presentation_sha256: value.page_presentation_sha256,
       revision: typeof value.revision === "number" ? value.revision : null,
       edit_generation: typeof value.edit_generation === "number" ? value.edit_generation : 0,
       create_uncertain: value.create_uncertain === true,
@@ -306,6 +338,8 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
           markdown: value.pending_write.markdown,
           ...("title" in value.pending_write ? {title: typeof value.pending_write.title === "string" ? value.pending_write.title : ""} : {}),
           ...("base_title" in value.pending_write ? {base_title: typeof value.pending_write.base_title === "string" ? value.pending_write.base_title : ""} : {}),
+          base_page_presentation_sha256: value.pending_write.base_page_presentation_sha256,
+          page_presentation_sha256: value.pending_write.page_presentation_sha256,
           edit_generation: value.pending_write.edit_generation,
         }
         : null,
@@ -319,6 +353,7 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
 function persistWorldPlanLocalDraft(
   worldId: string,
   draft: Pick<WorldPlanLocalDraftV2, "document_id" | "title" | "markdown" | "revision">
+    & PlanPresentationFields
     & Partial<Pick<WorldPlanLocalDraftV2, "local_draft_id" | "edit_generation" | "create_uncertain" | "uncertain_create_draft" | "pending_write">>,
 ): void {
   try {
@@ -335,6 +370,12 @@ function persistWorldPlanLocalDraft(
       create_uncertain: false,
       pending_write: null,
       uncertain_create_draft: uncertainCreateDraft,
+      ...(previous?.document_id === draft.document_id && previous.markdown === draft.markdown
+        ? {
+          page_presentation: previous.page_presentation,
+          page_presentation_sha256: previous.page_presentation_sha256,
+        }
+        : {}),
       ...draft,
     } satisfies WorldPlanLocalDraftV2));
   } catch {
@@ -419,6 +460,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     revision: number;
     contentSha256: string;
     contentStatus: WorldOwnedPlanRecordV2["content_status"];
+    presentation?: PagePresentation | null;
   } | null>(null);
   const [editorGeneration, setEditorGeneration] = useState(0);
   const [selectionGeneration, setSelectionGeneration] = useState(0);
@@ -434,16 +476,37 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const selectedPlayableTargetRef=useRef(selectedPlayableTarget);selectedPlayableTargetRef.current=selectedPlayableTarget;
   const [selectedPlayableEditTarget, setSelectedPlayableEditTarget] = useState<SelectedWorldPlanPlayableEditTarget | null>(null);
   const [playableEditTargetGeneration, setPlayableEditTargetGeneration] = useState(0);
-  const editorIdentity = `${worldId}:${documentId ?? localDraftId}:${editorGeneration}`;
+  const [composing, setComposing] = useState(false);
+  const [layoutAvailabilityVersion, refreshLayoutAvailability] = useState(0);
+  const [presentation, setPresentation] = useState<PagePresentation | null>(null);
+  const presentationRef = useRef<PagePresentation | null>(null);
+  const serverPresentationRef = useRef<PagePresentation | null>(null);
+  const updatePresentation = (next: PagePresentation | null) => {
+    presentationRef.current = next;
+    setPresentation(next);
+  };
+  const editorIdentity = `${worldId}:${documentId ?? localDraftId}:${editorGeneration}${composing ? ":layout" : ""}`;
   const importedMarkdown = useMemo(() => {
     const accepted = markdownState.validated;
     return accepted?.editorIdentity === editorIdentity
       ? accepted.imported
       : markdownToTiptapDoc(markdownState.markdown);
   }, [markdownState, editorIdentity]);
-  const editorContent = importedMarkdown.doc;
+  const editorContent = useMemo(() => {
+    if (presentation) return hydratePresentation(markdownState.markdown, presentation);
+    if (!composing) return importedMarkdown.doc;
+    // The pre-layout history must already carry identities so Undo of the
+    // first row can retain them if that row's Save actually committed.
+    return {
+      ...importedMarkdown.doc,
+      content: importedMarkdown.doc.content?.map((block, index) => ({
+        ...block,
+        attrs: { ...block.attrs, pageBlockId: `block-${index}` },
+      })),
+    };
+  }, [composing, presentation, markdownState.markdown, importedMarkdown]);
   const fidelityWarnings = useMemo(
-    () => markdownFidelityWarnings(importedMarkdown.diagnostics, editorContent),
+    () => markdownFidelityWarnings(importedMarkdown.diagnostics, flattenPresentation(editorContent)),
     [importedMarkdown, editorContent],
   );
   const fidelityBlocked = fidelityWarnings.length > 0;
@@ -496,6 +559,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const serverTitleRef = useRef("");
   const serverMarkdownRef = useRef("");
   const editorRef = useRef<Editor | null>(null);
+  const reviewedComposedCopies = useRef(new WeakMap<Editor, Map<string, {markdown: string; layout: PagePresentation}>>());
   const getLiveFidelityWarnings = useCallback((editorDocument?: JSONContent) => {
     const currentMarkdown = markdownRef.current;
     const currentImport = currentMarkdown === markdown
@@ -503,9 +567,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       : markdownToTiptapDoc(currentMarkdown);
     return markdownFidelityWarnings(
       currentImport.diagnostics,
-      editorDocument ?? editorRef.current?.getJSON() ?? currentImport.doc,
+      composing
+        ? flattenPresentation(editorDocument ?? editorRef.current?.getJSON() ?? currentImport.doc)
+        : editorDocument ?? editorRef.current?.getJSON() ?? currentImport.doc,
     );
-  }, [importedMarkdown, markdown]);
+  }, [composing, importedMarkdown, markdown]);
   const workObject = useMemo(() => worldPlanWorkObject({ worldId, documentId, localDraftId }), [worldId, documentId, localDraftId]);
   const surfaceIdentity = useMemo(() => buildWorldPlanSurfaceIdentity({ worldId, documentId, localDraftId }), [worldId, documentId, localDraftId]);
   const activePublication = useMemo<SurfaceInteractionPublication | null>(() => status === "ready" ? {
@@ -537,6 +603,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     && documentIdRef.current === expectedDocumentId;
 
   const navigationIdentity = `${worldId}:${documentId ?? localDraftId}:${selectionEpochRef.current}`;
+  const cardsViewActive = Boolean(documentId) && status === "ready"
+    && (selectedCardViewIdentity === navigationIdentity
+      || (routeCardsViewRequested && documentId === initialDocumentId));
   const editorIdentityRef = useRef(editorIdentity);
   editorIdentityRef.current = editorIdentity;
   const isCurrentEditTarget = useMemo(() => {
@@ -564,8 +633,19 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     editor.on("selectionUpdate", onSelectionUpdate);
     return () => { editor.off("selectionUpdate", onSelectionUpdate); };
   }, [editor]);
+  useEffect(() => {
+    if (!composing || !editor || editor.isDestroyed) return;
+    const dom = editor.view.dom;
+    const refresh = () => refreshLayoutAvailability(version => version + 1);
+    dom.addEventListener(LAYOUT_EDITABILITY_EVENT, refresh);
+    editor.on("transaction", refresh);
+    return () => {
+      dom.removeEventListener(LAYOUT_EDITABILITY_EVENT, refresh);
+      editor.off("transaction", refresh);
+    };
+  }, [composing, editor]);
 
-  const worldEditStateGetterRef = useRef<(applicationId?:string) => WorldPlanEditEditorState>(() => ({
+  const worldEditStateGetterRef = useRef<(applicationId?:string, composedMode?:boolean) => WorldPlanEditEditorState>(() => ({
     editor: null,
     documentId: null,
     worldId,
@@ -579,7 +659,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     playableTargetStale: false,
     canEdit: false,
   }));
-  worldEditStateGetterRef.current = (applicationId) => ({
+  worldEditStateGetterRef.current = (applicationId, composedMode = false) => ({
     editor: editorRef.current,
     documentId: documentIdRef.current,
     worldId,
@@ -595,8 +675,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     currentSceneTargetStale: selectedPlayableTargetRef.current!==null&&selectedPlayableTargetStale,
     currentSceneTargetLabel: cardTargetLabel(selectedPlayableTargetRef.current?.target ?? null),
     playableTargetLabel: cardTargetLabel(selectedPlayableEditTargetRef.current?.target ?? null),
+    composedAuthoring: composing && serverPresentationRef.current && presentationRef.current
+      ? {saved: serverPresentationRef.current, draft: presentationRef.current} : undefined,
     canEdit: Boolean(
       !sourceEditingRef.current
+      && composing === composedMode
       && documentIdRef.current
       && serverDigestRef.current
       && isCurrentEditTarget()
@@ -613,18 +696,28 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const authoringMoveCaptureRef=useRef<NonNullable<WorldPlanEditBridge['captureAuthoringAt']>>(async()=>{throw new Error('Plan placement owner unavailable');});
   const authoringSaveRef=useRef<NonNullable<WorldPlanEditBridge['saveAuthoring']>>(async()=>{throw new Error('Plan Save owner unavailable');});
   const authoringReconcileRef=useRef<NonNullable<WorldPlanEditBridge['reconcileAuthoring']>>(async()=>{throw new Error('Plan recovery owner unavailable');});
-  const authoringAckRef=useRef<(application:PlanReviewApplication)=>Promise<void>>(async()=>{throw new Error('Plan Save receipt owner unavailable');});
+  const authoringAckRef=useRef<(application:PlanReviewApplication, isRecoveryCurrent?:()=>boolean)=>Promise<void>>(async()=>{throw new Error('Plan Save receipt owner unavailable');});
   const worldPlanEditBridge = useMemo<WorldPlanEditBridge>(() => ({
+    freezeComposedAuthoring: async () => {
+      const current = worldEditStateGetterRef.current(undefined, true);
+      return current.composedAuthoring
+        ? freezeComposedPlanAuthoring(current, () => worldEditStateGetterRef.current(undefined, true))
+        : null;
+    },
+    inspectComposedAuthoring: (capture, applicationId) => inspectComposedAuthoringTarget(
+      capture, worldEditStateGetterRef.current(applicationId, true),
+    ),
     captureAuthoring: (identity,applicationId) => captureWorldPlanAuthoringTarget(
       worldEditStateGetterRef.current(applicationId), () => worldEditStateGetterRef.current(applicationId), identity,
     ),
     sealAuthoring:sealWorldPlanAuthoringTarget,
-    capturePlacementCatalog:(target,capture)=>capturePlanPlacementCatalog(target.editor,capture),
+    capturePlacementCatalog:(target,capture)=>capturePlanPlacementCatalog(target.editor,capture,true),
     captureAuthoringAt:(...args)=>authoringMoveCaptureRef.current(...args),
     restoreAuthoring:(capture,identity)=>restorePlanAuthoringTarget(capture,
-      worldEditStateGetterRef.current(),()=>worldEditStateGetterRef.current(),identity),
+      worldEditStateGetterRef.current(undefined, capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1'),
+      ()=>worldEditStateGetterRef.current(undefined, capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1'),identity),
     prepareAuthoring:(target,markdown,action,expected,binding)=>preparePlanAuthoringApplication(
-      target,markdown,action,()=>worldEditStateGetterRef.current(),expected,binding),
+      target,markdown,action,()=>worldEditStateGetterRef.current(undefined, Boolean(target.slotCapture)),expected,binding),
     saveAuthoring:(...args)=>authoringSaveRef.current(...args),
     acknowledgeAuthoring:application=>authoringAckRef.current(application),
     reconcileAuthoring:(...args)=>authoringReconcileRef.current(...args),
@@ -633,7 +726,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       &&statusRef.current==='ready'&&!switchingDocumentRef.current
       &&application.capture.world_id===worldId&&application.capture.document_id===documentIdRef.current
       &&JSON.stringify(editorRef.current?.getJSON())===application.after_editor_json
-      &&markdownRef.current===application.after_markdown&&(titleRef.current.trim()||'Plan')===application.after_title,
+      &&markdownRef.current===application.after_markdown&&(titleRef.current.trim()||'Plan')===application.after_title
+      &&(!application.after_page_presentation_sha256
+        || presentationFingerprint(presentationRef.current) === application.after_page_presentation_sha256),
     preview: previewWorldPlanEditProposal,
     capture: () => captureWorldPlanEditTarget(
       worldEditStateGetterRef.current(),
@@ -750,11 +845,24 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           setLastSavedAt(snapshot.record.content_status === "committed"
             ? durableTimestamp(snapshot.record.updated_at)
             : null);
-          const revisionChangedUnderDraft = recoverLocal
-            && localDraft.revision !== snapshot.loaded_revision
-            && !localDraft.pending_write;
           const nextTitle = recoverLocal ? localDraft.title : snapshot.record.title;
           const nextMarkdown = recoverLocal ? localDraft.markdown : snapshot.markdown;
+          const savedPresentation = checkedPlanPresentation(snapshot.markdown, snapshot);
+          const localPresentation = recoverLocal
+            ? checkedPlanPresentation(nextMarkdown, localDraft)
+              ?? (nextMarkdown === snapshot.markdown ? savedPresentation : null)
+            : savedPresentation;
+          const draftMatchesCommit = snapshot.record.content_status === "committed"
+            && nextTitle === snapshot.record.title
+            && nextMarkdown === snapshot.markdown
+            && (localDraft?.page_presentation_sha256 ?? null) === presentationFingerprint(savedPresentation);
+          const revisionChangedUnderDraft = recoverLocal
+            && localDraft.revision !== snapshot.loaded_revision
+            && !localDraft.pending_write
+            && !draftMatchesCommit;
+          serverPresentationRef.current = savedPresentation;
+          updatePresentation(localPresentation);
+          setComposing(Boolean(localPresentation || savedPresentation));
           documentIdRef.current = initialDocumentId;
           revisionRef.current = snapshot.loaded_revision;
           titleRef.current = nextTitle;
@@ -777,6 +885,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               revision: snapshot.loaded_revision,
               contentSha256: snapshot.content_sha256,
               contentStatus: snapshot.record.content_status,
+              presentation: savedPresentation,
             });
             setError("The saved Plan changed since this local draft. Your draft is preserved; choose which version to keep before saving.");
           }
@@ -790,7 +899,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             document_id: initialDocumentId,
             title: nextTitle,
             markdown: nextMarkdown,
-            revision: snapshot.loaded_revision,
+            page_presentation: localPresentation,
+            page_presentation_sha256: presentationFingerprint(localPresentation),
+            revision: revisionChangedUnderDraft ? localDraft.revision : snapshot.loaded_revision,
             edit_generation: initialLocalDraft?.edit_generation ?? 0,
             pending_write: pendingWriteRef.current,
             create_uncertain: false,
@@ -818,10 +929,54 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     return () => { cancelled = true; };
   }, [initialDocumentId, initialLoadAttempt, localDraft, worldId]);
 
+  useEffect(() => {
+    if (status !== "ready" || !documentId || recoveryConflict || createUncertain) return;
+    const hold = readPlanApplicationHold(worldId, documentId);
+    if (!hold || typeof hold !== "object"
+      || !("action_id" in hold) || typeof hold.action_id !== "string"
+      || !("application_id" in hold) || typeof hold.application_id !== "string") return;
+    const { action_id: actionId, application_id: applicationId } = hold;
+    const epoch = selectionEpochRef.current;
+    let cancelled = false;
+    const recoveryIsCurrent = () => {
+      const current = readPlanApplicationHold(worldId, documentId);
+      return !cancelled && selectedViewIsCurrent(epoch, documentId)
+        && !savingRef.current && pendingWriteRef.current === null
+        && !!current && typeof current === "object"
+        && "action_id" in current && current.action_id === actionId
+        && "application_id" in current && current.application_id === applicationId
+        && markdownRef.current === serverMarkdownRef.current
+        && titleRef.current === serverTitleRef.current
+        && presentationFingerprint(presentationRef.current) === presentationFingerprint(serverPresentationRef.current);
+    };
+    if (!recoveryIsCurrent()) return;
+    void (async () => {
+      const receipt = await readPlanAuthoringReview(worldId, actionId);
+      const application = receipt.review?.applications.find(item => item.application_id === applicationId);
+      if (receipt.action_id !== actionId || receipt.world_id !== worldId
+        || application?.outcome !== "saved" || !recoveryIsCurrent()) return;
+      await authoringAckRef.current(application, recoveryIsCurrent);
+    })().catch(() => {
+      // Preserve the hold unless readback can verify its exact Save.
+    });
+    return () => { cancelled = true; };
+  }, [status, documentId, recoveryConflict, createUncertain, worldId]);
+
+  const protectLayoutRecovery = () => {
+    if (!documentIdRef.current || !composing) return false;
+    const layoutPending = pendingWriteRef.current?.page_presentation_sha256 != null;
+    const layoutChanged = presentationFingerprint(presentationRef.current) !== presentationFingerprint(serverPresentationRef.current);
+    const sourceChanged = (presentationRef.current || serverPresentationRef.current)
+      && (markdownRef.current !== serverMarkdownRef.current || titleRef.current !== serverTitleRef.current);
+    if (!layoutPending && !layoutChanged && !sourceChanged) return false;
+    setError("Save or resolve this Plan’s layout draft before opening another Plan.");
+    return true;
+  };
+
   const openPlan = async (nextDocumentId: string, allowRetry = false, isCurrent:()=>boolean = ()=>true, expectedPin?:import('../guidedTour/protocol').TargetPin) => {
     if(!isCurrent())return;
     if(!expectedPin)tourNavigation?.discardDestination('plan');
-    if (savingRef.current || (statusRef.current !== "ready" && !allowRetry)) return;
+    if (savingRef.current || (statusRef.current !== "ready" && !allowRetry) || protectLayoutRecovery()) return;
     const epoch = ++selectionEpochRef.current;
     const priorDocumentId = documentIdRef.current;
     const priorSavedBasis = savedBasis;
@@ -851,6 +1006,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         switchingDocumentRef.current=false;setSavedBasis(priorSavedBasis);setStatus('ready');setEditorGeneration(value=>value+1);
         setError('Guided selection canceled. Your current Plan and draft are retained.');return;
       }
+      const savedPresentation = checkedPlanPresentation(snapshot.markdown, snapshot);
       const preservedUncertainDraft = readWorldPlanLocalDraft(worldId)?.uncertain_create_draft
         ?? uncertainCreateDraftRef.current;
       const url = new URL(window.location.href);
@@ -866,6 +1022,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       markdownRef.current = snapshot.markdown;
       serverTitleRef.current = snapshot.record.title;
       serverMarkdownRef.current = snapshot.markdown;
+      serverPresentationRef.current = savedPresentation;
+      updatePresentation(savedPresentation);
+      setComposing(Boolean(savedPresentation));
+      if (savedPresentation) setSourceEditing(false);
       serverDigestRef.current = snapshot.content_sha256;
       setLastSavedAt(snapshot.record.content_status === "committed"
         ? durableTimestamp(snapshot.record.updated_at)
@@ -887,6 +1047,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         document_id: nextDocumentId,
         title: snapshot.record.title,
         markdown: snapshot.markdown,
+        page_presentation: savedPresentation,
+        page_presentation_sha256: presentationFingerprint(savedPresentation),
         revision: snapshot.loaded_revision,
         edit_generation: editGenerationRef.current,
         pending_write: null,
@@ -916,7 +1078,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const resetBlankPlan = () => {
-    if (statusRef.current !== "ready" || savingRef.current) return;
+    if (statusRef.current !== "ready" || savingRef.current || protectLayoutRecovery()) return;
     ++selectionEpochRef.current;
     startPlayRequestRef.current += 1;
     setStartingPlay(false);
@@ -934,6 +1096,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     markdownRef.current = "";
     serverTitleRef.current = "";
     serverMarkdownRef.current = "";
+    serverPresentationRef.current = null;
+    updatePresentation(null);
+    setComposing(false);
     serverDigestRef.current = null;
     setSavedBasis({ status: "unavailable" });
     setLastSavedAt(null);
@@ -1125,32 +1290,47 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         : pendingWriteRef.current;
       if (previousPending) {
         const snapshot = await getWorldOwnedPlanSnapshot(exactId);
-        if (snapshot.record.world_id !== worldId || snapshot.record.campaign_id !== null) {
+        if (snapshot.record.document_id !== exactId || snapshot.record.world_id !== worldId || snapshot.record.campaign_id !== null) {
           throw new Error("Pending write recovery resolved outside the selected World.");
         }
         let committedMarkdown: string | null = null;
+        let committedReadMatchesSnapshot = false;
         try {
           const committedRevision = await getWorldOwnedPlanCommittedRevision(exactId);
-          if (committedRevision.world_id !== worldId || committedRevision.campaign_id !== null) {
+          if (committedRevision.document_id !== exactId || committedRevision.world_id !== worldId || committedRevision.campaign_id !== null) {
             throw new Error("Committed revision recovery resolved outside the selected World.");
           }
           committedMarkdown = committedRevision.markdown;
+          committedReadMatchesSnapshot = committedRevision.object_revision === snapshot.loaded_revision
+            && committedRevision.content_sha256 === snapshot.content_sha256
+            && !committedRevision.has_divergent_working_copy;
         } catch (reason) {
           if (!(reason instanceof LiveApiError && (reason.status === 404 || reason.status === 409))) {
             throw reason;
           }
         }
 
+        const snapshotPresentation = checkedPlanPresentation(snapshot.markdown, snapshot);
+        const snapshotFingerprint = presentationFingerprint(snapshotPresentation);
+        const layoutWrite = previousPending.page_presentation_sha256 != null;
+        const priorLayoutMatches = snapshotFingerprint === (previousPending.base_page_presentation_sha256 ?? null);
+        const layoutWriteWasNoOp = priorLayoutMatches && previousPending.markdown === previousPending.base_markdown
+          && previousPending.title === previousPending.base_title;
         const committed = committedMarkdown === previousPending.markdown
+          && snapshotFingerprint === (previousPending.page_presentation_sha256 ?? null)
+          && (!layoutWrite || (committedReadMatchesSnapshot
+            && snapshot.loaded_revision === previousPending.base_revision + (layoutWriteWasNoOp ? 0 : 1)
+            && snapshot.markdown === previousPending.markdown && snapshot.record.content_status === "committed"))
           && (previousPending.title === undefined || snapshot.record.title === previousPending.title);
-        const priorTitleMatches = previousPending.base_title === undefined || snapshot.record.title === previousPending.base_title;
-        const preparedCopy = priorTitleMatches && previousPending.prepared_revision !== null
+        const priorTitleMatches = priorLayoutMatches
+          && (previousPending.base_title === undefined || snapshot.record.title === previousPending.base_title);
+        const preparedCopy = !layoutWrite && priorTitleMatches && previousPending.prepared_revision !== null
           && snapshot.loaded_revision === previousPending.prepared_revision
           && snapshot.markdown === previousPending.markdown;
-        const prepareApplied = priorTitleMatches && previousPending.phase === "prepare"
+        const prepareApplied = !layoutWrite && priorTitleMatches && previousPending.phase === "prepare"
           && snapshot.loaded_revision === previousPending.base_revision + 1
           && snapshot.markdown === previousPending.markdown;
-        const prepareDidNotApply = priorTitleMatches && previousPending.phase === "prepare"
+        const prepareDidNotApply = priorTitleMatches && (layoutWrite || previousPending.phase === "prepare")
           && snapshot.loaded_revision === previousPending.base_revision
           && snapshot.markdown === previousPending.base_markdown;
         if (!committed && !preparedCopy && !prepareApplied && !prepareDidNotApply) {
@@ -1162,6 +1342,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               revision: snapshot.loaded_revision,
               contentSha256: snapshot.content_sha256,
               contentStatus: snapshot.record.content_status,
+              presentation: snapshotPresentation,
             });
             setError("The previous save outcome cannot be proven against the current World revision. Your local draft is preserved and saving is blocked until you choose a version.");
           }
@@ -1171,6 +1352,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         revisionRef.current = currentRevision;
         serverTitleRef.current = snapshot.record.title;
         serverMarkdownRef.current = committed ? committedMarkdown ?? snapshot.markdown : snapshot.markdown;
+        serverPresentationRef.current = snapshotPresentation;
         serverDigestRef.current = snapshot.content_sha256;
         if (committed && snapshot.record.content_status === "committed") {
           setLastSavedAt(durableTimestamp(snapshot.record.updated_at));
@@ -1228,6 +1410,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
 
       const baseRevision = currentRevision;
       const baseMarkdown = serverMarkdownRef.current;
+      const submittedPresentation = isCurrent()
+        ? presentationRef.current
+        : savedLocal?.document_id === exactId ? checkedPlanPresentation(submittedMarkdown, savedLocal) : null;
+      const submittedPresentationFingerprint = presentationFingerprint(submittedPresentation);
+      if (serverPresentationRef.current && !submittedPresentation) {
+        throw new Error("Recover the Plan layout before saving.");
+      }
       const preparing = {
         phase: "prepare" as const,
         base_revision: baseRevision,
@@ -1236,6 +1425,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         markdown: submittedMarkdown,
         title: submittedTitle,
         base_title: serverTitleRef.current,
+        base_page_presentation_sha256: presentationFingerprint(serverPresentationRef.current),
+        page_presentation_sha256: submittedPresentationFingerprint,
         edit_generation: submittedGeneration,
       };
       pendingWriteRef.current = preparing;
@@ -1260,8 +1451,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         markdown: submittedMarkdown,
         title: submittedTitle,
         expected_revision: baseRevision,
+        ...(submittedPresentation ? { page_presentation: submittedPresentation } : {}),
       });
-      if (!prepared.writer_ok || !prepared.writer_confirm_token || prepared.world_id !== worldId || prepared.title !== submittedTitle) {
+      if (!prepared.writer_ok || !prepared.writer_confirm_token || prepared.world_id !== worldId || prepared.title !== submittedTitle
+        || (prepared.page_presentation_sha256 ?? null) !== submittedPresentationFingerprint
+        || (submittedPresentation && (prepared.document_id !== exactId || prepared.registry_revision !== baseRevision))) {
         throw new Error(prepared.warnings.join(" ") || "Plan write could not be prepared.");
       }
       currentRevision = prepared.registry_revision;
@@ -1292,8 +1486,18 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         title: submittedTitle,
         expected_revision: prepared.registry_revision,
         writer_confirm_token: prepared.writer_confirm_token,
+        ...(submittedPresentation ? { page_presentation: submittedPresentation } : {}),
       });
-      if (committed.world_id !== worldId || committed.committed_record.schema_version !== "dmb_world_owned_plan_record_v2" || committed.title !== submittedTitle || committed.committed_record.title !== submittedTitle) {
+      const layoutWriteWasNoOp = submittedMarkdown === baseMarkdown && submittedTitle === preparing.base_title
+        && submittedPresentationFingerprint === preparing.base_page_presentation_sha256;
+      if (committed.world_id !== worldId || committed.committed_record.schema_version !== "dmb_world_owned_plan_record_v2"
+        || committed.title !== submittedTitle || committed.committed_record.title !== submittedTitle
+        || (committed.page_presentation_sha256 ?? null) !== submittedPresentationFingerprint
+        || (submittedPresentation && (committed.document_id !== exactId || committed.committed_record.document_id !== exactId
+          || committed.committed_record.world_id !== worldId || committed.committed_record.campaign_id !== null
+          || committed.registry_revision !== baseRevision + (layoutWriteWasNoOp ? 0 : 1)
+          || committed.committed_revision !== committed.registry_revision
+          || committed.normalized_content_sha256 !== submittedPresentation.markdown_sha256))) {
         throw new Error("Commit receipt did not preserve World-owned Plan scope.");
       }
       const committedAt = durableTimestamp(committed.committed_record.updated_at);
@@ -1301,6 +1505,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       revisionRef.current = currentRevision;
       serverTitleRef.current = committed.title;
       serverMarkdownRef.current = submittedMarkdown;
+      serverPresentationRef.current = submittedPresentation;
       serverDigestRef.current = committed.normalized_content_sha256;
       if (isCurrent()) {
         setLastSavedAt(committedAt);
@@ -1364,23 +1569,32 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
 
   // Proposal Save uses the same Content owner; adopting its receipt never
   // replaces mounted editor content or a newer local working copy.
-  authoringAckRef.current=async application=>{
+  authoringAckRef.current=async (application,isRecoveryCurrent)=>{
     const exactId=application.capture.document_id,epoch=selectionEpochRef.current;
     if(application.outcome!=='saved'||application.capture.world_id!==worldId
       ||documentIdRef.current!==exactId)throw new Error('The Plan Save receipt belongs to another page.');
     const [snapshot,committed]=await Promise.all([
       getWorldOwnedPlanSnapshot(exactId),getWorldOwnedPlanCommittedRevision(exactId),
     ]);
-    if(!selectedViewIsCurrent(epoch,exactId))throw new Error('The page changed while checking its saved suggestion.');
+    if(!selectedViewIsCurrent(epoch,exactId) || (isRecoveryCurrent && !isRecoveryCurrent()))
+      throw new Error('The page changed while checking its saved suggestion.');
+    if (isRecoveryCurrent && (snapshot.record.content_status !== "committed" || committed.has_divergent_working_copy))
+      throw new Error("The current Plan is not an exact saved revision.");
+    const savedPresentation = checkedPlanPresentation(snapshot.markdown, snapshot);
     if(snapshot.record.world_id!==worldId||snapshot.record.document_id!==exactId
       ||snapshot.record.kind!=='plan'||snapshot.record.campaign_id!==null||snapshot.record.status!=='active'
       ||committed.work_revision_id!==application.saved_work_revision_id
       ||committed.revision_n!==application.saved_revision_n||committed.object_revision!==snapshot.loaded_revision
       ||committed.world_id!==worldId||committed.document_id!==exactId
       ||snapshot.markdown!==application.after_markdown||snapshot.content_sha256!==application.after_draft_sha256
-      ||committed.content_sha256!==application.after_draft_sha256||snapshot.record.title!==application.after_title){
-      setRecoveryConflict(true);setServerDraft({title:snapshot.record.title,markdown:snapshot.markdown,
-        revision:snapshot.loaded_revision,contentSha256:snapshot.content_sha256,contentStatus:snapshot.record.content_status});
+      ||committed.content_sha256!==application.after_draft_sha256||snapshot.record.title!==application.after_title
+      ||(application.after_page_presentation_sha256 !== undefined
+        && presentationFingerprint(savedPresentation) !== application.after_page_presentation_sha256)){
+      if (!isRecoveryCurrent) {
+        setRecoveryConflict(true);setServerDraft({title:snapshot.record.title,markdown:snapshot.markdown,
+          revision:snapshot.loaded_revision,contentSha256:snapshot.content_sha256,contentStatus:snapshot.record.content_status,
+          presentation:savedPresentation});
+      }
       throw new Error('The saved page changed after this suggestion. Your local draft is retained; inspect both copies.');
     }
     const retained=readWorldPlanLocalDraft(worldId);
@@ -1393,16 +1607,23 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }
     revisionRef.current=snapshot.loaded_revision;serverTitleRef.current=snapshot.record.title;
     serverMarkdownRef.current=snapshot.markdown;serverDigestRef.current=snapshot.content_sha256;
+    serverPresentationRef.current = savedPresentation;
     const hold=readPlanApplicationHold(worldId,exactId);
     if(hold!==null){
       if(typeof hold!=='object'||!('action_id' in hold))throw new Error('The application recovery hold needs inspection.');
       clearPlanApplicationHold({world_id:worldId,document_id:exactId,action_id:String(hold.action_id),application_id:application.application_id});
     }
-    authoringHoldRef.current=readPlanApplicationHold(worldId,exactId);setAutoSavePaused(authoringHoldRef.current!==null);
+    authoringHoldRef.current=readPlanApplicationHold(worldId,exactId);
+    const newerComposedDraft = application.after_page_presentation_sha256 !== undefined && (
+      markdownRef.current !== application.after_markdown
+      || presentationFingerprint(presentationRef.current) !== application.after_page_presentation_sha256
+      || (titleRef.current.trim() || 'Plan') !== application.after_title
+    );
+    setAutoSavePaused(authoringHoldRef.current!==null || newerComposedDraft);
     setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot));setLastSavedAt(durableTimestamp(snapshot.record.updated_at));
     setRecords(current=>current.map(record=>record.document_id===exactId?snapshot.record:record));
     setRecoveryConflict(false);setServerDraft(null);setCreateUncertain(false);
-    setMessage('Suggestion saved to this Plan.');
+    setMessage(newerComposedDraft ? 'Suggestion saved. Your newer draft is retained.' : 'Suggestion saved to this Plan.');
   };
   authoringReconcileRef.current=async(actionId,applicationId)=>{
     const exactId=documentIdRef.current,epoch=selectionEpochRef.current;
@@ -1425,16 +1646,20 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setMessage('Application reconciled. Your current draft is unchanged.');
   };
   authoringSaveRef.current=async(target,prepared,application,expected,binding,commit)=>{
-    if(savingRef.current||authoringHoldRef.current!==null||pendingWriteRef.current||!isCurrentEditTarget())
+    if(composing!==Boolean(target.slotCapture)||savingRef.current||authoringHoldRef.current!==null||pendingWriteRef.current||!isCurrentEditTarget())
       throw new Error('Resolve the current Plan Save before applying this suggestion.');
     if(application.outcome!=='applying'||application.capture.world_id!==worldId
       ||application.capture.document_id!==target.request.document_id
-      ||application.capture.editor_json!==target.editorJson||application.capture.selection_json!==target.selectionJson
+      ||application.capture.editor_json!==target.editorJson
+      ||application.capture.selection_json!==(target.slotCapture?.selection_json??target.selectionJson)
       ||application.capture.draft_sha256!==target.request.draft_sha256
       ||application.capture.base_revision!==target.request.base_revision
       ||application.after_editor_json!==prepared.afterEditorJson||application.after_editor_sha256!==prepared.afterEditorSha256
       ||application.after_markdown!==prepared.afterMarkdown||application.after_draft_sha256!==prepared.afterDraftSha256
-      ||application.markdown!==prepared.admitted.canonicalMarkdown||(titleRef.current.trim()||'Plan')!==application.after_title)
+      ||application.markdown!==prepared.admitted.canonicalMarkdown||(titleRef.current.trim()||'Plan')!==application.after_title
+      ||application.after_page_presentation_sha256!==prepared.composed?.fingerprint
+      ||presentationFingerprint(application.after_page_presentation)!==(prepared.composed?.fingerprint??null)
+      ||(target.slotCapture && presentationCanonicalJson(application.capture)!==presentationCanonicalJson(target.slotCapture)))
       throw new Error('The sealed application differs from the reviewed Plan change. Nothing was inserted.');
     const epoch=selectionEpochRef.current,exactId=documentIdRef.current;
     if(!exactId)throw new Error('Open the saved Plan before applying.');
@@ -1443,10 +1668,22 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     if(!selectedViewIsCurrent(epoch,exactId))throw new Error('The page changed before applying. Its recovery hold is retained.');
     authoringHoldRef.current=hold;setAutoSavePaused(true);
     try {
-      await applyWorldPlanEditProposal({captured:target,admitted:prepared.admitted,
-        getCurrent:()=>worldEditStateGetterRef.current(application.application_id),expectedAgentBinding:expected,getAgentBinding:binding});
+      if (target.slotCapture && prepared.composed) {
+        let copies = reviewedComposedCopies.current.get(target.editor);
+        if (!copies) {
+          copies = new Map();
+          reviewedComposedCopies.current.set(target.editor, copies);
+        }
+        copies.set(target.editorJson, {markdown:target.slotCapture.draft_markdown, layout:target.slotCapture.draft_page_presentation});
+        copies.set(prepared.afterEditorJson, {markdown:prepared.afterMarkdown, layout:prepared.composed.layout});
+        applyComposedPlanAuthoring(target, prepared, worldEditStateGetterRef.current(application.application_id, true), expected, binding());
+      } else {
+        await applyWorldPlanEditProposal({captured:target,admitted:prepared.admitted,
+          getCurrent:()=>worldEditStateGetterRef.current(application.application_id),expectedAgentBinding:expected,getAgentBinding:binding});
+      }
       if(JSON.stringify(editorRef.current?.getJSON())!==application.after_editor_json
-        ||markdownRef.current!==application.after_markdown||(titleRef.current.trim()||'Plan')!==application.after_title)
+        ||markdownRef.current!==application.after_markdown||(titleRef.current.trim()||'Plan')!==application.after_title
+        ||(prepared.composed && presentationFingerprint(presentationRef.current)!==prepared.composed.fingerprint))
         throw new Error('The local application differs from its sealed copy. Inspect the retained draft before saving.');
       savingRef.current=true;setSaving(true);
       const saved=await commit();
@@ -1483,6 +1720,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     markdownRef.current = serverDraft.markdown;
     serverTitleRef.current = serverDraft.title;
     serverMarkdownRef.current = serverDraft.markdown;
+    serverPresentationRef.current = serverDraft.presentation ?? null;
+    updatePresentation(serverPresentationRef.current);
+    setComposing(Boolean(serverPresentationRef.current));
     serverDigestRef.current = serverDraft.contentSha256;
     revisionRef.current = serverDraft.revision;
     setSavedBasis(serverDraft.contentStatus === "committed"
@@ -1503,6 +1743,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       document_id: documentIdRef.current,
       title: serverDraft.title,
       markdown: serverDraft.markdown,
+      page_presentation: serverPresentationRef.current,
+      page_presentation_sha256: presentationFingerprint(serverPresentationRef.current),
       revision: serverDraft.revision,
       edit_generation: generation,
       create_uncertain: false,
@@ -1513,7 +1755,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const restoreUncertainDraftIntoSelectedPlan = () => {
     const recovery = uncertainCreateDraftRef.current;
     const selectedId = documentIdRef.current;
-    if (statusRef.current !== "ready" || !recovery || !selectedId || savingRef.current) return;
+    if (statusRef.current !== "ready" || !recovery || !selectedId || savingRef.current || composing) return;
     const generation = Math.max(editGenerationRef.current, recovery.edit_generation) + 1;
     const boundRecovery = { ...recovery, edit_generation: generation, bound_document_id: selectedId };
     uncertainCreateDraftRef.current = boundRecovery;
@@ -1591,6 +1833,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       title: nextTitle,
       markdown: nextMarkdown,
       revision: revisionRef.current,
+      page_presentation: presentationRef.current,
+      page_presentation_sha256: presentationFingerprint(presentationRef.current),
       edit_generation: generation,
       create_uncertain: isPendingCreate,
       uncertain_create_draft: nextRecovery ?? null,
@@ -1609,6 +1853,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       || (uncertainCreateDraft && !documentId) || pendingWriteRef.current !== null) return;
     const dirty = documentId
       ? title !== serverTitleRef.current || markdown !== serverMarkdownRef.current
+        || presentationFingerprint(presentation) !== presentationFingerprint(serverPresentationRef.current)
       : markdown.trim().length > 0;
     if (!dirty) return;
 
@@ -1625,7 +1870,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }, 700);
     return () => window.clearTimeout(timer);
   }, [autoSavePaused, createUncertain, documentId, fidelityBlocked, localDraftId,
-    markdown, recoveryConflict, saving, status, title, uncertainCreateDraft, worldId]);
+    markdown, presentation, recoveryConflict, saving, status, title, uncertainCreateDraft, worldId]);
 
   const documentActions = useMemo(() => ({
     onTitleChange: (next: string) => {
@@ -1640,6 +1885,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       if (isCurrentEditTarget()) void saveRef.current();
     },
   }), [getLiveFidelityWarnings, isCurrentEditTarget]);
+  const layoutActions = useMemo(
+    () => composing && !cardsViewActive && editor && !editor.isDestroyed && editor.schema.nodes.pageRow
+      ? pageComposerActions(editor).filter(action => action.id !== "image-text")
+      : [],
+    [composing, cardsViewActive, editor, layoutAvailabilityVersion],
+  );
   const editorToolsGeneration = useMemo(() => status === "ready" ? toAppChromeToolsGeneration({
     sections: [
       {
@@ -1657,15 +1908,30 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <input value={title} disabled={fidelityBlocked} onChange={(event) => documentActions.onTitleChange(event.target.value)} />
         </label>,
       },
+      ...(layoutActions.length ? [{
+        id: "world-plan-layout",
+        title: "Page layout",
+        actions: layoutActions.map(action => ({
+          id: action.id,
+          label: action.label,
+          disabled: !action.enabled || saving || recoveryConflict || fidelityBlocked,
+          onClick: () => {
+            if (!editor || editorRef.current !== editor || !isCurrentEditTarget() || recoveryConflict) return;
+            const current = pageComposerActions(editor).find(candidate => candidate.id === action.id);
+            if (current?.enabled) current.invoke();
+          },
+        })),
+      }] : []),
       ...(toolbarModel.sections ?? []),
     ],
   }, workObject) : null, [status, saving, fidelityBlocked, createUncertain, recoveryConflict, uncertainCreateDraft,
-    documentId, markdown, title, documentActions, toolbarModel, workObject]);
+    documentId, markdown, title, documentActions, toolbarModel, workObject, layoutActions, editor, isCurrentEditTarget]);
   const [cardEditNotice, setCardEditNotice] = useState<string | null>(null);
   const cardEditingExtensions = useMemo(() => [SemanticMarkdownPaste, PlanCardEditing.configure({ onBlocked: () => setCardEditNotice("This change reaches outside the selected scene or changes its structure. Use Document to make it.") })], []);
-  const cardsViewActive = Boolean(documentId) && status === "ready"
-    && (selectedCardViewIdentity === navigationIdentity
-      || (routeCardsViewRequested && documentId === initialDocumentId));
+  const documentEditingExtensions = useMemo(
+    () => composing ? [SemanticMarkdownPaste, ...PAGE_COMPOSER_EXTENSIONS] : cardEditingExtensions,
+    [composing, cardEditingExtensions],
+  );
   const selectPlanView = (view: "cards" | "document") => {
     const url = new URL(window.location.href);
     if (view === "cards") {
@@ -1685,10 +1951,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       setDocumentSceneJump({ identity: editorIdentity, sceneId: navigationSceneId });
     }
   };
-  const cardProjectionDocument = editor?.getJSON() ?? editorContent;
+  const visualDocument = editor?.getJSON() ?? editorContent;
+  const cardProjectionDocument = composing ? flattenPresentation(visualDocument) : visualDocument;
   const cardProjectionDirty = documentId !== null
     && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
-  const savedPlanDirty = Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current));
+  const savedPlanDirty = Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current
+    || presentationFingerprint(presentation) !== presentationFingerprint(serverPresentationRef.current)));
   const durableSaveState: DurableSaveState = status === "error"
     ? "needs-attention"
     : saving
@@ -1852,11 +2120,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   useCombatProjection("plan",activePublication!==null,sceneEncounterContext);
   const cardScopeKey = `${navigationIdentity}:${cardsViewActive}:${navigationSceneId}`;
   if (cardScopeEpoch.current.key !== cardScopeKey) cardScopeEpoch.current = { key: cardScopeKey, generation: cardScopeEpoch.current.generation + 1 };
-  const focusedCardEditable = Boolean(cardsViewActive && editor && planCardRange(editor.state.doc, navigationSceneId));
+  const focusedCardEditable = Boolean(!composing && cardsViewActive && editor && planCardRange(editor.state.doc, navigationSceneId));
   useLayoutEffect(() => {
-    if (editor && !editor.isDestroyed) setPlanCardScope(editor, { active: cardsViewActive, sceneId: navigationSceneId });
+    if (!composing && editor && !editor.isDestroyed) setPlanCardScope(editor, { active: cardsViewActive, sceneId: navigationSceneId });
     setCardEditNotice(null);
-  }, [editor, cardsViewActive, navigationSceneId, navigationIdentity]);
+  }, [editor, cardsViewActive, composing, navigationSceneId, navigationIdentity]);
 
   const navigatePlanScene = (sceneId: string | null) => {
     if (!isCurrentEditTarget(true) || (sceneId !== null && !navigationScenes.some(scene => scene.id === sceneId))) return;
@@ -2073,7 +2341,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const mediaState = useRef<DocumentMediaState | null>(null);
   mediaState.current = editor ? { editor, identity: mediaIdentity,
     version: `${revisionRef.current}:${editGenerationRef.current}:${editorIdentity}:${cardScopeEpoch.current.generation}`,
-    canEdit: Boolean(documentId) && !sourceEditing && (!cardsViewActive || focusedCardEditable) && planCardSelectionAllowed(editor) && !fidelityBlocked && !recoveryConflict
+    canEdit: Boolean(documentId) && !composing && !sourceEditing && (!cardsViewActive || focusedCardEditable) && planCardSelectionAllowed(editor) && !fidelityBlocked && !recoveryConflict
       && pendingWriteRef.current === null && isCurrentEditTarget(),
   } : null;
   const mediaBridge = useMemo(() => createDocumentMediaBridge(() => mediaState.current), [mediaIdentity]);
@@ -2119,7 +2387,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => { setSourceEditing(false); selectPlanView("document"); }}
             >Document</button>
             <button type="button" aria-pressed={!cardsViewActive && sourceEditing} title="Edit raw Markdown source"
-              disabled={status !== "ready"}
+              disabled={status !== "ready" || composing}
               onClick={() => { selectPlanView("document"); setSourceEditing(true); setEditorGeneration(value => value + 1); }}>Markdown</button>
             <button
               type="button"
@@ -2184,7 +2452,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         {uncertainCreateDraft && !createUncertain ? (
           <section role="status" aria-label="Recovered Plan draft">
             <p>An unsaved draft from an uncertain Plan creation is preserved separately. It has not been assumed to belong to the selected Plan.</p>
-            {documentId ? <button type="button" onClick={restoreUncertainDraftIntoSelectedPlan} disabled={saving || status !== "ready"}>Restore recovered draft into this Plan</button> : null}
+            {documentId ? <button type="button" onClick={restoreUncertainDraftIntoSelectedPlan} disabled={saving || status !== "ready" || composing}>Restore recovered draft into this Plan</button> : null}
             <button type="button" onClick={discardUncertainDraft} disabled={saving || status !== "ready"}>Discard recovered draft</button>
           </section>
         ) : null}
@@ -2215,10 +2483,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         >
           <CardSceneNavigation scenes={navigationScenes} sceneId={navigationSceneId} onSelect={navigatePlanScene}
             hidden={!cardsViewActive || !focusedCardEditable} />
-          {sourceEditing ? <PlanMarkdownSource value={splitLeadingYamlFrontmatter(markdown).markdown} disabled={status !== "ready"}
+          {sourceEditing && !composing ? <PlanMarkdownSource value={splitLeadingYamlFrontmatter(markdown).markdown} disabled={status !== "ready"}
             onChange={body => {
               const next = preserveLeadingYamlFrontmatter(markdownRef.current, body);
-              if (!isCurrentEditTarget(true) || next === markdownRef.current) return;
+              if (presentationRef.current || !isCurrentEditTarget(true) || next === markdownRef.current) return;
               markdownRef.current = next;
               const generation = ++editGenerationRef.current;
               const pendingRecovery = (pendingWriteRef.current !== null || authoringHoldRef.current !== null) && !savingRef.current;
@@ -2230,6 +2498,21 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               setMessage(null);
             }} /> : null}
           <div className="world-plan-visual-editor" hidden={sourceEditing && !cardsViewActive}>
+          {!composing && !cardsViewActive && !sourceEditing && documentId && savedBasis.status === "verified"
+            && !savedPlanDirty && !fidelityBlocked && !composerDisabledReason(markdown) ? (
+            <button type="button" disabled={saving || recoveryConflict || autoSavePaused}
+              onClick={() => { setComposing(true); }}>Compose layout</button>
+          ) : null}
+          {composing && !cardsViewActive && !sourceEditing ? (
+            <>
+              {!presentation && !serverPresentationRef.current && !savedPlanDirty ? (
+                <button type="button" disabled={saving} onClick={() => { setComposing(false); }}>Exit layout editing</button>
+              ) : null}
+              <PageComposerTools editor={editor}
+                disabledReason={status !== "ready" || saving || recoveryConflict || fidelityBlocked
+                  ? "Recover the Plan before editing its layout." : null} />
+            </>
+          ) : null}
           <PlanSurfaceCanvasFrame
             className="world-owned-plan__canvas"
             cardLayout
@@ -2240,8 +2523,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <MarkdownEditorCore
               content={editorContent}
               documentKey={editorIdentity}
-              editable={status === "ready" && !fidelityBlocked}
-              extensions={cardEditingExtensions}
+              editable={status === "ready" && !fidelityBlocked && (!composing || (!saving && !recoveryConflict))}
+              extensions={documentEditingExtensions}
               onEditorChange={setCurrentEditor}
               dataTestId="world-owned-plan-markdown-editor"
               onUpdate={(json: JSONContent, updatedEditor: Editor, meta) => {
@@ -2255,22 +2538,44 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                     return;
                   }
                   let next: string;
+                  let nextPresentation: PagePresentation | null = null;
                   try {
-                    const canonical = defaultMarkdownDocumentAdapter.exportMarkdown(json);
-                    next = exportPlanCardMarkdown(updatedEditor, markdownRef.current, canonical);
+                    if (composing) {
+                      const previous = presentationRef.current;
+                      const original = previous
+                        ? hydratePresentation(markdownRef.current, previous)
+                        : markdownToTiptapDoc(markdownRef.current).doc;
+                      const awaitingEnrollment = pendingWriteRef.current?.phase === "commit"
+                        && pendingWriteRef.current.page_presentation_sha256 != null;
+                      const reviewed = reviewedComposedCopies.current.get(updatedEditor)?.get(JSON.stringify(json));
+                      if (reviewed) {
+                        next = reviewed.markdown;
+                        nextPresentation = reviewed.layout;
+                      } else {
+                        const projected = projectPresentation(json, markdownRef.current, original, previous,
+                          serverPresentationRef.current !== null || awaitingEnrollment);
+                        next = projected.markdown;
+                        nextPresentation = projected.presentation;
+                      }
+                    } else {
+                      const canonical = defaultMarkdownDocumentAdapter.exportMarkdown(json);
+                      next = exportPlanCardMarkdown(updatedEditor, markdownRef.current, canonical);
+                    }
                   } catch (cause) {
                     setError(cause instanceof Error ? cause.message : "Could not preserve the scene edit.");
                     setEditorGeneration(value => value + 1);
                     return;
                   }
                   const nextImport = markdownToTiptapDoc(next);
-                  const nextFidelityIssues = markdownFidelityWarnings(nextImport.diagnostics, json);
+                  const nextFidelityIssues = markdownFidelityWarnings(nextImport.diagnostics, composing ? flattenPresentation(json) : json);
                   if (nextFidelityIssues.length) {
                     setError(markdownFidelityRejectionText(nextFidelityIssues));
                     setEditorGeneration((value) => value + 1);
                     return;
                   }
-                  if (next === markdownRef.current) return;
+                  if (next === markdownRef.current
+                    && presentationFingerprint(nextPresentation) === presentationFingerprint(presentationRef.current)) return;
+                  updatePresentation(nextPresentation);
                   markdownRef.current = next;
                   const generation = ++editGenerationRef.current;
                   const pendingRecovery = (pendingWriteRef.current !== null || authoringHoldRef.current !== null) && !savingRef.current;
@@ -2354,7 +2659,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         onSavePlan={() => {
           const current = worldEditStateGetterRef.current();
           if (current.documentId === documentId && current.worldId === worldId
-            && (titleRef.current !== serverTitleRef.current || markdownRef.current !== serverMarkdownRef.current)) documentActions.onSave();
+            && (titleRef.current !== serverTitleRef.current || markdownRef.current !== serverMarkdownRef.current
+              || presentationFingerprint(presentationRef.current) !== presentationFingerprint(serverPresentationRef.current))) documentActions.onSave();
         }}
         savePlanEnabled={savedPlanDirty && !saving && !fidelityBlocked && !createUncertain && !recoveryConflict
           && !Boolean(uncertainCreateDraft && !documentId) && Boolean(markdown.trim())}

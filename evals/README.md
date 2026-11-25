@@ -1,14 +1,32 @@
 # Lab and evaluation
 
-- [Adventure-to-follow-up benchmark](adventure-to-follow-up-benchmark.md) — adventure intake, Plan, Play, combat, and cited recap continuity.
 This directory holds experiments, regression fixtures, and evaluation evidence.
 Start with the suite that owns the question you are testing.
+
+## Actions and workflow coverage
+
+- [Agent action catalog](plan-authoring-benchmark.md#action-catalog): the
+  canonical inventory of ordinary Agent choices, operator actions and requested
+  capabilities, with the strongest verified boundary and remaining proof.
+- [Workflow decision benchmark](plan-authoring-benchmark.md#workflow-decision-benchmark):
+  cases for deciding when to discuss, retrieve, propose, or refrain from acting,
+  including destination and side-effect checks.
+- [Right Action at the Right Time coverage matrix](right-action-coverage.md):
+  fixture specifications for direct, contrast and multi-step workflow cases.
+- [Adventure-to-follow-up benchmark](adventure-to-follow-up-benchmark.md):
+  the joined intake, Plan, Play, Combat, recap and cited follow-up journey.
+
+An inventory entry or fixture is not itself a passing end-to-end result. Read its
+evidence and open boundaries; component or scripted proof does not establish an
+ordinary live workflow. The [ordinary benchmark workflow](../Docs/Guides/ordinary-benchmark-workflow.md)
+explains capture, offline reporting and independent assessment.
 
 | Question | Entry point |
 | --- | --- |
 | Did an extraction or graph change preserve the expected evidence? | [Graph memory fixtures and baselines](graph_memory_layer/README.md) |
 | Did session-event extraction preserve chronology? | [Session-event extraction suite](session_events_extraction_vertical_slice/README.md) |
 | Inspect the historical isolated Graph demo | [Historical Graph transport and launcher](native_graph_demo/README.md) |
+| How fast is Old Bath House from Buddy through Plan, Play, and explicit Combat start? | [Old Bath House baseline](../Docs/Benchmarks/BASELINE-old-bath-house.md) and [runner](old_bath_house/README.md) |
 | How does the canon layering baseline score? | [Canon layering runner](canon_layering/run_benchmarks.py) |
 | What ingestion baseline was accepted, and what retrieval experiments came before? | [Accepted ingestion baseline and retrieval history](../Docs/Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md) |
 
@@ -170,7 +188,7 @@ command as well as choosing the writer sink.
 ```bash
 python -m evals.buddy_benchmark.workflow capture-context \\
   --manifest MANIFEST.json --output CAPTURE_DIRECTORY \\
-  --case Q01 --writer-transport --detailed-trace
+  --case Q01 --writer-transport --detailed-trace --clone-app
 ```
 
 The manifest's browser_capture object supplies a bundle directory, a
@@ -179,11 +197,68 @@ and a jev_wire file pin containing the exact successful wire exchange.
 Set DMB_BENCHMARK_NODE, DMB_BENCHMARK_PLAYWRIGHT and DMB_BENCHMARK_CHROMIUM
 to the local Node executable, Playwright package directory and browser
 executable. Use explicit local operator auth and launch without provider credentials.
-Use a disposable local App clone and a pinned Core database. The driver
+Pin a disposable local App template and the read-only Core database. With
+`--clone-app`, the App DSN names the template and its evaluator role needs
+database creation privileges. The command owns a unique App clone and drops
+it when capture exits successfully or raises an error. Saved capture artifacts
+remain on disk. A custom runner that creates its own clone must use
+`disposable_benchmark_database` around the entire run and close all workers
+before exiting the context. This does not remove caller-owned cohort seeds.
+The driver
 starts one loopback instance and submits from Buddy's ordinary Plan composer.
 The exact retained Jev request must match. The GenerationEngine writer
 request is captured at the local transport sink. Neither provider is called.
+The browser server uses Buddy’s hosted startup garbage-collection wrapper.
+Compare these timing captures with others that use the same startup policy.
 
 The optional manifest field browser_capture.settled_pane waits for a quiet
 pane before timing Send. Leave it false for immediate Send after the
 controls are ready. Leave off --detailed-trace for the coarse comparison arm.
+
+### One App clone per benchmark workstream
+
+For a browser cohort, pin the same shared App template in every member and
+run `capture-context-cohort --browser-cohort --clone-app --workers 1` with
+the usual manifest and output arguments. The App DSN names the template.
+The coordinator records the owned clone and manifest in `owned-app.json`,
+upgrades that clone to the checked-out App migration head once, and runs
+each case serially in a fresh worker. The browser starts a new conversation
+for each case. The runner does not scan the owned App database. It verifies
+the shared read-only Core inventory once before and once after the cohort.
+Writer request bytes, citations, timings and individual results are retained.
+For deep output paths, set `DMB_BENCHMARK_BROWSER_TMPDIR` to a short
+existing scratch directory on the same Projects filesystem to fit
+Chromium's Unix socket path.
+
+All workers close before the ownership helper drops the exact clone and
+verifies removal. If execution is interrupted, check the recorded clone
+identity and teardown before allocating another. The coordinator does
+not modify the shared App template or Core snapshot.
+
+### Parallel retrieval captures
+
+Use `python -m evals.buddy_benchmark.workflow capture-context-cohort --manifest
+COHORT.json --output NEW_OUTPUT --workers 6` for independent writer-off
+retrieval cases. The cohort manifest has schema
+`dmb_context_capture_cohort_v1` and a `members` list of ordinary capture
+manifest pins, each with `path` and `sha256`. Members must have unique case
+IDs, independent prequalified App clones and the same exact Core locator and
+inventory pin. The App DSN supplies the loopback server and fixture login
+and each member supplies its database name and identity. Core requires a
+dedicated login with SELECT and schema USAGE, no role memberships or durable
+write privileges, and a session configured for read-only transactions. Grant
+access to `pg_control_system()` for the cluster identity check.
+
+The coordinator retains `native-before.json` and `native-after.json` for the
+whole cohort. Worker output and timing evidence are under `members/`.
+The end inventory must match the beginning one to qualify the run.
+Standalone capture still verifies and retains its own snapshots.
+
+Add `--browser-cohort` to use ordinary Plan browser Send and stop at the local
+writer transport sink. Each member must pin exactly one case, its UI bundle,
+and its successful retained Jev exchange tape. Set the same local browser
+runtime and credential-free environment as standalone browser capture.
+Add `--detailed-trace` for individual host spans and first-Jev transport
+intervals. Browser marks and the writer-ready packet are retained under each
+member. The coordinator still brackets the whole cohort with two inventory
+scans.

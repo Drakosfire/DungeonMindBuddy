@@ -1,4 +1,4 @@
-"""Page-only layout metadata. Markdown remains the sole content authority."""
+"""Revision-bound layout metadata. Markdown remains the sole content authority."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from uuid import UUID
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from markdown_it import MarkdownIt
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,11 +14,13 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from application_state.content.markdown_source_blocks import source_block_spans
-from application_state.content.types import WorkRevision, sha256_utf8
 from application_state.errors import (
     ApplicationStateValidationError,
     ApplicationStateIntegrityError,
 )
+
+if TYPE_CHECKING:
+    from application_state.content.types import WorkRevision
 
 # Same preserved-envelope recognition as Build's splitLeadingYamlFrontmatter.
 _ENVELOPE = re.compile(
@@ -48,6 +50,11 @@ class BlockBinding(_Closed):
     byte_start: int = Field(ge=0)
     byte_end: int = Field(gt=0)
     sha256: Digest
+
+
+class EmptyParagraph(_Closed):
+    kind: Literal["empty_paragraph"] = "empty_paragraph"
+    id: Identifier
 
 
 class ImageText(_Closed):
@@ -88,13 +95,15 @@ class Row(_Closed):
 
 
 class PagePresentation(_Closed):
-    schema_version: Literal["dmb_page_presentation_v1"] = "dmb_page_presentation_v1"
+    schema_version: Literal["dmb_page_presentation_v1", "dmb_page_presentation_v2"] = "dmb_page_presentation_v1"
     markdown_sha256: Digest
     items: list[
-        Annotated[BlockBinding | Row | ImageText, Field(discriminator="kind")]
+        Annotated[BlockBinding | Row | ImageText | EmptyParagraph, Field(discriminator="kind")]
     ] = Field(max_length=2048)
 
     def checked(self, markdown: str) -> "PagePresentation":
+        from application_state.content.types import sha256_utf8
+
         if self.markdown_sha256 != sha256_utf8(markdown):
             raise ApplicationStateValidationError(
                 "presentation does not bind exact Markdown"
@@ -132,14 +141,20 @@ class PagePresentation(_Closed):
             raise ApplicationStateValidationError(
                 "presentation contains unsupported source blocks"
             )
-        if any(
-            token.type in {"html_block", "fence", "code_block"}
-            or any(child.type == "html_inline" for child in (token.children or []))
-            for token in tokens
-        ):
-            raise ApplicationStateValidationError(
-                "presentation contains unsupported source blocks"
-            )
+        in_table_cell = False
+        for token in tokens:
+            if token.type in {"th_open", "td_open"}:
+                in_table_cell = True
+            elif token.type in {"th_close", "td_close"}:
+                in_table_cell = False
+            if token.type in {"html_block", "fence", "code_block"} or any(
+                child.type == "html_inline"
+                and not (in_table_cell and re.fullmatch(r"<br\s*/?>", child.content, re.IGNORECASE))
+                for child in (token.children or [])
+            ):
+                raise ApplicationStateValidationError(
+                    "presentation contains unsupported source blocks"
+                )
         expected = [
             (a + offset, b + offset)
             for a, b in source_block_spans(markdown[len(prefix) :])
@@ -158,6 +173,10 @@ class PagePresentation(_Closed):
             identity(item.id)
             if isinstance(item, BlockBinding):
                 bindings.append(item)
+                return
+            if isinstance(item, EmptyParagraph):
+                if self.schema_version != "dmb_page_presentation_v2":
+                    raise ApplicationStateValidationError("empty paragraphs require presentation v2")
                 return
             identity(item.image.id)
             identity(item.text.id)
@@ -297,8 +316,10 @@ UNSET = object()
 def candidate(value, markdown: str, current: PagePresentation | None):
     # A wrapper-free projection from an older client sends null. Unlike an
     # explicit visual unwrap, this must not erase nonvisual block identities.
-    if value is None and current is not None and all(
-        isinstance(item, BlockBinding) for item in current.items
+    if value is None and current is not None and (
+        current.schema_version == "dmb_page_presentation_v2" or all(
+            isinstance(item, BlockBinding) for item in current.items
+        )
     ):
         raise ApplicationStateValidationError(
             "identity-only Page requires explicit presentation; this client cannot save it"
@@ -310,5 +331,8 @@ def candidate(value, markdown: str, current: PagePresentation | None):
             )
         return None
     if value is not None:
-        return PagePresentation.model_validate(value).checked(markdown)
+        result = PagePresentation.model_validate(value).checked(markdown)
+        if current is not None and current.schema_version == "dmb_page_presentation_v2" and result.schema_version != "dmb_page_presentation_v2":
+            raise ApplicationStateValidationError("presentation v2 cannot be replaced by an older format")
+        return result
     return None

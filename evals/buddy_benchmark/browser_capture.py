@@ -43,7 +43,19 @@ def browser_inputs(manifest, base):
     return bundle, wire, settled
 
 
+def browser_scratch_directory(output):
+    """Allow a short socket path on the same filesystem as retained evidence."""
+    configured = os.environ.get("DMB_BENCHMARK_BROWSER_TMPDIR")
+    if configured is None:
+        return output.parent
+    scratch = Path(configured)
+    if not scratch.is_absolute() or not scratch.is_dir() or scratch.stat().st_dev != output.stat().st_dev:
+        raise ValueError("Browser scratch must be an existing absolute directory on the evidence filesystem")
+    return scratch.resolve()
+
+
 def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail):
+    from apps.live_control_server.hosted_worker import with_startup_gc
     from apps.live_control_server.services import plan_jev_dispatch
     import httpx2
 
@@ -53,6 +65,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         raise ValueError("Browser capture requires explicit local operator auth")
     if any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
         raise ValueError("Provider-free browser capture requires a credential-free worker process")
+    scratch = browser_scratch_directory(output)
     bundle, wire, settled = inputs
     template = manifest["request_template"]
     world = manifest["world"]
@@ -186,7 +199,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                      DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host,
                      TYPESAFE_JEV_API_KEY="retained-jev-replay",
                      OPENAI_API_KEY="local-writer-transport-sink")
-    server = uvicorn.Server(uvicorn.Config(serve, log_level="warning", access_log=False, timeout_graceful_shutdown=10))
+    server = uvicorn.Server(uvicorn.Config(with_startup_gc(serve), log_level="warning",
+                                           access_log=False, timeout_graceful_shutdown=10))
     route = "/api/live/agent/worlds/" + world + "/conversation"
     try:
         with (patch.dict(os.environ, local_env),
@@ -218,7 +232,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         raise ValueError("Browser fixture conversation was not empty")
                     runtime = output / "runtime-artifacts"
                     env = {
-                        "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(output.parent),
+                        "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(scratch),
                         "DMB_BENCHMARK_BROWSER_ORIGIN": origin, "DMB_BENCHMARK_BROWSER_TOKEN": token,
                         "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",

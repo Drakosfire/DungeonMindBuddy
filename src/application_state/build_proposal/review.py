@@ -12,7 +12,10 @@ from pydantic import ConfigDict, Field, model_validator, model_serializer
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer
+from application_state.build_proposal.types import (
+    StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer,
+    BuildProseBoundaryProposalRecord, BuildProseBoundaryTarget, admit_build_boundary_fragment,
+)
 from application_state.build_proposal.service import _load, _save
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -30,6 +33,7 @@ def digest(text):
 class ReviewApply(StrictModel):
     page_body_target: BuildPageBodyOffer | None = None
     page_end_target: BuildPageEndOffer | None = None
+    prose_target: BuildProseBoundaryTarget | None = None
     placement_caret: int = Field(strict=True, ge=0)
     apply_id: UUID
     before_editor_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -46,6 +50,8 @@ class ReviewApply(StrictModel):
             value.pop("page_body_target", None)
         if self.page_end_target is None:
             value.pop("page_end_target", None)
+        if self.prose_target is None:
+            value.pop("prose_target", None)
         return value
 
 
@@ -87,7 +93,7 @@ class BuildProposalReview(StrictModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, serialize_by_alias=True
     )
-    schema_version: Literal["dmb_build_proposal_review_v2", "dmb_build_proposal_review_v3"] = Field(
+    schema_version: Literal["dmb_build_proposal_review_v2", "dmb_build_proposal_review_v3", "dmb_build_proposal_review_v5"] = Field(
         default="dmb_build_proposal_review_v2", alias="schema"
     )
     world_id: str
@@ -102,6 +108,7 @@ class BuildProposalReview(StrictModel):
     updated_at: datetime
     page_body_target: BuildPageBodyOffer | None = None
     page_end_target: BuildPageEndOffer | None = None
+    prose_target: BuildProseBoundaryTarget | None = None
     placement: PlacementCapability | None = None
     retired_placements: list[RetiredPlacement] = Field(default_factory=list)
 
@@ -112,14 +119,16 @@ class BuildProposalReview(StrictModel):
             value.pop("page_body_target", None)
         if self.page_end_target is None:
             value.pop("page_end_target", None)
-        if self.schema_version == "dmb_build_proposal_review_v2":
+        if self.prose_target is None:
+            value.pop("prose_target", None)
+        if self.schema_version != "dmb_build_proposal_review_v3":
             value.pop("placement", None)
             value.pop("retired_placements", None)
         return value
 
     @model_validator(mode="after")
     def validate_digest(self):
-        if self.schema_version == "dmb_build_proposal_review_v2":
+        if self.schema_version in {"dmb_build_proposal_review_v2", "dmb_build_proposal_review_v5"}:
             if self.placement is not None or self.retired_placements:
                 raise ValueError("Historical review cannot carry fresh placement authority")
         elif (self.placement is None or not self.retired_placements
@@ -142,6 +151,14 @@ class BuildProposalReview(StrictModel):
             raise ValueError("Whole-page target cannot gain another placement")
         if self.apply and self.apply.page_body_target != self.page_body_target:
             raise ValueError("Apply differs from resolved whole-page target")
+        if (self.schema_version == "dmb_build_proposal_review_v5") != (self.prose_target is not None):
+            raise ValueError("A Build prose target requires its versioned review")
+        if self.prose_target is not None:
+            if self.page_body_target is not None or self.page_end_target is not None:
+                raise ValueError("A Build prose review cannot carry a competing target")
+            admit_build_boundary_fragment(self.markdown)
+        if self.apply and self.apply.prose_target != self.prose_target:
+            raise ValueError("Apply differs from the exact reviewed prose boundary")
         if self.markdown_sha256 != digest(self.markdown):
             raise ValueError("Review Markdown digest differs")
         if (self.state in {"applying", "applied"}) != (self.apply is not None):
@@ -166,6 +183,7 @@ class BuildReviewCommand(StrictModel):
     placement: PlacementCapability | None = None
     page_body_target: BuildPageBodyOffer | None = None
     page_end_target: BuildPageEndOffer | None = None
+    prose_target: BuildProseBoundaryTarget | None = None
 
     @model_validator(mode="after")
     def exact_fields(self):
@@ -180,12 +198,15 @@ class BuildReviewCommand(StrictModel):
             required = required | {"page_body_target"}
         if self.operation == "prepare" and self.page_end_target is not None:
             required = required | {"page_end_target"}
+        if self.operation == "prepare" and self.prose_target is not None:
+            required = required | {"prose_target"}
         present = {
             name
             for name in (
                 "markdown",
                 "page_body_target",
                 "page_end_target",
+                "prose_target",
                 "placement",
                 "placement_caret",
                 "apply_id",
@@ -234,10 +255,13 @@ class BuildProposalReviewService:
             previous = BuildProposalReview.model_validate(row[0]) if row else None
             expected_body = proposal.reservation.page_body_offer if proposal.proposal and proposal.proposal.target == "page_body" else None
             expected_end = proposal.reservation.page_end_offer if proposal.proposal and proposal.proposal.target == "page_end" else None
+            expected_prose = proposal.reservation.prose_target if type(proposal) is BuildProseBoundaryProposalRecord else None
             if previous and (previous.reservation_sha256 != proposal.request_fingerprint
                     or previous.page_body_target != expected_body
                     or previous.page_end_target != expected_end
-                    or (expected_body is not None or expected_end is not None) and previous.placement_caret != proposal.reservation.basis.caret):
+                    or previous.prose_target != expected_prose
+                    or any(value is not None for value in (expected_body, expected_end, expected_prose))
+                    and previous.placement_caret != proposal.reservation.basis.caret):
                 raise ApplicationStateConflictError("Review differs from immutable target")
             if authorize_world is not None:
                 authorize_world()
@@ -256,6 +280,7 @@ class BuildProposalReviewService:
                 if proposal.inserted_in_draft:
                     raise ApplicationStateConflictError("Proposal was already inserted")
                 result = BuildProposalReview(
+                    schema="dmb_build_proposal_review_v5" if expected_prose is not None else "dmb_build_proposal_review_v2",
                     world_id=world_id,
                     action_id=action_id,
                     reservation_sha256=proposal.request_fingerprint,
@@ -264,6 +289,7 @@ class BuildProposalReviewService:
                     placement_caret=proposal.reservation.basis.caret,
                     page_body_target=expected_body,
                     page_end_target=expected_end,
+                    prose_target=expected_prose,
                     markdown=proposal.proposal.replacement_markdown,
                     markdown_sha256=digest(proposal.proposal.replacement_markdown),
                     updated_at=now,
@@ -287,6 +313,8 @@ class BuildProposalReviewService:
                 raise ApplicationStateConflictError("Review differs from immutable target")
             if (expected_body is not None or expected_end is not None) and command.operation in {"move", "replace_placement"}:
                 raise ApplicationStateConflictError("Whole-page revision stays at its captured body. Request a new revision on the changed page." if expected_body else "Page-end insertion stays at its captured end. Request a new addition on the changed page.")
+            if expected_prose is not None and command.operation in {"move", "replace_placement"}:
+                raise ApplicationStateConflictError("Build prose stays at its offered paragraph boundary. Send a new request to change it.")
             if (expected_body is not None or expected_end is not None) and previous.placement_caret != proposal.reservation.basis.caret:
                 raise ApplicationStateConflictError("Whole-page editor basis changed")
             if command.operation == "replace_placement":
@@ -304,6 +332,8 @@ class BuildProposalReviewService:
                 and previous.apply.apply_id == command.apply_id
             ):
                 if command.operation == "prepare":
+                    if command.prose_target != expected_prose:
+                        raise ApplicationStateConflictError("The editor must acknowledge the exact prose boundary")
                     if command.page_body_target != expected_body or command.page_end_target != expected_end:
                         raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it" if expected_body else "This editor must acknowledge the exact page-end target before applying it")
                     if (
@@ -364,6 +394,8 @@ class BuildProposalReviewService:
             elif command.operation == "discard":
                 update["state"] = "discarded"
             elif command.operation == "prepare":
+                if command.prose_target != expected_prose:
+                    raise ApplicationStateConflictError("The editor must acknowledge the exact prose boundary")
                 if command.page_body_target != expected_body or command.page_end_target != expected_end:
                     raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it" if expected_body else "This editor must acknowledge the exact page-end target before applying it")
                 if previous.placement:
@@ -379,6 +411,7 @@ class BuildProposalReviewService:
                     apply=ReviewApply(
                         page_body_target=previous.page_body_target,
                         page_end_target=previous.page_end_target,
+                        prose_target=expected_prose,
                         placement_caret=previous.placement_caret,
                         apply_id=command.apply_id,
                         before_editor_sha256=basis.editor_sha256,

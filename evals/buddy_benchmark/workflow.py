@@ -28,13 +28,17 @@ def read_pin(pin, base):
     return data
 
 
-def load_manifest(path, *, schema="dmb_ordinary_benchmark_v1"):
+def load_manifest(path, *, schema="dmb_ordinary_benchmark_v1", expected_sha256=None):
     path = Path(path).resolve()
+    if expected_sha256 is None:
+        data = path.read_bytes()
+    else:
+        data = read_pin({"path": str(path), "sha256": expected_sha256}, path.parent)
     if schema == "dmb_ordinary_benchmark_v1":
-        manifest = json.loads(path.read_text())
+        manifest = json.loads(data)
     else:
         from application_state.agent_conversation.source_writer_output import strict_json
-        manifest = strict_json(path.read_text())
+        manifest = strict_json(data.decode("utf-8"))
     if manifest.get("schema") != schema:
         raise ValueError("Unknown ordinary benchmark manifest")
     cases = manifest["cases"]
@@ -467,9 +471,42 @@ def verify_capture_environment(expected):
 
 
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
-            browser_case=None):
+            browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None):
     """Explicit live entry point; never invoked by offline reporting."""
-    manifest, base = load_manifest(manifest_path)
+    manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
+    options = dict(context_only=context_only, writer_transport=writer_transport,
+                   detailed_trace=detailed_trace, browser_case=browser_case,
+                   cohort_member=cohort_manifest_sha256 is not None)
+    if cohort_app is not None:
+        if cohort_manifest_sha256 is None or clone_app:
+            raise ValueError("Shared App override requires a pinned cohort member")
+        manifest["isolation"]["app"] = cohort_app
+    if not clone_app:
+        return _capture(manifest, base, output, **options)
+
+    from urllib.parse import urlsplit
+    from unittest.mock import patch
+    from .disposable_database import disposable_benchmark_database
+
+    env = "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL"
+    url = urlsplit(os.environ[env])
+    app = manifest["isolation"]["app"]
+    native = manifest["isolation"]["native"]
+    if (url.hostname, url.port, url.path[1:]) != (app["host"], app["port"], app["database"]):
+        raise ValueError("App source differs from the pinned benchmark fixture")
+    if (app["system_identifier"], app["oid"]) == (native["system_identifier"], native["oid"]):
+        raise ValueError("App source must be distinct from the read-only Core database")
+    with disposable_benchmark_database(url._replace(path="/postgres").geturl(), app) as clone:
+        manifest["isolation"]["app"] = clone
+        with patch.dict(os.environ, {env: url._replace(path="/" + clone["database"]).geturl()}):
+            from application_state.cli import upgrade_to_head
+
+            upgrade_to_head()
+            return _capture(manifest, base, output, **options)
+
+
+def _capture(manifest, base, output, *, context_only, writer_transport, detailed_trace,
+             browser_case, cohort_member):
     if os.environ.get("DMB_AGENT_GRAPH_LOCAL_PROFILE"):
         raise ValueError("Capture cannot use a hidden local profile")
     if not manifest.get("pins"):
@@ -528,11 +565,14 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
         with psycopg.connect(dsn, options="-c default_transaction_read_only=on", row_factory=dict_row) as conn:
             yield conn
     native_dsn = dsns["DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"]
-    native_before = row_inventory(native_dsn, readonly=readonly)
-    expected_native = json.loads(read_pin(manifest["isolation"]["native"]["inventory"], base))
-    if native_before != expected_native:
-        raise ValueError("Native corpus differs from pinned inventory")
-    immutable_save(output, "native-before", native_before)
+    from .cohort_capture import require_read_only_core
+    require_read_only_core(native_dsn)
+    if not cohort_member:
+        native_before = row_inventory(native_dsn, readonly=readonly)
+        expected_native = json.loads(read_pin(manifest["isolation"]["native"]["inventory"], base))
+        if native_before != expected_native:
+            raise ValueError("Native corpus differs from pinned inventory")
+        immutable_save(output, "native-before", native_before)
     token = secrets.token_urlsafe(32)
     owned_env = dict(dsns, DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN=token,
         DMB_AGENT_GRAPH_SESSION_STORE=str(output / "isolated-session.json"),
@@ -597,15 +637,12 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
                     if response.status_code != 200:
                         raise ValueError("Build turn failed; later turns not dispatched")
                     conversation_id = _wrapped(directory / "history-after.json")["body"]["active_conversation_id"]
-                checkpoint = row_inventory(native_dsn, readonly=readonly)
-                immutable_save(output, "native-after-" + case["id"], checkpoint)
-                if checkpoint != native_before:
-                    raise ValueError("Native authority changed; later questions not dispatched")
     finally:
-        native_after = row_inventory(native_dsn, readonly=readonly)
-        immutable_save(output, "native-after", native_after)
+        if not cohort_member:
+            native_after = row_inventory(native_dsn, readonly=readonly)
+            immutable_save(output, "native-after", native_after)
         immutable_save(output, "report", report(output / "capture-manifest.json"))
-        if native_before != native_after:
+        if not cohort_member and native_before != native_after:
             raise ValueError("Native authority changed during ordinary capture")
 
 
@@ -1234,21 +1271,32 @@ def action_report(manifest_path):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
+    parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context",
+        "capture-context-cohort", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
     parser.add_argument("--citation-readback", help="Retained excerpt citation readback JSONL")
     parser.add_argument("--writer-transport", action="store_true",
                         help="Capture the serialized writer request at a local transport sink")
+    parser.add_argument("--browser-cohort", action="store_true",
+                        help="Capture ordinary browser Send to the local writer transport sink for each cohort member")
     parser.add_argument("--detailed-trace", action="store_true", help="Retain individual host timing intervals")
     parser.add_argument("--trace-input", type=Path, help="Retained detailed capture directory")
     parser.add_argument("--case", help="Manifest case ID for trace-report or isolated browser capture")
+    parser.add_argument("--clone-app", action="store_true",
+                        help="Own and drop a temporary clone of the pinned local App fixture")
     args = parser.parse_args(argv)
-    if args.detailed_trace and args.mode != "capture-context":
-        parser.error("--detailed-trace requires capture-context")
+    browser_cohort = args.mode == "capture-context-cohort" and args.browser_cohort
+    if args.browser_cohort and not browser_cohort:
+        parser.error("--browser-cohort requires capture-context-cohort")
+    if args.detailed_trace and args.mode != "capture-context" and not browser_cohort:
+        parser.error("--detailed-trace requires capture-context or a browser cohort")
     if args.writer_transport and args.mode != "capture-context":
         parser.error("--writer-transport requires capture-context")
+    if args.clone_app and args.mode not in {"capture", "capture-context", "capture-context-cohort"}:
+        parser.error("--clone-app requires capture, capture-context or capture-context-cohort")
     if args.mode != "report" and (args.oracle or args.citation_readback):
         parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "trace-report":
@@ -1270,11 +1318,17 @@ def main(argv=None):
     elif args.mode == "action-report":
         immutable_save(Path(args.output), "action-report", action_report(args.manifest))
     elif args.mode == "capture":
-        capture(args.manifest, args.output)
+        capture(args.manifest, args.output, clone_app=args.clone_app)
     elif args.mode == "capture-context":
         options = {"browser_case": args.case} if args.case is not None else {}
+        if args.clone_app:
+            options["clone_app"] = True
         capture(args.manifest, args.output, context_only=True, writer_transport=args.writer_transport,
                 detailed_trace=args.detailed_trace, **options)
+    elif args.mode == "capture-context-cohort":
+        from .cohort_capture import capture_cohort
+        capture_cohort(args.manifest, args.output, workers=args.workers,
+                       browser=browser_cohort, detailed_trace=args.detailed_trace, clone_app=args.clone_app)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     elif args.mode == "context-tasting":

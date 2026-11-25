@@ -3,6 +3,7 @@ import type { NativeGraphNode } from "./nativeGraphDemoApi";
 const DISPLAY_KINDS: Readonly<Record<string, string>> = {
   "dnd5e:npc": "npc",
   "dnd5e:pc": "pc",
+  "dnd5e:creature": "creature",
   "dnd5e:player_character": "pc",
   "dnd5e:item": "item",
   "dungeonbuddy:item": "item",

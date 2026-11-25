@@ -1,0 +1,244 @@
+#!/usr/bin/env bash
+# Installed as /usr/local/sbin/activate-buddy-release by the production operator.
+set -euo pipefail
+
+fail() { printf 'Buddy deploy: %s\n' "$*" >&2; exit 1; }
+
+[[ $# == 1 && "$1" =~ ^[0-9a-f]{40}$ ]] || fail "an exact release SHA is required"
+revision=$1
+readonly config_dir=/etc/buddy-deploy
+release="$config_dir/releases/$revision.conf"
+
+exec 9>/run/lock/buddy-production-deploy.lock
+flock -n 9 || fail "another Buddy deploy is active"
+
+# These files are local operator policy, never supplied by the SSH caller.
+trusted() {
+  local owner mode
+  [[ ! -L "$1" ]] || fail "symlink in deployment policy: $1"
+  read -r owner mode < <(stat -c '%u %a' -- "$1")
+  [[ "$owner" == 0 ]] && (( (8#$mode & 8#022) == 0 )) ||
+    fail "deployment policy is not controlled by root: $1"
+}
+
+for path in "$config_dir" "$config_dir/releases" "$config_dir/compose.conf" "$release"; do
+  [[ -e "$path" ]] || fail "missing deployment policy: $path"
+  trusted "$path"
+done
+# shellcheck source=/dev/null
+source "$config_dir/compose.conf"
+# shellcheck source=/dev/null
+source "$release"
+
+guest_graph_enabled=${guest_graph_enabled:-0}
+[[ "$guest_graph_enabled" == 0 || "$guest_graph_enabled" == 1 ]] || fail "invalid staged guest Graph setting"
+guest_build_enabled=${guest_build_enabled:-0}
+[[ "$guest_build_enabled" == 0 || "$guest_build_enabled" == 1 ]] || fail "invalid staged guest Build setting"
+[[ "$guest_build_enabled" == 0 || "$guest_graph_enabled" == 1 ]] || fail "guest Build requires guest Graph"
+if [[ "$guest_graph_enabled" == 1 ]]; then
+  [[ "${guest_graph_space:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph space"
+  [[ "${guest_graph_revision:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph revision"
+fi
+
+verify_image() {
+  local tag=$1 digest=$2 expected_revision=$3
+  [[ "$tag" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ && "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] ||
+    fail "invalid $expected_revision image reference"
+  [[ "$tag" == "dungeonmindbuddy:$expected_revision" ]] ||
+    fail "image tag does not match $expected_revision"
+  [[ "$(docker image inspect --format '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}' "$tag")" == "$digest $expected_revision" ]] ||
+    fail "staged image does not match the approved $expected_revision image"
+}
+
+verify_image "$candidate_tag" "$candidate_id" "$revision"
+verify_image "$rollback_tag" "$rollback_id" "$rollback_revision"
+[[ "$candidate_id" != "$rollback_id" ]] || fail "candidate and rollback must be distinct"
+
+# The guest baseline is attached only to the candidate; rollback uses the
+# existing base Compose configuration without the candidate's guest settings.
+with_image() {
+  local tag=$1
+  shift
+  if [[ "$tag" == "$candidate_tag" && "$guest_graph_enabled" == 1 ]]; then
+    printf 'services:\n  buddy:\n    image: %s\n    environment:\n      DMB_HOSTED_GUEST_GRAPH_ENABLED: "1"\n      DMB_HOSTED_GUEST_BUILD_ENABLED: "%s"\n      DMB_GUEST_GRAPH_SOURCE_SPACE: "%s"\n      DMB_GUEST_GRAPH_SOURCE_REVISION: "%s"\n' \
+      "$tag" "$guest_build_enabled" "$guest_graph_space" "$guest_graph_revision" | "${compose[@]}" -f - "$@"
+  else
+    printf 'services:\n  buddy:\n    image: %s\n' "$tag" | "${compose[@]}" -f - "$@"
+  fi
+}
+
+verify_serving() {
+  local container actual
+  container=$("${compose[@]}" ps -q buddy) || return 1
+  [[ -n "$container" ]] || return 1
+  actual=$(docker inspect --format '{{.Image}} {{if .State.Health}}{{.State.Health.Status}}{{end}}{{range .Mounts}}{{if and (eq .Type "bind") (eq .Destination "/var/lib/buddy")}} {{.Source}}{{end}}{{end}}' "$container") || return 1
+  [[ "$actual" == "$1 healthy $persistent_root" ]] &&
+    [[ "$("${compose[@]}" port buddy 8000)" == "${upstream#http://}" ]] &&
+    curl --connect-timeout 5 --max-time 15 -fsS "$upstream/health/live" >/dev/null &&
+    curl --connect-timeout 5 --max-time 15 -fsS "$upstream/health/ready" >/dev/null || return 1
+  if [[ "$1" == "$candidate_id" && "$guest_graph_enabled" == 1 ]]; then
+    local guest_env
+    guest_env=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container") || return 1
+    grep -Fxq 'DMB_HOSTED_GUEST_GRAPH_ENABLED=1' <<< "$guest_env" &&
+      grep -Fxq "DMB_HOSTED_GUEST_BUILD_ENABLED=$guest_build_enabled" <<< "$guest_env" &&
+      grep -Fxq "DMB_GUEST_GRAPH_SOURCE_SPACE=$guest_graph_space" <<< "$guest_env" &&
+      grep -Fxq "DMB_GUEST_GRAPH_SOURCE_REVISION=$guest_graph_revision" <<< "$guest_env" || return 1
+  fi
+}
+
+verify_public_ready() {
+  local status
+  status=$(curl --connect-timeout 5 --max-time 15 -fsS -o /dev/null -w '%{http_code}' \
+    https://buddy.dungeonmind.net/health/ready) && [[ "$status" == 200 ]]
+}
+
+activate() {
+  with_image "$1" up -d --no-deps --no-build --pull never --wait --wait-timeout 330 buddy &&
+    verify_serving "$2" && verify_public_ready
+}
+
+record_serving() {
+  local receipt
+  receipt=$(mktemp "$config_dir/.serving.XXXXXX") || return 1
+  if ! printf 'BUDDY_LIVE %s %s\n' "$revision" "$candidate_id" > "$receipt" ||
+    ! mv -fT -- "$receipt" "$config_dir/serving"; then
+    rm -f -- "$receipt"
+    return 1
+  fi
+}
+
+retain_images() {
+  local approvals="$config_dir/retire-images" file line key value tag id identity containers references i
+  local -a tags=() ids=() container_ids=()
+  local -A protected=(["$candidate_id"]=1 ["$rollback_id"]=1)
+  local -A protected_tags=() pins=() selected=()
+
+  [[ -e "$approvals" || -L "$approvals" ]] || return 0
+  [[ -f "$approvals" ]] || return 1
+  trusted "$approvals"
+  for file in "$config_dir"/releases/*.conf; do
+    [[ -f "$file" ]] || return 1
+    trusted "$file"
+    # Inventory records contain literal pins. Never source other approvals.
+    pins=()
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ -n "$line" ]] || continue
+      key=${line%%=*}
+      value=${line#*=}
+      case "$key" in
+        candidate_id|rollback_id|registry_digest)
+          [[ "$value" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1 ;;
+        candidate_tag|rollback_tag)
+          [[ "$value" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ ]] || return 1 ;;
+        rollback_revision)
+          [[ "$value" =~ ^[0-9a-f]{40}$ ]] || return 1 ;;
+        guest_graph_enabled)
+          [[ "$value" == 1 ]] || return 1 ;;
+        guest_build_enabled)
+          [[ "$value" == 1 ]] || return 1 ;;
+        guest_graph_space|guest_graph_revision)
+          [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || return 1 ;;
+        *) return 1 ;;
+      esac
+      [[ ! "${pins[$key]+yes}" ]] || return 1
+      pins["$key"]=$value
+    done < "$file" || return 1
+    [[ "${pins[candidate_id]:-}" && "${pins[rollback_id]:-}" &&
+      "${pins[candidate_tag]:-}" && "${pins[rollback_tag]:-}" && "${pins[rollback_revision]:-}" ]] || return 1
+    protected["${pins[candidate_id]}"]=1
+    protected["${pins[rollback_id]}"]=1
+    protected_tags["${pins[candidate_tag]}"]=1
+    protected_tags["${pins[rollback_tag]}"]=1
+  done
+  containers=$(docker ps -aq) || return 1
+  if [[ -n "$containers" ]]; then
+    mapfile -t container_ids <<< "$containers"
+    references=$(docker inspect --format '{{.Image}}' "${container_ids[@]}") || return 1
+    while IFS= read -r id; do
+      [[ "$id" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+      protected["$id"]=1
+    done <<< "$references"
+  fi
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -n "$line" ]] || continue
+    [[ "$line" =~ ^(dungeonmindbuddy:[0-9a-f]{40})[[:blank:]](sha256:[0-9a-f]{64})$ ]] || return 1
+    tag=${BASH_REMATCH[1]}
+    id=${BASH_REMATCH[2]}
+    [[ ! "${selected[$tag]+yes}" ]] || return 1
+    selected["$tag"]=1
+    [[ ! "${protected[$id]+yes}" && ! "${protected_tags[$tag]+yes}" ]] || continue
+    identity=$(docker image ls --filter "reference=$tag" --format '{{.Repository}}:{{.Tag}}') || return 1
+    [[ -n "$identity" ]] || continue
+    [[ "$identity" == "$tag" ]] || return 1
+    [[ "$(docker image inspect --format '{{.Id}}' "$tag")" == "$id" ]] || return 1
+    tags+=("$tag")
+    ids+=("$id")
+  done < "$approvals" || return 1
+  for i in "${!tags[@]}"; do
+    [[ "$(docker image inspect --format '{{.Id}}' "${tags[i]}")" == "${ids[i]}" ]] || return 1
+    docker image rm --no-prune "${tags[i]}" || return 1
+  done
+}
+
+retain_build_cache() {
+  local approvals="$config_dir/retire-cache" id record
+  local description='prepare_patched_hermes[.]py|patches/hermes-agent'
+  local -a ids=()
+  [[ -e "$approvals" || -L "$approvals" ]] || return 0
+  [[ -f "$approvals" ]] || return 1
+  trusted "$approvals"
+  while IFS= read -r id || [[ -n "$id" ]]; do
+    [[ -n "$id" ]] || continue
+    [[ "$id" =~ ^[a-z0-9]{25}$ ]] || return 1
+    ids+=("$id")
+  done < "$approvals" || return 1
+
+  for id in "${ids[@]}"; do
+    record=$(docker buildx du --builder default --filter "id=$id" \
+      --format '{{.ID}} {{.Shared}} {{.Reclaimable}} {{.Description}}') || return 1
+    [[ -n "$record" ]] || continue
+    [[ "$record" != *$'\n'* && "$record" == "$id false true "* &&
+      "${record#"$id false true "}" =~ $description ]] || return 1
+    docker buildx prune --builder default --force --filter "id=$id" \
+      --filter 'shared!=true' --filter "description~=$description" || return 1
+    record=$(docker buildx du --builder default --filter "id=$id" --format '{{.ID}}') || return 1
+    [[ -z "$record" ]] || return 1
+  done
+}
+
+report_live() {
+  printf 'BUDDY_LIVE %s %s\n' "$revision" "$candidate_id"
+  retain_images || fail "release is healthy and recorded; image retention did not finish"
+  retain_build_cache || fail "release is healthy and recorded; build cache retention did not finish"
+}
+
+[[ "$upstream" =~ ^http://127\.0\.0\.1:[0-9]{1,5}$ ]] || fail "expected a Buddy loopback upstream"
+[[ "$persistent_root" == /* ]] || fail "expected an absolute Buddy persistent root"
+if verify_serving "$candidate_id"; then
+  verify_public_ready || fail "already serving candidate did not pass public readiness"
+  record_serving || fail "could not record the serving release"
+  report_live
+  exit 0
+fi
+verify_serving "$rollback_id" || fail "serving Buddy does not match the healthy approved rollback"
+
+rollback() {
+  local status=$?
+  trap - EXIT
+  trap '' HUP INT TERM
+  if activate "$rollback_tag" "$rollback_id"; then
+    printf 'BUDDY_ROLLED_BACK %s %s\n' "$rollback_revision" "$rollback_id" >&2
+  else
+    printf 'BUDDY_ROLLBACK_FAILED operator intervention required\n' >&2
+  fi
+  exit "$status"
+}
+trap rollback EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+activate "$candidate_tag" "$candidate_id" || fail "candidate did not become healthy"
+trap - EXIT HUP INT TERM
+record_serving || fail "candidate is healthy and serving; could not record the serving release"
+report_live

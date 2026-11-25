@@ -257,6 +257,9 @@ class WorkspaceDocumentSnapshot(BaseModel):
     )
     record: WorkspaceDocumentRecord
     page_presentation: PagePresentation | None = None
+    layout_writer_profile: Literal["dmb_page_layout_writer_v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     page_presentation_sha256: str | None = None
     committed_markdown: str | None = None
     committed_content_sha256: str | None = None
@@ -272,6 +275,12 @@ class WorldOwnedPlanSnapshotV2(BaseModel):
         "dmb_workspace_document_snapshot_v2"
     )
     record: WorldOwnedPlanRecordV2
+    page_presentation: PagePresentation | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    page_presentation_sha256: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     markdown: str
     content_sha256: str
     file_fingerprint: str
@@ -526,6 +535,7 @@ def create_workspace_document(
     authority_state: Literal["draft", "reviewed", "canonical"] | None = None,
     visibility_state: Literal["internal", "player_safe"] | None = None,
     _connected_reservation: tuple[str, str] | None = None,
+    authorize_allocation=None,
 ) -> WorkspaceDocumentRecord:
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
@@ -559,6 +569,7 @@ def create_workspace_document(
                 title=cleaned_title,
                 campaign_id=campaign_id,
                 document_id=ident,
+                **({"authorize_allocation": authorize_allocation} if authorize_allocation is not None else {}),
                 metadata=pages.PageMetadata(
                     document_class=fields["document_class"],
                     authority_state=fields["authority_state"],
@@ -880,6 +891,7 @@ def get_workspace_document_snapshot(
             record=_record_from_page(snap, from_working_copy=snap.from_working_copy),
             markdown=snap.markdown,
             page_presentation=snap.presentation,
+            layout_writer_profile=snap.layout_writer_profile,
             page_presentation_sha256=snap.presentation.fingerprint()
             if snap.presentation
             else None,
@@ -926,6 +938,12 @@ def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshotAny:
             else WorkspaceDocumentSnapshot
         )
     )
+    layout = snap.page_presentation
+    presentation_fields = (
+        {"page_presentation": layout, "page_presentation_sha256": layout.fingerprint()}
+        if layout is not None and isinstance(record, WorldOwnedPlanRecordV2)
+        else {}
+    )
     return snapshot_model(
         record=record,
         markdown=snap.markdown,
@@ -933,6 +951,7 @@ def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshotAny:
         file_fingerprint="postgres",
         file_exists=False,
         loaded_revision=snap.loaded_revision,
+        **presentation_fields,
     )
 
 
@@ -1334,6 +1353,7 @@ def get_committed_page_snapshot(
         return WorkspaceDocumentSnapshot(
             record=_record_from_page(snap),
             page_presentation=snap.presentation,
+            layout_writer_profile=snap.layout_writer_profile,
             page_presentation_sha256=snap.presentation.fingerprint()
             if snap.presentation
             else None,

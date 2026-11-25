@@ -33,10 +33,35 @@ class PlanJevHarness:
     def run_with_provider_authorization(self, *args, **kwargs):
         raise ValueError('Plan Jev requires its trusted parent orchestration')
 
+    def _interpret_author_scope(self, adapter, dialogue, calls):
+        from application_state.agent_conversation.native_plan_opening import (
+            author_scope_review_required, can_skip_author_scope_recheck,
+        )
+
+        def observe(dispatch):
+            try:
+                asyncio.run(dispatch.run(transport=self.decision_transport, api_key=self.decision_api_key))
+            finally:
+                if dispatch.call is not None:
+                    calls.append(dispatch.call)
+            return dispatch.selection_event
+
+        first_dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue)
+        first = observe(first_dispatch)
+        if can_skip_author_scope_recheck(
+            first_dispatch.parent, first.scope_observation, adapter.request.plan_authoring_capture
+        ):
+            return first
+        second = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, prior_scope=first))
+        if author_scope_review_required(adapter.request.message, first.scope_observation, second.scope_observation):
+            return observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, review_scope=(first, second)))
+        return second
+
     def execute(self, adapter, *, dialogue=(), retained_navigation=()):
         from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
         from .agent_turn_service import AgentTurnServiceError
         self.calls = []
+        author_scope_calls = []
         page_title = next((line[2:].strip() for line in adapter.work.plan_markdown.splitlines() if line.startswith('# ') and line[2:].strip()), 'Current Plan')
         semantic = None
         rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
@@ -61,12 +86,20 @@ class PlanJevHarness:
                 if type(adapter.request.plan_context_policy) is not t.PlanContextPolicyV2:
                     raise ValueError('Current Plan orchestration requires the governed native request protocol')
                 adapter.claim_native_plan_request(dialogue=dialogue)
+                from application_state.agent_conversation.native_execution import NativePlanActionV3
+                action = adapter.fence.turn.graph_context_execution.policy.action
+                if type(action) is NativePlanActionV3:
+                    page_title = action.document_title or ''
                 from .native_authored_references import acquire
                 acquire(adapter)
                 driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
                 driver.native_sources.discover_initial()
+                adapter.fence.begin_plan_opening()
+                author_scope = (self._interpret_author_scope(adapter, dialogue, author_scope_calls)
+                    if type(action) is NativePlanActionV3 else None)
                 with measure("plan_opening_candidate_preparation"):
-                    semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, **driver.decision_arguments())
+                    semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title,
+                        author_scope=author_scope, **driver.decision_arguments())
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             if selected == 'different_destination':
                 raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
@@ -116,7 +149,7 @@ class PlanJevHarness:
                     code='plan_authoring_target_changed', status_code=409) from exc
             raise
         finally:
-            self.calls = ([semantic.call] if semantic is not None and semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
+            self.calls = author_scope_calls + ([semantic.call] if semantic is not None and semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
             self.output_limit_exceeded = writer.output_limit_exceeded if writer is not None else False
             if adapter.fence is not None:
                 try:

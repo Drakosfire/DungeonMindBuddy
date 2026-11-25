@@ -60,6 +60,36 @@ def test_dry_run_adoption_and_exact_replay_preserve_all_metadata_without_files(m
     assert service.get_world('absent') is None
 
 
+def test_catalog_connection_reuse_keeps_fresh_snapshots_and_closes_on_error(monkeypatch):
+    first = service.save_world(_catalog().records[0], expected_revision=0)
+    connections = []
+    connect = service.connect
+
+    def track_connection(dsn):
+        conn = connect(dsn)
+        connections.append(conn)
+        return conn
+
+    monkeypatch.setattr(service, 'connect', track_connection)
+    with pytest.raises(RuntimeError, match='stop capture'):
+        with service.reuse_world_read_connection():
+            assert service.get_world('elderwyld') == first
+            inactive = first.record.native_graph_binding.model_copy(
+                update={'status': 'inactive', 'binding_version': 8},
+            )
+            changed = service.save_world(
+                first.record.model_copy(update={'native_graph_binding': inactive}),
+                expected_revision=first.revision,
+            )
+            assert service.get_world('elderwyld') == changed
+            assert service.get_world('absent') is None
+            assert len(connections) == 1 and not connections[0].closed
+            raise RuntimeError('stop capture')
+    assert connections[0].closed
+    assert service.get_world('elderwyld') == changed
+    assert len(connections) == 1
+
+
 def test_metadata_cas_preserves_identity_and_rejects_stale_writer():
     first = service.save_world(_world(), expected_revision=0)
     changed = first.record.model_copy(update={'name': 'Renamed without identity change'})

@@ -4,6 +4,7 @@ import { hasBlockingMarkdownImportDiagnostics } from "../markdown/markdownToTipt
 import { migrateLegacyTiptapReferenceLabels } from "../references/runbookReferences";
 import { preserveLeadingYamlFrontmatter } from "../markdown/stripLeadingYamlFrontmatter";
 
+export const MANUAL_SAVE_DRAFT_SCHEMA = "dmb_workspace_document_local_state_v7" as const;
 export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v6" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V4 = "dmb_workspace_document_local_state_v4" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V3 = "dmb_workspace_document_local_state_v3" as const;
@@ -13,7 +14,9 @@ export type WorkspaceDocumentLocalKind = "plan" | "runbook" | "worldbuilding_sou
 export type WorkspaceDocumentLocalSurface = "plan" | "runbook" | "build";
 
 export interface WorkspaceDocumentLocalState {
-  schema_version: typeof WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA;
+  schema_version: typeof WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA | typeof MANUAL_SAVE_DRAFT_SCHEMA;
+  manual_save_required?: true;
+  layout_writer_profile?: "dmb_page_layout_writer_v1";
   document_id: string;
   title: string;
   campaign_id: string | null;
@@ -46,6 +49,42 @@ export type TiptapWorkingBoardState = WorkspaceDocumentLocalState;
 
 export function workspaceDocumentStorageKey(documentId: string): string {
   return `dmb.workspaceDocument.${documentId}`;
+}
+
+export const protectedLayoutDraftKey = (documentId: string) =>
+  `${workspaceDocumentStorageKey(documentId)}.protected-layout.v1`;
+
+type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+const DISCARDED_LAYOUT_DRAFT = "null";
+
+/** Keep held bytes outside the key understood by older Build clients. */
+export function protectedLayoutDraftStorage(storage: DraftStorage, documentId: string): DraftStorage {
+  const legacyKey = workspaceDocumentStorageKey(documentId);
+  const protectedKey = protectedLayoutDraftKey(documentId);
+  return {
+    getItem(key) {
+      const protectedRaw = key === legacyKey ? storage.getItem(protectedKey) : null;
+      if (protectedRaw === DISCARDED_LAYOUT_DRAFT) return null;
+      return protectedRaw ?? storage.getItem(key);
+    },
+    setItem(key, raw) {
+      if (key === legacyKey && (
+        storage.getItem(protectedKey) !== null || (JSON.parse(raw) as {schema_version?: string})?.schema_version === MANUAL_SAVE_DRAFT_SCHEMA
+      )) {
+        storage.setItem(protectedKey, raw);
+      } else {
+        storage.setItem(key, raw);
+      }
+    },
+    removeItem(key) {
+      if (key === legacyKey && storage.getItem(protectedKey) !== null) {
+        // Keep the legacy bytes without allowing an old snapshot to reappear.
+        storage.setItem(protectedKey, DISCARDED_LAYOUT_DRAFT);
+      } else {
+        storage.removeItem(key);
+      }
+    },
+  };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -241,7 +280,15 @@ export function isWorkspaceDocumentLocalState(value: unknown): value is Workspac
   if (!isObject(value)) return false;
 
   return (
-    (value.schema_version === WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA || value.schema_version === "dmb_workspace_document_local_state_v5")
+    (value.schema_version === WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA
+      || value.schema_version === "dmb_workspace_document_local_state_v5"
+      || (value.schema_version === MANUAL_SAVE_DRAFT_SCHEMA
+        && (value.manual_save_required === true || value.layout_writer_profile === "dmb_page_layout_writer_v1")
+        && value.surface === "build" && value.kind === "worldbuilding_source"))
+    && (value.layout_writer_profile === undefined || (value.layout_writer_profile === "dmb_page_layout_writer_v1"
+      && value.schema_version === MANUAL_SAVE_DRAFT_SCHEMA))
+    && (value.manual_save_required === undefined || (value.manual_save_required === true
+      && value.schema_version === MANUAL_SAVE_DRAFT_SCHEMA))
     && typeof value.document_id === "string"
     && typeof value.title === "string"
     && (typeof value.campaign_id === "string" || (value.kind === "worldbuilding_source" && value.campaign_id === null))
@@ -282,7 +329,9 @@ function deriveWorkspaceDocumentMarkdown(
 
 function parseStoredWorkspaceDocumentLocalState(parsed: unknown): WorkspaceDocumentLocalState | null {
   if (isWorkspaceDocumentLocalState(parsed)) {
-    return deriveWorkspaceDocumentMarkdown({ ...parsed, schema_version: WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA });
+    return deriveWorkspaceDocumentMarkdown({ ...parsed,
+      schema_version: parsed.manual_save_required || parsed.layout_writer_profile
+        ? MANUAL_SAVE_DRAFT_SCHEMA : WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA });
   }
   if (isObject(parsed)) {
     const migrated = migrateV4LocalState(parsed)

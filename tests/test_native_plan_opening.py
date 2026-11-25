@@ -10,7 +10,7 @@ from application_state.agent_conversation import types as t
 from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1, SurfaceNativeContextReceiptV1
 from application_state.agent_conversation.native_execution import NativePlanActionV2, validate_context_binding
 from application_state.agent_conversation.native_plan_opening import (
-    NativePlanOpeningInputV1, prepare_opening_decision, decode_opening_decision,
+    NativePlanOpeningInputV1, NativePlanOpeningInputV2, prepare_opening_decision, decode_opening_decision,
     request_manifest,
 )
 from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
@@ -50,6 +50,36 @@ def test_combined_wire_has_one_request_and_conditional_choices_without_host_pins
             parent.source_revision, parent.graph_revision, *(c.handle for c in parent.candidates)):
         assert private not in raw
     assert NativePlanOpeningInputV1.model_validate_json(parent.model_dump_json(by_alias=True)) == parent
+
+
+def test_v2_evidence_relevance_changes_only_its_opening_guidance_and_preserves_historical_codec():
+    from tests.application_state.test_plan_contextual_targets import family_catalog, heading, prose
+
+    capture, catalog = family_catalog([heading('Workshop'), prose('Clay is fired.')])
+    fields = opening_input().model_dump(exclude={'schema_'})
+    fields.update(original_capture=capture, placement_catalog=catalog,
+                  target_available=True, target_capture_sha256=capture.sha256)
+    fields['candidates'][0]['kind'] += '; saved authored text'
+    historical = NativePlanOpeningInputV2.model_validate(fields)
+    encoded = historical.model_dump_json(by_alias=True)
+    assert 'evidence_relevance_version' not in encoded
+    assert NativePlanOpeningInputV2.model_validate_json(encoded).digest == historical.digest
+
+    marked = historical.model_copy(update={'evidence_relevance_version': 'v1'})
+    assert marked.digest != historical.digest
+    before = prepare_opening_decision(historical)
+    after = prepare_opening_decision(marked)
+    assert 'evidence_relevance_version' not in after.model_dump_json()
+    assert after.questions[0].question.startswith(before.questions[0].question)
+    assert 'belongs in discussion' in after.questions[0].question
+    assert after.questions[0].options == before.questions[0].options
+    assert after.questions[1:] == before.questions[1:]
+    assert after.state['candidates'][0]['kind'].startswith(before.state['candidates'][0]['kind'])
+    assert 'A topic match alone' in after.state['candidates'][0]['kind']
+    assert after.state['candidates'][1:] == before.state['candidates'][1:]
+    assert {k: v for k, v in after.state.items() if k != 'candidates'} == {
+        k: v for k, v in before.state.items() if k != 'candidates'
+    }
 
 
 @pytest.mark.parametrize('work,expected_operation,expected_handles', [

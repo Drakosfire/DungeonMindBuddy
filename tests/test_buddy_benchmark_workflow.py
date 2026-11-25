@@ -518,13 +518,32 @@ def test_shared_inventory_preserves_explicit_historical_routing_keys():
     class Cursor:
         def __init__(self, rows):
             self.rows = rows
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, query):
+            assert self.itersize == 1
+
+        def __iter__(self):
+            return iter(self.rows)
+
         def fetchall(self):
+            assert not hasattr(self, "itersize"), "Do not buffer table bodies"
             return self.rows
+
     class Connection:
         def execute(self, query):
             if "information_schema.tables" in str(query):
                 return Cursor([{"table_schema": "agent", "table_name": "turn"}])
+
+        def cursor(self, *, name):
+            assert name == "benchmark_inventory"
             return Cursor([{"body": '{"world_id":"w","operation_id":"op","turn_id":"t"}'}])
+
     @contextmanager
     def readonly(_):
         yield Connection()
@@ -643,6 +662,8 @@ def test_relative_capture_output_qualifies_absolute_owned_paths(tmp_path, monkey
         def __exit__(self, *args):
             return False
         def execute(self, query):
+            if "transaction_read_only" in query:
+                return SimpleNamespace(fetchone=lambda: ("on", True))
             return SimpleNamespace(fetchone=lambda: (self.database, "1", "2"))
     monkeypatch.setattr(psycopg, "connect", lambda dsn, **kw: Connection(dsn.rsplit("/", 1)[1]))
     package = ModuleType("apps.live_control_server")
@@ -1325,3 +1346,216 @@ def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
     index.write_text("Changed UI")
     with pytest.raises(ValueError, match="bundle differs"):
         browser_inputs(manifest, tmp_path)
+
+@pytest.mark.parametrize("browser, clone_app", [(False, False), (True, False), (True, True)])
+@pytest.mark.parametrize("changed, missing_capture", [(False, False), (True, False), (False, True)])
+def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app):
+    from concurrent.futures import Future
+    from evals.buddy_benchmark import cohort_capture as cohort
+
+    before = {"dungeonmind.fixture": []}
+    pin = put(tmp_path / "native.json", before)
+    native = dict(host="127.0.0.1", port=53421, database="native", oid="10",
+                  system_identifier="42", inventory=pin)
+    members = []
+    for number in [1, 2]:
+        app = dict(native, database="app", oid="1") if clone_app else dict(
+            native, database=f"app{number}", oid=str(number))
+        members.append(put(tmp_path / f"member{number}.json", {
+            "schema": "dmb_ordinary_benchmark_v1",
+            "cases": [{"id": f"case{number}", "question": f"Question {number}?"}],
+            "isolation": {"native": native, "app": app},
+            **({"browser_capture": {}} if browser else {}),
+        }))
+    manifest = put(tmp_path / "cohort.json", {
+        "schema": "dmb_context_capture_cohort_v1", "members": members,
+    })
+    monkeypatch.setenv(cohort.APP_DSN, "postgresql://127.0.0.1:53421/app")
+    monkeypatch.setenv(cohort.CORE_DSN, "postgresql://127.0.0.1:53421/native")
+    monkeypatch.setattr(cohort, "_endpoint", lambda *_: None)
+    monkeypatch.setattr(cohort, "require_read_only_core", lambda *_: None)
+
+    events = []
+    from contextlib import contextmanager
+    from application_state import cli
+    from evals.buddy_benchmark import disposable_database
+
+    owned_app = {**app, "database": "benchmark_run_owned", "oid": "25"}
+
+    @contextmanager
+    def own(admin_dsn, template):
+        assert admin_dsn.endswith("/postgres")
+        assert template == app
+        events.append("clone")
+        try:
+            yield owned_app
+        finally:
+            events.append("drop")
+
+    def upgrade():
+        assert clone_app
+        assert cohort.os.environ[cohort.APP_DSN].endswith("/benchmark_run_owned")
+        events.append("upgrade")
+
+    monkeypatch.setattr(disposable_database, "disposable_benchmark_database", own)
+    monkeypatch.setattr(cli, "upgrade_to_head", upgrade)
+
+    def inventory(*_, **__):
+        events.append("scan")
+        return {} if changed and events.count("scan") == 2 else before
+
+    class Executor:
+        def __init__(self, **options):
+            assert options["max_workers"] == (1 if clone_app else 2)
+            assert options["max_tasks_per_child"] == 1
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            if clone_app:
+                events.append("workers closed")
+            return False
+
+        def submit(self, member, manifest, output, app_dsn, manifest_sha256, **options):
+            if clone_app:
+                assert options.pop("shared_app") == owned_app
+                assert app_dsn.endswith("/benchmark_run_owned")
+            assert options == ({"browser_case": output.name, "detailed_trace": True} if browser else {})
+            assert member is cohort._capture_member
+            assert sha256(manifest.read_bytes()).hexdigest() == manifest_sha256
+            events.append(output.name)
+            row = {"case_id": output.name}
+            if not (missing_capture and output.name == "case2"):
+                row["context"] = {"status": "captured"}
+            immutable_save(output, "report", {"cases": [row]})
+            f = Future()
+            f.set_result(None)
+            return f
+
+    monkeypatch.setattr(cohort, "row_inventory", inventory)
+    monkeypatch.setattr(cohort, "ProcessPoolExecutor", Executor)
+    out = tmp_path / "result"
+    if changed:
+        with pytest.raises(ValueError, match="changed during cohort"):
+            cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
+                                  detailed_trace=browser, clone_app=clone_app)
+    elif missing_capture:
+        with pytest.raises(RuntimeError, match="cohort members failed"):
+            cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
+                                  detailed_trace=browser, clone_app=clone_app)
+        outcomes = json.loads((out / "members.json").read_text())
+        assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing"}}
+    else:
+        cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
+                                  detailed_trace=browser, clone_app=clone_app)
+    if clone_app:
+        assert events == ["scan", "clone", "upgrade", "case1", "case2", "workers closed", "drop", "scan"]
+        assert json.loads((out / "owned-app.json").read_text())["database"] == owned_app
+    else:
+        assert events == ["scan", "case1", "case2", "scan"]
+
+
+def test_cohort_core_rejects_a_writable_login(monkeypatch):
+    from evals.buddy_benchmark import cohort_capture as cohort
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, _):
+            return SimpleNamespace(fetchone=lambda: (True, False))
+
+    monkeypatch.setattr(cohort.psycopg, "connect", lambda _: Connection())
+    with pytest.raises(ValueError, match="dedicated non-writing login"):
+        cohort.require_read_only_core("unused")
+
+
+def test_cohort_member_verifies_exact_manifest_bytes_before_startup(tmp_path):
+    path = tmp_path / "member.json"
+    expected = put(path, {"schema": "dmb_ordinary_benchmark_v1", "cases": []})
+    path.write_text("{}")
+    with pytest.raises(ValueError, match="Evidence pin mismatch"):
+        w.capture(path, tmp_path / "out", context_only=True,
+                  cohort_manifest_sha256=expected["sha256"])
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("failure", [None, "migration", "capture"])
+def test_capture_owns_disposable_app_scope(tmp_path, monkeypatch, failure):
+    from contextlib import contextmanager
+
+    from evals.buddy_benchmark import disposable_database
+
+    env = "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL"
+    source = "postgresql://127.0.0.1:12345/eval_template"
+    template = dict(host="127.0.0.1", port=12345, database="eval_template",
+                    oid="1", system_identifier="2")
+    native = {**template, "database": "eval_core", "oid": "3"}
+    clone = {**template, "database": "benchmark_run_fixture", "oid": "4"}
+    manifest = {"isolation": {"app": template, "native": native}}
+    events = []
+    monkeypatch.setenv(env, source)
+    monkeypatch.setattr(w, "load_manifest", lambda *_, **__: (manifest, tmp_path))
+
+    @contextmanager
+    def owned(admin_dsn, expected):
+        assert admin_dsn == "postgresql://127.0.0.1:12345/postgres"
+        assert expected == template
+        events.append("created")
+        try:
+            yield clone
+        finally:
+            assert w.os.environ[env] == source
+            events.append("dropped")
+
+    def capture(pinned, *_args, **_options):
+        assert pinned["isolation"] == {"app": clone, "native": native}
+        assert w.os.environ[env].endswith("/benchmark_run_fixture")
+        if failure == "capture":
+            raise RuntimeError("capture fixture failed")
+
+    from application_state import cli
+
+    def upgrade():
+        assert w.os.environ[env].endswith("/benchmark_run_fixture")
+        events.append("migrated")
+        if failure == "migration":
+            raise RuntimeError("migration fixture failed")
+
+    monkeypatch.setattr(disposable_database, "disposable_benchmark_database", owned)
+    monkeypatch.setattr(cli, "upgrade_to_head", upgrade)
+    monkeypatch.setattr(w, "_capture", capture)
+    if failure:
+        with pytest.raises(RuntimeError, match=f"{failure} fixture failed"):
+            w.capture("unused", tmp_path, context_only=True, clone_app=True)
+    else:
+        w.capture("unused", tmp_path, context_only=True, clone_app=True)
+    assert events == ["created", "migrated", "dropped"]
+    assert w.os.environ[env] == source
+
+
+def test_browser_scratch_uses_explicit_directory_on_evidence_filesystem(tmp_path, monkeypatch):
+    from evals.buddy_benchmark.browser_capture import browser_scratch_directory
+
+    output = tmp_path / "nested" / "output"
+    output.mkdir(parents=True)
+    scratch = tmp_path / "chrome"
+    scratch.mkdir()
+    monkeypatch.delenv("DMB_BENCHMARK_BROWSER_TMPDIR", raising=False)
+    assert browser_scratch_directory(output) == output.parent
+    monkeypatch.setenv("DMB_BENCHMARK_BROWSER_TMPDIR", str(scratch))
+    assert browser_scratch_directory(output) == scratch
+    monkeypatch.setenv("DMB_BENCHMARK_BROWSER_TMPDIR", "relative")
+    with pytest.raises(ValueError, match="existing absolute directory"):
+        browser_scratch_directory(output)
+
+
+def test_full_response_capture_cli_passes_clone_request(monkeypatch):
+    calls = []
+    monkeypatch.setattr(w, "capture", lambda *args, **kwargs: calls.append((args, kwargs)))
+    w.main(["capture", "--manifest", "pinned.json", "--output", "isolated", "--clone-app"])
+    assert calls == [(("pinned.json", "isolated"), {"clone_app": True})]

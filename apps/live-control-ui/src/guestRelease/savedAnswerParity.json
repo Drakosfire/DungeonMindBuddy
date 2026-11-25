@@ -1,0 +1,60 @@
+[
+  {
+    "name": "supplementary characters within limit",
+    "text": "\ud83c\udfb2",
+    "repeat": 240,
+    "limit": 240,
+    "multiline": false,
+    "valid": true
+  },
+  {
+    "name": "supplementary characters over limit",
+    "text": "\ud83c\udfb2",
+    "repeat": 241,
+    "limit": 240,
+    "multiline": false,
+    "valid": false
+  },
+  {
+    "name": "multiline passage",
+    "text": "First\nSecond",
+    "limit": 2000,
+    "multiline": true,
+    "valid": true
+  },
+  {
+    "name": "newline question",
+    "text": "First\nSecond",
+    "limit": 240,
+    "multiline": false,
+    "valid": false
+  },
+  {
+    "name": "embedded address",
+    "text": "see example.com",
+    "limit": 240,
+    "multiline": false,
+    "valid": false
+  },
+  {
+    "name": "bidi override",
+    "text": "bad\u202etext",
+    "limit": 240,
+    "multiline": false,
+    "valid": false
+  },
+  {
+    "name": "empty whitespace and BOM",
+    "text": "\ufeff",
+    "limit": 240,
+    "multiline": false,
+    "valid": false
+  },
+  {
+    "name": "unpaired surrogate",
+    "text": "\ud800",
+    "limit": 240,
+    "multiline": false,
+    "valid": false
+  }
+]

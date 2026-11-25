@@ -1,16 +1,22 @@
 import { PAGE_IMAGE_TEXT_EXTENSIONS, PageImageTextTools, stackAtSelection, wrapPageImageText } from './PageImageText';
 import { Extension, Node, mergeAttributes, type Editor } from '@tiptap/core';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
-import { Plugin, Selection } from '@tiptap/pm/state';
-import { closeHistory } from '@tiptap/pm/history';
+import { NodeSelection, Plugin, Selection, type Transaction } from '@tiptap/pm/state';
+import { closeHistory, isHistoryTransaction } from '@tiptap/pm/history';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { layoutHandle, layoutEditabilityPlugin, LAYOUT_EDITABILITY_EVENT, LAYOUT_CONTROLS_EVENT, type LayoutRequest } from './contextualLayout';
+import { requireManualSave } from '../../workspaceDocument/draftSavePolicy';
 import './PageRow.css';
 
 const BLOCKS = ['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'table', 'callout', 'horizontalRule'];
 const SLOT_BLOCKS = [...BLOCKS, 'pageImageText'];
 const newId = () => `page-${crypto.randomUUID()}`;
+const PLAIN_REVIEW_INSERTION = 'dmbPlainReviewInsertion';
+
+export function preservePlainReviewBlockIdentities(transaction: Transaction): Transaction {
+  return transaction.setMeta(PLAIN_REVIEW_INSERTION, true);
+}
 const clampWidth = (width: number, total = 12) => Math.max(2, Math.min(total - 2, Math.round(width)));
 
 function rowAtSelection(editor: Editor) {
@@ -109,6 +115,159 @@ function validRow(row: PMNode | null | undefined): row is PMNode {
     && ['guide', 'border', 'clean'].includes(row.attrs.line_mode);
 }
 
+export interface AgentImageMoveScope {
+  editor: Editor;
+  worldId: string;
+  documentId: string;
+  revision: number;
+  draftGeneration: number;
+  canEdit: boolean;
+}
+
+export interface AgentImageMoveOffer {
+  alias: string;
+  alt: string;
+  rowContext: string;
+  sourceColumn: number;
+  destination: "empty_right" | "occupied" | "unavailable" | "changes_reading_order";
+}
+
+export interface CapturedAgentImageMoves {
+  offers: readonly Readonly<AgentImageMoveOffer>[];
+  selected: string | null;
+}
+
+interface BoundAgentImageMove {
+  source: PMNode;
+  position: number;
+  destination: number | null;
+  location: AgentImageMoveLocation;
+}
+
+export interface AgentImageMoveLocation {
+  row_id: string;
+  source_slot_id: string;
+  destination_slot_id: string | null;
+  image_block_id: string;
+}
+
+const issuedImageMoves = new WeakMap<CapturedAgentImageMoves, {
+  scope: AgentImageMoveScope;
+  document: PMNode;
+  targets: ReadonlyMap<string, BoundAgentImageMove>;
+}>();
+
+/** Enumerate actual standalone occurrences. No editor positions or asset IDs are public offers. */
+export function captureAgentImageMoves(scope: AgentImageMoveScope): CapturedAgentImageMoves {
+  const {editor} = scope;
+  if (!scope.canEdit || editor.isDestroyed || !editor.isEditable || !scope.worldId || !scope.documentId
+    || !Number.isInteger(scope.revision) || scope.revision < 1
+    || !Number.isInteger(scope.draftGeneration) || scope.draftGeneration < 0) {
+    throw new Error("An authorized editable Page is required.");
+  }
+  const {doc, selection} = editor.state;
+  const identities = new Set<string>();
+  doc.descendants((node, _position, parent) => {
+    const layoutNode = node.type.name === "pageRow" || node.type.name === "pageSlot" || node.type.name === "pageImageText";
+    const layoutBlock = BLOCKS.includes(node.type.name) && (
+      parent?.type.name === "doc" || parent?.type.name === "pageSlot" || parent?.type.name === "pageImageText"
+    );
+    if (!layoutNode && !layoutBlock) return;
+    const identity = layoutNode ? node.attrs.id : node.attrs.pageBlockId;
+    if (typeof identity !== "string" || !identity.trim() || identities.has(identity)) {
+      throw new Error("Page layout identities are missing or ambiguous.");
+    }
+    identities.add(identity);
+  });
+  const offers: AgentImageMoveOffer[] = [];
+  const targets = new Map<string, BoundAgentImageMove>();
+  let selected: string | null = null;
+  doc.forEach((row, rowPosition) => {
+    if (!validRow(row) || !row.attrs.id) return;
+    const rowContext = row.textBetween(0, row.content.size, " ").trim().slice(0, 500);
+    row.forEach((slot, slotOffset, index) => {
+      if (slot.type.name !== "pageSlot" || !slot.attrs.id) return;
+      const right = row.maybeChild(index + 1);
+      slot.forEach((block, blockOffset, blockIndex) => {
+        if (block.type.name !== "paragraph" || !block.attrs.pageBlockId
+          || block.childCount !== 1 || block.firstChild?.type.name !== "mediaImage") return;
+        const position = rowPosition + slotOffset + blockOffset + 2;
+        const destination = !right || right.type.name !== "pageSlot" || !right.attrs.id ? "unavailable"
+          : right.childCount ? "occupied"
+          : blockIndex !== slot.childCount - 1 ? "changes_reading_order" : "empty_right";
+        const alias = `image${offers.length + 1}`;
+        offers.push(Object.freeze({
+          alias, alt: String(block.firstChild.attrs.alt ?? ""), rowContext, sourceColumn: index + 1, destination,
+        }));
+        targets.set(alias, {
+          source: block, position,
+          destination: destination === "empty_right" ? rowPosition + slotOffset + slot.nodeSize + 2 : null,
+          location: {
+            row_id: row.attrs.id, source_slot_id: slot.attrs.id, destination_slot_id: right?.attrs.id ?? null,
+            image_block_id: block.attrs.pageBlockId,
+          },
+        });
+        if (selection instanceof NodeSelection && selection.from === position + 1) selected = alias;
+      });
+    });
+  });
+  const capture = Object.freeze({offers: Object.freeze(offers), selected});
+  issuedImageMoves.set(capture, {scope: {...scope}, document: doc, targets});
+  return capture;
+}
+
+export function selectedAgentImageBlock(capture: CapturedAgentImageMoves): string | null {
+  return capture.selected ? issuedImageMoves.get(capture)?.targets.get(capture.selected)?.location.image_block_id ?? null : null;
+}
+
+export function matchAgentImageMove(capture: CapturedAgentImageMoves, location: AgentImageMoveLocation): string {
+  const candidates = Array.from(issuedImageMoves.get(capture)?.targets ?? []);
+  const matches = candidates.filter(([, target]) => (
+    target.destination !== null
+    && target.location.row_id === location.row_id
+    && target.location.source_slot_id === location.source_slot_id
+    && target.location.destination_slot_id === location.destination_slot_id
+    && target.location.image_block_id === location.image_block_id
+  ));
+  if (matches.length !== 1) throw new Error("The reviewed occurrence and adjacent slot changed.");
+  return matches[0][0];
+}
+
+function agentImageMoveTransaction(
+  scope: AgentImageMoveScope, capture: CapturedAgentImageMoves, alias: string,
+) {
+  const bound = issuedImageMoves.get(capture);
+  const target = bound?.targets.get(alias);
+  if (!bound || !target || target.destination === null) throw new Error("The image move was not offered.");
+  const {editor} = scope;
+  const prior = bound.scope;
+  if (!scope.canEdit || editor.isDestroyed || !editor.isEditable || editor !== prior.editor
+    || scope.worldId !== prior.worldId || scope.documentId !== prior.documentId
+    || scope.revision !== prior.revision || scope.draftGeneration !== prior.draftGeneration
+    || editor.state.doc !== bound.document || editor.state.doc.nodeAt(target.position) !== target.source) {
+    throw new Error("The captured Page changed. Nothing moved.");
+  }
+  const tr = editor.state.tr.delete(target.position, target.position + target.source.nodeSize);
+  tr.insert(tr.mapping.map(target.destination), target.source);
+  return tr;
+}
+
+export function previewAgentImageMove(
+  scope: AgentImageMoveScope, capture: CapturedAgentImageMoves, alias: string,
+): string {
+  return JSON.stringify(agentImageMoveTransaction(scope, capture, alias).doc.toJSON());
+}
+
+/** Apply exactly one offered move. Undo cannot make the old capture executable again. */
+export function applyAgentImageMove(
+  scope: AgentImageMoveScope, capture: CapturedAgentImageMoves, alias: string,
+): void {
+  const tr = agentImageMoveTransaction(scope, capture, alias);
+  requireManualSave(scope.editor);
+  issuedImageMoves.delete(capture);
+  scope.editor.view.dispatch(closeHistory(tr));
+}
+
 export function resizePageRow(editor: Editor, pos: number, width: number, dividerIndex = 0): boolean {
   if (editor.isDestroyed || !editor.isEditable) return false;
   const row = editor.state.doc.nodeAt(pos);
@@ -138,6 +297,63 @@ export function updatePageRowPresentation(editor: Editor, pos: number, attrs: { 
   return true;
 }
 
+function forEachSourceBlock(doc: PMNode, visit: (block: PMNode, pos: number) => void) {
+  const walk = (block: PMNode, pos: number) => {
+    if (block.type.name === 'pageImageText') {
+      block.forEach((child, offset) => walk(child, pos + 1 + offset));
+    } else if (BLOCKS.includes(block.type.name)) {
+      visit(block, pos);
+    }
+  };
+  doc.forEach((block, pos) => {
+    if (block.type.name !== 'pageRow') {
+      walk(block, pos);
+    } else {
+      block.forEach((slot, slotOffset) => slot.forEach((child, childOffset) =>
+        walk(child, pos + 2 + slotOffset + childOffset)));
+    }
+  });
+}
+
+function hasSourceBlockIdentities(doc: PMNode): boolean {
+  let hasIdentities = false;
+  doc.forEach(block => {
+    if (!BLOCKS.includes(block.type.name) || block.attrs.pageBlockId) hasIdentities = true;
+  });
+  return hasIdentities;
+}
+
+function stampSourceBlockIdentities(tr: Transaction, allocate: (position: number) => string) {
+  const seen = new Set<string>();
+  forEachSourceBlock(tr.doc, (block, pos) => {
+    let id = block.attrs.pageBlockId;
+    if (typeof id !== 'string' || !id || seen.has(id)) {
+      id = allocate(pos);
+      tr.setNodeMarkup(pos, undefined, { ...block.attrs, pageBlockId: id });
+    }
+    seen.add(id);
+  });
+}
+
+/** Bind the same new identities each time Review prepares this exact draft and insertion. */
+export function prepareReviewedBlockIdentities(tr: Transaction): Transaction {
+  if (!tr.doc.type.schema.nodes.paragraph?.spec.attrs?.pageBlockId) return tr;
+  if (!hasSourceBlockIdentities(tr.doc)) return preservePlainReviewBlockIdentities(tr);
+
+  const reserved = new Set<string>();
+  forEachSourceBlock(tr.doc, block => {
+    if (typeof block.attrs.pageBlockId === 'string') reserved.add(block.attrs.pageBlockId);
+  });
+  stampSourceBlockIdentities(tr, position => {
+    const prefix = `page-review-${position}`;
+    let id = prefix;
+    for (let index = 1; reserved.has(id); index++) id = `${prefix}-${index}`;
+    reserved.add(id);
+    return id;
+  });
+  return tr;
+}
+
 export const PageBlockIdentity = Extension.create({
   name: 'pageBlockIdentity',
   addGlobalAttributes() { return [{ types: BLOCKS, attributes: { pageBlockId: { default: null, rendered: false } } }]; },
@@ -146,22 +362,15 @@ export const PageBlockIdentity = Extension.create({
       appendTransaction(transactions, _oldState, state) {
         // Never change untouched hydration. Stamp only after a real document
         // transaction and only source-level blocks, not paragraphs inside tables.
-        if (!transactions.some(transaction => transaction.docChanged)) return null;
-        const seen = new Set<string>();
+        const changed = transactions.filter(transaction => transaction.docChanged);
+        if (!changed.length) return null;
+        // A plain reviewed insertion already carries an exact editor postimage.
+        // Existing transient paste IDs do not turn it into a layout edit.
+        if (changed.every(transaction => transaction.getMeta(PLAIN_REVIEW_INSERTION) === true)) return null;
+        if (!hasSourceBlockIdentities(state.doc) && changed.every(transaction =>
+          transaction.getMeta(PLAIN_REVIEW_INSERTION) === true || isHistoryTransaction(transaction))) return null;
         const tr = state.tr;
-        const stamp = (block: PMNode, pos: number) => {
-          if (block.type.name === 'pageImageText') { block.forEach((child, offset) => stamp(child, pos + 1 + offset)); return; }
-          if (!BLOCKS.includes(block.type.name)) return;
-          let id = block.attrs.pageBlockId;
-          if (typeof id !== 'string' || !id || seen.has(id)) {
-            id = newId(); tr.setNodeMarkup(pos, undefined, { ...block.attrs, pageBlockId: id });
-          }
-          seen.add(id);
-        };
-        state.doc.forEach((block, pos) => {
-          if (block.type.name !== 'pageRow') { stamp(block, pos); return; }
-          block.forEach((slot, slotOffset) => slot.forEach((child, childOffset) => stamp(child, pos + 2 + slotOffset + childOffset)));
-        });
+        stampSourceBlockIdentities(tr, newId);
         return tr.docChanged ? tr : null;
       },
     })];

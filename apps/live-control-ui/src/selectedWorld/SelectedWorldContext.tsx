@@ -1,7 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { clearGuestBuildSession, openGuestBuildWorld } from "../guestWorld/guestBuildSession";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
+import { getExtractionRun, getHostedWorldContainer, getPlayRun, getWorldOwnedPlanSnapshot, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
 import { useHostedAuthStatus } from "../auth/HostedAuthGate";
+import { normalizeAppPathname } from "../chrome/appNavigation";
 import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
 
 type WorkspaceDocumentRecordAny = WorkspaceDocumentRecord | WorldOwnedPlanRecordV2;
@@ -47,15 +49,16 @@ export function requestedWorldSelection(locationSnapshot: string): {
   explicit: boolean;
 } {
   const url = new URL(locationSnapshot, "http://localhost");
+  const pathname = normalizeAppPathname(url.pathname);
   const explicit = url.searchParams.has("world");
   const worldId = url.searchParams.get("world")?.trim() || null;
-  const documentId = ["/plan", "/build", "/ingest"].includes(url.pathname)
+  const documentId = ["/plan", "/build", "/ingest"].includes(pathname)
     ? url.searchParams.get("documentId")?.trim() || null
     : null;
-  const runId = !explicit && url.pathname === "/play"
+  const runId = !explicit && pathname === "/play"
     ? url.searchParams.get("run")?.trim() || null
     : null;
-  const extractionRunId = !explicit && !documentId && url.pathname === "/ingest"
+  const extractionRunId = !explicit && !documentId && pathname === "/ingest"
     ? url.searchParams.get("extractionRunId")?.trim() || null
     : null;
   return { worldId, documentId, runId, extractionRunId, explicit };
@@ -105,10 +108,12 @@ export function SelectedWorldProvider({
   const hosted = auth.status === "authenticated";
   const selection = requestedWorldSelection(locationSnapshot);
   const selectionKey = selectionIdentity(selection);
-  const isHome = new URL(locationSnapshot, "http://localhost").pathname === "/";
+  const pathname = normalizeAppPathname(new URL(locationSnapshot, "http://localhost").pathname);
+  const isHome = pathname === "/";
+  const hostedPlanDocument = hosted && pathname === "/plan" && selection.documentId !== null;
   const [retryGeneration, setRetryGeneration] = useState(0);
   // Each selector transition owns fresh page admission, including A→B→A.
-  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration, isHome]);
+  const selectionScope = useMemo(() => ({ key: selectionKey }), [selectionKey, retryGeneration, isHome, hostedPlanDocument]);
   const [loaded, setLoaded] = useState<{ scope: typeof selectionScope; value: SelectedWorldState } | null>(null);
   const retry = useCallback(() => {
     setLoaded(null);
@@ -162,15 +167,28 @@ export function SelectedWorldProvider({
           setLoaded({ scope: selectionScope, value: { kind: "error", message: "World selection is empty." } });
           return;
         }
+        const readDocument = async (documentId: string): Promise<WorkspaceDocumentRecordAny> => {
+          if (!hostedPlanDocument) return getWorkspaceDocumentAny(documentId);
+          // The hosted Plan read uses the snapshot route's exact ownership policy.
+          const snapshot = await getWorldOwnedPlanSnapshot(documentId);
+          const record = snapshot.record;
+          if (snapshot.schema_version !== "dmb_workspace_document_snapshot_v2"
+            || record?.schema_version !== "dmb_world_owned_plan_record_v2"
+            || record.scope_mode !== "world"
+            || record.document_id !== documentId) {
+            throw new Error("The saved Plan could not be verified.");
+          }
+          return record;
+        };
         const parallelHostedWorldId = hosted && !selection.runId && !selection.extractionRunId
           ? selection.worldId
           : null;
         const [document, resolvedWorld] = parallelHostedWorldId && selection.documentId
           ? await Promise.all([
-            getWorkspaceDocumentAny(selection.documentId),
+            readDocument(selection.documentId),
             getHostedWorldContainer(parallelHostedWorldId, catalogRequest.signal),
           ])
-          : [selection.documentId ? await getWorkspaceDocumentAny(selection.documentId) : null, null] as const;
+          : [selection.documentId ? await readDocument(selection.documentId) : null, null] as const;
         if (cancelled) return;
         const worldOwnedPlan = document?.schema_version === "dmb_world_owned_plan_record_v2";
         // An exact Play link can arrive without a World query. Resolve the
@@ -238,7 +256,7 @@ export function SelectedWorldProvider({
       }
     })();
     return () => { cancelled = true; catalogRequest.abort(); };
-  }, [selectionScope, continuedWorldOnly, hosted]);
+  }, [selectionScope, continuedWorldOnly, hosted, hostedPlanDocument]);
 
   return (
     <SelectedWorldRetryContext.Provider value={retry}>
@@ -260,4 +278,56 @@ export function useSelectedWorldAdmission(): SelectedWorldState {
 
 export function useRetrySelectedWorld(): () => void {
   return useContext(SelectedWorldRetryContext);
+}
+
+/** Resolve guest Build through the same session that owns the Graph copy. */
+export function GuestBuildWorldProvider({ locationSnapshot, children }: { locationSnapshot: string; children: ReactNode }) {
+  const [state, setState] = useState<SelectedWorldState>({ kind: "loading", requestedWorldId: null });
+  const [retryGeneration, setRetryGeneration] = useState(0);
+  const guestWorldRef = useRef<string | null>(null);
+  const retry = useCallback(() => setRetryGeneration(value => value + 1), []);
+  useEffect(() => {
+    const controller = new AbortController();
+    setState({ kind: "loading", requestedWorldId: null });
+    void (async () => {
+      try {
+        const world = await openGuestBuildWorld(controller.signal);
+        guestWorldRef.current = world.worldId;
+        const selection = requestedWorldSelection(locationSnapshot);
+        if (selection.explicit && selection.worldId !== world.worldId) throw new Error("This document belongs to another World.");
+        if (selection.documentId) {
+          const document = await getWorkspaceDocumentAny(selection.documentId);
+          if (document.kind !== "worldbuilding_source" || document.world_id !== world.worldId) {
+            throw new Error("This document belongs to another World.");
+          }
+        }
+        if (!controller.signal.aborted) setState({ kind: "managed", worldId: world.worldId,
+          name: world.name, documentId: selection.documentId, graphStatus: "active" });
+      } catch (error) {
+        if (!controller.signal.aborted) setState({ kind: "error", message: error instanceof Error ? error.message : "Guest World unavailable." });
+      }
+    })();
+    return () => { controller.abort(); };
+  }, [locationSnapshot, retryGeneration]);
+  useEffect(() => () => {
+    currentVerifiedManagedWorld = null;
+    clearGuestBuildSession();
+    // A sign-in transition can unmount this provider without leaving Build.
+    // Do not carry a guest document selector into the signed-in World picker.
+    const url = new URL(window.location.href);
+    if (url.pathname === "/build" && guestWorldRef.current &&
+        (url.searchParams.get("world") === guestWorldRef.current || url.searchParams.get("campaign") === guestWorldRef.current)) {
+      url.searchParams.delete("world");
+      url.searchParams.delete("campaign");
+      url.searchParams.delete("documentId");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      announceSelectedWorldLocationChange();
+    }
+  }, []);
+  currentVerifiedManagedWorld = state.kind === "managed" ? state : null;
+  return <SelectedWorldRetryContext.Provider value={retry}>
+    <SelectedWorldContext.Provider value={state}>
+      <SelectedWorldAdmissionContext.Provider value={state}>{children}</SelectedWorldAdmissionContext.Provider>
+    </SelectedWorldContext.Provider>
+  </SelectedWorldRetryContext.Provider>;
 }
