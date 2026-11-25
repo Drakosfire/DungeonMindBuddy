@@ -695,6 +695,7 @@ def _commit_plan_postgres(
     write_mode: WriteMode,
     authorize_runbook_world=None,
     authorize_plan_world=None,
+    authorize_commit=None,
 ) -> TiptapMarkdownWriteCommitResponse | None:
     from application_state.content.service import (
         commit_plan,
@@ -770,6 +771,8 @@ def _commit_plan_postgres(
             commit_kwargs["title"] = request.title
             if authorize_plan_world is not None:
                 commit_kwargs["authorize_world"] = authorize_plan_world
+            if authorize_commit is not None:
+                commit_kwargs["authorize_commit"] = authorize_commit
             if layout is not None:
                 commit_kwargs["page_presentation"] = layout
         elif authorize_runbook_world is not None:
@@ -866,7 +869,7 @@ def commit_tiptap_markdown_write(
         raise TiptapMarkdownWriteError("layout writer profile requires an authored Page")
     result = _commit_plan_postgres(
         request=request, write_mode=write_mode, authorize_runbook_world=authorize_runbook_world,
-        authorize_plan_world=authorize_world,
+        authorize_plan_world=authorize_world, authorize_commit=authorize_commit,
     )
     if result is None:
         error = TiptapMarkdownWriteError("workspace document not found")

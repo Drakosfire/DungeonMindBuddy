@@ -263,8 +263,11 @@ def get_world_plan_inventory_page(
 def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2, request: Request) -> dict[str, Any]:
     require_hosted_plan_world_context(request, body.world_id)
     try:
+        from apps.live_control_server.services.guest_build_access import guest_write_capacity
+        guest = getattr(request.state, "guest_build_world", None)
         record = create_world_owned_plan_v2(
-            _managed_world_root(), world_id=body.world_id, title=body.title
+            _managed_world_root(), world_id=body.world_id, title=body.title,
+            **({"authorize_allocation": lambda conn, world: guest_write_capacity(request, conn, world, creating=True)} if guest else {}),
         )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

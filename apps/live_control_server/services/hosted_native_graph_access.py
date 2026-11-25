@@ -1266,6 +1266,10 @@ def require_hosted_plan_world_context(request: Request | None, world_id: str | N
         return
     if request is None or not world_id or getattr(request.state, "hosted_plan_context_world", None) != world_id:
         raise _denied()
+    if getattr(request.state, "guest_build_world", None) is not None:
+        from apps.live_control_server.services.guest_build_access import require_guest_build_world
+        require_guest_build_world(request, world_id)
+        return
     _owned_world(_hosted_subject(request), world_id)
 
 
