@@ -1933,7 +1933,7 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE', str(bundle))
     monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE_SHA256', digest)
     monkeypatch.setenv('DMB_HOSTED_GUEST_PLAN_ENABLED', '1')
-    monkeypatch.setattr(guest_apprentice_plan, '_BUNDLE_SHA256', digest)
+    monkeypatch.setattr(guest_apprentice_plan, '_SOURCE_SHA256', hashlib.sha256(b'Source.').hexdigest())
     for client, csrf in ((first, token), (second, other_token)):
         res = client.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': csrf})
         assert res.status_code == 200, res.text
