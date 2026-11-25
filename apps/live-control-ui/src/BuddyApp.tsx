@@ -139,7 +139,8 @@ export function BuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
   const admission = useSelectedWorldAdmission();
   const route = appRouteFromLocationSnapshot(locationSnapshot);
   const guestBuild = auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" &&
-    (route === "build" || route === "plan" && import.meta.env.VITE_HOSTED_GUEST_PLAN === "1");
+    (route === "build" || route === "plan" && import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" ||
+      route === "play" && import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && import.meta.env.VITE_HOSTED_GUEST_PLAY === "1");
   if (route === "index") return <IsolatedEntry><BuddyLandingPage /></IsolatedEntry>;
   if (selectedWorld.kind === "loading") {
     const loading = <main className="app-status" role="status">Verifying World selection…</main>;

@@ -54,7 +54,8 @@ function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
       || Boolean(guestHomeId()) && isGuestHomeLocation(locationSnapshot));
     const guestBuild = import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" && url.pathname === "/build";
     const guestPlan = import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" && import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && url.pathname === "/plan";
-    return guestBuild || guestPlan || url.search === "" && (homeAnchor || url.pathname === "/graph" && url.hash === "");
+    const guestPlay = import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" && import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && url.pathname === "/play";
+    return guestBuild || guestPlan || guestPlay || url.search === "" && (homeAnchor || url.pathname === "/graph" && url.hash === "");
   } catch {
     return false;
   }
@@ -72,7 +73,8 @@ function HomeOrWorld({ locationSnapshot }: { locationSnapshot: string }) {
   }
   const isGuestBuild = auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_BUILD === "1"
     && (new URL(locationSnapshot, "http://localhost").pathname === "/build" ||
-      import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && new URL(locationSnapshot, "http://localhost").pathname === "/plan");
+      import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && new URL(locationSnapshot, "http://localhost").pathname === "/plan" ||
+      import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && new URL(locationSnapshot, "http://localhost").pathname === "/play");
   if (isGuestBuild) return <GuestBuildWorldProvider locationSnapshot={locationSnapshot}>
     <SharedBuddyApp locationSnapshot={locationSnapshot} />
   </GuestBuildWorldProvider>;
