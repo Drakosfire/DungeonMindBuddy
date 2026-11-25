@@ -241,7 +241,7 @@ def source_settlement(receipt, *, authority=None, query_world="world-author"):
     from uuid import uuid4
     from application_state.agent_conversation.native_execution import NativeBuildSourceSettledV1
     from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
-    return NativeBuildSourceSettledV1(event_id=uuid4(), sequence=3,
+    return NativeBuildSourceSettledV1(event_id=uuid4(), sequence=3, admitted_from_revision=2,
         pending_context_receipt_sha256=receipt.context_receipt_sha256,
         work_event_id=uuid4(), source_authority=authority if authority is not None else settled_source(),
         native_query=NativePlanQueryUnavailableV1(managed_world_id=query_world,

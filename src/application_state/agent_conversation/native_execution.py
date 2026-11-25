@@ -499,6 +499,7 @@ class NativeBuildSourceSettledV1(Strict):
     event_id: UUID
     sequence: int = Field(ge=0, strict=True)
     pending_context_receipt_sha256: Digest
+    admitted_from_revision: int = Field(ge=1, strict=True)
     work_event_id: UUID
     source_authority: t.NativeCorpusAuthorityV1
     native_query: NativeGraphQueryV4 | t.NativePlanQueryUnavailableV1

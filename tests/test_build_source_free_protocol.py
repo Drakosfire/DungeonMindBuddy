@@ -269,7 +269,7 @@ def test_service_pending_settlement_rechecks_and_admits_once_without_holding_app
     assert changed and updated.revision == 3
     assert state.locks == ['world', 'conversation', 'turn'] * 2
     assert state.access_calls == 2 and state.materialized == state.persisted == 1 and state.depth == 0
-    replay, changed = run(revision=updated.revision)
+    replay, changed = run()
     assert not changed and replay == updated
     assert state.materialized == state.persisted == 1
 
@@ -371,3 +371,31 @@ def test_existing_pending_receipt_replay_does_not_refresh_its_captured_pointer(m
         raise AssertionError('Replay attempted to replace the captured pointer')
     monkeypatch.setattr(service_module, '_lock_pointer', refresh)
     assert service_module.AgentConversationService().accept_turn(sub) == turn
+
+
+def test_pending_settlement_replay_cannot_borrow_another_admission_revision(monkeypatch):
+    from application_state.errors import ApplicationStateConflictError
+    state, run = settlement_harness(monkeypatch)
+    updated, _ = run()
+    with pytest.raises(ApplicationStateConflictError, match='already settled'):
+        run(revision=updated.revision)
+    assert state.materialized == state.persisted == 1
+
+
+@pytest.mark.parametrize('change', ['pointer', 'attempt', 'access', 'expiry'])
+def test_pending_settlement_lost_response_replay_keeps_live_access_and_claim_fences(monkeypatch, change):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError
+    state, run = settlement_harness(monkeypatch)
+    run()
+    if change == 'pointer':
+        state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 2})
+    elif change == 'attempt':
+        state.turn = state.turn.model_copy(update={'attempt': state.turn.attempt + 1})
+    elif change == 'access':
+        state.denied = True
+    else:
+        state.now += timedelta(hours=1)
+    with pytest.raises(ApplicationStateConflictError):
+        run()
+    assert state.materialized == state.persisted == 1

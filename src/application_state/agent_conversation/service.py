@@ -2812,7 +2812,7 @@ class AgentConversationService:
         )
 
     def _pending_source_turn_locked(self, conn, world_id, conversation_id, turn_id, *,
-                                    expected_revision, expected_attempt):
+                                    expected_revision, expected_attempt, replay_event_id=None):
         """Use reset's lock order and the actual moving claim, not a source grant."""
         from .native_context import BuildPendingContextReceiptV1
         from .native_execution import BuildPendingExecutionV1
@@ -2830,7 +2830,13 @@ class AgentConversationService:
             validate_pending_conversation_pointer(turn.graph_context_receipt, pointer)
         except ValueError as exc:
             raise ApplicationStateConflictError(str(exc)) from exc
-        if (turn.status != 'running' or turn.revision != expected_revision
+        from .native_execution import NativeBuildSourceSettledV1
+        replay = (replay_event_id is not None and any(
+            type(event) is NativeBuildSourceSettledV1
+            and event.event_id == replay_event_id
+            and event.admitted_from_revision == expected_revision
+            for event in turn.graph_context_execution.events))
+        if (turn.status != 'running' or (turn.revision != expected_revision and not replay)
                 or turn.attempt != expected_attempt or turn.claim_expires_at is None
                 or turn.claim_expires_at <= repo.database_clock(conn)):
             raise ApplicationStateConflictError('Pending source settlement has a stale or expired claim')
@@ -2859,14 +2865,15 @@ class AgentConversationService:
             raise ApplicationStateValidationError('Pending source requires its host materialization and current-access owners')
         with unit_of_work(_ready_dsn()) as conn:
             before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
-                expected_revision=expected_revision, expected_attempt=expected_attempt)
+                expected_revision=expected_revision, expected_attempt=expected_attempt, replay_event_id=event_id)
             if authorize_current_access(conn, before, None) is not True:
                 raise ApplicationStateConflictError('Current access does not authorize pending source preparation')
             if before.claim_expires_at <= repo.database_clock(conn):
                 raise ApplicationStateConflictError('Pending source claim expired before preparation')
             prior = [event for event in before.graph_context_execution.events if type(event) is NativeBuildSourceSettledV1]
             if prior:
-                if len(prior) == 1 and prior[0].event_id == event_id:
+                if (len(prior) == 1 and prior[0].event_id == event_id
+                        and prior[0].admitted_from_revision == expected_revision):
                     return before, False
                 raise ApplicationStateConflictError('Pending source was already settled')
             try:
@@ -2893,6 +2900,7 @@ class AgentConversationService:
             settlement = NativeBuildSourceSettledV1.model_validate_json(json.dumps({
                 'event_id': str(event_id), 'sequence': event_sequence,
                 'pending_context_receipt_sha256': frozen[0], 'work_event_id': str(work_event_id),
+                'admitted_from_revision': expected_revision,
                 'source_authority': prepared[0].model_dump(mode='json', by_alias=True),
                 'native_query': prepared[1].model_dump(mode='json', by_alias=True)}))
             validate_pending_source_settlement(captured_receipt, settlement)
