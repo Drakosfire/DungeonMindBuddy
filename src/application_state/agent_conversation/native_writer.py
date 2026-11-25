@@ -575,7 +575,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             or t.canonical_sha256(expected) != authorization.frame_sha256):
         raise ValueError("Native writer evidence differs from its actual producing SDK request")
     validate_output_request(body,authorization.output_token_reserve)
-    from .build_related_pages import records as related_records
+    from .build_related_pages import citation_records as related_records
     related_pages = tuple(related_records(prefix))
     authored,saved_sections,draft_record = (),(),None
     from .native_context import PlanWorkContextV1,BuildWorkContextV1
@@ -590,7 +590,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         from .build_primary_context import records
         from .build_draft_context import context_record
         saved_sections=records(prefix,receipt.work_context.source_basis)
-        from .build_related_pages import records as related_records
+        from .build_related_pages import citation_records as related_records
         related_pages=tuple(related_records(prefix))
         if prefix.policy.action.intent.build_draft_context_sha256 is not None:
             draft_record=context_record(prefix).record
