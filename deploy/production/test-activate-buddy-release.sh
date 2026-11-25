@@ -18,7 +18,7 @@ printf -v referenced_id 'sha256:%064d' 4
 printf -v staged '%040d' 5
 printf -v staged_id 'sha256:%064d' 5
 printf -v staged_alias '%040d' 6
-export obsolete obsolete_id referenced referenced_id
+export obsolete obsolete_id referenced referenced_id staged_alias staged_id
 export buddy_cache=kawf9lmjnqr7xnpceypatjkyx
 mkdir -p "$scratch/releases" "$scratch/bin"
 sed -e "s|/etc/buddy-deploy|$scratch|" \
@@ -81,10 +81,23 @@ case "$1 $2" in
     case "${*: -1}" in
       "dungeonmindbuddy:$candidate") printf '%s %s\n' "${CANDIDATE_PIN_OVERRIDE:-$candidate_id}" "$candidate" ;;
       "dungeonmindbuddy:$rollback") printf '%s %s\n' "$rollback_id" "$rollback" ;;
-      "dungeonmindbuddy:$obsolete") printf '%s\n' "$obsolete_id" ;;
+      "dungeonmindbuddy:$obsolete")
+        if [[ "$4" == *Created* ]]; then
+          printf '%s %s %s\n' "$obsolete_id" "$obsolete" "${TEST_IMAGE_CREATED:-2000-01-01T00:00:00Z}"
+        else
+          printf '%s\n' "$obsolete_id"
+        fi ;;
       *) exit 92 ;;
     esac ;;
-  'image ls') printf 'dungeonmindbuddy:%s\n' "$obsolete" ;;
+  'image ls')
+    if [[ "$3" == --no-trunc ]]; then
+      if [[ ${TEST_AUTO_RETENTION:-0} == 1 ]]; then
+        printf 'dungeonmindbuddy:%s %s\n' "$obsolete" "$obsolete_id" \
+          "$rollback" "$rollback_id" "$referenced" "$referenced_id" "$staged_alias" "$staged_id"
+      fi
+    else
+      printf 'dungeonmindbuddy:%s\n' "$obsolete"
+    fi ;;
   'image rm')
     [[ "$*" == "image rm --no-prune dungeonmindbuddy:$obsolete" ]] || exit 96
     [[ $(cat "$TEST_ROOT/serving" ) == "$candidate_id" ]] || exit 97
@@ -212,6 +225,22 @@ printf 'candidate_id=%s\n' "$obsolete_id" >> "$scratch/releases/$staged.conf"
 if run; then exit 1; fi
 [[ $(cat "$scratch/removals") == "dungeonmindbuddy:$obsolete" && $(cat "$scratch/serving") == "$candidate_id" ]]
 rm "$scratch/retire-images"
+sed -i '$d' "$scratch/releases/$staged.conf"
+rm "$scratch/removals"
+reset "$candidate_id"
+TEST_AUTO_RETENTION=1 TEST_IMAGE_CREATED=2099-01-01T00:00:00Z run
+[[ ! -e "$scratch/removals" ]]
+TEST_AUTO_RETENTION=1 bash "$scratch/activate" "$candidate" --preview-images > "$scratch/stdout"
+grep -Fx "BUDDY_IMAGE_ELIGIBLE dungeonmindbuddy:$obsolete $obsolete_id" "$scratch/stdout"
+[[ ! -e "$scratch/removals" && ! -s "$scratch/activations" ]]
+TEST_AUTO_RETENTION=1 bash "$scratch/activate" "$candidate" --prune-images > "$scratch/stdout"
+grep -Fx "BUDDY_IMAGE_RETIRED dungeonmindbuddy:$obsolete $obsolete_id" "$scratch/stdout"
+[[ $(cat "$scratch/removals") == "dungeonmindbuddy:$obsolete" && ! -s "$scratch/activations" ]]
+rm "$scratch/removals"
+reset "$rollback_id"
+TEST_AUTO_RETENTION=1 run
+[[ $(cat "$scratch/removals") == "dungeonmindbuddy:$obsolete" ]]
+
 printf '%s\n' "$buddy_cache" > "$scratch/retire-cache"
 reset "$rollback_id"
 if FAIL_PUBLIC=1 run; then exit 1; fi

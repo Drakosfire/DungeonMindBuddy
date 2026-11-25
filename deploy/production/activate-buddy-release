@@ -4,7 +4,10 @@ set -euo pipefail
 
 fail() { printf 'Buddy deploy: %s\n' "$*" >&2; exit 1; }
 
-[[ $# == 1 && "$1" =~ ^[0-9a-f]{40}$ ]] || fail "an exact release SHA is required"
+[[ ( $# == 1 || $# == 2 ) && "$1" =~ ^[0-9a-f]{40}$ ]] || fail "an exact release SHA is required"
+maintenance=${2:-}
+[[ -z $maintenance || $maintenance == --preview-images || $maintenance == --prune-images ]] ||
+  fail "invalid image maintenance mode"
 revision=$1
 readonly config_dir=/etc/buddy-deploy
 release="$config_dir/releases/$revision.conf"
@@ -177,14 +180,11 @@ record_serving() {
 }
 
 retain_images() {
-  local approvals="$config_dir/retire-images" file line key value tag id identity containers references i
+  local approvals="$config_dir/retire-images" file line key value tag id identity containers references i inventory row created source cutoff
   local -a tags=() ids=() container_ids=()
   local -A protected=(["$candidate_id"]=1 ["$rollback_id"]=1)
   local -A protected_tags=() pins=() selected=()
 
-  [[ -e "$approvals" || -L "$approvals" ]] || return 0
-  [[ -f "$approvals" ]] || return 1
-  trusted "$approvals"
   for file in "$config_dir"/releases/*.conf; do
     [[ -f "$file" ]] || return 1
     trusted "$file"
@@ -230,24 +230,48 @@ retain_images() {
       protected["$id"]=1
     done <<< "$references"
   fi
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -n "$line" ]] || continue
-    [[ "$line" =~ ^(dungeonmindbuddy:[0-9a-f]{40})[[:blank:]](sha256:[0-9a-f]{64})$ ]] || return 1
+  if [[ -e "$approvals" || -L "$approvals" ]]; then
+    [[ -f "$approvals" ]] || return 1
+    trusted "$approvals"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ -n "$line" ]] || continue
+      [[ "$line" =~ ^(dungeonmindbuddy:[0-9a-f]{40})[[:blank:]](sha256:[0-9a-f]{64})$ ]] || return 1
+      tag=${BASH_REMATCH[1]}
+      id=${BASH_REMATCH[2]}
+      [[ ! "${selected[$tag]+yes}" ]] || return 1
+      selected["$tag"]=1
+      [[ ! "${protected[$id]+yes}" && ! "${protected_tags[$tag]+yes}" ]] || continue
+      identity=$(docker image ls --filter "reference=$tag" --format '{{.Repository}}:{{.Tag}}') || return 1
+      [[ -n "$identity" ]] || continue
+      [[ "$identity" == "$tag" ]] || return 1
+      [[ "$(docker image inspect --format '{{.Id}}' "$tag")" == "$id" ]] || return 1
+      tags+=("$tag")
+      ids+=("$id")
+    done < "$approvals" || return 1
+  fi
+  cutoff=$(date -u -d '24 hours ago' +%s) || return 1
+  inventory=$(docker image ls --no-trunc --format '{{.Repository}}:{{.Tag}} {{.ID}}' dungeonmindbuddy) || return 1
+  while IFS= read -r row; do
+    [[ "$row" =~ ^(dungeonmindbuddy:([0-9a-f]{40})(-guest-[a-z0-9-]+)?)[[:blank:]](sha256:[0-9a-f]{64})$ ]] || continue
     tag=${BASH_REMATCH[1]}
-    id=${BASH_REMATCH[2]}
-    [[ ! "${selected[$tag]+yes}" ]] || return 1
-    selected["$tag"]=1
-    [[ ! "${protected[$id]+yes}" && ! "${protected_tags[$tag]+yes}" ]] || continue
-    identity=$(docker image ls --filter "reference=$tag" --format '{{.Repository}}:{{.Tag}}') || return 1
-    [[ -n "$identity" ]] || continue
-    [[ "$identity" == "$tag" ]] || return 1
-    [[ "$(docker image inspect --format '{{.Id}}' "$tag")" == "$id" ]] || return 1
+    source=${BASH_REMATCH[2]}
+    id=${BASH_REMATCH[4]}
+    [[ ! "${selected[$tag]+yes}${protected[$id]+yes}${protected_tags[$tag]+yes}" ]] || continue
+    identity=$(docker image inspect --format '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}} {{.Created}}' "$tag") || return 1
+    [[ "$identity" == "$id $source "* ]] || continue
+    created=$(date -u -d "${identity#"$id $source "}" +%s) || return 1
+    (( created < cutoff )) || continue
     tags+=("$tag")
     ids+=("$id")
-  done < "$approvals" || return 1
+  done <<< "$inventory"
   for i in "${!tags[@]}"; do
     [[ "$(docker image inspect --format '{{.Id}}' "${tags[i]}")" == "${ids[i]}" ]] || return 1
-    docker image rm --no-prune "${tags[i]}" || return 1
+    if [[ "$maintenance" == --preview-images ]]; then
+      printf 'BUDDY_IMAGE_ELIGIBLE %s %s\n' "${tags[i]}" "${ids[i]}"
+    else
+      docker image rm --no-prune "${tags[i]}" || return 1
+      printf 'BUDDY_IMAGE_RETIRED %s %s\n' "${tags[i]}" "${ids[i]}"
+    fi
   done
 }
 
@@ -285,6 +309,14 @@ report_live() {
 
 [[ "$upstream" =~ ^http://127\.0\.0\.1:[0-9]{1,5}$ ]] || fail "expected a Buddy loopback upstream"
 [[ "$persistent_root" == /* ]] || fail "expected an absolute Buddy persistent root"
+if [[ -n "$maintenance" ]]; then
+  verify_serving "$candidate_id" && verify_public_ready ||
+    fail "image maintenance requires the healthy serving candidate"
+  [[ "$(<"$config_dir/serving")" == "BUDDY_LIVE $revision $candidate_id" ]] ||
+    fail "serving receipt does not match the healthy candidate"
+  retain_images || fail "image retention did not finish"
+  exit 0
+fi
 if verify_serving "$candidate_id"; then
   verify_public_ready || fail "already serving candidate did not pass public readiness"
   record_serving || fail "could not record the serving release"

@@ -233,9 +233,11 @@ window closes.
 
 After confirming public HTTPS readiness, the activator records the serving
 revision and image ID in `/etc/buddy-deploy/serving` and emits the same
-`BUDDY_LIVE` receipt. It then applies any root-owned
+`BUDDY_LIVE` receipt. Under the same lock, it automatically retires unpinned Buddy release tags on
+images created more than 24 hours ago if the tag's source SHA matches the image
+revision label. It also applies any root-owned
 `/etc/buddy-deploy/retire-images` list while still holding the deployment lock.
-An absent list disables image removal.
+The list is optional and can approve specific tags without waiting 24 hours.
 
 The operator writes one approved obsolete tag and full Docker image ID per
 line, separated by one space. Use only `dungeonmindbuddy:<full-sha>` tags.
@@ -249,6 +251,25 @@ stopped container image IDs are protected. A cleanup failure leaves the
 healthy release serving. Correct the retirement policy and repeat the same
 activation to retry cleanup. Check the serving receipt before deciding
 whether recovery is needed.
+
+To preview or apply image retention manually as root, use the current serving
+revision from the receipt. The helper reacquires the production lock and checks
+the healthy image and public readiness. These modes do not recreate the service.
+
+```bash
+sudo bash -c '
+  set -euo pipefail
+  read -r marker revision image < /etc/buddy-deploy/serving
+  test "$marker" = BUDDY_LIVE
+  /usr/local/sbin/activate-buddy-release "$revision" --preview-images
+'
+```
+
+After checking the eligible tags, repeat with `--prune-images` to apply.
+The apply mode recalculates eligibility under the lock. Check the
+`BUDDY_IMAGE_RETIRED` output and disk free space. Production release approvals
+continue to protect all pinned IDs. Expired approvals must be retired under
+the lock before their images can become eligible. Neither mode prunes volumes.
 
 ## Retire obsolete build cache
 
