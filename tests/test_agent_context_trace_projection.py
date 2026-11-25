@@ -192,3 +192,70 @@ def test_replay_exclusions_use_applicable_explicit_votes_and_attempt_boundaries(
         for sequence in (1, 3, 5)
     ]
     assert [step.sequence for step in replay_exclusion_steps({"events": events}, start=2, stop=5)] == [3]
+
+
+def test_effective_retrieval_selections_are_attempt_bounded_and_use_host_event():
+    from application_state.agent_conversation.neighborhood_replay import effective_retrieval_selections
+
+    events = [
+        {"kind": "native_retrieval_selected_v1", "sequence": 3, "controller_attempt_id": "first",
+         "operation": "select_candidates", "selected_handles": ["a", "b"]},
+        {"kind": "native_retrieval_selected_v2", "sequence": 7, "controller_attempt_id": "second",
+         "operation": "finish_retrieval", "selected_handles": []},
+    ]
+    first = effective_retrieval_selections({"events": events}, start=0, stop=7)
+    second = effective_retrieval_selections({"events": events}, start=7, stop=None)
+    assert [(x.operation, x.selected_count, x.controller_attempt_id) for x in first] == [("select_candidates", 2, "first")]
+    assert [(x.operation, x.selected_count, x.controller_attempt_id) for x in second] == [("finish_retrieval", 0, "second")]
+    assert effective_retrieval_selections(None, start=0, stop=None) == []
+
+
+def test_trace_reader_projects_durable_selections_into_the_correct_attempt(monkeypatch):
+    from contextlib import nullcontext
+    from datetime import UTC, datetime
+    from unittest.mock import Mock
+    from uuid import uuid4
+    from application_state.agent_conversation import context_trace_store, service
+    from application_state.agent_conversation.context_trace import TurnContextTraceV1
+
+    conversation, turn = uuid4(), uuid4()
+    traces = [TurnContextTraceV1(trace_id=uuid4(), world_id='world', conversation_id=conversation,
+              turn_id=turn, attempt=i, execution_start_sequence=start, started_at=datetime.now(UTC),
+              observations=[]) for i, start in ((1, 0), (2, 5))]
+    execution = {'events': [
+        {'kind': 'native_retrieval_selected_v1', 'sequence': 2, 'controller_attempt_id': 'first',
+         'operation': 'select_candidates', 'selected_handles': ['one']},
+        {'kind': 'native_retrieval_selected_v1', 'sequence': 6, 'controller_attempt_id': 'second',
+         'operation': 'finish_retrieval', 'selected_handles': []},
+    ]}
+    conn = Mock()
+    first, second = Mock(), Mock()
+    first.fetchone.return_value = (execution, conversation, None)
+    second.fetchall.return_value = [(traces[0].model_dump(mode='json', by_alias=True), 1),
+                                    (traces[1].model_dump(mode='json', by_alias=True), 2)]
+    conn.execute.side_effect = [first, second]
+    monkeypatch.setattr(context_trace_store, 'unit_of_work', lambda _: nullcontext(conn))
+    monkeypatch.setattr(service, '_ready_dsn', lambda: 'test')
+    monkeypatch.setattr(context_trace_store, 'native_assertion_steps', lambda *a, **kw: [])
+    monkeypatch.setattr(context_trace_store, 'native_discovery_replay', lambda *a, **kw: None)
+    monkeypatch.setattr(context_trace_store, 'replay_exclusion_steps', lambda *a, **kw: [])
+    result = context_trace_store.TurnContextTraceStore().list_attempts(world_id='world', turn_id=turn)
+    assert [(s.operation, s.selected_count) for s in result[0].effective_retrieval_selections] == [('select_candidates', 1)]
+    assert [(s.operation, s.selected_count) for s in result[1].effective_retrieval_selections] == [('finish_retrieval', 0)]
+
+
+@pytest.mark.parametrize('version', (1, 2, 3))
+def test_plan_opening_selection_is_projected_only_when_a_read_plan_exists(version):
+    from application_state.agent_conversation.neighborhood_replay import effective_retrieval_selections
+
+    events = [
+        {'kind': f'native_plan_opening_selected_v{version}', 'sequence': 2,
+         'controller_attempt_id': 'active', 'operation': 'select_candidates',
+         'selected_handles': ['one', 'two']},
+        {'kind': f'native_plan_opening_selected_v{version}', 'sequence': 3,
+         'controller_attempt_id': 'inactive', 'operation': None, 'selected_handles': []},
+    ]
+    selections = effective_retrieval_selections({'events': events}, start=0, stop=4)
+    assert [(s.operation, s.selected_count, s.controller_attempt_id) for s in selections] == [
+        ('select_candidates', 2, 'active')]
+    assert not effective_retrieval_selections({'events': events}, start=3, stop=None)

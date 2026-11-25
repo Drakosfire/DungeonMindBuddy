@@ -358,5 +358,33 @@ it('distinguishes a raw retrieval fallback vote from an effective host action', 
       materials:[{item_id:'unvalidated-native-retrieval-result:attempt',state:'model_context',role:'assistant',text:'{\"operation\":\"finish_retrieval\"}'}]},
   ])} />)
   fireEvent.click(screen.getByText('Working context · after this turn'))
-  expect(screen.getByRole('note')).toHaveTextContent('does not establish the action Buddy executed')
+  expect(screen.getByRole('note')).toHaveTextContent('effective host selection is not available')
+})
+
+
+it('shows the recorded host selection for its matching raw decision', () => {
+  const captured = trace([{kind:'context_snapshot',stage:'after',sequence:0,elapsed_ms:1,
+    materials:[{item_id:'unvalidated-native-retrieval-result:attempt',state:'model_context',role:'assistant',text:'{}'}]}])
+  captured.effective_retrieval_selections = [{sequence:18,controller_attempt_id:'attempt',operation:'select_candidates',selected_count:12}]
+  render(<BuddyContextTrace ownerActive={false} trace={captured} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.getByRole('note')).toHaveTextContent('Recorded host selection: select_candidates · 12 selected')
+})
+
+
+it('matches a retained Plan Jev response to its recorded selection', () => {
+  const captured = trace([{kind:'context_snapshot',stage:'after',sequence:0,elapsed_ms:1,
+    materials:[{item_id:'unvalidated-plan-jev-result:plan-attempt',state:'model_context',role:'assistant',text:'{}'}]}])
+  captured.effective_retrieval_selections = [{sequence:5,controller_attempt_id:'plan-attempt',operation:'finish_retrieval',selected_count:0}]
+  render(<BuddyContextTrace ownerActive={false} trace={captured} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.getByRole('note')).toHaveTextContent('Recorded host selection: finish_retrieval · 0 selected')
+})
+
+
+it('does not label a Plan author-scope response as a retrieval decision', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([{kind:'context_snapshot',stage:'after',sequence:0,elapsed_ms:1,
+    materials:[{item_id:'unvalidated-plan-jev-result:scope-attempt',state:'model_context',role:'assistant',text:'{}'}]}])} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.queryByRole('note')).toBeNull()
 })
