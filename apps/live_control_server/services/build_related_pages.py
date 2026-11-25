@@ -213,11 +213,8 @@ def open_page(service, world_id, turn_id, read_id):
         for s in turn.completion.answer_segments
         if isinstance(s, RelatedPageClaim) and s.read_id == read_id
     ]
-    rows = [
-        e
-        for e in turn.graph_context_execution.events
-        if isinstance(e, RelatedPageRead) and e.read_id == read_id
-    ]
+    from application_state.agent_conversation.build_related_pages import citation_records
+    rows = [e for e in citation_records(turn.graph_context_execution) if e.read_id == read_id]
     from application_state.agent_conversation.collaboration import ProposedConnectedPage
     proposed=getattr(turn.completion,"collaboration",None)
     review_match=isinstance(proposed,ProposedConnectedPage) and str(proposed.read_id)==str(read_id)
