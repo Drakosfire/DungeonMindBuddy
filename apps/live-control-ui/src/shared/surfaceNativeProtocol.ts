@@ -298,6 +298,7 @@ export function isBuildPendingContext(v:unknown,validateWork:(work:unknown)=>wor
     ||typeof v.delivery_replay!=='boolean'||v.execution!==null&&!validateExecution(v.execution))return false;
   const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
   return v.completion===null?!membership&&history&&(execution===null||execution.claimability!=='completed')
-    :isSurfaceNativeCompletion(v.completion,v.receipt,v.deferred_build_citations)&&execution!==null
+    :(isSurfaceNativeCompletion(v.completion,v.receipt,v.deferred_build_citations)
+      ||!membership&&isBuildAuthoringCompletion(v.completion,v.receipt.context_receipt_sha256))&&execution!==null
       &&execution.claimability==='completed'&&execution.authorization_state==='response_received';
 }
