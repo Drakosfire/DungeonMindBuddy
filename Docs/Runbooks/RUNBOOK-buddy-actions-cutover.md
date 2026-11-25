@@ -22,6 +22,27 @@ state, dependencies that affect deployment, permissions, proxy, or recovery
 compatibility. Record pending evidence and its owner at the delivery gate
 where it applies.
 
+## Submit parallel release work
+
+Agents can review, test, and publish candidates in parallel. Submit each
+approved candidate to the deployment workflow below with its immutable registry
+digest, exact image ID, expected serving revision and image ID, and release
+mode. Use the published run's digest and check the current serving receipt
+before dispatch. Track the candidate SHA in the [deployment workflow's run
+list](https://github.com/Drakosfire/DungeonMindBuddy/actions/workflows/deploy-buddy.yml).
+
+GitHub runs one deployment at a time and allows up to 100 pending runs. It
+orders the queue by when requests start waiting for the concurrency group.
+One run owns staging, activation, public checks, and the resulting receipt.
+The host deployment lock also protects against simultaneous host commands.
+
+If another release changes the expected serving revision or image ID, the
+host rejects the queued request before staging. Check the new serving receipt,
+requalify rollback compatibility, and submit fresh pins. For a serving overlay,
+its owner must also rebuild and publish against the new serving parent.
+The queue continues with the next request. Inspect each run for its own
+`BUDDY_STAGED`, `BUDDY_LIVE`, and public readiness results.
+
 ## One-time production setup
 
 1. An operator installs the reviewed deploy/production/deploy-buddy-release as
