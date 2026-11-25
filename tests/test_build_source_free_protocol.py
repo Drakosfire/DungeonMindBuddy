@@ -4044,3 +4044,58 @@ def test_existing_surface_native_retrieval_owner_and_pin_projection_keep_their_c
     assert pins==native_retrieval.source_pins(receipt,execution)
     assert pins['source_authority_status']==('unavailable' if unavailable else 'available')
     assert len(native_retrieval.scope_digest(current))==64
+
+
+@pytest.mark.parametrize('record_kind', ['statement', 'assertion'])
+def test_pending_native_selected_records_use_actual_query_and_existing_closure(monkeypatch, record_kind):
+    from uuid import uuid4
+    from application_state.agent_conversation import native_reads, native_retrieval
+    from application_state.agent_conversation.native_plan_assertions import object_selection_handle
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    from tests import test_build_source_free_routing as routing
+    from tests.test_native_plan_assertions import _object_catalog_query
+    from tests.test_surface_native_execution import controller, outcomes, choice
+    original = routing.prepared_query
+    def populated(source):
+        base = original(source)
+        return _object_catalog_query().model_copy(update={'authority': base.authority, 'question': base.question})
+    monkeypatch.setattr(routing, 'prepared_query', populated)
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, _):
+        assert prepare_pending_native_source(adapter)
+        turn = state.turn
+        receipt, execution = native_retrieval.owner(turn)
+        from application_state.agent_conversation.build_pending_native import prepared_pending_source
+        _, query = prepared_pending_source(receipt, execution)
+        auth = controller('build', execution.policy, sequence=len(execution.events), semantic=False)
+        responses = outcomes(auth, auth.sequence + 1)
+        selected = choice(receipt, execution, auth, auth.sequence + 3, 'select_candidates',
+            (object_selection_handle(query, query.object_matches[0].entity_id),))
+        def decoded(events):
+            candidate = execution.model_copy(update={'events': events})
+            current = turn.model_copy(update={'graph_context_execution': candidate})
+            return type(turn).model_validate_json(current.model_dump_json(by_alias=True))
+        prefix = [*execution.events, auth, *responses, selected]
+        selected_turn = decoded(prefix)
+        assert native_retrieval.current_selection(selected_turn) == selected
+        ids = ('ent:shared', 'ent:a') if record_kind == 'statement' else ('assertion:shared', 'assertion:a')
+        grant = native_reads.authorize_read(selected_turn, event_id=uuid4(), record_kind=record_kind, record_ids=ids)
+        granted = decoded([*prefix, grant])
+        observed = native_reads.observe_read(granted, event_id=uuid4(), authorization_event_id=grant.event_id,
+            reads=(), unavailable_ids=ids)
+        completed = decoded([*prefix, grant, observed])
+        assert completed.graph_context_execution.events[-1].status == 'partial'
+        with pytest.raises(ValueError):
+            native_reads.authorize_read(selected_turn, event_id=uuid4(), record_kind=record_kind, record_ids=(ids[0],))
+        with pytest.raises(ValueError):
+            native_reads.authorize_read(selected_turn, event_id=uuid4(), record_kind=record_kind, record_ids=('foreign',))
+        with pytest.raises(ValueError):
+            native_reads.observe_read(granted, event_id=uuid4(), authorization_event_id=grant.event_id,
+                reads=(), unavailable_ids=(ids[0],))
+        with pytest.raises(ValueError):
+            decoded([*prefix, grant, observed, observed.model_copy(update={'event_id': uuid4(), 'sequence': observed.sequence + 1})])
+        with pytest.raises(ValueError):
+            decoded([*execution.events, auth, *responses,
+                selected.model_copy(update={'controller_envelope_sha256': '0' * 64})])
+        with pytest.raises(ValueError):
+            decoded([*execution.events[:-1], auth.model_copy(update={'sequence': len(execution.events) - 1})])
+        assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens

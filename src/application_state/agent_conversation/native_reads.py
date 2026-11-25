@@ -140,17 +140,22 @@ def _validate_prospective_read(receipt, execution, event):
 
 def authorize_read(turn, *, event_id, record_kind, record_ids):
     """Authorize one native record family through the shared selected-read ledger."""
-    from .plan_jev_decision import current_selection
+    from .build_pending_native import read_selection as current_selection
     from . import types as t
     from .native_plan_assertions import NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1
     if record_kind not in {"statement", "assertion"}:
         raise ValueError("Unknown native selected-read record kind")
     receipt, execution = _owner(turn)
     from .native_execution import effective_native_query
-    query = (effective_native_query(receipt, execution)
-             if isinstance(receipt, t.SurfaceNativeContextReceiptV1)
-             else getattr(receipt, "native_query", None))
-    if (not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1))
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        _, query = prepared_pending_source(receipt, execution)
+    else:
+        query = (effective_native_query(receipt, execution)
+                 if isinstance(receipt, t.SurfaceNativeContextReceiptV1)
+                 else getattr(receipt, "native_query", None))
+    if (not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1,BuildPendingContextReceiptV1))
             or not isinstance(query, NativePlanQueryV1)
             or record_kind == "assertion" and not isinstance(query, NativePlanQueryV2)):
         raise ValueError("Native query is unavailable for the selected record kind")
@@ -198,7 +203,7 @@ def _prior_event(execution, event_id, model, **identity):
 
 
 def _selected_controller(turn, handle):
-    from .plan_jev_decision import current_selection
+    from .build_pending_native import read_selection as current_selection
     selected = current_selection(turn)
     if selected.operation != "select_candidates" or handle not in selected.selected_handles:
         raise ValueError("Native body acquisition was not selected by the current controller")
@@ -475,7 +480,7 @@ def authorize_direct_sources_locked(turn, *, grants):
     """Authorize one consecutive batch under the same acknowledged selection."""
     from .native_corpus import NativeDirectSourceAuthorizedV1, native_direct_source_handle
     from .native_context import SurfaceNativeContextReceiptV1
-    from .plan_jev_decision import current_selection
+    from .build_pending_native import read_selection as current_selection
     receipt, execution = _owner(turn, require_source=True)
     if type(receipt) is not SurfaceNativeContextReceiptV1:
         raise ValueError("Direct source selection requires the current shared native owner")

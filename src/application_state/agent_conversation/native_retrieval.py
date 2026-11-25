@@ -484,7 +484,14 @@ def validate_decision_phases(execution):
     retrieval_started = False
     retrieval_finished = False
     initial_search = None
-    for event in execution.events:
+    events = execution.events
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+    if type(execution) is BuildPendingExecutionV1:
+        settlements = [e for e in events if type(e) is NativeBuildSourceSettledV1]
+        if len(settlements) != 1:
+            raise ValueError('Pending retrieval requires one admitted source settlement')
+        events = events[settlements[0].sequence + 1:]
+    for event in events:
         if isinstance(event, NativeReadBatchConcludedV1):
             # Exact read closure joins the real query at context binding;
             # this phase owner checks the actual controller intent and order.

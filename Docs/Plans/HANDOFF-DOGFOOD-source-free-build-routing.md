@@ -1248,3 +1248,27 @@ historical binding check: it neither authorizes selected records nor activates
 pending native read events, Core IO, or the runtime continuation. Surface owner
 controls remain passing. No database or provider was used. Selected acquisition,
 current-access checks, writer closure and integrated release gates remain open.
+
+
+Pending native selected-record continuation (serial within PR4642): register the
+existing neutral retrieval and statement/assertion read families in the pending
+codec; require settlement before these events; reuse native retrieval phase and
+record-closure validators. Retrieval phase folding begins after pending source
+settlement because prior App/work controllers retain their own existing phase
+owners. The complete prefix still runs provider, semantic-work and App validators.
+Read producers resolve the actual prepared query and current acknowledged native
+selection. No legacy receipt/policy identity is synthesized; PlanJevDriver is
+unchanged. Pending body/direct-source IO and runtime dispatch are not activated.
+
+20 focused owner, mutation, selected-record and main App-path controls passed
+3.74s. Both statement/assertion grants require complete selected-object closure;
+partial observations preserve unavailable IDs. Foreign IDs, incomplete closure,
+repeated observations, forged controller commitments and pre-settlement dispatch
+are refused. Preparation/search occur once with no reopen. Initial new fixture
+failures passed an object instead of its entity ID to the existing handle helper;
+the fixture was corrected without relaxing production validation. These checks
+use fake App storage and synthetic controller records, not actual SDK producer
+proof, physical SQL isolation, Core reads or release evidence. Existing live
+claim/principal/public Core checks remain required before any IO. Runtime/native
+writer continuation, exact integrated review, SQL/full Send/live semantic/app and
+preserving-current-production deployment remain mandatory merge/delivery gates.

@@ -635,6 +635,9 @@ BuildPendingPrefixEventV1 = Annotated[
     t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
     | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
+    | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1
+    | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
+    | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
     | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1,
     Field(discriminator="kind"),
 ]
@@ -682,6 +685,11 @@ class BuildPendingExecutionV1(Strict):
                     validate_pending_writer_authorization(self, event)
                     writer = event
                     continue
+                elif type(event) is NativeRetrievalAuthorizedV1:
+                    if (not settled or event.build_context is None
+                            or (event.provider, event.model, event.api_mode)
+                            != self.policy.provider_roles.controller.identity()):
+                        raise ValueError('Pending retrieval requires its settled source and actual Build controller')
                 elif type(event) is BuildAppCoverageAuthorizedV1:
                     if settled:
                         raise ValueError('App coverage cannot follow native source preparation')
@@ -750,7 +758,7 @@ class BuildPendingExecutionV1(Strict):
                 pending_source_work(self.model_copy(update={'events': self.events[:event.sequence]}))
                 work = [e for e in self.events[:event.sequence]
                         if type(e) is t.BuildRequestedWorkResolutionV1]
-                if (settled or len(work) != 1 or event.sequence != len(self.events) - 1
+                if (settled or len(work) != 1
                         or event.pending_context_receipt_sha256 != self.context_receipt_sha256
                         or event.work_event_id != work[0].event_id
                         or work[0].resolution.get("barrier") is not None
@@ -761,6 +769,17 @@ class BuildPendingExecutionV1(Strict):
                         and event.native_query.question != self.policy.action.intent.message):
                     raise ValueError("Settled query changed the pending author request")
                 settled = True
+            elif type(event) in (NativeRetrievalSelectedV1,
+                    t.NativePlanStatementReadAuthorizedV1, t.NativePlanStatementReadObservedV1,
+                    t.NativePlanAssertionReadAuthorizedV1, t.NativePlanAssertionReadObservedV1):
+                if not settled:
+                    raise ValueError('Pending native acquisition cannot precede its source settlement')
+        if settled:
+            from .native_retrieval import validate_decision_phases
+            validate_decision_phases(self)
+            settlement = next(e for e in self.events if type(e) is NativeBuildSourceSettledV1)
+            from .native_plan_statements import validate_selected_record_events
+            validate_selected_record_events(settlement.native_query, self)
         return self
 
 

@@ -30,3 +30,12 @@ def pending_native_owner(turn):
     receipt, execution = current.graph_context_receipt, current.graph_context_execution
     prepared_pending_source(receipt, execution)
     return receipt, execution
+
+
+def read_selection(turn):
+    """Use the actual pending controller; preserve existing legacy delegates."""
+    if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+        from .native_retrieval import current_selection
+    else:
+        from .plan_jev_decision import current_selection
+    return current_selection(turn)
