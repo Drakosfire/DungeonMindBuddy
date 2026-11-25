@@ -1,6 +1,7 @@
 import {useRef, useState} from 'react';
 import type {SurfaceNativeCompletionV1} from '../../api/types';
 import {authenticatedApiFetch} from '../../api/liveApi';
+import {navigatePrimaryAppHref, shouldInterceptPrimaryNavigationClick} from '../../chrome/appNavigation';
 
 interface Props {
   worldId: string;
@@ -71,7 +72,11 @@ export function ConversationLorePageConfirmation({
       <ul>{draft.open_questions.map((question, index) => <li key={index}>{question}</li>)}</ul>
     </section>}
     {savedId
-      ? <a href={'/build?' + new URLSearchParams({world: worldId, documentId: savedId})}>Open saved page</a>
+      ? <a href={'/build?' + new URLSearchParams({world: worldId, documentId: savedId})} onClick={event => {
+          if (!shouldInterceptPrimaryNavigationClick(event, event.currentTarget)) return;
+          event.preventDefault();
+          navigatePrimaryAppHref(event.currentTarget.href, {allowBuildTargetChange: true});
+        }}>Open saved page</a>
       : <button type="button" disabled={disabled || saving} onClick={() => void confirm()}>
         {saving ? 'Working…' : preparedDigest
           ? `Confirm save of ${draft.destination.title}`

@@ -7,6 +7,8 @@ import {ConversationLorePageConfirmation} from './ConversationLorePageConfirmati
 vi.mock('../../api/liveApi', () => ({authenticatedApiFetch: vi.fn()}));
 
 it('saves only on explicit confirmation and submits the displayed digest', async () => {
+  window.history.replaceState({}, '', '/build?world=fixture-world&documentId=original');
+  const push = vi.spyOn(window.history, 'pushState');
   const digest = 'a'.repeat(64);
   const completion: SurfaceNativeCompletionV1 = {
     schema: 'dmb_surface_native_completion_v1',
@@ -52,4 +54,9 @@ it('saves only on explicit confirmation and submits the displayed digest', async
       conversation_id: 'fixture-conversation', turn_id: 'fixture-turn', review_sha256: digest,
     })}),
   );
+  const link = screen.getByRole('link', {name: 'Open saved page'});
+  fireEvent.click(link);
+  expect(push).toHaveBeenCalledWith({}, '', '/build?world=fixture-world&documentId=saved-page');
+  expect(screen.getByRole('link', {name: 'Open saved page'})).toBeInTheDocument();
+  push.mockRestore();
 });

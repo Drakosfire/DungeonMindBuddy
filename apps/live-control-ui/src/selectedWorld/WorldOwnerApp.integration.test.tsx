@@ -142,6 +142,17 @@ it.each([null,'longmont-c2'])('admits a Page by its exact owning World with camp
  navigate('/build?world=B&documentId=page');await screen.findByRole('alert');expect(screen.queryByTestId('build-page')).not.toBeInTheDocument();
 });
 
+it('keeps the world conversation and unsent draft when navigating between Build pages', async () => {
+ await start();
+ const controller=screen.getByTestId('world-controller');
+ fireEvent.change(screen.getByRole('textbox',{name:'Unsent World draft'}),{target:{value:'Keep this thought'}});
+ vi.mocked(api.getWorkspaceDocumentAny).mockImplementation(async id=>({...record(id),schema_version:'dmb_workspace_document_record_v1',kind:'worldbuilding_source',campaign_id:null,world_id:'A'} as never));
+ navigate('/build?world=A&documentId=page');await screen.findByTestId('build-page');
+ navigate('/build?world=A&documentId=page-two');await screen.findByTestId('build-page');
+ expect(screen.getByTestId('world-controller')).toBe(controller);
+ expect(screen.getByRole('textbox',{name:'Unsent World draft'})).toHaveValue('Keep this thought');
+});
+
 it("loads the catalog for the picker and again for World admission", async () => {
   window.history.replaceState({}, "", "/plan");
   render(<App />);
