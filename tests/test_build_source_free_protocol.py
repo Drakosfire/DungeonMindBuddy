@@ -2047,7 +2047,7 @@ def test_pending_harness_captures_actual_received_response_before_work_validatio
 
 
 @_pending_test_contextmanager
-def pending_app_runtime_case(monkeypatch):
+def pending_app_runtime_case(monkeypatch, *, seed=None):
     from types import SimpleNamespace, MethodType
     from datetime import UTC, datetime
     from apps.live_control_server.services.agent_turn_service import _ClaimFence, _PolicyExecutionAdapter
@@ -2055,10 +2055,10 @@ def pending_app_runtime_case(monkeypatch):
     from application_state.agent_conversation.context_trace import TurnContextTraceV1
     from apps.live_control_server.services import agent_prompt_evidence
     from tests.test_build_jev_estimated_continuations import counter
-    state, _, _, _ = pending_page_dispatch_harness(monkeypatch)
+    state = seed if seed is not None else pending_page_dispatch_harness(monkeypatch)[0]
     state.trace = TurnContextTraceV1(trace_id=uuid4(), world_id=state.turn.world_id,
         conversation_id=state.turn.conversation_id, turn_id=state.turn.turn_id, attempt=1,
-        started_at=datetime.now(UTC), execution_start_sequence=0, observations=[state.prompt])
+        started_at=datetime.now(UTC), execution_start_sequence=0, observations=[state.prompt] if seed is None else [])
     def query(sql, args):
         if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
             return state.leaf_query(sql, args)
@@ -2086,7 +2086,7 @@ def pending_app_runtime_case(monkeypatch):
     import hashlib
     monkeypatch.setattr(agent_prompt_evidence, 'store_prompt', store)
     monkeypatch.setattr(agent_prompt_evidence, 'read_prompt', lambda ref:
-        state.initial_request if str(ref.provider_attempt_id) == state.prompt['provider_attempt_id']
+        state.initial_request if seed is None and str(ref.provider_attempt_id) == state.prompt['provider_attempt_id']
         else state.prompt_payloads[str(ref.evidence_id)])
     fence = _ClaimFence(state.service, state.turn, pending_build_access=state.authorize)
     adapter = SimpleNamespace(turn=state.turn, fence=fence, failure=None, trace=None,
@@ -4271,3 +4271,67 @@ def test_pending_native_selection_refuses_unbound_output_and_lost_fence(monkeypa
                 call('record_pending_native_selection', selection=selected, producer_proof=evidence)
         assert state.persisted == before
         assert not any(e.event_id == selected.event_id for e in state.turn.graph_context_execution.events)
+
+
+@pytest.mark.parametrize('operation', ['select_candidates', 'finish_retrieval'])
+@pytest.mark.parametrize('failure', [None, 'unknown_choice', 'access'])
+def test_pending_native_runtime_actual_sdk_preserves_full_dialogue_and_prepared_scope(monkeypatch, operation, failure):
+    import asyncio
+    import httpx2
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+    from application_state.agent_conversation.native_retrieval import current_selection
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    from apps.live_control_server.services.build_pending_native_retrieval import PendingNativeRetrievalDriver
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY', 'synthetic-only')
+    calls = []
+    class Transport(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            body = json.loads(request.content)
+            calls.append(body)
+            answers = {}
+            for name, question in body['questions'].items():
+                chosen = ('include' if operation == 'select_candidates' else 'exclude') if name.startswith('candidate_') else 'finish_retrieval'
+                if failure == 'unknown_choice': chosen = 'not_offered'
+                answers[name] = {'type': 'choice', 'choice': chosen, 'confidence': 1,
+                    'probabilities': {key: float(key == chosen) for key in question['criteria']}}
+            if failure == 'access': state.denied = True
+            return httpx2.Response(200, request=request, json={'model': body['model'],
+                'usage': {'input_tokens': 23, 'output_tokens': 4}, 'answers': answers})
+    with pending_source_runtime_case(monkeypatch) as (state, source_adapter, _):
+        assert prepare_pending_native_source(source_adapter)
+        with pending_app_runtime_case(monkeypatch, seed=state) as (_, adapter):
+            dialogue = tuple({'role': role, 'content': f'{role} full captured context {i}'}
+                for i in range(60) for role in ('user', 'assistant'))
+            candidates = (RetrievalCandidate(handle='native-object:host-only-choice', label='Maelthor',
+                kind='Native Graph object; open its complete admitted support'),)
+            driver = PendingNativeRetrievalDriver(adapter, candidates, dialogue=dialogue,
+                allowed_operations=('select_candidates', 'finish_retrieval'))
+            harness = BuildJevHarness(decision_transport=Transport(), accounting=adapter._build_jev_accounting)
+            harness.adapter, harness.calls, harness.timings, harness._inflight = adapter, [], [], {}
+            if failure:
+                from generationengine import GenerationEngineError
+                from application_state.errors import ApplicationStateError
+                with pytest.raises((GenerationEngineError, ApplicationStateError)):
+                    asyncio.run(harness._decide(adapter, driver))
+                assert driver.selection is None and len(calls) == 1
+                replacement = PendingNativeRetrievalDriver(adapter, candidates, dialogue=dialogue,
+                    allowed_operations=('select_candidates', 'finish_retrieval'))
+                with pytest.raises((GenerationEngineError, ApplicationStateError, ValueError)):
+                    asyncio.run(harness._decide(adapter, replacement))
+                assert replacement.selection is None and len(calls) == 1
+                assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
+                return
+            asyncio.run(harness._decide(adapter, driver))
+            assert len(calls) == 1
+            assert calls[0]['state']['dialogue_reference'] == list(dialogue)
+            raw = json.dumps(calls[0])
+            for host in (driver.receipt.context_receipt_sha256, driver.before.execution_policy_sha256,
+                         str(driver.parent.request_id), str(driver.parent.parent_attempt_id),
+                         driver.parent.scope_sha256, driver.parent.source_revision, candidates[0].handle):
+                assert host not in raw
+            selected = current_selection(adapter.fence.turn)
+            assert selected == driver.selection and selected.operation == operation
+            assert selected.selected_handles == ([candidates[0].handle] if operation == 'select_candidates' else [])
+            assert selected.actual_input_tokens == 23 and selected.actual_output_tokens == 4
+            assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens

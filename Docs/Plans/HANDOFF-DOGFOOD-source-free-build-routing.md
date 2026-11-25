@@ -1296,3 +1296,29 @@ physical transaction rollback/races, actual SDK dispatch or release qualificatio
 Pending-compatible runtime/body/direct-source acquisition and native writer
 completion remain unfinished; SQL/full Send/live semantic/signed-in app evidence,
 current serving integration and independent integrated review still gate merge.
+
+
+Pending native controller runtime continuation (same serial PR4642): add
+build_pending_native_retrieval.PendingNativeRetrievalDriver using the existing
+Build stage/prepared-context/SDK/lifecycle transport, dedicated native admission
+ports and native decision codec. Exact prepared attempt IDs rebind host-only
+parent commitments without entering the wire. Full supplied frozen dialogue and
+semantic candidate labels remain model-visible; query/source preparation is not
+called by this driver. Actual SDK result bytes are protected before the selection
+service validates them. PlanJevDriver and its expansion helper remain untouched.
+This controller is not yet selected by main native completion: complete native
+acquisition and writer continuation before activating it there.
+
+17 focused official-SDK mock-transport and compatibility controls passed3.10s:
+actual include/finish decisions, full60-pair dialogue, no host IDs/revision pins in
+model bytes, actual token usage, changed/malformed option and access-loss refusal,
+and replacement attempts after failure making no second transport call. Source
+prepare/search remain one with no reopen. Existing App runtime/coverage SDK and
+native service-path controls remain passing after the test fixture gained an
+optional pre-admitted source seed. Initial harness initialization and synthetic
+fallback-choice mistakes were corrected in fixtures without relaxing any host
+predicate. Fake App store and mock HTTP transport only; no physical database,
+live model quality, selected Core read or release qualification is claimed.
+Next: selected native body/direct-source IO owners, complete pending runtime loop
+and native writer closure, then remaining integrated SQL/full Send/live semantic/
+signed-in app/current-serving review and deployment gates.
