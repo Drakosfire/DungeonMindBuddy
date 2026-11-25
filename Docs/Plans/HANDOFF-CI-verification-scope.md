@@ -14,8 +14,26 @@ changes normally need diff, mirror and affected-link checks only. Preserve
 security and isolation through focused checks, and report separate full-suite
 release evidence as missing rather than treating focused checks as a substitute.
 
-Expected write set: `AGENTS.md`, its required design-agent export mirror,
-`Docs/Guides/GUIDE-development-verification.md`, and this handoff. This slice
+The operator extended this serial PR to remove conflicting instructions found in
+Buddy's verification audit. Expected write set:
+
+- `.cursor/agents/extraction-lab-operator.md`
+- `.cursor/agents/skeptical-reviewer.md`
+- `.cursor/rules/subagent-delegation.mdc`
+- `.cursor/rules/verify-before-debug.mdc`
+- `.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`
+- `AGENTS.md`
+- `Docs/Guides/GUIDE-development-verification.md`
+- `Docs/Plans/HANDOFF-CI-local-verification-standard.md`
+- `Docs/Plans/HANDOFF-CI-verification-scope.md`
+- `Docs/Plans/HANDOFF-HOSTED-owned-native-graph-explorer.md`
+- `Docs/Plans/HANDOFF-PLAN-contextual-paragraph-placement.md`
+- `Docs/Plans/HANDOFF-STEWARDSHIP-close-cutover-and-audit-dungeonmind.md`
+- `Docs/Plans/PLAN-surface-interaction-host-hoist-pr-sequence.md`
+- `Docs/Sources/design-agent/PROCESS/AGENTS.md`
+- `Docs/Sources/design-agent/PROCESS/HANDOFF.template.md`
+
+ This slice
 does not change CI test selection, triggers, fixture resets, database behavior,
 security gates, deployment or protections. The one-App-clone fixture remains
 unchanged; performance optimization is separate work.

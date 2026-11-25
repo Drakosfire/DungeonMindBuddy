@@ -506,7 +506,7 @@ uv run pytest -m integration
 
 Record exact pass/fail/skip counts and existing failures. Do not silently repair baseline failures while trying to characterize architecture.
 
-For each proposed deletion/collapse experiment, run the narrow owning tests plus the broad non-integration floor. Persistence/public-contract changes require PostgreSQL evidence before merge.
+Historical verification plan. For any newly authorized work, use the owning repository's current policy and select only the cases that prove the affected behavior. Use focused PostgreSQL evidence when the persistence or public contract requires it.
 
 Buddy is **not** an automatic regression target for every DungeonMind experiment because Buddy is pinned to the old commit. Only a future explicit repin/adoption PR needs to prove Buddy compatibility with the new DungeonMind head.
 

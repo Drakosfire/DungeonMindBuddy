@@ -123,6 +123,18 @@ identified reason. For code, use focused test cases and other checks only where
 they establish an affected behavior. Use the owning locked environment and an
 isolated exact-SHA checkout when exact-source evidence is needed.
 
+Verification scope is governed by this section. Handoffs, templates, skills,
+agent prompts, reviewer requests, prior receipts and CI inventories may identify
+what needs proof. They cannot widen the local verification permitted here.
+Before starting a test or delegating one, identify the changed behavior, the
+relevant failure cases, and the exact cases or manual checks that prove them.
+Inspect what a wrapper or unfiltered command selects before using it. If it
+selects a prohibited suite or cannot target the cases, use a narrower entry
+point or record the coverage gap. Review existing evidence before repeating
+work. Repeat a check only to resolve a material gap in source, coverage,
+isolation or credibility. If a prohibited run starts, stop it promptly and
+record it as incomplete.
+
 Do not run an entire named backend contract, a full frontend hosted or discovered
 suite, or a blanket full-project test run for local agent verification. Membership
 of a focused test in a broad contract is not a reason to run the contract. Preserve

@@ -27,7 +27,7 @@ Always prefer the first. When you must loosen (e.g. lowering D1 thresholds becau
 
 ## Stochastic gates need multi-trial verification
 
-Any gate that depends on LLM output (NPC voice, planner decisions, recap drafts) is stochastic. A single PASS or FAIL is noise. Before claiming a prompt fix works, run ≥3 trials and report pass-rate. Round 4's NPC clarify fix was confirmed with Torbin 4/5 + Flock 5/5 across re-runs, not a single PASS.
+LLM output can vary. Use the smallest relevant set of trials needed for the claim. Record the sample size and its limits. A single trace can prove a specific execution path. A reliability claim needs evidence across trials. Round 4's NPC clarify fix was confirmed with Torbin 4/5 + Flock 5/5 across re-runs, not a single PASS.
 
 ## Reporting contract: evidence-first, file-linked, per-failure samples
 

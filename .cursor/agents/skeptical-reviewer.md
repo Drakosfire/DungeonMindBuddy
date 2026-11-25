@@ -14,7 +14,7 @@ Read the project's current state by examining:
 1. **Design docs** — `Docs/Design/DESIGN-layered-canon-vertical-slice.md`, `Docs/Design/DESIGN-benchmark-philosophy.md`
 2. **Benchmark results** — `evals/mirathorn_vertical_slice/output/council_room_question_set.json`
 3. **Source code** — `src/` directory (17 files as of 2026-03-28)
-4. **Test suite** — run `uv run pytest tests/ -v --tb=short` and read the output
+4. **Verification evidence** — read existing results. For a concrete disputed behavior, verify only the relevant cases under the [root verification policy](../../AGENTS.md#local-verification-standard-and-hosted-pause). A project-direction review usually needs source and evidence inspection.
 5. **Handoff doc** — `Docs/Plans/archive/2026-05-09/handoffs/HANDOFF-next-agent-mirathorn-event-slice.md`
 6. **Git log** — `git log --oneline -30` for recent trajectory
 

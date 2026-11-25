@@ -211,7 +211,7 @@ Include only the matrices that apply; otherwise write `Not applicable — <reaso
 
 ## §7 Evidence required to merge
 
-Before dispatch, list the checks that will prove each material invariant at its owning boundary. Record results as the work runs and require them for the applicable review, merge, or delivery gate. Do not treat missing implementation results as an activation blocker. Evidence of an actual prerequisite belongs in the activation gate above.
+Before dispatch, list the checks that will prove each material invariant at its owning boundary. Record results as the work runs and require them for the applicable review, merge, or delivery gate. Do not treat missing implementation results as an activation blocker. Evidence of an actual prerequisite belongs in the activation gate above. Follow the repository root verification policy. Use the minimum focused cases, including relevant failures, and inspect what each command selects. For docs, check the diff, affected links and mirrors. Record separate release evidence with its owner and status.
 
 | Guarantee / invariant clause | Owning boundary | Evidence class | Command or manual scenario | Expected evidence | Stop condition |
 |---|---|---|---|---|---|
@@ -222,7 +222,7 @@ Exact verification commands:
 ```bash
 <focused owning-boundary test>
 <contract / round-trip / failure-injection test as applicable>
-<repository regression/build/lint command as applicable>
+<additional targeted check only if it proves a named behavior>
 git diff --check
 git diff --name-only <dispatch-base>...HEAD
 ```

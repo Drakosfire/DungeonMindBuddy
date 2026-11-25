@@ -24,6 +24,12 @@ backend contract, full frontend suite or full-project test run for local agent
 verification. If separate full-suite evidence is required for release, record it
 as missing rather than claiming focused checks qualify it.
 
+Before running or delegating a command, inspect what it selects. If it cannot
+select the relevant cases, use a narrower entry point or record the gap. Apply
+the root policy to handoffs, reviewer requests and inherited commands. Reuse
+sound evidence when it covers the reviewed revision and behavior. Record the
+owner and outstanding evidence for any separate release gate.
+
 The [CI contract catalog](../../ci/contracts.json) is an inventory, not a test
 selection instruction. A test's inclusion in a large named contract does not
 require running every other test in it. The `inventory` action classifies test
