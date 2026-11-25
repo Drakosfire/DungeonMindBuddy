@@ -31,7 +31,7 @@ export interface SavedWorldBuildConversationContext {
   surfaceInstanceId: string; title: string; dirty: boolean;
 }
 
-interface BuildConversationRegistration { savedSource: SavedWorldBuildConversationContext | null; composeBridge?: BuildComposeBridge | null; presentationHosts?: PlanConversationPresentationHosts }
+interface BuildConversationRegistration { savedSource: SavedWorldBuildConversationContext | null; composeBridge?: BuildComposeBridge | null; presentationHosts?: PlanConversationPresentationHosts; selectDocument?: (id: string) => Promise<boolean> }
 
 interface Registration<T> { token: symbol; value: T; unavailableReason?: string | null }
 
@@ -120,14 +120,14 @@ export function usePublishWorldPlayConversation(context: AdmittedWorldPlayConver
   }, [registry?.registerPlay, registry?.unregisterPlay, worldId, runId, runRevision, editionRevision, editionRevisionId, contentSha, surfaceInstanceId, beatTitle, sceneTitle, unavailableReason]);
 }
 
-export function usePublishWorldBuildConversation(context: SavedWorldBuildConversationContext | null, presentationHosts?: PlanConversationPresentationHosts, composeBridge?: BuildComposeBridge | null) {
+export function usePublishWorldBuildConversation(context: SavedWorldBuildConversationContext | null, presentationHosts?: PlanConversationPresentationHosts, composeBridge?: BuildComposeBridge | null, selectDocument?: (id: string) => Promise<boolean>) {
   const registry = useContext(Registry);
   const token = useRef(Symbol("world-build-conversation"));
   useLayoutEffect(() => {
     if (!registry) return;
-    registry.registerBuild(token.current, { savedSource: context, presentationHosts, composeBridge });
+    registry.registerBuild(token.current, { savedSource: context, presentationHosts, composeBridge, selectDocument });
     return () => registry.unregisterBuild(token.current);
-  }, [registry?.registerBuild, registry?.unregisterBuild, context, presentationHosts, composeBridge]);
+  }, [registry?.registerBuild, registry?.unregisterBuild, context, presentationHosts, composeBridge, selectDocument]);
 }
 
 export function usePublishPlaySceneEditBridge(bridge: PlaySceneEditBridge): void {
@@ -188,6 +188,6 @@ function ScopedWorldConversation({ surface, worldId, worldName, registry }: {
     worldName={worldName ?? props.worldName}
     presentationHosts={surface === "plan" ? props.presentationHosts : surface === "build" ? build?.presentationHosts : undefined}
     visible={(surface === "plan" && registry.plan?.value.worldId === worldId) || surface === "play" || surface === "build"}
-    buildMode={surface === "build" ? { savedSource, composeBridge: build?.composeBridge ?? null } : null}
+    buildMode={surface === "build" ? { savedSource, composeBridge: build?.composeBridge ?? null, selectDocument: build?.selectDocument } : null}
     playMode={surface === "play" ? { admittedRun, sceneEditBridge: registry.sceneEditor?.value ?? null } : null} />;
 }
