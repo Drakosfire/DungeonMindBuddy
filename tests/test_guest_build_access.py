@@ -12,7 +12,7 @@ from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSource
 from tests.test_native_plan_assertions import lane as native_build_lane
 
 
-def test_guest_build_decision_guard_rejects_effects():
+def test_guest_build_decision_guard_rejects_effects(monkeypatch):
     from types import SimpleNamespace
     from apps.live_control_server.services.build_jev_driver import _require_guest_build_discussion
     from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
@@ -25,6 +25,12 @@ def test_guest_build_decision_guard_rejects_effects():
     from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
     signed_in = SimpleNamespace(native_principal=NativeGraphPrincipal(subject='owner', role='gm', auth_method='hosted_owner'))
     _require_guest_build_discussion(signed_in, label='write_current_page', graph_reference='place_existing_reference', image_move='move_existing')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED', '1')
+    writer = SimpleNamespace(native_principal=principal, request=SimpleNamespace(build_write_capability=object()))
+    _require_guest_build_discussion(writer, label='write_current_page', graph_reference='other_work', image_move='other')
+    with pytest.raises(AgentTurnServiceError, match='discussion'):
+        _require_guest_build_discussion(writer, label='write_current_page', graph_reference='place_existing_reference', image_move=None)
+    monkeypatch.delenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED')
     for label, graph, image in [('write_current_page', None, None), ('prepare_image', None, None),
                                 ('discuss', 'place_existing_reference', None), ('discuss', None, 'move_existing'),
                                 (None, None, None)]:
@@ -140,7 +146,13 @@ def test_guest_build_discussion_admission_is_page_and_session_bound(guests, monk
         AgentTurnRequest.model_validate(forged)
         refused = routed.post('/api/live/agent/turn', headers=headers, json=forged)
         assert refused.status_code == 403, refused.text
-        assert len(seen) == 1  # Admission refused it before the service ran.
+        assert len(seen) == (1 if field == 'build_write_capability' else 2)  # No extra service call.
+        if field == 'build_write_capability':
+            monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED', '1')
+            accepted_write = routed.post('/api/live/agent/turn', headers=headers, json=forged)
+            assert accepted_write.status_code == 409, accepted_write.text
+            assert len(seen) == 2
+            monkeypatch.delenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED')
     monkeypatch.delenv('DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED')
     assert client.post('/api/live/agent/turn', headers=headers, json=body).status_code == 403
     monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED', '1')
@@ -603,8 +615,8 @@ def test_guest_reset_revokes_prepared_native_source_body(guests, tmp_path, monke
             open_native_corpus_member(context, lane.meta.evidence_ref_ids[0])
 
 
-@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build', 'reset_during_play'), [(False, False, False), (True, False, False), (False, True, False), (False, False, True)])
-def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer, reset_during_build, reset_during_play):
+@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build', 'reset_during_play', 'reset_during_proposal'), [(False, False, False, False), (True, False, False, False), (False, True, False, False), (False, False, True, False), (False, False, False, True)])
+def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer, reset_during_build, reset_during_play, reset_during_proposal):
     import json
     import re
     import httpx2
@@ -757,7 +769,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
             body = json.loads(req.content)
             answers = {}
             for name, question in body['questions'].items():
-                choice = ('discuss' if name == 'requested_work' else 'anchored' if name == 'source_need'
+                choice = (('write_current_page' if seen_build[-1].request.message == 'Add a clue to this page.' else 'discuss') if name == 'requested_work' else 'anchored' if name == 'source_need'
                           else 'finish_retrieval' if name == 'operation' else 'exclude' if name.startswith('candidate_')
                           else 'skip')
                 assert choice in question['criteria'], (name, question['criteria'])
@@ -766,12 +778,30 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
             return httpx2.Response(200, request=req, json={'model': 'jev-1.14.0', 'answers': answers,
                 'usage': {'input_tokens': 37, 'output_tokens': 9}})
     build_entered, build_release = Event(), Event()
+    proposal_entered, proposal_release = Event(), Event()
     class BuildWriter(httpx.AsyncBaseTransport):
         async def handle_async_request(self, req):
             if reset_during_build:
                 build_entered.set()
                 assert build_release.wait(15)
             body = json.loads(req.content)
+            if body.get('stream'):
+                if reset_during_proposal:
+                    proposal_entered.set()
+                    assert proposal_release.wait(15)
+                proposal = {'destination': 'current_page', 'target': 'captured',
+                    'replacement_markdown': 'A copper key lies under the bench.',
+                    'summary': 'Add a clue.', 'assumptions': []}
+                response = {'id': 'resp_guest_proposal', 'object': 'response', 'created_at': 1,
+                    'status': 'completed', 'model': body['model'], 'output': [{'type': 'message',
+                    'id': 'msg_guest_proposal', 'role': 'assistant', 'status': 'completed',
+                    'content': [{'type': 'output_text', 'text': json.dumps(proposal), 'annotations': []}]}],
+                    'usage': {'input_tokens': 100, 'output_tokens': 40, 'total_tokens': 140}}
+                events = [{'type': 'response.output_text.delta', 'sequence_number': 1,
+                    'item_id': 'msg_guest_proposal', 'output_index': 0, 'content_index': 0, 'delta': json.dumps(proposal)},
+                    {'type': 'response.completed', 'sequence_number': 2, 'response': response}]
+                return httpx.Response(200, request=req, headers={'content-type':'text/event-stream'},
+                    content=''.join('data: ' + json.dumps(event) + '\n\n' for event in events).encode())
             candidate = {'schema': BUILD_POLICY, 'answer_segments': [
                 {'kind': 'discussion', 'text': 'We can discuss this saved page.'}],
                 'limitations': [], 'requested_detail_gaps': [], 'collaboration': None}
@@ -817,6 +847,66 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert 'discuss this saved page' in build_response.json()['answer']['text']
     assert len(seen_build) == 1 and isinstance(seen_build[0].native_principal, HostedGuestGraphPrincipal)
     assert seen_build[0].native_principal.managed_world_id == world.world_id
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED', '1')
+    from application_state.build_proposal.types import BuildWriteCapability
+    capability = BuildWriteCapability(idempotency_key=uuid4(), conversation_id=UUID(pointer['conversation_id']),
+        expected_pointer_revision=pointer['pointer_revision'], draft_markdown=saved_page.markdown,
+        basis={'world_id': world.world_id, 'document_id': page, 'registry_revision': saved_page.loaded_revision,
+            'content_sha256': empty_digest, 'draft_sha256': empty_digest, 'editor_sha256': empty_digest,
+            'visibility': 'internal', 'caret': 1, 'draft_generation': 0, 'selection_generation': 0})
+    proposal_payload = {**build_payload, 'turn_id': str(uuid4()), 'message': 'Add a clue to this page.',
+        'build_write_capability': capability.model_dump(mode='json')}
+    if not any((reset_during_writer, reset_during_build, reset_during_play, reset_during_proposal)):
+        import copy
+        forged = copy.deepcopy(proposal_payload)
+        forged['build_write_capability']['basis']['world_id'] = 'foreign-world'
+        assert client.post('/api/live/agent/turn', headers=headers, json=forged).status_code in (400, 403, 422)
+        forbidden_image = copy.deepcopy(proposal_payload)
+        forbidden_image['build_write_capability']['reference_image_id'] = str(uuid4())
+        assert client.post('/api/live/agent/turn', headers=headers, json=forbidden_image).status_code in (400, 403, 422)
+        stale = copy.deepcopy(proposal_payload)
+        stale['build_write_capability']['expected_pointer_revision'] += 1
+        stale['build_draft_context']['expected_pointer_revision'] += 1
+        stale_response = client.post('/api/live/agent/turn', headers=headers, json=stale)
+        assert stale_response.status_code in (400, 403, 409, 422), stale_response.text
+        assert 'copper key' not in stale_response.text
+    if reset_during_proposal:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending_proposal = pool.submit(client.post, '/api/live/agent/turn', headers=headers, json=proposal_payload)
+            try:
+                assert proposal_entered.wait(15)
+                assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+            finally:
+                proposal_release.set()
+            proposal_response = pending_proposal.result(timeout=15)
+        assert proposal_response.status_code != 200, proposal_response.text
+        assert 'copper key' not in proposal_response.text
+        from application_state.engine import connect
+        with connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT count(*) FROM agent.build_proposal WHERE world_id=%s AND payload->>'state'='proposed'", (world.world_id,)).fetchone()[0] == 0
+        return
+    proposal_response = client.post('/api/live/agent/turn', headers=headers, json=proposal_payload)
+    assert proposal_response.status_code == 200, proposal_response.text
+    proposal_url = f'/api/live/agent/worlds/{world.world_id}/build-proposals/{capability.idempotency_key}'
+    proposal_record = client.get(proposal_url)
+    assert proposal_record.status_code == 200, proposal_record.text
+    assert 'copper key' in proposal_record.text
+    review_response = client.post(proposal_url + '/review', headers=headers,
+        json={'operation': 'open', 'expected_revision': 0})
+    assert review_response.status_code == 200, review_response.text
+    assert 'copper key' in review_response.text
+    before_edit = client.get(f'/api/live/workspace-documents/{page}/snapshot')
+    assert before_edit.status_code == 200 and 'copper key' not in before_edit.json()['markdown']
+    edited = {**page_draft, 'markdown': saved_page.markdown + '\n\nA copper key lies under the bench.'}
+    prepared_edit = client.post('/api/live/tiptap/markdown-write/prepare', headers=headers, json=edited)
+    assert prepared_edit.status_code == 200, prepared_edit.text
+    saved_edit = client.post('/api/live/tiptap/markdown-write/commit', headers=headers, json={
+        **edited, 'writer_confirm_token': prepared_edit.json()['writer_confirm_token'],
+        'expected_revision': prepared_edit.json()['registry_revision']})
+    assert saved_edit.status_code == 200, saved_edit.text
+    reopened = client.get(f'/api/live/workspace-documents/{page}/snapshot')
+    assert reopened.status_code == 200 and 'A copper key lies under the bench.' in reopened.json()['markdown']
+    assert 'A saved detail.' in reopened.json()['markdown']
     del app.state.build_jev_runtime_factory
     plan = client.post('/api/live/workspace-documents/world-plans', headers=headers,
         json={'schema_version': 'dmb_workspace_document_create_v2', 'scope_mode': 'world',
@@ -1745,3 +1835,119 @@ def test_guest_saved_content_limits_are_atomic_across_documents(guests, monkeypa
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda packet: client.post("/api/live/tiptap/markdown-write/commit", headers=headers, json=packet), packets))
     assert sorted(response.status_code for response in results) == [200, 409]
+
+
+def test_guest_proposal_storage_counts_toward_quota_and_is_cleaned(guests, monkeypatch, application_state_dsn, tmp_path):
+    import json
+    from types import SimpleNamespace
+    from uuid import UUID, uuid4
+    from application_state.engine import connect
+    from application_state.build_proposal.service import BuildProposalService
+    from application_state.build_proposal.review import BuildProposalReviewService, BuildReviewCommand
+    from application_state.build_proposal.types import BuildProposalReservation, BuildProviderAuthorization
+    from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
+    from apps.live_control_server.services import guest_build_access
+
+    (client, token, world), (other, other_token, _) = guests[0]
+    from apps.live_control_server.routes import agent
+    monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED', '1')
+    headers = {'X-DMB-Index-Graph-CSRF': token}
+    created = client.post(f'/api/live/agent/worlds/{world}/conversation/new', headers=headers,
+        json={'command_id': str(uuid4()), 'expected_pointer_revision': 0, 'expected_active_conversation_id': None})
+    assert created.status_code == 200, created.text
+    conversation_id = UUID(created.json()['conversation_id'])
+    session_id = str(UUID(world.removeprefix('guest-')))
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world, guest_build_session=session_id))
+    with connect(application_state_dsn) as conn:
+        guest_build_access._lock_guest_session(request, conn, world)
+        before = guest_build_access.guest_conversation_bytes(request, conn, world)
+        conn.rollback()
+    reservation = BuildProposalReservation(idempotency_key=uuid4(), conversation_id=conversation_id,
+        expected_pointer_revision=created.json()['pointer_revision'], instruction='Propose a clue',
+        basis={'world_id': world, 'document_id': 'guest-page', 'registry_revision': 1,
+            'content_sha256': 'a' * 64, 'draft_sha256': 'b' * 64, 'editor_sha256': 'e' * 64, 'visibility': 'internal',
+            'caret': 1, 'draft_generation': 0, 'selection_generation': 0})
+    store = BuildProposalService()
+    record, _ = store.reserve(reservation)
+    def advance(state, **fields):
+        nonlocal record
+        record = store.advance(world, record.action_id, expected_revision=record.revision, state=state, **fields)
+    advance('authorized', authorization=BuildProviderAuthorization(provider_attempt_id=uuid4(),
+        model='synthetic', payload_sha256='c' * 64, payload_utf8_bytes=123))
+    advance('sdk_entered')
+    advance('response_received', raw_response=json.dumps({'destination': 'current_page', 'target': 'captured',
+        'replacement_markdown': 'A clue.', 'summary': 'A clue.', 'assumptions': []}))
+    advance('proposed')
+    with connect(application_state_dsn) as conn:
+        guest_build_access._lock_guest_session(request, conn, world)
+        after_proposal = guest_build_access.guest_conversation_bytes(request, conn, world)
+        conn.rollback()
+    assert after_proposal > before
+    BuildProposalReviewService().execute(world, record.action_id, BuildReviewCommand(operation='open', expected_revision=0))
+    base = f'/api/live/agent/worlds/{world}/build-proposals'
+    assert client.get(base, params={'conversation_id': str(conversation_id)}).status_code == 200
+    assert client.get(f'{base}/{record.action_id}').status_code == 200
+    assert client.get(f'{base}/{record.action_id}/review').status_code == 200
+    assert client.post(f'{base}/{record.action_id}/review', json={'operation': 'open', 'expected_revision': 0}).status_code == 403
+    assert client.post(f'{base}/{record.action_id}/review', headers=headers, json={'operation': 'open', 'expected_revision': 0}).status_code == 200
+    assert other.get(f'{base}/{record.action_id}/review').status_code == 403
+    assert other.post(f'{base}/{record.action_id}/review', headers={'X-DMB-Index-Graph-CSRF': other_token}, json={'operation': 'open', 'expected_revision': 0}).status_code == 403
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED', '0')
+    assert client.get(f'{base}/{record.action_id}/review').status_code in (401, 403)
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_PROPOSALS_ENABLED', '1')
+    with connect(application_state_dsn) as conn:
+        guest_build_access._lock_guest_session(request, conn, world)
+        after = guest_build_access.guest_conversation_bytes(request, conn, world)
+        assert after > after_proposal
+        conn.rollback()
+    # Review growth must be accounted for in the same transaction as the write.
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', after + 128)
+    rejected = client.post(f'{base}/{record.action_id}/review', headers=headers,
+        json={'operation': 'save', 'expected_revision': 1, 'markdown': 'x' * 4096})
+    assert rejected.status_code == 409, rejected.text
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
+    unchanged = client.get(f'{base}/{record.action_id}/review')
+    assert unchanged.status_code == 200 and unchanged.json()['revision'] == 1
+    assert unchanged.json()['markdown'] == 'A clue.'
+
+    # Reset must serialize with a review mutation holding the guest session row.
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    entered, release = Event(), Event()
+    original = guest_build_access.guest_conversation_bytes
+    def hold_review(*args, **kwargs):
+        result = original(*args, **kwargs)
+        entered.set()
+        if not release.wait(10):
+            raise RuntimeError('guest review race timed out')
+        return result
+    monkeypatch.setattr(guest_build_access, 'guest_conversation_bytes', hold_review)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = pool.submit(client.post, f'{base}/{record.action_id}/review', headers=headers,
+            json={'operation': 'save', 'expected_revision': 1, 'markdown': 'An updated clue.'})
+        try:
+            assert entered.wait(10)
+            reset = pool.submit(client.post, '/api/live/index-graph/reset', headers=headers)
+            deadline = time.monotonic() + 5
+            waiting = 0
+            with connect(application_state_dsn) as conn:
+                while time.monotonic() < deadline:
+                    conn.execute('SELECT pg_stat_clear_snapshot()')
+                    waiting = conn.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
+                    if waiting:
+                        break
+                    time.sleep(0.05)
+            assert waiting > 0, 'reset never reached the review session lock'
+        finally:
+            release.set()
+        assert pending.result(timeout=10).status_code in (200, 401, 403)
+        assert reset.result(timeout=10).status_code == 200
+    monkeypatch.setattr(guest_build_access, 'guest_conversation_bytes', original)
+    assert client.get(f'{base}/{record.action_id}/review').status_code in (401, 403)
+    cleanup_expired_guest_conversation(session_id)
+    with connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT count(*) FROM agent.build_proposal WHERE world_id=%s', (world,)).fetchone()[0] == 0
+        assert conn.execute('SELECT count(*) FROM agent.build_proposal_review WHERE world_id=%s', (world,)).fetchone()[0] == 0

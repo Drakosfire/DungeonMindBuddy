@@ -1,6 +1,6 @@
 import {proposalReview,type BuildProposalReview} from '../api/buildProposalReviewApi';
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { useAgentInteraction } from '../agentInteraction/useAgentInteraction';
@@ -339,4 +339,36 @@ it('restores a saved on-page review with chat closed and does not reread history
  await screen.findByRole('region',{name:'Proposed page change'});
  expect(screen.queryByRole('textbox',{name:'Message DungeonBuddy',exact:true})).not.toBeInTheDocument();
  expect(session.dirty).toBe(false);expect(api.postWorldBuildAgentTurn).not.toHaveBeenCalled();
+});
+
+it('reviews and inserts a guest proposal in the existing Build editor, then saves and reopens', async () => {
+  vi.stubEnv('VITE_HOSTED_GUEST_BUILD_PROPOSALS', '1');
+  const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+  try {
+    vi.mocked(api.getWorldAgentConversationHistory).mockResolvedValue(history);
+    let finish!: (records: proposals.BuildProposalRecord[]) => void;
+    vi.mocked(proposals.listBuildProposals).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const view = render(<ImagePlacementHarness/>);
+    await waitFor(() => expect(session.phase).toBe('ready_clean'));
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    const cap = await exposedBridge!.capture();
+    const record = await vi.mocked(proposals.composeBuildProposal).getMockImplementation()!({
+      idempotency_key:'11111111-1111-4111-8111-111111111111', conversation_id:history.conversation_id!,
+      expected_pointer_revision:1, basis:cap.basis, draft_markdown:cap.draftMarkdown, instruction:'A table'});
+    await act(async () => { finish([record]); });
+    const review = await screen.findByRole('region', {name:'Proposed page change'});
+    expect(session.editor!.state.doc.textContent).not.toContain('Nella');
+    fireEvent.click(within(review).getByRole('button', {name:'Save'}));
+    await waitFor(() => expect(session.dirty).toBe(true));
+    expect(session.editor!.state.doc.textContent).toContain('Nella');
+    await act(async () => { await session.saveMarkdown(); });
+    await waitFor(() => expect(session.dirty).toBe(false));
+    expect(stored.markdown).toContain('Nella');
+    view.unmount(); localStorage.clear();
+    vi.mocked(proposals.listBuildProposals).mockResolvedValue([]);
+    render(<ImagePlacementHarness/>);
+    await waitFor(() => expect(session.phase).toBe('ready_clean'));
+    expect(session.editor!.state.doc.textContent).toContain('Nella');
+    expect(session.editor!.state.doc.textContent).toContain('A fort town.');
+  } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
 });

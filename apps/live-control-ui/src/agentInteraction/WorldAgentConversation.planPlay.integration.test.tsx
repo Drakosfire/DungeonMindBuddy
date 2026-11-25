@@ -570,6 +570,27 @@ describe("one App-level World conversation host across Plan and Play", () => {
       expect(request.play_target).toBeDefined();
     } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
   });
+  it('captures the normal Build insertion target for an enabled guest proposal', async () => {
+    vi.stubEnv('VITE_HOSTED_GUEST_BUILD_BUDDY', '1');
+    vi.stubEnv('VITE_HOSTED_GUEST_BUILD_PROPOSALS', '1');
+    const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+    const bridge = retryBridge();
+    vi.mocked(bridge.capture).mockResolvedValue({...insertionCapture(), contextualProse:true});
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(() => new Promise(() => {}));
+    try {
+      render(<Harness initial="build" buildBridge={bridge} buildClean/>);
+      fireEvent.click(await screen.findByRole('button', {name:'Open', exact:true}));
+      const input = await screen.findByLabelText('Message DungeonBuddy');
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.change(input, {target:{value:'Add a clue to this page.'}});
+      fireEvent.click(screen.getByRole('button', {name:'Send message', exact:true}));
+      await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+      const sent = vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0];
+      expect(sent.build_write_capability).toBeDefined();
+      expect(sent.build_image_move_capture).toBeUndefined();
+      expect(bridge.capture).toHaveBeenCalledTimes(1);
+    } finally { guest.mockRestore(); vi.unstubAllEnvs(); }
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getNativeGraphCatalog).mockRejectedValue(new Error("Catalog unavailable in fixture"));

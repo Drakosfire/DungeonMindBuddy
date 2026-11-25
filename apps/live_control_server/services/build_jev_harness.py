@@ -1086,6 +1086,8 @@ class BuildJevHarness:
                     writer_model=writer_model,
                     transport=self.writer_transport,
                     frozen_history=history,
+                    proposal_authorize_transaction=adapter.service._authorize_transaction,
+                    proposal_validate_transaction=adapter.service._validate_transaction,
                     **inputs,
                     **({'_native_output_capture':capture_native} if native_rules is not None else {}),
                 )
