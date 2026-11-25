@@ -16,6 +16,14 @@ export function guestBuildActive(): boolean { return active !== null; }
 export function guestBuildRequestEpoch(path: string, method: string): number | null {
   if (!active) return null;
   const pathname = path.split("?", 1)[0];
+  const conversation = import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" &&
+    ((/^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)) && method === "POST" ||
+      pathname === "/api/live/agent/turn" && method === "POST" ||
+      pathname === `/api/live/agent/worlds/${active.worldId}/conversation` && method === "GET" ||
+      pathname === `/api/live/agent/worlds/${active.worldId}/conversations/active/messages` && method === "GET" ||
+      method === "GET" && pathname.startsWith(`/api/live/agent/worlds/${active.worldId}/conversation/turns/`) &&
+        /^\/api\/live\/agent\/worlds\/guest-[0-9a-f]{32}\/conversation\/turns\/[0-9a-f-]{36}\/(?:native-source-clauses|native-assertion-sources|native-body-excerpts|native-source-sections|source-passages)\/[0-9]+$/.test(pathname) ||
+      pathname === `/api/live/agent/worlds/${active.worldId}/conversation/new` && method === "POST");
   const media = import.meta.env.VITE_HOSTED_GUEST_MEDIA === "1" &&
     (pathname === "/api/live/media/images/capabilities" || pathname === "/api/live/media/images/library" || pathname === "/api/live/media/images/generate" ||
       /^\/api\/live\/media\/images\/[0-9a-f-]{36}(?:\/metadata|\/original)?$/.test(pathname));
@@ -26,11 +34,12 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
       /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}\/committed-revision(?:\/[1-9][0-9]*)?$/.test(pathname));
   const read = method === "GET" && (pathname === "/api/live/workspace-documents/pages/inventory"
     || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && (pathname === "/api/live/workspace-documents/world-plans" || pathname === "/api/live/plan-view")
+    || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" && /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}\/committed-revision(?:\/[1-9][0-9]*)?$/.test(pathname)
     || /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}(?:\/snapshot)?$/.test(pathname));
   const write = method === "POST" && (pathname === "/api/live/workspace-documents"
     || pathname === "/api/live/tiptap/markdown-write/prepare" || pathname === "/api/live/tiptap/markdown-write/commit"
     || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && pathname === "/api/live/workspace-documents/world-plans");
-  return read || write || play && ["GET", "POST", "PUT"].includes(method) || media && ["GET", "POST"].includes(method) ? epoch : null;
+  return read || write || conversation || play && ["GET", "POST", "PUT"].includes(method) || media && ["GET", "POST"].includes(method) ? epoch : null;
 }
 
 export function guestBuildEpochCurrent(value: number): boolean { return active !== null && epoch === value; }
@@ -38,6 +47,8 @@ export function guestBuildEpochCurrent(value: number): boolean { return active !
 export function guestBuildCsrf(path: string, method: string): string | null {
   if (!active || method === "GET" || method === "HEAD") return null;
   const pathname = path.split("?", 1)[0];
+  if (import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" && method === "POST" &&
+      (pathname === "/api/live/agent/turn" || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname) || pathname === `/api/live/agent/worlds/${active.worldId}/conversation/new`)) return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_MEDIA === "1" && pathname === "/api/live/media/images/generate" && method === "POST") return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
       (pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/world-play-runs/v2/active" ||

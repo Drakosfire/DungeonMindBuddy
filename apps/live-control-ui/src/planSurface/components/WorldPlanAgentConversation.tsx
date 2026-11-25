@@ -1,6 +1,7 @@
 import { AppearanceControl } from "../../ui/AppearanceControl";
 import { appearanceAccentRequest, type AppearanceAccent } from "../../ui/appearanceSettings";
 import { dungeonMindLoginHref, useHostedAuthStatus } from "../../auth/HostedAuthGate";
+import { guestBuildActive } from "../../guestWorld/guestBuildSession";
 import { ConversationDraftEditor, ConversationVariantApproval } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
 import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
@@ -3150,7 +3151,7 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible,
+    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible && !guestBuildActive(),
     onReviewOnPage:()=>agent.setPaneOpen(false),
     onConstructionVisible:()=>{
       if(!(composerDraftsRef.current[composerDraftKey]??'').trim())agent.setPaneOpen(false);
@@ -4165,6 +4166,11 @@ export function WorldPlanAgentConversation({
     const isRetry = questionOverride !== undefined;
     if(!isRetry&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
     const planReferenceInput=isRetry ? retryReferences ?? undefined : composerReferences.length?authoredReferences(composerReferences):undefined;
+    if (guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1"
+        && (targetAtSubmit || planOperation === "write_current_page")) {
+      setError('Guest Buddy currently supports questions without a selected card or Plan edit. Remove the unsupported selection to ask.');
+      return;
+    }
     if(planOperation&&!useWorldGraphForAsk){setError('Enable World context to send this native Plan operation. Your message has not been sent.');return;}
     if(planReferenceInput&&!useWorldGraphForAsk){setError('Enable World context to include this request’s references. No request was sent.');return;}
     const planReferenceDraft=isRetry ? null : composerReferenceState.draft;
@@ -4205,8 +4211,9 @@ export function WorldPlanAgentConversation({
     };
 
     try {
-      const frozenComposed = useWorldGraphForAsk ? await editBridge?.freezeComposedAuthoring?.() : null;
-      const frozenTarget=useWorldGraphForAsk&&editBridge?.sealAuthoring&&!frozenComposed?await editBridge.capture():null;
+      const guestDiscussion = guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1";
+      const frozenComposed = useWorldGraphForAsk && !guestDiscussion ? await editBridge?.freezeComposedAuthoring?.() : null;
+      const frozenTarget=useWorldGraphForAsk&&!guestDiscussion&&editBridge?.sealAuthoring&&!frozenComposed?await editBridge.capture():null;
       if(!stillPreparing())return;
       if(planOperation==='write_current_page'&&frozenTarget)assertDisplayedPlanTarget(frozenTarget);
       if(useWorldGraphForAsk&&editBridge?.sealAuthoring&&!pointerSnapshot.conversation_id){
@@ -4816,6 +4823,15 @@ export function WorldPlanAgentConversation({
       return;
     }
     if (isBuild) {
+      const guestBuildDiscussion = guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUILD_BUDDY === '1';
+      if (guestBuildDiscussion && !useWorldGraphForAsk) {
+        setError('Enable World context before asking Buddy about this page.');
+        return;
+      }
+      if (guestBuildDiscussion && (source?.dirty || composerReferences.length || explicitRequest || freshBuildRetry)) {
+        setError('Save the page and remove selected references before asking Buddy.');
+        return;
+      }
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
@@ -4854,7 +4870,7 @@ export function WorldPlanAgentConversation({
         requestRef.current = { token, scopeKey, fenceKey: fence };
         setSending(true);
         try {
-          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss',
+          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,guestBuildDiscussion||discussionOnly||explicitRequest?.reviewedKind==='discuss',
             freshBuildRetry?.context.author_interaction==='select_passage',!!freshBuildRetry?.context.reference_image_id,
             freshBuildRetry?.context.reference_image_id, !explicitRequest && !freshBuildRetry,
             !explicitRequest && !freshBuildRetry && !discussionOnly && !source.dirty);
@@ -4922,6 +4938,13 @@ export function WorldPlanAgentConversation({
       return;
     }
 
+    if (guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === '1'
+      && (!useWorldGraphForAsk || composerReferences.length)) {
+      setError(!useWorldGraphForAsk
+        ? 'Enable World context before asking Buddy about this session.'
+        : 'Remove selected references before asking Buddy about this session.');
+      return;
+    }
     if (!visible || !isReadOnly || !admittedRun || admittedRun.worldId !== verifiedWorldId
       || !historySnapshotRef.current || historyLoading || historyError || !message
       || sending || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
