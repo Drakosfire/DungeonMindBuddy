@@ -1228,8 +1228,9 @@ class AgentConversationService:
         """Adopt only this pending attempt's frozen Rules scope under its live owner."""
         from .rules_authority_store import _read_record_locked, open_execution_locked
         from .build_pending_app_coverage import pending_writer_access_pages
-        if not callable(authorize_current_access):
-            raise ApplicationStateValidationError('Pending Rules requires current App access')
+        if (not callable(authorize_current_access) or type(expected_turn_revision) is not int
+                or expected_turn_revision < 1 or type(scope.product_attempt) is not int or scope.product_attempt < 1):
+            raise ApplicationStateValidationError('Pending Rules requires exact revision/attempt and current App access')
         with unit_of_work(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, scope.world_id, scope.conversation_id, scope.turn_id,
                 expected_revision=expected_turn_revision, expected_attempt=scope.product_attempt)
@@ -1245,6 +1246,8 @@ class AgentConversationService:
             record = open_execution_locked(conn, scope, expected_turn_revision=expected_turn_revision)
             if authorize_current_access(conn, turn, pages) is not True:
                 raise ApplicationStateConflictError('Current App access changed during pending Rules recovery')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending Rules claim expired during recovery')
             return record
 
     def authorize_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,

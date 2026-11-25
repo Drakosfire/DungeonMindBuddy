@@ -5015,7 +5015,7 @@ def test_pending_native_finish_requires_real_owned_rules_ledger_closure(monkeypa
                 assert driver.selection is None
                 assert not any(getattr(e, 'operation', None) == 'finish_retrieval' for e in state.turn.graph_context_execution.events)
 
-@pytest.mark.parametrize('mode', ['fresh', 'reuse', 'scope_changed', 'access_lost', 'access_changes', 'expired'])
+@pytest.mark.parametrize('mode', ['fresh', 'reuse', 'scope_changed', 'access_lost', 'access_changes', 'expired', 'expires_during', 'bool_revision'])
 def test_pending_rules_open_reuses_only_exact_frozen_scope_under_current_claim(monkeypatch, mode):
     from application_state.errors import ApplicationStateError
     from application_state.agent_conversation.rules_authority_policy import rules_capability, rules_submission_authorization_id
@@ -5038,15 +5038,18 @@ def test_pending_rules_open_reuses_only_exact_frozen_scope_under_current_claim(m
     if mode == 'access_lost': state.denied = True
     if mode == 'expired': state.now = turn.claim_expires_at
     access = state.authorize
-    if mode == 'access_changes':
+    if mode in {'access_changes', 'expires_during'}:
         calls = []
         def access(*args):
             calls.append(1)
+            if mode == 'expires_during':
+                if len(calls) == 2: state.now = turn.claim_expires_at
+                return True
             return len(calls) == 1
     def run():
-        return state.service.begin_pending_rules_execution(candidate, expected_turn_revision=turn.revision,
+        return state.service.begin_pending_rules_execution(candidate, expected_turn_revision=True if mode == 'bool_revision' else turn.revision,
             authorize_current_access=access)
-    if mode in {'scope_changed', 'access_lost', 'access_changes', 'expired'}:
+    if mode in {'scope_changed', 'access_lost', 'access_changes', 'expired', 'expires_during', 'bool_revision'}:
         with pytest.raises(ApplicationStateError): run()
     else:
         record = run()
