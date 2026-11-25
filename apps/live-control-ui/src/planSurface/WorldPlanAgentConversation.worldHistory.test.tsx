@@ -17,6 +17,7 @@ import { webcrypto, createHash } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import * as guestSession from "../guestWorld/guestBuildSession";
 import * as buildProposalApi from "../api/buildDocumentProposalApi";
 import * as conversationLibraryApi from "../api/conversationLibraryApi";
 import type {
@@ -6121,6 +6122,61 @@ function selectExplicitPlanChange(){
   if(!summary.closest('details')?.open)fireEvent.click(summary);
   fireEvent.click(screen.getByRole('button',{name:'Request a Plan change'}));
 }
+
+it('sends a guest Plan discussion without capturing an editor write target', async () => {
+  vi.stubEnv('VITE_HOSTED_GUEST_BUDDY', '1');
+  const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+  setupApi(history('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 4, []));
+  const bridge = {capture: vi.fn(), sealAuthoring: vi.fn(), capturePlacementCatalog: vi.fn(), apply: vi.fn()};
+  const listProposals = vi.spyOn(buildProposalApi, 'listBuildProposals');
+  const received = deferred<void>(), outcome = deferred<never>();
+  const post = vi.spyOn(liveApi, 'postWorldPlanAgentTurn').mockImplementation(() => { received.resolve(); return outcome.promise; });
+  try {
+    render(conversationElement({editBridge: bridge, savedDirty: true, draftGeneration: 1}));
+    await waitForConversationReady();
+    expect(listProposals).not.toHaveBeenCalled();
+    ensureWorldGraphAskEnabled();
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Message DungeonBuddy'), {target: {value: 'What happened at the carnival?'}});
+      fireEvent.click(screen.getByRole('button', {name: 'Send message'}));
+      await received.promise;
+    });
+    const request = post.mock.calls[0]![0];
+    expect(request.plan_context_policy?.schema).toBe('dmb_plan_context_policy_v2');
+    expect(request.plan_authoring_capture).toBeUndefined();
+    expect(request.plan_placement_catalog).toBeUndefined();
+    expect(bridge.capture).not.toHaveBeenCalled();
+    expect(bridge.sealAuthoring).not.toHaveBeenCalled();
+    await act(async () => outcome.reject(new Error('Synthetic test completion')));
+  } finally {
+    guest.mockRestore();
+    vi.unstubAllEnvs();
+  }
+});
+
+it('sends a guest question with a selected graph reference', async () => {
+  vi.stubEnv('VITE_HOSTED_GUEST_BUDDY', '1');
+  const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+  setupApi(history('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 4, []));
+  writeComposerReferences(sessionStorage, worldId, documentId, null, [{
+    schema: 'dmb_authored_graph_reference_v1', managed_world_id: worldId, native_world_id: 'native-world',
+    binding_version: 1, graph_revision: 'graph-r1', node_id: 'selected-object', label: 'Selected object',
+  }], null, 'plan');
+  const received = deferred<void>(), outcome = deferred<never>();
+  const post = vi.spyOn(liveApi, 'postWorldPlanAgentTurn').mockImplementation(() => { received.resolve(); return outcome.promise; });
+  try {
+    render(conversationElement());
+    await waitForConversationReady();
+    ensureWorldGraphAskEnabled();
+    fireEvent.change(screen.getByLabelText('Message DungeonBuddy'), {target: {value: 'Explain this connection.'}});
+    await act(async () => { fireEvent.click(screen.getByRole('button', {name: 'Send message'})); await received.promise; });
+    expect(post.mock.calls[0]![0].authored_references?.references[0]?.schema).toBe('dmb_authored_graph_reference_v1');
+    await act(async () => outcome.reject(new Error('Synthetic test completion')));
+  } finally {
+    guest.mockRestore();
+    vi.unstubAllEnvs();
+  }
+});
 
 it.each(['automatic','discuss','write_current_page'] as const)('freezes the page catalog and %s operation before native dispatch',async(operation)=>{
   setupApi(history('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',4,[]));

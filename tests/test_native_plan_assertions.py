@@ -426,7 +426,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None, synthetic_guest=False):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -499,6 +499,16 @@ def _ordinary_native_case(
     if advancement:
         admit_unrelated(lane, 'before-query')
     world = lane.world.world_id
+    if synthetic_guest:
+        from apps.live_control_server.services import hosted_native_graph_access as access
+        principal = access.HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+            managed_world_id=world, session_id='synthetic', request=SimpleNamespace())
+        guarded = []
+        guest_service = AgentConversationService(authorize_transaction=lambda conn, *, read_only: guarded.append(read_only))
+        monkeypatch.setattr(agent, '_conversation_service', lambda _request: guest_service)
+        monkeypatch.setattr(access, 'conversation_graph_principal', lambda _request, world_id, **_kw: principal if world_id == world else pytest.fail('foreign World'))
+        monkeypatch.setattr(access, 'require_explorer_access', lambda _principal, world_id: None if world_id == world else pytest.fail('foreign World'))
+        monkeypatch.setattr(access, 'require_guest_read_access', lambda _principal, world_id: None if world_id == world else pytest.fail('foreign World'))
     binding = SimpleNamespace(managed_world_id=world,native_world_id=world,binding_version=1,provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native_query, 'resolve_managed_world_binding', lambda _: binding)
@@ -841,6 +851,8 @@ def _ordinary_native_case(
         wire_request=json.loads((directory/'request.json').read_text())
     else:
         response=client.post('/api/live/agent/turn',json=wire_request)
+    if synthetic_guest:
+        assert guarded
     if connected_mutation:
         assert response.status_code==503,response.text
         failed=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
@@ -1236,6 +1248,11 @@ def _ordinary_native_case(
 def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_source(
         lane,tmp_path,monkeypatch,qualified,unavailable,advancement,failure,mixed,native_read_admission_probes):
     _ordinary_native_case(lane,tmp_path,monkeypatch,qualified,unavailable,advancement,failure,mixed,native_read_admission_probes)
+
+
+def test_native_source_answer_with_synthetic_guest_principal(lane, tmp_path, monkeypatch, native_read_admission_probes):
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, None, False,
+        native_read_admission_probes, synthetic_guest=True)
 
 
 @pytest.mark.parametrize('mixed',[False,True])

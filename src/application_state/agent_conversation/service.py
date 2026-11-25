@@ -295,7 +295,7 @@ def reuse_source_append_connection():
 
 
 @contextmanager
-def _execution_append_transaction(measure, *, source_append=False):
+def _execution_append_transaction(measure, *, source_append=False, validate_transaction=None):
     with ExitStack() as stack:
         with measure("first_jev_send_transaction_open"):
             lease = _source_append_connection.get() if source_append else None
@@ -309,6 +309,8 @@ def _execution_append_transaction(measure, *, source_append=False):
         with measure("first_jev_send_schema_check"):
             assert_connection_at_head(conn)
         yield conn
+        if validate_transaction is not None:
+            validate_transaction(conn)
         with measure("first_jev_send_commit_and_close"):
             stack.close()
 
@@ -493,10 +495,34 @@ def _validated_base_execution_locked(
 class AgentConversationService:
     """Stateless storage boundary. World verification belongs to the caller."""
 
+    def __init__(self, *, authorize_transaction=None, authorize_new_conversation=None,
+                 authorize_new_turn=None, validate_transaction=None):
+        self._authorize_transaction = authorize_transaction
+        self._authorize_new_conversation = authorize_new_conversation
+        self._authorize_new_turn = authorize_new_turn
+        self._validate_transaction = validate_transaction
+
+    @contextmanager
+    def _transaction(self, dsn=None, *, read_only=False):
+        """Authorize retained state on the connection that owns its transaction."""
+        with unit_of_work(dsn) as conn:
+            if read_only:
+                conn.execute("SET TRANSACTION READ ONLY")
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=read_only)
+            yield conn
+            if not read_only and self._validate_transaction is not None:
+                self._validate_transaction(conn)
+
+    def _trace_store(self):
+        return TurnContextTraceStore(
+            transaction=self._transaction if self._authorize_transaction is not None else None,
+        )
+
     def conversation_draft_turn_ids(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> set[UUID]:
         if not turn_ids:
             return set()
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             rows = conn.execute(
                 """
                 SELECT turn_id FROM agent.conversation_draft_revision
@@ -510,7 +536,7 @@ class AgentConversationService:
     def reviewed_variant_turn_ids(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> set[UUID]:
         from .conversation_drafts import CANONICAL_REVIEWED_DRAFT
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             rows = conn.execute(
                 f"""
                 SELECT t.turn_id FROM agent.turn t
@@ -525,7 +551,7 @@ class AgentConversationService:
     def open_conversation_draft(self, world_id: str, conversation_id: UUID, turn_id: UUID):
         from .conversation_drafts import open_draft
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return open_draft(conn, world_id=_world_id(world_id),
                               conversation_id=conversation_id, turn_id=turn_id)
 
@@ -533,7 +559,7 @@ class AgentConversationService:
         from .conversation_variant_save import approval_handoff, requested_approval
 
         world_id = _world_id(world_id)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = repo.get_turn(conn, world_id, turn_id)
             envelope = turn.envelope if isinstance(turn, MixedCompletedTurnV1) else turn
             if envelope is None or envelope.conversation_id != conversation_id:
@@ -552,7 +578,7 @@ class AgentConversationService:
     ):
         from .conversation_drafts import edit_draft
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return edit_draft(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, expected_revision=expected_revision, markdown=markdown,
@@ -564,7 +590,7 @@ class AgentConversationService:
     ) -> None:
         from .conversation_variant_save import store_review
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             store_review(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, revision=revision, review_id=review_id,
@@ -577,7 +603,7 @@ class AgentConversationService:
     ):
         from .conversation_variant_save import store_correction
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return store_correction(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, review_id=review_id, expected_revision=expected_revision,
@@ -589,7 +615,7 @@ class AgentConversationService:
     ):
         from .conversation_variant_save import open_review
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return open_review(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, review_id=review_id,
@@ -600,7 +626,7 @@ class AgentConversationService:
     ):
         from .conversation_variant_save import open_saved_receipt
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return open_saved_receipt(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, review_id=review_id,
@@ -612,7 +638,7 @@ class AgentConversationService:
     ):
         from .conversation_variant_save import find_save
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return find_save(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, revision=revision, create_request=create_request,
@@ -621,7 +647,7 @@ class AgentConversationService:
     def read_variant_portrait(self, world_id, conversation_id, turn_id, *, review_id, operation_id):
         from .variant_portrait import read
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return read(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, review_id=review_id, operation_id=operation_id,
@@ -631,7 +657,7 @@ class AgentConversationService:
                                intent, append_request):
         from .variant_portrait import claim
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return claim(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, review_id=review_id, operation_id=operation_id,
@@ -642,7 +668,7 @@ class AgentConversationService:
                                 receipt=None, refusal=None):
         from .variant_portrait import settle
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             settle(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, review_id=review_id, operation_id=operation_id,
@@ -655,7 +681,7 @@ class AgentConversationService:
     ):
         from .conversation_variant_save import claim_save
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return claim_save(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, revision=revision, create_request=create_request,
@@ -667,7 +693,7 @@ class AgentConversationService:
     ):
         from .conversation_variant_save import record_receipt
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return record_receipt(
                 conn, world_id=_world_id(world_id), conversation_id=conversation_id,
                 turn_id=turn_id, revision=revision, receipt=receipt,
@@ -676,7 +702,7 @@ class AgentConversationService:
     def get_world_pointer(self, world_id: str) -> WorldPointer:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             found = repo.get_world_state(conn, world_id)
         return found or WorldPointer(
             world_id=world_id, active_conversation_id=None, revision=0
@@ -685,7 +711,7 @@ class AgentConversationService:
     def get_active_conversation(self, world_id: str) -> Conversation | None:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             pointer, active = repo.get_active_conversation_snapshot(conn, world_id)
         if pointer is None or pointer.active_conversation_id is None:
             if active is not None:
@@ -698,7 +724,7 @@ class AgentConversationService:
     def get_conversation(self, world_id: str, conversation_id: UUID) -> Conversation:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             result = repo.get_conversation(conn, world_id, conversation_id)
         if result is None:
             raise ApplicationStateNotFoundError("conversation not found in verified World")
@@ -717,14 +743,13 @@ class AgentConversationService:
         if not 1 <= limit <= 500:
             raise ApplicationStateValidationError("conversation page limit must be between 1 and 500")
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             return repo.list_conversations(conn, world_id, status=status, limit=limit)
 
     def get_new_conversation_receipt(self, command: ConversationCommand) -> ConversationCommandReceipt | None:
         """Read an exact original command receipt without creating World state."""
         _world_id(command.world_id)
-        with unit_of_work(_ready_dsn()) as conn:
-            conn.execute("SET TRANSACTION READ ONLY")
+        with self._transaction(_ready_dsn(), read_only=True) as conn:
             receipt = _receipt_replay(conn, command, command_kind="new")
         if receipt is not None and (
             receipt.world_id != command.world_id or receipt.command_id != command.command_id
@@ -737,8 +762,7 @@ class AgentConversationService:
 
     def get_command_resolution(self, request: CommandResolutionRequestV1) -> CommandResolutionRecordV1 | None:
         _world_id(request.original_command.world_id)
-        with unit_of_work(_ready_dsn()) as conn:
-            conn.execute("SET TRANSACTION READ ONLY")
+        with self._transaction(_ready_dsn(), read_only=True) as conn:
             record = repo.get_command_resolution(conn, request.original_command.world_id, request.resolution_operation_id)
         if record is not None and record.resolution_request_fingerprint != request.fingerprint():
             raise ApplicationStateConflictError("resolution operation ID has a different binding")
@@ -749,7 +773,7 @@ class AgentConversationService:
         _world_id(command.world_id)
         if not actor.strip():
             raise ApplicationStateValidationError("resolution actor is required")
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             pointer = _lock_pointer(conn, command.world_id)
             previous = repo.get_command_resolution(conn, command.world_id, request.resolution_operation_id)
             if previous is not None:
@@ -797,7 +821,7 @@ class AgentConversationService:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
             retirement = repo.get_command_retirement(conn, world_id, command.command_id)
             if retirement is not None:
@@ -810,6 +834,8 @@ class AgentConversationService:
             if replay is not None:
                 return replay
             _expect_pointer(command, pointer)
+            if self._authorize_new_conversation is not None:
+                self._authorize_new_conversation(conn, world_id)
             _archive_active(conn, pointer, now)
             conversation_id = uuid4()
             repo.insert_conversation(
@@ -847,7 +873,7 @@ class AgentConversationService:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
             if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
                 raise ApplicationStateConflictError("command ID is retired")
@@ -883,7 +909,7 @@ class AgentConversationService:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
             if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
                 raise ApplicationStateConflictError("command ID is retired")
@@ -938,7 +964,7 @@ class AgentConversationService:
         world_id = _world_id(command.world_id)
         kind = "restore" if restore else "trash"
         now = _now()
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             pointer = _lock_pointer(conn, world_id)
             if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
                 raise ApplicationStateConflictError("command ID is retired")
@@ -1085,7 +1111,7 @@ class AgentConversationService:
                 )
             return turn
 
-        with unit_of_work() as conn:
+        with self._transaction() as conn:
             assert_connection_at_head(conn)
             from .work_plan import validate_bound_intent
             validate_bound_intent(conn, world_id, submitted_intent_v2, submission.idempotency_key)
@@ -1127,6 +1153,8 @@ class AgentConversationService:
                 return matching_receipt(existing)
             if pointer.active_conversation_id != submission.conversation_id:
                 raise ApplicationStateConflictError("conversation is no longer active in this World")
+            if self._authorize_new_turn is not None:
+                self._authorize_new_turn(conn, world_id, submission)
             conversation = repo.lock_conversation(conn, world_id, submission.conversation_id)
             if conversation is None:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
@@ -1183,7 +1211,7 @@ class AgentConversationService:
             digest_v1 = submitted_turn_intent_fingerprint_v1(submitted_intent)
             digest_v2 = None
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             existing = repo.get_turn_by_world_key(conn, world_id, idempotency_key)
         if existing is None:
             return None
@@ -1233,7 +1261,7 @@ class AgentConversationService:
     def inspect_turn(self, *, world_id: str, turn_id: UUID) -> TurnReadModel:
         """Load one historical turn in its verified World; no pointer/head lookup."""
         world_id = _world_id(world_id)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = repo.get_turn(conn, world_id, turn_id)
             if turn is None:
                 raise ApplicationStateNotFoundError("turn not found in verified World")
@@ -1242,7 +1270,7 @@ class AgentConversationService:
     def begin_rules_execution(self, scope: RulesScopeV1, *, expected_turn_revision: int) -> RulesLedgerRecordV1:
         """Internal parent port; caller already admitted current operator/World."""
         from .rules_authority_store import open_execution_locked
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             record = open_execution_locked(conn, scope, expected_turn_revision=expected_turn_revision)
         return record
 
@@ -1253,7 +1281,7 @@ class AgentConversationService:
         from .rules_authority_store import append_lookup_event_locked
         if not isinstance(event, RulesToolAuthorizedV1):
             raise ApplicationStateValidationError("Rules lookup requires a tool authorization")
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             record, _ = append_lookup_event_locked(conn, scope,
                 expected_turn_revision=expected_turn_revision,
                 expected_ledger_revision=expected_ledger_revision, event=event)
@@ -1265,7 +1293,7 @@ class AgentConversationService:
         from .rules_authority_store import append_lookup_event_locked
         if not isinstance(event, RulesPlanJevToolAuthorizedV1):
             raise ApplicationStateValidationError("Plan Jev Rules lookup requires its typed decision operation")
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             record, _ = append_lookup_event_locked(conn, scope,
                 expected_turn_revision=expected_turn_revision, expected_ledger_revision=expected_ledger_revision,
                 event=event, plan_jev_parent_request_json=parent_request_json)
@@ -1279,7 +1307,7 @@ class AgentConversationService:
         HTTP input. It must not dispatch inference/network work under this lock.
         """
         from .rules_authority_runtime import execute_local_lookup_locked
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             delivery = execute_local_lookup_locked(conn, scope,
                 expected_turn_revision=expected_turn_revision, call_id=call_id,
                 local_reader=local_reader)
@@ -1291,7 +1319,7 @@ class AgentConversationService:
                                     prepared_request_json: str | None = None) -> RulesLedgerRecordV1:
         """Internal exact-input/lifecycle append; no dispatch permission on failure."""
         from .rules_authority_store import append_provider_event_locked
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             record, _ = append_provider_event_locked(conn, scope,
                 expected_turn_revision=expected_turn_revision,
                 expected_ledger_revision=expected_ledger_revision, event=event,
@@ -1308,14 +1336,14 @@ class AgentConversationService:
             raise ApplicationStateValidationError(
                 "Rules passage World must be canonical"
             )
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return read_historical_rules_passage(conn, request)
 
     def source_name_labels(self, world_id: str, conversation_id: UUID, turn_ids: list[UUID]) -> list[dict]:
         """Frozen display-only source labels for one already selected history page."""
         from .source_display import read_source_names
         world_id = _world_id(world_id)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return read_source_names(conn, world_id, conversation_id, turn_ids)
 
     def list_turns(
@@ -1335,7 +1363,7 @@ class AgentConversationService:
     def list_build_dialogue(self, world_id: str, conversation_id: UUID) -> list[dict[str, Any]]:
         """Exact dialogue from the newest six owned turn slots."""
         world_id = _world_id(world_id)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             if repo.get_conversation(conn, world_id, conversation_id) is None:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             return repo.list_build_dialogue(conn, world_id, conversation_id)
@@ -1356,7 +1384,7 @@ class AgentConversationService:
         if before_sequence is not None and before_sequence < 1:
             raise ApplicationStateValidationError("before_sequence must be positive")
         if connection is None:
-            with unit_of_work(_ready_dsn()) as conn:
+            with self._transaction(_ready_dsn()) as conn:
                 return self.list_turn_page(
                     world_id, conversation_id, limit=limit,
                     before_sequence=before_sequence, lookahead=lookahead,
@@ -1380,7 +1408,7 @@ class AgentConversationService:
         world_id = _world_id(world_id)
         if world_id != authority.managed_world_id:
             raise ApplicationStateValidationError('Navigation authority belongs to another World')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return from_history(conn, world_id=world_id, conversation_id=conversation_id,
                 authority=authority, previous_turns=previous_turns)
 
@@ -1403,7 +1431,7 @@ class AgentConversationService:
                 "Plan Ask context limit must be between 1 and 6"
             )
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             return repo.list_completed_plan_ask_context(
                 conn, world_id, basis, limit=limit
             )
@@ -1490,7 +1518,7 @@ class AgentConversationService:
         _validate_turn_claim_lease(lease_seconds)
         interrupted_after_dispatch = False
         interrupted_domain = "Graph"
-        with unit_of_work() as conn:
+        with self._transaction() as conn:
             assert_connection_at_head(conn)
             turn = repo.lock_turn(conn, world_id, turn_id)
             if isinstance(turn, MixedCompletedTurnV1):
@@ -1680,7 +1708,7 @@ class AgentConversationService:
         from .types import NativeStatementExecutionV1
         from .native_statement_answer import validate_record
         from .retry import require_leaf
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = _ordinary_mutation_turn(repo.lock_turn(conn, _world_id(world_id), turn_id), conversation_id)
             if (turn is None or turn.conversation_id != conversation_id or turn.status != "running"
                     or turn.revision != expected_revision or turn.attempt != expected_attempt
@@ -1758,8 +1786,11 @@ class AgentConversationService:
         else:
             transaction = _execution_append_transaction(
                 measure, source_append=native_source_materializer is not None,
+                validate_transaction=self._validate_transaction,
             )
         with transaction as conn:
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=False)
             action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
                 conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
             with measure("first_jev_send_locked_turn_read"):
@@ -2918,7 +2949,7 @@ class AgentConversationService:
         except (ValueError, TypeError) as exc:
             raise ApplicationStateValidationError("invalid reuse request identity") from exc
         request_sha = t.canonical_sha256({"anchor_ids": request["anchor_ids"], "max_chars": request["max_chars"]})
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             pointer = repo.lock_world_state(conn, world_id)
             conversation = repo.lock_conversation(conn, world_id, conversation_id)
             turn = _ordinary_mutation_turn(repo.lock_turn(conn, world_id, turn_id), conversation_id)
@@ -3018,7 +3049,7 @@ class AgentConversationService:
         expected_revision: int, attempt: int, trace_id: UUID, started_at: datetime,
     ) -> TurnContextTraceV1:
         """Start optional trace capture under the active turn claim."""
-        return TurnContextTraceStore().begin(
+        return self._trace_store().begin(
             world_id=_world_id(world_id), conversation_id=conversation_id,
             turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
             trace_id=trace_id, started_at=started_at,
@@ -3029,7 +3060,7 @@ class AgentConversationService:
         expected_revision: int, attempt: int, trace_id: UUID,
         observation: ContextTraceObservation,
     ) -> TurnContextTraceV1:
-        return TurnContextTraceStore().append(
+        return self._trace_store().append(
             world_id=_world_id(world_id), conversation_id=conversation_id,
             turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
             trace_id=trace_id, observation=observation,
@@ -3039,19 +3070,19 @@ class AgentConversationService:
         self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
         expected_revision: int, attempt: int, trace_id: UUID, failure_code: str,
     ) -> TurnContextTraceV1:
-        return TurnContextTraceStore().mark_incomplete(
+        return self._trace_store().mark_incomplete(
             world_id=_world_id(world_id), conversation_id=conversation_id,
             turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
             trace_id=trace_id, failure_code=failure_code,
         )
 
     def read_historical_source_passage(self, reference: TraceHistoricalSourceReferenceV1) -> TraceSourcePassage:
-        return TurnContextTraceStore().read_historical_passage(reference)
+        return self._trace_store().read_historical_passage(reference)
 
     def list_context_trace_attempts(
         self, *, world_id: str, turn_id: UUID,
     ) -> list[TurnContextTraceV1]:
-        return TurnContextTraceStore().list_attempts(
+        return self._trace_store().list_attempts(
             world_id=_world_id(world_id), turn_id=turn_id,
         )
 
@@ -3117,7 +3148,7 @@ class AgentConversationService:
                 or provider_attempt_event.provider_attempt_id != prompt.provider_attempt_id
                 or len(prepared_decision_json.encode("utf-8")) != prompt.payload_utf8_bytes):
             raise ApplicationStateValidationError("opening prompt does not bind the prepared decision")
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn, fresh = self._append_graph_execution_event(
                 world_id, conversation_id, turn_id, expected_revision=expected_revision,
                 expected_attempt=expected_attempt, event=provider_attempt_event,
@@ -3162,7 +3193,7 @@ class AgentConversationService:
         world_id = _world_id(world_id)
         _validate_turn_claim_lease(lease_seconds)
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, turn_id)
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
@@ -3187,7 +3218,7 @@ class AgentConversationService:
         from .plan_authoring import PlanAuthoringCaptureV1, parse_authoring_capture, reserve_authoring_locked
         if not isinstance(capture,PlanAuthoringCaptureV1):
             raise ApplicationStateValidationError('Exact live Plan authoring capture required')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             return reserve_authoring_locked(conn,capture=parse_authoring_capture(
                 capture.model_dump(mode='json',by_alias=True)),turn_id=turn_id,expected_revision=expected_revision)
 
@@ -3217,7 +3248,7 @@ class AgentConversationService:
 
         world_id = _world_id(world_id)
         response_digest = hashlib.sha256(response_json.encode()).hexdigest()
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             _lock_pointer(conn, world_id)
             turn = _ordinary_mutation_turn(repo.lock_turn(conn, world_id, turn_id), conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
@@ -3317,7 +3348,7 @@ class AgentConversationService:
         world_id = _world_id(world_id)
         response_digest = hashlib.sha256(response_json.encode()).hexdigest()
         request_digest = hashlib.sha256(request_json.encode()).hexdigest()
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             pointer = _lock_pointer(conn, world_id)
             turn = _ordinary_mutation_turn(repo.lock_turn(conn, world_id, turn_id), conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
@@ -3404,7 +3435,7 @@ class AgentConversationService:
         """Read the same saved object; missing or mismatched owners never regenerate."""
         from .plan_authoring import validate_stored_authoring_result
         from application_state.plan_action_dialogue import repository as actions
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             action=actions.lock_authoring_action(conn,action_id)
             if action is None or action.basis.world_id!=_world_id(world_id):
                 raise ApplicationStateNotFoundError('Plan authoring action not found in this World')
@@ -3421,7 +3452,7 @@ class AgentConversationService:
         """Join a completed authoring turn to its sole Plan-owned saved result."""
         from .plan_authoring import validate_stored_authoring_result, turn_parts
         from application_state.plan_action_dialogue import repository as actions
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = repo.get_turn(conn, _world_id(world_id), turn_id)
             envelope, _ = turn_parts(turn) if turn is not None else (None, None)
             if (envelope is None or envelope.conversation_id != conversation_id
@@ -3445,7 +3476,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
         from application_state.plan_action_dialogue import repository as actions
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             from .lore_page_review import ProposedLorePage
             from .types import LoreSaveReviewReference
             if isinstance(result.completion, LoreSaveReviewReference):
@@ -3647,7 +3678,7 @@ class AgentConversationService:
             raise ApplicationStateValidationError("Current runtime Rules completion requires actual outer output proof")
         from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
         from application_state.plan_action_dialogue import repository as actions
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             action=(lock_authoring_owners(conn,authoring_proposal,world_id=world_id,
                 conversation_id=scope.conversation_id,turn_id=scope.turn_id) if authoring_proposal is not None else None)
             turn = repo.lock_turn(conn, world_id, scope.turn_id)
@@ -4016,7 +4047,7 @@ class AgentConversationService:
         world_id = _world_id(failure.world_id)
         status = "interrupted" if interrupted else "failed"
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, failure.turn_id)
             turn = _ordinary_mutation_turn(turn, failure.conversation_id)
             if turn is None or turn.conversation_id != failure.conversation_id:
@@ -4052,7 +4083,7 @@ class AgentConversationService:
     def get_draft(self, world_id: str, conversation_id: UUID, draft_id: UUID) -> Draft:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             found = repo.get_draft(conn, world_id, conversation_id, draft_id)
         if found is None:
             raise ApplicationStateNotFoundError("composer draft not found in verified World conversation")
@@ -4065,7 +4096,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         now = _now()
         fingerprint = request_fingerprint(save)
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
             conversation = repo.lock_conversation(conn, world_id, save.conversation_id)
             if conversation is None:
@@ -4103,7 +4134,7 @@ class AgentConversationService:
             raise ApplicationStateValidationError("submission provenance must match verified World")
         dsn = _ready_dsn()
         now = _now()
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
             conversation = repo.lock_conversation(conn, world_id, submit.conversation_id)
             if conversation is None:
@@ -4215,7 +4246,7 @@ class AgentConversationService:
         dsn = _ready_dsn()
         now = _now()
         fingerprint = request_fingerprint(request)
-        with unit_of_work(dsn) as conn:
+        with self._transaction(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
             existing = repo.get_import_receipt(conn, world_id, request.source_import_key)
             if existing is not None:

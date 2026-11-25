@@ -1,9 +1,34 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearGuestBuildSession, guestBuildActive, guestBuildCsrf, openGuestBuildWorld } from "./guestBuildSession";
+import { clearGuestBuildSession, guestBuildActive, guestBuildCsrf, guestBuildRequestEpoch, openGuestBuildWorld } from "./guestBuildSession";
 
 afterEach(() => { clearGuestBuildSession(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("guest Build session", () => {
+  it("scopes Buddy transport to the active guest World when enabled", async () => {
+    vi.stubEnv("VITE_HOSTED_GUEST_BUDDY", "1");
+    vi.stubEnv("VITE_HOSTED_GUEST_PLAN", "1");
+    const world = `guest-${"a".repeat(32)}`;
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(Response.json({ csrf_token: "guest-token" }))
+      .mockResolvedValueOnce(Response.json({ world_id: world, name: "Sizzek World" })));
+    await openGuestBuildWorld(new AbortController().signal);
+    const path = `/api/live/agent/worlds/${world}/conversation`;
+    expect(guestBuildRequestEpoch(path, "GET")).not.toBeNull();
+    expect(guestBuildRequestEpoch('/api/live/native-graph-inspection/catalog', 'POST')).not.toBeNull();
+    expect(guestBuildCsrf('/api/live/native-graph-inspection/read', 'POST')).toBe('guest-token');
+    expect(guestBuildRequestEpoch('/api/live/native-source-inspection/catalog', 'POST')).not.toBeNull();
+    expect(guestBuildCsrf('/api/live/native-source-inspection/read', 'POST')).toBe('guest-token');
+    expect(guestBuildCsrf('/api/live/native-source-inspection/published-recap', 'POST')).toBeNull();
+    expect(guestBuildCsrf('/api/live/native-graph-inspection/complete-object', 'POST')).toBeNull();
+    expect(guestBuildRequestEpoch('/api/live/workspace-documents/11111111-1111-4111-8111-111111111111/committed-revision', 'GET')).not.toBeNull();
+    expect(guestBuildRequestEpoch(`/api/live/agent/worlds/${world}/conversations/active/messages?limit=50`, "GET")).not.toBeNull();
+    expect(guestBuildRequestEpoch(`${path}/turns/11111111-1111-4111-8111-111111111111/source-passages/0`, "GET")).not.toBeNull();
+    expect(guestBuildRequestEpoch(`${path}/turns/11111111-1111-4111-8111-111111111111/context-trace`, "GET")).toBeNull();
+    expect(guestBuildCsrf(`${path}/new`, "POST")).toBe("guest-token");
+    expect(guestBuildCsrf("/api/live/agent/turn", "POST")).toBe("guest-token");
+    expect(guestBuildRequestEpoch(`/api/live/agent/worlds/guest-${"b".repeat(32)}/conversation`, "GET")).toBeNull();
+    expect(guestBuildCsrf(`/api/live/agent/worlds/guest-${"b".repeat(32)}/conversation/new`, "POST")).toBeNull();
+  });
   it("uses the server-derived World and limits its CSRF token to Build writes", async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(Response.json({ csrf_token: "guest-token" }))
@@ -94,4 +119,21 @@ it("sends the guest token only to the enabled image generation route", async () 
   expect(new Headers(fetcher.mock.calls[2][1].headers).get("X-DMB-Index-Graph-CSRF")).toBe("guest-token");
   expect(guestBuildCsrf("/api/live/media/images/11111111-1111-4111-8111-111111111111/save", "POST")).toBeNull();
   expect(fetcher).toHaveBeenCalledTimes(4);
+});
+
+it("uses a session-bound non-streaming Build turn for guests", async () => {
+  vi.stubEnv("VITE_HOSTED_GUEST_BUDDY", "1");
+  const world = `guest-${"f".repeat(32)}`;
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(Response.json({ csrf_token: "guest-token" }))
+    .mockResolvedValueOnce(Response.json({ world_id: world, name: "Sizzek World" }))
+    .mockResolvedValueOnce(Response.json({ answer: { text: "Answer" } }));
+  vi.stubGlobal("fetch", fetcher);
+  await openGuestBuildWorld(new AbortController().signal);
+  const api = await import("../api/liveApi");
+  const request = { turn_id: "test", owner_scope: {kind: "world", world_id: world} } as Parameters<typeof api.postWorldBuildAgentTurn>[0];
+  await expect(api.postWorldBuildAgentTurn(request)).resolves.toEqual({ answer: { text: "Answer" } });
+  const headers = new Headers(fetcher.mock.calls[2][1].headers);
+  expect(headers.get("X-DMB-Index-Graph-CSRF")).toBe("guest-token");
+  expect(headers.get("accept")).not.toBe("text/event-stream");
 });
