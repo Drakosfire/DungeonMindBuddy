@@ -241,9 +241,13 @@ def _join_pending_turn_fields(receipt, execution, provenance, intent_fingerprint
             raise ValueError("Pending prefix has no registered terminal output owner")
     else:
         from .native_completion import SurfaceNativeCompletionV1, validate_retained_completion
-        if type(completion) is not SurfaceNativeCompletionV1:
+        if type(completion) is t.BuildAuthoringCompletionV1:
+            producer = completion.provider_attempt_id
+        elif type(completion) is SurfaceNativeCompletionV1:
+            producer = completion.producing_provider_attempt_id
+        else:
             raise ValueError('Pending terminal requires its exact native completion')
-        validate_retained_completion(completion, receipt, execution, completion.producing_provider_attempt_id, {})
+        validate_retained_completion(completion, receipt, execution, producer, {})
         bindings = [event for event in execution.events if type(event) is t.CompletionBindingEventV1]
         if (len(bindings) != 1 or bindings[0].completion_sha256 != t.canonical_sha256(completion)
                 or assistant_text != '\n'.join(segment.text for segment in completion.answer_segments)):
@@ -567,9 +571,12 @@ def pending_source_free_terminal(execution):
         return None
     work = work[0]
     if work.requested_work == 'write_current_page':
+        placement = work.paragraph_placement
         if (work.resolution.get('source_scope') != 'anchored'
                 or work.resolution.get('barrier') is not None
-                or placement_question(execution, work) is None):
+                or placement is None
+                or execution.policy.action.intent.build_reference_image_id is not None
+                or (placement.target is None and placement_question(execution, work) is None)):
             return None
     elif work.requested_work not in {'clarify_request', 'clarify_creation', 'review_blank_lore_page'}:
         return None
@@ -587,6 +594,14 @@ def pending_source_free_terminal(execution):
                 or isinstance(row, t.BuildPriorBodyEvidenceAdmittedV1) for row in execution.events)):
         return None
     return {'status': 'ready', 'reason': 'pending_source_free_' + work.requested_work}
+
+
+def pending_paragraph_proposal(execution, selection):
+    """Only the exact anchored paragraph path may use pending proposal completion."""
+    terminal = pending_source_free_terminal(execution)
+    placement = getattr(selection, 'paragraph_placement', None)
+    return (terminal is not None and terminal['reason'] == 'pending_source_free_write_current_page'
+            and placement is not None and placement.target is not None)
 
 
 def pending_native_terminal(execution):
