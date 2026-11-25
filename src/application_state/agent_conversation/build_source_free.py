@@ -224,7 +224,7 @@ def validate_pending_work_records(execution):
 
 
 def validate_pending_turn_fields(receipt, execution, provenance, intent_fingerprint, completion, assistant_text):
-    """Stored pending prefix closure, before its terminal owner is integrated."""
+    """Stored pending input, execution, final native completion and text closure."""
     receipt, execution = _pending_components(receipt, execution)
     _join_pending_turn_fields(receipt, execution, provenance, intent_fingerprint, completion, assistant_text)
 
@@ -236,8 +236,18 @@ def _join_pending_turn_fields(receipt, execution, provenance, intent_fingerprint
     _join_work_context(receipt, provenance)
     if t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent) != intent_fingerprint:
         raise ValueError("Pending stored request fingerprint differs from admission")
-    if completion is not None or assistant_text is not None:
-        raise ValueError("Pending prefix has no registered terminal output owner")
+    if completion is None:
+        if assistant_text is not None or any(type(event) is t.CompletionBindingEventV1 for event in execution.events):
+            raise ValueError("Pending prefix has no registered terminal output owner")
+    else:
+        from .native_completion import SurfaceNativeCompletionV1, validate_retained_completion
+        if type(completion) is not SurfaceNativeCompletionV1:
+            raise ValueError('Pending terminal requires its exact native completion')
+        validate_retained_completion(completion, receipt, execution, completion.producing_provider_attempt_id, {})
+        bindings = [event for event in execution.events if type(event) is t.CompletionBindingEventV1]
+        if (len(bindings) != 1 or bindings[0].completion_sha256 != t.canonical_sha256(completion)
+                or assistant_text != '\n'.join(segment.text for segment in completion.answer_segments)):
+            raise ValueError('Pending terminal differs from its final completion binding or text')
 
 
 def validate_pending_submission(submission):
@@ -274,7 +284,8 @@ def _join_pending_turn(turn):
             or turn.world_id != intent.world_id or turn.user_text != intent.message
             or turn.conversation_id != receipt.conversation_observation.conversation_id
             or turn.provenance.surface_instance_id != intent.surface_instance_id
-            or turn.play_context_receipt is not None or turn.status == 'completed'
+            or turn.play_context_receipt is not None
+            or (turn.status == 'completed') != (turn.completion is not None)
             or turn.status in {'accepted', 'running'} and turn.completed_at is not None):
         raise ValueError("Stored pending Turn differs from its admitted request or lifecycle")
     validate_turn_arguments(execution, user_text=turn.user_text, turn_id=turn.turn_id, attempt=turn.attempt)
@@ -538,3 +549,19 @@ def validate_pending_writer_authorization(execution, event):
             or event.compact_plan_editor_prose or event.compact_plan_graph_qualifications
             or event.deduplicate_plan_recap_prose):
         raise ValueError('Pending writer requires its one exact retained work and read inclusion')
+
+
+def validate_pending_completion_binding(execution, event):
+    from . import types as t
+    from .native_execution import NativeBuildWriterAuthorizedV2
+    prefix = execution.events[:event.sequence]
+    writers = [row for row in prefix if type(row) is NativeBuildWriterAuthorizedV2]
+    responses = [row for row in prefix if type(row) is t.ProviderOutcomeEventV1
+        and row.outcome == 'response_received' and row.provider_attempt_id == event.provider_attempt_id]
+    if (type(event) is not t.CompletionBindingEventV1 or len(writers) != 1 or len(responses) != 1
+            or event.provider_attempt_id != writers[0].provider_attempt_id or event.claim_graph_event_ids
+            or responses[0].sequence != event.sequence - 1
+            or not responses[0].request_id or not responses[0].response_sha256
+            or event.sequence != len(execution.events) - 1
+            or any(type(row) is t.CompletionBindingEventV1 for row in prefix)):
+        raise ValueError('Pending completion requires its final exact acknowledged writer response')

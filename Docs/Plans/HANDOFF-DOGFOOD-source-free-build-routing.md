@@ -251,6 +251,13 @@ explicit adapter/initial-driver branches currently being implemented:
   rules_authority_store.require_open_plan_jev_acquisition_locked closes pending
   acquisition after its writer; append_provider_event_locked exact pending-schema
   guard prevents separate Rules authorization/inclusion. Existing input verifier/CAS unchanged.
+- native_rules_output.verify_native_reply/sealed_native_producer/normalize_unused_native_output:
+  exact pending shared-family delegation only. native_completion.validate_retained_completion /
+  _join_retained_completion exact pending prefix/evidence dispatch; normalize_candidate remains
+  read-only to this lane. Pending final binding/Turn lifecycle joins and types.validate_execution_completion
+  exact pending delegation. NativeRulesRuntime.complete and service.complete_pending_native_base_turn /
+  _complete_turn pending-only pointer/access port, _validated_base_execution_locked exact pending
+  binding. Existing output normalization, Rules proof and legacy completion branches unchanged.
 - This handoff.
 
 **Released now:** native_corpus.py, native_writer.py,
@@ -804,3 +811,33 @@ Rules CAS and durable unknown delivery/no resend. Fake storage does not establis
 transaction rollback, SQL races or production qualification. Output normalization/
 completion, strict stored/API/UI readers and current serving fence, App/native
 coverage and acquisition, focused SQL/full-Send and signed-in acceptance remain.
+
+
+## Pending retained writer output/terminal checkpoint
+
+The retained empty-catalog writer can now run through the actual GenerationEngine
+and OpenAI SDK reply path, capture its selected output, normalize through the
+existing unchanged candidate/evidence owners, close unused Rules and persist a
+final native completion binding. Exact pending delegation covers producing
+Rules/output proof and stored citation reconstruction. The pending Turn lifecycle
+permits only a digest/producer/text-bound native completion and rejects unbound
+text or a binding without a completed owner. Historical candidate normalization
+(including CLARIFICATION's function lease) remains untouched.
+
+The dedicated pending completion port holds World/conversation/Turn ownership,
+checks the captured pointer/current App access before proof and again afterward,
+and refuses expired claims before closing Rules. Its private _complete_turn
+keyword is constrained to pending current-App verification; it grants no generic
+Turn production or other-family callback authority. Ordinary native/generic
+completion cannot bypass this pending owner.
+
+Eleven focused working controls passed3.94s through real SDK/GenerationEngine
+serialization, reply parsing, capture, input/output proofs, service/Rules and
+stored-row decoding with synthetic HTTP and fake App transactions. Compact and
+pretty Unicode replies complete and reopen; altered text/completion/context/
+binding/lifecycle rows, changed pointer/access/expiry/capture/output/Rules proof,
+generic completion bypass and unbound source reference are refused. One provider
+call and no acquisition are asserted. This proves retained reply mechanics, not
+real SQL rollback/concurrency, signed-in app acceptance, page review/create/save,
+source-backed writer coverage or current HTTP/UI reader compatibility. Those
+remain required for the full objective and before PR merge/deployment.

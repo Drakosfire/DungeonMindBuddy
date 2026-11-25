@@ -1547,6 +1547,11 @@ class AgentTurnExecutionPersistencePort(Protocol):
         materialize_source: Callable[..., Any], authorize_current_access: Callable[..., bool],
     ) -> tuple[Turn, bool]: ...
 
+    def complete_pending_native_base_turn(self, result: TurnResult, *, output_proof: Any,
+        expected_rules_revision: int, work_proof: Any = None,
+        authorize_current_access: Callable[..., bool],
+    ) -> Turn: ...
+
     def authorize_pending_build_writer(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
         expected_attempt: int, expected_rules_revision: int, authorization: Any,

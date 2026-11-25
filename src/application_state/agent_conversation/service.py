@@ -296,8 +296,8 @@ def _validated_base_execution_locked(
     mixed_output_context=None, native_output_verified=False,
 ):
     """Validate the unchanged base-domain completion without committing a Turn."""
-    from .native_execution import SurfaceNativeExecutionV1
-    if isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1):
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+    if type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1):
         from .native_rules_output import NativeRulesNormalizedOutputV1
         from .rules_authority_types import canonical_sha256
         if not native_output_verified and not isinstance(mixed_output_context,NativeRulesNormalizedOutputV1):
@@ -308,7 +308,7 @@ def _validated_base_execution_locked(
             sequence=len(turn.graph_context_execution.events),provider_attempt_id=result.producing_provider_attempt_id,
             completion_sha256=canonical_sha256(result.completion),claim_graph_event_ids={})
         try:
-            execution=SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+            execution=type(turn.graph_context_execution).model_validate_json(json.dumps(
                 turn.graph_context_execution.model_dump(mode='json',by_alias=True)
                 | {'events':[e.model_dump(mode='json',by_alias=True) for e in [*turn.graph_context_execution.events,binding]]}))
             validate_execution_completion(result.completion,turn.graph_context_receipt,execution,
@@ -3932,6 +3932,17 @@ class AgentConversationService:
     def complete_turn(self, result: TurnResult) -> Turn:
         return self._complete_turn(result, prepared_recovery=False)
 
+    def complete_pending_native_base_turn(self, result: TurnResult, *, output_proof,
+            expected_rules_revision: int, work_proof=None, authorize_current_access):
+        """Accept only a pending native reply through its live App pointer owner."""
+        if (type(result) is not TurnResult or type(expected_rules_revision) is not int
+                or expected_rules_revision < 1 or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending completion requires its exact output and live App owner')
+        result = TurnResult.model_validate_json(result.model_dump_json(by_alias=True))
+        return self._complete_turn(result, prepared_recovery=False, native_output_proof=output_proof,
+            expected_rules_revision=expected_rules_revision, native_work_proof=work_proof,
+            pending_current_access=authorize_current_access)
+
     def complete_native_base_turn(self, result: TurnResult, *, output_proof,
                                   expected_rules_revision: int, work_proof=None) -> Turn:
         """Accept a captured native answer and close its unused Rules scope atomically."""
@@ -4175,7 +4186,8 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=True)
 
     def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool,
-                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None, native_work_proof=None) -> Turn:
+                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None, native_work_proof=None,
+                       pending_current_access=None) -> Turn:
         from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1
         if prepared_recovery and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
@@ -4184,6 +4196,15 @@ class AgentConversationService:
         from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
         from application_state.plan_action_dialogue import repository as actions
         with unit_of_work(dsn) as conn:
+            pending_pointer = None
+            if pending_current_access is not None:
+                if not callable(pending_current_access) or prepared_recovery:
+                    raise ApplicationStateValidationError('Pending completion cannot borrow another lifecycle owner')
+                pending_pointer = repo.lock_world_state(conn, world_id)
+                pending_conversation = repo.lock_conversation(conn, world_id, result.conversation_id)
+                if (pending_pointer is None or pending_pointer.active_conversation_id != result.conversation_id
+                        or pending_conversation is None or pending_conversation.status != 'active'):
+                    raise ApplicationStateConflictError('Pending completion lost its active conversation')
             from .lore_page_review import ProposedLorePage
             from .types import LoreSaveReviewReference
             if isinstance(result.completion, LoreSaveReviewReference):
@@ -4202,6 +4223,14 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, result.conversation_id)
             if turn is None or turn.conversation_id != result.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            from .native_context import BuildPendingContextReceiptV1
+            if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+                if (pending_pointer is None or pending_current_access is None
+                        or pending_pointer.revision != turn.graph_context_receipt.conversation_observation.pointer_revision
+                        or pending_current_access(conn, turn, None) is not True):
+                    raise ApplicationStateConflictError('Pending completion requires its current captured App pointer and access')
+            elif pending_current_access is not None:
+                raise ApplicationStateValidationError('Pending completion owner cannot accept another receipt family')
             validate_authoring_transaction(conn,action,authoring_proposal,turn,result,native_output_proof)
             if turn.status == "completed":
                 stored_binding = None
@@ -4283,6 +4312,10 @@ class AgentConversationService:
                 native_output_verified = True
             execution = _validated_base_execution_locked(conn, turn, result,
                 prepared_recovery=prepared_recovery, native_output_verified=native_output_verified)
+            if pending_current_access is not None and pending_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending output verification')
+            if pending_current_access is not None and turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending claim expired during final output verification')
             from .rules_authority_store import close_unused_locked
             # A recovered object does not reopen or erase the failed unused capability.
             if recovered_rules_state != 'failed':

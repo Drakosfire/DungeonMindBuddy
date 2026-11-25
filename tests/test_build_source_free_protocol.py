@@ -2846,7 +2846,7 @@ def pending_writer_dispatch_case(monkeypatch):
         monkeypatch.setattr(state.service, 'append_context_trace', append_observation)
         monkeypatch.setattr(agent_prompt_evidence, 'store_prompt', lambda raw, **kwargs: uuid4())
         adapter.context_capture = ContextTraceCollector(adapter.fence, initial_trace=trace)
-        for name in ('record_lifecycle', '_capture_prepared_prompt'):
+        for name in ('record_lifecycle', '_capture_prepared_prompt', 'stop'):
             setattr(adapter, name, MethodType(getattr(_PolicyExecutionAdapter, name), adapter))
         writer = PlanJevWriter(adapter, {}, rules)
         body = {'model': writer.model, 'input': writer.messages, 'instructions': writer.instructions,
@@ -3021,3 +3021,136 @@ def test_pending_writer_actual_serialized_request_omits_host_bindings_and_preser
             state.turn.graph_context_execution.execution_policy_sha256, str(rules.native.authorization_id)):
             assert value not in raw
         assert 'not_prepared' in raw and 'Ashbell has three bridges' in raw
+
+
+@_pending_test_contextmanager
+def pending_writer_completion_case(monkeypatch):
+    from application_state.agent_conversation import repository
+    with pending_writer_dispatch_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        state.completions = 0
+        monkeypatch.setattr(repository, 'lock_turn', lambda conn, world, turn_id: state.turn)
+        def complete(conn, **fields):
+            assert conn is state.conn and state.depth == 1
+            assert fields['world_id'] == state.turn.world_id and fields['turn_id'] == state.turn.turn_id
+            assert fields['expected_revision'] == state.turn.revision and fields['expected_attempt'] == state.turn.attempt
+            if state.turn.claim_expires_at <= state.now:
+                return None
+            state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={
+                'status': 'completed', 'revision': state.turn.revision + 1,
+                'assistant_text': fields['assistant_text'], 'completion': fields['completion'],
+                'graph_context_execution': fields['graph_context_execution'],
+                'claim_expires_at': None, 'completed_at': state.now, 'updated_at': state.now,
+            }).model_dump_json(by_alias=True))
+            state.completions += 1
+            return state.turn
+        monkeypatch.setattr(repository, 'complete_claimed_turn', complete)
+        yield state, adapter, rules, writer, prepared
+
+
+@pytest.mark.parametrize('pretty', [False, True])
+def test_pending_writer_real_sdk_reply_is_proved_completed_and_stored_readable_without_acquisition(monkeypatch, pretty):
+    import asyncio
+    import httpx
+    from tests.test_surface_native_turn_records import stored_row
+    from application_state.agent_conversation import repository
+    calls = []
+    text = 'We retained the three bridges, the “memory” fare, and the unresolved identity.'
+    def respond(request):
+        calls.append(json.loads(request.content))
+        candidate = {'answer_segments': [{'kind': 'discussion', 'text': text}], 'limitations': []}
+        if 'collaboration' in calls[-1]['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        output = json.dumps(candidate, indent=2 if pretty else None, ensure_ascii=False)
+        return httpx.Response(200, request=request, json={'id': 'resp_pending', 'object': 'response',
+            'created_at': 1, 'model': calls[-1]['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_pending', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': output, 'annotations': []}]}]})
+    with pending_writer_completion_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert completed.status == 'completed' and completed.assistant_text == text
+        assert state.completions == 1 and len(calls) == 1
+        assert state.materialized == 0 and state.retained_reads == 1
+        assert state.rules_payload['state'] == 'unused'
+        assert completed.graph_context_execution.events[-1].kind == 'completion_binding'
+        row, references = stored_row(completed)
+        assert repository._turn_from_row(None, row, references=references) == completed
+        from copy import deepcopy
+        from application_state.errors import ApplicationStateIntegrityError
+        for change in ('text', 'completion_text', 'context', 'binding', 'lifecycle'):
+            altered = deepcopy(row)
+            if change == 'text':
+                altered['assistant_text'] = 'Unbound changed text'
+            elif change == 'completion_text':
+                altered['completion']['answer_segments'][0]['text'] = 'Unbound changed completion'
+            elif change == 'context':
+                altered['completion']['context_receipt_sha256'] = 'b' * 64
+            elif change == 'binding':
+                altered['graph_context_execution']['events'][-1]['completion_sha256'] = 'b' * 64
+            else:
+                altered['status'] = 'running'
+            with pytest.raises((ApplicationStateIntegrityError, ValidationError, ValueError)):
+                repository._turn_from_row(None, altered, references=references)
+
+
+@pytest.mark.parametrize('failure', ['pointer', 'access', 'expiry', 'trace', 'text', 'output_proof', 'rules_revision', 'generic_owner'])
+def test_pending_writer_final_acceptance_refuses_changed_capture_or_current_owner(monkeypatch, failure):
+    import asyncio
+    import httpx
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateError
+    calls = []
+    def respond(request):
+        calls.append(request)
+        output = json.dumps({'answer_segments': [{'kind': 'discussion', 'text': 'The identity remains unresolved.'}],
+            'limitations': []})
+        return httpx.Response(200, request=request, json={'id': 'resp_pending', 'object': 'response', 'created_at': 1,
+            'model': json.loads(request.content)['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_pending', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': output, 'annotations': []}]}]})
+    with pending_writer_completion_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        original = state.service.complete_pending_native_base_turn
+        def accept(result, **kwargs):
+            if failure == 'pointer':
+                state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 1})
+            elif failure == 'access':
+                state.denied = True
+            elif failure == 'expiry':
+                state.now += timedelta(hours=1)
+            elif failure == 'trace':
+                state.writer_trace = dict(state.writer_trace, observations=[])
+            elif failure == 'text':
+                result = result.model_copy(update={'assistant_text': 'Unbound replacement'})
+            elif failure == 'output_proof':
+                kwargs['output_proof'] = kwargs['output_proof'].model_copy(update={'raw_output_json': '{}'})
+            elif failure == 'rules_revision':
+                state.rules_revision += 1
+            else:
+                kwargs.pop('authorize_current_access')
+                return state.service.complete_native_base_turn(result, **kwargs)
+            return original(result, **kwargs)
+        monkeypatch.setattr(state.service, 'complete_pending_native_base_turn', accept)
+        with pytest.raises((ApplicationStateError, ValueError)):
+            asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert len(calls) == 1 and state.completions == 0 and state.materialized == 0
+        assert state.turn.completion is None and state.turn.assistant_text is None
+        assert not any(event.kind == 'completion_binding' for event in state.turn.graph_context_execution.events)
+
+
+def test_pending_writer_unbound_source_reference_cannot_become_an_accepted_reply(monkeypatch):
+    import asyncio
+    import httpx
+    from generationengine import GenerationEngineError
+    calls = []
+    def respond(request):
+        calls.append(request)
+        output = json.dumps({'answer_segments': [{'kind': 'source_passage_claim',
+            'text': 'An unsupported fact.', 'passage_handles': ['unbound-source']}], 'limitations': []})
+        return httpx.Response(200, request=request, json={'id': 'resp_pending_bad', 'object': 'response', 'created_at': 1,
+            'model': json.loads(request.content)['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_pending_bad', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': output, 'annotations': []}]}]})
+    with pending_writer_completion_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        with pytest.raises(GenerationEngineError):
+            asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert len(calls) == 1 and state.completions == 0 and state.materialized == 0
+        assert state.turn.completion is None and state.turn.assistant_text is None

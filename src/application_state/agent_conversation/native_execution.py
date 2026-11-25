@@ -631,13 +631,13 @@ BuildPendingPrefixEventV1 = Annotated[
     t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | t.ProviderOutcomeEventV1
     | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
-    | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2,
+    | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1,
     Field(discriminator="kind"),
 ]
 
 
 class BuildPendingExecutionV1(Strict):
-    """Pending Build prefix; structural closure grants no IO authority."""
+    """Pending Build execution; structural closure grants no IO authority."""
     schema_: Literal["dmb_build_pending_execution_v1"] = Field(
         default="dmb_build_pending_execution_v1", alias="schema")
     context_receipt_sha256: Digest
@@ -665,7 +665,7 @@ class BuildPendingExecutionV1(Strict):
         page_reads = set()
         writer = None
         for event in self.events:
-            if writer is not None and not (type(event) is t.ProviderOutcomeEventV1
+            if writer is not None and not (type(event) in (t.ProviderOutcomeEventV1, t.CompletionBindingEventV1)
                     and event.provider_attempt_id == writer.provider_attempt_id):
                 raise ValueError('Pending writer closes all further acquisition and dispatch')
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
@@ -692,6 +692,9 @@ class BuildPendingExecutionV1(Strict):
                     raise ValueError("Pending controller cannot include unacquired source evidence")
             elif type(event) is t.BuildRequestedWorkResolutionV1:
                 work_selected = True
+            elif type(event) is t.CompletionBindingEventV1:
+                from .build_source_free import validate_pending_completion_binding
+                validate_pending_completion_binding(self, event)
             elif type(event) is t.BuildWriterEvidenceSelectionV2:
                 from .build_source_free import validate_pending_empty_writer_selection
                 validate_pending_empty_writer_selection(self, event)

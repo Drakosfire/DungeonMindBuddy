@@ -397,8 +397,8 @@ class NativeRulesRuntime:
             rules_execution_id=self.record.execution.scope.execution_id,
             producing_provider_attempt_id=self.adapter.producing_provider_attempt_id,
         )
-        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
-        shared=type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+        shared=type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1)
         trace=self.adapter.context_capture.trace.model_dump(mode='json') if shared else None
         if self.graph_enabled and not shared:
             # Reuse the turn-local immutable result bytes; no Graph reacquisition.
@@ -458,8 +458,12 @@ class NativeRulesRuntime:
             )
             if accept_base is not None:
                 return accept_base(result,proof,self.record.revision)
-            return self.adapter.service.complete_native_base_turn(result,
-                output_proof=proof,expected_rules_revision=self.record.revision,**({'work_proof':work_proof} if shared else {}))
+            pending = type(turn.graph_context_execution) is BuildPendingExecutionV1
+            complete = (self.adapter.service.complete_pending_native_base_turn if pending
+                else self.adapter.service.complete_native_base_turn)
+            return complete(result, output_proof=proof, expected_rules_revision=self.record.revision,
+                **({'work_proof':work_proof} if shared else {}),
+                **({'authorize_current_access':self.adapter.pending_build_access} if pending else {}))
         if shared:
             from application_state.agent_conversation.native_rules_output import normalize_shared_native_output
             normalized=normalize_shared_native_output(turn.graph_context_receipt,turn.graph_context_execution,

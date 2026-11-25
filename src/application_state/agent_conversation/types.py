@@ -6426,6 +6426,12 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
+    if type(receipt) is BuildPendingContextReceiptV1 or type(execution) is BuildPendingExecutionV1:
+        from .native_completion import validate_retained_completion
+        validate_retained_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if (isinstance(receipt, SurfaceNativeContextReceiptV1)
             or isinstance(execution, SurfaceNativeExecutionV1)):
         from .native_completion import validate_retained_completion
