@@ -281,7 +281,7 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     {replyDetails && <div hidden={tab !== null && tab !== 'evidence'}><ReplyTraceOverview trace={trace} passages={passages} ownerActive={ownerActive} /></div>}
     {!replyDetails && <>{traceHeader}{diagnostics}</>}
     {replyDetails && failed && <p role="alert">This attempt stopped before completing a reply.</p>}
-    {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{(visitedTimeline || tab === null) && <RetrievalReplayDetails trace={trace} initialOpen active={tab === null || tab === 'timeline'} />}{timeline}</div>}
+    {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{(visitedTimeline || tab === null) && <RetrievalReplayDetails trace={trace} initialOpen active={tab === null || tab === 'timeline'} />}{tab === null ? <details><summary>Execution timeline</summary>{timeline}</details> : timeline}</div>}
     {replyDetails && tab === 'prompt' && <BuddyPromptInspector trace={trace} />}
     {replyDetails && <div hidden={tab !== null && tab !== 'diagnostics'}>{traceHeader}{copy}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</div>}
     {!replyDetails && failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
