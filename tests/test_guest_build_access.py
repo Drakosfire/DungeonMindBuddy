@@ -123,7 +123,7 @@ def test_guest_play_run_is_bound_to_session(guests, monkeypatch):
     assert first.get(path, params={"world_id": world}).status_code in (401, 403)
 
 
-@pytest.mark.parametrize("operation", ["create", "progress"])
+@pytest.mark.parametrize("operation", ["create", "progress", "active"])
 def test_guest_play_write_serializes_with_reset(guests, application_state_dsn, monkeypatch, operation):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
@@ -147,7 +147,7 @@ def test_guest_play_write_serializes_with_reset(guests, application_state_dsn, m
     headers = {"X-DMB-Index-Graph-CSRF": token}
     run_id = str(uuid4())
     path = f"/api/live/world-play-runs/v2/{run_id}"
-    if operation == "progress":
+    if operation != "create":
         created = client.put(path, params={"world_id": world}, headers=headers, json=body)
         assert created.status_code == 200, created.text
     entered, release = Event(), Event()
@@ -158,8 +158,8 @@ def test_guest_play_write_serializes_with_reset(guests, application_state_dsn, m
         if not release.wait(10): raise RuntimeError("guest Play race test timed out")
     monkeypatch.setattr(guest_build_access, "_lock_guest_session", hold)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        target = path if operation == "create" else f"{path}/progress"
-        payload = body if operation == "create" else {"expected_run_revision": 1, "progress": gate_progress().model_dump(mode="json")}
+        target = path if operation == "create" else f"{path}/progress" if operation == "progress" else "/api/live/world-play-runs/v2/active"
+        payload = body if operation == "create" else {"expected_run_revision": 1, "progress": gate_progress().model_dump(mode="json")} if operation == "progress" else {"run_id": run_id}
         create = pool.submit(client.put, target, params={"world_id": world}, headers=headers, json=payload)
         try:
             assert entered.wait(10)
