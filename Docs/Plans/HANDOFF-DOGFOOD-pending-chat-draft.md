@@ -1,6 +1,7 @@
 # DOGFOOD: complete anchored conversation drafts
 
-ACTIVE serial successor to merged4700, under Alan's explicit writer/context cleanup
+MERGED runtime source in4708 at f4ab0a41949b92f265854b78717f5b41a4db9c52;
+write ownership transfers to HANDOFF-DOGFOOD-app212-serving.md. Serial successor to merged4700, under Alan's explicit writer/context cleanup
 and signed-in fix/deploy assignment. One coherent repair: an already offered
 draft_in_conversation + anchored selection must complete from supplied authored
 context instead of entering native retrieval without an admitted source.
@@ -78,3 +79,9 @@ dependency after this source slice. No generic schema bypass or manual image
 cutover is authorized by this checkpoint. Keep source PR4708 separate from that
 new deployment contract. Existing restore evidence/authorized backup transfer
 may be reused only where source/schema/actual archive pins still match.
+
+Delivery settlement: Actions packet transport4709 merged6102781c, with exact
+650b35focused checks0.20s, independent source/security review and short CI guards
+passing. No host installation or APP212 activation is inferred. Serving adoption
+uses exact live d58 parent rather than the intervening cold-restore stack parent.
+Retain original source baseline failures and all local App/installed-reader proof.
