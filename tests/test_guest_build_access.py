@@ -2015,6 +2015,12 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
 
     contexts, _, source = guests
     (first, token, world), (second, other_token, other_world) = contexts
+    from application_state.engine import connect
+    with connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT name FROM workspace.managed_world WHERE world_id=%s', (world,)).fetchone()[0] == "Sizzek's Apprentice"
+        # A pre-release guest session keeps its original binding and can reopen.
+        conn.execute('UPDATE workspace.managed_world SET name=%s WHERE world_id=%s', ('Sizzek World', world))
+        conn.commit()
     bundle = tmp_path / 'release.json'
     bundle.write_text(json.dumps({'version': 1, 'graph_space': source['world_id'],
                                   'graph_revision': source['revision_id'],
@@ -2026,7 +2032,15 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     monkeypatch.setattr(guest_apprentice_plan, '_SOURCE_SHA256', hashlib.sha256(b'Source.').hexdigest())
     for client, csrf in ((first, token), (second, other_token)):
         res = client.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': csrf})
-        assert res.status_code == 200, res.text
+        assert res.status_code == 200 and res.json()['name'] == "Sizzek's Apprentice", res.text
+    with connect(application_state_dsn) as conn:
+        original_owner = conn.execute('SELECT owner_subject FROM workspace.managed_world WHERE world_id=%s', (world,)).fetchone()[0]
+        conn.execute('UPDATE workspace.managed_world SET owner_subject=%s WHERE world_id=%s', ('foreign-owner', world))
+        conn.commit()
+    assert first.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 409
+    with connect(application_state_dsn) as conn:
+        conn.execute('UPDATE workspace.managed_world SET owner_subject=%s WHERE world_id=%s', (original_owner, world))
+        conn.commit()
     path = '/api/live/workspace-documents/world-plans'
     a = first.get(path, params={'world_id': world}).json()['records']
     b = second.get(path, params={'world_id': other_world}).json()['records']
