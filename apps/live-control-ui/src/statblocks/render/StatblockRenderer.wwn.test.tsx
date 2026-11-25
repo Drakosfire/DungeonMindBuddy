@@ -5,6 +5,7 @@ import { StatblockRenderer } from "./StatblockRenderer";
 import type { WwnSheetProjectionInput } from "./WwnSheetProjection";
 import alternate from "./wwn-alternate.fixture.json";
 import known from "./wwn-known.fixture.json";
+import correctedKnown from "./wwn-corrected.fixture.json";
 
 afterEach(cleanup);
 
@@ -25,14 +26,14 @@ it.each([
   expect(view.getByText(String(armor))).toBeTruthy();
   expect(view.getByText("0")).toBeTruthy();
   expect(view.getByText("Blank on sheet")).toBeTruthy();
-  expect(view.getByText(initiative)).toBeTruthy();
+  expect(within(view.getByText("Initiative").parentElement!).getByText(initiative)).toBeTruthy();
   expect(view.getByText(weapon)).toBeTruthy();
   expect(view.getByText("17")).toBeTruthy();
   expect(view.getByText("Override: Campaign adjustment")).toBeTruthy();
   expect(view.getByText(nameField)).toBeTruthy();
   expect(view.getAllByText(`PDF page ${location.page}, bounds ${location.bbox_pdf_points?.join(", ")}`).length).toBeGreaterThan(0);
 
-  const corrected = {
+  const corrected = fixture === known ? correctedKnown as WwnSheetProjectionInput["sheet"] : {
     ...sheet,
     source_sha256: "corrected-revision",
     fields: {
@@ -45,5 +46,5 @@ it.each([
   expect(view.getByText("16")).toBeTruthy();
   expect(view.getByText("17")).toBeTruthy();
   expect(view.getByText(weapon)).toBeTruthy();
-  expect(view.getByText("corrected-revision")).toBeTruthy();
+  expect(view.getByText(corrected.source_sha256)).toBeTruthy();
 });
