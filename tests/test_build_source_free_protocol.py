@@ -5095,3 +5095,24 @@ def test_pending_rules_runtime_restores_completed_calls_without_lookup_or_resend
         with pytest.raises(ValueError, match='cannot resend'): runtime.restore_pending()
         assert not runtime.selected and runtime.call_ids == ()
     assert bindings == ['bind']
+
+@pytest.mark.parametrize('kind', ['build_app_page_selection_authorized_v1', 'build_app_coverage_authorized_v1'])
+@pytest.mark.parametrize('mutation', [None, 'schema', 'payload', 'duplicate', 'sequence'])
+def test_pending_app_prompt_capture_keeps_exact_authorization_and_family(monkeypatch, kind, mutation):
+    from application_state.agent_conversation.context_trace_store import validate_prompt_authorization
+    from application_state.errors import ApplicationStateValidationError
+    state, _, _, _ = pending_page_dispatch_harness(monkeypatch)
+    from application_state.agent_conversation.context_trace import TracePromptReference
+    prompt = TracePromptReference.model_validate(state.prompt)
+    event = dict(kind=kind, sequence=0, provider_attempt_id=str(prompt.provider_attempt_id),
+        provider=prompt.provider, model=prompt.model, api_mode=prompt.api_mode,
+        serializer_version=prompt.serializer_version, envelope_sha256=prompt.payload_sha256)
+    execution = dict(schema='dmb_build_pending_execution_v1', events=[event])
+    if mutation == 'schema': execution['schema'] = 'dmb_surface_native_execution_v1'
+    if mutation == 'payload': event['envelope_sha256'] = 'f' * 64
+    if mutation == 'duplicate': execution['events'].append(dict(event))
+    if mutation is not None:
+        with pytest.raises(ApplicationStateValidationError):
+            validate_prompt_authorization(prompt, execution, int(mutation == 'sequence'))
+    else:
+        validate_prompt_authorization(prompt, execution, 0)

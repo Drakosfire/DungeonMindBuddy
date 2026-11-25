@@ -265,15 +265,27 @@ def validate_pending_submission(submission):
 
 
 def _join_pending_turn(turn):
-    from . import types as t
-    from .build_draft_context import validate_record_identity
-    from .build_intentional_response import validate_turn_arguments
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
     from .native_execution import _join_turn_lifecycle
     _join_turn_lifecycle(turn)
     _join_pending_turn_fields(receipt, execution, turn.provenance,
         turn.submitted_intent_fingerprint_v2, turn.completion, turn.assistant_text)
+    validate_pending_request_identity(receipt, execution, turn)
+
+
+def validate_pending_request_identity(receipt, execution, turn):
+    """Exact request join for ordinary and unclaimed mixed completed readers."""
+    from . import types as t
+    from .native_context import BuildPendingContextReceiptV1, validate_work_context
+    from .native_execution import BuildPendingExecutionV1
+    from .build_draft_context import validate_record_identity
+    from .build_intentional_response import validate_turn_arguments
     from .retained_conversation import validate_binding
+    if (type(receipt), type(execution)) != (BuildPendingContextReceiptV1, BuildPendingExecutionV1):
+        raise ValueError('Pending request identity requires its exact receipt/execution pair')
+    validate_work_context(receipt, turn.provenance, play_context_receipt=turn.play_context_receipt)
+    if t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent) != turn.submitted_intent_fingerprint_v2:
+        raise ValueError('Pending request identity differs from its admitted intent')
     for event in execution.events:
         if type(event) is t.BuildPriorBodyEvidenceAdmittedV3:
             validate_binding(event, world_id=turn.world_id, conversation_id=turn.conversation_id,

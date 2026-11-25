@@ -5077,8 +5077,8 @@ class AgentConversationService:
                     proof = result.output_proof
                     from .native_rules_output import sealed_native_producer
                     capture, graph_support = sealed_native_producer(turn, current.execution, proof)
-                    from .native_execution import SurfaceNativeExecutionV1
-                    if type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
+                    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+                    if type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1):
                         from .native_rules_output import normalize_shared_native_output
                         captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
                             (turn.turn_id,turn.attempt)).fetchone()
