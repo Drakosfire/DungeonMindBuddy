@@ -1,10 +1,16 @@
-import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
+import {useEffect,useId,useLayoutEffect,useRef,useState,useSyncExternalStore} from 'react';
+import {getReadWaveVersion,subscribeReadWave} from '../../api/inFlightReads';
 import {SourceCitation} from './SourceCitation';
 import {WorldPlanAgentAnswer} from './WorldPlanAgentAnswer';
 
-export type CitationChoice={key:string;number:number;buttonText?:string;savedReferenceMarkdown?:string;segmentIndex?:number;resolveTitle?:boolean;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}|{pngBase64:string;title:string}>};
+export type CitationChoice={key:string;number:number;buttonText?:string;titleSuffix?:string;savedReferenceMarkdown?:string;segmentIndex?:number;resolveTitle?:boolean;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}|{pngBase64:string;title:string}>};
+type Props={identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[];inlineProse?:boolean;prefetchTitles?:boolean};
 /** One disclosure owner; transport adapters must verify the exact cited bytes. */
-export function SourceCitationEvidence({identity,statements,answer,displaySegments,allowedInternalLinks=[],inlineProse=false,prefetchTitles=false}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[];inlineProse?:boolean;prefetchTitles?:boolean}) {
+export function SourceCitationEvidence(props:Props) {
+  const wave=useSyncExternalStore(subscribeReadWave,getReadWaveVersion,getReadWaveVersion);
+  return <CitationEvidenceInner key={JSON.stringify([props.identity,wave])} {...props} wave={wave}/>;
+}
+function CitationEvidenceInner({identity,statements,answer,displaySegments,allowedInternalLinks=[],inlineProse=false,prefetchTitles=false,wave}:Props & {wave:number}) {
   const panel=useId(),epoch=useRef(0);
   const [opened,setOpened]=useState<{choice:CitationChoice;status:'loading'|'ready'|'unavailable';content?:string;title?:string;pngBase64?:string}|null>(null);
   const [copyStatus,setCopyStatus]=useState<string|null>(null);
@@ -17,31 +23,31 @@ export function SourceCitationEvidence({identity,statements,answer,displaySegmen
     const pending=statements.flatMap(statement=>statement.choices).filter(choice=>choice.resolveTitle);
     async function resolve() {
       for(const choice of pending) {
-        if(cancelled)return;
+        if(cancelled || getReadWaveVersion()!==wave)return;
         const read=reads.current.get(choice.key) ?? Promise.resolve().then(choice.load);
         reads.current.set(choice.key,read);
         try {
           const result=await read;
-          if(!cancelled) {
+          if(!cancelled && getReadWaveVersion()===wave) {
             const title=typeof result==='object' && 'title' in result && result.title.trim()
               ? result.title.replace(/ · Full document$/, '') : 'Source name unavailable';
             setTitles(current=>({...current,[choice.key]:title}));
           }
         } catch {
           if(reads.current.get(choice.key)===read) reads.current.delete(choice.key);
-          if(!cancelled) setTitles(current=>({...current,[choice.key]:'Source name unavailable'}));
+          if(!cancelled && getReadWaveVersion()===wave) setTitles(current=>({...current,[choice.key]:'Source name unavailable'}));
         }
       }
     }
     void resolve();
     return()=>{cancelled=true;};
-  },[identity,prefetchTitles]);
+  },[identity,prefetchTitles,wave]);
   function close(){epoch.current++;setOpened(null);setCopyStatus(null);}
   async function open(choice:CitationChoice) {
     if(opened?.choice.key===choice.key){close();return;}
     const current=++epoch.current;setCopyStatus(null);setOpened({choice,status:'loading'});
-    try {const result=await (reads.current.get(choice.key) ?? choice.load());if(current===epoch.current)setOpened({choice,status:'ready',...(typeof result==='string' ? {content:result} : result)});}
-    catch {if(current===epoch.current)setOpened({choice,status:'unavailable'});}
+    try {const result=await (reads.current.get(choice.key) ?? choice.load());if(current===epoch.current && getReadWaveVersion()===wave)setOpened({choice,status:'ready',...(typeof result==='string' ? {content:result} : result)});}
+    catch {if(current===epoch.current && getReadWaveVersion()===wave)setOpened({choice,status:'unavailable'});}
   }
   const choices=statements.flatMap(s=>s.choices);
   const markers=(items:CitationChoice[])=>items.map(c=><SourceCitation key={c.key} number={String(c.number)} title={c.title}
@@ -65,7 +71,7 @@ export function SourceCitationEvidence({identity,statements,answer,displaySegmen
        : <span key={i}>{choices.map(c=>c.buttonText
         ? <button key={c.key} type="button" aria-expanded={opened?.choice.key===c.key}
           aria-controls={opened?.choice.key===c.key ? panel : undefined}
-          onClick={()=>{void open(c);}}>{titles[c.key] ? `${c.number}. ${titles[c.key]}` : c.buttonText}</button>
+          onClick={()=>{void open(c);}}>{titles[c.key] ? `${c.number}. ${titles[c.key]}${c.titleSuffix ?? ''}` : c.buttonText}</button>
         : <SourceCitation key={c.key} number={String(c.number)} title={c.title}
           label={c.label} expanded={opened?.choice.key===c.key}
           controls={opened?.choice.key===c.key ? panel : undefined} onOpen={()=>{void open(c);}}/>)}</span>)}
