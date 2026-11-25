@@ -44,6 +44,9 @@ guest_play_enabled=${guest_play_enabled:-0}
 guest_media_enabled=${guest_media_enabled:-0}
 [[ "$guest_media_enabled" == 0 || "$guest_media_enabled" == 1 ]] || fail "invalid staged guest media setting"
 [[ "$guest_media_enabled" == 0 || "$guest_build_enabled" == 1 ]] || fail "guest media requires guest Build"
+guest_buddy_enabled=${guest_buddy_enabled:-0}
+[[ "$guest_buddy_enabled" == 0 || "$guest_buddy_enabled" == 1 ]] || fail "invalid staged guest Buddy setting"
+[[ "$guest_buddy_enabled" == 0 || ( "$guest_play_enabled" == 1 && "$guest_media_enabled" == 1 ) ]] || fail "guest Buddy requires guest Play and media"
 if [[ "$guest_graph_enabled" == 1 ]]; then
   [[ "${guest_graph_space:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph space"
   [[ "${guest_graph_revision:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid staged guest Graph revision"
@@ -84,6 +87,7 @@ with_image() {
         "$tag" "$guest_build_enabled" "$guest_graph_space" "$guest_graph_revision"
       printf '      DMB_HOSTED_GUEST_PLAN_ENABLED: "%s"\n' "$guest_plan_enabled"
       printf '      DMB_HOSTED_GUEST_PLAY_ENABLED: "%s"\n      DMB_HOSTED_GUEST_MEDIA_ENABLED: "%s"\n' "$guest_play_enabled" "$guest_media_enabled"
+      printf '      DMB_HOSTED_GUEST_CONVERSATION_ENABLED: "%s"\n      DMB_HOSTED_GUEST_TURN_ENABLED: "%s"\n      DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED: "%s"\n' "$guest_buddy_enabled" "$guest_buddy_enabled" "$guest_buddy_enabled"
       if [[ -n "$guest_document_sha" ]]; then
         printf '      DMB_GUEST_DOCUMENT_BUNDLE: /run/buddy-guest-documents.json\n      DMB_GUEST_DOCUMENT_BUNDLE_SHA256: "%s"\n    volumes:\n      - "%s:/run/buddy-guest-documents.json:ro"\n' "$guest_document_sha" "$guest_document_bundle"
       fi
@@ -117,6 +121,11 @@ verify_serving() {
       if [[ "$feature" == PLAY ]]; then expected=$guest_play_enabled; else expected=$guest_media_enabled; fi
       if ! grep -Fxq "$setting=$expected" <<< "$guest_env"; then
         [[ "$expected" == 0 ]] && ! grep -q "^$setting=" <<< "$guest_env" || return 1
+      fi
+    done
+    for setting in DMB_HOSTED_GUEST_CONVERSATION_ENABLED DMB_HOSTED_GUEST_TURN_ENABLED DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED; do
+      if ! grep -Fxq "$setting=$guest_buddy_enabled" <<< "$guest_env"; then
+        [[ "$guest_buddy_enabled" == 0 ]] && ! grep -q "^$setting=" <<< "$guest_env" || return 1
       fi
     done
     if [[ -n "$guest_document_sha" ]]; then
@@ -175,7 +184,7 @@ retain_images() {
           [[ "$value" =~ ^[0-9a-f]{40}$ ]] || return 1 ;;
         guest_graph_enabled)
           [[ "$value" == 1 ]] || return 1 ;;
-        guest_build_enabled|guest_plan_enabled|guest_play_enabled|guest_media_enabled)
+        guest_build_enabled|guest_plan_enabled|guest_play_enabled|guest_media_enabled|guest_buddy_enabled)
           [[ "$value" == 1 ]] || return 1 ;;
         guest_graph_space|guest_graph_revision)
           [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || return 1 ;;

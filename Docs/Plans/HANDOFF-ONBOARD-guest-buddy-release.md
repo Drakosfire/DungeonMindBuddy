@@ -1,0 +1,13 @@
+# ONBOARD: guest Buddy release wiring
+
+Status: ACTIVE under the owner's Sizzek delivery and merge/deployment authority. Serial release-control successor to merged guest Plan discussion #4688 and Build discussion #4689, on `codex/onboard-guest-buddy-release` based on main `a6b33b5c3fba41da39e2e693a5233b172776fc11`. Activation depends on deploying and verifying the earlier serving releases, including #4681 and #4686; this work does not claim those steps are complete.
+
+Outcome: provide an explicit default-off, identity-bound release option for the merged guest Buddy discussion UI and server switches. Keep the existing guest Graph, Build, Plan, Play, media, document bundle, source binding, rollback, and image identity protections. The serving integration that carries product code is a separate successor after its exact parent is live.
+
+Write lease: `Dockerfile.production`, `.github/workflows/publish-buddy-image.yml`, `deploy/production/compose.production.yaml`, `deploy/production/stage-buddy-release`, `deploy/production/activate-buddy-release`, their focused shell tests, `scripts/verify_guest_graph_release.sh`, `tests/test_guest_release_image_config.py`, the Buddy actions cutover runbook, and this handoff. No production state, database or provider is leased. Current #4687 changes Gazetteer correction and is a separate serving successor; recheck active PRs and path ownership before review.
+
+Invariant: default builds and existing release modes retain their behavior. Buddy frontend and server flags are enabled only for an explicitly selected compatible candidate; image tag/configuration label, stage record, candidate Compose overlay and runtime checks agree. Rollback must not inherit candidate flags. Guest conversation requires the existing guest World and session safeguards; wiring must not alter those safeguards or enable signed-in-only effects.
+
+Validation: focused image configuration tests and stage/activation shell harnesses covering default-off, feature dependencies, mismatched identity and candidate-only rollback. Inspect the cumulative diff and obtain Bugbot review on the exact head. Do not dispatch a production cutover without a verified staged receipt and exact serving-parent match. Real-model and signed-out production verification remain required by the overall objective.
+
+Working-tree verification: image configuration tests passed (24 tests); the focused staging and activation harnesses passed with Docker/Compose stubs, including Buddy label mismatch, required runtime switch and rollback isolation. Preliminary Bugbot static review found no actionable defect; exact-head review remains. These checks do not activate a registry image or prove production/provider behavior.

@@ -144,6 +144,14 @@ identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`
 under the deployment lock. Confirm the resulting `BUDDY_STAGED` receipt.
 Guest records also contain the enabled switch and the two validated baseline identifiers. For a guest Build image, use `guest-build` for a main-line release or `guest-build-serving` for a serving overlay. The stage helper requires the Build-specific image label and records `guest_build_enabled=1`; the activator sets and verifies the Build runtime switch only for the candidate. Rollback uses the existing base Compose configuration. The activator supplies and verifies them for the candidate only; rollback uses the existing base Compose policy. Release records contain these literal fields:
 
+For the merged guest Buddy discussion capability, select `hosted_guest_buddy=true`
+alongside guest Graph, Build, Plan, Play, and media when publishing the reviewed
+serving image. Use `guest-buddy-documents-serving` for staging, with the document
+template digest as the seventh argument. The image identity includes `buddy=1`;
+the stage record binds it to the candidate and activation checks all three guest
+conversation switches. This does not enable guest Buddy effects or establish a
+live-provider test. Existing release modes remain available with Buddy off.
+
 For a serving release that includes approved guest source pages, install a root-owned
 `/etc/buddy-deploy/guest-documents-template.json` and a root-owned
 `/etc/buddy-deploy/guest-document-bundles` directory. The template is UTF-8 JSON
