@@ -304,9 +304,10 @@ function indexPassages(trace: BuddyTurnContextTrace | undefined) {
   return index
 }
 
-export function BuddyRetrievalReplay({ steps, trace }: { steps: readonly RetrievalStep[]; trace?: BuddyTurnContextTrace }) {
+export function BuddyRetrievalReplay({ steps, trace, active = true }: { steps: readonly RetrievalStep[]; trace?: BuddyTurnContextTrace; active?: boolean }) {
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
+  useEffect(() => { if (!active) setPlaying(false) }, [active])
   const [inspectedId, setInspectedId] = useState<string | null>(null)
   const nodeDialog = useRef<HTMLDialogElement>(null)
   const inspectedTrigger = useRef<SVGGElement>(null)

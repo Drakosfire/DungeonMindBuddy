@@ -9,7 +9,7 @@ import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
-import { ConversationReplyDetails } from './ConversationReplyDetails';
+import { ConversationReplyDetails, TraceEvidence } from './ConversationReplyDetails';
 import {isBuildPendingReceipt,isBuildPendingContext,isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply,imageMoveReply} from '../../shared/surfaceNativeProtocol';
 import { BuildGraphReferenceReview } from '../../buildSurface/BuildGraphReferenceReview';
 import { BuildImageMoveReview } from '../../buildSurface/BuildImageMoveReview';
@@ -5272,7 +5272,7 @@ export function WorldPlanAgentConversation({
     switch (status) {
       case "discussion": return null;
       case "authored_grounded": return "Quoted material";
-      case "authored_grounded_partial": return "Quoted material · partial";
+      case "authored_grounded_partial": return null;
       case "insufficient_evidence": return "Needs more context";
       case "creative_proposal": return "Proposed idea";
       case "image_preparation_ready": return "Image direction";
@@ -6738,7 +6738,7 @@ export function WorldPlanAgentConversation({
       {open && buildCompose.items.find(item => item.originTurnId === turn.turn_id)?.details}
       {verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open} replyDetails
         worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>}
-      {content}
+      <TraceEvidence>{content}</TraceEvidence>
     </ConversationReplyDetails>;
   };
   const renderConversationEvent = (event: WorldConversationDisplayEvent,
