@@ -191,14 +191,14 @@ function CopyTrace({ trace }: { trace: BuddyTurnContextTrace }) {
     <span role="status">{status === 'copied' ? 'Trace copied.' : status === 'failed' ? 'Couldn’t copy the trace. Try again or allow clipboard access.' : ''}</span></div>
 }
 
-function RetrievalReplayDetails({ trace, initialOpen }: { trace: BuddyTurnContextTrace; initialOpen: boolean }) {
+function RetrievalReplayDetails({ trace, initialOpen, active = true }: { trace: BuddyTurnContextTrace; initialOpen: boolean; active?: boolean }) {
   const steps = replaySteps(trace)
   const [replayOpen, setReplayOpen] = useState(initialOpen)
   if (!steps.length) return null
   return <details open={replayOpen} onToggle={event => setReplayOpen(event.currentTarget.open)}>
     <summary>Replay retrieval</summary>
     {replayOpen && <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`}
-      trace={trace} steps={steps} />}
+      trace={trace} steps={steps} active={active} />}
   </details>
 }
 
@@ -281,7 +281,7 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     {replyDetails && <div hidden={tab !== null && tab !== 'evidence'}><ReplyTraceOverview trace={trace} passages={passages} ownerActive={ownerActive} /></div>}
     {!replyDetails && <>{traceHeader}{diagnostics}</>}
     {replyDetails && failed && <p role="alert">This attempt stopped before completing a reply.</p>}
-    {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{(visitedTimeline || tab === null) && <RetrievalReplayDetails trace={trace} initialOpen />}{timeline}</div>}
+    {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{(visitedTimeline || tab === null) && <RetrievalReplayDetails trace={trace} initialOpen active={tab === null || tab === 'timeline'} />}{timeline}</div>}
     {replyDetails && tab === 'prompt' && <BuddyPromptInspector trace={trace} />}
     {replyDetails && <div hidden={tab !== null && tab !== 'diagnostics'}>{traceHeader}{copy}{failure && <p>Recorded failure: <code>{failure.code}</code> · {failure.stage ?? failure.phase}{failure.diagnostic_id && <> · <code>{failure.diagnostic_id}</code></>}</p>}</div>}
     {!replyDetails && failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
