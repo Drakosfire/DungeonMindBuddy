@@ -1603,7 +1603,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    Union[PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1, "SurfaceNativeContextReceiptV1"],
+    Union[PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1, "SurfaceNativeContextReceiptV1", "BuildPendingContextReceiptV1"],
     Field(discriminator="schema_"),
 ]
 
@@ -5598,7 +5598,7 @@ class NativeStatementExecutionV1(StrictModel):
 
 GraphTurnExecution = Annotated[
     Union[PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
-    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1, "SurfaceNativeExecutionV1"],
+    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1, "SurfaceNativeExecutionV1", "BuildPendingExecutionV1"],
     Field(discriminator="schema_"),
 ]
 
@@ -6643,6 +6643,11 @@ class TurnSubmission(StrictModel):
             and self.submitted_intent_v2 is not None
         ):
             raise ValueError("a turn cannot carry both submitted intent v1 and v2")
+        if (isinstance(self.graph_context_receipt, BuildPendingContextReceiptV1)
+                or isinstance(self.graph_context_execution, BuildPendingExecutionV1)):
+            from .build_source_free import validate_pending_submission
+            validate_pending_submission(self)
+            return self
         if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
                 or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
             from .native_execution import validate_submission
@@ -6937,6 +6942,12 @@ def validate_turn_graph_fields(
                 or submitted_intent_fingerprint_v2 is not None or assistant_text != completion.reply_text):
             raise ValueError("Lore save reference requires a local Build result")
         return
+    if (isinstance(graph_context_receipt, BuildPendingContextReceiptV1)
+            or isinstance(graph_context_execution, BuildPendingExecutionV1)):
+        from .build_source_free import validate_pending_turn_fields
+        validate_pending_turn_fields(graph_context_receipt, graph_context_execution, provenance,
+            submitted_intent_fingerprint_v2, completion, assistant_text)
+        return
     if (isinstance(graph_context_receipt, SurfaceNativeContextReceiptV1)
             or isinstance(graph_context_execution, SurfaceNativeExecutionV1)):
         from .native_execution import validate_turn_fields
@@ -7136,8 +7147,16 @@ class Turn(StrictModel):
                   if isinstance(value, cls) else value)
         if not isinstance(fields, Mapping):
             return handler(value)
-        owners = {"graph_context_receipt": SurfaceNativeContextReceiptV1,
-                  "graph_context_execution": SurfaceNativeExecutionV1}
+        pending = any(isinstance(fields.get(name), owner) or
+            isinstance(fields.get(name), Mapping) and any(
+                fields[name].get(alias) == owner.model_fields['schema_'].default
+                for alias in ('schema', 'schema_'))
+            for name, owner in (('graph_context_receipt', BuildPendingContextReceiptV1),
+                                ('graph_context_execution', BuildPendingExecutionV1)))
+        owners = ({"graph_context_receipt": BuildPendingContextReceiptV1,
+                   "graph_context_execution": BuildPendingExecutionV1} if pending else
+                  {"graph_context_receipt": SurfaceNativeContextReceiptV1,
+                   "graph_context_execution": SurfaceNativeExecutionV1})
         native = any(isinstance(fields.get(name), owner) or
                      (isinstance(fields.get(name), Mapping) and
                       any(fields[name].get(alias) == owner.model_fields["schema_"].default
@@ -7180,6 +7199,10 @@ class Turn(StrictModel):
             submitted_intent_fingerprint_v1=self.submitted_intent_fingerprint_v1,
             submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
         )
+        if (isinstance(self.graph_context_receipt, BuildPendingContextReceiptV1)
+                or isinstance(self.graph_context_execution, BuildPendingExecutionV1)):
+            from .build_source_free import validate_pending_turn
+            validate_pending_turn(self)
         if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
                 or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
             from .native_context import _join_work_context
@@ -7213,7 +7236,7 @@ class Turn(StrictModel):
             raise ValueError("Source-capable Plan lifecycle requires its validated completion")
         if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) and (self.submitted_intent_fingerprint_v1 is None or (self.status == "completed" and self.completion is None)):
             raise ValueError("Native receipt requires its exact submitted-intent fingerprint")
-        if not isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1):
+        if not isinstance(self.graph_context_receipt, (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)):
             validate_turn_graph_fields(
                 provenance=self.provenance,
                 submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
@@ -7493,8 +7516,8 @@ class CommandResolutionRecordV1(StrictModel):
 
 # Resolve shared native references only after their surface-owned intent/event
 # definitions exist. These records do not acquire historical Graph authority.
-from .native_context import SurfaceNativeContextReceiptV1  # noqa: E402
-from .native_execution import SurfaceNativeExecutionV1  # noqa: E402
+from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1  # noqa: E402
+from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1  # noqa: E402
 from .native_retrieval import NativeRetrievalAuthorizedV1 as NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1 as NativeRetrievalSelectedV1, NativeRetrievalSelectedV2 as NativeRetrievalSelectedV2, NativeReadBatchConcludedV1 as NativeReadBatchConcludedV1  # noqa: E402
 from .native_completion import SurfaceNativeCompletionV1  # noqa: E402
 TurnSubmission.model_rebuild()

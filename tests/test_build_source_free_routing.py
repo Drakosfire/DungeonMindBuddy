@@ -477,7 +477,12 @@ def pending_execution_pair(*, with_source=False, captured_case=None):
         requested_revision_id=None, observed_head_revision_id='observed-revision' if with_source else None)
     receipt = seal_pending_receipt(pending_receipt_values(
         work_context=context.work_context.model_dump(mode='json'),
-        source_observation=observed.model_dump(mode='json', by_alias=True)))
+        source_observation=observed.model_dump(mode='json', by_alias=True),
+        assembled_input=pending_receipt_values()['assembled_input'] | {
+            'provider_model_name': original.policy.provider_roles.controller.model,
+            'tokenizer_name': original.policy.controller_continuation_accounting.policy,
+            'provider_envelope_input_tokens': 120, 'output_token_reserve': 200,
+            'context_window_limit': 128000, 'assembled_input_sha256': 'd' * 64}))
     values = original.policy.model_dump(mode='python', by_alias=True)
     for key in ('policy_version', 'source_authority_sha256', 'native_query_sha256'):
         values.pop(key)

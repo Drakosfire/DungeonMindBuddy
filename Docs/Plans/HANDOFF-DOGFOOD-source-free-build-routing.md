@@ -303,3 +303,41 @@ producer/reader/terminal protocol, not an independently delivered capability.
 
 The captured-semantics helper may likewise recognize only the exact new policy.
 No accounting algorithm, provider/model or historical policy behavior changes.
+
+## Stored and transport consumer closure checkpoint
+
+The new receipt/execution is not consumable by the old concrete row or HTTP/UI
+decoders. Extend this same indivisible pending producer/reader/fence protocol,
+without a second product capability or PR, to these bounded consumers:
+- repository.py: exact new stored receipt/execution codec dispatch, integrity
+  classification and complete Turn wire decoding only; all old codecs remain.
+- apps/live_control_server/models/agent_turn.py: distinct Build pending response
+  and Build-only ordinary/mixed/history carriers; never widen Plan/Play receipts
+  with optional or fabricated authority/query fields.
+- agent_turn_service.py: project the new actual pending/settled owner; never
+  synthesize legacy receipt fields.
+- apps/live-control-ui/src/api/types.ts: distinct pending Build interfaces and
+  Build-only response unions, leaving guest/auth and Plan/Play types untouched.
+- shared/surfaceNativeProtocol.ts plus new shared/pendingBuildProtocol.ts: strict
+  explicit new-codec receipt/completion decoding. Keep exact receipt/producer and
+  citation membership checks, rejecting source claims without actual authority
+  or admitted retained provenance. Existing shared receipt meaning stays exact.
+- planSurface/components/WorldPlanAgentConversation.tsx: only the Build decoder
+  branch and receipt/request/Graph matching helpers required for this new codec.
+  No rendering, composer, placement, streaming or clarification UX changes.
+- focused new tests/test_build_source_free_protocol.py and shared/pendingBuildProtocol.test.ts,
+  and only affected existing decoder regressions. No broad suites.
+
+Fresh checks: remote main a34cec33dcadd9c69ed946fb4e3e81e98f670cab includes merged
+TRACE4670. ONBOARD4667 headac4468cba848707306335f072a27edaf443391b7 reserves
+its reviewed guest source paths, flags and serving carry, not these new pending
+interfaces/decoder helpers. CLARIFICATION4652 head03d803fd6819edfbc52d0c062db95ae35f187a99
+reserves the existing native_completion.normalize_candidate split and focused
+question helpers/tests; no frontend or shared routing lease is assigned there.
+Both exact changed-file inventories and pinned handoffs were inspected. Preserve
+those boundaries and re-anchor before integration. This checkpoint allocates
+only the named new protocol branches; unknown additional paths require another
+checkpoint. The consumers belong with the producer because otherwise a valid
+pending Turn could fail on reopen or be rejected by the app. Registration alone
+will not authorize source IO, terminal output or release. Atomic settlement and
+full-Send positive/negative evidence remain required.

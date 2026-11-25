@@ -94,6 +94,10 @@ def effective_pending_source(receipt, execution):
             or policy.action.intent.world_id != work_world_id(work)):
         raise ValueError("Pending action, work and observation commitments differ")
     validate_work_intent(work.source_basis, policy.action.intent)
+    for index, event in enumerate(execution.events):
+        if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+            t.validate_provider_envelope_accounting(receipt.assembled_input,
+                execution.model_copy(update={'events': execution.events[:index]}), event)
     if receipt.source_observation.requested_revision_id != policy.action.intent.graph_request.revision_pin:
         raise ValueError("Pending observation differs from the explicitly requested revision")
     for event in execution.events:
@@ -132,3 +136,50 @@ def validate_pending_work_records(execution):
     if action.intent.build_draft_context_sha256 is not None and not rows and any(
             isinstance(event, t.ProviderAttemptAuthorizedEventV1) for event in execution.events):
         raise ValueError("Pending decision requires its submitted draft capture first")
+
+
+def validate_pending_turn_fields(receipt, execution, provenance, intent_fingerprint, completion, assistant_text):
+    """Stored pending prefix closure, before its terminal owner is integrated."""
+    from . import types as t
+    from .native_context import _join_work_context
+    effective_pending_source(receipt, execution)
+    _join_work_context(receipt, provenance)
+    if t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent) != intent_fingerprint:
+        raise ValueError("Pending stored request fingerprint differs from admission")
+    if completion is not None or assistant_text is not None:
+        raise ValueError("Pending prefix has no registered terminal output owner")
+
+
+def validate_pending_submission(submission):
+    from .native_context import _join_work_context
+    receipt, execution = submission.graph_context_receipt, submission.graph_context_execution
+    effective_pending_source(receipt, execution)
+    _join_work_context(receipt, submission.provenance, play_context_receipt=submission.play_context_receipt)
+    intent = execution.policy.action.intent
+    if (submission.submitted_intent_v1 is not None or submission.submitted_intent_v2 != intent
+            or execution.events or submission.world_id != intent.world_id
+            or submission.user_text != intent.message
+            or submission.provenance.surface_instance_id != intent.surface_instance_id):
+        raise ValueError("Pending admission requires its unchanged Build request and empty execution")
+
+
+def validate_pending_turn(turn):
+    from . import types as t
+    from .build_draft_context import validate_record_identity
+    from .build_intentional_response import validate_turn_arguments
+    receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    validate_pending_turn_fields(receipt, execution, turn.provenance,
+        turn.submitted_intent_fingerprint_v2, turn.completion, turn.assistant_text)
+    intent = execution.policy.action.intent
+    if (turn.submitted_intent_fingerprint_v1 is not None
+            or turn.world_id != intent.world_id or turn.user_text != intent.message
+            or turn.provenance.surface_instance_id != intent.surface_instance_id
+            or turn.play_context_receipt is not None or turn.status == 'completed'):
+        raise ValueError("Stored pending Turn differs from its admitted request or lifecycle")
+    validate_turn_arguments(execution, user_text=turn.user_text, turn_id=turn.turn_id, attempt=turn.attempt)
+    for event in execution.events:
+        if type(event) is t.BuildDraftContextCapturedV1:
+            validate_record_identity(event.record, world_id=turn.world_id,
+                conversation_id=turn.conversation_id, turn_id=turn.turn_id,
+                attempt=turn.attempt, submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
+                saved_basis=receipt.work_context.source_basis)

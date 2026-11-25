@@ -513,11 +513,13 @@ def _turn_from_row(
     from .native_statement_answer import NativeStatementCompletionV1
     from .types import NativeStatementExecutionV1, PlanSourceContextReceiptV1, PlanSourceExecutionV1, PlanNativeContextReceiptV1, PlanNativeExecutionV1
 
-    from .native_context import SurfaceNativeContextReceiptV1
-    from .native_execution import SurfaceNativeExecutionV1
+    from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
     from .native_completion import SurfaceNativeCompletionV1
 
     column_codecs = (
+        ("graph_context_receipt", BuildPendingContextReceiptV1),
+        ("graph_context_execution", BuildPendingExecutionV1),
         ("graph_context_receipt", SurfaceNativeContextReceiptV1),
         ("graph_context_execution", SurfaceNativeExecutionV1),
         ("completion", SurfaceNativeCompletionV1),
@@ -532,7 +534,8 @@ def _turn_from_row(
         ("graph_context_execution", NativeStatementExecutionV1),
         ("completion", NativeStatementCompletionV1),
     )
-    shared_models = (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1)
+    shared_models = (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1,
+                     BuildPendingContextReceiptV1, BuildPendingExecutionV1)
     integrity_models = (*shared_models, NativeStatementContextReceiptV1,
                         NativeStatementExecutionV1, NativeStatementCompletionV1)
     matched_codecs = {
@@ -553,7 +556,7 @@ def _turn_from_row(
             try:
                 fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
             except ValidationError as exc:
-                if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1, SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1):
+                if model in integrity_models:
                     raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
                 raise
     shared_turn = None
