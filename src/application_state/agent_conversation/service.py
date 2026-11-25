@@ -2642,16 +2642,64 @@ class AgentConversationService:
                 raise ApplicationStateValidationError('Pending writer response requires its exact selected text acknowledgement')
             return self._append_pending_checked(conn, turn, outcome, expected_revision)
 
-    def record_pending_build_writer_selection(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, selection, producer_proof, authorize_current_access):
-        """Close an empty acquired catalog against actual retained work and trace."""
+    def authorize_pending_writer_selection(self, world_id, conversation_id, turn_id, *,
+                                           expected_revision, expected_attempt, authorization,
+                                           prepared_request_json, initial_request_json,
+                                           authorize_current_access):
+        """Admit exact nonempty selection bytes and original captured dialogue."""
         from . import types as t
-        from .writer_evidence_selection import validate_selection_proof, native_work_terminal
-        if (type(selection) is not t.BuildWriterEvidenceSelectionV2 or selection.mode != 'empty_catalog'
+        from .writer_evidence_selection import validate_prepared_selection, native_terminal
+        from .build_decision_context import validate_prepared
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        if (type(authorization) is not t.ProviderAttemptAuthorizedEventV5
+                or authorization.context_phase != 'writer_selection'
                 or type(expected_revision) is not int or expected_revision < 1
                 or type(expected_attempt) is not int or expected_attempt < 1
-                or producer_proof is not None or not callable(authorize_current_access)):
-            raise ApplicationStateValidationError('Pending retained selection requires its exact empty-catalog owner')
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending writer selection requires its exact controller and access owner')
+        try:
+            authorization = t.ProviderAttemptAuthorizedEventV5.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending writer selection')
+            self._validate_pending_initial_prompt(conn, turn, initial_request_json)
+            try:
+                trace = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchone()
+                validate_prepared(authorization, turn.graph_context_execution, prepared_request_json, host_phase='writer_selection')
+                validate_prepared_selection(turn, authorization, prepared_request_json, trace[0] if trace else {},
+                    native_terminal(turn), pending_initial_request_json=initial_request_json)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending selection proof')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending writer selection claim expired during proof')
+            prior = [e for e in turn.graph_context_execution.events if e.event_id == authorization.event_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == authorization:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending writer selection reused a changed authorization')
+            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+
+    def record_pending_build_writer_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof, authorize_current_access):
+        """Close actual pending evidence against its prepared producer and trace."""
+        from . import types as t
+        from .writer_evidence_selection import validate_selection_proof, native_work_terminal
+        if (type(selection) is not t.BuildWriterEvidenceSelectionV2
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or (selection.mode == 'empty_catalog' and producer_proof is not None)
+                or (selection.mode == 'jev' and not isinstance(producer_proof, dict))
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending selection requires its exact prepared-input owner')
         from .build_pending_app_coverage import pending_writer_access_pages
         world_id = _world_id(world_id)
         with unit_of_work(_ready_dsn()) as conn:
@@ -2661,11 +2709,13 @@ class AgentConversationService:
                 raise ApplicationStateConflictError('Current App access does not authorize retained writer selection')
             if (selection.terminal_disposition != native_work_terminal(turn)
                     or selection.terminal_disposition is None):
-                raise ApplicationStateValidationError('Pending writer selection has no admitted conversation terminal')
+                raise ApplicationStateValidationError('Pending writer selection has no admitted work terminal')
             captured = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
                 (turn.turn_id, turn.attempt)).fetchone()
             try:
-                validate_selection_proof(turn, selection, captured[0] if captured else {}, None)
+                if selection.mode == 'jev':
+                    self._validate_pending_initial_prompt(conn, turn, producer_proof.get('initial_request_json'))
+                validate_selection_proof(turn, selection, captured[0] if captured else {}, producer_proof)
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
@@ -3682,16 +3732,17 @@ class AgentConversationService:
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
             initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            writer_selection = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'writer_selection')
             from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
             from .native_retrieval import NativeRetrievalAuthorizedV1
-            if (not initial and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, NativeRetrievalAuthorizedV1)
+            if (not initial and not writer_selection and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, NativeRetrievalAuthorizedV1)
                     or authorization is None or outcome.provider_attempt_id != authorization.provider_attempt_id):
                 raise ApplicationStateValidationError('Pending SDK entry lacks its latest admitted Build controller')
             self._validate_pending_prompt(conn, turn, authorization, prepared_request_json)
             catalogs = [event for event in turn.graph_context_execution.events
                         if type(event) is BuildAppPageCatalogObservedV1]
             from .build_pending_app_coverage import pending_writer_access_pages
-            pages = (pending_writer_access_pages(turn) if type(authorization) is NativeRetrievalAuthorizedV1
+            pages = (pending_writer_access_pages(turn) if writer_selection or type(authorization) is NativeRetrievalAuthorizedV1
                 else tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
                 if type(authorization) is BuildAppCoverageAuthorizedV1 else None if initial else catalogs[0].pages)
             if authorize_current_access(conn, turn, pages) is not True:
@@ -3765,15 +3816,16 @@ class AgentConversationService:
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
             initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            writer_selection = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'writer_selection')
             from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
             from .native_retrieval import NativeRetrievalAuthorizedV1
-            if (not initial and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, NativeRetrievalAuthorizedV1)
+            if (not initial and not writer_selection and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, NativeRetrievalAuthorizedV1)
                     or authorization is None or authorization.provider_attempt_id != outcome.provider_attempt_id):
                 raise ApplicationStateValidationError('Pending outcome differs from its latest Build controller')
             catalogs = [event for event in turn.graph_context_execution.events
                         if type(event) is BuildAppPageCatalogObservedV1]
             from .build_pending_app_coverage import pending_writer_access_pages
-            pages = (pending_writer_access_pages(turn) if type(authorization) is NativeRetrievalAuthorizedV1
+            pages = (pending_writer_access_pages(turn) if writer_selection or type(authorization) is NativeRetrievalAuthorizedV1
                 else tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
                 if type(authorization) is BuildAppCoverageAuthorizedV1 else None if initial else catalogs[0].pages)
             if authorize_current_access(conn, turn, pages) is not True:

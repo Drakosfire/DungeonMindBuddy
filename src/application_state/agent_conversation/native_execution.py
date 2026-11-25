@@ -688,6 +688,9 @@ class BuildPendingExecutionV1(Strict):
                     validate_pending_writer_authorization(self, event)
                     writer = event
                     continue
+                elif type(event) is t.ProviderAttemptAuthorizedEventV5 and event.context_phase == 'writer_selection':
+                    from .build_source_free import validate_pending_writer_selection_authorization
+                    validate_pending_writer_selection_authorization(self, event)
                 elif type(event) is NativeRetrievalAuthorizedV1:
                     if (not settled or event.build_context is None
                             or (event.provider, event.model, event.api_mode)
@@ -721,8 +724,8 @@ class BuildPendingExecutionV1(Strict):
                 from .build_source_free import validate_pending_completion_binding
                 validate_pending_completion_binding(self, event)
             elif type(event) is t.BuildWriterEvidenceSelectionV2:
-                from .build_source_free import validate_pending_empty_writer_selection
-                validate_pending_empty_writer_selection(self, event)
+                from .build_source_free import validate_pending_writer_selection
+                validate_pending_writer_selection(self, event)
             elif type(event) is t.BuildPriorBodyEvidenceAdmittedV3:
                 from .build_source_free import validate_pending_retained_admission
                 validate_pending_retained_admission(self, event)

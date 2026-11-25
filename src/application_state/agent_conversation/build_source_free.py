@@ -366,12 +366,11 @@ def pending_app_page_selection_input(receipt, execution, initial_request_json):
     return _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages)
 
 
-def _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages):
+def pending_semantic_context(receipt, execution, initial_request_json):
+    """Original captured conversation semantics; no current history lookup."""
     from copy import deepcopy
     from hashlib import sha256
     from .source_writer_output import strict_json
-    if not pages:
-        raise ValueError('An absent or empty App catalog does not need a page-selection call')
     if (not isinstance(initial_request_json, str)
             or sha256(initial_request_json.encode()).hexdigest() != receipt.assembled_input.assembled_input_sha256):
         raise ValueError('App page selection requires its actual frozen initial request')
@@ -405,12 +404,17 @@ def _compile_pending_app_page_selection_input(receipt, execution, initial_reques
                 proposed = semantic_collaboration(card)
         history.append({'user': row['user'], 'assistant': row['assistant'],
             **({'proposed_work': proposed} if 'proposed_work' in row else {})})
-    role = 'untrusted_saved_page_title_for_navigation_not_evidence'
-    state = {'user_question': initial['state']['user_question'],
-        'history': deepcopy(history),
-        'current_page': {'title': interaction['current_page_title'], 'role': role},
-        'saved_pages': [{'choice': f'page{i + 1}', 'title': page.title, 'role': role}
-                        for i, page in enumerate(pages)]}
+    return {'user_question': initial['state']['user_question'], 'history': deepcopy(history),
+        'current_page': {'title': interaction['current_page_title'],
+            'role': 'untrusted_saved_page_title_for_navigation_not_evidence'}}
+
+
+def _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages):
+    if not pages:
+        raise ValueError('An absent or empty App catalog does not need a page-selection call')
+    state = pending_semantic_context(receipt, execution, initial_request_json)
+    state['saved_pages'] = [{'choice': f'page{i + 1}', 'title': page.title,
+        'role': 'untrusted_saved_page_title_for_navigation_not_evidence'} for i, page in enumerate(pages)]
     from .build_related_pages import question_text
     questions = {f'page{i + 1}': {'type': 'choice', 'instructions': question_text(page, semantic=True),
                                  'criteria': {'read': None, 'skip': None}}
@@ -541,6 +545,54 @@ def pending_source_free_terminal(execution):
     return {'status': 'ready', 'reason': 'pending_source_free_' + work.requested_work}
 
 
+def pending_native_terminal(execution):
+    """Classify a stored native finish; never grant IO or writer dispatch."""
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+    from .native_retrieval import NativeRetrievalSelectedV1
+    if type(execution) is not BuildPendingExecutionV1:
+        return None
+    if not any(type(e) is NativeBuildSourceSettledV1 for e in execution.events):
+        return None
+    choices = [e for e in execution.events if type(e) is NativeRetrievalSelectedV1]
+    if not choices or choices[-1].operation != 'finish_retrieval':
+        return None
+    return dict(status='ready', reason='native_retrieval_finished')
+
+
+def validate_pending_writer_selection_authorization(execution, event):
+    from . import types as t
+    from .writer_evidence_selection import native_body_catalog
+    prefix = execution.model_copy(update={'events': execution.events[:event.sequence]})
+    if (type(event) is not t.ProviderAttemptAuthorizedEventV5
+            or event.context_phase != 'writer_selection' or pending_native_terminal(prefix) is None
+            or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity()
+            or not native_body_catalog(prefix)
+            or any(type(e) is t.ProviderAttemptAuthorizedEventV5 and e.context_phase == 'writer_selection'
+                   or isinstance(e, t.BuildWriterEvidenceSelectionV1) for e in prefix.events)):
+        raise ValueError('Pending writer selection requires its nonempty finished native catalog')
+
+
+def validate_pending_writer_selection(execution, event):
+    from . import types as t
+    from .writer_evidence_selection import NATIVE_POLICY, native_body_catalog, digest, close_selection
+    from .build_primary_context import validate_selection_origin
+    if event.mode == 'empty_catalog':
+        return validate_pending_empty_writer_selection(execution, event)
+    prefix = execution.model_copy(update={'events': execution.events[:event.sequence]})
+    catalog = native_body_catalog(prefix)
+    controllers = [e for e in prefix.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
+    latest = controllers[-1] if controllers else None
+    if (type(event) is not t.BuildWriterEvidenceSelectionV2 or event.policy != NATIVE_POLICY
+            or pending_native_terminal(prefix) != event.terminal_disposition or not catalog
+            or event.catalog_sha256 != digest(catalog) or type(latest) is not t.ProviderAttemptAuthorizedEventV5
+            or latest.context_phase != 'writer_selection'):
+        raise ValueError('Pending native selection differs from its finished exact catalog')
+    validate_selection_origin(execution, event)
+    for field, expected in close_selection(catalog, event.judgments).items():
+        if [str(v) for v in getattr(event, field)] != expected:
+            raise ValueError('Pending native selection changed its whole-event evidence closure')
+
+
 def validate_pending_empty_writer_selection(execution, event):
     from .build_pending_app_coverage import pending_app_writer_terminal
     from . import types as t
@@ -556,13 +608,18 @@ def validate_pending_empty_writer_selection(execution, event):
             or latest.envelope_sha256 != event.controller_envelope_sha256 or outcomes[-1:] != ['response_received']
             or not (any(type(prior) is t.BuildPriorBodyEvidenceAdmittedV3 for prior in prefix)
                 or pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
-                or pending_app_writer_terminal(execution.model_copy(update={'events': prefix})))
+                or pending_app_writer_terminal(execution.model_copy(update={'events': prefix}))
+                or pending_native_terminal(execution.model_copy(update={'events': prefix})))
             or any(isinstance(prior, t.BuildWriterEvidenceSelectionV1) for prior in prefix)):
         raise ValueError('Pending empty writer selection requires acknowledged source-free work or retained context')
     terminal = (pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
-        or pending_app_writer_terminal(execution.model_copy(update={'events': prefix})))
+        or pending_app_writer_terminal(execution.model_copy(update={'events': prefix}))
+        or pending_native_terminal(execution.model_copy(update={'events': prefix})))
     if terminal is not None and event.terminal_disposition != terminal:
         raise ValueError('Pending empty selection differs from its source-free work terminal')
+    from .writer_evidence_selection import native_body_catalog
+    if native_body_catalog(execution.model_copy(update={'events': prefix})):
+        raise ValueError('Pending empty selection cannot omit an acquired native catalog')
     for field, expected in close_selection({}, {}).items():
         if list(getattr(event, field)) != expected:
             raise ValueError('Pending empty selection cannot manufacture acquired evidence')
@@ -588,10 +645,10 @@ def validate_pending_writer_authorization(execution, event):
     prefix = execution.events[:event.sequence]
     selected = [row for row in prefix if type(row) is t.BuildWriterEvidenceSelectionV2]
     if (type(event) is not NativeBuildWriterAuthorizedV2 or len(selected) != 1
-            or selected[0].mode != 'empty_catalog'
             or not (any(type(row) is t.BuildPriorBodyEvidenceAdmittedV3 for row in prefix)
                 or pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
-                or pending_app_writer_terminal(execution.model_copy(update={'events': prefix})))
+                or pending_app_writer_terminal(execution.model_copy(update={'events': prefix}))
+                or pending_native_terminal(execution.model_copy(update={'events': prefix})))
             or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.writer.identity()
             or event.native_read_event_ids != native_read_event_ids(prefix)
             or any(type(row) is NativeBuildWriterAuthorizedV2 for row in prefix)

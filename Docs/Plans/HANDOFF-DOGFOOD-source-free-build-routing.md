@@ -1524,3 +1524,25 @@ Rules lookup/reader evidence, current serving/reader integration and focused
 same-App SQL/full Send/live semantic/signed-in app/review/merge/deploy gates remain.
 No passing standalone loop result is a release/activation claim. PlanJevDriver
 and its leased expansion work remain untouched.
+
+
+Pending native writer closure slice plan: serial within4642, dependent on
+published acquisition loop. Reuse existing native body catalog/selection and
+writer evidence owners; pin writer_evidence_selection's pure native catalog
+extraction and pending terminal delegation, build_source_free/native_execution
+pending selection/authorization predicates, then exact pending service/runtime
+writer-selection and completion joins as required. No new citation semantics,
+legacy codec relaxation, PlanJevDriver or CLARIFICATION normalize_candidate edits.
+Validate actual nonempty SDK writer selection, writer/citation/readback and failure
+cases before main activation; physical SQL/live app gates remain mandatory.
+
+Writer-context checkpoint: the existing three-field semantic selection request
+omits dialogue. Pending native selection must bind the complete original captured
+conversation before activation. Extend only the new pending selection wire/proof
+with semantic conversation context compiled from the exact captured initial
+request; retain legacy three-field requests/byte proofs unchanged. Reuse/extract
+App's existing semantic history projection rather than reading current chat or
+adding host metadata. This is within the explicit long-chat objective; include
+request/proof/reader validation and failure tests with this same writer slice.
+
+Writer closure verification: 75 focused pending writer/acquisition/main-App cases pass (6.51s); the four nonempty selection cases also pass separately (3.90s). Actual mocked SDK writer completes a curly-quoted native claim, persists its native body citation and round-trips the stored Turn through the repository reader. Altered full-history input, revoked access and unknown selection fail closed. Evidence: /tmp/pending-writer-focused.xml and /tmp/pending-native-writer-completion-owned.xml pending durable retention against the committed SHA. In-memory Core/fake App/mock providers only; not physical SQL, live quality or serving qualification. Main native-loop activation and actual Rules recovery remain next.

@@ -2057,7 +2057,7 @@ def test_pending_harness_captures_actual_received_response_before_work_validatio
 
 
 @_pending_test_contextmanager
-def pending_app_runtime_case(monkeypatch, *, seed=None):
+def pending_app_runtime_case(monkeypatch, *, seed=None, initial_request_json=None):
     from types import SimpleNamespace, MethodType
     from datetime import UTC, datetime
     from apps.live_control_server.services.agent_turn_service import _ClaimFence, _PolicyExecutionAdapter
@@ -2068,7 +2068,7 @@ def pending_app_runtime_case(monkeypatch, *, seed=None):
     state = seed if seed is not None else pending_page_dispatch_harness(monkeypatch)[0]
     state.trace = TurnContextTraceV1(trace_id=uuid4(), world_id=state.turn.world_id,
         conversation_id=state.turn.conversation_id, turn_id=state.turn.turn_id, attempt=1,
-        started_at=datetime.now(UTC), execution_start_sequence=0, observations=[state.prompt] if seed is None else [])
+        started_at=datetime.now(UTC), execution_start_sequence=0, observations=[state.prompt] if seed is None or initial_request_json is not None else [])
     def query(sql, args):
         if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
             return state.leaf_query(sql, args)
@@ -2096,7 +2096,8 @@ def pending_app_runtime_case(monkeypatch, *, seed=None):
     import hashlib
     monkeypatch.setattr(agent_prompt_evidence, 'store_prompt', store)
     monkeypatch.setattr(agent_prompt_evidence, 'read_prompt', lambda ref:
-        state.initial_request if seed is None and str(ref.provider_attempt_id) == state.prompt['provider_attempt_id']
+        (state.initial_request if seed is None else initial_request_json)
+        if (seed is None or initial_request_json is not None) and str(ref.provider_attempt_id) == state.prompt['provider_attempt_id']
         else state.prompt_payloads[str(ref.evidence_id)])
     fence = _ClaimFence(state.service, state.turn, pending_build_access=state.authorize)
     adapter = SimpleNamespace(turn=state.turn, fence=fence, failure=None, trace=None,
@@ -4494,7 +4495,7 @@ def test_pending_native_materialization_checks_live_owner_and_never_reopens_repl
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
 
 
-@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context'])
+@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context', 'loop_selection', 'loop_selection_history', 'loop_selection_access', 'loop_selection_unknown'])
 def test_pending_guarded_direct_read_uses_public_core_with_original_real_authority(monkeypatch, mode):
     from types import SimpleNamespace
     from application_state.agent_conversation import native_corpus as bodies
@@ -4507,7 +4508,8 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
     from tests.test_native_corpus_source_access import lane, admit, BODY
     from tests.test_surface_native_execution import controller, outcomes, choice
     memory = lane.__wrapped__()
-    state, _ = settlement_harness(monkeypatch, with_source=True)
+    writer_mode = mode.startswith('loop_selection')
+    state = pending_page_dispatch_harness(monkeypatch)[0] if writer_mode else settlement_harness(monkeypatch, with_source=True)[0]
     section_mode = mode.startswith('section')
     source_body = ('# Maelthor\n\n' + state.turn.user_text + '\n\n# Elsewhere\n\nOther material.\n' if section_mode
                    else '# Check\n\nThe check revealed that Maelthor guards the ferry.\n' if mode in {'loop_objects', 'loop_objects_context'} else BODY)
@@ -4552,8 +4554,11 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
     receipt = seal_pending_receipt(payload | {'source_observation': observation.model_dump(mode='json', by_alias=True)})
     original_execution = state.turn.graph_context_execution
     policy = original_execution.policy.model_copy(update={'source_observation_sha256': t.canonical_sha256(observation)})
+    events = list(original_execution.events)
+    if writer_mode:
+        events[-1] = events[-1].model_copy(update={'pending_context_receipt_sha256': receipt.context_receipt_sha256, 'pages': ()})
     state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_receipt': receipt,
-        'graph_context_execution': pending_execution(receipt, policy, original_execution.events)}).model_dump_json(by_alias=True))
+        'graph_context_execution': pending_execution(receipt, policy, events)}).model_dump_json(by_alias=True))
     prepares, searches, opens = [], [], []
     def prepare(world, actual_principal, *, revision_id, resolve_identity):
         assert state.depth == 0 and actual_principal is principal
@@ -4597,7 +4602,7 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
             state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_execution':
                 execution.model_copy(update={'events': [*execution.events, auth, *outcomes(auth, auth.sequence + 1), selected]})
             }).model_dump_json(by_alias=True))
-        if mode in {'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context'}:
+        if writer_mode or mode in {'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context'}:
             import asyncio
             import httpx2
             from generationengine import GenerationEngineError
@@ -4610,6 +4615,12 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     body = json.loads(request.content)
                     step = len(calls)
                     calls.append(body)
+                    if writer_mode and 'sources' in body['state']:
+                        return httpx2.Response(200, request=request, json={'model': body['model'],
+                            'usage': {'input_tokens': 31, 'output_tokens': 5}, 'answers': {
+                                key: {'type': 'choice', 'choice': 'not_offered' if mode == 'loop_selection_unknown' else 'direct_support',
+                                    'confidence': 1, 'probabilities': {choice: float(choice == 'direct_support') for choice in question['criteria']}}
+                                for key, question in body['questions'].items()}})
                     wanted = ('Native Graph object' if mode in {'loop_objects', 'loop_objects_context'} and step == 0
                               else 'Explicit admitted full-source read' if mode not in {'section_loop', 'loop_objects', 'loop_objects_context'} and step == 0
                               else 'Source lexical navigation' if mode == 'section_loop' and step == 0
@@ -4625,7 +4636,8 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                             'probabilities': {key: float(key == chosen) for key in question['criteria']}}
                     return httpx2.Response(200, request=request, json={'model': body['model'],
                         'usage': {'input_tokens': 23, 'output_tokens': 4}, 'answers': answers})
-            with pending_app_runtime_case(monkeypatch, seed=state) as (_, runtime_adapter):
+            with pending_app_runtime_case(monkeypatch, seed=state,
+                    initial_request_json=state.initial_request if writer_mode else None) as (_, runtime_adapter):
                 runtime_adapter.native_corpus_context = context
                 runtime_adapter.native_source_authority = authority
                 runtime_adapter.native_query_context = adapter.native_query_context
@@ -4657,6 +4669,66 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     before = len(calls), len(opens)
                     assert run() == {} and (len(calls), len(opens)) == before
                     assert state.turn.graph_context_execution.events[-1].operation == 'finish_retrieval'
+                    if writer_mode:
+                        from apps.live_control_server.services.build_jev_writer_selection import WriterSelectionDriver
+                        from application_state.agent_conversation.native_writer import model_frame
+                        work = SimpleNamespace(_material=lambda: ((), (), ()))
+                        selector = WriterSelectionDriver(runtime_adapter, work, {'status': 'ready', 'reason': 'native_retrieval_finished'})
+                        assert selector.catalog and len(selector.state['conversation']['history']) == 60
+                        before = len(calls), len(opens)
+                        if mode == 'loop_selection_history': selector.state['conversation']['history'] = selector.state['conversation']['history'][1:]
+                        elif mode == 'loop_selection_access': state.denied = True
+                        if mode != 'loop_selection':
+                            from application_state.errors import ApplicationStateError
+                            with pytest.raises((GenerationEngineError, ApplicationStateError)):
+                                asyncio.run(harness._decide(runtime_adapter, selector))
+                            assert selector.receipt is None
+                            assert len(calls) == before[0] + int(mode == 'loop_selection_unknown') and len(opens) == before[1]
+                        else:
+                            asyncio.run(harness._decide(runtime_adapter, selector))
+                            assert selector.receipt.mode == 'jev' and len(calls) == before[0] + 1 and len(opens) == before[1]
+                            assert len(calls[-1]['state']['conversation']['history']) == 60
+                            frame = model_frame(state.turn.graph_context_receipt, state.turn.graph_context_execution)
+                            assert frame['native_body_evidence']['excerpts']
+                            import httpx
+                            from types import MethodType
+                            from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter, _turn_idempotency_key
+                            from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+                            from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+                            from application_state.agent_conversation.rules_authority_policy import rules_capability
+                            nonce = str(uuid4())
+                            runtime_adapter.request = SimpleNamespace(turn_id=nonce, surface=SimpleNamespace(surface_id='build'),
+                                message=state.turn.user_text, build_draft_context=None, build_write_capability=None)
+                            runtime_adapter.world_id, runtime_adapter.expected_conversation_id = state.turn.world_id, None
+                            runtime_adapter.submitted_intent = state.turn.graph_context_execution.policy.action.intent
+                            runtime_adapter.service = state.service
+                            runtime_adapter.budget['estimator'] = state.turn.graph_context_execution.policy.provider_input_accounting.estimator
+                            runtime_adapter.stop = MethodType(_PolicyExecutionAdapter.stop, runtime_adapter)
+                            state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={
+                                'idempotency_key': _turn_idempotency_key(state.turn.world_id, nonce)}).model_dump_json(by_alias=True))
+                            runtime_adapter.turn = state.turn
+                            runtime_adapter.fence.renewer.update_turn(state.turn)
+                            state.writer_trace = state.trace.model_dump(mode='json', by_alias=True)
+                            configure_pending_rules_storage(state)
+                            configure_pending_completion_storage(monkeypatch, state)
+                            rules = PlanRulesRuntime(runtime_adapter, rules_capability(graph=True))
+                            writer = PlanJevWriter(runtime_adapter, {}, rules, dialogue=dialogue)
+                            writers = []
+                            def reply(request):
+                                writers.append(json.loads(request.content))
+                                candidate = {'answer_segments': [{'kind': 'native_body_claim',
+                                    'text': 'The source says “Éphanna heard the guard.”', 'excerpt_handles': ['body0']}], 'limitations': []}
+                                return httpx.Response(200, request=request, json={'id': 'resp_pending_native', 'object': 'response',
+                                    'created_at': 1, 'model': writer.model, 'status': 'completed', 'output': [{'type': 'message',
+                                        'id': 'msg_pending_native', 'role': 'assistant', 'status': 'completed',
+                                        'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+                            monkeypatch.setenv('OPENAI_API_KEY', 'synthetic-only')
+                            completed = asyncio.run(writer.run(transport=httpx.MockTransport(reply)))
+                            assert completed.status == 'completed' and state.completions == 1 and len(writers) == 1
+                            assert 'Éphanna' in completed.assistant_text
+                            assert completed.completion.native_body_citations
+                            row, references = stored_row(completed)
+                            assert repository._turn_from_row(None, row, references=references) == completed
                 assert prepares == [observation.observed_head_revision_id] and len(searches) == 1
             return
         if 'navigation' in mode:
