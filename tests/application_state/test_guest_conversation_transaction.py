@@ -182,3 +182,28 @@ def test_guest_plan_selection_refuses_write_before_reservation():
     with pytest.raises(AgentTurnServiceError) as error:
         _require_guest_discussion_selection(adapter, "write_current_page")
     assert error.value.code == "guest_turn_capability_unavailable"
+
+
+@pytest.mark.parametrize('operation', ['retained_build_read', 'retained_build_writer'])
+def test_retained_build_paths_authorize_before_world_locks(application_state_dsn, monkeypatch, operation):
+    from application_state.agent_conversation.native_execution import NativeBuildWriterAuthorizedV2
+
+    def denied(_conn, *, read_only):
+        assert not read_only
+        raise ApplicationStateConflictError('guest session revoked')
+
+    def unexpected(*_args, **_kwargs):
+        pytest.fail('World/turn access ran before guest authorization')
+
+    monkeypatch.setattr(conversation.repo, 'lock_world_state', unexpected)
+    service = conversation.AgentConversationService(authorize_transaction=denied)
+    world, conversation_id, turn_id = 'guest-test', uuid4(), uuid4()
+    with pytest.raises(ApplicationStateConflictError, match='guest session revoked'):
+        if operation == 'retained_build_read':
+            service.admit_build_prior_body_evidence(world, conversation_id, turn_id,
+                expected_revision=1, expected_attempt=1, event_id=uuid4())
+        else:
+            service.authorize_native_writer(world, conversation_id, turn_id,
+                expected_revision=1, expected_attempt=1, expected_rules_revision=1,
+                authorization=NativeBuildWriterAuthorizedV2.model_construct(),
+                prepared_request_json='{}', work_proof={})

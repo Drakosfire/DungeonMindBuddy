@@ -4845,6 +4845,15 @@ export function WorldPlanAgentConversation({
       return;
     }
     if (isBuild) {
+      const guestBuildDiscussion = guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUILD_BUDDY === '1';
+      if (guestBuildDiscussion && !useWorldGraphForAsk) {
+        setError('Enable World context before asking Buddy about this page.');
+        return;
+      }
+      if (guestBuildDiscussion && (source?.dirty || composerReferences.length || explicitRequest || freshBuildRetry)) {
+        setError('Save the page and remove selected references before asking Buddy.');
+        return;
+      }
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
@@ -4883,7 +4892,7 @@ export function WorldPlanAgentConversation({
         requestRef.current = { token, scopeKey, fenceKey: fence };
         setSending(true);
         try {
-          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss',
+          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,guestBuildDiscussion||discussionOnly||explicitRequest?.reviewedKind==='discuss',
             freshBuildRetry?.context.author_interaction==='select_passage',!!freshBuildRetry?.context.reference_image_id,
             freshBuildRetry?.context.reference_image_id, !explicitRequest && !freshBuildRetry,
             !explicitRequest && !freshBuildRetry && !discussionOnly && !source.dirty);
@@ -4951,6 +4960,13 @@ export function WorldPlanAgentConversation({
       return;
     }
 
+    if (guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === '1'
+      && (!useWorldGraphForAsk || composerReferences.length)) {
+      setError(!useWorldGraphForAsk
+        ? 'Enable World context before asking Buddy about this session.'
+        : 'Remove selected references before asking Buddy about this session.');
+      return;
+    }
     if (!visible || !isReadOnly || !admittedRun || admittedRun.worldId !== verifiedWorldId
       || !historySnapshotRef.current || historyLoading || historyError || !message
       || sending || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
