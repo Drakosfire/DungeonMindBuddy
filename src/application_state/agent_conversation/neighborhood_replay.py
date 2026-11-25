@@ -83,6 +83,10 @@ def effective_retrieval_selections(execution, *, start, stop):
         for event in execution.get("events", [])
         if event.get("kind") in {"native_retrieval_selected_v1",
                                  "native_retrieval_selected_v2",
-                                 "plan_jev_retrieval_selected_v1"}
+                                 "plan_jev_retrieval_selected_v1",
+                                 "native_plan_opening_selected_v1",
+                                 "native_plan_opening_selected_v2",
+                                 "native_plan_opening_selected_v3"}
+        and event.get("operation") is not None
         and start <= event["sequence"] and (stop is None or event["sequence"] < stop)
     ]

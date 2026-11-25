@@ -24,3 +24,10 @@ verify UI display and unavailable state. Run affected backend contracts and the
 repository local frontend verifier on the exact head, independently review the
 cumulative diff, and retain any inherited diagnostic failures honestly. It does
 not establish intent-first routing or authorize a production data change.
+
+The Plan-opening correction is prepared in the same PR from the separate
+`Projects/.codex/trace-opening-fix/DungeonMindBuddy` checkout because the
+original checkout remains in use by the retained backend contract. Project
+opening versions 1–3 only when they contain an actual retrieval operation;
+inactive opening work is not a retrieval selection. Exact amended-head review
+and qualification remain required.

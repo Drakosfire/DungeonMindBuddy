@@ -242,3 +242,20 @@ def test_trace_reader_projects_durable_selections_into_the_correct_attempt(monke
     result = context_trace_store.TurnContextTraceStore().list_attempts(world_id='world', turn_id=turn)
     assert [(s.operation, s.selected_count) for s in result[0].effective_retrieval_selections] == [('select_candidates', 1)]
     assert [(s.operation, s.selected_count) for s in result[1].effective_retrieval_selections] == [('finish_retrieval', 0)]
+
+
+@pytest.mark.parametrize('version', (1, 2, 3))
+def test_plan_opening_selection_is_projected_only_when_a_read_plan_exists(version):
+    from application_state.agent_conversation.neighborhood_replay import effective_retrieval_selections
+
+    events = [
+        {'kind': f'native_plan_opening_selected_v{version}', 'sequence': 2,
+         'controller_attempt_id': 'active', 'operation': 'select_candidates',
+         'selected_handles': ['one', 'two']},
+        {'kind': f'native_plan_opening_selected_v{version}', 'sequence': 3,
+         'controller_attempt_id': 'inactive', 'operation': None, 'selected_handles': []},
+    ]
+    selections = effective_retrieval_selections({'events': events}, start=0, stop=4)
+    assert [(s.operation, s.selected_count, s.controller_attempt_id) for s in selections] == [
+        ('select_candidates', 2, 'active')]
+    assert not effective_retrieval_selections({'events': events}, start=3, stop=None)
