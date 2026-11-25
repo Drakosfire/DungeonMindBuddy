@@ -287,6 +287,9 @@ class BuildJevHarness:
                     return reference_driver.completed
                 except ApplicationStateConflictError as exc:
                     raise AgentTurnServiceError(str(exc), code="build_graph_reference_conflict", status_code=409) from exc
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            if type(adapter._broker_receipt()) is BuildPendingContextReceiptV1:
+                return self._native_completion(adapter, driver)
             capability = adapter.request.build_write_capability
             if capability is not None and capability.reference_image_id is not None and (
                 driver.operation != "propose_build_insertion" or adapter.native_source_authority is None

@@ -2196,3 +2196,21 @@ def test_pending_app_runtime_does_not_acquire_for_retained_or_source_free_work(l
     adapter = SimpleNamespace(_broker_receipt=lambda: receipt, _broker_execution=lambda: execution)
     # No claim, discovery, controller, source or page-read ports are available.
     asyncio.run(acquire_pending_app_pages(adapter, object()))
+
+
+def test_pending_harness_execute_routes_to_pending_completion_before_legacy_acquisition():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    receipt, _ = pending_execution_pair()
+    driver = SimpleNamespace(_interaction={'history': []}, _selection_intent=None,
+        selection=SimpleNamespace(typed_graph_reference=None))
+    routed, stopped = [], []
+    adapter = SimpleNamespace(native_source_authority=None,
+        create_build_jev_driver=lambda **kwargs: driver, _broker_receipt=lambda: receipt,
+        stop=lambda: stopped.append(True))
+    class Harness(BuildJevHarness):
+        def _native_completion(self, actual_adapter, actual_driver):
+            routed.append((actual_adapter, actual_driver))
+            return 'pending-completion-boundary'
+    assert Harness().execute(adapter) == 'pending-completion-boundary'
+    assert routed == [(adapter, driver)] and stopped == [True]

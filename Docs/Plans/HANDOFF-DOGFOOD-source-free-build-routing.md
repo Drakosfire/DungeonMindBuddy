@@ -209,6 +209,7 @@ explicit adapter/initial-driver branches currently being implemented:
   and pending initial-driver selection only.
 - build_jev_harness.configured_budget: host-only defer_related_pages option;
   _decide: exact pending-policy received-response capture before work validation.
+  execute: exact pending-receipt dispatch to _native_completion;
   _native_completion: pending App acquisition call before native retrieval only.
   New build_pending_app_pages.py owns that App-only runtime phase.
   No other harness behavior or whole-file reservation.
