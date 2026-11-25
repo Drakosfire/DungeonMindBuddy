@@ -556,3 +556,14 @@ def test_hosted_guest_world_bootstrap_is_session_bound_and_resettable(
     assert reenabled.status_code == 200
     assert first.get("/api/live/index-graph/graph").json()["world_id"] == rollback_graph
     assert repository.get_head(source_graph["world_id"]).head_revision_id == source_graph["revision_id"]
+
+
+def test_guest_entry_continues_past_previous_64_session_ceiling(application_state_dsn, local_client):
+    # Session creation is serialized and still bounded; no guest Worlds are
+    # allocated by this admission-only check.
+    assert sessions.MAX_ACTIVE_SESSIONS == 256
+    for _ in range(64):
+        sessions.create_session()
+    response = local_client.post('/api/live/index-graph/session')
+    assert response.status_code == 200, response.text
+    assert _session_count(application_state_dsn) == 65
