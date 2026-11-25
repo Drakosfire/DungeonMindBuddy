@@ -472,6 +472,7 @@
       "apps/live-control-ui/src/statblocks/publication/ThreatPublicationPanel.test.tsx",
       "apps/live-control-ui/src/statblocks/publication/threatPublicationSession.test.ts",
       "apps/live-control-ui/src/statblocks/render/StatblockRenderer.test.tsx",
+      "apps/live-control-ui/src/statblocks/render/StatblockRenderer.wwn.test.tsx",
       "apps/live-control-ui/src/statblocks/revision/SavedMechanicsRevisionEditor.test.tsx",
       "apps/live-control-ui/src/statblocks/revision/statblockRevisionAttempt.test.ts",
       "apps/live-control-ui/src/statblocks/savedStatblockLocation.test.ts",
