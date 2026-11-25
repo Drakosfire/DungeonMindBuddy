@@ -88,4 +88,6 @@ it("opens the prepared adventure Plan for a fresh guest", async () => {
   }));
   window.history.replaceState({},"","/plan"); render(<App />);
   await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Explore the funhouse."),{timeout:10000});
+  expect(screen.queryByText("UNSAVED PLAN DRAFT")).not.toBeInTheDocument();
+  expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
 }, 20000);

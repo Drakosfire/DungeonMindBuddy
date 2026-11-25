@@ -874,6 +874,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           updatePresentation(localPresentation);
           setComposing(Boolean(localPresentation || savedPresentation));
           documentIdRef.current = resolvedDocumentId;
+          setDocumentId(resolvedDocumentId);
           revisionRef.current = snapshot.loaded_revision;
           titleRef.current = nextTitle;
           markdownRef.current = nextMarkdown;
