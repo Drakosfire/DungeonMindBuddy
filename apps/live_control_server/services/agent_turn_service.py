@@ -7097,6 +7097,53 @@ def _pending_build_app_access(world_id, authorize_world):
     return authorize
 
 
+def _pending_build_startup_eligible(request, *, principal, durable_turn, authorize_world):
+    """Pure request/owner-family selection; no metadata or content reads."""
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    retained = getattr(durable_turn, 'graph_context_receipt', None)
+    pending_retained = type(retained) is BuildPendingContextReceiptV1
+    if not _governed_build_turn(request):
+        return False
+    eligible = (callable(authorize_world) and principal is not None and principal.role == 'gm'
+        and (pending_retained or durable_turn is None and request.retry_of is None
+            and request.reviewed_step is None and request.build_authored_references is None
+            and request.selected_knowledge is None and request.graph_selection is None
+            and request.graph_request.focus.kind == 'none'))
+    if not eligible:
+        if pending_retained:
+            raise AgentTurnServiceError('The retained pending Build access owner is unavailable.',
+                code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
+        return False
+    return True
+
+
+def _prepare_pending_build_startup(request, *, world_id, principal, durable_turn, authorize_world):
+    """Observe only after owning work resolution, without acquiring source content."""
+    if not _pending_build_startup_eligible(request, principal=principal,
+            durable_turn=durable_turn, authorize_world=authorize_world):
+        return None, None, None
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    retained = getattr(durable_turn, 'graph_context_receipt', None)
+    pending_retained = type(retained) is BuildPendingContextReceiptV1
+    if authorize_world(world_id) is not None:
+        raise AgentTurnServiceError('Current World access does not authorize pending Build.',
+            code='native_source_access_denied', status_code=403, provider_dispatched=False)
+    if pending_retained:
+        if retained.source_observation.managed_world_id != world_id:
+            raise AgentTurnServiceError('The retained Build belongs to another World.',
+                code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
+        observed, conversation = retained.source_observation, retained.conversation_observation
+    else:
+        from ..integrations.dungeonmind.native_corpus_source import observe_build_source_pointer
+        observed = observe_build_source_pointer(managed_world_id=world_id, principal=principal,
+            revision_id=request.graph_request.revision_pin)
+        conversation = None
+    if authorize_world(world_id) is not None:
+        raise AgentTurnServiceError('Current World access changed during Build observation.',
+            code='native_source_access_denied', status_code=403, provider_dispatched=False)
+    return observed, conversation, _pending_build_app_access(world_id, authorize_world)
+
+
 def execute_agent_turn(
     request: AgentTurnRequest,
     *,
@@ -7242,7 +7289,10 @@ def execute_agent_turn(
             status_code=410,
             provider_dispatched=False,
         )
-    native_surface_sources = ((request.surface.surface_id == "plan" and request.plan_context_policy is not None
+    pending_build = _pending_build_startup_eligible(request, principal=native_principal,
+        durable_turn=durable_turn, authorize_world=authorize_build_world)
+    pending_build_observation = pending_build_conversation = pending_build_access = None
+    native_surface_sources = pending_build or ((request.surface.surface_id == "plan" and request.plan_context_policy is not None
         or _governed_build_turn(request)
         or request.surface.surface_id=='play' and _governed_graph_turn(request))
         and (durable_turn is None or isinstance(durable_turn.graph_context_receipt,
@@ -7656,7 +7706,14 @@ def execute_agent_turn(
         None if request.graph_selection is None else request.graph_selection.node_id
     )
     policy_bootstrap: AgentPlanWorldGraphBootstrap | None = None
-    if native_surface_sources:
+    if pending_build:
+        pending_build_observation, pending_build_conversation, pending_build_access = _prepare_pending_build_startup(
+            request, world_id=canonical_world_id, principal=native_principal, durable_turn=durable_turn,
+            authorize_world=authorize_build_world)
+        # Only public head/binding metadata was observed. No native authority,
+        # Graph query or related-page catalog exists before the work decision.
+        graph_result = {"status": "not_requested", "selection_found": None}
+    elif native_surface_sources:
         from .plan_source_turn import prepare, prepare_selective_query
         if native_principal is None or native_principal.role != "gm":
             raise AgentTurnServiceError("Plan source inspection requires GM authority.",
@@ -8153,8 +8210,13 @@ def execute_agent_turn(
                 "The selected Agent Harness cannot authorize provider requests.",
                 code="plan_graph_execution_unavailable", status_code=503,
             )
-        budget = (selected_runtime.configured_budget(request) if isinstance(selected_runtime, (BuildJevHarness, PlanJevHarness))
+        budget = (selected_runtime.configured_budget(request, defer_related_pages=True)
+            if pending_build and isinstance(selected_runtime, BuildJevHarness)
+            else selected_runtime.configured_budget(request) if isinstance(selected_runtime, (BuildJevHarness, PlanJevHarness))
             else _policy_request_budget())
+        if pending_build and not isinstance(selected_runtime, BuildJevHarness):
+            raise AgentTurnServiceError('The selected runtime cannot own pending Build.',
+                code='build_jev_runtime_unavailable', status_code=503, provider_dispatched=False)
         admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
             service=conversation_service,
@@ -8185,6 +8247,9 @@ def execute_agent_turn(
             native_source_authority=native_source_authority,
             native_principal=native_principal,
             native_query_context=native_query_context, native_query=native_query,
+            **({'pending_build_source_observation': pending_build_observation,
+                'pending_build_conversation_observation': pending_build_conversation,
+                'pending_build_access': pending_build_access} if pending_build else {}),
         )
         if isinstance(selected_runtime, BuildJevHarness):
             adapter.prepare_deferred_build_query = prepare_deferred_build_query

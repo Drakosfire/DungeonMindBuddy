@@ -1889,3 +1889,86 @@ def test_agent_route_injects_existing_live_conversation_authorizer(monkeypatch):
     monkeypatch.setattr(route, 'execute_agent_turn', backend)
     assert route._execute_agent_turn(body, request) == {'checked': True}
     assert calls == ['world-one', 'world-one']
+
+
+def pending_startup_case():
+    from types import SimpleNamespace
+    kwargs = pending_runtime_freeze_case()
+    request, intent = kwargs['request'], kwargs['submitted_intent']
+    request.primary_work, request.graph_request = intent.primary_work, intent.graph_request
+    request.retry_of = request.reviewed_step = request.selected_knowledge = request.graph_selection = None
+    principal = SimpleNamespace(role='gm', managed_world_id=intent.world_id)
+    return kwargs, request, principal
+
+
+def test_pending_startup_observes_metadata_between_live_access_checks(monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    kwargs, request, principal = pending_startup_case()
+    calls = []
+    def authorize(world):
+        calls.append(('access', world))
+    def observe(**fields):
+        calls.append(('metadata', fields))
+        return kwargs['source_observation']
+    monkeypatch.setattr(native_corpus_source, 'observe_build_source_pointer', observe)
+    observed, conversation, access = _prepare_pending_build_startup(request,
+        world_id=kwargs['submitted_intent'].world_id, principal=principal, durable_turn=None, authorize_world=authorize)
+    assert observed == kwargs['source_observation'] and conversation is None and callable(access)
+    assert [kind for kind, _ in calls] == ['access', 'metadata', 'access']
+    assert calls[1][1] == {'managed_world_id': principal.managed_world_id,
+        'principal': principal, 'revision_id': request.graph_request.revision_pin}
+
+
+@pytest.mark.parametrize('reason', ['references', 'reviewed', 'selected_knowledge', 'graph_selection', 'retry', 'no_owner', 'not_gm'])
+def test_pending_startup_keeps_explicit_or_unowned_requests_on_their_original_path(monkeypatch, reason):
+    from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    kwargs, request, principal = pending_startup_case()
+    monkeypatch.setattr(native_corpus_source, 'observe_build_source_pointer', lambda **fields: pytest.fail('Ineligible request observed a new source'))
+    if reason == 'references':
+        request.build_authored_references = object()
+    elif reason == 'reviewed':
+        request.reviewed_step = object()
+    elif reason == 'selected_knowledge':
+        request.selected_knowledge = object()
+    elif reason == 'graph_selection':
+        request.graph_selection = object()
+    elif reason == 'retry':
+        request.retry_of = uuid4()
+    elif reason == 'not_gm':
+        principal.role = 'player'
+    result = _prepare_pending_build_startup(request, world_id=kwargs['submitted_intent'].world_id,
+        principal=principal, durable_turn=None, authorize_world=None if reason == 'no_owner' else lambda world: None)
+    assert result == (None, None, None)
+
+
+def test_retained_pending_startup_reuses_original_observations_without_reopening_source(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup
+    from apps.live_control_server.services.plan_source_turn import freeze_build
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    kwargs, request, principal = pending_startup_case()
+    receipt, _, _ = freeze_build(**kwargs)
+    monkeypatch.setattr(native_corpus_source, 'observe_build_source_pointer', lambda **fields: pytest.fail('Retained source was refreshed'))
+    observed, conversation, access = _prepare_pending_build_startup(request, world_id=principal.managed_world_id,
+        principal=principal, durable_turn=SimpleNamespace(graph_context_receipt=receipt), authorize_world=lambda world: None)
+    assert observed == receipt.source_observation and conversation == receipt.conversation_observation and callable(access)
+
+
+@pytest.mark.parametrize('deny_after_metadata', [False, True])
+def test_pending_startup_refuses_denied_or_revoked_world_before_dispatch(monkeypatch, deny_after_metadata):
+    from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup, AgentTurnServiceError
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    kwargs, request, principal = pending_startup_case()
+    state = {'observed': 0}
+    def observe(**fields):
+        state['observed'] += 1
+        return kwargs['source_observation']
+    def authorize(world):
+        return None if deny_after_metadata and state['observed'] == 0 else False
+    monkeypatch.setattr(native_corpus_source, 'observe_build_source_pointer', observe)
+    with pytest.raises(AgentTurnServiceError) as error:
+        _prepare_pending_build_startup(request, world_id=principal.managed_world_id,
+            principal=principal, durable_turn=None, authorize_world=authorize)
+    assert error.value.status_code == 403 and state['observed'] == int(deny_after_metadata)

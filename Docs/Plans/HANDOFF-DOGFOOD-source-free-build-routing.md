@@ -600,3 +600,15 @@ no permission semantics or auth middleware are changed. The App adapter rechecks
 that owner and validates World-local PagePointer/PageReference inputs, rejecting
 native authority/query tuples. This is a host capability, never an HTTP/model
 field; startup selection remains a separate integration step.
+
+
+## Current lease addition: pending startup selection
+
+Pin _prepare_pending_build_startup and exact pending branches in
+execute_agent_turn: observe metadata instead of native preparation, choose the
+deferred Build budget and inject captured observations/live App access into the
+adapter. Select only fresh governed unreferenced Build under an explicit live
+World authorizer and GM principal, or the exact retained pending codec. Preserve
+legacy/Plan/Play and explicit-reference paths; retained pending observations are
+never refreshed. This draft wiring is not release activation: downstream later
+phases/writer/readers/fence and focused full-Send/app proof remain incomplete.
