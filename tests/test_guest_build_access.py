@@ -32,6 +32,20 @@ def test_guest_play_routes_require_both_flags(monkeypatch):
     assert not matches_guest_build_route("DELETE", "/api/live/world-play-runs/v2")
 
 
+def test_guest_conversation_plan_revision_requires_both_flags(monkeypatch):
+    from apps.live_control_server.services.guest_build_access import matches_guest_build_route
+    path = "/api/live/workspace-documents/11111111-1111-4111-8111-111111111111/committed-revision"
+    monkeypatch.delenv("DMB_HOSTED_GUEST_PLAY_ENABLED", raising=False)
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
+    monkeypatch.delenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", raising=False)
+    assert not matches_guest_build_route("GET", path)
+    monkeypatch.setenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", "1")
+    assert matches_guest_build_route("GET", path)
+    assert not matches_guest_build_route("POST", path)
+    monkeypatch.delenv("DMB_HOSTED_GUEST_PLAN_ENABLED", raising=False)
+    assert not matches_guest_build_route("GET", path)
+
+
 def test_guest_media_routes_are_default_off(monkeypatch):
     from apps.live_control_server.services.guest_build_access import matches_guest_build_route
     monkeypatch.delenv("DMB_HOSTED_GUEST_MEDIA_ENABLED", raising=False)
@@ -399,6 +413,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_ENABLED', '1')
     monkeypatch.setenv('DMB_HOSTED_GUEST_PLAN_ENABLED', '1')
     monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    monkeypatch.delenv('DMB_HOSTED_GUEST_PLAY_ENABLED', raising=False)
     monkeypatch.setenv('DMB_HOSTED_GUEST_TURN_ENABLED', '1')
     monkeypatch.setenv('DMB_GUEST_GRAPH_SOURCE_SPACE', lane.world.world_id)
     monkeypatch.setenv('DMB_GUEST_GRAPH_SOURCE_REVISION', lane.repo.get_head(lane.world.world_id).head_revision_id)
@@ -453,6 +468,8 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     snapshot = client.get(f'/api/live/workspace-documents/{document}/snapshot')
     assert snapshot.status_code == 200, snapshot.text
     assert 'Investigate the report.' in snapshot.json()['markdown']
+    revision = client.get(f'/api/live/workspace-documents/{document}/committed-revision')
+    assert revision.status_code == 200, revision.text
 
     class Decisions(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, req):
@@ -579,6 +596,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert other_session.status_code == 200
     other_world = other.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': other_session.json()['csrf_token']})
     assert other_world.status_code == 200
+    assert other.get(f'/api/live/workspace-documents/{document}/committed-revision').status_code == 403
     other_headers = {'X-DMB-Index-Graph-CSRF': other_session.json()['csrf_token']}
     other_conversation = other.post(f"/api/live/agent/worlds/{other_world.json()['world_id']}/conversation/new",
         headers=other_headers, json={'command_id': str(uuid4()), 'expected_pointer_revision': 0,

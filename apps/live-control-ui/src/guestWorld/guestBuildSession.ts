@@ -33,6 +33,7 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
       /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}\/committed-revision(?:\/[1-9][0-9]*)?$/.test(pathname));
   const read = method === "GET" && (pathname === "/api/live/workspace-documents/pages/inventory"
     || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && (pathname === "/api/live/workspace-documents/world-plans" || pathname === "/api/live/plan-view")
+    || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" && /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}\/committed-revision(?:\/[1-9][0-9]*)?$/.test(pathname)
     || /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}(?:\/snapshot)?$/.test(pathname));
   const write = method === "POST" && (pathname === "/api/live/workspace-documents"
     || pathname === "/api/live/tiptap/markdown-write/prepare" || pathname === "/api/live/tiptap/markdown-write/commit"

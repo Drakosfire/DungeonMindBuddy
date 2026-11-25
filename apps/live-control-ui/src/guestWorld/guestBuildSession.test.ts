@@ -6,6 +6,7 @@ afterEach(() => { clearGuestBuildSession(); vi.unstubAllGlobals(); vi.unstubAllE
 describe("guest Build session", () => {
   it("scopes Buddy transport to the active guest World when enabled", async () => {
     vi.stubEnv("VITE_HOSTED_GUEST_BUDDY", "1");
+    vi.stubEnv("VITE_HOSTED_GUEST_PLAN", "1");
     const world = `guest-${"a".repeat(32)}`;
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(Response.json({ csrf_token: "guest-token" }))
@@ -13,6 +14,7 @@ describe("guest Build session", () => {
     await openGuestBuildWorld(new AbortController().signal);
     const path = `/api/live/agent/worlds/${world}/conversation`;
     expect(guestBuildRequestEpoch(path, "GET")).not.toBeNull();
+    expect(guestBuildRequestEpoch('/api/live/workspace-documents/11111111-1111-4111-8111-111111111111/committed-revision', 'GET')).not.toBeNull();
     expect(guestBuildRequestEpoch(`/api/live/agent/worlds/${world}/conversations/active/messages?limit=50`, "GET")).not.toBeNull();
     expect(guestBuildRequestEpoch(`${path}/turns/11111111-1111-4111-8111-111111111111/source-passages/0`, "GET")).not.toBeNull();
     expect(guestBuildRequestEpoch(`${path}/turns/11111111-1111-4111-8111-111111111111/context-trace`, "GET")).toBeNull();

@@ -132,6 +132,10 @@ async def admit_guest_conversation_request(request: Request) -> str:
 
 
 def matches_guest_build_route(method: str, path: str) -> bool:
+    if (method == "GET" and _PLAN_REVISION.fullmatch(path)
+            and os.getenv("DMB_HOSTED_GUEST_PLAN_ENABLED") == "1"
+            and os.getenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED") == "1"):
+        return True
     if os.getenv("DMB_HOSTED_GUEST_MEDIA_ENABLED") == "1":
         if (method == "GET" and (path in {_MEDIA_ROOT + "/capabilities", _MEDIA_ROOT + "/library"} or _MEDIA_ASSET.fullmatch(path))
                 or method == "POST" and path == _MEDIA_ROOT + "/generate"):
