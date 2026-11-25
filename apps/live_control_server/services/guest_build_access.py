@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import os
 from uuid import UUID
 
 from fastapi import HTTPException, Request
@@ -19,6 +20,8 @@ _DOCUMENT = re.compile(r"^/api/live/workspace-documents/([0-9a-f-]{36})(/snapsho
 _WRITE = frozenset({"/api/live/tiptap/markdown-write/prepare", "/api/live/tiptap/markdown-write/commit"})
 _INVENTORY = "/api/live/workspace-documents/pages/inventory"
 _CREATE = "/api/live/workspace-documents"
+_PLANS = "/api/live/workspace-documents/world-plans"
+_PLAN_VIEW = "/api/live/plan-view"
 MAX_GUEST_PAGES = 32
 MAX_GUEST_REVISIONS = 256
 MAX_GUEST_SAVED_BYTES = 16 * 1024 * 1024
@@ -26,7 +29,9 @@ MAX_GUEST_SAVED_BYTES = 16 * 1024 * 1024
 
 def matches_guest_build_route(method: str, path: str) -> bool:
     return ((method == "GET" and (path == _INVENTORY or _DOCUMENT.fullmatch(path) is not None))
-            or (method == "POST" and (path == _CREATE or path in _WRITE)))
+            or (method == "POST" and (path == _CREATE or path in _WRITE))
+            or (os.getenv("DMB_HOSTED_GUEST_PLAN_ENABLED") == "1" and
+                ((method == "GET" and path in {_PLANS, _PLAN_VIEW}) or (method == "POST" and path == _PLANS))))
 
 
 def require_guest_build_world(request: Request, world_id: str) -> None:
@@ -47,7 +52,7 @@ def require_guest_build_world(request: Request, world_id: str) -> None:
         raise HTTPException(403, detail={"code": "guest_world_forbidden"})
 
 
-def _document_world(document_id: str) -> str:
+def _document_world(document_id: str) -> tuple[str, str]:
     from apps.live_control_server.config import repo_root
     from apps.live_control_server.services.workspace_document_registry import get_workspace_document, WorkspaceDocumentRegistryError
     try:
@@ -56,15 +61,17 @@ def _document_world(document_id: str) -> str:
         record = get_workspace_document(repo_root(), document_id)
     except (ValueError, WorkspaceDocumentRegistryError):
         raise HTTPException(403, detail={"code": "guest_document_forbidden"}) from None
-    if record.kind != "worldbuilding_source" or not record.world_id or record.campaign_id != record.world_id:
+    if not record.world_id or not ((record.kind == "worldbuilding_source" and record.campaign_id == record.world_id)
+                                   or (os.getenv("DMB_HOSTED_GUEST_PLAN_ENABLED") == "1" and record.kind == "plan" and record.campaign_id is None)):
         raise HTTPException(403, detail={"code": "guest_document_forbidden"})
-    return record.world_id
+    return record.world_id, record.kind
 
 
 async def admit_guest_build_request(request: Request) -> str:
     """Authorize only the selected existing Build APIs for one guest World."""
     from apps.live_control_server.services import hosted_auth
     from apps.live_control_server.services.workspace_document_registry import CreateWorkspaceDocumentRequest
+    from apps.live_control_server.services.workspace_document_registry import CreateWorldOwnedPlanRequestV2
     from apps.live_control_server.services.tiptap_markdown_write import TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest
 
     require_index_graph_boundary(request, unsafe=request.method != "GET")
@@ -95,6 +102,16 @@ async def admit_guest_build_request(request: Request) -> str:
                     or await request.body()):
                 raise HTTPException(403, detail={"code": "guest_world_forbidden"})
             request.state.hosted_build_page_inventory_world = world_id
+        elif path in {_PLANS, _PLAN_VIEW}:
+            if request.method == "GET":
+                allowed = {"world_id"} if path == _PLANS else {"world_id", "scope_mode"}
+                if set(key for key, _ in query) != allowed or request.query_params.get("world_id") != world_id or (path == _PLAN_VIEW and request.query_params.get("scope_mode") != "world") or await request.body():
+                    raise HTTPException(403, detail={"code": "guest_world_forbidden"})
+            else:
+                body = CreateWorldOwnedPlanRequestV2.model_validate(await request.json())
+                if query or body.world_id != world_id:
+                    raise HTTPException(403, detail={"code": "guest_world_forbidden"})
+            request.state.hosted_plan_context_world = world_id
         elif path == _CREATE:
             create = CreateWorkspaceDocumentRequest.model_validate(await request.json())
             if (query or create.world_id != world_id or create.campaign_id != world_id
@@ -106,15 +123,19 @@ async def admit_guest_build_request(request: Request) -> str:
         elif path in _WRITE:
             model = TiptapMarkdownWritePrepareRequest if path.endswith("/prepare") else TiptapMarkdownWriteCommitRequest
             body = model.model_validate(await request.json())
-            if query or body.world_id is not None or await run_in_threadpool(_document_world, body.document_id) != world_id:
+            document_world, kind = await run_in_threadpool(_document_world, body.document_id)
+            if query or document_world != world_id or (kind == "worldbuilding_source" and body.world_id is not None) or (kind == "plan" and body.world_id != world_id):
                 raise HTTPException(403, detail={"code": "guest_document_forbidden"})
             request.state.hosted_build_page_world = world_id
+            if kind == "plan": request.state.hosted_plan_context_world = world_id
         else:
             match = _DOCUMENT.fullmatch(path)
-            if (match is None or (query and not (match.group(2) and query == [("view", "committed")]))
-                    or await request.body() or await run_in_threadpool(_document_world, match.group(1)) != world_id):
+            if match is None or (query and not (match.group(2) and query == [("view", "committed")])) or await request.body():
                 raise HTTPException(403, detail={"code": "guest_document_forbidden"})
+            document_world, kind = await run_in_threadpool(_document_world, match.group(1))
+            if document_world != world_id: raise HTTPException(403, detail={"code": "guest_document_forbidden"})
             request.state.hosted_build_page_world = world_id
+            if kind == "plan": request.state.hosted_plan_context_world = world_id
     except (ValidationError, ValueError, TypeError):
         raise HTTPException(400, detail={"code": "invalid_guest_request"}) from None
     await run_in_threadpool(require_guest_build_world, request, world_id)
@@ -138,7 +159,7 @@ def guest_write_capacity(request: Request, conn, world_id: str, *, creating: boo
     conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", ("guest-build:" + world_id,))
     if creating:
         pages = conn.execute(
-            "SELECT count(*) FROM content.work_object WHERE world_id = %s AND kind = 'worldbuilding_source'",
+            "SELECT count(*) FROM content.work_object WHERE world_id = %s AND kind IN ('worldbuilding_source', 'plan')",
             (world_id,),
         ).fetchone()[0]
         if pages >= MAX_GUEST_PAGES:
@@ -147,7 +168,7 @@ def guest_write_capacity(request: Request, conn, world_id: str, *, creating: boo
         revisions, total = conn.execute(
             "SELECT count(*), coalesce(sum(octet_length(r.markdown)), 0) "
             "FROM content.work_revision r JOIN content.work_object o ON o.work_object_id = r.work_object_id "
-            "WHERE o.world_id = %s AND o.kind = 'worldbuilding_source'", (world_id,),
+            "WHERE o.world_id = %s AND o.kind IN ('worldbuilding_source', 'plan')", (world_id,),
         ).fetchone()
         if revisions >= MAX_GUEST_REVISIONS or total + content_bytes > MAX_GUEST_SAVED_BYTES:
             raise ApplicationStateConflictError("This guest World has reached its saved content limit")
