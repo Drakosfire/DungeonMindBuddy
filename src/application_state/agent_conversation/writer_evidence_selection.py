@@ -376,13 +376,20 @@ def native_conversation_terminal(turn):
         return None
     events = turn.graph_context_execution.events
     admissions = [event for event in events if isinstance(event, BuildPriorBodyEvidenceAdmittedV1)]
-    work = prior_conversation_work(events, allow_discussion=any(isinstance(event, BuildPriorBodyEvidenceAdmittedV3) for event in admissions))
+    from .native_context import BuildPendingContextReceiptV1
+    from .build_source_free import pending_retained_work
+    work = (pending_retained_work(turn.graph_context_execution)
+            if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+            else prior_conversation_work(events, allow_discussion=any(
+                isinstance(event, BuildPriorBodyEvidenceAdmittedV3) for event in admissions)))
     if work is None or len(admissions) != 1 or admissions[0].work_event_id != work.event_id:
         return None
     reason = ("native_lore_page_from_conversation_with_open_questions"
               if work.resolution.get("source_scope") == "uncertain" else "native_lore_page_from_conversation")
     if work.requested_work == "discuss":
         reason = "native_discussion_from_conversation"
+    elif work.requested_work == "draft_in_conversation":
+        reason = "native_draft_from_conversation"
     return {"status": "ready", "reason": reason}
 
 
