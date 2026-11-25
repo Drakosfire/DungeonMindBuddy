@@ -5,13 +5,13 @@ export type TraceTab = 'evidence' | 'timeline' | 'prompt' | 'diagnostics';
 export const TraceTabContext = createContext<TraceTab | null>(null);
 export function TraceEvidence({ children }: { children: ReactNode }) {
   const tab = useContext(TraceTabContext);
-  return <div hidden={tab !== null && tab !== 'evidence'}>{children}</div>;
+  return <div hidden={tab !== null && tab !== 'evidence'}>{children}{!traceAvailable && tab !== 'evidence' && <p>Trace capture is unavailable for this conversation.</p>}</div>;
 }
 
 /** One disclosure for a reply. Saved text and independently owned actions never wait for it. */
-export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load, showSources = false, reviewLabel, children }: {
+export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load, showSources = false, reviewLabel, traceAvailable = true, children }: {
   id: string; open: boolean; onOpenChange: (open: boolean) => void; loaded: boolean;
-  load: (signal: AbortSignal) => Promise<void>; showSources?: boolean; reviewLabel?: string; children: ReactNode;
+  load: (signal: AbortSignal) => Promise<void>; showSources?: boolean; reviewLabel?: string; traceAvailable?: boolean; children: ReactNode;
 }) {
   const [tab, setTab] = useState<TraceTab>('evidence');
   const tabs: [TraceTab, string][] = [['evidence', 'Evidence'], ['timeline', 'Execution timeline'], ['prompt', 'Prompt'], ['diagnostics', 'Diagnostics']];
@@ -64,7 +64,7 @@ export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load,
         }}>{label}</button>)}
     </div>
     <TraceTabContext.Provider value={tab}>
-      <div role="tabpanel" id={`${tabId}-panel`} aria-labelledby={`${tabId}-${tab}`}>{children}</div>
+      <div role="tabpanel" id={`${tabId}-panel`} aria-labelledby={`${tabId}-${tab}`}>{children}{!traceAvailable && tab !== 'evidence' && <p>Trace capture is unavailable for this conversation.</p>}</div>
     </TraceTabContext.Provider>
     {open && busy && <p role="status">Loading reply details…</p>}
     {open && error && <div>

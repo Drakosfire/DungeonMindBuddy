@@ -6733,7 +6733,7 @@ export function WorldPlanAgentConversation({
     const open = Boolean(openedTraceTurns[key]);
     return <ConversationReplyDetails key={`details:${scopeKey}:${turn.turn_id}`} id={`buddy-details-${turn.turn_id}`}
       open={open} onOpenChange={next => setOpenedTraceTurns(current => current[key] === next ? current : {...current, [key]: next})}
-      loaded={loaded} load={signal => inspectSavedMessage(turn, signal)} reviewLabel={savedReview ? 'Review new page' : undefined}
+      loaded={loaded} traceAvailable={!guestBuildActive()} load={signal => inspectSavedMessage(turn, signal)} reviewLabel={savedReview ? 'Review new page' : undefined}
       showSources={Boolean(!previewReady && turn.assistant_text && turn.lifecycle_status === 'completed' && !buildCompose.items.some(item => item.originTurnId === turn.turn_id))}>
       {open && buildCompose.items.find(item => item.originTurnId === turn.turn_id)?.details}
       {!guestBuildActive() && verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open} replyDetails
