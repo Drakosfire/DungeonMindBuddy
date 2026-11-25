@@ -153,7 +153,11 @@ def prepare_pending_native_source(adapter):
             return False
         from application_state.agent_conversation.build_related_pages import RelatedPageRead
         if any(type(event) is RelatedPageRead for event in execution.events):
-            return False
+            from application_state.agent_conversation.build_pending_app_coverage import BuildAppCoverageDecidedV1
+            decisions = [event for event in execution.events if type(event) is BuildAppCoverageDecidedV1]
+            if len(decisions) != 1 or decisions[0].verdict != 'native_sources_required':
+                return False
+            pending_source_work(execution)
     owner = adapter.pending_build_source_preparation
     if type(owner) is not PendingBuildSourcePreparation:
         raise ValueError('Pending native preparation has no current host owner')

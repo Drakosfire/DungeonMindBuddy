@@ -1175,3 +1175,36 @@ The main _native_completion harness remains unactivated for this new coverage
 path pending integrated review/testing. Source-needed native continuation, fresh
 HTTP POST/backend Rules, current reader fence, real SQL/full-Send and signed-in
 source/page create/save/reopen/citation/latency/deployment gates remain open.
+
+
+## Main Build coverage activation continuation
+
+ACTIVE same App-backed routing capability: _native_completion calls guarded App
+coverage immediately after selected saved reads and before Core preparation.
+prepare_pending_native_source skips sufficient verdicts and permits only the
+existing actual owner for native_sources_required. No evidence is inferred from
+a read alone. Focused main-harness fixture reuses actual App/coverage/writer SDK
+ports and existing fake Rules/completion stores; verify stored readback and
+unknown/source-needed failures. This is local integrated code activation, not
+production deployment or complete native continuation qualification.
+
+Main harness checkpoint:13 focused checks passed4.09s. The real
+BuildJevHarness._native_completion now performs App acquisition→guarded coverage→
+empty optional selection→Rules/writer SDK→completion/readback. Its sufficient
+case uses one exact page read, two controller calls after the pre-admitted work
+and one writer call; a forbidden native retrieval constructor proves it does not
+fall through to native acquisition. Full captured dialogue reaches the writer.
+Unknown coverage delivery and native-needed without an actual host owner stop
+before writing. Native-needed now reaches only the existing typed preparation
+owner after its coverage gate. The positive native Core retrieval/writer
+continuation remains unqualified.
+
+Existing Rules and completion storage doubles were factored for reuse rather
+than pre-authorizing/pre-selecting the integrated writer. Initial fixture runs
+exposed missing captured Rules capability and estimator, both supplied from the
+actual owning contracts; no production relaxation was made. Affected App,
+retained and source-free writer/Rules controls remain green. These are actual SDK
+calls through synthetic transports/fake App stores, not fresh HTTP startup,
+PostgreSQL, real model semantics or signed-in production acceptance. Current
+serving fence, source-needed continuation, same-App SQL/full-Send and complete
+page create/save/reopen/citation/latency/semantic-support delivery remain open.

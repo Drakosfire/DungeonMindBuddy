@@ -545,6 +545,8 @@ class BuildJevHarness:
         admit_pending_conversation(adapter)
         from .build_pending_app_pages import acquire_pending_app_pages
         asyncio.run(acquire_pending_app_pages(adapter, self))
+        from .build_pending_app_coverage import assess_pending_app_coverage
+        asyncio.run(assess_pending_app_coverage(adapter, self))
         from .build_pending_source import prepare_pending_native_source
         prepare_pending_native_source(adapter)
         from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1

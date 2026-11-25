@@ -2073,6 +2073,7 @@ def pending_app_runtime_case(monkeypatch):
         assert binding['expected_revision'] == state.turn.revision
         state.trace = TurnContextTraceV1.model_validate(state.trace.model_copy(update={
             'observations': [*state.trace.observations, observation]}))
+        state.writer_trace = state.trace.model_dump(mode='json', by_alias=True)
         return state.trace
     monkeypatch.setattr(state.service, 'append_context_trace', append_observation)
     state.prompt_payloads = {}
@@ -2759,57 +2760,7 @@ def pending_rules_runtime_case(monkeypatch, *, source_free_work=None, lore_page=
             'idempotency_key': _turn_idempotency_key(state.turn.world_id, request_id)}))
         adapter.turn = state.turn
         adapter.fence.renewer.update_turn(state.turn)
-        state.rules_payload, state.rules_inserts, state.rules_locks = None, 0, 0
-        state.rules_revision = 1
-        state.capture_status = 'recording'
-        state.rules_cas_failure = False
-        class Cursor:
-            def __enter__(self):
-                return self
-            def __exit__(self, *args):
-                return False
-            def execute(self, sql, args):
-                assert state.depth == 1
-                self.row = None
-                if 'FROM agent.turn WHERE' in sql:
-                    assert args == (state.turn.world_id, state.turn.conversation_id, state.turn.turn_id)
-                    state.rules_locks += 1
-                    self.row = {key: getattr(state.turn, key) for key in ('status', 'revision', 'attempt',
-                        'claim_expires_at', 'idempotency_key', 'submitted_intent_fingerprint_v1', 'submitted_intent_fingerprint_v2')}
-                    self.row['graph_execution_schema'] = state.turn.graph_context_execution.schema_
-                else:
-                    assert 'FROM agent.turn_rules_execution' in sql
-                    assert args == (state.turn.turn_id, state.turn.attempt)
-                    if state.rules_payload is not None:
-                        self.row = {'revision': state.rules_revision, 'payload': state.rules_payload}
-            def fetchone(self):
-                return self.row
-        state.conn.cursor = lambda **kwargs: Cursor()
-        def execute(sql, args=None):
-            assert state.depth == 1
-            if sql == 'SELECT clock_timestamp()':
-                return SimpleNamespace(fetchone=lambda: (state.now,))
-            if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
-                return state.leaf_query(sql, args)
-            if "SELECT payload->>'capture_status'" in sql:
-                return SimpleNamespace(fetchone=lambda: (state.capture_status,))
-            if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s':
-                return SimpleNamespace(fetchone=lambda: (state.writer_trace,))
-            if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s':
-                return SimpleNamespace(fetchall=lambda: [(state.writer_trace,)])
-            if 'UPDATE agent.turn_rules_execution SET revision=revision+1,payload=%s' in sql:
-                if state.rules_cas_failure:
-                    return SimpleNamespace(rowcount=0)
-                assert args[1:] == (state.turn.turn_id, state.turn.attempt, state.rules_revision)
-                state.rules_payload = args[0].obj
-                state.rules_revision += 1
-                return SimpleNamespace(rowcount=1)
-            assert 'INSERT INTO agent.turn_rules_execution' in sql
-            assert state.rules_payload is None and args[:2] == (state.turn.turn_id, state.turn.attempt)
-            state.rules_inserts += 1
-            state.rules_payload = args[2].obj
-            return SimpleNamespace(rowcount=1)
-        state.conn.execute = execute
+        configure_pending_rules_storage(state)
         runtime = PlanRulesRuntime(adapter, rules_capability(graph=True))
         yield state, adapter, runtime
 
@@ -3069,23 +3020,7 @@ def test_pending_writer_actual_serialized_request_omits_host_bindings_and_preser
 def pending_writer_completion_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
     from application_state.agent_conversation import repository
     with pending_writer_dispatch_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules, writer, prepared):
-        state.completions = 0
-        monkeypatch.setattr(repository, 'lock_turn', lambda conn, world, turn_id: state.turn)
-        def complete(conn, **fields):
-            assert conn is state.conn and state.depth == 1
-            assert fields['world_id'] == state.turn.world_id and fields['turn_id'] == state.turn.turn_id
-            assert fields['expected_revision'] == state.turn.revision and fields['expected_attempt'] == state.turn.attempt
-            if state.turn.claim_expires_at <= state.now:
-                return None
-            state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={
-                'status': 'completed', 'revision': state.turn.revision + 1,
-                'assistant_text': fields['assistant_text'], 'completion': fields['completion'],
-                'graph_context_execution': fields['graph_context_execution'],
-                'claim_expires_at': None, 'completed_at': state.now, 'updated_at': state.now,
-            }).model_dump_json(by_alias=True))
-            state.completions += 1
-            return state.turn
-        monkeypatch.setattr(repository, 'complete_claimed_turn', complete)
+        configure_pending_completion_storage(monkeypatch,state)
         yield state, adapter, rules, writer, prepared
 
 
@@ -3875,3 +3810,152 @@ def test_pending_app_writer_real_sdk_reply_binds_saved_page_and_stored_citation_
         forged['completion']['answer_segments'][0]['page']['registry_revision']+=1
         with pytest.raises(ApplicationStateIntegrityError):
             repository._turn_from_row(None,forged,references=references)
+
+
+def configure_pending_rules_storage(state):
+    from types import SimpleNamespace
+    state.rules_payload, state.rules_inserts, state.rules_locks = None, 0, 0
+    state.rules_revision = 1
+    state.capture_status = 'recording'
+    state.rules_cas_failure = False
+    class Cursor:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def execute(self, sql, args):
+            assert state.depth == 1
+            self.row = None
+            if 'FROM agent.turn WHERE' in sql:
+                assert args == (state.turn.world_id, state.turn.conversation_id, state.turn.turn_id)
+                state.rules_locks += 1
+                self.row = {key: getattr(state.turn, key) for key in ('status', 'revision', 'attempt',
+                    'claim_expires_at', 'idempotency_key', 'submitted_intent_fingerprint_v1', 'submitted_intent_fingerprint_v2')}
+                self.row['graph_execution_schema'] = state.turn.graph_context_execution.schema_
+            else:
+                assert 'FROM agent.turn_rules_execution' in sql
+                assert args == (state.turn.turn_id, state.turn.attempt)
+                if state.rules_payload is not None:
+                    self.row = {'revision': state.rules_revision, 'payload': state.rules_payload}
+        def fetchone(self):
+            return self.row
+    state.conn.cursor = lambda **kwargs: Cursor()
+    def execute(sql, args=None):
+        assert state.depth == 1
+        if sql == 'SELECT clock_timestamp()':
+            return SimpleNamespace(fetchone=lambda: (state.now,))
+        if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+            return state.leaf_query(sql, args)
+        if "SELECT payload->>'capture_status'" in sql:
+            return SimpleNamespace(fetchone=lambda: (state.capture_status,))
+        if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s':
+            return SimpleNamespace(fetchone=lambda: (state.writer_trace,))
+        if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s':
+            return SimpleNamespace(fetchall=lambda: [(state.writer_trace,)])
+        if 'UPDATE agent.turn_rules_execution SET revision=revision+1,payload=%s' in sql:
+            if state.rules_cas_failure:
+                return SimpleNamespace(rowcount=0)
+            assert args[1:] == (state.turn.turn_id, state.turn.attempt, state.rules_revision)
+            state.rules_payload = args[0].obj
+            state.rules_revision += 1
+            return SimpleNamespace(rowcount=1)
+        assert 'INSERT INTO agent.turn_rules_execution' in sql
+        assert state.rules_payload is None and args[:2] == (state.turn.turn_id, state.turn.attempt)
+        state.rules_inserts += 1
+        state.rules_payload = args[2].obj
+        return SimpleNamespace(rowcount=1)
+    state.conn.execute = execute
+
+
+def configure_pending_completion_storage(monkeypatch,state):
+    state.completions = 0
+    monkeypatch.setattr(repository, 'lock_turn', lambda conn, world, turn_id: state.turn)
+    def complete(conn, **fields):
+        assert conn is state.conn and state.depth == 1
+        assert fields['world_id'] == state.turn.world_id and fields['turn_id'] == state.turn.turn_id
+        assert fields['expected_revision'] == state.turn.revision and fields['expected_attempt'] == state.turn.attempt
+        if state.turn.claim_expires_at <= state.now:
+            return None
+        state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={
+            'status': 'completed', 'revision': state.turn.revision + 1,
+            'assistant_text': fields['assistant_text'], 'completion': fields['completion'],
+            'graph_context_execution': fields['graph_context_execution'],
+            'claim_expires_at': None, 'completed_at': state.now, 'updated_at': state.now,
+        }).model_dump_json(by_alias=True))
+        state.completions += 1
+        return state.turn
+    monkeypatch.setattr(repository, 'complete_claimed_turn', complete)
+
+
+@pytest.mark.parametrize('mode',['sufficient','unknown','needed'])
+def test_pending_main_build_harness_completes_app_citation_without_native_preparation_or_repeated_calls(monkeypatch,mode):
+    import httpx
+    import httpx2
+    from types import SimpleNamespace,MethodType
+    from hashlib import sha256
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services import build_related_pages,plan_jev_driver
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter,_turn_idempotency_key
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY','synthetic-no-network')
+    monkeypatch.setenv('OPENAI_API_KEY','synthetic-no-network')
+    decisions,writers,reads=[],[],[]
+    class Transport(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self,request):
+            body=json.loads(request.content);decisions.append(body)
+            coverage='source_requirement' in body['questions']
+            if coverage and mode=='unknown':raise httpx2.ReadTimeout('Synthetic unknown coverage',request=request)
+            keys=('saved_pages_sufficient','native_sources_required') if coverage else ('read','skip')
+            chosen=keys[1] if coverage and mode=='needed' else keys[0]
+            return httpx2.Response(200,request=request,json={'model':body['model'],'usage':{'input_tokens':23,'output_tokens':4},
+                'answers':{name:{'type':'choice','choice':chosen,'confidence':1,'probabilities':{
+                    key:float(key==chosen) for key in keys}} for name in body['questions']}})
+    def reply(request):
+        writers.append(json.loads(request.content))
+        candidate={'answer_segments':[{'kind':'related_page_claim','text':'The cult password is “Remember the rain”.',
+            'read_id':'source0'}],'limitations':[]}
+        return httpx.Response(200,request=request,json={'id':'resp_main','object':'response','created_at':1,
+            'model':writers[-1]['model'],'status':'completed','output':[{'type':'message','id':'msg_main',
+                'role':'assistant','status':'completed','content':[{'type':'output_text','text':json.dumps(candidate),'annotations':[]}]}]})
+    with pending_app_runtime_case(monkeypatch) as (state,adapter):
+        def materialize(pointer):
+            reads.append(pointer.document_id)
+            text='Ethel dreamed of Maelthor. The cult password is “Remember the rain”.'
+            return pointer.model_dump(mode='json')|{'markdown':text,'content_sha256':sha256(text.encode()).hexdigest()}
+        monkeypatch.setattr(build_related_pages,'materialize',materialize)
+        def forbidden(*args,**kwargs):raise AssertionError('Sufficient App evidence opened native retrieval')
+        monkeypatch.setattr(plan_jev_driver,'PlanJevDriver',forbidden)
+        request_id=str(uuid4())
+        adapter.request=SimpleNamespace(turn_id=request_id,surface=SimpleNamespace(surface_id='build'),
+            build_draft_context=None,build_write_capability=None)
+        adapter.world_id,adapter.expected_conversation_id=state.turn.world_id,None
+        adapter.submitted_intent=state.turn.graph_context_execution.policy.action.intent
+        adapter.service,adapter.pending_build_source_preparation=state.service,None
+        adapter.budget={'apiMode':'typesafe_decision','estimator':state.turn.graph_context_execution.policy.provider_input_accounting.estimator}
+        adapter.stop=MethodType(_PolicyExecutionAdapter.stop,adapter)
+        adapter.build_frozen_history=tuple(json.loads(state.initial_request)['state']['interaction']['history'])
+        state.turn=t.Turn.model_validate(state.turn.model_copy(update={
+            'idempotency_key':_turn_idempotency_key(state.turn.world_id,request_id)}))
+        adapter.turn=state.turn;adapter.fence.renewer.update_turn(state.turn)
+        state.writer_trace=state.trace.model_dump(mode='json',by_alias=True)
+        configure_pending_rules_storage(state)
+        configure_pending_completion_storage(monkeypatch,state)
+        from application_state.agent_conversation.rules_authority_policy import rules_capability
+        harness=BuildJevHarness(decision_transport=Transport(),writer_transport=httpx.MockTransport(reply),
+            rules_capability=rules_capability(graph=True))
+        harness.adapter,harness.calls,harness.timings,harness._inflight=adapter,[],[],{}
+        work=SimpleNamespace(operation='answer_from_sources',selection=SimpleNamespace(paragraph_placement=None),
+            _material=lambda:((),(),()))
+        if mode=='unknown':
+            with pytest.raises(GenerationEngineError):harness._native_completion(adapter,work)
+        elif mode=='needed':
+            with pytest.raises(ValueError,match='no current host owner'):harness._native_completion(adapter,work)
+        else:
+            completed=harness._native_completion(adapter,work)
+            assert completed.status=='completed' and state.completions==1
+            assert completed.completion.answer_segments[0].kind=='related_page_claim'
+            row,references=stored_row(completed)
+            assert repository._turn_from_row(None,row,references=references)==completed
+            assert len(writers)==1 and 'Already discussed detail 59' in json.dumps(writers[0]['input'])
+        assert len(decisions)==2 and len(reads)==1 and state.materialized==0
+        if mode!='sufficient':assert state.completions==0 and not writers
