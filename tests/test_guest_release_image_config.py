@@ -338,3 +338,16 @@ def test_play_media_verifier_checks_dependencies_and_source():
     assert run("1", "0", "1", "0") != 0
     assert run("0", "0", "0", "1") != 0
     assert run("1", "1", "invalid", "0") != 0
+
+
+def test_guest_buddy_release_identity_and_dependencies():
+    root = SCRIPT.parents[1]
+    workflow = (root / '.github/workflows/publish-buddy-image.yml').read_text()
+    assert '[[ "$GUEST_BUDDY" == 0 || "$GUEST_PLAY" == 1 ]]' in workflow
+    assert 'VITE_HOSTED_GUEST_BUDDY="$GUEST_BUDDY"' in workflow
+    assert 'VITE_HOSTED_GUEST_BUILD_BUDDY="$GUEST_BUDDY"' in workflow
+    assert 'guest_config="$guest_config;buddy=1"' in workflow
+    assert 'tag="$tag-buddy"' in workflow
+    verifier = SCRIPT.parent / 'verify_guest_graph_release.sh'
+    assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '1', '1', '1'], capture_output=True).returncode == 0
+    assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '0', '1', '1'], capture_output=True).returncode != 0
