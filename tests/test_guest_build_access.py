@@ -603,8 +603,8 @@ def test_guest_reset_revokes_prepared_native_source_body(guests, tmp_path, monke
             open_native_corpus_member(context, lane.meta.evidence_ref_ids[0])
 
 
-@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build', 'reset_during_play'), [(False, False, False), (True, False, False), (False, True, False), (False, False, True)])
-def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer, reset_during_build, reset_during_play):
+@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build', 'reset_during_play', 'retained_reset'), [(False, False, False, None), (True, False, False, None), (False, True, False, None), (False, False, True, None), (False, False, False, 'admission'), (False, False, False, 'writer')])
+def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer, reset_during_build, reset_during_play, retained_reset):
     import json
     import re
     import httpx2
@@ -775,6 +775,8 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
             candidate = {'schema': BUILD_POLICY, 'answer_segments': [
                 {'kind': 'discussion', 'text': 'We can discuss this saved page.'}],
                 'limitations': [], 'requested_detail_gaps': [], 'collaboration': None}
+            properties = body['text']['format']['schema']['properties']
+            candidate = {key: value for key, value in candidate.items() if key in properties}
             return httpx.Response(200, request=req, json={'id': 'resp_build', 'object': 'response',
                 'created_at': 1, 'status': 'completed', 'model': body['model'], 'output': [
                     {'type': 'message', 'id': 'msg_build', 'role': 'assistant', 'status': 'completed',
@@ -817,6 +819,51 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert 'discuss this saved page' in build_response.json()['answer']['text']
     assert len(seen_build) == 1 and isinstance(seen_build[0].native_principal, HostedGuestGraphPrincipal)
     assert seen_build[0].native_principal.managed_world_id == world.world_id
+    if retained_reset:
+        from application_state.agent_conversation import AgentConversationService
+        method = 'admit_build_prior_body_evidence' if retained_reset == 'admission' else 'authorize_native_writer'
+        original = getattr(AgentConversationService, method)
+        locked, release = Event(), Event()
+        def pause_after_guest_lock(owner, *args, **kwargs):
+            if retained_reset == 'writer':
+                from application_state.agent_conversation.retained_conversation import admission
+                current = owner.inspect_turn(world_id=args[0], turn_id=args[2])
+                assert admission(current.graph_context_execution) is not None
+            previous = owner._authorize_transaction
+            def hold(conn, *, read_only):
+                previous(conn, read_only=read_only)
+                if not read_only and not locked.is_set():
+                    locked.set()
+                    assert release.wait(15)
+            owner._authorize_transaction = hold
+            try:
+                return original(owner, *args, **kwargs)
+            finally:
+                owner._authorize_transaction = previous
+        monkeypatch.setattr(AgentConversationService, method, pause_after_guest_lock)
+        followup = {**build_payload, 'turn_id': str(uuid4()), 'message': 'Recap our conversation without another search.'}
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            pending = pool.submit(client.post, '/api/live/agent/turn', headers=headers, json=followup)
+            try:
+                assert locked.wait(15)
+                reset = pool.submit(client.post, '/api/live/index-graph/reset', headers=headers)
+                import time
+                from application_state.engine import connect
+                deadline = time.monotonic() + 5
+                with connect(application_state_dsn) as observer:
+                    while time.monotonic() < deadline:
+                        observer.execute('SELECT pg_stat_clear_snapshot()')
+                        waiters = observer.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
+                        if waiters:
+                            break
+                        time.sleep(0.05)
+                assert waiters and not reset.done(), 'reset did not wait for the active guest transaction'
+            finally:
+                release.set()
+            assert reset.result(timeout=15).status_code == 200
+            pending.result(timeout=15)
+        assert client.get(f'/api/live/agent/worlds/{world.world_id}/conversation').status_code in (401, 403)
+        return
     del app.state.build_jev_runtime_factory
     plan = client.post('/api/live/workspace-documents/world-plans', headers=headers,
         json={'schema_version': 'dmb_workspace_document_create_v2', 'scope_mode': 'world',
@@ -970,8 +1017,10 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
             if reset_during_play:
                 play_entered.set()
                 assert play_release.wait(15)
-            self.text = json.dumps({'schema': POLICY, 'limitations': [], 'requested_detail_gaps': [],
-                'answer_segments': [{'kind': 'native_assertion_claim', 'text': 'A reports that B fled; uncertain.', 'assertion_handles': ['assertion0']}]})
+            output = {'schema': POLICY, 'limitations': [], 'requested_detail_gaps': [],
+                'answer_segments': [{'kind': 'native_assertion_claim', 'text': 'A reports that B fled; uncertain.', 'assertion_handles': ['assertion0']}]}
+            properties = json.loads(req.content)['text']['format']['schema']['properties']
+            self.text = json.dumps({key: value for key, value in output.items() if key in properties})
             return await super().handle_async_request(req)
     play_wire = PlayWriter(None, '')
     class PlayHarness(PlayJevHarness):

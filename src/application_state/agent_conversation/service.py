@@ -2406,7 +2406,7 @@ class AgentConversationService:
         if type(authorization) is not NativeBuildWriterAuthorizedV2:
             return self._append_graph_execution_event(world_id, conversation_id, turn_id, **arguments)
         from .retained_conversation import admission
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             retained = conn.execute(
                 "SELECT 1 FROM agent.turn WHERE world_id=%s AND turn_id=%s "
                 "AND graph_context_execution @? "
@@ -2591,10 +2591,9 @@ class AgentConversationService:
                 event_id=event_id, work_event_id=work.event_id,
                 pointer_revision=pointer.revision, discussion=work.requested_work == "discuss")
 
-        # Match reset's World -> conversation -> turn lock order. Holding only
-        # the turn would let a reset race the pointer check or deadlock later.
+        # Guest authorization locks the session before World, conversation and turn.
         world_id = _world_id(world_id)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             pointer = repo.lock_world_state(conn, world_id)
             conversation = repo.lock_conversation(conn, world_id, conversation_id)
             if (pointer is None or pointer.active_conversation_id != conversation_id
