@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from markdown_it import MarkdownIt
 from apps.live_control_server.services.plan_playable_body_target import _strip_frontmatter, _line_blocks, _root_markers
 
@@ -25,17 +26,22 @@ class SceneModelAliases:
     replacements: tuple[tuple[str, str], ...]
 
     def localize(self, value: str) -> str:
-        for original, alias in self.replacements:
-            value = value.replace(original, alias)
-        return value
+        return _replace_once(value, self.replacements)
 
     def resolve(self, value: str) -> str:
         allowed = {alias for _, alias in self.replacements}
         if _internal_destinations(value) - allowed:
             raise ValueError('The proposal introduces an unknown internal reference')
-        for original, alias in sorted(self.replacements, key=lambda item: len(item[1]), reverse=True):
-            value = value.replace(alias, original)
+        return _replace_once(value, tuple((alias, original) for original, alias in self.replacements))
+
+
+def _replace_once(value: str, replacements: tuple[tuple[str, str], ...]) -> str:
+    """Substitute only known structured references from the original input once."""
+    if not replacements:
         return value
+    mapping = dict(replacements)
+    pattern = re.compile('|'.join(re.escape(key) for key in sorted(mapping, key=len, reverse=True)))
+    return pattern.sub(lambda match: mapping[match.group()], value)
 
 
 def scene_model_aliases(markdown: str, context: str, instruction: str) -> SceneModelAliases:

@@ -201,3 +201,14 @@ def test_scene_writer_local_references_round_trip_and_reject_invented_targets():
     assert aliases.resolve(localized) == original
     with pytest.raises(ValueError, match="unknown internal reference"):
         aliases.resolve("![New](dmb-media:invented)")
+
+
+def test_scene_writer_aliases_do_not_rewrite_each_other():
+    from apps.live_control_server.services.play_scene_model_aliases import scene_model_aliases
+    original = ('<!-- dmb-playable-element:v2 kind=beat id=beat:road -->\n## Road\n\n'
+        '<!-- dmb-playable-element:v2 kind=scene id=scene:local -->\n### Local\n\n'
+        '<!-- dmb-playable-element:v2 kind=scene id=scene:longname -->\n### Long\n')
+    aliases = scene_model_aliases(original, "", "")
+    localized = aliases.localize(original)
+    assert "scene:longname" not in localized and "id=scene:local -->" not in localized
+    assert aliases.resolve(localized) == original
