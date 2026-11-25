@@ -5971,6 +5971,21 @@ def _completed_turn_replay(
         turn.base_projection if turn.base_projection.kind=='unclaimed' else None) if mixed else turn
     stored_receipt = getattr(stored_context,'graph_context_receipt',None)
     shared_native = type(stored_receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    pending_build = type(stored_receipt) is BuildPendingContextReceiptV1
+    if pending_build:
+        if not mixed:
+            _validate_policy_turn_record(stored_context, require_completed=True)
+        if (request.reviewed_step is not None or request.build_authored_references is not None
+                or request.owner_scope is None or request.owner_scope.kind != 'world'
+                or request.owner_scope.world_id != turn_meta.world_id
+                or owner.get('kind') != 'world' or owner.get('id') != turn_meta.world_id
+                or _turn_idempotency_key(turn_meta.world_id, request.turn_id) != turn_meta.idempotency_key
+                or not _governed_build_turn(request)
+                or _submitted_turn_intent(request, world_id=turn_meta.world_id)
+                    != stored_context.graph_context_execution.policy.action.intent):
+            raise AgentTurnServiceError('The pending Build reply differs from its admitted request.',
+                code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
     native_authority = None
     if shared_native:
         from application_state.agent_conversation.native_execution import effective_native_query, validate_request_identity
@@ -5981,7 +5996,7 @@ def _completed_turn_replay(
     from application_state.agent_conversation.types import LoreSaveReviewReference
 
     lore_reference = turn.completion if not mixed and isinstance(turn.completion, LoreSaveReviewReference) else None
-    play_graph_binding = None if shared_native else _stored_play_graph_binding(
+    play_graph_binding = None if shared_native or pending_build else _stored_play_graph_binding(
         request, turn_meta.provenance, local_lore=lore_reference is not None,
     )
     segment_thread_id = request.client_thread_id if lore_reference is not None else _provider_segment_thread_id(
@@ -6009,7 +6024,7 @@ def _completed_turn_replay(
     primary = turn_meta.provenance.primary_work
     graph_reference = _stored_graph_reference(turn_meta.provenance)
     selected_reference = turn_meta.provenance.selected_object
-    graph_requested = request.graph_request.mode != "none" and lore_reference is None
+    graph_requested = request.graph_request.mode != "none" and lore_reference is None and not pending_build
     if not graph_requested and graph_reference is not None:
         raise AgentTurnServiceError(
             "The completed receipt contains Graph provenance for a non-Graph intent.",

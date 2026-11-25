@@ -1497,7 +1497,7 @@ def get_world_conversation_history(
     contains_play_source = any(source_only_play(turn) for turn in turns)
     contains_mixed = any(isinstance(turn, MixedCompletedTurnV1) for turn in turns)
     from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
-    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1, PlayWorkContextV1
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1, BuildWorkContextV1, PlayWorkContextV1
     def has_play_context(turn):
         receipt = turn.graph_context_receipt
         return isinstance(receipt, PlayWorldGraphContextReceiptV1) or (
@@ -1592,7 +1592,7 @@ def get_world_conversation_history(
             history_turns.append(AgentConversationHistoryPlaySourceTurnV1(**values,
                 play_source_context=project_play_source_context(turn,delivery_replay=True)))
         elif isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1) or (
-            isinstance(turn.graph_context_receipt, SurfaceNativeContextReceiptV1)
+            isinstance(turn.graph_context_receipt, (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1))
             and isinstance(turn.graph_context_receipt.work_context, BuildWorkContextV1)
         ):
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2

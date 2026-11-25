@@ -1000,3 +1000,30 @@ Node24/matching reused dependencies/global lock and working-evidence limits rema
 as recorded. These mocks exercise actual client dispatch, not live backend/Jev,
 source acquisition, page saving or deployed app behavior. Endpoint/serving fence,
 source-backed/SQL/full-Send/signed-in acceptance remain merge gates.
+
+
+## Backend pending delivery continuation
+
+ACTIVE same slice: pending-specific branches in _completed_turn_replay and
+get_world_conversation_history Build classification. Validate stored Turn and
+exact submitted intent before projection; pending source observation cannot
+satisfy legacy Graph provenance. Emit not_requested Graph, not a fabricated
+verified snapshot. Focused completed SDK fixture -> replay envelope and real
+FastAPI history serialization with fake App owner; no SQL/provider authority
+claim. Preserve auth before App reads and current history pointer checks.
+
+Backend delivery evidence:8 focused controls passed3.94s. The actual completed
+SDK draft constructs the ordinary replay envelope with distinct pending context,
+unchanged answer and not_requested/all-null Graph; changed request text,
+correlation key, submitted World or projected owner is refused. Stored Turn is
+revalidated before replay. The real FastAPI history route serializes the draft
+and conversation_draft_available through the V3 response model with fake App
+reads. Denied access returns403 before any pointer/App read. Existing SDK reply
+controls remain covered. The replay guard uses the existing submitted-intent
+owner only after refusing reviewed actions, so it performs no mutable work-plan
+resolution. Old native/Graph dispatch remains unchanged.
+
+This is actual history HTTP plus ordinary replay-envelope evidence, not a fresh
+POST through complete startup/controller/providers, real SQL or mixed Rules
+backend persistence. Those, current serving fence, source-backed acquisition and
+writer, and signed-in page save/reopen/citation/latency acceptance remain open.

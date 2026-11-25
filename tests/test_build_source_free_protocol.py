@@ -3312,6 +3312,67 @@ def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_
         assert projected.completion.collaboration.destination.title == 'Maelthor'
         assert AgentBuildPendingContextResponseV1.model_validate_json(
             projected.model_dump_json(by_alias=True)) == projected
+        from apps.live_control_server.models.agent_turn import AgentTurnRequest
+        from apps.live_control_server.services.agent_turn_service import _completed_turn_replay
+        intent=completed.graph_context_execution.policy.action.intent
+        request=AgentTurnRequest.model_validate({'schema':'dmb_agent_turn_request_v1',
+            'client_thread_id':intent.client_thread_id,'turn_id':adapter.request.turn_id,
+            'surface':{'surface_id':'build','instance_id':intent.surface_instance_id},
+            'owner_scope':{'kind':'world','world_id':completed.world_id},
+            'primary_work':intent.primary_work.model_dump(mode='python'),
+            'client_work_state':intent.client_work_state,'graph_request':intent.graph_request.model_dump(mode='python'),
+            'graph_selection':None,'message':intent.message})
+        replay=_completed_turn_replay(request,owner={'kind':'world','id':completed.world_id,'name':'Synthetic World'},turn=completed)
+        assert type(replay.knowledge_context) is AgentBuildPendingContextResponseV1
+        assert replay.answer.text==completed.assistant_text and replay.graph.status=='not_requested'
+        assert all(value is None for key,value in replay.graph.model_dump().items() if key!='status')
+        with pytest.raises(AgentTurnServiceError,match='admitted request'):
+            _completed_turn_replay(request.model_copy(update={'message':'Different request'}),
+                owner={'kind':'world','id':completed.world_id},turn=completed)
+        for changes in ({'turn_id':str(uuid4())},
+                {'owner_scope':request.owner_scope.model_copy(update={'world_id':'foreign'})}):
+            with pytest.raises(AgentTurnServiceError,match='admitted request'):
+                _completed_turn_replay(request.model_copy(update=changes),
+                    owner={'kind':'world','id':completed.world_id},turn=completed)
+        with pytest.raises(AgentTurnServiceError,match='admitted request'):
+            _completed_turn_replay(request,owner={'kind':'world','id':'foreign'},turn=completed)
+        from types import SimpleNamespace
+        from fastapi import FastAPI, HTTPException
+        from fastapi.testclient import TestClient
+        from apps.live_control_server.routes import agent as route
+        from apps.live_control_server.services import hosted_native_graph_access as access
+        order=[]
+        def authorize(*args,**kwargs):
+            order.append('auth')
+        def pointer(world):
+            order.append('pointer')
+            return state.pointer
+        fake=SimpleNamespace(get_world_pointer=pointer,
+            get_active_conversation=lambda world: SimpleNamespace(conversation_id=completed.conversation_id),
+            list_turns=lambda *args,**kwargs:[completed],
+            conversation_draft_turn_ids=lambda *args:{completed.turn_id},
+            reviewed_variant_turn_ids=lambda *args:set())
+        monkeypatch.setattr(access,'require_conversation_access',authorize)
+        monkeypatch.setattr(route,'_verified_world_id',lambda world:world)
+        monkeypatch.setattr(route,'_conversation_service',lambda request:fake)
+        app=FastAPI();app.include_router(route.router)
+        with TestClient(app) as client:
+            response=client.get(f'/agent/worlds/{completed.world_id}/conversation',
+                params={'include_turn_correlation':'true'})
+            assert response.status_code==200,response.text
+            body=response.json()
+            assert body['schema']=='dmb_agent_conversation_history_v3'
+            assert body['turns'][0]['knowledge_context']['schema']=='dmb_agent_build_pending_context_response_v1'
+            assert body['turns'][0]['knowledge_context']['completion']['collaboration']['destination']['title']=='Maelthor'
+            assert body['turns'][0]['conversation_draft_available'] is True
+            assert order==['auth','pointer','pointer']
+            order.clear()
+            def deny(*args,**kwargs):
+                order.append('denied')
+                raise HTTPException(status_code=403,detail='Synthetic denied principal')
+            monkeypatch.setattr(access,'require_conversation_access',deny)
+            denied=client.get(f'/agent/worlds/{completed.world_id}/conversation')
+            assert denied.status_code==403 and order==['denied']
         wire = projected.model_dump(mode='json', by_alias=True)
         assert 'native_query' not in wire['receipt'] and 'graph_authority' not in wire['receipt']
         from pydantic import TypeAdapter
