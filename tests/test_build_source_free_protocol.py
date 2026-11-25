@@ -108,3 +108,17 @@ def test_repository_pending_wire_decode_has_one_component_freshness_owner(monkey
     monkeypatch.setattr(BuildPendingExecutionV1, 'model_validate_json', duplicate_decode)
     restored = repository._turn_from_row(None, row, references=references)
     assert restored.model_dump_json(by_alias=True) == turn.model_dump_json(by_alias=True)
+
+
+@pytest.mark.parametrize('status,attempt', [('accepted', 0), ('running', 1)])
+def test_stored_pending_live_turn_cannot_carry_a_completion_timestamp(status, attempt):
+    turn = retained(pending_submission(), status=status, attempt=attempt)
+    row, references = stored_row(turn)
+    assert repository._turn_from_row(None, row, references=references) == turn
+    data = turn.model_dump(mode='json', by_alias=True)
+    data['completed_at'] = data['accepted_at']
+    with pytest.raises(ValidationError, match='lifecycle'):
+        t.Turn.model_validate_json(json.dumps(data))
+    row['completed_at'] = turn.accepted_at
+    with pytest.raises((ApplicationStateIntegrityError, ValidationError, ValueError)):
+        repository._turn_from_row(None, row, references=references)

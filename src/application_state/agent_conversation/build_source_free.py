@@ -193,7 +193,8 @@ def _join_pending_turn(turn):
     if (turn.submitted_intent_fingerprint_v1 is not None
             or turn.world_id != intent.world_id or turn.user_text != intent.message
             or turn.provenance.surface_instance_id != intent.surface_instance_id
-            or turn.play_context_receipt is not None or turn.status == 'completed'):
+            or turn.play_context_receipt is not None or turn.status == 'completed'
+            or turn.status in {'accepted', 'running'} and turn.completed_at is not None):
         raise ValueError("Stored pending Turn differs from its admitted request or lifecycle")
     validate_turn_arguments(execution, user_text=turn.user_text, turn_id=turn.turn_id, attempt=turn.attempt)
     for event in execution.events:
