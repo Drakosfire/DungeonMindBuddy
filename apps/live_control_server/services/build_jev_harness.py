@@ -576,7 +576,10 @@ class BuildJevHarness:
             if question is not None:
                 writer.instructions += (
                     "\nPlacement is unresolved. Return only the inline questions review. "
-                    "Leave answer_segments empty and ask this question in collaboration.questions: " + question
+                    "Leave answer_segments empty. Ask one question in collaboration.questions about "
+                    "the missing placement detail. Use the current request to preserve any anchor, "
+                    "section, or before/after direction the author already supplied. "
+                    "Use this guidance only for details that still need clarification: " + question
                 )
             completed = asyncio.run(writer.run(transport=self.writer_transport))
             adapter.turn = completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed

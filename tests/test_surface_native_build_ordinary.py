@@ -755,7 +755,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
             if placement_question:
-                question = body["instructions"].split("ask this question in collaboration.questions: ", 1)[1]
+                assert "preserve any anchor, section, or before/after direction" in body["instructions"]
+                question = {
+                    "ambiguous": "That passage appears more than once. Which section should I use?",
+                    "missing": "I couldn't find that passage in the requested section. Which existing passage should I use?",
+                }[contextual]
                 candidate.update(answer_segments=[], collaboration={
                     "kind": "questions", "questions": [{"text": question}],
                 })
