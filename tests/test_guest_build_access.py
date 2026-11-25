@@ -9,6 +9,159 @@ from apps.live_control_server.routes import index_graph, live, workspace_documen
 from apps.live_control_server.services import index_graph as graph_service
 from apps.live_control_server.services.hosted_auth import install_hosted_request_boundary
 from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
+from tests.test_native_plan_assertions import lane as native_build_lane
+
+
+def test_guest_build_decision_guard_rejects_effects():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_jev_driver import _require_guest_build_discussion
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id='guest-world', session_id='session', request=SimpleNamespace())
+    adapter = SimpleNamespace(native_principal=principal)
+    _require_guest_build_discussion(adapter, label='discuss', graph_reference='other_work', image_move='other')
+    _require_guest_build_discussion(adapter, label='clarify_request', graph_reference=None, image_move=None)
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    signed_in = SimpleNamespace(native_principal=NativeGraphPrincipal(subject='owner', role='gm', auth_method='hosted_owner'))
+    _require_guest_build_discussion(signed_in, label='write_current_page', graph_reference='place_existing_reference', image_move='move_existing')
+    for label, graph, image in [('write_current_page', None, None), ('prepare_image', None, None),
+                                ('discuss', 'place_existing_reference', None), ('discuss', None, 'move_existing'),
+                                (None, None, None)]:
+        with pytest.raises(AgentTurnServiceError, match='discussion'):
+            _require_guest_build_discussion(adapter, label=label, graph_reference=graph, image_move=image)
+
+
+def test_guest_build_guard_runs_in_real_decision_driver(native_build_lane, tmp_path, monkeypatch):
+    from copy import deepcopy
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from apps.live_control_server.services import build_jev_driver
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    from tests.test_surface_native_build_ordinary import _fresh_case
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id='guest-world', session_id='session', request=SimpleNamespace())
+    original = build_jev_driver._require_guest_build_discussion
+    seen = []
+    def exercise(adapter, **decision):
+        seen.append(decision['label'])
+        return original(SimpleNamespace(native_principal=principal), **decision)
+    monkeypatch.setattr(build_jev_driver, '_require_guest_build_discussion', exercise)
+    work = ['discuss']
+    case = _fresh_case(native_build_lane, tmp_path, monkeypatch, None, False, False, False,
+        message='Discuss the selected object.', requested_work=lambda _message: work[0])
+    assert 'discuss' in seen
+    before = len(case.writer.calls)
+    work[0] = 'write_current_page'
+    payload = deepcopy(case.request)
+    payload['turn_id'] = str(uuid4())
+    payload['message'] = 'Write this to the page.'
+    rejected = case.client.post('/api/live/agent/turn', json=payload)
+    assert rejected.status_code != 200, rejected.text
+    assert seen[-1] == 'write_current_page'
+    assert len(case.writer.calls) == before
+
+
+
+def test_guest_build_discussion_admission_is_page_and_session_bound(guests, monkeypatch):
+    from hashlib import sha256
+    from uuid import uuid4
+    (first, token, world), (second, other_token, other_world) = guests[0]
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_TURN_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED', '1')
+    headers = {'X-DMB-Index-Graph-CSRF': token}
+    created = first.post('/api/live/workspace-documents', headers=headers, json={
+        'title': 'Notes', 'world_id': world, 'campaign_id': world, 'kind': 'worldbuilding_source',
+        'source_domain': 'worldbuilding', 'document_class': 'lore', 'authority_state': 'draft', 'visibility_state': 'internal'})
+    assert created.status_code == 200, created.text
+    document = created.json()['document_id']
+    digest = sha256(b'').hexdigest()
+    body = {'schema': 'dmb_agent_turn_request_v1', 'client_thread_id': str(uuid4()), 'turn_id': str(uuid4()),
+        'surface': {'surface_id': 'build', 'instance_id': 'build-main'}, 'owner_scope': {'kind': 'world', 'world_id': world},
+        'primary_work': {'kind': 'build', 'object_id': document, 'expected_revision': 1, 'expected_content_sha256': digest},
+        'client_work_state': 'saved_clean', 'graph_request': {'mode': 'world', 'world_id': world, 'campaign_id': None,
+            'revision_pin': None, 'focus': {'kind': 'none', 'session_id': None, 'campaign_id': None}},
+        'graph_selection': None, 'message': 'Discuss this page.', 'build_draft_context': {
+            'snapshot': {'schema': 'dmb_build_draft_snapshot_v1', 'world_id': world, 'document_id': document,
+                'registry_revision': 1, 'content_sha256': digest, 'visibility': 'internal', 'draft_markdown': '',
+                'draft_sha256': digest, 'editor_sha256': digest, 'draft_generation': 0},
+            'conversation_id': str(uuid4()), 'expected_pointer_revision': 0}}
+    app = FastAPI()
+    @app.post('/api/live/agent/turn')
+    def admitted():
+        return {'admitted': True}
+    install_hosted_request_boundary(app)
+    async def signed_out(_request): return None
+    app.state.dms_principal_resolver = signed_out
+    client = TestClient(app, base_url='https://buddy.example', headers={'Origin': 'https://buddy.example', 'Sec-Fetch-Site': 'same-origin'})
+    client.cookies.update(first.cookies)
+    accepted = client.post('/api/live/agent/turn', headers=headers, json=body)
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()['admitted'] is True
+    # Exercise the real turn route after the hosted boundary, stopping at the
+    # service boundary so no model or mutation runs in this wiring check.
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    seen = []
+    def inspect_principal(_body, **kwargs):
+        seen.append(kwargs['native_principal'])
+        raise AgentTurnServiceError('wiring verified', code='test_stop', status_code=409)
+    monkeypatch.setattr(agent, 'execute_agent_turn', inspect_principal)
+    routed_app = FastAPI()
+    routed_app.include_router(live.router)
+    install_hosted_request_boundary(routed_app)
+    routed_app.state.dms_principal_resolver = signed_out
+    routed = TestClient(routed_app, base_url='https://buddy.example', headers={
+        'Origin': 'https://buddy.example', 'Sec-Fetch-Site': 'same-origin'})
+    routed.cookies.update(first.cookies)
+    response = routed.post('/api/live/agent/turn', headers=headers, json=body)
+    assert response.status_code == 409, response.text
+    assert len(seen) == 1 and isinstance(seen[0], HostedGuestGraphPrincipal)
+    assert seen[0].managed_world_id == world
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from application_state.build_proposal.types import BuildWriteCapability
+    from application_state.build_proposal.image_move_capture import BuildImageMoveCapture
+    editor = '{"type":"doc","content":[]}'
+    basis = {'world_id': world, 'document_id': document, 'registry_revision': 1,
+        'content_sha256': digest, 'visibility': 'internal', 'draft_sha256': digest,
+        'editor_sha256': sha256(editor.encode()).hexdigest(), 'caret': 0,
+        'draft_generation': 0, 'selection_generation': 0}
+    capability = BuildWriteCapability(idempotency_key=uuid4(), conversation_id=uuid4(),
+        expected_pointer_revision=1, basis=basis, draft_markdown='').model_dump(mode='json')
+    capture = BuildImageMoveCapture(basis=basis, conversation_id=uuid4(),
+        expected_pointer_revision=1, editor_json=editor).model_dump(mode='json')
+    for field, value in [('build_write_capability', capability), ('build_image_move_capture', capture)]:
+        draft = {**body['build_draft_context'], 'conversation_id': value['conversation_id'],
+            'expected_pointer_revision': value['expected_pointer_revision'],
+            'snapshot': {**body['build_draft_context']['snapshot'], 'editor_sha256': basis['editor_sha256']}}
+        forged = {**body, 'build_draft_context': draft, field: value}
+        AgentTurnRequest.model_validate(forged)
+        refused = routed.post('/api/live/agent/turn', headers=headers, json=forged)
+        assert refused.status_code == 403, refused.text
+        assert len(seen) == 1  # Admission refused it before the service ran.
+    monkeypatch.delenv('DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED')
+    assert client.post('/api/live/agent/turn', headers=headers, json=body).status_code == 403
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED', '1')
+    assert client.post('/api/live/agent/turn', json=body).status_code == 403
+    assert client.post('/api/live/agent/turn', headers=headers, json={**body, 'client_work_state': 'saved_dirty'}).status_code == 403
+    assert client.post('/api/live/agent/turn', headers={**headers, 'Origin': 'https://bad.example'}, json=body).status_code == 403
+    changed_draft = {**body['build_draft_context'], 'snapshot': {**body['build_draft_context']['snapshot'],
+        'draft_markdown': 'unsaved', 'draft_sha256': sha256(b'unsaved').hexdigest()}}
+    assert client.post('/api/live/agent/turn', headers=headers, json={**body, 'build_draft_context': changed_draft}).status_code == 403
+    assert client.post('/api/live/agent/turn', headers=headers, json={**body, 'primary_work': {**body['primary_work'], 'object_id': str(uuid4())}}).status_code != 200
+    other_page = second.post('/api/live/workspace-documents', headers={'X-DMB-Index-Graph-CSRF': other_token}, json={
+        'title': 'Other notes', 'world_id': other_world, 'campaign_id': other_world, 'kind': 'worldbuilding_source',
+        'source_domain': 'worldbuilding', 'document_class': 'lore', 'authority_state': 'draft', 'visibility_state': 'internal'})
+    assert other_page.status_code == 200, other_page.text
+    other_document = other_page.json()['document_id']
+    foreign_page = {**body, 'primary_work': {**body['primary_work'], 'object_id': other_document},
+        'build_draft_context': {**body['build_draft_context'], 'snapshot': {**body['build_draft_context']['snapshot'], 'document_id': other_document}}}
+    assert client.post('/api/live/agent/turn', headers=headers, json=foreign_page).status_code == 403
+    foreign = TestClient(app, base_url='https://buddy.example', headers={'Origin': 'https://buddy.example', 'Sec-Fetch-Site': 'same-origin'})
+    foreign.cookies.update(second.cookies)
+    assert foreign.post('/api/live/agent/turn', headers={'X-DMB-Index-Graph-CSRF': other_token}, json=body).status_code == 403
 
 
 def test_guest_plan_routes_are_default_off(monkeypatch):
@@ -419,8 +572,8 @@ def test_guest_reset_revokes_prepared_native_source_body(guests, tmp_path, monke
             open_native_corpus_member(context, lane.meta.evidence_ref_ids[0])
 
 
-@pytest.mark.parametrize('reset_during_writer', [False, True])
-def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer):
+@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build'), [(False, False), (True, False), (False, True)])
+def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer, reset_during_build):
     import json
     import re
     import httpx2
@@ -522,6 +675,117 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     context, _ = prepare_query(world.world_id, 'What did B do?', principal, repository=lane.repo)
     reads, _ = read_selected(context, grant(context), principal)
     assert reads
+    # Exercise the real guest Build turn with synthetic decision and writer transports.
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from tests.test_build_jev_estimated_continuations import counter
+    from hashlib import sha256
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED', '1')
+    page_response = client.post('/api/live/workspace-documents', headers=headers, json={
+        'title': 'Guest Build context', 'world_id': world.world_id, 'campaign_id': world.world_id,
+        'kind': 'worldbuilding_source', 'source_domain': 'worldbuilding', 'document_class': 'lore',
+        'authority_state': 'draft', 'visibility_state': 'internal'})
+    assert page_response.status_code == 200, page_response.text
+    page = page_response.json()['document_id']
+    page_draft = {'document_id': page, 'markdown': '# Guest notes\n\nA saved detail.'}
+    page_prepare = client.post('/api/live/tiptap/markdown-write/prepare', headers=headers, json=page_draft)
+    assert page_prepare.status_code == 200, page_prepare.text
+    page_commit = client.post('/api/live/tiptap/markdown-write/commit', headers=headers, json={
+        **page_draft, 'writer_confirm_token': page_prepare.json()['writer_confirm_token'],
+        'expected_revision': page_prepare.json()['registry_revision']})
+    assert page_commit.status_code == 200, page_commit.text
+    from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
+    saved_page = get_committed_page_snapshot(tmp_path, page)
+    pointer_response = client.post(f'/api/live/agent/worlds/{world.world_id}/conversation/new',
+        headers=headers, json={'command_id': str(uuid4()), 'expected_pointer_revision': 0,
+                               'expected_active_conversation_id': None})
+    assert pointer_response.status_code == 200, pointer_response.text
+    pointer = pointer_response.json()
+    empty_digest = sha256(saved_page.markdown.encode()).hexdigest()
+    build_payload = {'schema': 'dmb_agent_turn_request_v1', 'client_thread_id': str(uuid4()), 'turn_id': str(uuid4()),
+        'surface': {'surface_id': 'build', 'instance_id': page},
+        'owner_scope': {'kind': 'world', 'world_id': world.world_id},
+        'primary_work': {'kind': 'build', 'object_id': page, 'expected_revision': saved_page.loaded_revision,
+                         'expected_content_sha256': empty_digest},
+        'client_work_state': 'saved_clean', 'graph_request': {'mode': 'world', 'world_id': world.world_id,
+            'campaign_id': None, 'revision_pin': None, 'focus': {'kind': 'none', 'session_id': None, 'campaign_id': None}},
+        'graph_selection': None, 'message': 'Discuss the page.', 'build_draft_context': {
+            'snapshot': {'schema': 'dmb_build_draft_snapshot_v1', 'world_id': world.world_id,
+                'document_id': page, 'registry_revision': saved_page.loaded_revision, 'content_sha256': empty_digest,
+                'visibility': 'internal', 'draft_markdown': saved_page.markdown, 'draft_sha256': empty_digest,
+                'editor_sha256': empty_digest, 'draft_generation': 0},
+            'conversation_id': pointer['conversation_id'], 'expected_pointer_revision': pointer['pointer_revision']}}
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY', 'synthetic-only')
+    monkeypatch.setenv('OPENAI_API_KEY', 'synthetic-only')
+    from application_state.agent_conversation.native_plan_assertions import POLICY as BUILD_POLICY
+    import httpx
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    seen_build = []
+    class BuildDecisions(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, req):
+            body = json.loads(req.content)
+            answers = {}
+            for name, question in body['questions'].items():
+                choice = ('discuss' if name == 'requested_work' else 'anchored' if name == 'source_need'
+                          else 'finish_retrieval' if name == 'operation' else 'exclude' if name.startswith('candidate_')
+                          else 'skip')
+                assert choice in question['criteria'], (name, question['criteria'])
+                answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1,
+                    'probabilities': {key: float(key == choice) for key in question['criteria']}}
+            return httpx2.Response(200, request=req, json={'model': 'jev-1.14.0', 'answers': answers,
+                'usage': {'input_tokens': 37, 'output_tokens': 9}})
+    build_entered, build_release = Event(), Event()
+    class BuildWriter(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, req):
+            if reset_during_build:
+                build_entered.set()
+                assert build_release.wait(15)
+            body = json.loads(req.content)
+            candidate = {'schema': BUILD_POLICY, 'answer_segments': [
+                {'kind': 'discussion', 'text': 'We can discuss this saved page.'}],
+                'limitations': [], 'requested_detail_gaps': [], 'collaboration': None}
+            return httpx.Response(200, request=req, json={'id': 'resp_build', 'object': 'response',
+                'created_at': 1, 'status': 'completed', 'model': body['model'], 'output': [
+                    {'type': 'message', 'id': 'msg_build', 'role': 'assistant', 'status': 'completed',
+                     'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}],
+                'usage': {'input_tokens': 100, 'output_tokens': 40, 'total_tokens': 140}})
+    class InspectBuild(BuildJevHarness):
+        def execute(self, adapter):
+            seen_build.append(adapter)
+            return super().execute(adapter)
+    app.state.build_jev_runtime_factory = SimpleNamespace(create=lambda: InspectBuild(
+        decision_transport=BuildDecisions(), writer_transport=BuildWriter(), accounting=counter(),
+        world_context=True, named_citations=True, related_pages=True, rules_capability=rules_capability(graph=True)))
+    stale_revision = build_payload['primary_work']['expected_revision'] + 1
+    stale = {**build_payload, 'turn_id': str(uuid4()),
+        'primary_work': {**build_payload['primary_work'], 'expected_revision': stale_revision},
+        'build_draft_context': {**build_payload['build_draft_context'], 'snapshot': {
+            **build_payload['build_draft_context']['snapshot'], 'registry_revision': stale_revision}}}
+    stale_response = client.post('/api/live/agent/turn', headers=headers, json=stale)
+    assert stale_response.status_code == 409, stale_response.text
+    assert stale_response.json()['detail']['code'] == 'build_source_unavailable'
+    assert not seen_build
+    if reset_during_build:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending_build = pool.submit(client.post, '/api/live/agent/turn', headers=headers, json=build_payload)
+            try:
+                assert build_entered.wait(15)
+                assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+            finally:
+                build_release.set()
+            build_response = pending_build.result(timeout=15)
+        assert build_response.status_code != 200, build_response.text
+        assert 'discuss this saved page' not in build_response.text
+        from application_state.engine import connect
+        with connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT count(*) FROM agent.turn WHERE turn_id=%s AND status='completed'",
+                                (build_payload['turn_id'],)).fetchone()[0] == 0
+        return
+    build_response = client.post('/api/live/agent/turn', headers=headers, json=build_payload)
+    assert build_response.status_code == 200, build_response.text
+    assert 'discuss this saved page' in build_response.json()['answer']['text']
+    assert len(seen_build) == 1 and isinstance(seen_build[0].native_principal, HostedGuestGraphPrincipal)
+    assert seen_build[0].native_principal.managed_world_id == world.world_id
+    del app.state.build_jev_runtime_factory
     plan = client.post('/api/live/workspace-documents/world-plans', headers=headers,
         json={'schema_version': 'dmb_workspace_document_create_v2', 'scope_mode': 'world',
               'world_id': world.world_id, 'title': 'Guest source question'})
@@ -643,7 +907,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
         assert 'A reports that B fled' not in answer.text
         from application_state.engine import connect
         with connect(application_state_dsn) as conn:
-            assert conn.execute("SELECT count(*) FROM agent.turn WHERE world_id=%s AND status='completed'", (world.world_id,)).fetchone()[0] == 0
+            assert conn.execute("SELECT count(*) FROM agent.turn WHERE world_id=%s AND status='completed' AND turn_id <> %s", (world.world_id, build_payload['turn_id'])).fetchone()[0] == 0
         return
     answer = client.post('/api/live/agent/turn', headers=headers, json=payload)
     assert answer.status_code == 200, answer.text

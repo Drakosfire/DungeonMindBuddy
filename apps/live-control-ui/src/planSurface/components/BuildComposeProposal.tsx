@@ -15,6 +15,7 @@ import { ResponseEvidenceTabs } from './ResponseEvidenceTabs';
 import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
 import { buildProposalMarkdown } from '../../buildSurface/buildProposalMarkdown';
+import { guestBuildActive } from '../../guestWorld/guestBuildSession';
 
 export function useBuildCompose({ worldId, history, bridge, enabled, readHistory = enabled, onHistory, pageDocumentId, onReviewOnPage, onConstructionVisible, sourceKey = '' }: {
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
@@ -44,7 +45,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
     setError(null);
-    if ((!enabled && !readHistory) || !history?.conversation_id) return;
+    if (guestBuildActive() || (!enabled && !readHistory) || !history?.conversation_id) return;
     const controller = new AbortController(); let active = true;
     if (enabled) listPreparedImages(worldId,history.conversation_id,controller.signal)
       .then(values=>{if(active)setImageRecords({scope,values});})
