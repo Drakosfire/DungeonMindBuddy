@@ -157,7 +157,7 @@ under anchored/uncertain/source_lookup votes, with cold/warm preparation, malfor
 and tied decisions; factual required-evidence controls must still acquire/use exact
 sources. Test quoted/negated instructions, approvals, multiple destinations, deferred
 work, formatted question/answer continuation, reopen, full-history reuse and zero
-page mutation before author action. Qualify exact-source backend/frontend, then
+page mutation before author action. Use minimum focused exact-source checks at the changed owning boundaries, then
 independently authored holdout and blinded semantic cases, actual signed-in Build
 browser continuation and deployed acceptance. Independent author and Core capture
 integrity are later qualification owners, not blanket permission gates for offline
@@ -184,7 +184,7 @@ and dedicated new-codec helpers in this file. Existing question normalization is
 read-only to routing. Adopt CLARIFICATION's independently reviewed result when it
 lands; checkpoint any newly required overlap before editing. The rest of the
 Build-only split and the full source-free objective remain intact. The committed
-prototype is currently parked while writer deployment has priority; no source-free
+prototype is resuming after the writer release described below; no source-free
 runtime is active and no passing source-free outcome is claimed.
 
 ## Exclusive bounded implementation write lease
@@ -242,3 +242,51 @@ plan_jev_decision.py. If implementation reveals further files or leased helpers,
 checkpoint again before editing rather than silently broadening this lease.
 The initial metadata/receipt/settlement codecs remain unregistered until the
 whole producer/reader/terminal/fence invariant is integrated and qualified.
+
+## Deployed predecessor and focused successor checkpoint
+
+Product writer serving PR4661 merged as 9cee1bbde678dac33454e42917f231b5cd3c06dd.
+Exact reviewed candidate bee3e2ce92b85bcd0d2e1e75cd470c593554f15c is now healthy
+in production at APP210, preserving serving3a UI and guest flags. Its backend is
+byte-identical to qualified b2a907621a6435969a03c7e1a62498a79daa2618; this
+statement does not attribute b2 execution to a different SHA. Fresh drained-archive
+case75 preserved 239 turns, 62 pages and seven targeted domains through both
+installed images; independent nonce-bound ACK preceded production migration.
+Signed-in edited clarification questions/answers reopened, populated the composer,
+and continued. Festival Visitor Notes was created, confirmed, saved and reopened
+as document d5905e20-a14f-449f-9434-6af7c86b32e0 in the dogfood World; the
+Memory Ferry source remained revision2. These close the bounded predecessor's
+page-writing observation, not this pending protocol or the wider goal.
+
+Current app failure e6fb451a-7b3a-42a6-b44b-6f8d95dbfa6f explicitly requested
+reading the saved Maelthor source and opening its citation. The exact recorded
+work was discuss/source_scope=anchored; only current-draft/prior-body evidence was
+admitted and the reply declined to cite the absent saved page. Use this as a
+required-lookup positive regression, alongside reuse/no-search negative controls.
+Do not fix it with a keyword classifier, by treating all discussions as lookups,
+or by treating every tentative related-page vote as authorization to reacquire.
+Prove the first semantic decision receives clear evidence roles and its selected
+required-source path reaches the existing exact-read owner.
+
+The distinct Memory Ferry turn06259909-527b-4002-821e-d22f81b93690 used an
+authorized draft_reference_claim and correct proposal-qualified prose. That owner
+emits no clickable citation. This is a draft-reference navigation capability gap,
+not a malformed canonical limitation or false evidence binding. Keep that UI
+capability and long60's unsupported title/absence interpretation outside this
+routing slice; they remain unfinished successor work. Preserve historical codecs.
+
+Alan's explicit verification instruction now overrides the older broad-suite
+requirements, without waiting for draft policy PR4671 to merge. Use only minimum
+focused tests for changed boundaries and relevant failure/security/isolation
+cases. Do not run full backend contracts, frontend suites or full-project runs
+for local agent verification. A test appearing in a broad contract does not
+require its siblings. Docs-only changes normally need diff and affected
+link/mirror review. Record exact source, commands, outcomes and any separately
+required release evidence still missing. Prior broad runs remain historical
+evidence, not an instruction to repeat them. Reuse the same App serially; the
+release owner is idle after case75 with workers/readers closed and sessions zero.
+
+This draft remains based on its pinned911c source. Before delivery, reconcile
+its cumulative runtime change with the deployed bee3 backend and current remote
+work; do not replace production changes by deploying the old prototype base.
+The serial topology and explicit CLARIFICATION4652 function split remain in force.
