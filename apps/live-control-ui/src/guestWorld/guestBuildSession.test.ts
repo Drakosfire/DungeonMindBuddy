@@ -14,6 +14,9 @@ describe("guest Build session", () => {
     await openGuestBuildWorld(new AbortController().signal);
     const path = `/api/live/agent/worlds/${world}/conversation`;
     expect(guestBuildRequestEpoch(path, "GET")).not.toBeNull();
+    expect(guestBuildRequestEpoch('/api/live/native-graph-inspection/catalog', 'POST')).not.toBeNull();
+    expect(guestBuildCsrf('/api/live/native-graph-inspection/read', 'POST')).toBe('guest-token');
+    expect(guestBuildCsrf('/api/live/native-graph-inspection/complete-object', 'POST')).toBeNull();
     expect(guestBuildRequestEpoch('/api/live/workspace-documents/11111111-1111-4111-8111-111111111111/committed-revision', 'GET')).not.toBeNull();
     expect(guestBuildRequestEpoch(`/api/live/agent/worlds/${world}/conversations/active/messages?limit=50`, "GET")).not.toBeNull();
     expect(guestBuildRequestEpoch(`${path}/turns/11111111-1111-4111-8111-111111111111/source-passages/0`, "GET")).not.toBeNull();

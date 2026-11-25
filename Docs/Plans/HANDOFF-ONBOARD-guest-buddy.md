@@ -8,6 +8,8 @@ Write lease: this handoff; narrowly scoped guest session admission and guest pri
 
 Owner amendment: `ci/test-classification.json` is included solely to add this slice's new guest conversation test module to the existing domain-integration inventory, after Actions identified it as unclassified. No selection or existing entry changes.
 
+Owner amendment: the normal Graph reference picker requires the existing native inspection catalog and entity-read routes. This slice includes those two read-only guest admissions and the existing explorer dependency and response binding; other inspection operations remain closed. The session-derived World must match the requested World, binding and selected revision, and reset must revoke reads. This is needed to make the already-admitted graph reference selectable in the normal UI.
+
 Verify at the mounted HTTP and normal conversation UI boundaries with synthetic source evidence and a fake runtime: a multi-hop question uses the session graph and returns traceable citations; two guests cannot read or write each other's conversations, sources or graph; forged World selectors, duplicate selectors, origin/CSRF failures, expiry/reset during a turn and at commit, bounded retained data and exact retry behavior; signed-in and feature-off regressions. Review exact cumulative diff, request Bugbot and record focused evidence. Serving integration and real deployed multi-hop verification follow separately; this slice does not complete the goal.
 
 
@@ -34,3 +36,5 @@ At `bc3b70091abf30b65fa13b06becff8febde8d0d8`, Bugbot found no actionable issue 
 Selected Graph objects are now admitted for guest Plan discussion through the existing native reference path. The mounted UI sends the reference; the synthetic HTTP integration accepts a same-World selection, rejects a foreign managed World, foreign native binding and missing revision, and exercises reset during the writer. Selected source references, Plan edits and other effects remain unavailable. Focused checks passed with synthetic provider responses; real-model and deployed Graph-to-Plan proof remain outstanding.
 
 Bugbot reviewed `bdf7f2c2f6cbe97e8e5d84c7b499bd3d80ab04f1` and found no actionable defect; it did not execute tests. Follow-up focused checks pass for a forged binding version rejected before provider dispatch and for reset during a direct authored-reference read preventing its result from returning. The latter exercises the read boundary outside a retaining transaction; reset during the writer is covered separately.
+
+The guest picker can now use the native catalog and entity read through the same session-bound principal. Focused HTTP coverage verifies copied-World catalog and entity access, foreign World and guest denial, unsupported selection denial and refusal after reset. The existing inspection tests and guest transport tests pass. Browser selection, reset during the inspection operation, real provider and deployed proof remain outstanding.

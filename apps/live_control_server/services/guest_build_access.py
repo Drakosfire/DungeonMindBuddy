@@ -45,6 +45,8 @@ MAX_GUEST_CONVERSATION_BYTES = 32 * 1024 * 1024
 
 def matches_guest_conversation_route(method: str, path: str) -> bool:
     """Recognize the initial conversation paths; admission is separately gated."""
+    if method == 'POST' and path in {'/api/live/native-graph-inspection/catalog', '/api/live/native-graph-inspection/read'}:
+        return True
     match = _CONVERSATION.fullmatch(path)
     if method == "GET" and (_CONVERSATION_CITATION.fullmatch(path) or _CONVERSATION_MESSAGES.fullmatch(path)):
         return True
@@ -88,6 +90,17 @@ async def admit_guest_conversation_request(request: Request) -> str:
             raise HTTPException(400, detail={"code": "invalid_guest_request"})
     elif query:
         raise HTTPException(400, detail={"code": "invalid_guest_request"})
+    if request.url.path.startswith('/api/live/native-graph-inspection/'):
+        try:
+            body = await request.json()
+            scope = body if request.url.path.endswith('/catalog') else body['scope']
+            selection = None if request.url.path.endswith('/catalog') else body['selection']
+            if (not isinstance(scope, dict) or scope.get('managed_world_id') != world_id
+                    or scope.get('scope_mode') != 'world' or scope.get('campaign_id') is not None
+                    or (selection is not None and (not isinstance(selection, dict) or selection.get('kind') != 'entity'))):
+                raise ValueError('Invalid guest inspection scope')
+        except (KeyError, ValueError, TypeError):
+            raise HTTPException(403, detail={'code': 'guest_world_forbidden'}) from None
     if is_turn:
         from apps.live_control_server.models.agent_turn import AgentTurnRequest, AgentTurnWorldOwner
         from apps.live_control_server.services.hosted_auth import request_world_ids

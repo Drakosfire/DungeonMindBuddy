@@ -234,6 +234,9 @@ async def native_graph_explorer_dependency(request: Request) -> NativeGraphPrinc
         and hosted_auth.auth_mode() == hosted_auth.LOCAL_MODE
     ):
         return enforce_native_graph_gm(request)
+    guest_world = getattr(request.state, 'guest_conversation_world', None)
+    if guest_world is not None:
+        return conversation_graph_principal(request, guest_world, authorize_local=enforce_native_graph_gm)
     subject = _hosted_subject(request)
     hosted_auth.require_hosted_write_origin(request)
     # Require a fresh lookup here as well: middleware admission is not a cached

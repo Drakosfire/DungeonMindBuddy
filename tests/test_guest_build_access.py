@@ -438,6 +438,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     from apps.live_control_server.services import plan_jev_harness
     from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
+    from apps.live_control_server.routes import native_graph_inspection
     from tests.test_plan_jev_writer import WriterWire
     from application_state.agent_conversation.native_plan_assertions import POLICY
 
@@ -459,12 +460,16 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     app.include_router(index_graph.router)
     app.include_router(workspace_documents.router)
     app.include_router(live.router)
+    app.include_router(native_graph_inspection.router)
     monkeypatch.setattr(workspace_documents, 'repo_root', lambda: tmp_path)
     monkeypatch.setattr(live, 'repo_root', lambda: tmp_path)
     monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
     monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
     monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
     monkeypatch.setattr(native_registry_source, 'repository', lambda **_kw: lane.repo)
+    monkeypatch.setattr(native_registry_source, 'read_repository', lambda **_kw: lane.repo)
+    from dataclasses import asdict
+    monkeypatch.setattr(native_registry_source, 'binding', lambda world_id: asdict(native_registry_source.resolve_managed_world_binding(world_id)))
     monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
         lambda **_: ('openai-api', 'gpt-6-luna', 'https://api.openai.com/v1'))
     install_hosted_request_boundary(app)
@@ -480,6 +485,17 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     world = get_world(guest.json()['world_id']).record
     assert world.native_graph_binding.native_world_id != lane.world.world_id
     assert lane.repo.get_head(world.native_graph_binding.native_world_id) is not None
+    inspection_scope = {'managed_world_id': world.world_id, 'scope_mode': 'world', 'campaign_id': None}
+    assert client.post('/api/live/native-graph-inspection/catalog', json=inspection_scope).status_code == 403
+    catalog = client.post('/api/live/native-graph-inspection/catalog', headers=headers, json=inspection_scope)
+    assert catalog.status_code == 200, catalog.text
+    inspection = {'scope': catalog.json()['scope'], 'selection': {'kind': 'entity', 'entity_id': lane.ids['B']}}
+    selected = client.post('/api/live/native-graph-inspection/read', headers=headers, json=inspection)
+    assert selected.status_code == 200, selected.text
+    forbidden = {**inspection, 'scope': {**inspection['scope'], 'managed_world_id': 'foreign-world'}}
+    assert client.post('/api/live/native-graph-inspection/read', headers=headers, json=forbidden).status_code == 403
+    assert client.post('/api/live/native-graph-inspection/read', headers=headers,
+        json={**inspection, 'selection': {'kind': 'chronology'}}).status_code == 403
     session_id = str(UUID(world.world_id.removeprefix('guest-')))
     request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world.world_id, guest_build_session=session_id))
     principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
@@ -652,12 +668,14 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert other_world.status_code == 200
     assert other.get(f'/api/live/workspace-documents/{document}/committed-revision').status_code == 403
     other_headers = {'X-DMB-Index-Graph-CSRF': other_session.json()['csrf_token']}
+    assert other.post('/api/live/native-graph-inspection/catalog', headers=other_headers, json=inspection_scope).status_code == 403
     other_conversation = other.post(f"/api/live/agent/worlds/{other_world.json()['world_id']}/conversation/new",
         headers=other_headers, json={'command_id': str(uuid4()), 'expected_pointer_revision': 0,
                                     'expected_active_conversation_id': None})
     assert other_conversation.status_code == 200, other_conversation.text
     assert other.get(citation).status_code == 403
     assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+    assert client.post('/api/live/native-graph-inspection/catalog', headers=headers, json=inspection_scope).status_code in (401, 403, 409)
     assert client.get(citation).status_code in (401, 403)
     from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
     from application_state.errors import ApplicationStateConflictError
