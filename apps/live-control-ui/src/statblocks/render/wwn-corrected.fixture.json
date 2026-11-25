@@ -1,0 +1,234 @@
+{
+  "ruleset": "wwn",
+  "source_sha256": "25c8b1b17d9b8c2581b3ff41d43915989e5052b7c9a153a79f313ec116649802",
+  "fields": {
+    "identity.name": {
+      "state": "confirmed",
+      "value": "Iria Vale",
+      "evidence": {
+        "label": "Name",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              51.7093,
+              539.727,
+              178.582,
+              550.382
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "combat.base_attack": {
+      "state": "confirmed",
+      "value": 1,
+      "evidence": {
+        "label": "BAB",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              258.673,
+              450.927,
+              285.4,
+              467.691
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "attributes.str_mod": {
+      "state": "confirmed",
+      "value": 0,
+      "evidence": {
+        "label": "STR Mod",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              49.5275,
+              253.781,
+              62.509,
+              264.218
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "attributes.dex": {
+      "state": "confirmed",
+      "value": 14,
+      "evidence": {
+        "label": "DEX",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              28.091,
+              213.509,
+              47.1819,
+              233.109
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "combat.hp_max": {
+      "state": "confirmed",
+      "value": 9,
+      "evidence": {
+        "label": "Maximum HP",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              78.4147,
+              226.705,
+              179.492,
+              255.742
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "combat.hp_current": {
+      "state": "confirmed",
+      "value": 7,
+      "evidence": {
+        "label": "Current HP",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              77.2933,
+              185.484,
+              178.37,
+              214.521
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "combat.ac": {
+      "state": "confirmed",
+      "value": 16,
+      "evidence": {
+        "label": "AC",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              222.655,
+              264.582,
+              256.473,
+              305.237
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "combat.effort_current": {
+      "state": "blank",
+      "value": null,
+      "evidence": {
+        "label": "Current Effort",
+        "occurrences": [
+          {
+            "page": 2,
+            "bbox_pdf_points": [
+              655.799,
+              407.636,
+              672.273,
+              428.546
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "combat.initiative": {
+      "state": "unconfirmed_default",
+      "value": null,
+      "evidence": {
+        "label": "Init",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              264.564,
+              347.727,
+              281.691,
+              364.491
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "weapons.1.name": {
+      "state": "confirmed",
+      "value": "Light Spear",
+      "evidence": {
+        "label": "Weapon Name 2",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              196.846,
+              165.227,
+              267.755,
+              182.099
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "weapons.1.damage": {
+      "state": "confirmed",
+      "value": "1d6",
+      "evidence": {
+        "label": "Weapon Dmg 2",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              305.119,
+              165.118,
+              348.864,
+              181.99
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    },
+    "weapons.1.special": {
+      "state": "confirmed",
+      "value": "Shock 2/AC 13; T",
+      "evidence": {
+        "label": "Weapon Special 2",
+        "occurrences": [
+          {
+            "page": 1,
+            "bbox_pdf_points": [
+              386.137,
+              165.027,
+              510.719,
+              181.9
+            ]
+          }
+        ],
+        "method": "acroform"
+      }
+    }
+  }
+}

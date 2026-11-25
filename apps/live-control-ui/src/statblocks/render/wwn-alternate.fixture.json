@@ -1,0 +1,226 @@
+{
+  "sheet": {
+    "ruleset": "wwn",
+    "source_sha256": "41142669695ea5caee0a19c17228d09ee578d839d41228ee242779f80fe3ac9f",
+    "fields": {
+      "identity.name": {
+        "state": "confirmed",
+        "value": "Mera Sable",
+        "evidence": {
+          "label": "Character",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            663.309,
+            318.469,
+            676.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "combat.base_attack": {
+        "state": "confirmed",
+        "value": 2,
+        "evidence": {
+          "label": "Base attack",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            555.309,
+            259.228,
+            568.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "combat.ac": {
+        "state": "confirmed",
+        "value": 15,
+        "evidence": {
+          "label": "Armor Class",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            519.309,
+            266.456,
+            532.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "combat.hp_max": {
+        "state": "confirmed",
+        "value": 13,
+        "evidence": {
+          "label": "Hit points, max",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            483.309,
+            266.456,
+            496.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "combat.hp_current": {
+        "state": "confirmed",
+        "value": 8,
+        "evidence": {
+          "label": "Hit points, now",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            447.309,
+            259.228,
+            460.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "attributes.str_mod": {
+        "state": "confirmed",
+        "value": 0,
+        "evidence": {
+          "label": "Strength modifier",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            411.309,
+            259.228,
+            424.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "combat.effort_current": {
+        "state": "blank",
+        "value": null,
+        "evidence": {
+          "label": "Effort now",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            375.309,
+            123.52600000000001,
+            388.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "weapons.0.name": {
+        "state": "confirmed",
+        "value": "Long Sword",
+        "evidence": {
+          "label": "Equipped weapon",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            339.309,
+            321.368,
+            352.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "weapons.0.damage": {
+        "state": "confirmed",
+        "value": "1d8",
+        "evidence": {
+          "label": "Weapon damage",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            303.309,
+            273.684,
+            316.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "weapons.0.shock": {
+        "state": "confirmed",
+        "value": "2/AC 13",
+        "evidence": {
+          "label": "Weapon Shock",
+          "page": 1,
+          "bbox_pdf_points": [
+            65.0,
+            267.30899999999997,
+            298.969,
+            280.309
+          ],
+          "method": "native_pdf_text"
+        }
+      },
+      "attributes.dex": {
+        "state": "unknown",
+        "value": null,
+        "evidence": null
+      },
+      "combat.initiative": {
+        "state": "unknown",
+        "value": null,
+        "evidence": null
+      }
+    }
+  },
+  "config": {
+    "sections": [
+      {
+        "title": "Combat",
+        "fields": [
+          {
+            "key": "combat.ac",
+            "label": "Armor Class"
+          },
+          {
+            "key": "combat.hp_max",
+            "label": "Maximum HP"
+          },
+          {
+            "key": "combat.hp_current",
+            "label": "Current HP"
+          },
+          {
+            "key": "combat.base_attack",
+            "label": "Base Attack Bonus"
+          },
+          {
+            "key": "combat.effort_current",
+            "label": "Current Effort"
+          },
+          {
+            "key": "combat.initiative",
+            "label": "Initiative"
+          },
+          {
+            "key": "attributes.str_mod",
+            "label": "Strength modifier"
+          },
+          {
+            "key": "attributes.dex",
+            "label": "Dexterity"
+          }
+        ]
+      },
+      {
+        "title": "Weapon",
+        "fields": [
+          {
+            "key": "weapons.0.name",
+            "label": "Weapon"
+          },
+          {
+            "key": "weapons.0.damage",
+            "label": "Damage"
+          },
+          {
+            "key": "weapons.0.shock",
+            "label": "Shock and traits"
+          }
+        ]
+      }
+    ]
+  }
+}
