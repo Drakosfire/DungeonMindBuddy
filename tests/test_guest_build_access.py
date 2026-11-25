@@ -623,7 +623,8 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
         invalid_response = client.post('/api/live/agent/turn', headers=headers, json=invalid_payload)
         assert invalid_response.status_code != 200, invalid_response.text
     for invalid in ({**source_reference, 'native_world_id': lane.world.world_id},
-                    {**source_reference, 'content_sha256': '0' * 64}):
+                    {**source_reference, 'content_sha256': '0' * 64},
+                    {**source_reference, 'selection_kind': 'section', 'section_id': '0' * 64}):
         invalid_payload = {**payload, 'turn_id': str(uuid4()),
                            'authored_references': {'schema': 'dmb_authored_references_v2', 'references': [invalid]}}
         invalid_response = client.post('/api/live/agent/turn', headers=headers, json=invalid_payload)
@@ -736,11 +737,35 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     other_id = str(UUID(other_world.json()['world_id'].removeprefix('guest-')))
     with pytest.raises(ApplicationStateConflictError):
         cleanup_expired_guest_conversation(other_id)
+    other_scope = {'managed_world_id': other_world.json()['world_id'], 'scope_mode': 'world', 'campaign_id': None}
+    other_catalog = other.post('/api/live/native-source-inspection/catalog', headers=other_headers, json=other_scope)
+    assert other_catalog.status_code == 200
+    other_item = other_catalog.json()['catalogue']['sources'][0]
+    other_read = {'scope': other_catalog.json()['scope'], 'source_artifact_id': other_item['source_artifact']['source_artifact_id'],
+                  'source_revision_id': other_item['source_revision']['source_revision_id'], 'evidence_ref_id': other_item['evidence_ref_ids'][0]}
+    source_entered, source_release = Event(), Event()
+    original_inspect = source_inspection_service.inspect
+    def paused_source(*args, **kwargs):
+        result = original_inspect(*args, **kwargs)
+        source_entered.set()
+        assert source_release.wait(15)
+        return result
+    monkeypatch.setattr(source_inspection_service, 'inspect', paused_source)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending_source = pool.submit(other.post, '/api/live/native-source-inspection/read', headers=other_headers, json=other_read)
+        try:
+            assert source_entered.wait(15)
+            assert other.post('/api/live/index-graph/reset', headers=other_headers).status_code == 200
+        finally:
+            source_release.set()
+        rejected_source = pending_source.result(timeout=15)
+    assert rejected_source.status_code != 200
+    assert 'A reports that B fled' not in rejected_source.text
     cleanup_expired_guest_conversation(session_id)
     with connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
         assert conn.execute('SELECT count(*) FROM agent.turn WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
-        assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (other_world.json()['world_id'],)).fetchone()[0] == 1
+        assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (other_world.json()['world_id'],)).fetchone()[0] == 0
 
 
 def test_guest_normal_turn_uses_guest_conversation(guests, monkeypatch, tmp_path):
