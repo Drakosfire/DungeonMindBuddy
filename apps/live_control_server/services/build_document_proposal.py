@@ -223,7 +223,7 @@ def read_prompt(world_id: str, action_id: UUID):
 
 
 async def compose_with_writer(
-    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None, _reference_image=None,
+    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None, _reference_image=None, proposal_authorize_transaction=None, proposal_validate_transaction=None,
 ):
     """Trusted parent seam: one proposal call, jointly authorized; never import text.
 
@@ -233,7 +233,7 @@ async def compose_with_writer(
     """
     if not isinstance(writer_gate, TextDispatchGate) or request.origin is None:
         raise BuildComposeError("build_compose_writer_origin_required")
-    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame, _native_output_capture=_native_output_capture, _reference_image=_reference_image)
+    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame, _native_output_capture=_native_output_capture, _reference_image=_reference_image, proposal_authorize_transaction=proposal_authorize_transaction, proposal_validate_transaction=proposal_validate_transaction)
 
 
 async def compose(request: BuildDocumentProposalRequest, *, transport=None):
@@ -249,7 +249,7 @@ def _native_page_target(native_context):
     return explicit_build_page_target(execution.policy.action.write_capability, selected_action(execution))
 
 
-async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None, _reference_image=None):
+async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None, _reference_image=None, proposal_authorize_transaction=None, proposal_validate_transaction=None):
     if (_native_output_capture is not None and (not callable(_native_output_capture) or _native_context is None)):
         raise BuildComposeError("build_compose_native_capture_required")
     reservation = request.reservation_only()
@@ -259,6 +259,8 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
     store = BuildProposalService(
         admit_prose_boundary=admit_native_prose_boundary if contextual else None,
         require_native_page_target=_native_page_target(_native_context) is not None,
+        authorize_transaction=proposal_authorize_transaction,
+        validate_transaction=proposal_validate_transaction,
     )
     # Check an accepted operation before consulting mutable source state. A replay
     # returns its original result and cannot cause another provider dispatch.

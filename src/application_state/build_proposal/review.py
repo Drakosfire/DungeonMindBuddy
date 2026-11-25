@@ -11,17 +11,16 @@ from uuid import UUID
 from pydantic import ConfigDict, Field, model_validator, model_serializer
 from psycopg.types.json import Jsonb
 
-from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
+from application_state.agent_conversation.service import _lock_pointer
 from application_state.build_proposal.types import (
     StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer,
     BuildProseBoundaryProposalRecord, BuildProseBoundaryTarget, admit_build_boundary_fragment,
 )
-from application_state.build_proposal.service import _load, _save
+from application_state.build_proposal.service import _load, _save, _proposal_transaction
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateNotFoundError,
 )
-from application_state.unit_of_work import unit_of_work
 
 Digest = str
 
@@ -225,11 +224,13 @@ class BuildReviewCommand(StrictModel):
 
 
 class BuildProposalReviewService:
-    def __init__(self, validate_source=None):
+    def __init__(self, validate_source=None, *, authorize_transaction=None, validate_transaction=None):
         self.validate_source = validate_source
+        self.authorize_transaction = authorize_transaction
+        self.validate_transaction = validate_transaction
 
     def get(self, world_id, action_id):
-        with unit_of_work(_ready_dsn()) as conn:
+        with _proposal_transaction(self.authorize_transaction, self.validate_transaction, read_only=True) as conn:
             row = conn.execute(
                 "SELECT payload FROM agent.build_proposal_review WHERE world_id=%s AND action_id=%s",
                 (world_id, action_id),
@@ -245,7 +246,7 @@ class BuildProposalReviewService:
         from application_state.agent_conversation import repository
         from application_state.agent_conversation.native_execution import NativeBuildActionV1
 
-        with unit_of_work(_ready_dsn()) as conn:
+        with _proposal_transaction(self.authorize_transaction, self.validate_transaction, read_only=True) as conn:
             row = conn.execute(
                 "SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s",
                 (review.world_id, review.action_id),
@@ -271,7 +272,7 @@ class BuildProposalReviewService:
             return capture if capture and digest(capture) == reservation.basis.editor_sha256 else None
 
     def execute(self, world_id, action_id, command, *, authorize_world=None):
-        with unit_of_work(_ready_dsn()) as conn:
+        with _proposal_transaction(self.authorize_transaction, self.validate_transaction) as conn:
             pointer = _lock_pointer(conn, world_id)
             row = conn.execute(
                 "SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s FOR UPDATE",
