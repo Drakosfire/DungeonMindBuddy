@@ -1693,8 +1693,8 @@ class AgentConversationService:
         from .native_context import BuildPendingContextReceiptV1
         from .native_execution import BuildPendingExecutionV1, validate_context_binding
         if type(context) is BuildPendingContextReceiptV1 or type(execution) is BuildPendingExecutionV1:
-            from .build_source_free import effective_pending_source
-            return effective_pending_source(context, execution)
+            from .build_source_free import validate_pending_execution_binding
+            return validate_pending_execution_binding(context, execution)
         return validate_context_binding(context, execution)
 
     def _append_graph_execution_event(

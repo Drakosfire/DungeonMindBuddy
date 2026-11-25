@@ -135,6 +135,13 @@ def effective_pending_source(receipt, execution):
     return _join_pending_source(receipt, execution)
 
 
+def validate_pending_execution_binding(receipt, execution):
+    """Return the freshly decoded execution after joining its actual receipt."""
+    receipt, execution = _pending_components(receipt, execution)
+    _join_pending_source(receipt, execution)
+    return execution
+
+
 def _pending_components(receipt, execution):
     """Reconstruct only at a boundary that does not already own fresh models."""
     from .native_context import BuildPendingContextReceiptV1

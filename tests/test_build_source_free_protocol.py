@@ -1304,7 +1304,8 @@ def test_pending_opening_uses_exact_semantic_input_pair_and_append_binding():
     crossed = receipt.model_copy(update={'assembled_input': NativeBuildProviderInputV2(**values)})
     assert not is_semantic_build_input(crossed)
     owner = AgentConversationService()
-    assert owner._bind_execution_append(receipt, execution) is None
+    bound = owner._bind_execution_append(receipt, execution)
+    assert type(bound) is type(execution) and bound == execution and bound is not execution
     for context, ledger in [(historical, execution), (receipt, historical_execution)]:
         with pytest.raises(ValueError, match='concrete Build receipt and execution'):
             owner._bind_execution_append(context, ledger)
@@ -1453,3 +1454,16 @@ def test_pending_initial_opening_refuses_changed_input_or_stale_claim(monkeypatc
     with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
         open_request(event=first, raw=raw, prompt_record=prompt)
     assert state.persisted == 0 and not state.opening_trace.observations
+
+
+def test_pending_append_binding_returns_validated_execution_after_source_settlement():
+    from application_state.agent_conversation.service import AgentConversationService
+    from tests.test_build_source_free_routing import pending_work_prefix, pending_settlement
+    receipt, policy = pending_execution_pair(with_source=True)
+    events = pending_work_prefix(policy)
+    execution = pending_execution(receipt, policy, [*events, pending_settlement(receipt, policy, events[-1])])
+    bound = AgentConversationService()._bind_execution_append(receipt, execution)
+    assert type(bound) is type(execution) and bound == execution and bound is not execution
+    changed = execution.model_copy(update={'context_receipt_sha256': 'a' * 64})
+    with pytest.raises(ValueError):
+        AgentConversationService()._bind_execution_append(receipt, changed)
