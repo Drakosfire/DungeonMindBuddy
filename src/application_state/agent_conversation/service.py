@@ -2560,6 +2560,8 @@ class AgentConversationService:
         from . import types as t
         from .writer_evidence_selection import validate_selection_proof, native_conversation_terminal
         if (type(selection) is not t.BuildWriterEvidenceSelectionV2 or selection.mode != 'empty_catalog'
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
                 or producer_proof is not None or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('Pending retained selection requires its exact empty-catalog owner')
         world_id = _world_id(world_id)

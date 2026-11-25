@@ -2677,3 +2677,20 @@ def test_pending_writer_selection_cannot_use_generic_append(monkeypatch):
                 state.turn.turn_id, expected_revision=state.turn.revision, expected_attempt=1,
                 event=event, duplicate_key='event_id')
         assert state.persisted == 2 and state.materialized == 0
+
+
+@pytest.mark.parametrize('field,value', [('expected_attempt', True), ('expected_attempt', 0),
+    ('expected_attempt', '1'), ('expected_revision', True), ('expected_revision', 0), ('expected_revision', 3.0)])
+def test_pending_writer_selection_requires_strict_positive_claim_integers_before_io(monkeypatch, field, value):
+    from application_state.errors import ApplicationStateValidationError
+    with pending_writer_runtime_case(monkeypatch) as (state, adapter, selector, turns):
+        original = state.service.record_pending_build_writer_selection
+        before = (state.access_calls, list(state.locks), state.persisted)
+        def record(*args, **kwargs):
+            kwargs[field] = value
+            return original(*args, **kwargs)
+        monkeypatch.setattr(state.service, 'record_pending_build_writer_selection', record)
+        with pytest.raises(ApplicationStateValidationError):
+            selector.settle_empty()
+        assert (state.access_calls, state.locks, state.persisted) == before
+        assert state.depth == 0
