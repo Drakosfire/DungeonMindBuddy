@@ -52,7 +52,7 @@ def test_pending_shape_sql_admission_readback_and_crossed_family_refusal(applica
 def test_pending_schema_head_refuses_previous_reader(application_state_dsn, monkeypatch):
     with psycopg.connect(application_state_dsn) as conn:
         cli.assert_connection_at_head(conn)
-        monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0211')
+        monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0213')
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_connection_at_head(conn)
 
@@ -82,6 +82,34 @@ def test_completed_pending_sdk_reply_survives_real_sql_checks(application_state_
         with conn.cursor(row_factory=dict_row) as cur:
             stored = cur.execute('SELECT ' + repository._TURN_COLS_T + ' FROM pending_completed_sql t').fetchone()
         assert repository._turn_from_row(None, stored, references=references) == turn
+
+
+def test_pending_anchored_placement_saves_the_question_and_stages_the_answered_proposal(application_state_dsn, tmp_path, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from apps.live_control_server.services import build_pending_app_pages, plan_source_turn
+    from tests.test_source_statements import make_lane
+    from tests.test_surface_native_build_ordinary import _fresh_case
+
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+
+    def forbid_source(**kwargs):
+        pytest.fail('An anchored paragraph placement must not prepare native sources')
+
+    async def forbid_app_acquisition(*args):
+        pytest.fail('The placement question must not start App page acquisition')
+
+    monkeypatch.setattr(build_pending_app_pages, 'acquire_pending_app_pages', forbid_app_acquisition)
+    for owner in (native_corpus_source, plan_source_turn):
+        monkeypatch.setattr(owner, 'prepare_native_source_context', forbid_source)
+        monkeypatch.setattr(owner, 'turn_source_repository', lambda **kwargs: lane.repo)
+
+    def send(client, world, body):
+        body['build_authored_references'] = None
+        return client.post('/api/live/agent/turn', json=body)
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True,
+        contextual='ambiguous', source_need='anchored', dispatch=send,
+        message='After the orchid paragraph, add a line about a copper lamp.')
 
 
 @pytest.mark.parametrize('mode', ['clarify', 'clarify_duplicate', 'rules', 'body', 'reset', 'long', 'chat_draft'])
@@ -259,7 +287,7 @@ def test_retained_saved_page_citation_survives_actual_sql_and_schema_fence(appli
     row.update(request_fingerprint='a' * 64, idempotency_fingerprint='b' * 64, updated_at=turn.completed_at)
     with psycopg.connect(application_state_dsn) as conn:
         cli.assert_connection_at_head(conn)
-        assert cli._alembic_head() == '20261125_0213'
+        assert cli._alembic_head() == '20261125_0214'
         conn.execute('CREATE TEMP TABLE retained_saved_citation_sql (LIKE agent.turn INCLUDING CONSTRAINTS) ON COMMIT DROP')
         conn.execute('INSERT INTO retained_saved_citation_sql SELECT (jsonb_populate_record(NULL::agent.turn,%s)).*',
             (Jsonb(json.loads(to_json(row))),))
