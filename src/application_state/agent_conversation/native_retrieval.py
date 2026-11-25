@@ -85,6 +85,11 @@ class NativeReadBatchConcludedV1(t.StrictModel):
 
 
 def _action(execution):
+    from .native_execution import BuildPendingExecutionV1, BuildPendingExecutionPolicyV1, NativeBuildSourceSettledV1
+    if type(execution.policy) is BuildPendingExecutionPolicyV1:
+        if type(execution) is not BuildPendingExecutionV1:
+            raise ValueError('Pending retrieval requires its concrete Build execution')
+        return execution.policy.action if any(type(row) is NativeBuildSourceSettledV1 for row in execution.events) else None
     if (
         getattr(execution.policy, "policy_version", None)
         != "surface_native_execution_v1"
@@ -98,6 +103,10 @@ def _action(execution):
 
 
 def owner(turn):
+    from .native_context import BuildPendingContextReceiptV1
+    if type(getattr(turn, 'graph_context_receipt', None)) is BuildPendingContextReceiptV1:
+        from .build_pending_native import pending_native_owner
+        return pending_native_owner(turn)
     from .native_context import SurfaceNativeContextReceiptV1
     from .native_execution import (
         SurfaceNativeExecutionV1,
@@ -124,17 +133,21 @@ def owner(turn):
     return turn.graph_context_receipt, turn.graph_context_execution
 
 
-def source_pins(receipt):
+def source_pins(receipt, execution=None):
     from .native_corpus import NativeCorpusAuthorityV1
     from .native_plan_statements import NativePlanQueryV1
 
-    available = isinstance(receipt.source_authority, NativeCorpusAuthorityV1)
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        authority, query = prepared_pending_source(receipt, execution)
+    else:
+        authority, query = receipt.source_authority, receipt.native_query
+    available = isinstance(authority, NativeCorpusAuthorityV1)
     return dict(
         source_authority_status="available" if available else "unavailable",
-        source_revision=receipt.source_authority.revision_id if available else None,
-        graph_revision=receipt.native_query.authority.revision_id
-        if isinstance(receipt.native_query, NativePlanQueryV1)
-        else None,
+        source_revision=authority.revision_id if available else None,
+        graph_revision=query.authority.revision_id if isinstance(query, NativePlanQueryV1) else None,
     )
 
 
@@ -159,7 +172,7 @@ def scope_digest(turn):
         product_attempt=turn.attempt,
         context_receipt_sha256=receipt.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
-        **source_pins(receipt),
+        **source_pins(receipt, execution),
     )
     return sha256(
         json.dumps(
@@ -226,7 +239,7 @@ def verify_input(turn, auth, proof):
         or parent.scope_sha256 != scope_digest(turn)
         or parent.parent_attempt_id != auth.provider_attempt_id
         or any(
-            getattr(parent, key) != value for key, value in source_pins(receipt).items()
+            getattr(parent, key) != value for key, value in source_pins(receipt, execution).items()
         )
         or sha256(proof["request_json"].encode()).hexdigest() != auth.envelope_sha256
         or (auth.provider, auth.model, auth.api_mode) != role.identity()
@@ -354,7 +367,7 @@ def verify_selection(turn, event, proof, trace):
         from .jev_retrieval_contract import retrieval_exclusions_for_replay
         if event.exclusion_replay != retrieval_exclusions_for_replay(parent, result):
             raise ValueError("Replay exclusions differ from the exact native controller votes")
-    pins = source_pins(receipt)
+    pins = source_pins(receipt, execution)
     validate_source_selection(
         parent,
         selected,

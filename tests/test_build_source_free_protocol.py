@@ -3959,3 +3959,79 @@ def test_pending_main_build_harness_completes_app_citation_without_native_prepar
             assert len(writers)==1 and 'Already discussed detail 59' in json.dumps(writers[0]['input'])
         assert len(decisions)==2 and len(reads)==1 and state.materialized==0
         if mode!='sufficient':assert state.completions==0 and not writers
+
+
+def test_pending_native_retrieval_owner_uses_only_actual_settlement_without_repreparing_or_relabeling(monkeypatch):
+    from application_state.agent_conversation import native_retrieval
+    from application_state.agent_conversation.build_pending_native import prepared_pending_source
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch) as (state,adapter,source_owner):
+        assert native_retrieval._action(state.turn.graph_context_execution) is None
+        with pytest.raises(ValueError,match='no admitted native source settlement'):
+            native_retrieval.owner(state.turn)
+        assert prepare_pending_native_source(adapter)
+        receipt,execution=native_retrieval.owner(state.turn)
+        assert type(receipt) is BuildPendingContextReceiptV1 and type(execution) is BuildPendingExecutionV1
+        authority,query=prepared_pending_source(receipt,execution)
+        assert authority==adapter.native_source_authority and query==adapter.native_query
+        pins=native_retrieval.source_pins(receipt,execution)
+        assert pins=={'source_authority_status':'available','source_revision':'observed-revision','graph_revision':'observed-revision'}
+        assert native_retrieval._action(execution)==execution.policy.action
+        first=native_retrieval.scope_digest(state.turn)
+        assert len(first)==64 and first==native_retrieval.scope_digest(state.turn)
+        assert len(state.source_prepares)==len(state.query_searches)==1 and not state.query_reopens
+        assert not hasattr(receipt,'source_authority') and not hasattr(receipt,'native_query')
+        assert not hasattr(execution.policy,'source_authority_sha256')
+        with pytest.raises(ValueError):native_retrieval.source_pins(receipt)
+
+
+@pytest.mark.parametrize('failure',['not_running','changed_text','changed_world','changed_receipt','changed_query','foreign_pair','namespace'])
+def test_pending_native_retrieval_owner_refuses_mutated_or_borrowed_prepared_scope(monkeypatch,failure):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import native_retrieval
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with pending_source_runtime_case(monkeypatch) as (state,adapter,source_owner):
+        assert prepare_pending_native_source(adapter)
+        turn=state.turn
+        if failure=='not_running':turn=turn.model_copy(update={'status':'failed'})
+        elif failure=='changed_text':turn=turn.model_copy(update={'user_text':'Changed user request'})
+        elif failure=='changed_world':turn=turn.model_copy(update={'world_id':'foreign'})
+        elif failure=='changed_receipt':
+            changed=turn.graph_context_receipt.model_copy(update={'context_receipt_sha256':'0'*64})
+            turn=turn.model_copy(update={'graph_context_receipt':changed})
+        elif failure=='changed_query':
+            events=list(turn.graph_context_execution.events)
+            events[-1]=events[-1].model_copy(update={'native_query':events[-1].native_query.model_copy(update={'question':'Another request'})})
+            turn=turn.model_copy(update={'graph_context_execution':turn.graph_context_execution.model_copy(update={'events':events})})
+        elif failure=='foreign_pair':
+            other=pending_submission().graph_context_receipt
+            turn=turn.model_copy(update={'graph_context_receipt':other})
+        else:turn=SimpleNamespace(**turn.__dict__)
+        with pytest.raises(ValueError):native_retrieval.owner(turn)
+        assert len(state.source_prepares)==len(state.query_searches)==1 and not state.query_reopens
+
+
+@pytest.mark.parametrize('surface',['plan','build','play'])
+@pytest.mark.parametrize('unavailable',[False,True])
+def test_existing_surface_native_retrieval_owner_and_pin_projection_keep_their_concrete_contract(surface,unavailable):
+    from datetime import UTC,datetime,timedelta
+    from application_state.agent_conversation import native_retrieval
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+    from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
+    from tests.test_surface_native_execution import component
+    context,record=component(surface,unavailable=unavailable)
+    sub=submission(surface).model_copy(update={'graph_context_receipt':context,'graph_context_execution':record,
+        'submitted_intent_v2':record.policy.action.intent,
+        'provenance':provenance_for(context.work_context).model_copy(update={
+            'surface_instance_id':record.policy.action.intent.surface_instance_id}),
+        'play_context_receipt':context.work_context.play_basis if surface=='play' else None})
+    current=retained(sub,status='running',attempt=1,claim_expires_at=datetime.now(UTC)+timedelta(minutes=1))
+    receipt,execution=native_retrieval.owner(current)
+    assert type(receipt) is SurfaceNativeContextReceiptV1 and type(execution) is SurfaceNativeExecutionV1
+    assert native_retrieval._action(execution)==record.policy.action
+    pins=native_retrieval.source_pins(receipt)
+    assert pins==native_retrieval.source_pins(receipt,execution)
+    assert pins['source_authority_status']==('unavailable' if unavailable else 'available')
+    assert len(native_retrieval.scope_digest(current))==64

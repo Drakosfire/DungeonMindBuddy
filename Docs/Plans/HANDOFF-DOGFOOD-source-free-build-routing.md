@@ -1208,3 +1208,33 @@ calls through synthetic transports/fake App stores, not fresh HTTP startup,
 PostgreSQL, real model semantics or signed-in production acceptance. Current
 serving fence, source-needed continuation, same-App SQL/full-Send and complete
 page create/save/reopen/citation/latency/semantic-support delivery remain open.
+
+## Prepared pending native owner continuation
+
+ACTIVE within the existing read-owner split: new build_pending_native.py owns
+exact running pending-Turn/source-settlement delegation. native_retrieval._action,
+owner and source_pins/scope/input/selection pin joins may recognize only the exact
+Build pending pair with a real typed settlement. Revalidate the actual Turn and
+original receipt; observations alone remain insufficient. No fake V1 policy hash,
+receipt, unavailable authority or query is constructed. Existing Surface/Plan/
+Play branches keep their owners. This enables host ownership/pin reconstruction,
+not IO, retrieval dispatch or read authorization; native read/event/driver closure
+must follow before runtime activation. PlanJevDriver remains untouched.
+
+Prepared native owner checkpoint:14 focused controls passed2.05s. The actual
+pending source-preparation fixture supplies its typed authority/query once; the
+new owner reconstructs the complete running Turn and original pending receipt,
+then resolves that stored pair without preparing, searching or reopening again.
+Pins/scope derive from those actual records; no V1 receipt or policy hash fields
+are synthesized. Observation-only, changed request/World/receipt/query, foreign
+pair and namespace imitation are refused. Available/unavailable Surface Plan,
+Build and Play ownership/pin controls remain unchanged. Initial compatibility
+fixture failures were generated-work/provenance mismatches and were corrected by
+binding each fixture to its own actual work, without production relaxation.
+
+This is source ownership and host pin reconstruction only. Native read/retrieval
+event validation, selected IO/current-principal admission, pending-compatible
+runtime continuation and actual writer closure still need integration; no source
+read or SDK grant follows from this helper. PlanJevDriver remains untouched.
+SQL/current reader fence/full-Send/live semantic and signed-in deployment gates
+remain open.
