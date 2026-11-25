@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from hashlib import sha256
+from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -107,6 +108,74 @@ def records(execution):
     return [e for e in execution.events if isinstance(e, RelatedPageRead)]
 
 
+@dataclass(frozen=True)
+class RetainedSavedPageReference:
+    """Completion-scoped selector over admitted bytes; not an acquisition event."""
+    read_id: UUID
+    page: PageReference
+    markdown: str
+
+
+def retained_saved_page_references(execution):
+    from uuid import uuid5
+    from .retained_conversation import admission
+    from .native_execution import BuildPendingExecutionV1
+
+    value = admission(execution)
+    if value is None or value.presentation_policy != 'retained_conversation_semantic_v4':
+        return ()  # Historical producing frames and v3 citations stay unchanged.
+    if (type(execution) is not BuildPendingExecutionV1
+            or value.world_id != execution.policy.action.intent.world_id):
+        raise ValueError('Retained saved citations require their current pending World owner')
+    turns = {row.turn_id: row for row in value.history}
+    selected, snapshots = [], set()
+    for index, row in enumerate(value.authored_context):
+        if row.role != 'related_authored':
+            continue  # A draft or a partial saved section is not a full saved page.
+        basis = row.source_basis
+        if (not row.occurrences or not isinstance(row.title, str) or not row.title.strip()
+                or basis.world_id != value.world_id
+                or sha256(row.text.encode('utf-8')).hexdigest() != basis.content_sha256):
+            raise ValueError('Retained saved page differs from its original full snapshot')
+        for occurrence in row.occurrences:
+            prior = turns.get(occurrence.turn_id)
+            if (prior is None or not prior.base_approved or prior.assistant_text is None
+                    or prior.attempt != occurrence.attempt or prior.sequence >= value.conversation_sequence):
+                raise ValueError('Retained saved page lacks its approved producing occurrence')
+        page = PageReference(world_id=basis.world_id, document_id=UUID(basis.document_id),
+            registry_revision=basis.registry_revision, title=row.title,
+            visibility=basis.visibility, content_sha256=basis.content_sha256)
+        identity = page.model_dump_json()
+        if identity in snapshots:
+            raise ValueError('Retained saved page repeats an exact snapshot')
+        snapshots.add(identity)
+        selected.append(RetainedSavedPageReference(
+            read_id=uuid5(value.event_id, f'retained-authored:{index}'),
+            page=page, markdown=row.text))
+    return tuple(selected)
+
+
+def citation_records(execution):
+    """Return citable reads and historical snapshots without recording new reads."""
+    rows = (*records(execution), *retained_saved_page_references(execution))
+    if len({row.read_id for row in rows}) != len(rows):
+        raise ValueError('Saved-page citation selectors collide')
+    return rows
+
+
+def retained_saved_page_project(execution):
+    rows = retained_saved_page_references(execution)
+    if not rows:
+        return None
+    citation_records(execution)  # Refuse collisions before offering local aliases.
+    return {'policy': POLICY, 'role': ROLE,
+        'catalog_scope': 'exact_historical_saved_pages_in_retained_conversation',
+        'absence_authority': 'not_proven_by_retained_saved_pages',
+        'availability': [{'page': row.page.model_dump(mode='json'), 'acquisition': 'read'} for row in rows],
+        'pages': [{'read_id': str(row.read_id), 'page': row.page.model_dump(mode='json'),
+                   'markdown': row.markdown} for row in rows]}
+
+
 def is_anchored_conversation_draft(execution, selection):
     from .types import BuildDraftContextCapturedV1, BuildRequestedWorkResolutionV1
 
@@ -120,7 +189,8 @@ def project(execution):
     from .native_execution import BuildPendingExecutionV1
     if type(execution) is BuildPendingExecutionV1:
         from .build_pending_app_coverage import pending_related_pages_project
-        return pending_related_pages_project(execution)
+        retained = retained_saved_page_project(execution)
+        return retained if retained is not None else pending_related_pages_project(execution)
     if catalog(execution.policy) is None:
         return None
     if is_plan_catalog(execution):
@@ -456,7 +526,7 @@ def validate_packet(packet, execution):
 
 
 def project_claim(segment, reads):
-    """Derive the existing page pin from one actual read, never model metadata."""
+    """Derive the page pin from one admitted read or retained reference, never model metadata."""
     selected = RelatedPageDraftClaim.model_validate(segment)
     rows = [read for read in reads if read.read_id == selected.read_id]
     if len(rows) != 1:
@@ -465,7 +535,7 @@ def project_claim(segment, reads):
 
 
 def validate_claims(completion, execution):
-    rows = {e.read_id: e for e in records(execution)}
+    rows = {e.read_id: e for e in citation_records(execution)}
     for claim in completion.answer_segments:
         if isinstance(claim, RelatedPageClaim) and (
             claim.read_id not in rows or claim.page != rows[claim.read_id].page

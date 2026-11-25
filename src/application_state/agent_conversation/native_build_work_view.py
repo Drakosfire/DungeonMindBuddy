@@ -270,7 +270,10 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
         work['related_page_availability'] = [{'title': row['page']['title'],
             'visibility': row['page']['visibility'], 'acquisition': row['acquisition']}
             for row in related['availability']]
-        work['related_page_scope'] = 'Saved active worldbuilding pages in this World, excluding the current page.'
+        work['related_page_scope'] = (
+            'Exact historical saved-page snapshots already read in this conversation; not necessarily current revisions or active pages.'
+            if related.get('catalog_scope') == 'exact_historical_saved_pages_in_retained_conversation'
+            else 'Saved active worldbuilding pages in this World, excluding the current page.')
         work['related_page_absence'] = 'This catalog does not prove that other pages do not exist.'
     if 'saved_statblocks' in host:
         mechanics_fields = (
