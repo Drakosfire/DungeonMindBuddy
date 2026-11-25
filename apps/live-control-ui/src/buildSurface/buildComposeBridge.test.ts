@@ -162,6 +162,33 @@ it.each(['plain','identity-only','composed','protected','clean-arrival'] as cons
    editor_sha256:await testDigest(JSON.stringify(originalDoc)),caret,draft_generation:0,selection_generation:0};
   await expect(bridge.restore(basis,undefined,undefined,{...proof,from:proof.from-1,to:proof.to-1})).rejects.toThrow('offered');
   const captured=await bridge.restore(basis,undefined,undefined,proof);
+  if (mode === 'clean-arrival') {
+   const projected = projectPresentation(originalDoc, source, markdownToTiptapDoc(source).doc, null);
+   expect(projected.markdown).toBe(source);
+   expect(projected.presentation).toBeNull();
+   const reopened = new Editor({extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,...PAGE_COMPOSER_EXTENSIONS],
+    content:markdownToTiptapDoc(projected.markdown).doc});
+   try {
+    const reopenedState = {...state, editor:reopened};
+    const reopenedBridge = createBuildComposeBridge(() => reopenedState, changed);
+    const before = reopened.getJSON();
+    expect(before).not.toEqual(originalDoc);
+    const originalJson = JSON.stringify(originalDoc);
+    await expect(reopenedBridge.restore(basis,undefined,undefined,proof)).rejects.toThrow('page has changed');
+    const restored = await reopenedBridge.restore(basis,undefined,undefined,proof,originalJson);
+    expect(restored.proseTarget).toEqual(proof);
+    const preparedAfterReload = await reopenedBridge.prepareProposal(restored, 'A lantern waits at the crossing.');
+    expect(await reopenedBridge.inspectProposal(basis,preparedAfterReload.afterEditorSha256,
+     preparedAfterReload.afterDraftSha256,proof,originalJson)).toEqual({state:'before'});
+    expect(reopened.getJSON()).toEqual(before);
+    expect(changed).not.toHaveBeenCalled();
+    reopenedState.canEdit = false;
+    await expect(reopenedBridge.restore(basis,undefined,undefined,proof,originalJson)).rejects.toThrow('editable Build page');
+    reopenedState.canEdit = true;
+    reopened.commands.insertContentAt(proof.from, '<p>New paragraph</p>');
+    await expect(reopenedBridge.restore(basis,undefined,undefined,proof,originalJson)).rejects.toThrow('page has changed');
+   } finally { reopened.destroy(); }
+  }
   const hasCallouts = mode !== 'plain';
   const fragment = mode === 'clean-arrival'
   ? '> [!READ-ALOUD] Arrival\n> Beyond the marsh, a boardwalk leads toward a sealed tower. Three blue lanterns glow among the reeds.\n\n> [!GM-NOTE]\n> Wait for the players to choose whether to approach the tower.'

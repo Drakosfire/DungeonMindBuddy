@@ -53,7 +53,10 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   function restoreReview(saved:BuildProposalReview){
     const basis={...basisFor(saved),caret:saved.placement_caret};
     const body=bodyFor(saved),end=endFor(saved),prose=proseFor(saved);
-    return prose?bridge.restore(basis,body,end,prose):bridge.restore(basis,body,end);
+    if (!prose) return bridge.restore(basis,body,end);
+    return saved.original_editor_json
+      ? bridge.restore(basis,body,end,prose,saved.original_editor_json)
+      : bridge.restore(basis,body,end,prose);
   }
   const picker=useRef<AbortController|null>(null);
   const cacheKey=`dmb:proposal-review-draft:v1:${world}:${record.action_id}`;
@@ -164,7 +167,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(saved.state!=='applying'||!saved.apply)return;
     const basis={...basisFor(saved),caret:saved.placement_caret},prose=proseFor(saved);
     const state=prose
-      ?await bridge.inspectProposal(basis,saved.apply.after_editor_sha256,saved.apply.after_draft_sha256,prose)
+      ?await bridge.inspectProposal(basis,saved.apply.after_editor_sha256,saved.apply.after_draft_sha256,prose,saved.original_editor_json)
       :await bridge.inspectProposal(basis,saved.apply.after_editor_sha256,saved.apply.after_draft_sha256);
     if(!current(start))return;
     if(state.state==='changed')throw new Error('The current page differs from the earlier insertion snapshots. Its outcome is unresolved. Review the retained text before choosing a new position.');

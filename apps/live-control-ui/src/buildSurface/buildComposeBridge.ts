@@ -86,9 +86,9 @@ export interface BuildComposeBridge {
   saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection,
     proseTarget?: BuildProseBoundaryTarget) => Promise<void>;
   inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string,
-    proseTarget?: BuildProseBoundaryTarget) => Promise<ProposalInspection>;
+    proseTarget?: BuildProseBoundaryTarget, originalEditorJson?:string) => Promise<ProposalInspection>;
   restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget,
-    proseTarget?:BuildProseBoundaryTarget) => Promise<CapturedBuildInsertion>;
+    proseTarget?:BuildProseBoundaryTarget, originalEditorJson?:string) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
 async function sha256(value: string) {
@@ -482,7 +482,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       if (proseTarget) await persist(basis,afterEditor,afterDraft,savedProjection,proseTarget);
       else await persist(basis,afterEditor,afterDraft,savedProjection);
     },
-    async inspectProposal(basis,afterEditor,afterDraft,proseTarget) {
+    async inspectProposal(basis,afterEditor,afterDraft,proseTarget,originalEditorJson) {
       const now=getCurrent();
       if(!now?.canEdit||now.editor.isDestroyed||now.worldId!==basis.world_id||now.documentId!==basis.document_id
         ||now.visibility!==basis.visibility||now.revision<basis.registry_revision)return {state:'changed'};
@@ -506,17 +506,34 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       }
       if(editorDigest===basis.editor_sha256&&draftDigest===basis.draft_sha256
         &&savedPageMatches(now,basis,true))return {state:'before'};
+      if(proseTarget && originalEditorJson && draftDigest===basis.draft_sha256){
+        try {
+          await bridge.restore(basis,undefined,undefined,proseTarget,originalEditorJson);
+          assertCurrent();
+          return {state:'before'};
+        } catch { return {state:'changed'}; }
+      }
       return {state:'changed'};
     },
-    async restore(basis,pageBodyTarget,pageEndTarget,proseTarget) {
+    async restore(basis,pageBodyTarget,pageEndTarget,proseTarget,originalEditorJson) {
       if (!basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Open the original editable Build page first.');
-      const editorJson = JSON.stringify(now.editor.getJSON());
-      const draftMarkdown = tiptapJsonToSemanticMarkdown(proseTarget ? flattenPresentation(now.editor.getJSON()) : now.editor.getJSON());
+      const document = now.editor.getJSON();
+      const editorJson = JSON.stringify(document);
+      const draftMarkdown = tiptapJsonToSemanticMarkdown(proseTarget ? flattenPresentation(document) : document);
       const captured: CapturedBuildInsertion = {editor: now.editor, editorJson, draftMarkdown, pageBodyTarget, pageEndTarget,
         basis: {...basis, draft_generation: now.draftGeneration, selection_generation: now.selectionGeneration}};
-      if (await sha256(editorJson) !== basis.editor_sha256 || await sha256(draftMarkdown) !== basis.draft_sha256
+      const editorDigest = await sha256(editorJson);
+      // Plain Markdown can drop transient IDs assigned by paste. Compare both
+      // complete documents without IDs only against the exact frozen capture.
+      const originalDocument = editorDigest !== basis.editor_sha256 && proseTarget && originalEditorJson
+        && !now.pagePresentation && savedPageMatches(now,basis)
+        && await sha256(originalEditorJson) === basis.editor_sha256 ? JSON.parse(originalEditorJson) as JSONContent : null;
+      const plainRestore = originalDocument && !hasPresentation(originalDocument) && !hasPresentation(document)
+        && canonicalProjection(now.editor,draftMarkdown,true)
+        && JSON.stringify(flattenPresentation(originalDocument)) === JSON.stringify(flattenPresentation(document));
+      if ((!plainRestore && editorDigest !== basis.editor_sha256) || await sha256(draftMarkdown) !== basis.draft_sha256
         || !Number.isInteger(basis.caret) || basis.caret < 0 || basis.caret > now.editor.state.doc.content.size) {
         throw new Error('This page has changed since the proposal. Nothing was inserted.');
       }
