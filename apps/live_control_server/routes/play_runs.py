@@ -240,8 +240,11 @@ def put_world_play_active_run_v2(
     authorize_world = partial(require_hosted_plan_world_context, request, world_id)
     authorize_world()
     try:
+        from apps.live_control_server.services.guest_build_access import _lock_guest_session
+        guest = getattr(request.state, "guest_build_world", None)
         state = set_world_play_active_run(
-            world_id=world_id, run_id=body.run_id, authorize_world=authorize_world
+            world_id=world_id, run_id=body.run_id, authorize_world=authorize_world,
+            **({"authorize_transaction": lambda conn, world: _lock_guest_session(request, conn, world)} if guest else {}),
         )
     except PlayActiveRunError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -281,7 +284,10 @@ def preview_world_session(
 def put_world_play_run_v2(run_id: str, body: WorldSessionCreateRequest, request: Request, world_id: str = Query(min_length=1)):
     _authorize_world_session(request, world_id)
     try:
-        return create_or_replay_world_play_run(world_id=_verified_world(world_id), run_id=run_id, request=body)
+        from apps.live_control_server.services.guest_build_access import guest_play_capacity
+        guest = getattr(request.state, "guest_build_world", None)
+        return create_or_replay_world_play_run(world_id=_verified_world(world_id), run_id=run_id, request=body,
+            **({"authorize_creation": lambda conn, world, replay: guest_play_capacity(request, conn, world, replay)} if guest else {}))
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
@@ -334,12 +340,15 @@ def put_world_play_run_progress_v2(
     authorize_world = partial(require_hosted_plan_world_context, request, world_id)
     authorize_world()
     try:
+        from apps.live_control_server.services.guest_build_access import _lock_guest_session
+        guest = getattr(request.state, "guest_build_world", None)
         record = replace_world_play_run_progress(
             world_id=world_id,
             run_id=run_id,
             expected_run_revision=body.expected_run_revision,
             progress=body.progress,
             authorize_world=authorize_world,
+            **({"authorize_transaction": lambda conn, world: _lock_guest_session(request, conn, world)} if guest else {}),
         )
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

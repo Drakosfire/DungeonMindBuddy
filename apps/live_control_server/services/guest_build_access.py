@@ -22,12 +22,28 @@ _INVENTORY = "/api/live/workspace-documents/pages/inventory"
 _CREATE = "/api/live/workspace-documents"
 _PLANS = "/api/live/workspace-documents/world-plans"
 _PLAN_VIEW = "/api/live/plan-view"
+_PLAY_ROOT = "/api/live/world-play-runs/v2"
+_PLAY_RUN = re.compile(r"^/api/live/world-play-runs/v2/([0-9a-f-]{36})(/progress|/reference-manifest|/content|/creation)?$")
+_PLAN_REVISION = re.compile(r"^/api/live/workspace-documents/([0-9a-f-]{36})/committed-revision(?:/[1-9][0-9]*)?$")
+_MEDIA_ROOT = "/api/live/media/images"
+_MEDIA_ASSET = re.compile(r"^/api/live/media/images/([0-9a-f-]{36})(/metadata|/original)?$")
 MAX_GUEST_PAGES = 32
 MAX_GUEST_REVISIONS = 256
 MAX_GUEST_SAVED_BYTES = 16 * 1024 * 1024
+MAX_GUEST_RUNS = 16
 
 
 def matches_guest_build_route(method: str, path: str) -> bool:
+    if os.getenv("DMB_HOSTED_GUEST_MEDIA_ENABLED") == "1":
+        if (method == "GET" and (path in {_MEDIA_ROOT + "/capabilities", _MEDIA_ROOT + "/library"} or _MEDIA_ASSET.fullmatch(path))
+                or method == "POST" and path == _MEDIA_ROOT + "/generate"):
+            return True
+    if os.getenv("DMB_HOSTED_GUEST_PLAY_ENABLED") == "1" and os.getenv("DMB_HOSTED_GUEST_PLAN_ENABLED") == "1":
+        match = _PLAY_RUN.fullmatch(path)
+        if (method == "GET" and (path in {_PLAY_ROOT, _PLAY_ROOT + "/active", "/api/live/workspace-documents/world-runbooks"} or _PLAN_REVISION.fullmatch(path) or (match and match.group(2) != "/progress"))
+                or method == "POST" and path == _PLAY_ROOT + "/preparation"
+                or method == "PUT" and (path == _PLAY_ROOT + "/active" or match and match.group(2) in (None, "/progress"))):
+            return True
     return ((method == "GET" and (path == _INVENTORY or _DOCUMENT.fullmatch(path) is not None))
             or (method == "POST" and (path == _CREATE or path in _WRITE))
             or (os.getenv("DMB_HOSTED_GUEST_PLAN_ENABLED") == "1" and
@@ -95,7 +111,42 @@ async def admit_guest_build_request(request: Request) -> str:
         raise HTTPException(400, detail={"code": "invalid_guest_request"})
     path = request.url.path
     try:
-        if path == _INVENTORY:
+        plan_revision = _PLAN_REVISION.fullmatch(path)
+        play_run = _PLAY_RUN.fullmatch(path)
+        asset = _MEDIA_ASSET.fullmatch(path)
+        if path in {_MEDIA_ROOT + "/capabilities", _MEDIA_ROOT + "/library", _MEDIA_ROOT + "/generate"}:
+            allowed = {"world_id", "before_time", "before_id"} if path.endswith("/library") else {"world_id"}
+            if set(key for key, _ in query) - allowed or request.query_params.get("world_id") != world_id:
+                raise HTTPException(403, detail={"code": "guest_world_forbidden"})
+            if request.method == "GET" and await request.body():
+                raise HTTPException(400, detail={"code": "invalid_guest_request"})
+            if path.endswith("/generate"):
+                from apps.live_control_server.routes.media_images import ImagePreviewRequest
+                if ImagePreviewRequest.model_validate(await request.json()).preparation_id is not None:
+                    raise HTTPException(403, detail={"code": "guest_media_forbidden"})
+            request.state.hosted_plan_context_world = world_id
+        elif asset:
+            from application_state import media
+            from apps.live_control_server.services.hosted_native_graph_access import hosted_world_media_owner
+            if query or await request.body() or str(UUID(asset.group(1))) != asset.group(1):
+                raise HTTPException(403, detail={"code": "guest_media_forbidden"})
+            try:
+                await run_in_threadpool(media.get_asset, asset.group(1), hosted_world_media_owner(world_id))
+            except ApplicationStateError:
+                raise HTTPException(403, detail={"code": "guest_media_forbidden"}) from None
+            request.state.hosted_saved_artwork = (asset.group(1), world_id)
+        elif plan_revision:
+            if query or await request.body() or await run_in_threadpool(_document_world, plan_revision.group(1)) != (world_id, "plan"):
+                raise HTTPException(403, detail={"code": "guest_document_forbidden"})
+            request.state.hosted_plan_context_world = world_id
+        elif path in {_PLAY_ROOT, _PLAY_ROOT + "/active", _PLAY_ROOT + "/preparation", "/api/live/workspace-documents/world-runbooks"} or play_run:
+            allowed = {"world_id", "entry_scene_id"} if path == _PLAY_ROOT + "/preparation" else {"world_id"}
+            if set(key for key, _ in query) - allowed or request.query_params.get("world_id") != world_id:
+                raise HTTPException(403, detail={"code": "guest_world_forbidden"})
+            if request.method == "GET" and await request.body():
+                raise HTTPException(400, detail={"code": "invalid_guest_request"})
+            request.state.hosted_plan_context_world = world_id
+        elif path == _INVENTORY:
             if (set(key for key, _ in query) - {"world_id", "campaign_id", "status", "limit", "before_updated_at", "before_document_id"}
                     or request.query_params.get("world_id") != world_id
                     or request.query_params.get("campaign_id", world_id) != world_id
@@ -142,9 +193,8 @@ async def admit_guest_build_request(request: Request) -> str:
     return world_id
 
 
-def guest_write_capacity(request: Request, conn, world_id: str, *, creating: bool = False,
-                         content_bytes: int = 0, replay: bool = False) -> None:
-    """Lock guest lifecycle and enforce bounded durable page storage atomically."""
+def _lock_guest_session(request: Request, conn, world_id: str) -> None:
+    """Serialize a guest-owned write with session expiry and reset."""
     from application_state.errors import ApplicationStateConflictError
 
     session_id = getattr(request.state, "guest_build_session", None)
@@ -156,6 +206,25 @@ def guest_write_capacity(request: Request, conn, world_id: str, *, creating: boo
     ).fetchone()
     if row is None or world_id != f"guest-{UUID(session_id).hex}":
         raise ApplicationStateConflictError("Guest session is no longer active")
+
+
+def guest_play_capacity(request: Request, conn, world_id: str, replay: bool) -> None:
+    """Bind Run creation to the live guest session and bound retained Runs."""
+    from application_state.errors import ApplicationStateConflictError
+
+    _lock_guest_session(request, conn, world_id)
+    if not replay:
+        count = conn.execute("SELECT count(*) FROM play.run WHERE world_id = %s", (world_id,)).fetchone()[0]
+        if count >= MAX_GUEST_RUNS:
+            raise ApplicationStateConflictError("This guest World has reached its session limit")
+
+
+def guest_write_capacity(request: Request, conn, world_id: str, *, creating: bool = False,
+                         content_bytes: int = 0, replay: bool = False) -> None:
+    """Lock guest lifecycle and enforce bounded durable page storage atomically."""
+    from application_state.errors import ApplicationStateConflictError
+
+    _lock_guest_session(request, conn, world_id)
     conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", ("guest-build:" + world_id,))
     if creating:
         pages = conn.execute(

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import os
+from contextlib import nullcontext
 from typing import Literal
 from datetime import datetime
 from uuid import UUID
@@ -71,7 +72,10 @@ def _image_client() -> GenerationClient:
 def image_capabilities(request: Request, response: Response, world_id: str | None = None):
     from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
 
-    if world_id is None:
+    if getattr(request.state, "guest_build_world", None) is not None:
+        from apps.live_control_server.services.guest_build_access import require_guest_build_world
+        require_guest_build_world(request, world_id)
+    elif world_id is None:
         enforce_native_graph_gm(request)
     else:
         require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
@@ -82,7 +86,7 @@ def image_capabilities(request: Request, response: Response, world_id: str | Non
     except ApplicationStateError:
         library_ready = False
     return {"configured": bool(_fal_key()), "library_ready": library_ready,
-            "storage_configured": media_storage.configured(), "models": IMAGE_MODELS[:4],
+            "storage_configured": False if getattr(request.state, "guest_build_world", None) else media_storage.configured(), "models": IMAGE_MODELS[:4],
             "default_model_id": DEFAULT_IMAGE_MODEL, "map_framing": MAP_FRAMING}
 
 
@@ -140,10 +144,11 @@ async def generate_image_preview(
     )
 
     hosted = hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT
+    guest = getattr(request.state, "guest_build_world", None)
     if hosted:
         if world_id is None:
             raise HTTPException(403, detail="Select a World before generating artwork.")
-        principal = conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
+        principal = None if guest else conversation_graph_principal(request, world_id, authorize_local=enforce_native_graph_gm)
         asset_owner = hosted_world_media_owner(world_id)
     else:
         principal = enforce_native_graph_gm(request)
@@ -157,6 +162,8 @@ async def generate_image_preview(
         raise HTTPException(503, detail="The media library needs database setup before image generation.") from error
     preparation = None
     if body.preparation_id is not None:
+        if guest:
+            raise HTTPException(403, detail="Guest image preparation is unavailable.")
         try:
             preparation = BuildImageService().get(body.preparation_id, principal.subject)
             if world_id is not None and preparation.reservation.basis.world_id != world_id:
@@ -164,42 +171,44 @@ async def generate_image_preview(
         except ApplicationStateError as error:
             raise HTTPException(error.status_code, detail='Image preparation unavailable.') from error
     effective_prompt = MAP_FRAMING + "\n\n" + body.prompt if body.purpose == "map" else body.prompt
-    client = None
-    try:
-        client = _image_client()
-        if hosted and world_id is not None:
-            require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
-        result = await client.generate_image(ImageRequest(
-            prompt=effective_prompt, model=body.model, width=body.width, height=body.height,
-            num_images=1, options=body.options, deadline_ms=180000,
-        ))
-    except GenerationEngineError as error:
-        raise HTTPException(502, detail={"code": error.failure.code.value, "message": _image_failure_message(error, "Image generation did not complete. Your previous preview is unchanged.")}) from error
-    except (ValueError, ImportError) as error:
-        raise HTTPException(503, detail="Image generation is not configured on this server.") from error
-    finally:
-        if client is not None:
-            await client.aclose()
-    if not result.images:
-        raise HTTPException(502, detail="The model returned no image.")
-    images = []
-    for image in result.images:
-        if image.media_type not in {"image/png", "image/jpeg", "image/webp"} or len(image.content) > 20 * 1024 * 1024:
-            raise HTTPException(502, detail="The returned image could not be previewed.")
-        if hosted and world_id is not None:
-            require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+    from apps.live_control_server.services.guest_media_access import authorize_guest_image_stage, guest_generation_lease
+    with guest_generation_lease(request, world_id) if guest else nullcontext():
+        client = None
         try:
-            row = media.stage_image(image.content, asset_owner, {
-                "kind": "generation", "prompt": effective_prompt, "authored_prompt": body.prompt, "model": body.model,
-                "settings": body.model_dump(mode="json", exclude={"prompt"}),
-                "observation": result.observation.model_dump(mode="json"),
-                "preparation": preparation.model_dump(mode="json", exclude={'owner_id'}) if preparation else None,
-            })
-        except ApplicationStateError as error:
-            raise HTTPException(error.status_code, detail="The image could not be retained in the media library. No CDN save is claimed.") from error
-        images.append({"data_url": f"data:{row['mime_type']};base64,{base64.b64encode(image.content).decode('ascii')}", "media_type": row["mime_type"], "asset_id": str(row["asset_id"]), "state": row["state"]})
-    return {"images": images, "model": body.model, "prompt": effective_prompt,
-            "settings": body.model_dump(mode="json", exclude={"prompt"}), "observation": result.observation.model_dump(mode="json")}
+            client = _image_client()
+            if hosted and world_id is not None and not guest:
+                require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+            result = await client.generate_image(ImageRequest(
+                prompt=effective_prompt, model=body.model, width=body.width, height=body.height,
+                num_images=1, options=body.options, deadline_ms=180000,
+            ))
+        except GenerationEngineError as error:
+            raise HTTPException(502, detail={"code": error.failure.code.value, "message": _image_failure_message(error, "Image generation did not complete. Your previous preview is unchanged.")}) from error
+        except (ValueError, ImportError) as error:
+            raise HTTPException(503, detail="Image generation is not configured on this server.") from error
+        finally:
+            if client is not None:
+                await client.aclose()
+        if not result.images:
+            raise HTTPException(502, detail="The model returned no image.")
+        images = []
+        for image in result.images:
+            if image.media_type not in {"image/png", "image/jpeg", "image/webp"} or len(image.content) > 20 * 1024 * 1024:
+                raise HTTPException(502, detail="The returned image could not be previewed.")
+            if hosted and world_id is not None and not guest:
+                require_conversation_access(request, world_id, authorize_local=enforce_native_graph_gm)
+            try:
+                row = media.stage_image(image.content, asset_owner, {
+                    "kind": "generation", "prompt": effective_prompt, "authored_prompt": body.prompt, "model": body.model,
+                    "settings": body.model_dump(mode="json", exclude={"prompt"}),
+                    "observation": result.observation.model_dump(mode="json"),
+                    "preparation": preparation.model_dump(mode="json", exclude={'owner_id'}) if preparation else None,
+                }, **({"authorize_stage": lambda conn, owner, size: authorize_guest_image_stage(request, conn, owner, size)} if guest else {}))
+            except ApplicationStateError as error:
+                raise HTTPException(error.status_code, detail="The image could not be retained in the media library. No CDN save is claimed.") from error
+            images.append({"data_url": f"data:{row['mime_type']};base64,{base64.b64encode(image.content).decode('ascii')}", "media_type": row["mime_type"], "asset_id": str(row["asset_id"]), "state": row["state"]})
+        return {"images": images, "model": body.model, "prompt": effective_prompt,
+                "settings": body.model_dump(mode="json", exclude={"prompt"}), "observation": result.observation.model_dump(mode="json")}
 
 
 class ContextualImageRequest(BaseModel):
