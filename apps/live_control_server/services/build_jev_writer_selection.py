@@ -129,7 +129,11 @@ class WriterSelectionDriver:
             terminal_disposition=self.terminal, judgments=judgments, **closure)
         proof = ({"request_json": self._prepared.body.decode(), "response_json": response_json}
                  if response_json is not None else None)
-        a.turn = _require_fresh_execution_append(a.fence.append("record_build_writer_evidence_selection",
-            "selection", event, producer_proof=proof))
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        pending = type(a._broker_receipt()) is BuildPendingContextReceiptV1
+        a.turn = _require_fresh_execution_append(a.fence.append(
+            "record_pending_build_writer_selection" if pending else "record_build_writer_evidence_selection",
+            "selection", event, producer_proof=proof,
+            **({'authorize_current_access': a.pending_build_access} if pending else {})))
         self.receipt = event
         return event

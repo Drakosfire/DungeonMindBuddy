@@ -486,3 +486,23 @@ def validate_pending_retained_admission(execution, event):
                 or type(prior) in (NativeBuildSourceSettledV1, BuildAppPageCatalogObservedV1,
                     t.RelatedPagesSelection, t.RelatedPageRead) for prior in prefix)):
         raise ValueError('Pending retained context requires unique source-free conversation work')
+
+
+def validate_pending_empty_writer_selection(execution, event):
+    from . import types as t
+    from .writer_evidence_selection import NATIVE_POLICY, close_selection, digest
+    prefix = execution.events[:event.sequence]
+    controllers = [prior for prior in prefix if isinstance(prior, t.ProviderAttemptAuthorizedEventV1)]
+    latest = controllers[-1] if controllers else None
+    outcomes = [prior.outcome for prior in prefix if type(prior) is t.ProviderOutcomeEventV1
+                and latest is not None and prior.provider_attempt_id == latest.provider_attempt_id]
+    if (event.mode != 'empty_catalog' or event.policy != NATIVE_POLICY or event.catalog_sha256 != digest({})
+            or event.judgments or event.controller_response_sha256 is not None or latest is None
+            or latest.provider_attempt_id != event.controller_attempt_id
+            or latest.envelope_sha256 != event.controller_envelope_sha256 or outcomes[-1:] != ['response_received']
+            or not any(type(prior) is t.BuildPriorBodyEvidenceAdmittedV3 for prior in prefix)
+            or any(isinstance(prior, t.BuildWriterEvidenceSelectionV1) for prior in prefix)):
+        raise ValueError('Pending empty writer selection requires its acknowledged retained context')
+    for field, expected in close_selection({}, {}).items():
+        if list(getattr(event, field)) != expected:
+            raise ValueError('Pending empty selection cannot manufacture acquired evidence')

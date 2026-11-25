@@ -16,11 +16,11 @@ NATIVE_POLICY = "source_unit_selection_event_closure_v2"
 
 def policy_for(execution):
     from .types import BuildWriterEvidenceSelectionV1
-    from .native_execution import SurfaceNativeExecutionV1
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
     settled = [e for e in execution.events if isinstance(e, BuildWriterEvidenceSelectionV1)]
     if settled:
         return settled[0].policy
-    return NATIVE_POLICY if type(execution) is SurfaceNativeExecutionV1 else POLICY
+    return NATIVE_POLICY if type(execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1) else POLICY
 
 JUDGMENTS = ("direct_support", "qualification_or_conflict", "uncertain", "irrelevant")
 RULES = (
@@ -44,9 +44,9 @@ RULES += (
 
 def enabled(policy):
     from .types import BuildSelectedSourceActionControllerWriterPolicyV1
-    from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+    from .native_execution import SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1, NativeBuildActionV1
     return (isinstance(policy,BuildSelectedSourceActionControllerWriterPolicyV1)
-        or type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1)
+        or type(policy) in (SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1) and type(policy.action) is NativeBuildActionV1)
 
 
 def canonical(value):
@@ -224,8 +224,9 @@ def source_projection(catalog):
 def selection_state(turn, catalog, terminal, historical_initial, *, policy=None):
     """Exact final-controller input; this does not claim catalog completeness."""
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
-    from .native_context import SurfaceNativeContextReceiptV1
-    native = type(receipt) is SurfaceNativeContextReceiptV1
+    from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+    pending = type(receipt) is BuildPendingContextReceiptV1
+    native = type(receipt) in (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)
     if not native:
         authority, scope = receipt.graph_authority, execution.policy.source_read_scope
     if terminal.get("status") == "refused":
@@ -239,7 +240,8 @@ def selection_state(turn, catalog, terminal, historical_initial, *, policy=None)
         "historical_initial": historical_initial,
         "user_question": turn.user_text,
         "source_basis": (receipt.work_context.source_basis if native else receipt.source_basis).model_dump(mode="json"),
-        **({'native_query_sha256':execution.policy.native_query_sha256} if native else {"graph_scope": {
+        **({'pending_context_receipt_sha256':receipt.context_receipt_sha256} if pending
+           else {'native_query_sha256':execution.policy.native_query_sha256} if native else {"graph_scope": {
             "managed_world_id": authority.managed_world_id,
             "native_world_id": authority.native_world_id,
             "binding_version": authority.binding_version,

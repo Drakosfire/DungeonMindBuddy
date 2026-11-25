@@ -2557,3 +2557,123 @@ def test_pending_retained_capture_refuses_foreign_history_and_conflicting_duplic
                 expected_revision=state.turn.revision, expected_attempt=1, event_id=uuid4(),
                 authorize_current_access=state.authorize)
         assert state.persisted == 1 and state.retained_reads == 2
+
+
+@_pending_test_contextmanager
+def pending_writer_runtime_case(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
+    from apps.live_control_server.services.build_jev_writer_selection import WriterSelectionDriver
+    from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
+    with pending_retained_runtime_case(monkeypatch) as (state, adapter, turns):
+        admit_pending_conversation(adapter)
+        trace = {'world_id': state.turn.world_id, 'conversation_id': str(state.turn.conversation_id),
+            'turn_id': str(state.turn.turn_id), 'attempt': state.turn.attempt, 'capture_status': 'recording', 'observations': []}
+        def query(sql, args):
+            if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+                return state.leaf_query(sql, args)
+            assert sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s'
+            assert args == (state.turn.turn_id, state.turn.attempt)
+            return SimpleNamespace(fetchone=lambda: (trace,))
+        state.conn.execute = query
+        state.writer_trace = trace
+        adapter.context_capture = SimpleNamespace(trace=SimpleNamespace(model_dump=lambda **kwargs: trace))
+        adapter.last_provider_attempt_id = state.turn.graph_context_execution.events[0].provider_attempt_id
+        terminal = native_conversation_terminal(state.turn)
+        selector = WriterSelectionDriver(adapter, SimpleNamespace(_material=lambda: ((), (), ())), terminal)
+        yield state, adapter, selector, turns
+
+
+def test_pending_writer_closes_empty_acquired_catalog_and_constructs_full_retained_input(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+    from application_state.agent_conversation.native_writer import model_frame
+    with pending_writer_runtime_case(monkeypatch) as (state, adapter, selector, turns):
+        assert not selector.catalog
+        selection = selector.settle_empty()
+        assert selection.mode == 'empty_catalog' and selection.expanded_unit_ids == []
+        rules_frame = PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1', ruleset='synthetic', lookups=(), supports=())
+        rules = SimpleNamespace(frame=lambda: rules_frame, authoring=None)
+        writer = PlanJevWriter(adapter, {}, rules)
+        assert writer.shared
+        dialogue = [json.loads(message['content']) for message in writer.messages
+                    if 'conversation_turn' in json.loads(message['content'])]
+        assert len(dialogue) == 120
+        assert dialogue[0]['conversation'] == turns[0].user_text
+        assert dialogue[-2]['conversation'] == turns[-1].user_text
+        assert 'Correction:' in dialogue[-2]['conversation']
+        rendered = json.dumps(writer.messages)
+        assert 'Ashbell has three bridges' in rendered
+        for value in (str(state.turn.turn_id), str(state.turn.conversation_id),
+                state.turn.graph_context_receipt.context_receipt_sha256,
+                str(turns[0].graph_context_execution.events[0].source_basis.document_id)):
+            assert value not in rendered
+        frame = model_frame(state.turn.graph_context_receipt, state.turn.graph_context_execution)
+        assert frame['native_body_evidence']['source_authority_status'] == 'not_prepared'
+        assert frame['native_statements']['status'] == 'not_prepared'
+        assert frame['native_body_evidence']['coverage']['search_performed'] is False
+        assert state.persisted == 2 and state.retained_reads == 1 and state.materialized == 0
+
+
+@pytest.mark.parametrize('failure', ['catalog', 'basis', 'controller', 'terminal', 'invented_read',
+    'mode', 'proof', 'trace_world', 'access', 'expiry', 'cas'])
+def test_pending_writer_selection_refuses_changed_proof_or_lost_access_claim(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateError
+    with pending_writer_runtime_case(monkeypatch) as (state, adapter, selector, turns):
+        original = state.service.record_pending_build_writer_selection
+        def record(*args, selection, **kwargs):
+            if failure == 'catalog':
+                selection = selection.model_copy(update={'catalog_sha256': 'b' * 64})
+            elif failure == 'basis':
+                selection = selection.model_copy(update={'basis_sha256': 'b' * 64})
+            elif failure == 'controller':
+                selection = selection.model_copy(update={'controller_attempt_id': uuid4()})
+            elif failure == 'terminal':
+                selection = selection.model_copy(update={'terminal_disposition': {'status': 'ready', 'reason': 'invented'}})
+            elif failure == 'invented_read':
+                selection = selection.model_copy(update={'source_event_ids': [uuid4()]})
+            elif failure == 'mode':
+                selection = selection.model_copy(update={'mode': 'jev'})
+            elif failure == 'proof':
+                kwargs['producer_proof'] = {}
+            elif failure == 'trace_world':
+                state.writer_trace['world_id'] = 'foreign-world'
+            elif failure == 'access':
+                state.denied = True
+            elif failure == 'expiry':
+                state.now += timedelta(hours=1)
+            else:
+                state.cas_failure = True
+            return original(*args, selection=selection, **kwargs)
+        monkeypatch.setattr(state.service, 'record_pending_build_writer_selection', record)
+        with pytest.raises(ApplicationStateError):
+            selector.settle_empty()
+        assert state.persisted == 1 and state.retained_reads == 1 and state.materialized == 0
+        assert not any(type(event) is t.BuildWriterEvidenceSelectionV2 for event in state.turn.graph_context_execution.events)
+
+
+def test_pending_writer_projection_refuses_historical_schema_or_foreign_work_provenance(monkeypatch):
+    from application_state.agent_conversation.native_writer import model_frame, model_work_frame, LEGACY_SCHEMA
+    with pending_writer_runtime_case(monkeypatch) as (state, adapter, selector, turns):
+        selector.settle_empty()
+        receipt, execution = state.turn.graph_context_receipt, state.turn.graph_context_execution
+        with pytest.raises(ValueError, match='historical writer'):
+            model_frame(receipt, execution, schema=LEGACY_SCHEMA)
+        provenance = state.turn.provenance.model_copy(update={'world_id': 'foreign-world'})
+        with pytest.raises(ValueError):
+            model_work_frame(receipt, execution, provenance=provenance, idempotency_key=state.turn.idempotency_key,
+                work_proof={}, world_id=state.turn.world_id, conversation_id=state.turn.conversation_id,
+                turn_id=state.turn.turn_id, attempt=state.turn.attempt)
+
+
+def test_pending_writer_selection_cannot_use_generic_append(monkeypatch):
+    from application_state.errors import ApplicationStateError
+    with pending_writer_runtime_case(monkeypatch) as (state, adapter, selector, turns):
+        event = selector.settle_empty()
+        with pytest.raises(ApplicationStateError):
+            state.service._append_graph_execution_event(state.turn.world_id, state.turn.conversation_id,
+                state.turn.turn_id, expected_revision=state.turn.revision, expected_attempt=1,
+                event=event, duplicate_key='event_id')
+        assert state.persisted == 2 and state.materialized == 0

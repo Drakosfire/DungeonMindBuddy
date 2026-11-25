@@ -217,6 +217,10 @@ def validate_work_context(context, provenance, *, play_context_receipt=None):
     execution policy and acknowledged producing SDK decision.
     """
     from . import types as t
+    if type(context) is BuildPendingContextReceiptV1 and type(provenance) is t.TurnProvenance:
+        context = BuildPendingContextReceiptV1.model_validate_json(context.model_dump_json(by_alias=True))
+        provenance = t.TurnProvenance.model_validate_json(provenance.model_dump_json(by_alias=True))
+        return _join_work_context(context, provenance, play_context_receipt=play_context_receipt)
     if type(context) is not SurfaceNativeContextReceiptV1 or type(provenance) is not t.TurnProvenance:
         raise ValueError("Native work binding requires its concrete context and provenance")
     # Revalidate nested mutable work models and the complete root commitment.

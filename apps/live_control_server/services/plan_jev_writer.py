@@ -381,7 +381,11 @@ class PlanJevWriter:
         native_budget = getattr(adapter.fence.turn.graph_context_execution.policy,'writer_context_budget',None)
         self.output_reserve = native_budget.output_reserve_tokens if native_budget is not None else adapter.budget['outputReserveTokens']
         self.context_limit = native_budget.context_limit_tokens if native_budget is not None else adapter.budget['contextLimitTokens']
-        self.shared = type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+        self.shared = (type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+            or (type(adapter.fence.turn.graph_context_receipt), type(adapter.fence.turn.graph_context_execution))
+                == (BuildPendingContextReceiptV1, BuildPendingExecutionV1))
         from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
         rule_frame = model_rules_frame(rules.frame())
         self.projection = None

@@ -629,7 +629,8 @@ NATIVE_EXECUTION_EVENT_LIMIT = 2048
 BuildPendingPrefixEventV1 = Annotated[
     t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | t.ProviderOutcomeEventV1
     | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
-    | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3,
+    | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
+    | t.BuildWriterEvidenceSelectionV2,
     Field(discriminator="kind"),
 ]
 
@@ -681,6 +682,9 @@ class BuildPendingExecutionV1(Strict):
                     raise ValueError("Pending controller cannot include unacquired source evidence")
             elif type(event) is t.BuildRequestedWorkResolutionV1:
                 work_selected = True
+            elif type(event) is t.BuildWriterEvidenceSelectionV2:
+                from .build_source_free import validate_pending_empty_writer_selection
+                validate_pending_empty_writer_selection(self, event)
             elif type(event) is t.BuildPriorBodyEvidenceAdmittedV3:
                 from .build_source_free import validate_pending_retained_admission
                 validate_pending_retained_admission(self, event)

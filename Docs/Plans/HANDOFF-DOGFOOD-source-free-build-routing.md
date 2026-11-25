@@ -230,6 +230,15 @@ explicit adapter/initial-driver branches currently being implemented:
   service.admit_pending_build_prior_body_evidence and its generic-bypass guard;
   build_pending_retained.py host admission plus harness pending pre-acquisition call.
   Existing retained_conversation.capture is reused read-only, not reimplemented.
+- native_writer.model_frame/model_work_frame: exact pending projection and binding
+  helper only, plus pending evidence projection helper; native_context.validate_work_context
+  exact pending receipt delegation. plan_jev_writer.PlanJevWriter.__init__: exact pending
+  shared-writer selection only. No legacy/Plan output normalization or completion lease.
+- writer_evidence_selection.enabled/policy_for/selection_state, build_primary_context.enabled/
+  context_policy and build_jev_dispatch.continuation_binding: exact pending family only.
+  WriterSelectionDriver._settle pending-only dedicated service dispatch;
+  service.record_pending_build_writer_selection: empty current retained catalog only;
+  pending execution V2 selection structural join. Generic pending append remains closed.
 - This handoff.
 
 **Released now:** native_corpus.py, native_writer.py,
@@ -706,3 +715,30 @@ foreign history, lookup substitution, identity mutation, pointer/claim/leaf/acce
 revocation, expiry, CAS and generic append closure. This does not prove SQL races,
 writer generation, terminal acceptance, reader compatibility or signed-in app
 behavior. Those remain required in this same serial PR before merge/deploy.
+
+
+## Pending retained writer-input checkpoint
+
+The existing writer-selection driver can now close the pending retained path's
+empty acquired catalog through a dedicated pointer/claim/leaf/access-checked
+service owner. Actual trace scope, current controller acknowledgement, terminal,
+empty catalog/basis and conservative closure are checked; generic append cannot
+substitute for that owner. The exact pending prefix admits the V2 selection only
+for its acknowledged retained V3 closure, without inventing acquired read IDs.
+
+The real PlanJevWriter constructor now uses pending evidence/work projections.
+Projection revalidates the pending receipt/execution and work provenance, reuses
+existing authored/retained presentation, and marks fresh native access/statement
+preparation as not_prepared with partial coverage rather than asserting absence
+or completeness. The shared writer receives all60 dialogue pairs/120 messages,
+the early authored material and late correction through local model aliases.
+Historical projections and output normalization stay with their existing owners.
+
+Fourteen focused working controls passed2.91s at the actual writer constructor,
+selection driver, claim and service boundaries with fake App transactions. They
+cover full context/no acquisition/host-identity exclusion and altered catalog,
+basis, controller, terminal, read IDs, mode/proof/trace scope, access/expiry/CAS,
+historical schema/provenance and generic bypass refusal. This is exact input
+construction, not actual writer dispatch/output acceptance. Native writer
+authorization/lifecycle/completion, current strict readers/fence, source/App
+coverage, SQL and full-Send/signed-in acceptance still require integration.
