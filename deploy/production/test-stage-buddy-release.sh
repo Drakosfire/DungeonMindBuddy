@@ -172,4 +172,10 @@ grep -Fx 'guest_build_enabled=1' "$record"
 grep -Fx "guest_document_sha=$bundle_sha" "$record"
 if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1' TEST_SERVING_PARENT=wrong run guest-plan-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Wrong Plan serving parent accepted' >&2; exit 1; fi
 grep -F 'registry image does not match' "$scratch/stderr"
+rm "$record" "$scratch/tag"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1' TEST_SERVING_PARENT="$rollback" run guest-play-media-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Plan-only image accepted as Play/media' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1;play=1;media=1' TEST_SERVING_PARENT="$rollback" run guest-play-media-documents-serving "$template_sha"
+grep -Fx 'guest_play_enabled=1' "$record"
+grep -Fx 'guest_media_enabled=1' "$record"
 printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'
