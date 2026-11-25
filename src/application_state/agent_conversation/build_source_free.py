@@ -395,3 +395,49 @@ def validate_pending_app_page_selection_request(receipt, execution, authorizatio
         raise ValueError('Prepared App page selection changed its frozen dialogue, catalog or choices')
     validate_prepared(authorization, execution, prepared_request_json, host_phase='navigate')
     return expected
+
+
+def validate_pending_app_page_selection_result(receipt, execution, selection, proof, trace):
+    """Bind actual captured SDK votes to exact host page pointers; no reads."""
+    from hashlib import sha256
+    from generationengine.types import DecisionResult
+    from .native_execution import BuildAppPageSelectionAuthorizedV1
+    from .build_related_pages import RelatedPagesSelection, should_read_page
+    from .jev_retrieval_contract import validated_choice_answers
+    from .source_writer_output import strict_json
+    receipt, execution = _pending_components(receipt, execution)
+    if type(selection) is not RelatedPagesSelection:
+        raise ValueError('Pending App choices require their actual selection record')
+    selection = RelatedPagesSelection.model_validate_json(selection.model_dump_json())
+    if (not isinstance(proof, dict)
+            or set(proof) != {'request_json', 'response_json', 'initial_request_json'}):
+        raise ValueError('Pending App choices require their exact producing request and response')
+    authorizations = [event for event in execution.events if type(event) is BuildAppPageSelectionAuthorizedV1]
+    authorization = authorizations[-1] if authorizations else None
+    outcomes = [event.outcome for event in execution.events
+                if getattr(event, 'provider_attempt_id', None) == selection.controller_attempt_id
+                and getattr(event, 'kind', None) == 'provider_outcome']
+    if (authorization is None or selection.controller_attempt_id != authorization.provider_attempt_id
+            or selection.controller_envelope_sha256 != authorization.envelope_sha256
+            or outcomes[-1:] != ['response_received'] or selection.sequence != len(execution.events)):
+        raise ValueError('Pending App choices lack their latest acknowledged controller')
+    request = validate_pending_app_page_selection_request(receipt, execution, authorization,
+        proof['request_json'], proof['initial_request_json'])
+    response_raw = proof['response_json']
+    if not isinstance(response_raw, str) or sha256(response_raw.encode()).hexdigest() != selection.controller_response_sha256:
+        raise ValueError('Pending App choices differ from their producing response')
+    response = DecisionResult.model_validate(strict_json(response_raw))
+    validated_choice_answers(response, set(request['questions']))
+    item_id = f'unvalidated-controller-decision:{authorization.provider_attempt_id}:{receipt.context_receipt_sha256}'
+    captured = [material for observation in (trace or {}).get('observations', [])
+                if observation.get('kind') == 'context_snapshot'
+                for material in observation.get('materials', []) if material.get('item_id') == item_id]
+    if len(captured) != 1 or captured[0].get('text') != response_raw:
+        raise ValueError('Pending App choices require their exact captured controller response')
+    catalog, = [event for event in execution.events if type(event) is BuildAppPageCatalogObservedV1]
+    selected = sorted([page.document_id for index, page in enumerate(catalog.pages)
+        if should_read_page(page, request['questions'][f'page{index + 1}'],
+                            response.answers[f'page{index + 1}'], semantic=True)], key=str)
+    if selected != selection.document_ids:
+        raise ValueError('Pending App choices differ from the actual read/skip votes')
+    return tuple(selected)

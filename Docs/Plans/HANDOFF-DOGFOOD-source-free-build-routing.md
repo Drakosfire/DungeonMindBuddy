@@ -446,3 +446,17 @@ a conflict, an exact already-recorded entry at the current revision is non-fresh
 and any different outcome or entry identity refuses another grant. A lost entry
 response never authorizes a repeated model call. Producing-response capture,
 actual SDK adapter callbacks and runtime integration remain required.
+
+
+## Pending response capture lease extension
+
+Extend the serial PR4642 write lease to
+apps/live_control_server/services/agent_context_trace_collector.py only in
+_provider_output's controller_response policy recognition. Accept the exact
+BuildPendingExecutionV1/BuildPendingExecutionPolicyV1 pair alongside the existing
+owners; preserve acknowledged-response, latest producer/role, receipt/trace
+identity, replay bytes, capacity and append checks. No trace rendering, capture
+format, transport, provider or other policy behavior changes are leased here.
+Relevant open PR inventories remain non-overlapping (CLARIFICATION4652,
+RETRIEVAL4580/4584 and selected-passage4561). Owning focused tests exercise the
+actual collector with fake persistence; SQL/runtime proof remains separate.

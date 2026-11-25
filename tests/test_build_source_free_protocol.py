@@ -957,3 +957,108 @@ def test_pending_sdk_entry_refuses_stale_access_or_unproven_wire(monkeypatch, fa
     with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
         enter(event=entry, request=raw)
     assert state.persisted == 1 and state.materialized == 0
+
+
+def pending_response_collector(*, acknowledged=True, components=None):
+    from threading import Lock
+    from types import SimpleNamespace
+    from tests.test_agent_context_trace_collector import Store
+    from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+    if components is None:
+        receipt, policy, events = pending_page_phase_case()
+        execution = pending_execution(receipt, policy, events[:8 if acknowledged else 7])
+    else:
+        receipt, execution = components
+        policy = execution.policy
+    controller = [event for event in execution.events if isinstance(event, t.ProviderAttemptAuthorizedEventV1)][-1]
+    turn = SimpleNamespace(world_id=policy.action.intent.world_id,
+        conversation_id=receipt.conversation_observation.conversation_id, turn_id=uuid4(),
+        revision=5, attempt=1, sequence=1, graph_context_receipt=receipt, graph_context_execution=execution)
+    store = Store()
+    fence = SimpleNamespace(service=store, turn=turn, trace=None,
+        renewer=SimpleNamespace(_lock=Lock(), _turn=turn, _claim=turn))
+    return ContextTraceCollector(fence), store, controller
+
+
+def test_pending_controller_response_uses_actual_collector_and_exact_replay_identity():
+    from application_state.errors import ApplicationStateValidationError
+    capture, store, controller = pending_response_collector()
+    raw = json.dumps({'answers': {'page1': {'selected': 'read'}}})
+    capture.controller_decision_response(raw, producing_provider_attempt_id=controller.provider_attempt_id)
+    materials = store.trace.observations[-1].materials
+    assert len(materials) == 1 and materials[0].text == raw
+    assert materials[0].item_id == f'unvalidated-controller-decision:{controller.provider_attempt_id}:{capture.bound_context_receipt_sha256}'
+    capture.controller_decision_response(raw, producing_provider_attempt_id=controller.provider_attempt_id)
+    assert len(store.trace.observations) == 1
+    with pytest.raises(ApplicationStateValidationError, match='different bytes'):
+        capture.controller_decision_response(raw + ' ', producing_provider_attempt_id=controller.provider_attempt_id)
+
+
+@pytest.mark.parametrize('failure', ['unacknowledged', 'foreign_producer', 'receipt_changed'])
+def test_pending_controller_capture_preserves_acknowledgement_producer_and_receipt_guards(failure):
+    from application_state.errors import ApplicationStateValidationError
+    capture, store, controller = pending_response_collector(acknowledged=failure != 'unacknowledged')
+    producer = uuid4() if failure == 'foreign_producer' else controller.provider_attempt_id
+    if failure == 'receipt_changed':
+        capture.bound_context_receipt_sha256 = 'b' * 64
+    with pytest.raises(ApplicationStateValidationError):
+        capture.controller_decision_response('{}', producing_provider_attempt_id=producer)
+    assert not store.trace.observations
+
+
+def pending_selection_proof_case():
+    from hashlib import sha256
+    from generationengine.types import DecisionResult, ChoiceDecisionAnswer, InferenceObservation
+    from application_state.agent_conversation.build_related_pages import RelatedPagesSelection
+    from tests.test_surface_native_execution import outcomes
+    receipt, before, authorization, initial, request, _ = pending_page_input_case()
+    execution = pending_execution(receipt, before.policy, [*before.events, authorization, *outcomes(authorization, 6)])
+    response = DecisionResult(answers={'page1': ChoiceDecisionAnswer(selected='read', probabilities={'read': .9, 'skip': .1})},
+        observation=InferenceObservation(provider='typesafe', resolved_model='jev-1.14.0', response_model='jev-1.14.0',
+            latency_ms=1, retry_count=0, state='completed', provider_attempt_count=1))
+    raw = response.model_dump_json(by_alias=True)
+    capture, store, _ = pending_response_collector(components=(receipt, execution))
+    capture.controller_decision_response(raw, producing_provider_attempt_id=authorization.provider_attempt_id)
+    catalog = before.events[-1]
+    selected = RelatedPagesSelection(event_id=uuid4(), sequence=8,
+        controller_attempt_id=authorization.provider_attempt_id, controller_envelope_sha256=authorization.envelope_sha256,
+        controller_response_sha256=sha256(raw.encode()).hexdigest(), document_ids=[catalog.pages[0].document_id])
+    proof = {'request_json': request, 'response_json': raw, 'initial_request_json': initial}
+    return receipt, execution, selected, proof, store.trace.model_dump(mode='json', by_alias=True)
+
+
+def test_pending_selection_binds_actual_captured_sdk_votes_to_exact_saved_page():
+    from application_state.agent_conversation.build_source_free import validate_pending_app_page_selection_result
+    receipt, execution, selected, proof, trace = pending_selection_proof_case()
+    assert validate_pending_app_page_selection_result(receipt, execution, selected, proof, trace) == tuple(selected.document_ids)
+
+
+@pytest.mark.parametrize('failure', ['missing_capture', 'foreign_capture', 'changed_capture', 'wrong_vote',
+    'foreign_controller', 'response_bytes', 'request_bytes', 'hidden_retry'])
+def test_pending_selection_rejects_unproven_controller_votes(failure):
+    from hashlib import sha256
+    from application_state.agent_conversation.build_source_free import validate_pending_app_page_selection_result
+    receipt, execution, selected, proof, trace = pending_selection_proof_case()
+    material = trace['observations'][-1]['materials'][0]
+    if failure == 'missing_capture':
+        trace['observations'] = []
+    elif failure == 'foreign_capture':
+        material['item_id'] = 'unvalidated-controller-decision:foreign:foreign'
+    elif failure == 'changed_capture':
+        material['text'] += ' '
+    elif failure == 'wrong_vote':
+        selected = selected.model_copy(update={'document_ids': []})
+    elif failure == 'foreign_controller':
+        selected = selected.model_copy(update={'controller_attempt_id': uuid4()})
+    elif failure == 'response_bytes':
+        proof['response_json'] += ' '
+    elif failure == 'request_bytes':
+        proof['request_json'] += ' '
+    else:
+        response = json.loads(proof['response_json'])
+        response['observation']['retry_count'] = 1
+        proof['response_json'] = json.dumps(response)
+        material['text'] = proof['response_json']
+        selected = selected.model_copy(update={'controller_response_sha256': sha256(proof['response_json'].encode()).hexdigest()})
+    with pytest.raises(ValueError):
+        validate_pending_app_page_selection_result(receipt, execution, selected, proof, trace)

@@ -391,7 +391,10 @@ class ContextTraceCollector:
                 from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
                 native_build = (type(execution.policy) is SurfaceNativeExecutionPolicyV1
                     and type(execution.policy.action) is NativeBuildActionV1)
-                if (not (native_build or isinstance(execution.policy, BuildSelectedSourceActionControllerWriterPolicyV1))
+                from application_state.agent_conversation.native_execution import BuildPendingExecutionV1, BuildPendingExecutionPolicyV1
+                pending_build = (type(execution) is BuildPendingExecutionV1
+                    and type(execution.policy) is BuildPendingExecutionPolicyV1)
+                if (not (native_build or pending_build or isinstance(execution.policy, BuildSelectedSourceActionControllerWriterPolicyV1))
                     or (authorizations[-1].provider, authorizations[-1].model, authorizations[-1].api_mode)
                     != execution.policy.provider_roles.controller.identity()):
                     raise ApplicationStateValidationError("controller capture lacks its frozen selection role")
