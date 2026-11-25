@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 import os
 from threading import Lock
@@ -81,6 +81,47 @@ class HostedOwnerGraphPrincipal(NativeGraphPrincipal):
 
     managed_world_id: str
     dms_subject: str
+
+
+@dataclass(frozen=True)
+class HostedGuestGraphPrincipal(NativeGraphPrincipal):
+    """Request-scoped identity for one guest's copied World."""
+
+    managed_world_id: str
+    session_id: str
+    request: Request = field(repr=False, compare=False)
+
+
+def require_guest_read_access(principal: NativeGraphPrincipal, world_id: str) -> None:
+    """Recheck a guest read without waiting on a separately held session lock."""
+    if not isinstance(principal, HostedGuestGraphPrincipal) and getattr(principal, "auth_method", None) != "hosted_guest":
+        return
+    if (not isinstance(principal, HostedGuestGraphPrincipal)
+            or principal.auth_method != "hosted_guest" or principal.subject != "hosted_guest" or principal.role != "gm"
+            or principal.managed_world_id != world_id
+            or hosted_auth.deployment_environment() != hosted_auth.PRODUCTION_ENVIRONMENT
+            or hosted_auth.auth_mode() != hosted_auth.HOSTED_MODE
+            or getattr(principal.request.state, "guest_build_session", None) != principal.session_id):
+        raise _denied()
+    from application_state.unit_of_work import unit_of_work
+    from apps.live_control_server.services.guest_build_access import _check_guest_session
+
+    # A non-locking read is deliberate: callers can already hold the guest
+    # session row in their own write transaction. Bindings are independently
+    # checked by the native source owner before and after its read.
+    with unit_of_work() as conn:
+        _check_guest_session(principal.request, conn, world_id, lock=False)
+        row = conn.execute(
+            "SELECT value FROM application_state.index_graph_bindings "
+            "WHERE session_id = %s::uuid AND key = 'space_id'", (principal.session_id,),
+        ).fetchone()
+        records = catalog._records(conn, world_id=world_id)
+        if (row is None or len(records) != 1
+                or records[0].record.owner_subject != f"guest-session:{principal.session_id}"
+                or records[0].record.native_graph_binding is None
+                or records[0].record.native_graph_binding.status != "active"
+                or records[0].record.native_graph_binding.native_world_id != row[0]):
+            raise _denied()
 
 
 def _denied() -> HTTPException:
@@ -214,7 +255,16 @@ def require_explorer_access(
     principal: NativeGraphPrincipal, managed_world_id: str
 ) -> None:
     """Recheck current permission before effects and before disclosing results."""
-    if isinstance(principal, HostedOwnerGraphPrincipal):
+    if isinstance(principal, HostedGuestGraphPrincipal):
+        if (principal.auth_method != "hosted_guest" or principal.subject != "hosted_guest"
+                or principal.role != "gm" or principal.managed_world_id != managed_world_id
+                or hosted_auth.deployment_environment() != hosted_auth.PRODUCTION_ENVIRONMENT
+                or hosted_auth.auth_mode() != hosted_auth.HOSTED_MODE
+                or getattr(principal.request.state, "guest_build_session", None) != principal.session_id):
+            raise _denied()
+        from apps.live_control_server.services.guest_build_access import require_guest_build_world
+        require_guest_build_world(principal.request, managed_world_id)
+    elif isinstance(principal, HostedOwnerGraphPrincipal):
         if (
             principal.auth_method != "hosted_owner"
             or principal.subject != f"hosted_dms:{principal.dms_subject}"
@@ -226,7 +276,7 @@ def require_explorer_access(
         ):
             raise _denied()
         _owned_world(principal.dms_subject, managed_world_id)
-    elif principal.auth_method == "hosted_owner":
+    elif principal.auth_method in {"hosted_owner", "hosted_guest"}:
         # The global principal type alone carries no scoped ownership proof.
         raise _denied()
 
@@ -453,6 +503,12 @@ def conversation_graph_principal(
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
         return authorize_local(request)
     require_conversation_access(request, world_id, authorize_local=authorize_local)
+    if getattr(request.state, "guest_conversation_world", None) == world_id:
+        return HostedGuestGraphPrincipal(
+            subject="hosted_guest", role="gm", auth_method="hosted_guest",
+            managed_world_id=world_id, session_id=request.state.guest_build_session,
+            request=request,
+        )
     subject = _hosted_subject(request)
     return HostedOwnerGraphPrincipal(
         subject=f"hosted_dms:{subject}", dms_subject=subject, role="gm",
@@ -465,6 +521,12 @@ def require_conversation_access(
 ) -> None:
     if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
         authorize_local(request)
+        return
+    if getattr(request.state, "guest_conversation_world", None) is not None:
+        if request.state.guest_conversation_world != world_id:
+            raise _denied()
+        from apps.live_control_server.services.guest_build_access import require_guest_build_world
+        require_guest_build_world(request, world_id)
         return
     if getattr(request.state, "hosted_conversation_world", None) != world_id:
         raise _denied()

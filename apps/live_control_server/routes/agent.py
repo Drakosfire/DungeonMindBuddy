@@ -1339,6 +1339,19 @@ def _plan_context_resolver(
 
 
 def _conversation_service(request: Request) -> AgentConversationService:
+    guest_world = getattr(request.state, "guest_conversation_world", None)
+    if guest_world is not None:
+        from apps.live_control_server.services.guest_build_access import (
+            _check_guest_session, guest_conversation_capacity, guest_turn_capacity,
+        )
+
+        return AgentConversationService(
+            authorize_transaction=lambda conn, *, read_only: _check_guest_session(
+                request, conn, guest_world, lock=not read_only,
+            ),
+            authorize_new_conversation=lambda conn, world: guest_conversation_capacity(request, conn, world),
+            authorize_new_turn=lambda conn, world, submission: guest_turn_capacity(request, conn, world, submission),
+        )
     configured = getattr(request.app.state, "agent_conversation_service", None)
     return configured if configured is not None else AgentConversationService()
 
@@ -2556,6 +2569,9 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
             native_principal=principal,
             native_statement_transport=getattr(request.app.state, "native_statement_writer_transport", None),
         )
+        if getattr(request.state, "guest_conversation_world", None) is not None:
+            from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+            require_conversation_access(request, body.owner_scope.world_id, authorize_local=enforce_native_graph_gm)
         _finalize_unlogged_agent_trace(trace, status="ok")
         return result.model_dump(mode="json", by_alias=True)
     except AgentTurnServiceError as exc:

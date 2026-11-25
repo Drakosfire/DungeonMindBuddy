@@ -110,6 +110,7 @@ class _SessionAdmission(AgentConversationService):
     """Reuse the actual append admission, with a single private storage owner."""
 
     def __init__(self, owner):
+        super().__init__(authorize_transaction=owner._authorize_transaction)
         self._owner = owner
 
     def _lock_execution_append_turn(self, conn, world_id, turn_id):
@@ -215,8 +216,9 @@ class PlanProviderCheckpoint:
 class NativePlanSession:
     """One nonescaping materialization, serialized with the runtime claim fence."""
 
-    def __init__(self, expected, *, measure=None, opening=False):
+    def __init__(self, expected, *, measure=None, opening=False, authorize_transaction=None):
         self.opening = opening
+        self._authorize_transaction = authorize_transaction
         accepts = eligible_opening if opening else eligible
         self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
@@ -224,7 +226,7 @@ class NativePlanSession:
         self._committed = self._image = self._pending = None
         self._sealed = False
         self._busy = False
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             image = repo._lock_plan_session_image(conn, expected.world_id, expected.turn_id)
             current = repo.lock_turn(conn, expected.world_id, expected.turn_id)
             if (current is None or not accepts(current)
@@ -237,6 +239,11 @@ class NativePlanSession:
             self._checkpoint_base_count = repo._activate_plan_checkpoint(conn, current)
         self._committed, self._image = current, image
         self._admission = _SessionAdmission(self)
+
+    def _transaction(self, dsn):
+        if self._authorize_transaction is None:
+            return unit_of_work(dsn)
+        return AgentConversationService(authorize_transaction=self._authorize_transaction)._transaction(dsn)
 
     def _require_live(self):
         if self._sealed or self._committed is None:
@@ -429,7 +436,7 @@ class NativePlanSession:
         with self._lock:
             try:
                 self._enter()
-                with unit_of_work(_ready_dsn()) as conn:
+                with self._transaction(_ready_dsn()) as conn:
                     self._guard_locked(conn)
                     turn = self._committed
                     repo._finish_plan_checkpoint(conn, turn)
@@ -447,7 +454,7 @@ class NativePlanSession:
                 turn = self._committed
                 if expected_revision != turn.revision:
                     raise ApplicationStateConflictError('Session renewal has a stale claim')
-                with unit_of_work(_ready_dsn()) as conn:
+                with self._transaction(_ready_dsn()) as conn:
                     before = self._guard_locked(conn)
                     started = repo.database_clock(conn)
                     renewed = repo.renew_turn_claim(conn, world_id=turn.world_id,
@@ -484,7 +491,7 @@ class NativePlanSession:
         with self._lock:
             try:
                 self._enter()
-                with unit_of_work(_ready_dsn()) as conn:
+                with self._transaction(_ready_dsn()) as conn:
                     before = self._guard_locked(conn)
                     if self._committed.claim_expires_at <= repo.database_clock(conn):
                         raise ApplicationStateConflictError('Session claim expired before Rules checkpoint')
@@ -494,7 +501,7 @@ class NativePlanSession:
                 expected = (None if expected is None else
                     RulesLedgerRecordV1.model_validate_json(expected.model_dump_json(by_alias=True)))
                 turn = self._committed
-                with unit_of_work(_ready_dsn()) as conn:
+                with self._transaction(_ready_dsn()) as conn:
                     image = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
                     actual = load_turn_rules_locked(conn, turn)
                     if image is None or image[:2] != before[:2] or actual != expected:
