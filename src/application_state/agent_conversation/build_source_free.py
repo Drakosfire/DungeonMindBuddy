@@ -280,6 +280,17 @@ def pending_source_work(execution):
     rows = [event for event in execution.events if type(event) is t.BuildRequestedWorkResolutionV1]
     if len(rows) != 1 or any(type(event) is NativeBuildSourceSettledV1 for event in execution.events):
         raise ValueError("Pending source work must be unique and not already settled")
+    from .native_execution import BuildAppPageSelectionAuthorizedV1
+    page_controllers = [event for event in execution.events if type(event) is BuildAppPageSelectionAuthorizedV1]
+    if page_controllers:
+        latest = page_controllers[-1]
+        choices = [event for event in execution.events if type(event) is t.RelatedPagesSelection]
+        outcomes = [event.outcome for event in execution.events if type(event) is t.ProviderOutcomeEventV1
+                    and event.provider_attempt_id == latest.provider_attempt_id]
+        read_pages = {event.page.document_id for event in execution.events if type(event) is t.RelatedPageRead}
+        if (outcomes[-1:] != ['response_received'] or len(choices) != 1
+                or set(choices[0].document_ids) != read_pages):
+            raise ValueError('Pending App page acquisition must resolve before native source preparation')
     work, = rows
     if (work.resolution.get('barrier') is not None
             or work.resolution.get('source_scope') not in {'source_lookup', 'uncertain'}
@@ -298,3 +309,79 @@ def effective_pending_app_catalog(receipt, execution):
     _join_pending_source(receipt, execution)
     rows = [event for event in execution.events if type(event) is BuildAppPageCatalogObservedV1]
     return rows[0].pages if rows else None
+
+
+def pending_app_page_selection_input(receipt, execution, initial_request_json):
+    """Build the later decision from exact prior model input and App aliases.
+
+    The first request is supplied by its existing trace owner, not reconstructed
+    from today's history. No pointer, page UUID, revision or execution metadata
+    is copied into the model request. Titles remain untrusted navigation data.
+    """
+    receipt, execution = _pending_components(receipt, execution)
+    _join_pending_source(receipt, execution)
+    catalogs = [event for event in execution.events if type(event) is BuildAppPageCatalogObservedV1]
+    pages = catalogs[0].pages if catalogs else None
+    return _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages)
+
+
+def _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages):
+    from copy import deepcopy
+    from hashlib import sha256
+    from .source_writer_output import strict_json
+    if not pages:
+        raise ValueError('An absent or empty App catalog does not need a page-selection call')
+    if (not isinstance(initial_request_json, str)
+            or sha256(initial_request_json.encode()).hexdigest() != receipt.assembled_input.assembled_input_sha256):
+        raise ValueError('App page selection requires its actual frozen initial request')
+    initial = strict_json(initial_request_json)
+    if (set(initial) != {'model', 'state', 'questions'}
+            or initial['model'] != execution.policy.provider_roles.controller.model
+            or not isinstance(initial['state'], dict)
+            or set(initial['state']) != {'user_question', 'interaction'}
+            or initial['state']['user_question'] != execution.policy.action.intent.message):
+        raise ValueError('App page selection requires its semantic opening request')
+    interaction = initial['state']['interaction']
+    if (not isinstance(interaction, dict) or not isinstance(interaction.get('history'), list)
+            or not isinstance(interaction.get('current_page_title'), str)):
+        raise ValueError('App page selection requires captured dialogue and page navigation')
+    from .build_intentional_response import semantic_collaboration
+    history = []
+    for row in interaction['history']:
+        if (not isinstance(row, dict) or set(row) - {'user', 'assistant', 'proposed_work'}
+                or not isinstance(row.get('user'), str) or not isinstance(row.get('assistant'), str)):
+            raise ValueError('App page selection requires semantic dialogue rows')
+        history.append({'user': row['user'], 'assistant': row['assistant'],
+            **({'proposed_work': semantic_collaboration(row['proposed_work'])}
+               if 'proposed_work' in row else {})})
+    role = 'untrusted_saved_page_title_for_navigation_not_evidence'
+    state = {'user_question': initial['state']['user_question'],
+        'history': deepcopy(history),
+        'current_page': {'title': interaction['current_page_title'], 'role': role},
+        'saved_pages': [{'choice': f'page{i + 1}', 'title': page.title, 'role': role}
+                        for i, page in enumerate(pages)]}
+    from .build_related_pages import question_text
+    questions = {f'page{i + 1}': {'type': 'choice', 'instructions': question_text(page, semantic=True),
+                                 'criteria': {'read': None, 'skip': None}}
+                 for i, page in enumerate(pages)}
+    return {'model': execution.policy.provider_roles.controller.model, 'state': state, 'questions': questions}
+
+
+def validate_pending_app_page_selection_request(receipt, execution, authorization,
+                                                prepared_request_json, initial_request_json):
+    """Verify the actual later dispatch bytes; not permission to dispatch them."""
+    from .native_execution import BuildAppPageSelectionAuthorizedV1
+    from .source_writer_output import strict_json
+    from .build_decision_context import validate_prepared
+    if type(authorization) is not BuildAppPageSelectionAuthorizedV1:
+        raise ValueError('App page selection requires its distinct phase authorization')
+    receipt, execution = _pending_components(receipt, execution)
+    catalogs = [event for event in execution.events if type(event) is BuildAppPageCatalogObservedV1]
+    if len(catalogs) != 1 or authorization.catalog_event_id != catalogs[0].event_id:
+        raise ValueError('App page selection authorization differs from its captured catalog')
+    _join_pending_source(receipt, execution)
+    expected = _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, catalogs[0].pages)
+    if strict_json(prepared_request_json) != expected:
+        raise ValueError('Prepared App page selection changed its frozen dialogue, catalog or choices')
+    validate_prepared(authorization, execution, prepared_request_json, host_phase='navigate')
+    return expected

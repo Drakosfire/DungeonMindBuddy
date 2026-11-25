@@ -583,3 +583,171 @@ def test_service_app_catalog_cannot_reselect_after_discovery(monkeypatch):
     with pytest.raises(ApplicationStateConflictError):
         run(revision=updated.revision, event=uuid4())
     assert state.discovered == state.persisted == 1
+
+
+def pending_page_phase_case():
+    from application_state.agent_conversation.native_execution import BuildAppPageSelectionAuthorizedV1
+    from application_state.agent_conversation.build_related_pages import RelatedPagesSelection, RelatedPageRead, PageReference
+    from tests.test_surface_native_execution import controller, outcomes
+    receipt, policy, events, catalog = pending_catalog_case()
+    initial = controller('build', policy, sequence=5)
+    values = initial.model_dump(mode='json', by_alias=True) | {
+        'kind': 'build_app_page_selection_authorized_v1', 'context_phase': 'navigate',
+        'catalog_event_id': str(catalog.event_id)}
+    auth = BuildAppPageSelectionAuthorizedV1.model_validate_json(json.dumps(values))
+    selected = RelatedPagesSelection(event_id=uuid4(), sequence=8,
+        controller_attempt_id=auth.provider_attempt_id, controller_envelope_sha256=auth.envelope_sha256,
+        controller_response_sha256='a' * 64, document_ids=[catalog.pages[0].document_id])
+    markdown = 'Ethel recalled a dream. The password remains uncertain.'
+    from hashlib import sha256
+    page = PageReference(**catalog.pages[0].model_dump(), content_sha256=sha256(markdown.encode()).hexdigest())
+    read = RelatedPageRead(event_id=uuid4(), sequence=9, read_id=uuid4(),
+        selection_event_id=selected.event_id, page=page, markdown=markdown)
+    return receipt, policy, [*events, catalog, auth, *outcomes(auth, 6), selected, read]
+
+
+def test_pending_app_page_phase_reads_only_its_acknowledged_saved_pointer_without_core():
+    from application_state.agent_conversation.build_source_free import effective_pending_app_catalog, effective_pending_source
+    receipt, policy, events = pending_page_phase_case()
+    execution = pending_execution(receipt, policy, events)
+    assert receipt.source_observation.binding is None
+    assert effective_pending_source(receipt, execution) is None
+    assert effective_pending_app_catalog(receipt, execution)[0].document_id == events[-1].page.document_id
+    assert type(execution).model_validate_json(execution.model_dump_json(by_alias=True)) == execution
+
+
+@pytest.mark.parametrize('change', ['catalog', 'no_ack', 'selection_attempt', 'selection_envelope',
+    'foreign_choice', 'read_selection', 'read_revision', 'read_world', 'read_title', 'duplicate_read'])
+def test_pending_app_page_phase_cannot_borrow_catalog_choices_or_read_pointer(change):
+    receipt, policy, events = pending_page_phase_case()
+    if change == 'catalog':
+        events[5] = events[5].model_copy(update={'catalog_event_id': uuid4()})
+    elif change == 'no_ack':
+        events = events[:6] + [events[8].model_copy(update={'sequence': 6})]
+    elif change.startswith('selection_'):
+        field = 'controller_attempt_id' if change == 'selection_attempt' else 'controller_envelope_sha256'
+        events[8] = events[8].model_copy(update={field: uuid4() if field.endswith('_id') else 'b' * 64})
+    elif change == 'foreign_choice':
+        events[8] = events[8].model_copy(update={'document_ids': [uuid4()]})
+    elif change == 'read_selection':
+        events[9] = events[9].model_copy(update={'selection_event_id': uuid4()})
+    elif change.startswith('read_'):
+        field, value = {'read_revision': ('registry_revision', 2), 'read_world': ('world_id', 'foreign-world'),
+                        'read_title': ('title', 'A new title')}[change]
+        events[9] = events[9].model_copy(update={'page': events[9].page.model_copy(update={field: value})})
+    else:
+        events.append(events[9].model_copy(update={'event_id': uuid4(), 'read_id': uuid4(), 'sequence': 10}))
+    with pytest.raises(ValueError):
+        pending_execution(receipt, policy, events)
+
+
+def test_pending_app_page_phase_pre_dispatch_retry_does_not_reopen_first_work():
+    from tests.test_surface_native_execution import controller, outcomes
+    receipt, policy, events = pending_page_phase_case()
+    first = events[5]
+    not_sent = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=6,
+        provider_attempt_id=first.provider_attempt_id, outcome='known_not_sent')
+    retry = first.model_copy(update={'event_id': uuid4(), 'provider_attempt_id': uuid4(), 'sequence': 7})
+    selection = events[8].model_copy(update={'sequence': 10, 'controller_attempt_id': retry.provider_attempt_id})
+    read = events[9].model_copy(update={'sequence': 11})
+    valid = [*events[:6], not_sent, retry, *outcomes(retry, 8), selection, read]
+    assert len(pending_execution(receipt, policy, valid).events) == 12
+    late_first = controller('build', policy, sequence=8)
+    with pytest.raises(ValueError, match='precede work selection'):
+        pending_execution(receipt, policy, [*events[:6], not_sent, retry.model_copy(update={'sequence': 7}),
+            t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=8,
+                provider_attempt_id=retry.provider_attempt_id, outcome='known_not_sent'),
+            late_first.model_copy(update={'sequence': 9})])
+
+
+def test_pending_app_page_phase_cannot_repeat_a_received_decision():
+    receipt, policy, events = pending_page_phase_case()
+    retry = events[5].model_copy(update={'event_id': uuid4(), 'provider_attempt_id': uuid4(), 'sequence': 8})
+    with pytest.raises(ValueError, match='unique unresolved captured catalog phase'):
+        pending_execution(receipt, policy, [*events[:8], retry])
+
+
+def test_pending_app_page_controller_uses_its_existing_mode_specific_context_limit():
+    from application_state.agent_conversation.build_source_free import effective_pending_source
+    receipt, policy, events = pending_page_phase_case()
+    auth = events[5].model_copy(update={'input_tokens': 63_000, 'output_token_reserve': 2_000})
+    execution = pending_execution(receipt, policy, [*events[:5], auth])
+    with pytest.raises(ValueError, match='frozen context window'):
+        effective_pending_source(receipt, execution)
+
+
+def pending_page_input_case():
+    from hashlib import sha256
+    from application_state.agent_conversation.build_decision_context import identity
+    from application_state.agent_conversation.build_source_free import pending_app_page_selection_input
+    receipt, policy, events = pending_page_phase_case()
+    history = [{'user': f'User detail {i}', 'assistant': f'Already discussed detail {i}'} for i in range(60)]
+    initial = json.dumps({'model': policy.provider_roles.controller.model, 'state': {
+        'user_question': policy.action.intent.message,
+        'interaction': {'history': history, 'current_page_title': 'Current draft'}}, 'questions': {}})
+    values = receipt.model_dump(mode='json', by_alias=True)
+    values.pop('context_receipt_sha256')
+    initial_hash = sha256(initial.encode()).hexdigest()
+    values['assembled_input']['assembled_input_sha256'] = initial_hash
+    receipt = seal_pending_receipt(values)
+    first = events[0]
+    first = first.model_copy(update={'envelope_sha256': initial_hash,
+        'dispatch_identity_sha256': identity(envelope_sha256=initial_hash, provider=first.provider,
+            model=first.model, api_mode=first.api_mode, context_mode=first.context_mode)})
+    events[0] = first
+    events[3] = events[3].model_copy(update={'controller_envelope_sha256': initial_hash})
+    events[4] = events[4].model_copy(update={'pending_context_receipt_sha256': receipt.context_receipt_sha256})
+    execution = pending_execution(receipt, policy, events[:5])
+    request = pending_app_page_selection_input(receipt, execution, initial)
+    raw = json.dumps(request)
+    envelope_hash = sha256(raw.encode()).hexdigest()
+    auth = events[5].model_copy(update={'envelope_sha256': envelope_hash,
+        'dispatch_identity_sha256': identity(envelope_sha256=envelope_hash, provider=first.provider,
+            model=first.model, api_mode=first.api_mode, context_mode=first.context_mode)})
+    return receipt, execution, auth, initial, raw, history
+
+
+def test_pending_app_page_input_preserves_full_dialogue_and_only_navigation_aliases():
+    from application_state.agent_conversation.build_source_free import validate_pending_app_page_selection_request
+    receipt, execution, auth, initial, raw, history = pending_page_input_case()
+    body = validate_pending_app_page_selection_request(receipt, execution, auth, raw, initial)
+    assert body['state']['history'] == history and len(history) == 60
+    assert set(body['questions']) == {'page1'}
+    assert body['state']['saved_pages'][0]['choice'] == 'page1'
+    catalog = execution.events[-1]
+    for host_value in [str(catalog.event_id), str(catalog.pages[0].document_id), catalog.pages[0].world_id,
+                       receipt.context_receipt_sha256, str(receipt.conversation_observation.conversation_id)]:
+        assert host_value not in raw
+    assert 'registry_revision' not in raw and 'admitted_from_revision' not in raw
+
+
+@pytest.mark.parametrize('change', ['history', 'title', 'choices', 'host_metadata', 'initial_request', 'catalog_binding'])
+def test_pending_app_page_input_cannot_change_frozen_context_or_wire_offer(change):
+    from application_state.agent_conversation.build_source_free import validate_pending_app_page_selection_request
+    receipt, execution, auth, initial, raw, history = pending_page_input_case()
+    body = json.loads(raw)
+    if change == 'history':
+        body['state']['history'] = history[1:]
+    elif change == 'title':
+        body['state']['saved_pages'][0]['title'] = 'Replacement page'
+    elif change == 'choices':
+        body['questions']['page1']['criteria']['invent'] = None
+    elif change == 'host_metadata':
+        body['state']['receipt'] = receipt.context_receipt_sha256
+    elif change == 'initial_request':
+        initial += ' '
+    else:
+        auth = auth.model_copy(update={'catalog_event_id': uuid4()})
+    with pytest.raises(ValueError):
+        validate_pending_app_page_selection_request(receipt, execution, auth, json.dumps(body), initial)
+
+
+@pytest.mark.parametrize('end', [6, 7, 8, 9])
+def test_pending_native_preparation_cannot_cross_an_unresolved_app_page_phase(end):
+    from application_state.agent_conversation.build_source_free import pending_source_work
+    receipt, policy, events = pending_page_phase_case()
+    partial = pending_execution(receipt, policy, events[:end])
+    with pytest.raises(ValueError, match='must resolve before native source preparation'):
+        pending_source_work(partial)
+    complete = pending_execution(receipt, policy, events)
+    assert pending_source_work(complete).event_id == events[3].event_id

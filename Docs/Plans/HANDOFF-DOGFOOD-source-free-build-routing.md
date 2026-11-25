@@ -402,3 +402,20 @@ work decision stays closed. This codec step alone enables neither discovery nor
 page reads and is not runtime or SQL qualification. Existing shared catalog/Plan
 helpers are unchanged; any later exact pending dispatch there must preserve the
 old call contracts and be pinned in this lease before editing.
+
+
+## App page acquisition phase checkpoint
+
+The pending Build execution gains a distinct App page-selection authorization
+subtype of the existing mode-bound V5 controller owner. Its host binding names the
+captured catalog event and its phase is navigate, retaining the existing adaptive
+accounting algorithm. Extend build_decision_context.mode_context and the exact
+new-type context-limit dispatch in types.validate_provider_envelope_accounting
+only for this new pending codec; historical behavior and algorithms are unchanged.
+The original work-controller phase remains closed. Permit pre-dispatch retries
+only after known_not_sent; selection requires its actual response-received
+controller. Existing RelatedPagesSelection/RelatedPageRead models are admitted
+only in the new pending execution with exact catalog/selection/pointer joins.
+This adds no fallback source owner or new provenance authority. Concrete prepared
+request/response proof, current read access, and runtime dispatch remain required
+before activation; structural prefixes alone grant no IO or model call.

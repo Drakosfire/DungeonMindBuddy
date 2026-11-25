@@ -490,6 +490,13 @@ class NativeBuildQuerySettledV1(Strict):
     query: NativeGraphQueryV4
 
 
+class BuildAppPageSelectionAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
+    """A distinct later App metadata decision, never reopening initial work."""
+    kind: Literal["build_app_page_selection_authorized_v1"] = "build_app_page_selection_authorized_v1"
+    context_phase: Literal["navigate"] = "navigate"
+    catalog_event_id: UUID
+
+
 class NativeBuildSourceSettledV1(Strict):
     """Full source preparation result for the distinct pending Build receipt.
 
@@ -616,18 +623,18 @@ _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelecte
 NATIVE_EXECUTION_EVENT_LIMIT = 2048
 
 
-# The pending prefix cannot decode source acquisition, writer or completion
-# records. Their new-codec admission is integrated separately before registration.
+# App metadata/selected-page records are distinct from native acquisition.
+# Native reads, writer and terminal owners still require new-codec integration.
 BuildPendingPrefixEventV1 = Annotated[
-    t.ProviderAttemptAuthorizedEventV5 | t.ProviderOutcomeEventV1
-    | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
+    t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | t.ProviderOutcomeEventV1
+    | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1,
     Field(discriminator="kind"),
 ]
 
 
 class BuildPendingExecutionV1(Strict):
-    """Unregistered Build prefix; structural closure grants no IO authority."""
+    """Pending Build prefix; structural closure grants no IO authority."""
     schema_: Literal["dmb_build_pending_execution_v1"] = Field(
         default="dmb_build_pending_execution_v1", alias="schema")
     context_receipt_sha256: Digest
@@ -651,9 +658,19 @@ class BuildPendingExecutionV1(Strict):
         settled = False
         app_catalog_observed = False
         work_selected = False
+        app_catalog = page_controller = page_outcome = page_selection = None
+        page_reads = set()
         for event in self.events:
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
-                if (settled or work_selected or (event.provider, event.model, event.api_mode)
+                if type(event) is BuildAppPageSelectionAuthorizedV1:
+                    if (settled or app_catalog is None or page_selection is not None
+                            or event.catalog_event_id != app_catalog.event_id
+                            or page_controller is not None and page_outcome != "known_not_sent"
+                            or (event.provider, event.model, event.api_mode)
+                            != self.policy.provider_roles.controller.identity()):
+                        raise ValueError("App page controller requires its unique unresolved captured catalog phase")
+                    page_controller, page_outcome = event, None
+                elif (settled or work_selected or (event.provider, event.model, event.api_mode)
                         != self.policy.provider_roles.controller.identity()):
                     raise ValueError("Pending controller authorization must precede work selection")
                 if (event.included_assertion_ids or event.included_relationship_ids
@@ -672,7 +689,30 @@ class BuildPendingExecutionV1(Strict):
                         or event.pending_context_receipt_sha256 != self.context_receipt_sha256):
                     raise ValueError("Pending App catalog differs from its evidence-seeking work")
                 app_catalog_observed = True
+                app_catalog = event
+            elif type(event) is t.ProviderOutcomeEventV1:
+                if page_controller is not None and event.provider_attempt_id == page_controller.provider_attempt_id:
+                    page_outcome = event.outcome
+            elif type(event) is t.RelatedPagesSelection:
+                if (page_selection is not None or page_controller is None or page_outcome != "response_received"
+                        or event.controller_attempt_id != page_controller.provider_attempt_id
+                        or event.controller_envelope_sha256 != page_controller.envelope_sha256
+                        or not set(event.document_ids).issubset({page.document_id for page in app_catalog.pages})):
+                    raise ValueError("App page selection requires its acknowledged catalog controller and exact choices")
+                page_selection = event
+            elif type(event) is t.RelatedPageRead:
+                offered = {page.document_id: page for page in app_catalog.pages} if app_catalog else {}
+                if (page_selection is None or event.selection_event_id != page_selection.event_id
+                        or event.page.document_id not in page_selection.document_ids
+                        or event.page.document_id in page_reads
+                        or event.page.document_id not in offered
+                        or any(getattr(event.page, key) != getattr(offered[event.page.document_id], key)
+                               for key in PagePointer.model_fields)):
+                    raise ValueError("App page read differs from its exact selected saved pointer")
+                page_reads.add(event.page.document_id)
             elif type(event) is NativeBuildSourceSettledV1:
+                from .build_source_free import pending_source_work
+                pending_source_work(self.model_copy(update={'events': self.events[:event.sequence]}))
                 work = [e for e in self.events[:event.sequence]
                         if type(e) is t.BuildRequestedWorkResolutionV1]
                 if (settled or len(work) != 1 or event.sequence != len(self.events) - 1
