@@ -170,6 +170,12 @@ it('scopes Play content commands to the enabled guest session', async () => {
   expect(guestBuildCsrf(path,'POST')).toBeNull();
   expect(guestBuildRequestEpoch(path,'POST')).toBeNull();
   expect(guestBuildRequestEpoch(`/api/live/world-play-runs/v2/${run}/content/proposals`,'GET')).toBeNull();
+  const review=`/api/live/world-play-runs/v2/${run}/review?world_id=${world}`;
+  const reviewCommand=`/api/live/world-play-runs/v2/${run}/review/commands/${command}?world_id=${world}`;
+  expect(guestBuildRequestEpoch(review,'GET')).not.toBeNull();
+  expect(guestBuildRequestEpoch(reviewCommand,'PUT')).not.toBeNull();
+  expect(guestBuildCsrf(reviewCommand,'PUT')).toBe('guest-token');
+  expect(guestBuildCsrf(reviewCommand,'POST')).toBeNull();
   clearGuestBuildSession();
   expect(guestBuildCsrf(path,'PUT')).toBeNull();
 });
