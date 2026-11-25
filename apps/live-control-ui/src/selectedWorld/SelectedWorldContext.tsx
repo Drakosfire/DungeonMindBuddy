@@ -178,6 +178,7 @@ export function SelectedWorldProvider({
     }
     if (!selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId) return;
     const catalogRequest = new AbortController();
+    const recoveryRequest = new AbortController();
     let cancelled = false;
     void (async () => {
       try {
@@ -269,7 +270,7 @@ export function SelectedWorldProvider({
           if (selection.explicit && selection.worldId && selection.documentId
               && previousWorld?.worldId === selection.worldId && loaded?.principalKey === principalKey) {
             try {
-              const worlds = hosted ? [await getHostedWorldContainer(selection.worldId)] : (await listWorldContainers()).records;
+              const worlds = hosted ? [await getHostedWorldContainer(selection.worldId, recoveryRequest.signal)] : (await listWorldContainers(recoveryRequest.signal)).records;
               const verified = verifyManagedWorldSelection({requestedWorldId: selection.worldId, document: null, worlds});
               if (verified.kind === "managed") retainedWorld = verified;
             } catch { /* A failed World or authorization check cannot retain the owner. */ }
@@ -287,7 +288,7 @@ export function SelectedWorldProvider({
         }
       }
     })();
-    return () => { cancelled = true; catalogRequest.abort(); };
+    return () => { cancelled = true; catalogRequest.abort(); recoveryRequest.abort(); };
   }, [selectionScope, continuedWorldOnly, hosted, hostedPlanDocument, principalKey]);
 
   return (
