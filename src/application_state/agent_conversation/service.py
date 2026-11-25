@@ -1690,7 +1690,11 @@ class AgentConversationService:
         return materialize(conn, turn)
 
     def _bind_execution_append(self, context, execution):
-        from .native_execution import validate_context_binding
+        from .native_context import BuildPendingContextReceiptV1
+        from .native_execution import BuildPendingExecutionV1, validate_context_binding
+        if type(context) is BuildPendingContextReceiptV1 or type(execution) is BuildPendingExecutionV1:
+            from .build_source_free import effective_pending_source
+            return effective_pending_source(context, execution)
         return validate_context_binding(context, execution)
 
     def _append_graph_execution_event(
@@ -3137,6 +3141,7 @@ class AgentConversationService:
         conflict. The host App access callback performs no Core/network IO.
         """
         from .native_execution import BuildPendingExecutionV1, BuildAppPageSelectionAuthorizedV1
+        from .types import ProviderAttemptAuthorizedEventV5
         from .build_source_free import BuildAppPageCatalogObservedV1, effective_pending_app_catalog
         world_id = _world_id(world_id)
         if (type(outcome) is not ProviderOutcomeEventV1 or outcome.outcome != 'sdk_entered'
@@ -3154,13 +3159,14 @@ class AgentConversationService:
             authorizations = [event for event in turn.graph_context_execution.events
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
-            if (type(authorization) is not BuildAppPageSelectionAuthorizedV1
-                    or outcome.provider_attempt_id != authorization.provider_attempt_id):
-                raise ApplicationStateValidationError('Pending SDK entry lacks its latest admitted App page controller')
+            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            if (not initial and type(authorization) is not BuildAppPageSelectionAuthorizedV1
+                    or authorization is None or outcome.provider_attempt_id != authorization.provider_attempt_id):
+                raise ApplicationStateValidationError('Pending SDK entry lacks its latest admitted Build controller')
             self._validate_pending_prompt(conn, turn, authorization, prepared_request_json)
             catalogs = [event for event in turn.graph_context_execution.events
                         if type(event) is BuildAppPageCatalogObservedV1]
-            if authorize_current_access(conn, turn, catalogs[0].pages) is not True:
+            if authorize_current_access(conn, turn, None if initial else catalogs[0].pages) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize SDK entry')
             if turn.claim_expires_at <= repo.database_clock(conn):
                 raise ApplicationStateConflictError('Pending SDK entry claim expired during access validation')
@@ -3212,6 +3218,7 @@ class AgentConversationService:
                                               authorize_current_access):
         """Record the actual resolved/unknown observation; never grant SDK entry."""
         from .native_execution import BuildAppPageSelectionAuthorizedV1
+        from .types import ProviderAttemptAuthorizedEventV5
         from .build_source_free import BuildAppPageCatalogObservedV1
         world_id = _world_id(world_id)
         if (type(outcome) is not ProviderOutcomeEventV1 or outcome.outcome == 'sdk_entered'
@@ -3229,12 +3236,13 @@ class AgentConversationService:
             authorizations = [event for event in turn.graph_context_execution.events
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
-            if (type(authorization) is not BuildAppPageSelectionAuthorizedV1
-                    or authorization.provider_attempt_id != outcome.provider_attempt_id):
-                raise ApplicationStateValidationError('Pending outcome differs from its latest App controller')
-            catalog, = [event for event in turn.graph_context_execution.events
+            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            if (not initial and type(authorization) is not BuildAppPageSelectionAuthorizedV1
+                    or authorization is None or authorization.provider_attempt_id != outcome.provider_attempt_id):
+                raise ApplicationStateValidationError('Pending outcome differs from its latest Build controller')
+            catalogs = [event for event in turn.graph_context_execution.events
                         if type(event) is BuildAppPageCatalogObservedV1]
-            if authorize_current_access(conn, turn, catalog.pages) is not True:
+            if authorize_current_access(conn, turn, None if initial else catalogs[0].pages) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize pending outcome admission')
             if turn.claim_expires_at <= repo.database_clock(conn):
                 raise ApplicationStateConflictError('Pending outcome claim expired during access validation')
@@ -3359,6 +3367,54 @@ class AgentConversationService:
             if authorize_current_access(conn, current, (read.page,)) is not True:
                 raise ApplicationStateConflictError('Current App access changed during saved-page materialization')
             return self._append_pending_checked(conn, current, read, expected_revision)
+
+    def authorize_pending_build_opening_with_prompt(self, world_id, conversation_id, turn_id, *,
+                                                    expected_revision, expected_attempt,
+                                                    provider_attempt_event, prepared_decision_json,
+                                                    trace_id, prompt, authorized, authorize_current_access):
+        """Atomically admit exact initial Build bytes and their existing prompt trace."""
+        from .types import ProviderAttemptAuthorizedEventV5, validate_provider_envelope_accounting
+        from .build_decision_context import validate_prepared
+        from .context_trace import TracePromptReference, TraceProviderCall
+        from .context_trace_store import append_opening_prompt_locked
+        world_id = _world_id(world_id)
+        if (type(provider_attempt_event) is not ProviderAttemptAuthorizedEventV5
+                or provider_attempt_event.context_phase != 'select'
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or type(trace_id) is not UUID or type(prompt) is not TracePromptReference
+                or type(authorized) is not TraceProviderCall or not isinstance(prepared_decision_json, str)
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending opening requires its exact prepared-input and App access owners')
+        try:
+            event = ProviderAttemptAuthorizedEventV5.model_validate_json(provider_attempt_event.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            initial = turn.graph_context_receipt.assembled_input
+            if (event.envelope_sha256 != initial.assembled_input_sha256
+                    or event.input_tokens != initial.provider_envelope_input_tokens
+                    or event.output_token_reserve != initial.output_token_reserve
+                    or event.input_estimator != initial.tokenizer_name
+                    or prompt.provider_attempt_id != event.provider_attempt_id
+                    or prompt.payload_sha256 != event.envelope_sha256
+                    or prompt.payload_utf8_bytes != len(prepared_decision_json.encode())):
+                raise ApplicationStateValidationError('Pending opening differs from its frozen first request')
+            try:
+                validate_prepared(event, turn.graph_context_execution, prepared_decision_json, host_phase='select')
+                validate_provider_envelope_accounting(initial, turn.graph_context_execution, event)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending opening')
+            if any(getattr(prior, 'provider_attempt_id', None) == event.provider_attempt_id
+                   for prior in turn.graph_context_execution.events):
+                raise ApplicationStateConflictError('Pending opening provider authorization is already committed')
+            updated, fresh = self._append_pending_checked(conn, turn, event, expected_revision)
+            trace = append_opening_prompt_locked(conn, updated, trace_id, prompt, authorized)
+            return updated, fresh, trace
 
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):

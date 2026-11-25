@@ -255,4 +255,6 @@ def _join_work_context(context, provenance, *, play_context_receipt=None):
 def is_semantic_build_input(receipt):
     """Dispatch only the exact fresh Build input codec; never infer from text."""
     return (type(receipt) is SurfaceNativeContextReceiptV1
-        and type(receipt.assembled_input) is NativeBuildProviderInputV2)
+        and type(receipt.assembled_input) is NativeBuildProviderInputV2
+        or type(receipt) is BuildPendingContextReceiptV1
+        and type(receipt.assembled_input) is NativeBuildPendingProviderInputV3)

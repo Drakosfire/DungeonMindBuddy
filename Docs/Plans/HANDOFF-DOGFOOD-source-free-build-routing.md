@@ -490,3 +490,32 @@ or reacquired with another read identity. Exact recorded identity at the current
 revision returns non-fresh without IO; an old revision conflicts before IO.
 Existing snapshot-owner checks remain intact. Concrete production access/runtime
 callbacks and actual SQL concurrency proof remain required before activation.
+
+
+## Initial opening helper dispatch lease
+
+Extend the bounded write lease to build_draft_context.py only in
+native_build_action and validate_native_record for the exact pending Build
+execution/policy/action/receipt pair. The helpers select action capabilities and
+validate the already submitted draft identity; they grant no native source or
+write authority. Preserve the historical shared pair and reject crossed pairs.
+Add exact pending dispatch in native_context.is_semantic_build_input and
+service._bind_execution_append so existing draft/work append validation can use
+the new owning codec. Do not manufacture a SurfaceNativeContextReceipt or change
+historical input bytes. Dedicated initial prepared-request/atomic prompt/SDK
+admission and startup wiring remain required.
+
+
+## Pending initial opening admission
+
+A dedicated pending opening owner validates the exact V5/select request against
+the frozen first-envelope hash/accounting and existing prepared-input checks,
+current pointer/claim/leaf/App access, then appends the authorization and existing
+opening prompt/authorized trace observations in the same App transaction. The
+existing atomic trace owner retains trace identity, provider and prompt checks.
+The guarded SDK-entry and outcome owners accept exactly this initial V5/select
+controller as well as the distinct later App page-selection subtype; initial
+access checks receive no acquired catalog. No generic provider bypass is enabled.
+These helper/service checks do not establish SQL rollback or actual runtime
+activation. Startup/driver callbacks and downstream writer/terminal integration
+remain required before release.

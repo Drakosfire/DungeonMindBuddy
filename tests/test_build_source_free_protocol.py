@@ -1288,3 +1288,168 @@ def test_pending_page_read_does_not_pass_foreign_materialization_to_access_owner
     with pytest.raises(ApplicationStateValidationError, match='changed the selected saved pointer'):
         read(materializer=foreign)
     assert state.access_calls == before + 1 and state.persisted == 4
+
+
+def test_pending_opening_uses_exact_semantic_input_pair_and_append_binding():
+    from application_state.agent_conversation.native_context import is_semantic_build_input, NativeBuildProviderInputV2
+    from application_state.agent_conversation.service import AgentConversationService
+    from tests.test_surface_native_execution import component
+    receipt, policy = pending_execution_pair()
+    execution = pending_execution(receipt, policy)
+    assert is_semantic_build_input(receipt)
+    historical, historical_execution = component('build')
+    assert not is_semantic_build_input(historical)
+    values = receipt.assembled_input.model_dump(mode='python')
+    values.pop('assembler_version')
+    crossed = receipt.model_copy(update={'assembled_input': NativeBuildProviderInputV2(**values)})
+    assert not is_semantic_build_input(crossed)
+    owner = AgentConversationService()
+    assert owner._bind_execution_append(receipt, execution) is None
+    for context, ledger in [(historical, execution), (receipt, historical_execution)]:
+        with pytest.raises(ValueError, match='concrete Build receipt and execution'):
+            owner._bind_execution_append(context, ledger)
+
+
+@pytest.mark.parametrize('family', ['pending', 'historical'])
+def test_existing_draft_owner_accepts_exact_pending_and_historical_pairs(family):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.build_draft_context import validate_record, native_build_action
+    from tests.test_surface_native_build_work import case
+    historical, historical_execution, captured, *_ = case()
+    if family == 'pending':
+        receipt, policy = pending_execution_pair(captured_case=(historical, historical_execution, captured))
+        execution = pending_execution(receipt, policy, historical_execution.events[:5])
+    else:
+        receipt, execution = historical, historical_execution
+    record = captured.record
+    turn = SimpleNamespace(world_id=record.snapshot.world_id, conversation_id=record.conversation_id,
+        turn_id=record.turn_id, attempt=record.attempt, submitted_intent_fingerprint_v2=record.submitted_intent_fingerprint,
+        graph_context_receipt=receipt, graph_context_execution=execution)
+    assert native_build_action(execution) is execution.policy.action
+    validate_record(record, turn)
+
+
+@pytest.mark.parametrize('change', ['historical_receipt', 'historical_execution', 'pointer'])
+def test_existing_draft_owner_refuses_crossed_pending_pair_or_changed_pointer(change):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.build_draft_context import validate_record
+    from tests.test_surface_native_build_work import case
+    historical, old_execution, captured, *_ = case()
+    receipt, policy = pending_execution_pair(captured_case=(historical, old_execution, captured))
+    execution = pending_execution(receipt, policy, old_execution.events[:5])
+    if change == 'historical_receipt':
+        receipt = historical
+    elif change == 'historical_execution':
+        execution = old_execution
+    else:
+        receipt = receipt.model_copy(update={'conversation_observation': receipt.conversation_observation.model_copy(
+            update={'pointer_revision': receipt.conversation_observation.pointer_revision + 1})})
+    record = captured.record
+    turn = SimpleNamespace(world_id=record.snapshot.world_id, conversation_id=record.conversation_id,
+        turn_id=record.turn_id, attempt=record.attempt, submitted_intent_fingerprint_v2=record.submitted_intent_fingerprint,
+        graph_context_receipt=receipt, graph_context_execution=execution)
+    with pytest.raises(ValueError):
+        validate_record(record, turn)
+
+
+def pending_initial_opening_harness(monkeypatch):
+    from types import SimpleNamespace
+    from datetime import UTC, datetime
+    from application_state.agent_conversation import context_trace_store
+    from application_state.agent_conversation.context_trace import TurnContextTraceV1, TracePromptReference, TraceProviderCall
+    state, _, _, _ = pending_page_dispatch_harness(monkeypatch)
+    receipt, policy = state.turn.graph_context_receipt, state.turn.graph_context_execution.policy
+    first = state.turn.graph_context_execution.events[0]
+    from hashlib import sha256
+    from application_state.agent_conversation.build_intentional_response import WORK, decision_instructions
+    from application_state.agent_conversation.build_decision_context import identity
+    body = json.loads(state.initial_request)
+    body['questions'] = {'requested_work': {'type': 'choice',
+        'instructions': decision_instructions(policy.action.requested_work_menu_sha256), 'criteria': dict.fromkeys(WORK)}}
+    state.initial_request = json.dumps(body)
+    envelope = sha256(state.initial_request.encode()).hexdigest()
+    first = first.model_copy(update={'envelope_sha256': envelope,
+        'dispatch_identity_sha256': identity(envelope_sha256=envelope, provider=first.provider,
+            model=first.model, api_mode=first.api_mode, context_mode=first.context_mode)})
+    values = receipt.model_dump(mode='json', by_alias=True)
+    values.pop('context_receipt_sha256')
+    values['assembled_input']['assembled_input_sha256'] = envelope
+    receipt = seal_pending_receipt(values)
+    state.prompt.update(payload_sha256=envelope, payload_utf8_bytes=len(state.initial_request.encode()))
+    state.turn = t.Turn.model_validate(state.turn.model_copy(update={
+        'revision': 2, 'graph_context_receipt': receipt,
+        'graph_context_execution': pending_execution(receipt, policy)}))
+    state.opening_trace = TurnContextTraceV1(trace_id=uuid4(), world_id=state.turn.world_id,
+        conversation_id=state.turn.conversation_id, turn_id=state.turn.turn_id, attempt=1,
+        started_at=datetime.now(UTC), execution_start_sequence=0, observations=[])
+    prompt = TracePromptReference(**state.prompt)
+    authorized = TraceProviderCall(sequence=1, elapsed_ms=0, provider_attempt_id=first.provider_attempt_id,
+        provider=first.provider, model=first.model, outcome='authorized')
+    def trace_row(conn, turn_id, attempt):
+        assert conn is state.conn and state.depth == 1 and turn_id == state.turn.turn_id and attempt == 1
+        return state.opening_trace.trace_id, state.opening_trace.model_dump(mode='json', by_alias=True)
+    def save(conn, trace):
+        assert conn is state.conn and state.depth == 1
+        state.opening_trace = trace
+    monkeypatch.setattr(context_trace_store, '_trace_row', trace_row)
+    monkeypatch.setattr(context_trace_store, '_save_trace', save)
+    def query(sql, args):
+        if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+            return state.leaf_query(sql, args)
+        assert sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s' and args == (state.turn.turn_id,)
+        return SimpleNamespace(fetchall=lambda: [(state.opening_trace.model_dump(mode='json', by_alias=True),)])
+    state.conn.execute = query
+    def open_request(*, event=first, raw=None, prompt_record=prompt):
+        return state.service.authorize_pending_build_opening_with_prompt(state.turn.world_id,
+            state.turn.conversation_id, state.turn.turn_id, expected_revision=2, expected_attempt=1,
+            provider_attempt_event=event, prepared_decision_json=state.initial_request if raw is None else raw,
+            trace_id=state.opening_trace.trace_id, prompt=prompt_record, authorized=authorized,
+            authorize_current_access=state.authorize)
+    return state, open_request, first, prompt
+
+
+def test_pending_initial_opening_uses_actual_prompt_owner_and_guarded_sdk_lifecycle(monkeypatch):
+    state, open_request, first, _ = pending_initial_opening_harness(monkeypatch)
+    admitted, fresh, trace = open_request()
+    assert fresh and admitted.revision == 3 and len(trace.observations) == 2
+    assert trace.observations[0].payload_sha256 == first.envelope_sha256
+    entry = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=1,
+        provider_attempt_id=first.provider_attempt_id, outcome='sdk_entered')
+    entered, fresh = state.service.enter_pending_app_page_sdk(state.turn.world_id, state.turn.conversation_id,
+        state.turn.turn_id, expected_revision=3, expected_attempt=1, outcome=entry,
+        prepared_request_json=state.initial_request, authorize_current_access=state.authorize)
+    assert fresh and entered.revision == 4
+    received = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=2,
+        provider_attempt_id=first.provider_attempt_id, outcome='response_received')
+    updated, fresh = state.service.record_pending_app_controller_outcome(state.turn.world_id, state.turn.conversation_id,
+        state.turn.turn_id, expected_revision=4, expected_attempt=1, outcome=received,
+        authorize_current_access=state.authorize)
+    assert fresh and updated.revision == 5 and state.materialized == 0
+    assert updated.graph_context_receipt.source_observation.binding is None
+
+
+@pytest.mark.parametrize('failure', ['wire', 'accounting', 'prompt_binding', 'access', 'pointer', 'expiry', 'successor', 'cas_failure'])
+def test_pending_initial_opening_refuses_changed_input_or_stale_claim(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    state, open_request, first, prompt = pending_initial_opening_harness(monkeypatch)
+    raw = state.initial_request
+    if failure == 'wire':
+        raw += ' '
+    elif failure == 'accounting':
+        first = first.model_copy(update={'input_tokens': first.input_tokens + 1})
+    elif failure == 'prompt_binding':
+        prompt = prompt.model_copy(update={'provider_attempt_id': uuid4()})
+    elif failure == 'access':
+        state.denied = True
+    elif failure == 'pointer':
+        state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 2})
+    elif failure == 'expiry':
+        state.now += timedelta(hours=1)
+    elif failure == 'successor':
+        state.successor = True
+    else:
+        state.cas_failure = True
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        open_request(event=first, raw=raw, prompt_record=prompt)
+    assert state.persisted == 0 and not state.opening_trace.observations
