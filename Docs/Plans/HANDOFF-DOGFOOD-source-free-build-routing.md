@@ -1106,3 +1106,33 @@ Direct prefix and service tests prove read-complete→native-settlement refuses
 before any materializer call. Earlier unresolved-page controls now also require
 coverage after reads complete. Positive native-needed and sufficient/unknown
 negative controls remain covered. No runtime activation is implied.
+
+## Coverage runtime driver continuation
+
+ACTIVE same routing slice: new services/build_pending_app_coverage.py uses the
+existing Build _decide prepared-input/SDK lifecycle gates and dedicated App
+coverage service ports. It inherits only the existing stage implementation from
+PendingAppPageDriver, not its authorization/result semantics. Known reentry
+reconstructs protected request/result proof and revalidates current access without
+resending; unresolved/unknown dispatch refuses. Focused actual SDK/mock transport
+controls cover full dialogue/read input, one read/one coverage call, stored reuse
+and unknown failure. Do not activate _native_completion before matching writer
+closure. PlanJevDriver remains untouched. Exact prompt-store fixture retains all
+prepared bytes so reentry tests cannot replace coverage input with opening input.
+
+Coverage runtime checkpoint:10 focused actual SDK/mock-transport controls
+passed2.87s, including the affected prior App-navigation cases. Exactly one saved
+page read and one additional coverage call occur; both verdicts preserve full
+60-turn dialogue and exact projected page text with no host binding IDs. Known
+reentry reloads actual captured prepared bytes and response, revalidates current
+App access through the verdict owner, and does not read or dispatch again. Lost
+access refuses reuse. Unknown delivery records outcome_unknown and cannot resend;
+no selected pages skips the coverage call entirely. Initial SDK construction
+required an explicit synthetic test key; no live key/provider/network was used.
+
+The driver is ready as an explicit runtime function, but _native_completion is
+not yet wired to it: nonempty App writer selection/citation closure must land
+before that activation. Fake App transactions do not prove SQL rollback/races,
+physical no-discovery, real Jev quality, fresh HTTP POST, page save/reopen or
+serving-release qualification. Native-needed continuation and all prior full-goal
+gates remain open.

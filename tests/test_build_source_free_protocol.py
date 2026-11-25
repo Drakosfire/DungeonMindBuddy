@@ -2075,12 +2075,17 @@ def pending_app_runtime_case(monkeypatch):
             'observations': [*state.trace.observations, observation]}))
         return state.trace
     monkeypatch.setattr(state.service, 'append_context_trace', append_observation)
+    state.prompt_payloads = {}
     def store(raw, *, digest, size):
         assert hashlib.sha256(raw.encode()).hexdigest() == digest and len(raw.encode()) == size
-        return uuid4()
+        identity = uuid4()
+        state.prompt_payloads[str(identity)] = raw
+        return identity
     import hashlib
     monkeypatch.setattr(agent_prompt_evidence, 'store_prompt', store)
-    monkeypatch.setattr(agent_prompt_evidence, 'read_prompt', lambda ref: state.initial_request)
+    monkeypatch.setattr(agent_prompt_evidence, 'read_prompt', lambda ref:
+        state.initial_request if str(ref.provider_attempt_id) == state.prompt['provider_attempt_id']
+        else state.prompt_payloads[str(ref.evidence_id)])
     fence = _ClaimFence(state.service, state.turn, pending_build_access=state.authorize)
     adapter = SimpleNamespace(turn=state.turn, fence=fence, failure=None, trace=None,
         pending_build_access=state.authorize, rules_runtime=None,
@@ -3724,3 +3729,59 @@ def test_pending_app_reads_cannot_prepare_native_sources_before_coverage_starts(
             expected_revision=state.turn.revision,expected_attempt=1,event_id=uuid4(),
             materialize_source=forbidden,authorize_current_access=state.authorize)
     assert not calls and state.persisted==state.materialized==0
+
+
+@pytest.mark.parametrize('verdict',['saved_pages_sufficient','native_sources_required','unknown','skip'])
+def test_pending_app_coverage_runtime_actual_sdk_preserves_context_and_never_repeats_reads_or_dispatch(monkeypatch,verdict):
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY','synthetic-no-network')
+    import asyncio
+    import httpx2
+    from hashlib import sha256
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services import build_related_pages
+    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+    from apps.live_control_server.services.build_pending_app_coverage import assess_pending_app_coverage
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    calls,reads=[],[]
+    class Transport(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self,request):
+            body=json.loads(request.content);calls.append(body)
+            coverage='source_requirement' in body['questions']
+            if coverage and verdict=='unknown':raise httpx2.ReadTimeout('Synthetic unknown coverage',request=request)
+            choices=('saved_pages_sufficient','native_sources_required') if coverage else ('read','skip')
+            chosen=verdict if coverage else 'skip' if verdict=='skip' else 'read'
+            return httpx2.Response(200,request=request,json={'model':body['model'],
+                'usage':{'input_tokens':23,'output_tokens':4},'answers':{
+                    name:{'type':'choice','choice':chosen,'confidence':1,
+                        'probabilities':{key:float(key==chosen) for key in choices}} for name in body['questions']}})
+    with pending_app_runtime_case(monkeypatch) as (state,adapter):
+        def materialize(pointer):
+            reads.append(pointer.document_id)
+            text='Ethel dreamed of Maelthor; the password remains uncertain.'
+            return pointer.model_dump(mode='json')|{'markdown':text,'content_sha256':sha256(text.encode()).hexdigest()}
+        monkeypatch.setattr(build_related_pages,'materialize',materialize)
+        harness=BuildJevHarness(decision_transport=Transport())
+        harness.adapter,harness.calls,harness.timings,harness._inflight=adapter,[],[],{}
+        asyncio.run(acquire_pending_app_pages(adapter,harness))
+        if verdict=='skip':
+            assert asyncio.run(assess_pending_app_coverage(adapter,harness)) is None
+            assert len(calls)==1 and not reads
+            return
+        if verdict=='unknown':
+            with pytest.raises(GenerationEngineError):asyncio.run(assess_pending_app_coverage(adapter,harness))
+            with pytest.raises(ValueError,match='unresolved'):asyncio.run(assess_pending_app_coverage(adapter,harness))
+            assert state.turn.graph_context_execution.events[-1].outcome=='outcome_unknown'
+        else:
+            assert asyncio.run(assess_pending_app_coverage(adapter,harness))==verdict
+            assert asyncio.run(assess_pending_app_coverage(adapter,harness))==verdict
+        assert len(calls)==2 and len(reads)==1 and state.materialized==0
+        coverage=calls[-1]
+        assert len(coverage['state']['history'])==60
+        assert coverage['state']['saved_authored_pages'][0]['markdown'].startswith('Ethel dreamed')
+        for value in (str(state.turn.turn_id),str(reads[0]),state.turn.graph_context_receipt.context_receipt_sha256):
+            assert value not in json.dumps(coverage)
+        if verdict!='unknown':
+            state.denied=True
+            from application_state.errors import ApplicationStateError
+            with pytest.raises(ApplicationStateError):asyncio.run(assess_pending_app_coverage(adapter,harness))
+            assert len(calls)==2 and len(reads)==1
