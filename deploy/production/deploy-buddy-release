@@ -8,6 +8,16 @@ fail() { printf 'Buddy deploy request: %s\n' "$*" >&2; exit 1; }
 
 sha='[0-9a-f]{40}'
 digest='sha256:[0-9a-f]{64}'
+# A separate, fixed nonroutine grammar invokes only root-approved sealed code.
+fence_request="^app-fence ($sha) ($digest) ($digest) ($sha) ($digest) ([0-9a-f]{64})$"
+if [[ $# == 1 && $1 =~ $fence_request ]]; then
+  fence_args=("${BASH_REMATCH[@]:1}")
+  exec 9>/run/lock/buddy-production-deploy.lock
+  flock -n 9 || fail "another Buddy deploy is active"
+  export BUDDY_DEPLOY_LOCK_HELD=1
+  exec /usr/local/sbin/deploy-buddy-app-fence "${fence_args[@]}"
+fi
+
 request="^($sha) ($digest) ($digest) ($sha) ($digest) ([a-z-]+)( ([0-9a-f]{64}))?$"
 [[ $# == 1 && $1 =~ $request ]] || fail "invalid release request"
 revision=${BASH_REMATCH[1]}

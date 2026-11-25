@@ -1,0 +1,216 @@
+#!/usr/bin/python3
+"""Actions transport for one locally approved, sealed App-fence release packet."""
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+import tempfile
+
+CONFIG_ROOT = Path('/etc/buddy-deploy')
+LOCK = Path('/run/lock/buddy-production-deploy.lock')
+FILES = {'operator.py', 'dogfood_engine_transport.py', 'release.json', 'qualification.json'}
+SHA = r'[0-9a-f]{40}'
+DIGEST = r'sha256:[0-9a-f]{64}'
+HEX = r'[0-9a-f]{64}'
+ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'HOME': '/root',
+       'BUDDY_DEPLOY_LOCK_HELD': '1'}
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def trusted(path, *, uid=0, directory=False):
+    info = path.lstat()
+    require(not stat.S_ISLNK(info.st_mode) and info.st_uid == uid
+            and not info.st_mode & 0o022, 'untrusted packet path')
+    require(stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode),
+            'unexpected packet file type')
+    if not directory:
+        require(info.st_nlink == 1 and info.st_size <= 4 * 1024 * 1024,
+                'invalid packet file bounds')
+    return info
+
+
+def read_bytes(path, *, uid=0):
+    before = trusted(path, uid=uid)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        actual = os.fstat(stream.fileno())
+        require((actual.st_dev, actual.st_ino) == (before.st_dev, before.st_ino),
+                'packet file changed while opening')
+        require(stat.S_ISREG(actual.st_mode), 'packet is not a regular file')
+        data = stream.read(4 * 1024 * 1024 + 1)
+    require(len(data) <= 4 * 1024 * 1024, 'packet file exceeds bounds')
+    return data
+
+
+def object_json(data):
+    def pairs(rows):
+        result = {}
+        for key, value in rows:
+            require(key not in result, 'duplicate packet JSON key')
+            result[key] = value
+        return result
+    value = json.loads(data, object_pairs_hook=pairs)
+    require(type(value) is dict, 'packet JSON must be an object')
+    return value
+
+
+def load_packet(args, *, root=CONFIG_ROOT, uid=0):
+    require(len(args) == 6, 'expected exact App-fence pins')
+    revision, digest, candidate, rollback_revision, rollback, packet_digest = args
+    for value, pattern in zip(args, [SHA, DIGEST, DIGEST, SHA, DIGEST, HEX]):
+        require(re.fullmatch(pattern, value), 'invalid App-fence pin')
+    require(revision != rollback_revision and candidate != rollback,
+            'candidate and initial rollback must be distinct')
+    require(root.is_absolute() and root.resolve() == root, 'unexpected configuration path')
+    trusted(root.parent, uid=uid, directory=True)
+    trusted(root, uid=uid, directory=True)
+    packets = root / 'app-fence-packets'
+    trusted(packets, uid=uid, directory=True)
+    directory = packets / revision
+    trusted(directory, uid=uid, directory=True)
+    # JSON journals may be created by the approved operator, but no unsealed
+    # importable code or cache/package directory may shadow its sealed source.
+    for entry in directory.iterdir():
+        trusted(entry, uid=uid)
+        require(entry.name in FILES or entry.name == 'manifest.json'
+                or entry.suffix.lower() not in {'.py', '.pyc', '.pyo', '.so'},
+                'unsealed packet code')
+    data = read_bytes(directory / 'manifest.json', uid=uid)
+    require(hashlib.sha256(data).hexdigest() == packet_digest, 'packet digest differs')
+    manifest = object_json(data)
+    expected_keys = {'schema', 'candidate_revision', 'registry_digest', 'candidate_id',
+                     'rollback_revision', 'rollback_id', 'recovery_revision', 'recovery_id',
+                     'source_schema', 'target_schema', 'guest_build', 'files'}
+    require(set(manifest) == expected_keys and manifest['schema'] == 'buddy_app_fence_packet_v1',
+            'unknown packet manifest shape')
+    expected = dict(zip(['candidate_revision', 'registry_digest', 'candidate_id',
+                         'rollback_revision', 'rollback_id'], args[:5]))
+    require(all(manifest[key] == value for key, value in expected.items()), 'packet release pins differ')
+    require(re.fullmatch(SHA, manifest['recovery_revision'])
+            and re.fullmatch(DIGEST, manifest['recovery_id']), 'invalid forward recovery pins')
+    require(manifest['recovery_id'] != rollback and manifest['recovery_revision'] != rollback_revision,
+            'forward recovery cannot reuse the incompatible initial rollback')
+    require(all(type(manifest[key]) is str and re.fullmatch(r'[0-9]{8}_[0-9]{4}', manifest[key])
+                for key in ['source_schema', 'target_schema'])
+            and manifest['target_schema'] > manifest['source_schema'], 'invalid reader-fence transition')
+    require(type(manifest['guest_build']) is str and manifest['guest_build'], 'missing guest image identity')
+    require(type(manifest['files']) is dict and set(manifest['files']) == FILES,
+            'packet file allowlist differs')
+    contents = {}
+    for name, checksum in manifest['files'].items():
+        require(type(checksum) is str and re.fullmatch(HEX, checksum), 'invalid packet file digest')
+        contents[name] = read_bytes(directory / name, uid=uid)
+        require(hashlib.sha256(contents[name]).hexdigest() == checksum, 'packet file digest differs')
+    release = object_json(contents['release.json'])
+    for key, field in [('candidate_source', 'candidate_revision'), ('candidate_image', 'candidate_id'),
+                       ('old_source', 'rollback_revision'), ('old_image', 'rollback_id'),
+                       ('recovery_source', 'recovery_revision'), ('recovery_image', 'recovery_id')]:
+        require(release.get(key) == manifest[field], 'operator release configuration differs')
+    qualification = object_json(contents['qualification.json'])
+    qualification_fields = ['candidate_revision', 'candidate_id', 'recovery_revision',
+                            'recovery_id', 'source_schema', 'target_schema']
+    require(set(qualification) == {'status', 'evidence_sha256', *qualification_fields}
+            and qualification['status'] == 'accepted'
+            and all(qualification[key] == manifest[key] for key in qualification_fields)
+            and type(qualification['evidence_sha256']) is str
+            and re.fullmatch(HEX, qualification['evidence_sha256']),
+            'qualification is not accepted for this exact transition')
+    return directory, manifest
+
+
+def require_lock():
+    require(os.environ.get('BUDDY_DEPLOY_LOCK_HELD') == '1', 'deployment lock not inherited')
+    actual, expected = os.fstat(9), LOCK.stat()
+    require(stat.S_ISREG(actual.st_mode) and (actual.st_dev, actual.st_ino)
+            == (expected.st_dev, expected.st_ino), 'wrong deployment lock descriptor')
+    fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def run(args):
+    # Only fixed Docker commands with public image pins reach this helper.
+    # Preserve their failure diagnostics; successful inspect output stays private.
+    try:
+        return subprocess.run(args, check=True, text=True, capture_output=True,
+                              env=ENV, timeout=600 if 'pull' in args else 30).stdout.strip()
+    except subprocess.CalledProcessError as error:
+        if error.stderr:
+            print(error.stderr[-8000:], file=sys.stderr, flush=True)
+        raise
+
+
+
+def identity():
+    raw = run(['/usr/bin/docker', '--context', 'default', 'inspect', '--type', 'container',
+               '--format', '{{index .Config.Labels "org.opencontainers.image.revision"}} {{.Image}} {{.State.Health.Status}}',
+               'buddy-buddy-1'])
+    return raw
+
+
+def deploy(args):
+    require_lock()
+    directory, manifest = load_packet(args)
+    expected = f"{manifest['rollback_revision']} {manifest['rollback_id']} healthy"
+    require(identity() == expected, 'healthy serving rollback changed')
+    ref = 'ghcr.io/drakosfire/dungeonmindbuddy@' + manifest['registry_digest']
+    run(['/usr/bin/docker', '--context', 'default', 'pull', '--platform', 'linux/amd64', ref])
+    image = object_json(run(['/usr/bin/docker', '--context', 'default', 'image', 'inspect',
+                             '--format', '{{json .}}', ref]).encode())
+    labels = image.get('Config', {}).get('Labels', {})
+    require(image.get('Id') == manifest['candidate_id'] and image.get('Os') == 'linux'
+            and image.get('Architecture') == 'amd64'
+            and labels.get('org.opencontainers.image.revision') == manifest['candidate_revision']
+            and labels.get('org.dungeonmindbuddy.serving-parent') == manifest['rollback_revision']
+            and labels.get('org.dungeonmindbuddy.guest-build') == manifest['guest_build'],
+            'published candidate image differs from approved packet')
+    run(['/usr/bin/docker', '--context', 'default', 'tag', ref,
+         'dungeonmindbuddy:' + manifest['candidate_revision']])
+    for phase in ['prepare', 'apply']:
+        checked_directory, checked_manifest = load_packet(args)
+        require(checked_directory == directory and checked_manifest == manifest, 'packet changed between phases')
+        # Root-installed code only; no caller-supplied paths/commands/env. FD9
+        # carries the same lock into the approved operator and its children.
+        subprocess.run(['/usr/bin/python3', '-E', '-s', '-B', str(directory / 'operator.py'), phase],
+                       check=True, env=ENV, pass_fds=(9,))
+        checked_directory, checked_manifest = load_packet(args)
+        require(checked_directory == directory and checked_manifest == manifest, 'packet changed during phase')
+        if phase == 'prepare':
+            require(identity() == expected, 'packet preparation changed serving rollback')
+            print('BUDDY_STAGED', args[0], args[2], args[1], flush=True)
+    require(identity() == f"{manifest['candidate_revision']} {manifest['candidate_id']} healthy",
+            'packet did not leave the exact healthy candidate serving')
+    line = f"BUDDY_LIVE {manifest['candidate_revision']} {manifest['candidate_id']}\n"
+    fd, path = tempfile.mkstemp(prefix='.serving.', dir=CONFIG_ROOT)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(line)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(path, CONFIG_ROOT / 'serving')
+        directory_fd = os.open(CONFIG_ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
+    print(line, end='', flush=True)
+
+
+if __name__ == '__main__':
+    try:
+        deploy(sys.argv[1:])
+    except Exception as error:
+        # Operator output/journal owns detailed recovery evidence; avoid dumping
+        # commands or credential-bearing environment/configuration here.
+        print('Buddy App-fence STOP: ' + type(error).__name__ + '; no success receipt', file=sys.stderr)
+        sys.exit(1)
