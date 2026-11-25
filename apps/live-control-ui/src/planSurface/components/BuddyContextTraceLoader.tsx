@@ -19,7 +19,7 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
   if (!data) return <p role="status">Loading execution trace…</p>
   const latest = data.attempts.at(-1)
   const earlier = data.attempts.slice(0, -1).reverse()
-  const incomplete = !running && latest && (latest.closed_at == null || latest.capture_status === 'incomplete')
+  const incomplete = !running && (!latest || latest.closed_at == null || latest.capture_status === 'incomplete')
   const captureControls = error ?? ((!replyDetails || incomplete) && <button type="button" onClick={refresh}>Refresh trace</button>)
   return <div>{captureControls}
     {!latest && running ? <p role="status">Trace capture has not started yet.</p>

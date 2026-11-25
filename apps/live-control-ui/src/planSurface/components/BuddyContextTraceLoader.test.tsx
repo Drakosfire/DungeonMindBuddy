@@ -107,6 +107,14 @@ describe('opt-in turn trace read', () => {
     expect(screen.getByText('How Buddy built this reply')).toBeInTheDocument()
     expect(load).toHaveBeenCalledTimes(2)
   })
+  it('can refresh a finished turn whose trace has not been saved yet', async () => {
+    const load = vi.fn().mockResolvedValue(response())
+    render(<BuddyContextTraceLoader {...props} enabled replyDetails load={load} />)
+    await screen.findByText('No execution trace was captured for this turn.')
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh trace' }))
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2))
+  })
+
   it('leads with the latest trace and groups earlier failed captures', async () => {
     const failed = { ...trace(), terminal_status: 'failed' as const, capture_status: 'complete' as const,
       closed_at: '2026-10-13T00:00:01Z' }
