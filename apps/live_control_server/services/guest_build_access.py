@@ -140,6 +140,15 @@ async def admit_guest_conversation_request(request: Request) -> str:
                             and body.build_draft_context.snapshot.content_sha256 == body.primary_work.expected_content_sha256
                             and body.build_draft_context.snapshot.draft_sha256 == body.primary_work.expected_content_sha256
                             and len(body.build_draft_context.snapshot.draft_markdown.encode('utf-8')) <= MAX_GUEST_SAVED_BYTES)
+        play_discussion = (os.getenv('DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED') == '1'
+                           and os.getenv('DMB_HOSTED_GUEST_PLAY_ENABLED') == '1'
+                           and body.surface.surface_id == 'play' and body.primary_work is not None
+                           and body.primary_work.kind == 'run' and body.primary_work.play_content_basis is not None
+                           and body.play_target is not None and body.client_work_state == 'saved_clean'
+                           and body.graph_request.mode == 'world' and body.graph_request.world_id == world_id
+                           and body.graph_request.campaign_id is None and body.graph_request.revision_pin is None
+                           and body.graph_request.focus.kind == 'none' and body.plan_context_policy is None
+                           and body.plan_requested_operation is None)
         if build_discussion:
             build_discussion = (await run_in_threadpool(_document_world, str(body.primary_work.object_id)) == (world_id, 'worldbuilding_source'))
         from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredSourceReferenceV1
@@ -149,7 +158,7 @@ async def admit_guest_conversation_request(request: Request) -> str:
                     for ref in references.references))
         # Other action families stay closed until their independent persistence
         # owners are bound to the guest lifecycle.
-        if (not (index_discussion or plan_discussion or build_discussion) or body.graph_selection is not None
+        if (not (index_discussion or plan_discussion or build_discussion or play_discussion) or body.graph_selection is not None
                 or body.selected_knowledge is not None or body.native_statement_selection is not None
                 or body.build_write_capability is not None or body.build_image_move_capture is not None
                 or (body.build_draft_context is not None and not build_discussion) or body.build_authored_references is not None
@@ -157,7 +166,7 @@ async def admit_guest_conversation_request(request: Request) -> str:
                 or body.retry_of is not None or body.reviewed_step is not None
                 or body.plan_authoring_capture is not None
                 or body.plan_placement_catalog is not None or body.playable_target is not None
-                or body.play_target is not None):
+                or (body.play_target is not None and not play_discussion)):
             raise HTTPException(403, detail={"code": "guest_turn_capability_unavailable"})
     request.state.guest_build_world = world_id
     request.state.guest_build_session = session.session_id
