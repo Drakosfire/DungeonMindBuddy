@@ -84,7 +84,7 @@ def test_completed_pending_sdk_reply_survives_real_sql_checks(application_state_
         assert repository._turn_from_row(None, stored, references=references) == turn
 
 
-@pytest.mark.parametrize('mode', ['clarify', 'rules', 'body', 'reset', 'long'])
+@pytest.mark.parametrize('mode', ['clarify', 'clarify_duplicate', 'rules', 'body', 'reset', 'long'])
 def test_fresh_pending_build_post_completes_captured_routes(application_state_dsn, tmp_path, monkeypatch, mode):
     import httpx
     from tests.test_source_statements import make_lane
@@ -92,13 +92,15 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
     from apps.live_control_server.services import build_jev_runtime as factory, plan_source_turn
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
     calls = []
-    clarify_mode = mode in {'clarify', 'reset'}
+    clarify_mode = mode in {'clarify', 'clarify_duplicate', 'reset'}
     def reply(request):
         body = json.loads(request.content)
         calls.append(body)
         candidate = {'answer_segments': [{'kind': 'discussion', 'text': 'One detail will help me draft this page.'}], 'limitations': []}
         if 'collaboration' in body['text']['format']['schema']['properties']:
             candidate['collaboration'] = {'kind': 'questions', 'questions': [{'text': 'What should the new page describe?'}]}
+        if mode == 'clarify_duplicate':
+            candidate['answer_segments'] = [{'kind': 'discussion', 'text': 'What should the new page describe?'}]
         if mode == 'long':
             candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
                 'text': 'Authored note context: Maelthor is a ferryman with a blue boat. His fare is a truthful memory.'}],
@@ -194,9 +196,11 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
     envelope = case.turn.envelope if mode == 'rules' else case.turn
     assert receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
     assert envelope.status == 'completed'
-    if mode == 'clarify':
+    if mode in {'clarify', 'clarify_duplicate'}:
         assert case.turn.completion.collaboration.questions[0].text == 'What should the new page describe?'
         assert not prepares and len(case.decisions.calls) == 1
+        if mode == 'clarify_duplicate':
+            assert case.turn.completion.answer_segments == []
     elif mode == 'long':
         assert not prepares and len(case.decisions.calls) == 1
         first = json.loads(case.decisions.calls[0].content)

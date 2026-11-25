@@ -1,6 +1,13 @@
 # Deliver a duplicated inline clarification
 
-Status: ACTIVE. The user authorized this chat to restore clarifying questions
+Status: SOURCE MERGED. Source03d803fd6819edfbc52d0c062db95ae35f187a99 was
+independently reviewed and merged as aad8c32b6ac3f64dab0b085106e6ba086c979419
+(PR4652). Exact-source52focused native-collaboration checks passed3.68s under
+Alan's current minimum-focused-verification policy; historical broad diagnostics
+below are retained, not green. Serving adoption and actual app acceptance remain
+in HANDOFF-DOGFOOD-inline-question-serving.md. Historical assignment follows.
+
+Original status: ACTIVE. The user authorized this chat to restore clarifying questions
 and establish its own app lane. Serial, independently reviewable runtime slice
 based on `814ace002a59b4d6417906b5a0bdb1aa8c2cb855`, branch
 `codex/clarification-app-lane`, checkout at
