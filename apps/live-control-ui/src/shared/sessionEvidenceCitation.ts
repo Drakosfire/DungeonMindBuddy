@@ -16,16 +16,18 @@ export function sessionCitationTarget(worldId:string,support:Locator):string {
   return target;
 }
 export function sessionSummaryMarkdown(segment:SessionSummarySegment,worldId:string,firstNumber:number) {
-  const seen=new Set<string>(),links:string[]=[],targets:string[]=[];
+  const seen=new Set<string>(),links:string[]=[],targets:string[]=[],entries:{number:number;target:string;title:string}[]=[];
   for(const support of segment.supports) {
     const target=sessionCitationTarget(worldId,support);
     if(seen.has(target))continue;
     seen.add(target);targets.push(target);
     const label=support.entry_kind==='closing_reflections'?'Closing reflections':'Scene notes';
-    const title=(support.source_name+' · '+label).replaceAll('\\','\\\\').replaceAll('"','\\"');
+    const displayTitle=support.source_name+' · '+label;
+    entries.push({number:firstNumber,target,title:displayTitle});
+    const title=displayTitle.replaceAll('\\','\\\\').replaceAll('"','\\"');
     links.push(`[${firstNumber++}](${target} "${title}")`);
   }
-  return {text:segment.text+' '+links.join(' '),nextNumber:firstNumber,targets};
+  return {text:segment.text+' '+links.join(' '),nextNumber:firstNumber,targets,entries};
 }
 /** Rebuild locators from the actual immutable packet, never from an ordinal alone. */
 export async function verifiedSessionEntryTargets(value:SessionEvidence):Promise<string[]> {
