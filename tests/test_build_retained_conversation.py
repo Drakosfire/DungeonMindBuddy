@@ -145,9 +145,15 @@ def test_stored_anchored_discussion_reopens_retained_native_citation(lane, tmp_p
         raise AssertionError('Anchored follow-up attempted new acquisition')
     with monkeypatch.context() as guard:
         guard.setattr(native_graph_reads, 'prepare_query', forbidden)
+        guard.setattr(native_graph_reads, 'read_selected', forbidden)
+        guard.setattr(native_graph_reads, 'read_authored_reference', forbidden)
+        guard.setattr(build_related_pages, 'discover', forbidden)
         guard.setattr(build_related_pages, 'acquire_selected_pages', forbidden)
+        guard.setattr(native_corpus_source, 'prepare_native_source_context', forbidden)
         guard.setattr(native_corpus_source, 'open_native_corpus_member', forbidden)
         guard.setattr(native_corpus_source, 'read_native_corpus_member', forbidden)
+        guard.setattr(native_corpus_source, 'read_authored_source', forbidden)
+        guard.setattr(native_corpus_source, 'read_direct_native_source', forbidden)
         turn_id = uuid4()
         response = case.client.post('/api/live/agent/turn', json=case.request | {
             'turn_id': str(turn_id), 'message': synthesis})
