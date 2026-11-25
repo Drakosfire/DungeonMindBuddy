@@ -2117,6 +2117,24 @@ def pending_app_runtime_case(monkeypatch, *, seed=None, initial_request_json=Non
         fence.stop()
 
 
+@pytest.mark.parametrize('damage', [None, 'missing', 'duplicate', 'hash'])
+def test_pending_initial_navigation_uses_unique_bound_capture(monkeypatch, damage):
+    from apps.live_control_server.services.build_pending_app_pages import _initial_request
+    with pending_app_runtime_case(monkeypatch) as (state, adapter):
+        observations = adapter.context_capture.trace.observations
+        if damage == 'missing':
+            observations.clear()
+        elif damage == 'duplicate':
+            observations.append(observations[0])
+        elif damage == 'hash':
+            observations[0] = observations[0].model_copy(update={'payload_sha256': 'f' * 64})
+        if damage:
+            with pytest.raises(ValueError, match='unique captured initial request'):
+                _initial_request(adapter)
+        else:
+            assert _initial_request(adapter) == state.initial_request
+
+
 @pytest.mark.parametrize('choice', ['read', 'skip'])
 @pytest.mark.parametrize('catalog_state', ['retained', 'fresh', 'empty'])
 def test_pending_app_runtime_real_sdk_admits_actual_choice_and_reads_only_selected_snapshot(monkeypatch, choice, catalog_state):
@@ -2640,6 +2658,37 @@ def pending_writer_runtime_case(monkeypatch, *, source_free_work=None, lore_page
             state.turn = t.Turn.model_validate(state.turn.model_copy(update={'graph_context_execution': execution}))
             adapter.turn = state.turn
             adapter.fence.renewer.update_turn(state.turn)
+        if source_free_work == 'clarify_request':
+            # A real pending turn binds the original decision request in the receipt.
+            from hashlib import sha256
+            from application_state.agent_conversation.build_decision_context import identity
+            from application_state.agent_conversation.build_intentional_response import semantic_routing_state
+            execution = state.turn.graph_context_execution
+            policy = execution.policy
+            routing = semantic_routing_state(policy.action.intent.message, {
+                'history': [], 'allowed_operations': ['answer_from_sources'],
+                'current_page': {'title': 'The Old Bath House'}, 'page_target': None,
+                'working_draft': None}, None)
+            initial = json.dumps({'model': policy.provider_roles.controller.model, 'state': routing, 'questions': {}})
+            initial_hash = sha256(initial.encode()).hexdigest()
+            values = state.turn.graph_context_receipt.model_dump(mode='json', by_alias=True)
+            values.pop('context_receipt_sha256')
+            values['assembled_input']['assembled_input_sha256'] = initial_hash
+            receipt = seal_pending_receipt(values)
+            events = list(execution.events)
+            first = events[0]
+            events[0] = first.model_copy(update={'envelope_sha256': initial_hash,
+                'dispatch_identity_sha256': identity(envelope_sha256=initial_hash, provider=first.provider,
+                    model=first.model, api_mode=first.api_mode, context_mode=first.context_mode)})
+            events[3] = events[3].model_copy(update={'controller_envelope_sha256': initial_hash})
+            execution = pending_execution(receipt, policy, events)
+            state.turn = t.Turn.model_validate(state.turn.model_copy(update={
+                'graph_context_receipt': receipt, 'graph_context_execution': execution}))
+            adapter.turn = state.turn
+            adapter.fence.renewer.update_turn(state.turn)
+            state.initial_request = initial
+            from apps.live_control_server.services import build_pending_app_pages
+            monkeypatch.setattr(build_pending_app_pages, '_initial_request', lambda adapter: initial)
         trace = {'world_id': state.turn.world_id, 'conversation_id': str(state.turn.conversation_id),
             'turn_id': str(state.turn.turn_id), 'attempt': state.turn.attempt, 'capture_status': 'recording', 'observations': []}
         def query(sql, args):
@@ -2829,7 +2878,7 @@ def test_pending_rules_runtime_refuses_stale_or_crossed_parent_before_ledger_cre
 
 
 @_pending_test_contextmanager
-def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
+def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False, native_json=False):
     import asyncio
     import httpx
     from datetime import UTC, datetime
@@ -2885,10 +2934,23 @@ def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_pag
                 await client.responses.create(**body)
             assert len(wire) == 1
             return wire[0]
-        raw = asyncio.run(serialize())
+        raw = json.dumps(body).encode() if native_json else asyncio.run(serialize())
         prepared = PreparedTextDispatch(str(uuid4()), 'openai', 'responses', writer.model, 'POST',
             'https://api.openai.com/v1/responses', raw, sha256(raw).hexdigest(), len(raw))
         yield state, adapter, rules, writer, prepared
+
+
+def test_pending_clarification_authorizes_bound_navigation_without_source_read(monkeypatch):
+    from application_state.agent_conversation.native_writer import verify_input_records
+    with pending_writer_dispatch_case(monkeypatch, source_free_work='clarify_request', native_json=True) as (state, adapter, rules, writer, prepared):
+        assert writer.authorize(prepared)
+        turn = state.turn
+        evidence = verify_input_records(turn.graph_context_receipt, turn.graph_context_execution,
+            writer.authorization, prepared.body.decode(), provenance=turn.provenance,
+            idempotency_key=turn.idempotency_key, work_proof=writer.proof, world_id=turn.world_id,
+            conversation_id=turn.conversation_id, turn_id=turn.turn_id, attempt=turn.attempt)
+        assert evidence.work_frame['current_page_navigation']['title'] == 'The Old Bath House'
+        assert state.materialized == 0 and state.retained_reads == 0
 
 
 def test_pending_writer_dispatch_binds_actual_sdk_bytes_and_rules_then_grants_entry_once(monkeypatch):
@@ -3184,6 +3246,23 @@ def test_pending_source_free_terminal_settles_writer_without_retained_or_source_
             schema='dmb_plan_rules_evidence_v1', ruleset='synthetic', lookups=(), supports=()), authoring=None)
         writer = PlanJevWriter(adapter, {}, rules)
         assert writer.shared and writer.messages
+        if label == 'clarify_request':
+            assert writer.provider_work['build_work']['current_page'] == {
+                'title': 'The Old Bath House',
+                'role': 'untrusted_saved_page_title_for_navigation_not_evidence'}
+            assert 'The Old Bath House' in json.dumps(writer.messages)
+            assert state.initial_request not in json.dumps(writer.messages)
+            from application_state.agent_conversation.native_writer import model_work_frame
+            turn = state.turn
+            kwargs = dict(provenance=turn.provenance, idempotency_key=turn.idempotency_key,
+                world_id=turn.world_id, conversation_id=turn.conversation_id,
+                turn_id=turn.turn_id, attempt=turn.attempt)
+            with pytest.raises(ValueError, match='actual frozen initial request'):
+                model_work_frame(turn.graph_context_receipt, turn.graph_context_execution,
+                    work_proof={'initial_request_json': state.initial_request + ' '}, **kwargs)
+            old = model_work_frame(turn.graph_context_receipt, turn.graph_context_execution,
+                work_proof={}, **kwargs)
+            assert 'current_page_navigation' not in old
         assert state.retained_reads == 0 and state.materialized == 0 and state.persisted == 1
         execution = state.turn.graph_context_execution
         # An unacknowledged response cannot become a source-free terminal.

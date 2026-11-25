@@ -406,6 +406,14 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
             from application_state.agent_conversation.plan_writer_output_schema import native_output_format
             turn=adapter.fence.turn
+            if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+                from application_state.agent_conversation.build_intentional_response import selected_action
+                if getattr(selected_action(turn.graph_context_execution), 'requested_work', None) == 'clarify_request':
+                    if proof != {}:
+                        raise ValueError('Pending clarification requires its captured navigation proof')
+                    from .build_pending_app_pages import _initial_request
+                    self.proof = {'initial_request_json': _initial_request(adapter)}
+                    proof = self.proof
             from application_state.agent_conversation.native_execution import NativeBuildActionV1, NativePlanActionV2, NativePlanActionV3
             plan_prose = (type(turn.graph_context_execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
                           and getattr(rules, 'authoring', None) is None)

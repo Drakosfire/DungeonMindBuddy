@@ -232,8 +232,18 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
     if isinstance(receipt.work_context,BuildWorkContextV1):
         from .build_primary_context import native_work_frame
         from .build_draft_context import context_record, validate_native_record
-        if not isinstance(work_proof,dict) or work_proof:
+        if not isinstance(work_proof,dict):
             raise ValueError('Native Build work must use its captured records, not supplied bodies')
+        navigation = None
+        if work_proof:
+            from .native_context import BuildPendingContextReceiptV1
+            from .build_intentional_response import selected_action
+            if (type(receipt) is not BuildPendingContextReceiptV1
+                    or set(work_proof) != {'initial_request_json'}
+                    or getattr(selected_action(execution), 'requested_work', None) != 'clarify_request'):
+                raise ValueError('Native Build navigation requires its pending clarification')
+            from .build_source_free import pending_semantic_context
+            navigation = pending_semantic_context(receipt, execution, work_proof['initial_request_json'])['current_page']
         if action.intent.build_draft_context_sha256 is not None:
             validate_native_record(context_record(execution).record,receipt,execution,world_id=world_id,
                 conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
@@ -243,6 +253,8 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
         from .build_intentional_response import validate_turn_arguments
         validate_turn_arguments(execution,user_text=action.intent.message,turn_id=turn_id,attempt=attempt)
         frame = native_work_frame(execution,receipt.work_context.source_basis)
+        if navigation is not None:
+            frame = frame | {'current_page_navigation': navigation}
         from .retained_conversation import admission, authored_frame, validate_binding
         retained = admission(execution)
         if retained is not None:
