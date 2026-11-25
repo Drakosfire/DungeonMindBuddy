@@ -33,7 +33,14 @@ class WriterSelectionDriver:
         if self._semantic and terminal != selection.native_terminal(adapter.turn):
             raise ValueError("Selection terminal differs from actual finished retrieval")
         self._host_state = selection.selection_state(adapter.turn, self.catalog, terminal, continuation_binding(adapter))
-        self.state = selection.semantic_state(adapter.turn,self.catalog) if self._semantic else self._host_state
+        self._pending_initial = None
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        if type(adapter._broker_receipt()) is BuildPendingContextReceiptV1 and self.catalog:
+            from .build_pending_app_pages import _initial_request
+            self._pending_initial = _initial_request(adapter)
+            self.state = selection.pending_semantic_state(adapter.turn, self.catalog, self._pending_initial)
+        else:
+            self.state = selection.semantic_state(adapter.turn,self.catalog) if self._semantic else self._host_state
         self._questions = selection.questions(self.catalog,semantic=self._semantic)
         self.step = DecisionIntent(request_id="writer-selection:" + selection.digest(self.state),
             phase="writer_selection", state={"writer_selection_policy": self._host_state["writer_selection_policy"]},
@@ -82,7 +89,30 @@ class WriterSelectionDriver:
         a._active_build_driver_projection = plan
         from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
         try:
-            accepted = (a.authorize_native_build_decision(prepared,view,plan)
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            if type(a._broker_receipt()) is BuildPendingContextReceiptV1:
+                from uuid import UUID
+                import json
+                auth = ledger.ProviderAttemptAuthorizedEventV5(kind='provider_attempt_authorized_v5',
+                    event_id=uuid4(), sequence=plan.event_sequence, provider_attempt_id=UUID(prepared.attempt_id),
+                    envelope_sha256=prepared.body_sha256, serializer_version=view['serializerVersion'],
+                    provider=view['provider'], model=view['model'], api_mode=view['apiMode'],
+                    tool_schema_sha256=ledger.canonical_sha256([]), input_accounting_kind='estimated_token_count',
+                    input_estimator=a._build_jev_accounting.descriptor['policy'],
+                    input_tokens=a._build_jev_accounting.estimate(json.loads(prepared.body)), output_token_reserve=0,
+                    included_assertion_ids=[], included_relationship_ids=[], included_evidence_ref_ids=[],
+                    included_graph_event_ids=[], included_source_read_event_ids=[], context_mode=view['contextMode'],
+                    context_phase='writer_selection', max_question_input_tokens=view['maxQuestionInputTokens'],
+                    dispatch_identity_sha256=view['dispatchIdentitySha256'])
+                turn, accepted = a.fence.commit('authorize_pending_writer_selection', authorization=auth,
+                    prepared_request_json=prepared.body.decode(), initial_request_json=self._pending_initial,
+                    authorize_current_access=a.pending_build_access)
+                a.turn = turn
+                if accepted:
+                    a.last_provider_attempt_id = auth.provider_attempt_id
+                    a._capture_prepared_prompt(view, auth)
+            else:
+                accepted = (a.authorize_native_build_decision(prepared,view,plan)
                 if isinstance(a._broker_execution().policy,SurfaceNativeExecutionPolicyV1) else a.authorize(view))
         finally:
             a._prepared_build_authorizing = None
@@ -129,7 +159,13 @@ class WriterSelectionDriver:
             terminal_disposition=self.terminal, judgments=judgments, **closure)
         proof = ({"request_json": self._prepared.body.decode(), "response_json": response_json}
                  if response_json is not None else None)
-        a.turn = _require_fresh_execution_append(a.fence.append("record_build_writer_evidence_selection",
-            "selection", event, producer_proof=proof))
+        if proof is not None and self._pending_initial is not None:
+            proof['initial_request_json'] = self._pending_initial
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        pending = type(a._broker_receipt()) is BuildPendingContextReceiptV1
+        a.turn = _require_fresh_execution_append(a.fence.append(
+            "record_pending_build_writer_selection" if pending else "record_build_writer_evidence_selection",
+            "selection", event, producer_proof=proof,
+            **({'authorize_current_access': a.pending_build_access} if pending else {})))
         self.receipt = event
         return event

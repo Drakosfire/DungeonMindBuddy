@@ -1,3 +1,4 @@
+import pendingBuildWire from '../test/pending-build-page-api.json';
 import {writeComposerReferences,readComposerReferences} from '../agentInteraction/authoredGraphReferences';
 import {rulesAnswerFixture,fixtureHash} from '../test/rulesAnswerFixture';
 import sharedWire from '../test/surface-native-http.json';
@@ -5326,6 +5327,42 @@ describe("World Plan conversation consumer", () => {
     expect(summary.querySelector('blockquote')).toBeNull();
     expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
   });
+
+  it.each(['valid','conversation','provenance','receipt','completion','world'])(
+    'rehydrates pending Build page draft history with exact bindings: %s',async mutation=>{
+      const c=structuredClone(pendingBuildWire) as any;
+      const chat=c.receipt.conversation_observation.conversation_id;
+      const turnId='11111111-1111-4111-8111-111111111111';
+      const question='Create a new page titled "Maelthor" from the context we just discussed. Do not search again.';
+      const answer=c.completion.answer_segments.map((row:any)=>row.text).join('\n');
+      const turn=makeTurn(1,turnId,question,answer,'build');
+      c.receipt.work_context.source_basis={world_id:worldId,document_id:'other-work',registry_revision:3,
+        content_sha256:contentSha256,visibility:'internal'};
+      c.receipt.source_observation.managed_world_id=worldId;
+      turn.provenance.primary_work={...turn.provenance.primary_work,revision:'3',content_sha256:contentSha256};
+      c.receipt.provenance_sha256=await sha256Hex(canonicalJson(turn.provenance));
+      const {context_receipt_sha256:_old,...payload}=c.receipt;
+      c.receipt.context_receipt_sha256=await sha256Hex(canonicalJson(payload));
+      c.completion.context_receipt_sha256=c.receipt.context_receipt_sha256;
+      if(mutation==='conversation'){
+        c.receipt.conversation_observation.conversation_id='22222222-2222-4222-8222-222222222222';
+        const {context_receipt_sha256:_oldChat,...changedPayload}=c.receipt;
+        c.receipt.context_receipt_sha256=await sha256Hex(canonicalJson(changedPayload));
+        c.completion.context_receipt_sha256=c.receipt.context_receipt_sha256;
+      }
+      if(mutation==='provenance')turn.provenance.surface_instance_id='changed';
+      if(mutation==='receipt')c.receipt.context_receipt_sha256='0'.repeat(64);
+      if(mutation==='completion')c.completion=null;
+      if(mutation==='world')c.receipt.source_observation.managed_world_id='foreign';
+      setupApi({...history(chat,1,[]),schema:'dmb_agent_conversation_history_v2',
+        turns:[{...turn,knowledge_context:c}]} as WorldAgentConversationHistoryResponse);
+      await mountComponent();
+      if(mutation==='valid'){
+        expect(await screen.findByText(question)).toBeInTheDocument();
+        expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
+        expect(screen.getByText(/Authored note context: Maelthor stands/)).toBeInTheDocument();
+      }else expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    });
 
   it.each([false,true])("rehydrates source-only Build history and opens its exact passage separately from the Prompt (named=%s)", async named => {
     const context = await planGraphContext("graph_grounded");

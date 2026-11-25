@@ -1,3 +1,4 @@
+import pendingBuildWire from '../test/pending-build-page-api.json';
 import * as hostedAuth from "../auth/HostedAuthGate";
 import nativeBuildWire from '../test/surface-native-build-http.json';
 import {readActiveConversationMessages} from '../api/conversationLibraryApi';
@@ -874,6 +875,78 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(await screen.findByRole('region',{name:'Page suggestion'})).toHaveTextContent(text!);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();view.unmount();vi.mocked(listBuildProposals).mockResolvedValue([]);
   });
+
+  it.each(['plain','mixed','unclaimed','chat','graph','source','answer','draft','draft_pointer'] as const)(
+    'accepts only bound pending Build sends and preserves rejected recovery: %s',async mode=>{
+      const chat='11111111-1111-4111-8111-111111111111';
+      let current:WorldAgentConversationHistoryResponse={...history([]),schema:'dmb_agent_conversation_history_v3',turns:[]};
+      vi.mocked(getWorldAgentConversationHistory).mockImplementation(async()=>current);
+      vi.mocked(postWorldBuildAgentTurn).mockImplementation(async request=>{
+        const c=structuredClone(pendingBuildWire) as any;
+        c.receipt.work_context.source_basis={world_id:WORLD,document_id:mode==='source'?'foreign':request.primary_work.object_id,
+          registry_revision:request.primary_work.expected_revision,content_sha256:request.primary_work.expected_content_sha256,visibility:'internal'};
+        c.receipt.conversation_observation={conversation_id:mode==='chat'?'33333333-3333-4333-8333-333333333333':chat,pointer_revision:1};
+        if(mode==='draft_pointer'){
+          expect(request.build_draft_context).toBeDefined();
+          c.receipt.conversation_observation.pointer_revision=request.build_draft_context!.expected_pointer_revision+1;
+        }
+        c.receipt.source_observation.managed_world_id=WORLD;
+        const row={...turn('build',1,c.completion.answer_segments.map((s:any)=>s.text).join('\n')),turn_id:request.turn_id,
+          user_text:request.message,idempotency_key:await expectedHistoryCorrelationKey(WORLD,request.turn_id)} as any;
+        row.provenance={...row.provenance,surface_instance_id:request.surface.instance_id,
+          primary_work:{resolution:'resolved',kind:'build',object_id:request.primary_work.object_id,
+            revision:String(request.primary_work.expected_revision),content_sha256:request.primary_work.expected_content_sha256,
+            object_revision:null,work_revision_id:null,revision_n:null}};
+        c.receipt.provenance_sha256=await sha256Hex(canonicalJson(row.provenance));
+        const {context_receipt_sha256:_,...payload}=c.receipt;
+        c.receipt.context_receipt_sha256=await sha256Hex(canonicalJson(payload));
+        c.completion.context_receipt_sha256=c.receipt.context_receipt_sha256;
+        const seed=structuredClone(nativeBuildWire.response) as any;
+        const graph=Object.fromEntries(Object.keys(seed.graph).map(k=>[k,k==='status'?'not_requested':null]));
+        const response={...seed,client_thread_id:request.client_thread_id,turn_id:request.turn_id,
+          surface:{surface_id:'build',instance_id:request.surface.instance_id,status:'resolved'},
+          owner_scope:{status:'resolved',kind:'world',owner_id:WORLD,name:'Test World'},
+          primary_work:{status:'resolved',kind:'build',object_id:request.primary_work.object_id,
+            revision_used:request.primary_work.expected_revision,expected_revision:request.primary_work.expected_revision,content_basis:null},
+          client_work_state_reported:request.client_work_state,graph,
+          conversation:{...seed.conversation,client_thread_id:request.client_thread_id,turn_id:request.turn_id,conversation_id:chat},
+          answer:{...seed.answer,text:row.assistant_text,graph_grounded:false,status:'ok',code:null,message:null},knowledge_context:c};
+        if(mode==='graph')response.graph.revision_id='invented';
+        if(mode==='answer')response.answer.text='Unrelated reply';
+        if(mode==='mixed'||mode==='unclaimed'){
+          const f=mode==='mixed'?rulesAnswerFixture(c):rulesUnclaimedFixture(c);
+          f.context.accepted_binding.turn_id=request.turn_id;
+          f.context.accepted_binding_sha256=fixtureHash(canonicalJson(f.context.accepted_binding));
+          row.schema='dmb_agent_conversation_history_mixed_turn_v1';row.rules_context=f.context;row.assistant_text=f.answer;
+          current={...current,turns:[row]};
+          const {knowledge_context:_context,...envelope}=response;
+          return {...envelope,schema:'dmb_agent_rules_turn_response_v1',rules_context:f.context,
+            answer:{...response.answer,text:f.answer}};
+        }
+        if(mode==='plain'||mode==='draft')current={...current,turns:[{...row,knowledge_context:c}]};
+        return response;
+      });
+      const view=render(<Harness initial='build' buildBridge={(mode==='draft'||mode==='draft_pointer')?retryBridge():undefined}/>);
+      fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+      const input=await screen.findByLabelText('Message DungeonBuddy');
+      await waitFor(()=>expect(input).toBeEnabled());
+      fireEvent.change(input,{target:{value:'Create a new page titled "Maelthor" from the context we just discussed. Do not search again.'}});
+      fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+      await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+      const key=`dmb:world-play-pending-turn:v1:${WORLD}`;
+      if(['chat','graph','source','answer','draft_pointer'].includes(mode)){
+        await screen.findByText(/reply did not match the saved/);
+        expect(localStorage.getItem(key)).not.toBeNull();
+      }else{
+        await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+        expect(screen.queryByText(/reply did not match/)).not.toBeInTheDocument();
+        if(mode==='unclaimed')expect(await screen.findByText('Occupied 🦉 space is constrained.')).toBeInTheDocument();
+        else await waitFor(()=>expect(screen.getByText(/Authored note context: Maelthor stands/)).toBeInTheDocument());
+      }
+      expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+      expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();
+      view.unmount();
+    });
 
   it.each(['lore-review','history','fresh','replay','producer','revision','provenance','source','world','extra','interrupted','mixed-approved','mixed-unclaimed','mixed-object','fresh-mixed-object','mixed-question','mixed-unclaimed-question','mixed-object-prose','fresh-answer','fresh-question','fresh-source','fresh-graph'] as const)('consumes ordinary shared native Build HTTP and history: %s',async mode=>{
     const wire=JSON.parse(JSON.stringify(nativeBuildWire).replaceAll(nativeBuildWire.history.world_id,WORLD)) as unknown as {

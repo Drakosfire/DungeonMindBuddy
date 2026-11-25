@@ -180,8 +180,8 @@ def verify_native_reply(
     ):
         raise ValueError("Native Rules output belongs to another active execution")
     response_sha256 = None
-    from .native_execution import SurfaceNativeExecutionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
-    shared = type(graph_execution) is SurfaceNativeExecutionV1
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
+    shared = type(graph_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1)
     if shared != (native_context is not None and native_submission is not None):
         raise ValueError("Shared Rules output requires its exact native context and submission")
     if shared and (plan_turn is not None or proof.graph_packets):
@@ -590,8 +590,8 @@ def sealed_native_producer(turn, rules_execution, proof):
         text_utf8_bytes=outcome.output_utf8_bytes,
         tool_calls=(),
     )
-    from .native_execution import SurfaceNativeExecutionV1
-    if graph_auth is None or type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+    if graph_auth is None or type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1):
         return capture, None
     from .native_graph_input import producing_graph_closures
     closures = producing_graph_closures(turn, graph_auth, proof)
@@ -636,8 +636,8 @@ def normalize_unused_native_output(turn, rules_execution, proof, *, work_proof=N
     if rules_execution.budget_use.calls or rules_execution.supports:
         raise ValueError("Used Rules requires mixed completion")
     capture, support = sealed_native_producer(turn, rules_execution, proof)
-    from .native_execution import SurfaceNativeExecutionV1
-    if type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+    if type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1):
         output=normalize_shared_native_output(turn.graph_context_receipt,turn.graph_context_execution,
             rules_execution,proof,capture,trace=trace,idempotency_key=turn.idempotency_key,
             submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
