@@ -351,3 +351,14 @@ def test_guest_buddy_release_identity_and_dependencies():
     verifier = SCRIPT.parent / 'verify_guest_graph_release.sh'
     assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '1', '1', '1'], capture_output=True).returncode == 0
     assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '0', '1', '1'], capture_output=True).returncode != 0
+
+
+def test_guest_play_buddy_release_identity_and_dependencies():
+    root = SCRIPT.parents[1]
+    workflow = (root / '.github/workflows/publish-buddy-image.yml').read_text()
+    assert '[[ "$GUEST_PLAY_BUDDY" == 0 || "$GUEST_BUDDY" == 1 ]]' in workflow
+    assert 'VITE_HOSTED_GUEST_PLAY_BUDDY="$GUEST_PLAY_BUDDY"' in workflow
+    assert 'guest_config="$guest_config;play-buddy=1"' in workflow
+    verifier = SCRIPT.parent / 'verify_guest_graph_release.sh'
+    assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '1', '1', '1', '1'], capture_output=True).returncode == 0
+    assert subprocess.run(['bash', str(verifier), str(root), '1', '1', '1', '1', '0', '1'], capture_output=True).returncode != 0
