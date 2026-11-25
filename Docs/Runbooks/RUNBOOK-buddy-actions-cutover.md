@@ -152,6 +152,11 @@ the stage record binds it to the candidate and activation checks all three guest
 conversation switches. This does not enable guest Buddy effects or establish a
 live-provider test. Existing release modes remain available with Buddy off.
 
+To include guest Play discussion, also select `hosted_guest_play_buddy=true`.
+Use `guest-play-buddy-documents-serving` when staging; it requires the distinct
+`play-buddy=1` image identity and records the candidate-only Play Buddy switch.
+An earlier Buddy-only image cannot be staged as a Play Buddy release.
+
 For a serving release that includes approved guest source pages, install a root-owned
 `/etc/buddy-deploy/guest-documents-template.json` and a root-owned
 `/etc/buddy-deploy/guest-document-bundles` directory. The template is UTF-8 JSON

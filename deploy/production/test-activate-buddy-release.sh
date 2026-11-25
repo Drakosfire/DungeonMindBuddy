@@ -105,6 +105,7 @@ case "$1 $2" in
         if [[ "${TEST_GUEST_BUDDY_ENABLED:-0}" == 1 ]]; then
           printf '%s\n' "DMB_HOSTED_GUEST_CONVERSATION_ENABLED=${TEST_GUEST_CONVERSATION_ENABLED:-1}" 'DMB_HOSTED_GUEST_TURN_ENABLED=1' 'DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED=1'
         fi
+        if [[ "${TEST_GUEST_PLAY_BUDDY_ENABLED:-0}" == 1 ]]; then printf '%s\n' 'DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED=1'; fi
         if [[ -n "${TEST_DOCUMENT_SHA:-}" ]]; then
           printf '%s\n' 'DMB_GUEST_DOCUMENT_BUNDLE=/run/buddy-guest-documents.json' "DMB_GUEST_DOCUMENT_BUNDLE_SHA256=$TEST_DOCUMENT_SHA"
         fi
@@ -277,6 +278,15 @@ reset "$rollback_id"
 if TEST_GUEST_BUILD_ENABLED=1 TEST_GUEST_PLAN_ENABLED=1 TEST_GUEST_PLAY_ENABLED=1 TEST_GUEST_MEDIA_ENABLED=1 TEST_GUEST_BUDDY_ENABLED=1 TEST_GUEST_CONVERSATION_ENABLED=0 run; then echo 'Missing guest conversation switch accepted' >&2; exit 1; fi
 grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
 ! grep -q 'DMB_HOSTED_GUEST_BUILD_BUDDY_ENABLED' "$scratch/payload-$rollback_id"
+printf 'guest_play_buddy_enabled=1\n' >> "$scratch/releases/$candidate.conf"
+reset "$rollback_id"
+TEST_GUEST_BUILD_ENABLED=1 TEST_GUEST_PLAN_ENABLED=1 TEST_GUEST_PLAY_ENABLED=1 TEST_GUEST_MEDIA_ENABLED=1 TEST_GUEST_BUDDY_ENABLED=1 TEST_GUEST_PLAY_BUDDY_ENABLED=1 run
+grep -F 'DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED: "1"' "$scratch/payload-$candidate_id"
+reset "$rollback_id"
+if TEST_GUEST_BUILD_ENABLED=1 TEST_GUEST_PLAN_ENABLED=1 TEST_GUEST_PLAY_ENABLED=1 TEST_GUEST_MEDIA_ENABLED=1 TEST_GUEST_BUDDY_ENABLED=1 run; then echo 'Missing Play Buddy switch accepted' >&2; exit 1; fi
+grep -Fx "BUDDY_ROLLED_BACK $rollback $rollback_id" "$scratch/stderr"
+! grep -q 'DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED' "$scratch/payload-$rollback_id"
+sed -i '/^guest_play_buddy_enabled=/d' "$scratch/releases/$candidate.conf"
 sed -i '/^guest_buddy_enabled=/d' "$scratch/releases/$candidate.conf"
 sed -i '/^guest_plan_enabled=/d' "$scratch/releases/$candidate.conf"
 reset "$rollback_id"

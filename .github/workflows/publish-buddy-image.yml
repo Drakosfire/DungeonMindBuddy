@@ -46,6 +46,11 @@ on:
         required: true
         default: false
         type: boolean
+      hosted_guest_play_buddy:
+        description: Build signed-out Play Buddy discussion (requires guest Buddy)
+        required: true
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -91,6 +96,7 @@ jobs:
           GUEST_PLAY: ${{ inputs.hosted_guest_play && '1' || '0' }}
           GUEST_MEDIA: ${{ inputs.hosted_guest_media && '1' || '0' }}
           GUEST_BUDDY: ${{ inputs.hosted_guest_buddy && '1' || '0' }}
+          GUEST_PLAY_BUDDY: ${{ inputs.hosted_guest_play_buddy && '1' || '0' }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
@@ -108,6 +114,8 @@ jobs:
           [[ "$GUEST_PLAY" == "$GUEST_MEDIA" ]]
           [[ "$GUEST_BUDDY" == 0 || "$GUEST_BUDDY" == 1 ]]
           [[ "$GUEST_BUDDY" == 0 || "$GUEST_PLAY" == 1 ]]
+          [[ "$GUEST_PLAY_BUDDY" == 0 || "$GUEST_PLAY_BUDDY" == 1 ]]
+          [[ "$GUEST_PLAY_BUDDY" == 0 || "$GUEST_BUDDY" == 1 ]]
           [[ "$GUEST_MEDIA" == 0 || ( -n "$SERVING_PR" && -n "$SERVING_PARENT" ) ]]
           if [[ -z "$SERVING_PR" && -z "$SERVING_PARENT" ]]; then
             git rev-list --first-parent HEAD | grep -Fx "$REVISION" >/dev/null
@@ -128,6 +136,7 @@ jobs:
           GUEST_PLAY: ${{ inputs.hosted_guest_play && '1' || '0' }}
           GUEST_MEDIA: ${{ inputs.hosted_guest_media && '1' || '0' }}
           GUEST_BUDDY: ${{ inputs.hosted_guest_buddy && '1' || '0' }}
+          GUEST_PLAY_BUDDY: ${{ inputs.hosted_guest_play_buddy && '1' || '0' }}
           SERVING_PR: ${{ inputs.serving_pr }}
           SERVING_PARENT: ${{ inputs.serving_parent }}
         shell: bash
@@ -135,7 +144,7 @@ jobs:
           set -euo pipefail
           [[ "$GUEST_GRAPH" == 0 || "$GUEST_GRAPH" == 1 ]]
           if [[ "$GUEST_GRAPH" == 1 ]]; then
-            bash "$RUNNER_TEMP/verify-buddy-guest-graph" "$PWD" "$GUEST_BUILD" "$GUEST_PLAN" "$GUEST_PLAY" "$GUEST_MEDIA" "$GUEST_BUDDY"
+            bash "$RUNNER_TEMP/verify-buddy-guest-graph" "$PWD" "$GUEST_BUILD" "$GUEST_PLAN" "$GUEST_PLAY" "$GUEST_MEDIA" "$GUEST_BUDDY" "$GUEST_PLAY_BUDDY"
           fi
           tag="$REVISION"
           guest_config='review=0;page=0;home='
@@ -145,6 +154,7 @@ jobs:
           if [[ "$GUEST_PLAY" == 1 ]]; then tag="$tag-play"; guest_config="$guest_config;play=1"; fi
           if [[ "$GUEST_MEDIA" == 1 ]]; then tag="$tag-media"; guest_config="$guest_config;media=1"; fi
           if [[ "$GUEST_BUDDY" == 1 ]]; then tag="$tag-buddy"; guest_config="$guest_config;buddy=1"; fi
+          if [[ "$GUEST_PLAY_BUDDY" == 1 ]]; then tag="$tag-play-buddy"; guest_config="$guest_config;play-buddy=1"; fi
           image="ghcr.io/${GITHUB_REPOSITORY,,}:$tag"
           parent_label=()
           if [[ -n "$SERVING_PR" ]]; then
@@ -159,6 +169,7 @@ jobs:
             --build-arg VITE_HOSTED_GUEST_MEDIA="$GUEST_MEDIA" \
             --build-arg VITE_HOSTED_GUEST_BUDDY="$GUEST_BUDDY" \
             --build-arg VITE_HOSTED_GUEST_BUILD_BUDDY="$GUEST_BUDDY" \
+            --build-arg VITE_HOSTED_GUEST_PLAY_BUDDY="$GUEST_PLAY_BUDDY" \
             --build-arg VITE_GUEST_RELEASE_REVIEW=0 \
             --build-arg VITE_GUEST_RELEASE_PAGE=0 \
             --build-arg VITE_GUEST_HOME_PUBLIC_ID= \
@@ -178,6 +189,7 @@ jobs:
           GUEST_PLAY: ${{ inputs.hosted_guest_play && '1' || '0' }}
           GUEST_MEDIA: ${{ inputs.hosted_guest_media && '1' || '0' }}
           GUEST_BUDDY: ${{ inputs.hosted_guest_buddy && '1' || '0' }}
+          GUEST_PLAY_BUDDY: ${{ inputs.hosted_guest_play_buddy && '1' || '0' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -196,6 +208,7 @@ jobs:
           if [[ "$GUEST_PLAY" == 1 ]]; then tag="$tag-play"; fi
           if [[ "$GUEST_MEDIA" == 1 ]]; then tag="$tag-media"; fi
           if [[ "$GUEST_BUDDY" == 1 ]]; then tag="$tag-buddy"; fi
+          if [[ "$GUEST_PLAY_BUDDY" == 1 ]]; then tag="$tag-play-buddy"; fi
           docker image push "$repository:$tag" | tee "$DOCKER_CONFIG/push.log"
           digest=$(awk '$2 == "digest:" {print $3}' "$DOCKER_CONFIG/push.log")
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
