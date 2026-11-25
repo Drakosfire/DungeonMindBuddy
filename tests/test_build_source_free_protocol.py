@@ -3329,6 +3329,8 @@ def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_
             .validate_python(wire)) is AgentBuildPendingContextResponseV1
         with pytest.raises(ValueError, match='exact receipt'):
             AgentBuildPendingContextResponseV1.model_validate(projected.model_copy(update={'execution': None}))
+        with pytest.raises(ValueError, match='requires its completion'):
+            AgentBuildPendingContextResponseV1.model_validate(projected.model_copy(update={'completion': None}))
         foreign = projected.completion.model_copy(update={'surface_id': 'plan', 'collaboration': None})
         with pytest.raises(ValueError, match='exact receipt'):
             AgentBuildPendingContextResponseV1.model_validate(projected.model_copy(update={'completion': foreign}))

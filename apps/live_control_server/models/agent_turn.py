@@ -871,6 +871,9 @@ class AgentBuildPendingContextResponseV1(BaseModel):
 
     @model_validator(mode='after')
     def completion_owner(self):
+        if (self.completion is None and self.execution is not None
+                and self.execution.claimability == 'completed'):
+            raise ValueError('Completed pending Build context requires its completion')
         if self.completion is not None and (
                 self.completion.surface_id != 'build'
                 or self.completion.context_receipt_sha256 != self.receipt.context_receipt_sha256

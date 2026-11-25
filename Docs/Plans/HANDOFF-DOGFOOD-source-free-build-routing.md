@@ -906,3 +906,9 @@ response; foreign receipt/completion surface, missing acknowledged completed
 execution and altered stored assistant text are refused. Existing SDK completion
 controls remain covered. This is projector/model evidence, not ordinary endpoint
 or UI acceptance; frontend readers and serving fence remain required.
+
+Independent API reader stage review acceptedbf5491 but identified a standalone
+wire-shape tightening: completed execution must not pair with null completion.
+The validated Turn projector cannot emit it; the response model now explicitly
+rejects it too, with a focused completed-draft negative control. Endpoint/UI,
+serving fence and source-backed acceptance remain incomplete.
