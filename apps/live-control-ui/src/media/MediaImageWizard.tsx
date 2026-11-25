@@ -1,4 +1,5 @@
 import { useSelectedWorld } from '../selectedWorld/SelectedWorldContext';
+import { guestBuildActive } from '../guestWorld/guestBuildSession';
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {useTourImage} from '../guidedTour/ImageObservations';
 import { useEffect, useRef, useState } from 'react';
@@ -81,6 +82,7 @@ export function MediaImageWizard(props: MediaImageWizardProps) {
 }
 
 function WorldImageWizard({ worldId, onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', placeAfterBlock = false, selectionOnly = false, requireSaved = false, port = livePort }: MediaImageWizardProps & { worldId?: string }) {
+  const guest = guestBuildActive();
   const imageObservation=useTourImage(),tourImage=selectionOnly?null:imageObservation;
   const [collapsed, setCollapsed] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -256,7 +258,7 @@ function WorldImageWizard({ worldId, onClose, onChoose, initialPrompt = '', init
       {!collapsed && !libraryOpen && <>
         <button type="button" disabled={pending || placing || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit} aria-label={pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'} title={result ? 'Generate another image' : 'Generate image'}>{pending ? 'Generating…' : result ? 'Regenerate' : 'Generate'}</button>
         {result?.images.map((image, index) => <span className="media-image-wizard__image-actions" key={image.asset_id}>
-          {['staged', 'ready'].includes(image.state) && <ImageContextEdit key={image.asset_id} assetId={image.asset_id} previewOnly
+          {!guest && ['staged', 'ready'].includes(image.state) && <ImageContextEdit key={image.asset_id} assetId={image.asset_id} previewOnly
             editable={!pending && !placing && saving === null} captureApply={() => {
               const parent = result, sequence = browseSequence.current, generation = getNativeGraphAccessGeneration();
               return async assetId => {
@@ -304,7 +306,7 @@ function WorldImageWizard({ worldId, onClose, onChoose, initialPrompt = '', init
       {model?.controls.includes('quality') && <label>Quality<select value={quality} onChange={e => setQuality(e.target.value)}>{['low', 'medium', 'high'].map(value => <option key={value}>{value}</option>)}</select></label>}
       {model?.controls.includes('background') && <label>Background<select value={background} onChange={e => setBackground(e.target.value)}>{['opaque', 'transparent', 'auto'].map(value => <option key={value}>{value}</option>)}</select></label>}
       {model?.controls.includes('seed') && <label>Seed (optional)<input inputMode="numeric" value={seed} onChange={e => setSeed(e.target.value)} placeholder="Random" /></label>}
-      {port.catalog && <details className="media-image-wizard__catalog"><summary>Explore the fal model catalog</summary>
+      {!guest && port.catalog && <details className="media-image-wizard__catalog"><summary>Explore the fal model catalog</summary>
         <p>Models listed by fal. Only choices supported by this studio can be selected. Listing order is not a quality ranking.</p>
         <button type="button" disabled={catalogBusy || pending} onClick={() => readCatalog()}>{catalogBusy ? 'Reading catalog…' : catalog ? 'Refresh catalog' : 'Load catalog'}</button>
         {catalogError && <p role="alert">{catalogError}</p>}
@@ -318,10 +320,10 @@ function WorldImageWizard({ worldId, onClose, onChoose, initialPrompt = '', init
         </>}
       </details>}
     </div>
-      <p>Generation is billed to DungeonBuddy’s configured fal account. New images are retained privately in your library. Save uploads the artwork to a public CDN; prompts and settings stay private.</p>
+      <p>{guest ? 'Generated images are retained privately in this guest World.' : 'Generation is billed to DungeonBuddy’s configured fal account. New images are retained privately in your library. Save uploads the artwork to a public CDN; prompts and settings stay private.'}</p>
       {purpose === 'map' && <details><summary>Map framing added to your prompt</summary><p>{mapFraming}</p></details>}
       {result && <><details><summary>Prompt used</summary><p>{result.prompt}</p></details>
-        {result.images.map(image => <div key={image.asset_id}>{image.state === 'ready' ? <span role="status">Saved to CDN</span> : <button type="button" disabled={saving !== null || !storageConfigured} onClick={() => saveImage(image.asset_id)}>{saving === image.asset_id ? 'Saving…' : image.state === 'staged' ? 'Save image' : 'Check Save status'}</button>}
+        {!guest && result.images.map(image => <div key={image.asset_id}>{image.state === 'ready' ? <span role="status">Saved to CDN</span> : <button type="button" disabled={saving !== null || !storageConfigured} onClick={() => saveImage(image.asset_id)}>{saving === image.asset_id ? 'Saving…' : image.state === 'staged' ? 'Save image' : 'Check Save status'}</button>}
           {!storageConfigured && image.state !== 'ready' && <p>CDN storage needs configuration; your image is retained.</p>}
         </div>)}
         {selectionOnly && requireSaved && result.images.some(image => image.state !== 'ready') && <p>Save the image before choosing it as a portrait.</p>}

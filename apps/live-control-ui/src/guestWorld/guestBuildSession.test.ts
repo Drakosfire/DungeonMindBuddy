@@ -84,11 +84,14 @@ it("sends the guest token only to the enabled image generation route", async () 
   const fetcher = vi.fn()
     .mockResolvedValueOnce(Response.json({ csrf_token: "guest-token" }))
     .mockResolvedValueOnce(Response.json({ world_id: `guest-${"e".repeat(32)}`, name: "Sizzek World" }))
-    .mockResolvedValueOnce(Response.json({ images: [] }));
+    .mockResolvedValueOnce(Response.json({ images: [] }))
+    .mockResolvedValueOnce(Response.json({ asset_id: '11111111-1111-4111-8111-111111111111', state: 'staged' }));
   vi.stubGlobal("fetch", fetcher);
   await openGuestBuildWorld(new AbortController().signal);
   const { authenticatedApiFetch } = await import("../api/liveApi");
   await authenticatedApiFetch(`/api/live/media/images/generate?world_id=guest-${"e".repeat(32)}`, { method: "POST", body: "{}" });
+  await authenticatedApiFetch('/api/live/media/images/11111111-1111-4111-8111-111111111111/metadata');
   expect(new Headers(fetcher.mock.calls[2][1].headers).get("X-DMB-Index-Graph-CSRF")).toBe("guest-token");
   expect(guestBuildCsrf("/api/live/media/images/11111111-1111-4111-8111-111111111111/save", "POST")).toBeNull();
+  expect(fetcher).toHaveBeenCalledTimes(4);
 });

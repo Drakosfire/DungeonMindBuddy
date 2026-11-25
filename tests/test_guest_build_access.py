@@ -170,6 +170,53 @@ def test_guest_image_reset_during_generation_does_not_retain(guests, application
         assert conn.execute("SELECT count(*) FROM media.asset WHERE owner_id = %s", (hosted_world_media_owner(world),)).fetchone()[0] == 0
 
 
+def test_guest_image_retention_serializes_with_reset(guests, application_state_dsn, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from io import BytesIO
+    from threading import Event
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    import time
+    from PIL import Image
+    from generationengine import GeneratedImage
+    from application_state.engine import connect
+    from apps.live_control_server.services import guest_media_access
+    monkeypatch.setenv("DMB_HOSTED_GUEST_MEDIA_ENABLED", "1")
+    monkeypatch.setenv("FAL_KEY", "synthetic")
+    data = BytesIO()
+    Image.new("RGB", (4, 4), "blue").save(data, format="PNG")
+    provider = SimpleNamespace(generate_image=AsyncMock(return_value=SimpleNamespace(
+        images=[GeneratedImage(content=data.getvalue(), media_type="image/png")],
+        observation=SimpleNamespace(model_dump=lambda **_: {"provider": "fake"}))), aclose=AsyncMock())
+    monkeypatch.setattr(media_images, "_image_client", lambda: provider)
+    entered, release = Event(), Event()
+    original = guest_media_access.authorize_guest_image_stage
+    def hold(*args):
+        original(*args)
+        entered.set()
+        if not release.wait(10): raise RuntimeError("image retention test timed out")
+    monkeypatch.setattr(guest_media_access, "authorize_guest_image_stage", hold)
+    (client, token, world), _ = guests[0]
+    headers = {"X-DMB-Index-Graph-CSRF": token}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = pool.submit(client.post, "/api/live/media/images/generate", params={"world_id": world}, headers=headers,
+                              json={"prompt": "A lantern", "model": "gpt-image-2.5-flare"})
+        try:
+            assert entered.wait(10)
+            reset = pool.submit(client.post, "/api/live/index-graph/reset", headers=headers)
+            deadline = time.monotonic() + 5
+            with connect(application_state_dsn) as conn:
+                while time.monotonic() < deadline:
+                    waiting = conn.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
+                    if waiting: break
+                    time.sleep(0.05)
+            assert waiting > 0
+        finally:
+            release.set()
+        assert pending.result(timeout=10).status_code in (200, 401, 403)
+        assert reset.result(timeout=10).status_code == 200
+
+
 def test_guest_play_run_is_bound_to_session(guests, monkeypatch):
     from application_state.content.service import create_world_plan, commit_plan
     from tests.application_state.play_runtime_helpers import V2_SOURCE_MARKDOWN, gate_progress
