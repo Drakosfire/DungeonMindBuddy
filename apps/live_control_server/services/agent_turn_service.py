@@ -6322,8 +6322,9 @@ def _validate_policy_turn_record(
 ) -> None:
     """Check the immutable receipt, historical Plan reference, and lifecycle agree."""
     receipt = turn.graph_context_receipt
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
     if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
-                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)):
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)):
         try:
             Turn.model_validate_json(turn.model_dump_json(by_alias=True))
         except ValueError as exc:
@@ -6866,6 +6867,11 @@ def project_plan_turn_context(
             authorization_state,
             completed=turn.status == "completed",
         )
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from apps.live_control_server.models.agent_turn import AgentBuildPendingContextResponseV1
+        return AgentBuildPendingContextResponseV1(receipt=receipt, completion=turn.completion,
+            execution=execution_projection, delivery_replay=delivery_replay)
     if type(receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1:
         from apps.live_control_server.models.agent_turn import (
             AgentSurfaceNativeContextResponseV1, DeferredBuildCitationMembership,

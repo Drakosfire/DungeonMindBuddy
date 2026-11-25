@@ -887,3 +887,22 @@ retained and source-free SDK completions remain covered. The response is synthet
 this does not prove model semantic quality, Jev selection, physical catalog SQL,
 author save, HTTP/UI delivery or signed-in acceptance. No production code change
 was required for this retained page-review branch.
+
+
+## Strict pending API reader continuation
+
+ACTIVE same producer/reader slice: add distinct Build-only pending response in
+models/agent_turn.py and exact dispatch in agent_turn_service's policy validation
+and project_plan_turn_context. Extend only Build/history and Rules base-context
+unions and pending World identity. No reinterpretation of old receipt schemas.
+Focused tests project the actual completed writer fixtures and reject foreign
+receipt/surface/changed stored lifecycle; frontend decoding/fence remain pending.
+
+Pending API projection evidence:8 focused controls passed3.84s on working
+source. The actual completed60-turn page draft projects through the distinct
+pending Build response and strict Build/history/Rules-base union fields. Old
+native/Graph receipt schemas are unchanged. Plan context rejects the pending
+response; foreign receipt/completion surface, missing acknowledged completed
+execution and altered stored assistant text are refused. Existing SDK completion
+controls remain covered. This is projector/model evidence, not ordinary endpoint
+or UI acceptance; frontend readers and serving fence remain required.

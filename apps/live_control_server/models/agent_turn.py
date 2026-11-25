@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from application_state.agent_conversation.context_trace import TurnContextTraceV1, TraceHistoricalSourceReferenceV1, TraceSourcePassage
@@ -858,6 +859,27 @@ class AgentSurfaceNativeContextResponseV1(BaseModel):
     )
 
 
+class AgentBuildPendingContextResponseV1(BaseModel):
+    """A Build observation is not a verified native-source receipt."""
+    model_config = ConfigDict(extra='forbid')
+    schema_: Literal['dmb_agent_build_pending_context_response_v1'] = Field(
+        default='dmb_agent_build_pending_context_response_v1', alias='schema')
+    receipt: BuildPendingContextReceiptV1
+    completion: SurfaceNativeCompletionV1 | None
+    execution: AgentPlanWorldGraphExecutionProjectionV1 | None
+    delivery_replay: bool
+
+    @model_validator(mode='after')
+    def completion_owner(self):
+        if self.completion is not None and (
+                self.completion.surface_id != 'build'
+                or self.completion.context_receipt_sha256 != self.receipt.context_receipt_sha256
+                or self.execution is None or self.execution.claimability != 'completed'
+                or self.execution.authorization_state != 'response_received'):
+            raise ValueError('Pending Build completion differs from its exact receipt')
+        return self
+
+
 class AgentPlayWorldGraphContextResponseV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -920,7 +942,7 @@ class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
 
 
 class AgentBuildGraphTurnResponseV1(AgentTurnResponse):
-    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
+    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1 | AgentBuildPendingContextResponseV1
 
 
 class AgentPlaySourceBasisV1(PlayRunTurnContextReceiptV1):
@@ -995,7 +1017,7 @@ class AgentRulesUnclaimedContextV1(BaseModel):
         if self.completion is not None:
             from application_state.agent_conversation.native_completion import require_object_only_completion
             require_object_only_completion(self.completion)
-            if (type(self.receipt) is not SurfaceNativeContextReceiptV1
+            if (type(self.receipt) not in (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)
                     or self.completion.context_receipt_sha256 != self.receipt.context_receipt_sha256
                     or self.completion.surface_id != self.receipt.work_context.surface_id):
                 raise ValueError('Unclaimed native object differs from its owning context')
@@ -1009,7 +1031,7 @@ class AgentRulesAnswerContextV1(BaseModel):
         default="dmb_agent_rules_answer_context_v1", alias="schema")
     accepted_binding: RulesAcceptedBinding
     accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    base_context: AgentSurfaceNativeContextResponseV1 | AgentBuildGraphContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
+    base_context: AgentSurfaceNativeContextResponseV1 | AgentBuildPendingContextResponseV1 | AgentBuildGraphContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
     unclaimed_context: AgentRulesUnclaimedContextV1 | None
 
     @model_validator(mode="after")
@@ -1021,7 +1043,7 @@ class AgentRulesAnswerContextV1(BaseModel):
             raise ValueError("Only an unclaimed base has execution-only context")
         if self.unclaimed_context is not None:
             receipt = self.unclaimed_context.receipt
-            if type(receipt) is SurfaceNativeContextReceiptV1:
+            if type(receipt) in (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1):
                 from application_state.agent_conversation.native_context import work_world_id
                 world_id=work_world_id(receipt.work_context)
             else:
@@ -1170,14 +1192,14 @@ class AgentConversationHistoryBuildTurnV2(AgentConversationHistoryTurn):
     variant_approval_requested: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     variant_draft_reviewed: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     conversation_draft_available: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
-    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
+    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1 | AgentBuildPendingContextResponseV1
 
 
 class AgentConversationHistoryBuildTurnV3(AgentConversationHistoryTurnV3):
     variant_approval_requested: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     variant_draft_reviewed: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
     conversation_draft_available: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
-    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
+    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1 | AgentBuildPendingContextResponseV1
 
 
 class AgentConversationHistoryResponse(BaseModel):

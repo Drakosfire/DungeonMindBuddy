@@ -3305,3 +3305,36 @@ def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_
         assert 'Do not search again' in rendered
         row, references = stored_row(completed)
         assert repository._turn_from_row(None, row, references=references) == completed
+        from apps.live_control_server.services.agent_turn_service import project_plan_turn_context, AgentTurnServiceError
+        from apps.live_control_server.models.agent_turn import AgentBuildPendingContextResponseV1
+        projected = project_plan_turn_context(completed, delivery_replay=True)
+        assert type(projected) is AgentBuildPendingContextResponseV1
+        assert projected.completion.collaboration.destination.title == 'Maelthor'
+        assert AgentBuildPendingContextResponseV1.model_validate_json(
+            projected.model_dump_json(by_alias=True)) == projected
+        wire = projected.model_dump(mode='json', by_alias=True)
+        assert 'native_query' not in wire['receipt'] and 'graph_authority' not in wire['receipt']
+        from pydantic import TypeAdapter
+        from apps.live_control_server.models.agent_turn import (
+            AgentBuildGraphTurnResponseV1, AgentConversationHistoryBuildTurnV2,
+            AgentConversationHistoryBuildTurnV3, AgentTurnResponseV2)
+        for owner in (AgentBuildGraphTurnResponseV1, AgentConversationHistoryBuildTurnV2,
+                AgentConversationHistoryBuildTurnV3):
+            accepted = TypeAdapter(owner.model_fields['knowledge_context'].annotation).validate_python(wire)
+            assert type(accepted) is AgentBuildPendingContextResponseV1
+        with pytest.raises(ValueError):
+            TypeAdapter(AgentTurnResponseV2.model_fields['plan_context'].annotation).validate_python(wire)
+        from apps.live_control_server.models.agent_turn import AgentRulesAnswerContextV1
+        assert type(TypeAdapter(AgentRulesAnswerContextV1.model_fields['base_context'].annotation)
+            .validate_python(wire)) is AgentBuildPendingContextResponseV1
+        with pytest.raises(ValueError, match='exact receipt'):
+            AgentBuildPendingContextResponseV1.model_validate(projected.model_copy(update={'execution': None}))
+        foreign = projected.completion.model_copy(update={'surface_id': 'plan', 'collaboration': None})
+        with pytest.raises(ValueError, match='exact receipt'):
+            AgentBuildPendingContextResponseV1.model_validate(projected.model_copy(update={'completion': foreign}))
+        wire['completion']['context_receipt_sha256'] = '0' * 64
+        with pytest.raises(ValueError, match='exact receipt'):
+            AgentBuildPendingContextResponseV1.model_validate(wire)
+        changed = completed.model_copy(update={'assistant_text': 'Changed stored answer'})
+        with pytest.raises(AgentTurnServiceError):
+            project_plan_turn_context(changed, delivery_replay=True)
