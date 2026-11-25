@@ -2448,12 +2448,23 @@ def test_pending_source_runtime_optional_hosted_world_binding_cannot_authorize_a
 
 
 @_pending_test_contextmanager
-def pending_retained_runtime_case(monkeypatch, *, lore_page=False):
+def pending_retained_runtime_case(monkeypatch, *, lore_page=False, chat_draft=False):
     from types import SimpleNamespace
     from apps.live_control_server.services.agent_turn_service import _ClaimFence
     from tests.test_build_retained_conversation import fixture_closure
     from application_state.agent_conversation import repository
     state, _ = settlement_harness(monkeypatch, with_source=False, scope='anchored', lore_page=lore_page)
+    if chat_draft:
+        from application_state.agent_conversation.build_intentional_response import resolution_for, operation_id_for
+        execution = state.turn.graph_context_execution
+        work = execution.events[-1]
+        label = 'draft_in_conversation'
+        resolution = resolution_for(execution.policy, label, source_scope='anchored')
+        work = work.model_copy(update={'requested_work': label, 'resolution': resolution,
+            'intent_family': resolution['intent_family'], 'operation': resolution['operation'],
+            'broker_operation_id': operation_id_for(state.turn.turn_id, state.turn.attempt, work.machine_request_id, label)})
+        execution = pending_execution(state.turn.graph_context_receipt, execution.policy, [*execution.events[:-1], work])
+        state.turn = t.Turn.model_validate(state.turn.model_copy(update={'graph_context_execution': execution}))
     _, turns = fixture_closure(60)
     state.turn = t.Turn.model_validate(state.turn.model_copy(update={'sequence': 61}))
     for turn in turns:
@@ -2479,14 +2490,18 @@ def pending_retained_runtime_case(monkeypatch, *, lore_page=False):
         fence.stop()
 
 
-def test_pending_retained_runtime_freezes_full_existing_context_without_search_and_reuses_closure(monkeypatch):
+@pytest.mark.parametrize('chat_draft', [False, True])
+def test_pending_retained_runtime_freezes_full_existing_context_without_search_and_reuses_closure(monkeypatch, chat_draft):
     import asyncio
     from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
     from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
     from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
     from application_state.agent_conversation.retained_conversation import admission, dialogue_messages, authored_frame
     from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
-    with pending_retained_runtime_case(monkeypatch) as (state, adapter, turns):
+    with pending_retained_runtime_case(monkeypatch, chat_draft=chat_draft) as (state, adapter, turns):
+        if chat_draft:
+            from application_state.agent_conversation.native_corpus import prior_conversation_work
+            assert prior_conversation_work(state.turn.graph_context_execution.events, allow_discussion=True) is None
         assert admit_pending_conversation(adapter)
         value = admission(state.turn.graph_context_execution)
         assert type(value) is t.BuildPriorBodyEvidenceAdmittedV3 and len(value.history) == 60
@@ -2496,7 +2511,7 @@ def test_pending_retained_runtime_freezes_full_existing_context_without_search_a
         assert 'Correction:' in messages[-2]['content']
         visible = json.dumps([messages, authored_frame(state.turn.graph_context_execution)])
         assert str(state.turn.turn_id) not in visible and str(state.turn.conversation_id) not in visible
-        assert native_conversation_terminal(state.turn) == {'status': 'ready', 'reason': 'native_discussion_from_conversation'}
+        assert native_conversation_terminal(state.turn) == {'status': 'ready', 'reason': 'native_draft_from_conversation' if chat_draft else 'native_discussion_from_conversation'}
         asyncio.run(acquire_pending_app_pages(adapter, object()))
         assert prepare_pending_native_source(adapter) is False
         assert admit_pending_conversation(adapter)
@@ -2504,12 +2519,13 @@ def test_pending_retained_runtime_freezes_full_existing_context_without_search_a
         assert state.locks == ['world', 'conversation', 'turn'] * 2 and state.access_calls == 3
 
 
+@pytest.mark.parametrize('chat_draft', [False, True])
 @pytest.mark.parametrize('failure', ['pointer', 'expiry', 'access', 'successor', 'access_after', 'expiry_after', 'cas'])
-def test_pending_retained_runtime_refuses_lost_claim_access_or_pointer_without_admitting_context(monkeypatch, failure):
+def test_pending_retained_runtime_refuses_lost_claim_access_or_pointer_without_admitting_context(monkeypatch, failure, chat_draft):
     from datetime import timedelta
     from application_state.errors import ApplicationStateError
     from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
-    with pending_retained_runtime_case(monkeypatch) as (state, adapter, turns):
+    with pending_retained_runtime_case(monkeypatch, chat_draft=chat_draft) as (state, adapter, turns):
         if failure == 'pointer':
             state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 1})
         elif failure == 'expiry':
@@ -2544,11 +2560,12 @@ def test_pending_retained_stored_turn_cannot_borrow_another_closure_identity(mon
             t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_execution': execution}).model_dump_json(by_alias=True))
 
 
-def test_pending_retained_admission_blocks_generic_append_and_new_catalog_acquisition(monkeypatch):
+@pytest.mark.parametrize('chat_draft', [False, True])
+def test_pending_retained_admission_blocks_generic_append_and_new_catalog_acquisition(monkeypatch, chat_draft):
     from application_state.errors import ApplicationStateError
     from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
     from application_state.agent_conversation.build_source_free import pending_source_work
-    with pending_retained_runtime_case(monkeypatch) as (state, adapter, turns):
+    with pending_retained_runtime_case(monkeypatch, chat_draft=chat_draft) as (state, adapter, turns):
         admit_pending_conversation(adapter)
         event = state.turn.graph_context_execution.events[-1]
         with pytest.raises(ValueError, match='cannot acquire another source'):
@@ -5116,3 +5133,27 @@ def test_pending_app_prompt_capture_keeps_exact_authorization_and_family(monkeyp
             validate_prompt_authorization(prompt, execution, int(mutation == 'sequence'))
     else:
         validate_prompt_authorization(prompt, execution, 0)
+
+
+@pytest.mark.parametrize('scope', ['source_lookup', 'uncertain'])
+def test_pending_chat_draft_cannot_replace_lookup_with_retained_context(monkeypatch, scope):
+    from application_state.agent_conversation.build_source_free import pending_retained_work
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
+    from application_state.errors import ApplicationStateError
+    with pending_retained_runtime_case(monkeypatch, chat_draft=True) as (state, adapter, turns):
+        execution = state.turn.graph_context_execution
+        work = execution.events[-1]
+        resolution = resolution_for(execution.policy, work.requested_work, source_scope=scope)
+        changed = work.model_copy(update={'resolution': resolution})
+        execution = execution.model_copy(update={'events': [*execution.events[:-1], changed]})
+        assert pending_retained_work(execution) is None
+        state.turn = t.Turn.model_validate(state.turn.model_copy(update={'graph_context_execution': execution}))
+        adapter.turn = state.turn
+        adapter.fence.renewer.update_turn(state.turn)
+        assert admit_pending_conversation(adapter) is False
+        with pytest.raises(ApplicationStateError):
+            state.service.admit_pending_build_prior_body_evidence(state.turn.world_id,
+                state.turn.conversation_id, state.turn.turn_id, expected_revision=state.turn.revision,
+                expected_attempt=state.turn.attempt, event_id=uuid4(), authorize_current_access=state.authorize)
+        assert state.persisted == state.retained_reads == state.materialized == 0

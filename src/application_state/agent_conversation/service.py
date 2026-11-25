@@ -2762,8 +2762,7 @@ class AgentConversationService:
             expected_revision, expected_attempt, event_id, authorize_current_access):
         """Freeze existing App conversation under its current pointer and claim."""
         from . import types as t
-        from .native_corpus import prior_conversation_work
-        from .build_source_free import pending_conversation_route_can_admit
+        from .build_source_free import pending_conversation_route_can_admit, pending_retained_work
         from .retained_conversation import capture
         world_id = _world_id(world_id)
         if (type(event_id) is not UUID or type(expected_revision) is not int or expected_revision < 1
@@ -2778,7 +2777,7 @@ class AgentConversationService:
             if turn.claim_expires_at <= repo.database_clock(conn):
                 raise ApplicationStateConflictError('Pending claim expired before retained capture')
             execution, receipt = turn.graph_context_execution, turn.graph_context_receipt
-            work = prior_conversation_work(execution.events, allow_discussion=True)
+            work = pending_retained_work(execution)
             if work is None or not pending_conversation_route_can_admit(receipt, execution):
                 raise ApplicationStateValidationError('Pending retained context requires source-free conversation work')
             prior = [event for event in execution.events if type(event) is t.BuildPriorBodyEvidenceAdmittedV3]

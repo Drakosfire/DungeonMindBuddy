@@ -1,6 +1,7 @@
 # DOGFOOD: serve valid inline clarification
 
-ACTIVE serial successor to source/release4697. Alan authorizes fixing the actual
+MERGED and deployed in PR4700 (merge c1781015e522241473ad489f8e799c8972f3adcb),
+source d58ede03b833f28af021d447a97442f8c0752aa3. Serial successor to source/release4697. Alan authorizes fixing the actual
 signed-in clarification flow, reviewed concrete-progress merges and deployment,
 preserving current production changes. All backups necessary for this goal are
 explicitly approved. This is one bounded serving PR, not an ancestry merge of main.
@@ -55,3 +56,17 @@ no source preparation, retained typed question, empty duplicate prose, actual
 SQL readback and delivery replay. The known synthetic Graph-binding serializer
 warning remains visible. Exact integrated focused checks and review are next;
 no deployment or signed-in success is inferred from this regression.
+
+Hosted settlement: source d58/image66ec healthy. Signed-in clarification, answer
+working-note reload, Add to message/manual Send, ten-turn full-context page
+creation, review/confirm/save/reopen and exact saved-revision citation reader
+passed. Creation trace7.268574s start-to-close, no acquisition observations.
+A second page reused the full previously read authored body without acquisition;
+writer timeline7.0s and saved/reopened rev2. External evidence lives in
+buddy-check.pending-release.w1eihyha/live-long-chat-acceptance.json and
+live-retrieved-source-acceptance.json. Current-draft quotes intentionally use
+Quoted material, while related-page reads expose revision-bound readers.
+The final concise-briefing check uncovered a distinct pending anchored
+draft_in_conversation routing failure. Ownership transfers to
+HANDOFF-DOGFOOD-pending-chat-draft.md; full goal remains incomplete.
+All future production cutovers use GitHub Actions under Alan's new instruction.
