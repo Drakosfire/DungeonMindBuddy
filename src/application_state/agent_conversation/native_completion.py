@@ -437,10 +437,28 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             variant_passage_review=evidence.variant_passage_review,
             variant_trigger_retention=evidence.variant_trigger_retention,
             variant_passage_witnesses=evidence.variant_passage_witnesses)
+    rows = candidate['answer_segments']
+    review = candidate.get('collaboration')
+    # Preserve the completion's limit on the raw provider response too: a
+    # large run of redundant rows must not become valid merely by filtering.
+    if len(rows) > 128:
+        raise ValueError('Native completion exceeds the answer segment limit')
+    # Filter before constructing citations so their segment indexes still
+    # refer to the final answer. Only an exact plain-discussion duplicate is
+    # redundant; source and other evidence-bearing rows remain untouched.
+    if review_enabled and not plan_review and isinstance(review, dict) and review.get('kind') == 'questions':
+        from .collaboration import ProposedQuestions
+        questions = ProposedQuestions.model_validate(review)
+        question_texts = {question.text.strip() for question in questions.questions}
+        rows = [row for row in rows if not (
+            isinstance(row, dict) and set(row) == {'kind', 'text'}
+            and row.get('kind') == 'discussion' and isinstance(row.get('text'), str)
+            and row['text'].strip() in question_texts
+        )]
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
-    for row in candidate['answer_segments']:
+    for row in rows:
         if (not isinstance(row,dict) or row.get('kind') not in {'authored_excerpt', 'statblock_pdf_claim'}
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
             raise ValueError('Native completion contains an invalid segment')
@@ -481,7 +499,6 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             body_cites.extend(body)
             statement_cites.extend(statement)
             assertion_cites.extend(assertion)
-    review=candidate.get('collaboration')
     if review_enabled and evidence.build_local and review is not None:
         from .native_build_work_view import resolve_selectors
         review=resolve_selectors(review,evidence.work_frame)
