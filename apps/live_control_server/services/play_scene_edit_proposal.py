@@ -18,6 +18,7 @@ from apps.live_control_server.models.play_scene_edit_proposal import GeneratedPl
 from apps.live_control_server.services.agent_play_surface_context import resolve_world_play_session_turn_snapshot
 from apps.live_control_server.services.agent_surface_context import render_agent_surface_context
 from apps.live_control_server.services.plan_playable_body_target import _strip_frontmatter, _line_blocks, _root_markers, _attached_heading
+from apps.live_control_server.services.play_scene_model_aliases import scene_model_aliases
 from apps.live_control_server.services.play_run_edition_structure import structure_signature
 from apps.live_control_server.services.workspace_document_registry import get_committed_playable_revision
 from bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -34,6 +35,7 @@ A new Read Aloud or GM Note must be a separate block even when an
 existing Read Aloud or GM Note already serves a similar purpose. Revise or
 remove existing material only if the GM requests that change.
 Preserve all playable markers, their order, headings and Choice/Option connections exactly.
+References are request-local aliases. Preserve them exactly; never invent a reference.
 Use ordinary Markdown, including tables.
 Preserve media unless the GM asks to change it. You may change captions, width/collapsed
 presentation, placement or remove an existing media reference as requested. Use only
@@ -162,8 +164,10 @@ async def propose_scene_edit(*, root: Path, world_id: str, run_id: str, proposal
         policy = load_buddy_model_policy(strict=True)
         role = policy["actions"].get("hermes_graph_agent") or policy["actions"]["structured_generation"]
         model = policy["models"][role]
-        text = TextRequest(user_prompt=json.dumps({"instruction": request.instruction,
-                "saved_context": render_agent_surface_context(context), "scene_body": markdown[start:end]}, ensure_ascii=False),
+        saved_context = render_agent_surface_context(context, include_edition_revision=False) or ""
+        aliases = scene_model_aliases(markdown, saved_context, request.instruction)
+        text = TextRequest(user_prompt=json.dumps({"instruction": aliases.localize(request.instruction),
+                "saved_context": aliases.localize(saved_context), "scene_body": aliases.localize(markdown[start:end])}, ensure_ascii=False),
             system_prompt=SYSTEM, provider="openai", model=model, temperature=None, max_output_tokens=12000,
             deadline_ms=60000, json_schema=GeneratedPlaySceneEdit.model_json_schema(), schema_name="play_scene_edit")
         load_dungeonmindbuddy_dotenv()
@@ -171,8 +175,8 @@ async def propose_scene_edit(*, root: Path, world_id: str, run_id: str, proposal
         generated = GeneratedPlaySceneEdit.model_validate(result.parsed)
         if generated.cannot_complete_reason or not generated.replacement_markdown.strip() or not generated.summary.strip():
             raise ValueError("Buddy could not prepare a complete scene edit")
-        candidate = build_candidate(markdown, request.scene_id, generated.replacement_markdown,
-                                    admitted_media=_images(render_agent_surface_context(context) or ""))
+        candidate = build_candidate(markdown, request.scene_id, aliases.resolve(generated.replacement_markdown),
+                                    admitted_media=_images(saved_context))
         observation = result.observation
         observed = getattr(observation, "response_model", None) or getattr(observation, "resolved_model", None)
         if not isinstance(observed, str) or not observed.strip() or not isinstance(observation.latency_ms, int):
