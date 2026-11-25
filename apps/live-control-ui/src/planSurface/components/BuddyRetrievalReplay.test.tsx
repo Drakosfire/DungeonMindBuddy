@@ -104,7 +104,7 @@ it('interleaves native and legacy reads using ledger order', () => {
   fireEvent.click(screen.getByRole("button", { name: "Expand" }))
   openReplayDetails()
   fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
-  expect(screen.getByRole('heading', { name: 'Read native assertions' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Read Graph evidence for the answer writer' })).toBeInTheDocument()
   expect(screen.getByText('Evidence sent to the answer writer')).toBeInTheDocument()
 })
 
