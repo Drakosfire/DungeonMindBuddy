@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+from graph_memory.extraction.worldbuilding_gazetteer_trade_context import GAZETTEER_TRADE_CONTEXT_PROFILE
 
 from collections.abc import Callable
 import hashlib
@@ -41,6 +42,7 @@ from graph_memory.ingestion.extraction_run import (
 )
 
 _PROFILE = "worldbuilding_shepherds_flock_v0@0.1"
+_WORLDBUILDING_CORRECTION_PROFILES = frozenset({_PROFILE, GAZETTEER_TRADE_CONTEXT_PROFILE.qualified_id})
 _DERIVATION = "operator_frozen_evidence_partition_v2"
 _RECAP_DERIVATION = "operator_recap_literal_evidence_correction_v1"
 _LIFECYCLE = (
@@ -99,10 +101,6 @@ def _canonical_bytes(value: object) -> bytes:
 
 def _qualify_payload(*, payload: dict, parent: ExtractionRun, source_prose: str, span_index: object) -> None:
     from graph_memory.extraction.extraction_profile import get_extraction_profile
-    from graph_memory.extraction.worldbuilding_extraction_profile import (
-        WORLDBUILDING_PROFILE_ID,
-        WORLDBUILDING_PROFILE_VERSION,
-    )
 
     _assert_candidate_scope_matches_run(
         payload,
@@ -115,9 +113,8 @@ def _qualify_payload(*, payload: dict, parent: ExtractionRun, source_prose: str,
         source_artifact_id=parent.source_artifact_id,
         span_index=span_index,
     )
-    profile = get_extraction_profile(
-        WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION
-    )
+    profile_id, profile_version = parent.profile_id.rsplit("@", 1)
+    profile = get_extraction_profile(profile_id, profile_version)
     validator = profile.post_extraction_validator
     if validator is None:
         raise _reject("managed-World extraction profile has no validator")
@@ -186,7 +183,7 @@ def _worldbuilding_parent(run_id):
             status_code=exc.status_code,
         ) from exc
     parent = data.run
-    if parent.source_domain != "worldbuilding" or parent.profile_id != _PROFILE:
+    if parent.source_domain != "worldbuilding" or parent.profile_id not in _WORLDBUILDING_CORRECTION_PROFILES:
         raise _reject("correction requires the exact managed-World worldbuilding profile")
     if not data.source_artifact.world_id or parent.session_id:
         raise _reject("worldbuilding run has an invalid World/session binding")
