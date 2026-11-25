@@ -6930,7 +6930,18 @@ export function WorldPlanAgentConversation({
                       &&latestRef.current.buildDocumentId===plan.document_id&&surfaceVisibleRef.current&&historySnapshotRef.current?.conversation_id===plan.conversation_id
                       &&historySnapshotRef.current?.active_conversation_id===plan.conversation_id});
                 }}:undefined}
-              onAdd={text=>{retireComposerReferenceSubmission();composerEditGenerationRef.current+=1;setComposerMessage(current=>current.trim()?`${current}\n\n${text}`:text);}} />}
+              onAdd={text=>{
+                retireComposerReferenceSubmission();
+                composerEditGenerationRef.current+=1;
+                const answerOnOriginalPage = isBuild && !historicalAttempt
+                  && buildMode?.savedSource?.documentId === turn.provenance.primary_work.object_id
+                  && history.active_conversation_id === history.conversation_id
+                  && turn.provenance.surface_id === 'build' && collaboration?.kind === 'questions';
+                const message = answerOnOriginalPage
+                  ? `Continue my original Build request using my answers below.\n\nOriginal request:\n${turn.user_text}\n\n${text}`
+                  : text;
+                setComposerMessage(current=>current.trim()?`${current}\n\n${message}`:message);
+              }} />}
           </div>
         ) : failed || interrupted ? (
           <div className="world-plan-agent-conversation__turn-status">

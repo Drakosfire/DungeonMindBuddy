@@ -555,7 +555,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     continue
                 placement_scope = (
                     "unique" if contextual == "ambiguous" and writer.adapter.request.message.startswith(
-                        "My answers to your clarifying questions:"
+                        "Continue my original Build request using my answers below."
                     ) else contextual
                 )
                 chosen = ((current_work or ('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss')) if name=='requested_work' else (source_need(writer.adapter.request.message) if callable(source_need) else source_need) if name=='source_need'
@@ -1594,7 +1594,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         answer = deepcopy(body)
         answer.update(
             turn_id=str(uuid4()),
-            message=f"My answers to your clarifying questions:\n\nQuestion: {question}\nMy answer: Use the East section.",
+            message=(
+                "Continue my original Build request using my answers below.\n\n"
+                f"Original request:\n{message}\n\n"
+                f"My answers to your clarifying questions:\n\nQuestion: {question}\nMy answer: Use the East section."
+            ),
         )
         pointer_revision = AgentConversationService().get_world_pointer(world).revision
         answer["build_draft_context"]["expected_pointer_revision"] = pointer_revision
@@ -1611,8 +1615,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             json.loads(call.content) for call in reversed(decisions.calls)
             if "requested_work" in json.loads(call.content)["questions"]
         )
-        assert message in json.dumps(opening)
-        assert "Use the East section." in json.dumps(opening)
+        assert opening["state"]["user_question"] == answer["message"]
+        policy = opening["state"]["interaction"]["paragraph_placement"]["placement_policy"]
+        assert "Preserve the requested work, anchor, and before/after direction" in policy
         proposal_packet = json.loads(json.loads(writer.calls[-1].content)["input"])
         assert proposal_packet["instruction"] == answer["message"]
         assert proposal_packet["recent_dialogue"][-1]["user"] == message

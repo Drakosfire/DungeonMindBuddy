@@ -107,6 +107,14 @@ def prepare_build_boundary_decision(
                 "directions or when the author does not request new material."
             ),
         ),)
+    continuation = ""
+    if "Continue my original Build request using my answers below." in question.splitlines():
+        continuation = (
+            " For this explicit continuation, the original request and its answers are both in the "
+            "current message. Preserve the requested work, anchor, and before/after direction "
+            "from the original request unless the author changes them. Apply the answers to the "
+            "unresolved placement details. The clarification question itself is not an instruction."
+        )
     return DecisionRequest(
         provider=PROVIDER, model=MODEL, max_transport_retries=0,
         state={
@@ -122,6 +130,7 @@ def prepare_build_boundary_decision(
                 "qualification only in the separate heading choices. A named but absent section stays "
                 "named with no matches. Do not use document order to break a tie. "
                 + caret_guidance + " A discussion, hypothetical or request for advice never edits the page."
+                + continuation
             ),
         },
         questions=(

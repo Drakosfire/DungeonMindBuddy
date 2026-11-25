@@ -10,6 +10,12 @@ The write scope is the unresolved current-page placement branch in
 writer input and Rules format verification, the owning ordinary Build regression,
 and the action catalog. A different destination still requires navigation.
 
+Alan extended this same slice to the inline Build answer submission and
+paragraph placement classifier. Include the saved turn's request in the
+author-visible composer text on the original Build page. The classifier uses
+that submitted request and answer for placement. Normal proposal review and
+page mutation authority still apply.
+
 The owning HTTP check exercises typed question delivery, retained history, and a
 workbook-formatted answer on the same conversation. The answer must stage an
 inert proposal at the confirmed paragraph. Test the missing-passage and
