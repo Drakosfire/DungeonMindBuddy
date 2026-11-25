@@ -260,3 +260,84 @@ records that still match the Buddy Hermes setup or patch instructions and
 report as non-shared and reclaimable. It verifies each ID is gone afterward.
 An absent list disables cache removal. Cache failure leaves the healthy
 release serving and can be retried through the same activation.
+
+## App reader-fence releases
+
+Use **Deploy Buddy (App reader fence)** for an approved incompatible App reader
+fence. The ordinary image-only workflow cannot safely migrate first and then
+claim its old image is still a compatible rollback. This is a separate nonroutine
+path; normal releases keep using **Deploy Buddy (image only)**.
+
+The App-fence workflow uses the same `buddy-production` environment, SSH recipient
+and pinned host key, GitHub deployment queue and host lock. Its fixed request is:
+
+```text
+app-fence <candidate-sha> <registry-digest> <candidate-image-id> <healthy-serving-sha> <healthy-serving-image-id> <packet-manifest-sha256>
+```
+
+The production operator must first review the complete release packet and its
+actual qualification evidence under the production and application-state recovery
+runbooks. Publish the candidate through Actions with the appropriate existing
+build options and exact serving parent. A changed serving source requires a new
+lineage check and packet; changing rollback inputs alone is insufficient.
+
+Install the reviewed `deploy-buddy-release` and `deploy-buddy-app-fence` from the
+same source as root-owned executables in `/usr/local/sbin`, under the production
+lock, and verify their checksums. The existing SSH key, forced command and
+sudoers grant do not change. The new helper accepts no uploaded script, command
+or arbitrary file path. Only a root-installed approved packet can run.
+
+Each candidate has a root-owned directory
+`/etc/buddy-deploy/app-fence-packets/<full-candidate-sha>` beneath the existing
+protected configuration root. Keep directories mode0700 and files mode0600.
+The sealed files are `manifest.json`, `operator.py`,
+`dogfood_engine_transport.py`, `release.json` and `qualification.json`.
+No package/cache directory or additional Python/native code is accepted. The
+operator may create root-owned JSON journals there. Installation and any guarded
+state settlement use the deployment lock; never edit an in-flight packet.
+
+`manifest.json` has exactly these fields:
+
+- `schema`: `buddy_app_fence_packet_v1`.
+- `candidate_revision`, `registry_digest`, `candidate_id`, `rollback_revision`,
+  `rollback_id`: exact dispatch pins.
+- `recovery_revision`, `recovery_id`: the separately qualified forward recovery;
+  neither may be the incompatible initial rollback. It may share candidate code
+  only when a distinct, explicitly qualified recovery configuration is recorded.
+- `source_schema`, `target_schema`: exact App heads; target must advance.
+- `guest_build`: exact published guest configuration label.
+- `files`: SHA-256 map containing exactly the four other sealed files.
+
+`release.json` belongs to the operator implementation and must bind
+`candidate_source`/`candidate_image`, `old_source`/`old_image`, and
+`recovery_source`/`recovery_image` to the manifest. The qualification object has
+exactly `status: accepted`, `evidence_sha256` and the manifest's
+`candidate_revision`, `candidate_id`, `recovery_revision`, `recovery_id`,
+`source_schema`, `target_schema` fields. Its evidence hash identifies the actual
+accepted rehearsal/review record. Writing `accepted` is an operator authorization
+record, never a substitute for doing or inspecting the qualification.
+
+The sealed operator implements `prepare` then `apply` under inherited FD9. It
+must verify that FD9 is the existing production lock instead of opening a second
+lock on the same file. It owns bounded graceful drain, final consistent backup,
+required restore/parity/reader evidence, exact migrations, configuration-preserving
+activation, and failure recovery. It must handle interruption safely, close its
+workers/connections and record uncertain states. Before migration, restarting the
+unchanged compatible old release may be valid; after an incompatible fence it
+must use the qualified forward recovery or stop for coordinated recovery. Never
+automatically restore over production. Include the exact recovery images/artifacts
+in the packet's preparation; the transport pulls only the candidate registry digest.
+
+The transport rechecks the sealed packet around both phases, requires the expected
+healthy serving identity before preparation and after it, and validates the pulled
+candidate's image, source, platform, serving-parent and guest labels. It emits
+`BUDDY_STAGED` only after preparation, and `BUDDY_LIVE` only after successful apply
+leaves the exact candidate healthy. Any nonzero operator result remains a failed
+workflow, even if forward recovery succeeds. A lost connection or missing receipt
+requires journal/serving reconciliation; never blindly replay migration work.
+
+Dispatch the new workflow from `main` with the six request pins above. Confirm its
+stage/live receipts and public readiness/signed-out401 checks, then perform the
+release-specific signed-in smoke. Retain the Actions URL, packet digest, immutable
+registry digest, source/image, recovery outcome and app evidence in the owning
+handoff. Installing this transport alone does not qualify APP0212 or any packet.
