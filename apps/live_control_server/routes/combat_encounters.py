@@ -50,6 +50,13 @@ def _verified_world(world_id: str) -> str:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
+def _guest_guard(request: Request, world_id: str, *, creating: bool):
+    if getattr(request.state, "guest_build_world", None) != world_id:
+        return None
+    from apps.live_control_server.services.guest_build_access import guest_combat_capacity
+    return lambda conn: guest_combat_capacity(request, conn, world_id, creating=creating)
+
+
 def _raise_state_error(exc: ApplicationStateError) -> None:
     raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
@@ -74,7 +81,7 @@ def create_encounter_route(
     owner = _verified_world(world_id)
     try:
         return combat_encounters.create_world_combat_encounter(
-            world_id=owner, request=body
+            world_id=owner, request=body, **({"guest_guard": _guest_guard(request, owner, creating=True)} if getattr(request.state, "guest_build_world", None) == owner else {})
         ).model_dump(mode="json")
     except ApplicationStateError as exc:
         _raise_state_error(exc)
@@ -126,7 +133,7 @@ def save_encounter_route(
     owner = _verified_world(world_id)
     try:
         return combat_encounters.save_world_combat_encounter(
-            world_id=owner, encounter_id=encounter_id, request=body
+            world_id=owner, encounter_id=encounter_id, request=body, **({"guest_guard": _guest_guard(request, owner, creating=False)} if getattr(request.state, "guest_build_world", None) == owner else {})
         ).model_dump(mode="json")
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
