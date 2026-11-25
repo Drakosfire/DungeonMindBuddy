@@ -1322,3 +1322,31 @@ live model quality, selected Core read or release qualification is claimed.
 Next: selected native body/direct-source IO owners, complete pending runtime loop
 and native writer closure, then remaining integrated SQL/full Send/live semantic/
 signed-in app/current-serving review and deployment gates.
+
+
+Direct-source integration lease checkpoint: current main c07d61a0f7c5276978d9b22eaf66ae837f32650d
+and open PR4580/4584/4561 file sets checked. No overlapping native_corpus.py
+validator write identified. Pin only validate_native_body_events' exact pending
+source-authority commitment delegation, plus the existing pending codec/native
+read direct-source delegates. Resolve the actual typed settlement; do not add a
+legacy policy field, alter Core access, or change Plan/Play producer meanings.
+Serial PR4642 scope/validation: direct-source grant/observation closure and
+mutation/refusal tests, followed by existing focused source-access controls.
+
+
+Direct-source checkpoint: pending codec/direct read producers use the exact
+settled authority and existing acknowledged selection, with the existing native
+body validator closing source identity, monotonic epoch, full-document extent
+and text commitments. Legacy authority lookup remains lazy in the same branches;
+no synthetic policy field or Core implementation edit.17 focused pending
+native/App checks passed3.88s;9 focused existing in-memory Core/Surface direct
+source/writer controls passed1.91s. Existing tuple/list serializer warnings in
+four legacy fixtures remain visible. New pending complete/advanced/unavailable,
+foreign-authority, altered-text, changed selected hash and duplicate observation
+controls use fake App plus in-memory source-body models. Their model catalog is
+rebound to the pending authority for codec testing; this is not a public Core
+read under that pending authority. The first fixture used the capture API with
+an incorrect positional argument; corrected to its actual keyword signature.
+No database or provider/live read was used. Dedicated pending current-access
+materialization/physical SQL and the full runtime/native writer path remain
+unfinished; none of these structural checks establish deployment readiness.

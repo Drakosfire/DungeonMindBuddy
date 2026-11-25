@@ -4335,3 +4335,63 @@ def test_pending_native_runtime_actual_sdk_preserves_full_dialogue_and_prepared_
             assert selected.selected_handles == ([candidates[0].handle] if operation == 'select_candidates' else [])
             assert selected.actual_input_tokens == 23 and selected.actual_output_tokens == 4
             assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
+
+
+@pytest.mark.parametrize('mode', ['complete', 'advanced_epoch', 'unavailable', 'foreign_authority', 'changed_text'])
+def test_pending_native_direct_source_uses_settlement_and_existing_exact_body_validator(monkeypatch, mode):
+    from application_state.agent_conversation import native_corpus as bodies, native_reads, native_retrieval
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    from tests.test_surface_native_execution import controller, outcomes, choice
+    from tests.test_native_corpus_source_access import lane, admit, BODY, GM
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as core
+    memory = lane.__wrapped__()
+    admit(memory)
+    context = core.prepare_native_source_context(managed_world_id=memory.bound.managed_world_id,
+        principal=GM, repository=memory.repo, resolve_identity=lambda _: memory.bound)
+    snapshot = core.capture_native_sources(managed_world_id=memory.bound.managed_world_id, principal=GM, prepared=context)
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, _):
+        assert prepare_pending_native_source(adapter)
+        receipt, execution = native_retrieval.owner(state.turn)
+        from application_state.agent_conversation.build_pending_native import prepared_pending_source
+        authority, _ = prepared_pending_source(receipt, execution)
+        catalog = bodies.build_native_body_catalog(authority, snapshot.members[0], BODY)
+        member = catalog.source
+        target = {'source_artifact_id': member.artifact.source_artifact_id,
+            'source_revision_id': member.revision.source_revision_id, 'content_sha256': member.revision.content_sha256}
+        handle = bodies.native_direct_source_handle(authority, **target)
+        auth = controller('build', execution.policy, sequence=len(execution.events), semantic=False)
+        selected = choice(receipt, execution, auth, auth.sequence + 3, 'select_candidates', (handle,))
+        def decoded(events):
+            candidate = state.turn.model_copy(update={'graph_context_execution': execution.model_copy(update={'events': events})})
+            return t.Turn.model_validate_json(candidate.model_dump_json(by_alias=True))
+        prefix = [*execution.events, auth, *outcomes(auth, auth.sequence + 1), selected]
+        current = decoded(prefix)
+        grants = native_reads.authorize_direct_sources_locked(current, grants=({'event_id': uuid4(), **target},))
+        assert len(grants) == 1 and grants[0].authority == authority
+        grant, = grants
+        current = decoded([*prefix, grant])
+        callbacks = []
+        def read(actual):
+            callbacks.append(actual)
+            assert actual == grant
+            if mode == 'unavailable': return None
+            effective = authority.model_copy(update={'acquisition_epoch': authority.acquisition_epoch + 1}) if mode == 'advanced_epoch' else authority
+            if mode == 'foreign_authority': effective = authority.model_copy(update={'revision_id': 'foreign'})
+            result_catalog = bodies.build_native_body_catalog(effective, snapshot.members[0], BODY)
+            excerpt = bodies.select_native_full_document(result_catalog, BODY)
+            if mode == 'changed_text': excerpt = excerpt.model_copy(update={'text': BODY + 'unsupported'})
+            return result_catalog, excerpt
+        if mode in {'foreign_authority', 'changed_text'}:
+            with pytest.raises(ValueError):
+                observed = native_reads.observe_direct_source_locked(current, event_id=uuid4(), authorization_event_id=grant.event_id, read=read)
+                decoded([*prefix, grant, observed])
+        else:
+            observed = native_reads.observe_direct_source_locked(current, event_id=uuid4(), authorization_event_id=grant.event_id, read=read)
+            completed = decoded([*prefix, grant, observed])
+            assert (completed.graph_context_execution.events[-1].excerpt is None) == (mode == 'unavailable')
+            with pytest.raises(ValueError):
+                native_reads.observe_direct_source_locked(completed, event_id=uuid4(), authorization_event_id=grant.event_id, read=read)
+        assert callbacks == [grant]
+        with pytest.raises(ValueError):
+            native_reads.authorize_direct_sources_locked(decoded(prefix), grants=({'event_id': uuid4(), **(target | {'content_sha256': '0' * 64})},))
+        assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens

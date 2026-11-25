@@ -496,6 +496,20 @@ def body_frame(reads):
 def validate_native_body_events(execution):
     """One authorized search, unique reads and inclusion tied to actual providers."""
     from . import types as t
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+    if type(execution) is BuildPendingExecutionV1:
+        settlements = [e for e in execution.events if type(e) is NativeBuildSourceSettledV1]
+        if len(settlements) != 1:
+            raise ValueError('Pending body validation requires its actual source settlement')
+        source_authority_sha256 = sha256(canonical(settlements[0].source_authority).encode()).hexdigest()
+    else:
+        source_authority_sha256 = None
+    def authority_commitment():
+        # Legacy policies need this field only for the same search/direct-read
+        # branches that required it before pending Build was introduced.
+        if source_authority_sha256 is not None:
+            return source_authority_sha256
+        return execution.policy.source_authority_sha256
     grant = search = None
     reads, authorizations, selected_sections = {}, {}, set()
     provider = outcome = None
@@ -555,7 +569,7 @@ def validate_native_body_events(execution):
             if (writer or outcome != "response_received" or provider != event.provider_attempt_id
                     or not selected(handle) or key in selected_sections
                     or sha256(canonical(event.authority).encode()).hexdigest()
-                        != execution.policy.source_authority_sha256):
+                        != authority_commitment()):
                 raise ValueError("Direct source read requires its unique acknowledged controller selection")
             authorizations[event.event_id] = event
             selected_sections.add(key)
@@ -593,7 +607,7 @@ def validate_native_body_events(execution):
                     or event.execution_policy_sha256 != execution.execution_policy_sha256
                     or not selected(native_corpus_search_handle(event.query_sha256))
                     or sha256(canonical(event.authority).encode()).hexdigest()
-                        != execution.policy.source_authority_sha256):
+                        != authority_commitment()):
                 raise ValueError("Native search requires its unique acknowledged current controller")
             grant = event
         elif isinstance(event, NativeBodySearchObservedV1):

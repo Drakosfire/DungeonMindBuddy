@@ -479,15 +479,20 @@ def observe_body_reads_locked(turn, *, reads, read):
 def authorize_direct_sources_locked(turn, *, grants):
     """Authorize one consecutive batch under the same acknowledged selection."""
     from .native_corpus import NativeDirectSourceAuthorizedV1, native_direct_source_handle
-    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
     from .build_pending_native import read_selection as current_selection
     receipt, execution = _owner(turn, require_source=True)
-    if type(receipt) is not SurfaceNativeContextReceiptV1:
-        raise ValueError("Direct source selection requires the current shared native owner")
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        authority, _ = prepared_pending_source(receipt, execution)
+    elif type(receipt) is SurfaceNativeContextReceiptV1:
+        authority = receipt.source_authority
+    else:
+        raise ValueError("Direct source selection requires its actual native owner")
     fields = {"event_id", "source_artifact_id", "source_revision_id", "content_sha256"}
     if not isinstance(grants, tuple) or not grants or any(type(row) is not dict or set(row) != fields for row in grants):
         raise ValueError("Direct source grants require a nonempty closed batch")
-    handles = [native_direct_source_handle(receipt.source_authority,
+    handles = [native_direct_source_handle(authority,
         row["source_artifact_id"], row["source_revision_id"], row["content_sha256"]) for row in grants]
     if len({row["event_id"] for row in grants}) != len(grants) or len(set(handles)) != len(handles):
         raise ValueError("Direct source batch repeats a grant or source")
@@ -505,23 +510,28 @@ def authorize_direct_sources_locked(turn, *, grants):
             raise ValueError("Direct source batch replay is partial, reordered or belongs to another controller")
         return tuple(priors)
     return tuple(NativeDirectSourceAuthorizedV1(**row, sequence=len(execution.events) + index,
-        provider_attempt_id=selection.controller_attempt_id, authority=receipt.source_authority)
+        provider_attempt_id=selection.controller_attempt_id, authority=authority)
         for index, row in enumerate(grants))
 
 
 def observe_direct_source_locked(turn, *, event_id, authorization_event_id, read):
     from .native_corpus import NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, native_direct_source_handle
-    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
     receipt, execution = _owner(turn, require_source=True)
-    if type(receipt) is not SurfaceNativeContextReceiptV1:
-        raise ValueError("Direct source selection requires the current shared native owner")
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        authority, _ = prepared_pending_source(receipt, execution)
+    elif type(receipt) is SurfaceNativeContextReceiptV1:
+        authority = receipt.source_authority
+    else:
+        raise ValueError("Direct source selection requires its actual native owner")
     prior = _prior_event(execution, event_id, NativeDirectSourceObservedV1,
         authorization_event_id=authorization_event_id)
     if prior is not None:
         return prior
     auth = next((event for event in execution.events if isinstance(event, NativeDirectSourceAuthorizedV1)
         and event.event_id == authorization_event_id), None)
-    if auth is None or _selected_controller(turn, native_direct_source_handle(auth.authority,
+    if auth is None or auth.authority != authority or _selected_controller(turn, native_direct_source_handle(auth.authority,
             auth.source_artifact_id, auth.source_revision_id, auth.content_sha256)) != auth.provider_attempt_id:
         raise ValueError("Direct source read lacks its current durable selection")
     if any(isinstance(event, NativeDirectSourceObservedV1)

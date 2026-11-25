@@ -636,6 +636,7 @@ BuildPendingPrefixEventV1 = Annotated[
     | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
     | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1
+    | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
     | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1,
@@ -770,6 +771,7 @@ class BuildPendingExecutionV1(Strict):
                     raise ValueError("Settled query changed the pending author request")
                 settled = True
             elif type(event) in (NativeRetrievalSelectedV1,
+                    t.NativeDirectSourceAuthorizedV1, t.NativeDirectSourceObservedV1,
                     t.NativePlanStatementReadAuthorizedV1, t.NativePlanStatementReadObservedV1,
                     t.NativePlanAssertionReadAuthorizedV1, t.NativePlanAssertionReadObservedV1):
                 if not settled:
@@ -780,6 +782,8 @@ class BuildPendingExecutionV1(Strict):
             settlement = next(e for e in self.events if type(e) is NativeBuildSourceSettledV1)
             from .native_plan_statements import validate_selected_record_events
             validate_selected_record_events(settlement.native_query, self)
+            from .native_corpus import validate_native_body_events
+            validate_native_body_events(self)
         return self
 
 
