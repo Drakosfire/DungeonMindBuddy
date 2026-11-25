@@ -1,0 +1,5 @@
+# Chat navigation and restored Markdown serving carry
+
+Status: ACTIVE. Serial image-only carry of the independently reviewed and merged #4789 and #4793 onto live revision `49a651f894aa781ab69462cda4332523158886ff`, the `codex/sizzek-guest-play-writer-serving-base` tip at dispatch. Scope is the two reviewed changes and this handoff; no schema or primary data mutation. The outcomes are coupled for this release because the reported refresh both closed the chat and exposed restored formatting.
+
+The combined focused local owner checks passed: 99 cases in the selected-World, app-owner, saved-page confirmation, saved-citation and Markdown-renderer files. Earlier focused checks also cover Build selector registration and document-controller failure. The app-level tests mock the Build page, so a single real saved-link → controller → failing second admission integration remains unproven. The user's exact formatting case was not inspected; the formatter fixes the reproduced prose-boundary discrepancy and tested tables, fenced code and citations. Independent review required before merge and release.
