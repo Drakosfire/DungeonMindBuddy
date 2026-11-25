@@ -24,34 +24,35 @@ where it applies.
 
 ## One-time production setup
 
-1. An operator installs the reviewed deploy/production/activate-buddy-release as
-   /usr/local/sbin/activate-buddy-release (root:root, mode 0755). Use a dedicated
+1. An operator installs the reviewed deploy/production/deploy-buddy-release as
+   /usr/local/sbin/deploy-buddy-release (root:root, mode 0755). Use a dedicated
    buddy-deploy OS account with no password login or Docker membership. Keep its
    SSH authorized-keys file and parent directories under operator control.
    Install only the public half of the Actions key, with this prefix:
 
    ```text
-   restrict,command="/usr/bin/sudo -n /usr/local/sbin/activate-buddy-release \"$SSH_ORIGINAL_COMMAND\""
+   restrict,command="/usr/bin/sudo -n /usr/local/sbin/deploy-buddy-release \"$SSH_ORIGINAL_COMMAND\""
    ```
 
    Append the key type and public key on the same line. The forced command only
-   accepts a full commit SHA. Use a sudoers drop-in installed with visudo that
+   accepts one fixed-format request with immutable candidate and rollback pins. Use a sudoers drop-in installed with visudo that
    grants that account only the fixed executable:
 
    ```sudoers
-   buddy-deploy ALL=(root) NOPASSWD: /usr/local/sbin/activate-buddy-release
+   buddy-deploy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-buddy-release
    ```
 
-   Install the reviewed staging command separately for the root operator.
+   Replace the prior activation-only sudoers grant and forced command. Install the reviewed dispatcher and both helpers from the same revision.
    From a trusted copy of the pinned deployment source, use:
 
    ```bash
    sudo install -o root -g root -m 0755 deploy/production/activate-buddy-release /usr/local/sbin/activate-buddy-release
    sudo install -o root -g root -m 0755 deploy/production/stage-buddy-release /usr/local/sbin/stage-buddy-release
-   sha256sum deploy/production/{activate,stage}-buddy-release /usr/local/sbin/{activate,stage}-buddy-release
+   sudo install -o root -g root -m 0755 deploy/production/deploy-buddy-release /usr/local/sbin/deploy-buddy-release
+   sha256sum deploy/production/{activate,stage,deploy}-buddy-release /usr/local/sbin/{activate,stage,deploy}-buddy-release
    ```
 
-   Verify the paired checksums and preserve the previous activator for host
+   Verify the installed checksums and preserve the previous activator for host
    recovery. Install during a coordinated maintenance window with no other
    Buddy deployment running.
 
@@ -121,23 +122,33 @@ rollback image pins unchanged until staging and activation.
 Set `registry_digest` to the `sha256:…` portion of that registry reference.
 Verify the candidate's compatibility with the current schema and data.
 Record the currently serving healthy image as the compatible rollback.
-The rollback image must already be tagged and present on the host. Using
-the approved values, the root operator stages the image and both pins:
+The rollback image must already be tagged and present on the host.
+Dispatch **Deploy Buddy (image only)** from main using the approved values:
 
 ```bash
-sudo /usr/local/sbin/stage-buddy-release \
-  "$revision" "$registry_digest" "$candidate_image_id" \
-  "$rollback_revision" "$rollback_image_id"
+gh workflow run deploy-buddy.yml --ref main \
+  -f revision="$revision" -f registry_digest="$registry_digest" \
+  -f candidate_id="$candidate_image_id" -f rollback_revision="$rollback_revision" \
+  -f rollback_id="$rollback_image_id" -f release_mode="${release_mode:-default}" \
+  -f document_digest="${document_digest:-}"
 ```
+
+The production operator authorizes the exact request before dispatch. The
+`buddy-production` environment restricts the workflow to main. The dispatcher
+checks the healthy serving rollback, stages, and activates under a single lock.
+Confirm both `BUDDY_STAGED` and `BUDDY_LIVE` with the candidate image ID.
+
+Until the production operator replaces the activation-only forced command,
+continue staging as root and dispatch with the revision alone. After the
+forced command changes, the dispatcher requires all candidate and rollback pins.
 
 Before staging either guest mode, install a root-owned, root-only `/etc/buddy-deploy/guest-graph.conf` containing the authorized baseline as shell assignments `guest_graph_space=<space>` and `guest_graph_revision=<revision>`. Use the exact approved identifiers; the helper validates and freezes them in the release record. Changing them cannot retarget an existing staged release. Do not include credentials.
 
-For a main-line guest Graph image, append the literal `guest-graph` argument to
-the stage command after installing the reviewed guest-capable stage helper.
-For a guest Graph serving overlay, append `guest-graph-serving` instead. That
+For a main-line guest Graph image, choose `guest-graph` as the workflow release mode.
+For a guest Graph serving overlay, choose `guest-graph-serving` instead. That
 mode requires the candidate's serving-parent label to equal the rollback source
 SHA; ordinary guest mode rejects a labeled serving image. The default
-five-argument mode continues to accept only the default build.
+release mode continues to accept only the default build.
 
 The command pulls by registry digest, verifies the candidate and rollback
 identities, and creates `/etc/buddy-deploy/releases/<full-candidate-sha>.conf`
@@ -147,7 +158,7 @@ Guest records also contain the enabled switch and the two validated baseline ide
 For the merged guest Buddy discussion capability, select `hosted_guest_buddy=true`
 alongside guest Graph, Build, Plan, Play, and media when publishing the reviewed
 serving image. Use `guest-buddy-documents-serving` for staging, with the document
-template digest as the seventh argument. The image identity includes `buddy=1`;
+template digest as the workflow document digest. The image identity includes `buddy=1`;
 the stage record binds it to the candidate and activation checks all three guest
 conversation switches. This does not enable guest Buddy effects or establish a
 live-provider test. Existing release modes remain available with Buddy off.
@@ -159,7 +170,7 @@ An earlier Buddy-only image cannot be staged as a Play Buddy release.
 
 For guest Build proposals, also select `hosted_guest_build_proposals=true` and
 stage with `guest-build-proposals-documents-serving` and the same document
-template digest as the seventh argument. Its distinct `build-proposals=1` image
+template digest as the workflow document digest. Its distinct `build-proposals=1` image
 identity and staged setting enable the candidate's existing Build proposal flow.
 A Play Buddy-only image is rejected for this mode. Rollback uses the base
 Compose policy; this switch alone does not establish production acceptance.
@@ -168,7 +179,7 @@ For a serving release that includes approved guest source pages, install a root-
 `/etc/buddy-deploy/guest-documents-template.json` and a root-owned
 `/etc/buddy-deploy/guest-document-bundles` directory. The template is UTF-8 JSON
 with `version: 1` and a `documents` list of `{title, markdown}` objects. Compute
-its lowercase SHA-256 and pass it as the seventh argument, after the literal mode
+its lowercase SHA-256 and pass it as the workflow document digest, after the literal mode
 `guest-build-documents-serving`. Stage binds the template to the existing approved
 Graph policy, stores a content-addressed read-only bundle, and records its digest.
 Keep that artifact for provenance and rollback. A changed template or existing
@@ -186,7 +197,7 @@ registry_digest=sha256:<immutable-registry-manifest-digest>
 
 ## Activate and verify
 
-Dispatch **Deploy Buddy (image only)** from main with the candidate SHA.
+Dispatch **Deploy Buddy (image only)** from main with the candidate and rollback pins above.
 It waits for the fixed Buddy service to become ready, with pulling and building
 disabled. It checks the serving image, health, data mount and loopback binding.
 If the candidate fails, it attempts to restore the verified prior image and

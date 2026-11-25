@@ -9,7 +9,12 @@ revision=$1
 readonly config_dir=/etc/buddy-deploy
 release="$config_dir/releases/$revision.conf"
 
-exec 9>/run/lock/buddy-production-deploy.lock
+if [[ ${BUDDY_DEPLOY_LOCK_HELD:-0} == 1 ]]; then
+  [[ /proc/self/fd/9 -ef /run/lock/buddy-production-deploy.lock ]] ||
+    fail "missing inherited Buddy deployment lock"
+else
+  exec 9>/run/lock/buddy-production-deploy.lock
+fi
 flock -n 9 || fail "another Buddy deploy is active"
 
 # These files are local operator policy, never supplied by the SSH caller.

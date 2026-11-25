@@ -4,9 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       revision:
-        description: Full SHA of the approved, staged Buddy image
+        description: Full SHA of the approved Buddy image
         type: string
         required: true
+
+      registry_digest:
+        description: Immutable digest from the approved publication run
+        type: string
+        required: false
+      candidate_id:
+        description: Image config digest from the approved registry manifest
+        type: string
+        required: false
+      rollback_revision:
+        description: Expected currently serving source revision
+        type: string
+        required: false
+      rollback_id:
+        description: Expected currently serving image ID
+        type: string
+        required: false
+      release_mode:
+        description: Release mode accepted by the production staging helper
+        type: string
+        default: default
+        required: true
+      document_digest:
+        description: Approved guest document template SHA-256, when required
+        type: string
+        required: false
 
 permissions: {}
 
@@ -21,9 +47,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     steps:
-      - name: Cut over to the approved Buddy image
+      - name: Stage and activate the approved Buddy image
         env:
           REVISION: ${{ inputs.revision }}
+          REGISTRY_DIGEST: ${{ inputs.registry_digest }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          ROLLBACK_REVISION: ${{ inputs.rollback_revision }}
+          ROLLBACK_ID: ${{ inputs.rollback_id }}
+          RELEASE_MODE: ${{ inputs.release_mode }}
+          DOCUMENT_DIGEST: ${{ inputs.document_digest }}
           DEPLOY_HOST: ${{ vars.BUDDY_DEPLOY_HOST }}
           DEPLOY_KEY: ${{ secrets.BUDDY_DEPLOY_KEY }}
           KNOWN_HOSTS: ${{ vars.BUDDY_DEPLOY_KNOWN_HOSTS }}
@@ -31,6 +63,21 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          request=$REVISION
+          if [[ -n "$REGISTRY_DIGEST$CANDIDATE_ID$ROLLBACK_REVISION$ROLLBACK_ID" ]]; then
+            [[ "$ROLLBACK_REVISION" =~ ^[0-9a-f]{40}$ ]]
+            for digest in "$REGISTRY_DIGEST" "$CANDIDATE_ID" "$ROLLBACK_ID"; do
+              [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            done
+            [[ "$RELEASE_MODE" =~ ^[a-z-]+$ ]]
+            [[ -z "$DOCUMENT_DIGEST" || "$DOCUMENT_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+            request="$REVISION $REGISTRY_DIGEST $CANDIDATE_ID $ROLLBACK_REVISION $ROLLBACK_ID $RELEASE_MODE"
+            if [[ -n "$DOCUMENT_DIGEST" ]]; then
+              request+=" $DOCUMENT_DIGEST"
+            fi
+          else
+            [[ "$RELEASE_MODE" == default && -z "$DOCUMENT_DIGEST" ]]
+          fi
           [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
           : "${DEPLOY_KEY:?Set the Buddy production deploy key}"
           : "${KNOWN_HOSTS:?Set the pinned Buddy production SSH host key}"
@@ -45,8 +92,13 @@ jobs:
             -o StrictHostKeyChecking=yes -o GlobalKnownHostsFile=/dev/null \
             -o UserKnownHostsFile="$ssh_dir/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
-            "buddy-deploy@$DEPLOY_HOST" "$REVISION" | tee "$ssh_dir/result"
-          grep -Eq "^BUDDY_LIVE $REVISION sha256:[0-9a-f]{64}$" "$ssh_dir/result"
+            "buddy-deploy@$DEPLOY_HOST" "$request" | tee "$ssh_dir/result"
+          if [[ -n "$CANDIDATE_ID" ]]; then
+            grep -Fxq "BUDDY_STAGED $REVISION $CANDIDATE_ID $REGISTRY_DIGEST" "$ssh_dir/result"
+            grep -Fxq "BUDDY_LIVE $REVISION $CANDIDATE_ID" "$ssh_dir/result"
+          else
+            grep -Eq "^BUDDY_LIVE $REVISION sha256:[0-9a-f]{64}$" "$ssh_dir/result"
+          fi
 
       - name: Check public Buddy readiness and signed-out authentication
         shell: bash
