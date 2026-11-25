@@ -70,3 +70,32 @@ def test_cleanup_cannot_replace_the_known_destination_refusal(monkeypatch):
     assert failed.value.code == 'plan_authoring_destination_unavailable'
     adapter.stop.assert_called_once()
     assert harness.calls == []
+
+
+def test_guest_model_write_selection_never_reserves_action(monkeypatch):
+    from application_state.agent_conversation.types import PlanContextPolicyV2
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+
+    async def select(**_kwargs):
+        return 'write_current_page', None
+
+    semantic = SimpleNamespace(call=None, run=select)
+    monkeypatch.setattr(module.PlanJevDispatch, 'requested_work', lambda *args, **kwargs: semantic)
+    monkeypatch.setattr(module, 'PlanRulesRuntime', lambda *args: object())
+    driver = Mock(calls=[])
+    driver.decision_arguments.return_value = {}
+    monkeypatch.setattr(module, 'PlanJevDriver', lambda *args, **kwargs: driver)
+    monkeypatch.setattr('apps.live_control_server.services.native_authored_references.acquire', lambda *args: None)
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id='world', session_id='session', request=SimpleNamespace())
+    turn = SimpleNamespace(graph_context_receipt=None,
+        graph_context_execution=SimpleNamespace(policy=SimpleNamespace(action=object())))
+    fence = SimpleNamespace(turn=turn, begin_plan_opening=Mock())
+    service = SimpleNamespace(reserve_plan_authoring_action=Mock())
+    adapter = SimpleNamespace(work=SimpleNamespace(plan_markdown='# Plan'), turn=turn,
+        request=SimpleNamespace(plan_context_policy=PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')),
+        native_principal=principal, claim_native_plan_request=Mock(), fence=fence, service=service, stop=Mock())
+    with pytest.raises(AgentTurnServiceError) as failed:
+        module.PlanJevHarness().execute(adapter)
+    assert failed.value.code == 'guest_turn_capability_unavailable'
+    service.reserve_plan_authoring_action.assert_not_called()
