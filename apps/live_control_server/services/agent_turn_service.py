@@ -1801,7 +1801,9 @@ class _ClaimFence:
                         and type(self.service) is AgentConversationService and eligible(updated)):
                     session_owned = True
                     self.renewer._session = NativePlanSession(updated,
-                        measure=self.trace.measure_host_work if self.trace is not None else None)
+                        measure=self.trace.measure_host_work if self.trace is not None else None,
+                        authorize_transaction=self.service._authorize_transaction,
+                        validate_transaction=self.service._validate_transaction)
             except BaseException as exc:
                 if session_owned:
                     if self.renewer._session is not None:

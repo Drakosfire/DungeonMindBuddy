@@ -1,6 +1,7 @@
 import { AppearanceControl } from "../../ui/AppearanceControl";
 import { appearanceAccentRequest, type AppearanceAccent } from "../../ui/appearanceSettings";
 import { dungeonMindLoginHref, useHostedAuthStatus } from "../../auth/HostedAuthGate";
+import { guestBuildActive } from "../../guestWorld/guestBuildSession";
 import { ConversationDraftEditor, ConversationVariantApproval } from "../../agentInteraction/ConversationDraftEditor";
 import { downloadBlob } from "../../shared/downloadBlob";
 import { SavedStatblockPdfEvidence } from './SavedStatblockPdfEvidence';
@@ -3150,7 +3151,7 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible,
+    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible && !guestBuildActive(),
     onReviewOnPage:()=>agent.setPaneOpen(false),
     onConstructionVisible:()=>{
       if(!(composerDraftsRef.current[composerDraftKey]??'').trim())agent.setPaneOpen(false);
@@ -4165,6 +4166,11 @@ export function WorldPlanAgentConversation({
     const isRetry = questionOverride !== undefined;
     if(!isRetry&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
     const planReferenceInput=isRetry ? retryReferences ?? undefined : composerReferences.length?authoredReferences(composerReferences):undefined;
+    if (guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1"
+        && (targetAtSubmit || planOperation === "write_current_page")) {
+      setError('Guest Buddy currently supports questions without a selected card or Plan edit. Remove the unsupported selection to ask.');
+      return;
+    }
     if(planOperation&&!useWorldGraphForAsk){setError('Enable World context to send this native Plan operation. Your message has not been sent.');return;}
     if(planReferenceInput&&!useWorldGraphForAsk){setError('Enable World context to include this request’s references. No request was sent.');return;}
     const planReferenceDraft=isRetry ? null : composerReferenceState.draft;
@@ -4205,8 +4211,9 @@ export function WorldPlanAgentConversation({
     };
 
     try {
-      const frozenComposed = useWorldGraphForAsk ? await editBridge?.freezeComposedAuthoring?.() : null;
-      const frozenTarget=useWorldGraphForAsk&&editBridge?.sealAuthoring&&!frozenComposed?await editBridge.capture():null;
+      const guestDiscussion = guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1";
+      const frozenComposed = useWorldGraphForAsk && !guestDiscussion ? await editBridge?.freezeComposedAuthoring?.() : null;
+      const frozenTarget=useWorldGraphForAsk&&!guestDiscussion&&editBridge?.sealAuthoring&&!frozenComposed?await editBridge.capture():null;
       if(!stillPreparing())return;
       if(planOperation==='write_current_page'&&frozenTarget)assertDisplayedPlanTarget(frozenTarget);
       if(useWorldGraphForAsk&&editBridge?.sealAuthoring&&!pointerSnapshot.conversation_id){

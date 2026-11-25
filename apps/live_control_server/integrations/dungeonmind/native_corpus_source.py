@@ -74,6 +74,11 @@ class NativeSourceHeadUnavailable(ValueError):
     """The verified source owner has no current KnowledgeSpace revision."""
 
 
+def _guest_access(principal, world_id):
+    from ...services.hosted_native_graph_access import require_guest_read_access
+    require_guest_read_access(principal, world_id)
+
+
 def prepare_native_source_context(*, managed_world_id, principal, revision_id=None,
                                   repository=None, resolve_identity=None, parsed_cache=None,
                                   open_access=None):
@@ -86,6 +91,7 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
     """
     if principal is None or principal.role != "gm":
         raise ValueError("GM authority is required for cross-campaign source inspection")
+    _guest_access(principal, managed_world_id)
     if getattr(principal, 'managed_world_id', managed_world_id) != managed_world_id:
         raise ValueError('Native source World differs from principal World')
     if resolve_identity is None:
@@ -128,11 +134,13 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
         acquisition_epoch=access.source_view.epoch)
     if resolve_identity(managed_world_id) != bound:
         raise ValueError("Native source ownership changed during context preparation")
+    _guest_access(principal, managed_world_id)
     return NativeCorpusContext(authority, bound, access, resolve_identity, principal, repo)
 
 
 def open_native_corpus_member(prepared, evidence_ref_id):
     """Open one exact Core member from its pinned source view."""
+    _guest_access(prepared.principal, prepared.authority.managed_world_id)
     access = prepared.access
     evidence = access.parsed.get_evidence(evidence_ref_id)
     if evidence is None or evidence.source_revision_id is None:
@@ -145,6 +153,7 @@ def open_native_corpus_member(prepared, evidence_ref_id):
     result = _build_native_corpus_member(prepared, evidence, opened, snapshot)
     if prepared.resolve_identity(prepared.authority.managed_world_id) != prepared.binding:
         raise ValueError("Native source ownership changed during opening")
+    _guest_access(prepared.principal, prepared.authority.managed_world_id)
     return result
 
 
@@ -209,6 +218,7 @@ def read_authored_source(prepared, reference):
     catalog = build_native_body_catalog(authority, member, text)
     excerpt = (select_native_full_document(catalog, text) if reference.selection_kind == 'full_document'
                else select_native_body_excerpt(catalog, text, reference.section_id))
+    _guest_access(prepared.principal, authority.managed_world_id)
     return catalog, excerpt
 
 
@@ -217,6 +227,7 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
     """Acquire bodies only after the caller has durably authorized source search."""
     if principal is None or principal.role != "gm":
         raise ValueError("GM authority is required for cross-campaign source inspection")
+    _guest_access(principal, managed_world_id)
     if prepared is None:
         prepared = prepare_native_source_context(managed_world_id=managed_world_id,
             principal=principal, revision_id=revision_id, repository=repository,
@@ -267,6 +278,7 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
             bodies[pair] = text
         if prepared.resolve_identity(managed_world_id) != prepared.binding:
             raise ValueError("Native source ownership changed during capture")
+        _guest_access(principal, managed_world_id)
         return NativeCorpusCapture(authority, tuple(members), MappingProxyType(bodies), unavailable)
 
 
@@ -294,6 +306,7 @@ def read_native_corpus_member(*, authority, member, principal, prepared):
         member.verify_body(opened.body_text)
         if fresh.resolve_identity(authority.managed_world_id) != fresh.binding:
             raise ValueError("Native source ownership changed during the selected read")
+        _guest_access(principal, authority.managed_world_id)
         return opened.body_text
 
 
@@ -301,6 +314,7 @@ def _refresh_native_context(prepared, *, authority, principal, scope: ExitStack 
     """One freshness boundary for selected native source reads."""
     if principal is None or principal.role != "gm":
         raise ValueError("GM authority is required for cross-campaign source inspection")
+    _guest_access(principal, authority.managed_world_id)
     original = authority.model_dump(mode="json", exclude={"acquisition_epoch"})
     if (prepared.principal != principal
             or prepared.authority.model_dump(mode="json", exclude={"acquisition_epoch"}) != original
@@ -345,5 +359,6 @@ def read_direct_native_source(prepared, *, authority, source_artifact_id, source
                 member.revision.content_sha256) != (source_artifact_id, source_revision_id, content_sha256):
             raise ValueError("Direct source opening changed the exact selected revision")
         catalog = build_native_body_catalog(fresh.authority, member, body)
+        _guest_access(prepared.principal, authority.managed_world_id)
         return catalog, select_native_full_document(catalog, body)
     return None
