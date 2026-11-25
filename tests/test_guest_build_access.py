@@ -32,6 +32,20 @@ def test_guest_play_routes_require_both_flags(monkeypatch):
     assert not matches_guest_build_route("DELETE", "/api/live/world-play-runs/v2")
 
 
+def test_guest_conversation_plan_revision_requires_both_flags(monkeypatch):
+    from apps.live_control_server.services.guest_build_access import matches_guest_build_route
+    path = "/api/live/workspace-documents/11111111-1111-4111-8111-111111111111/committed-revision"
+    monkeypatch.delenv("DMB_HOSTED_GUEST_PLAY_ENABLED", raising=False)
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
+    monkeypatch.delenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", raising=False)
+    assert not matches_guest_build_route("GET", path)
+    monkeypatch.setenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", "1")
+    assert matches_guest_build_route("GET", path)
+    assert not matches_guest_build_route("POST", path)
+    monkeypatch.delenv("DMB_HOSTED_GUEST_PLAN_ENABLED", raising=False)
+    assert not matches_guest_build_route("GET", path)
+
+
 def test_guest_media_routes_are_default_off(monkeypatch):
     from apps.live_control_server.services.guest_build_access import matches_guest_build_route
     monkeypatch.delenv("DMB_HOSTED_GUEST_MEDIA_ENABLED", raising=False)
@@ -65,6 +79,8 @@ def guests(application_state_dsn, monkeypatch, tmp_path):
     app.include_router(live.router)
     app.include_router(play_runs.router)
     app.include_router(media_images.router)
+    from apps.live_control_server.routes import conversation_library
+    app.include_router(conversation_library.router)
     install_hosted_request_boundary(app)
     async def signed_out(_request):
         return None
@@ -80,6 +96,780 @@ def guests(application_state_dsn, monkeypatch, tmp_path):
         assert world.status_code == 200
         contexts.append((client, csrf, world.json()["world_id"]))
     return contexts, repo, source
+
+
+def test_guest_conversation_history_and_new_are_session_bound(guests, monkeypatch):
+    from uuid import uuid4
+    from apps.live_control_server.services import guest_build_access
+
+    (client, csrf, world), (other, _, other_world) = guests[0]
+    path = f"/api/live/agent/worlds/{world}/conversation"
+    assert client.get(path).status_code == 401
+    monkeypatch.setenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", "1")
+    assert client.get(path).status_code == 200
+    assert other.get(path).status_code == 403
+    assert client.get(f"/api/live/agent/worlds/{other_world}/conversation").status_code == 403
+    assert client.get(path + "?limit=1&limit=2").status_code == 400
+    citation = path + f"/turns/{uuid4()}/source-passages/0"
+    assert client.get(citation).status_code in (404, 409)
+    assert other.get(citation).status_code == 403
+    assert client.get(citation + "?world_id=other").status_code == 400
+    body = {"command_id": str(uuid4()), "expected_pointer_revision": 0,
+            "expected_active_conversation_id": None}
+    assert client.post(path + "/new", json=body).status_code == 403
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 1)
+    assert client.post(path + "/new", json=body, headers={"X-DMB-Index-Graph-CSRF": csrf}).status_code == 409
+    assert client.get(path).json()['conversation_state'] == 'absent'
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
+    response = client.post(path + "/new", json=body, headers={"X-DMB-Index-Graph-CSRF": csrf})
+    assert response.status_code == 200, response.text
+    from types import SimpleNamespace
+    from uuid import UUID
+    from application_state.unit_of_work import unit_of_work
+    session_id = str(UUID(world.removeprefix('guest-')))
+    bound_request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world, guest_build_session=session_id))
+    with unit_of_work() as conn:
+        guest_build_access._lock_guest_session(bound_request, conn, world)
+        exact_bytes = guest_build_access.guest_conversation_bytes(bound_request, conn, world)
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', exact_bytes)
+    monkeypatch.setattr(guest_build_access, "MAX_GUEST_CONVERSATIONS", 1)
+    assert client.post(path + "/new", json=body, headers={"X-DMB-Index-Graph-CSRF": csrf}).json() == response.json()
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
+    second = {"command_id": str(uuid4()), "expected_pointer_revision": 1,
+              "expected_active_conversation_id": response.json()["active_conversation_id"]}
+    assert client.post(path + "/new", json=second, headers={"X-DMB-Index-Graph-CSRF": csrf}).status_code == 409
+    assert client.post("/api/live/index-graph/reset", headers={"X-DMB-Index-Graph-CSRF": csrf}).status_code == 200
+    assert client.get(path).status_code in (401, 403)
+
+
+def test_guest_cleanup_sweep_advances_past_failed_session(guests, monkeypatch):
+    from uuid import uuid4
+    from application_state.index_graph import guest_conversation_cleanup as cleanup
+
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    for client, csrf, world in guests[0]:
+        response = client.post(f'/api/live/agent/worlds/{world}/conversation/new',
+            headers={'X-DMB-Index-Graph-CSRF': csrf}, json={'command_id': str(uuid4()),
+                'expected_pointer_revision': 0, 'expected_active_conversation_id': None})
+        assert response.status_code == 200, response.text
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '0')
+    for client, csrf, _ in guests[0]:
+        assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+    attempted = []
+    def fail(session_id):
+        attempted.append(session_id)
+        raise RuntimeError('synthetic unexpected dependency')
+    monkeypatch.setattr(cleanup, '_cursor', None)
+    monkeypatch.setattr(cleanup, 'cleanup_expired_guest_conversation', fail)
+    cleanup.cleanup_expired_guest_conversations(limit=1)
+    cleanup.cleanup_expired_guest_conversations(limit=1)
+    assert len(attempted) == 2 and attempted[0] != attempted[1]
+
+
+def test_guest_cleanup_skips_a_locked_session(guests, monkeypatch, application_state_dsn):
+    from time import monotonic
+    from uuid import UUID
+    from application_state.engine import connect
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
+
+    (client, csrf, world), _ = guests[0]
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '0')
+    assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+    session_id = str(UUID(world.removeprefix('guest-')))
+    with connect(application_state_dsn) as conn:
+        conn.execute('SELECT 1 FROM application_state.index_graph_sessions WHERE session_id=%s FOR UPDATE', (session_id,))
+        started = monotonic()
+        with pytest.raises(ApplicationStateConflictError):
+            cleanup_expired_guest_conversation(session_id)
+        assert monotonic() - started < 2
+
+
+def test_guest_cleanup_rolls_back_on_unexpected_dependency(guests, monkeypatch, application_state_dsn):
+    from uuid import UUID, uuid4
+    from application_state.engine import connect
+    from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
+    import psycopg
+
+    (client, csrf, world), _ = guests[0]
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    response = client.post(f'/api/live/agent/worlds/{world}/conversation/new',
+        headers={'X-DMB-Index-Graph-CSRF': csrf}, json={'command_id': str(uuid4()),
+            'expected_pointer_revision': 0, 'expected_active_conversation_id': None})
+    assert response.status_code == 200, response.text
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '0')
+    assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+    session_id = str(UUID(world.removeprefix('guest-')))
+    with connect(application_state_dsn) as conn:
+        conn.execute('CREATE TABLE agent.test_guest_cleanup_dependency (conversation_id uuid REFERENCES agent.conversation(conversation_id))')
+        conn.execute('INSERT INTO agent.test_guest_cleanup_dependency VALUES (%s)', (response.json()['conversation_id'],))
+        conn.commit()
+        try:
+            with pytest.raises(psycopg.errors.ForeignKeyViolation):
+                cleanup_expired_guest_conversation(session_id)
+            assert conn.execute('SELECT count(*) FROM agent.command_receipt WHERE world_id=%s', (world,)).fetchone()[0] == 1
+            assert conn.execute('SELECT count(*) FROM agent.world_state WHERE world_id=%s', (world,)).fetchone()[0] == 1
+            assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (world,)).fetchone()[0] == 1
+        finally:
+            conn.rollback()
+            conn.execute('DROP TABLE agent.test_guest_cleanup_dependency')
+            conn.commit()
+
+
+def test_guest_turn_admission_is_default_off_and_rejects_streams(guests, monkeypatch):
+    from tests.test_agent_turn_route import _payload
+
+    (client, csrf, world), (_, _, other_world) = guests[0]
+    path = "/api/live/agent/turn"
+    headers = {"X-DMB-Index-Graph-CSRF": csrf}
+    monkeypatch.setenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", "1")
+    assert client.post(path, json={}, headers=headers).status_code == 401
+    monkeypatch.setenv("DMB_HOSTED_GUEST_TURN_ENABLED", "1")
+    assert client.post(path, json={}, headers={**headers, "Accept": "text/event-stream"}).status_code == 403
+    assert client.post(path, json={}).status_code == 403
+    assert client.post(path, json={}, headers=headers).status_code == 400
+    forged = {**_payload(), "owner_scope": {"kind": "world", "world_id": other_world}}
+    assert client.post(path, json=forged, headers=headers).status_code == 403
+    unsupported = {**_payload(), "owner_scope": {"kind": "world", "world_id": world},
+                   "surface": {"surface_id": "plan", "instance_id": "plan-main"}}
+    rejected = client.post(path, json=unsupported, headers=headers)
+    assert rejected.status_code == 403, rejected.text
+    assert rejected.json()["detail"]["code"] == "guest_turn_capability_unavailable"
+    conflicting = {**_payload(), "owner_scope": {"kind": "world", "world_id": world},
+                   "graph_request": {"mode": "world", "world_id": other_world, "campaign_id": None,
+                                     "revision_pin": None, "focus": {"kind": "none", "session_id": None, "campaign_id": None}}}
+    assert client.post(path, json=conflicting, headers=headers).status_code == 403
+
+
+def test_guest_plan_discussion_uses_normal_native_request_shape(guests, monkeypatch):
+    from tests.test_plan_jev_authoring import request_payload
+    from apps.live_control_server.routes import agent
+
+    (client, csrf, world), _ = guests[0]
+    monkeypatch.setenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", "1")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_TURN_ENABLED", "1")
+    observed = []
+    monkeypatch.setattr(agent, "_execute_agent_turn", lambda body, _request: observed.append(body) or {"ok": True})
+    payload = request_payload()
+    payload.pop("plan_authoring_capture")
+    payload["owner_scope"]["world_id"] = world
+    payload["plan_context_policy"] = {"schema": "dmb_plan_context_policy_v2", "policy": "auto_plan_world", "graph_source": "reviewed_native_graph"}
+    headers = {"X-DMB-Index-Graph-CSRF": csrf}
+    response = client.post("/api/live/agent/turn", json=payload, headers=headers)
+    assert response.status_code == 200, response.text
+    assert len(observed) == 1
+    payload["plan_requested_operation"] = "write_current_page"
+    rejected = client.post("/api/live/agent/turn", json=payload, headers=headers)
+    assert rejected.status_code == 403, rejected.text
+    assert len(observed) == 1
+
+
+def test_guest_read_revalidation_does_not_block_own_session_lock(guests, application_state_dsn):
+    from types import SimpleNamespace
+    from uuid import UUID
+    from dataclasses import replace
+    from fastapi import HTTPException
+    from application_state.engine import connect
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal, require_guest_read_access
+
+    (client, csrf, world), _ = guests[0]
+    session_id = str(UUID(world.removeprefix('guest-')))
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world, guest_build_session=session_id))
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id=world, session_id=session_id, request=request)
+    with connect(application_state_dsn) as conn:
+        conn.execute('SELECT 1 FROM application_state.index_graph_sessions WHERE session_id=%s FOR UPDATE', (session_id,))
+        require_guest_read_access(principal, world)
+    with pytest.raises(HTTPException):
+        require_guest_read_access(replace(principal, auth_method='local_operator'), world)
+    with connect(application_state_dsn) as conn:
+        original = conn.execute("SELECT value FROM application_state.index_graph_bindings WHERE session_id=%s AND key='space_id'", (session_id,)).fetchone()[0]
+        conn.execute("UPDATE application_state.index_graph_bindings SET value='foreign-space' WHERE session_id=%s AND key='space_id'", (session_id,))
+    with pytest.raises(HTTPException):
+        require_guest_read_access(principal, world)
+    with connect(application_state_dsn) as conn:
+        conn.execute("UPDATE application_state.index_graph_bindings SET value=%s WHERE session_id=%s AND key='space_id'", (original, session_id))
+    assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+    with pytest.raises(ApplicationStateConflictError):
+        require_guest_read_access(principal, world)
+
+
+@pytest.mark.parametrize('reset_during_read', [False, True])
+def test_guest_reset_revokes_prepared_native_graph_read(guests, tmp_path, monkeypatch, reset_during_read):
+    from types import SimpleNamespace
+    from uuid import UUID
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
+    from tests.test_source_statements import make_lane
+    from tests.test_native_plan_assertions import publish, grant
+
+    (client, csrf, world), _ = guests[0]
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    publish(lane)
+    session_id = str(UUID(world.removeprefix('guest-')))
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world, guest_build_session=session_id))
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id=world, session_id=session_id, request=request)
+    binding = SimpleNamespace(managed_world_id=world, native_world_id=lane.world.world_id,
+                              binding_version=1, provisioning_id=None)
+    context, _ = prepare_query(world, 'What did B do?', principal, repository=lane.repo,
+                               resolve_binding=lambda _: binding)
+    authorization = grant(context)
+    reads, _ = read_selected(context, authorization, principal)
+    assert reads
+    def reset():
+        assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+
+    if reset_during_read:
+        from apps.live_control_server.services import native_graph_reads
+        original = native_graph_reads._read_assertions
+
+        def reset_after_read(*args, **kwargs):
+            result = original(*args, **kwargs)
+            reset()
+            return result
+
+        monkeypatch.setattr(native_graph_reads, '_read_assertions', reset_after_read)
+    else:
+        reset()
+    with pytest.raises(ApplicationStateConflictError):
+        read_selected(context, authorization, principal)
+
+
+def test_guest_reset_during_authored_reference_read_discards_result(guests, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from uuid import UUID
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredReferencesV2
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    from apps.live_control_server.services import native_graph_reads
+    from tests.test_source_statements import make_lane
+    from tests.test_native_plan_assertions import publish
+    from tests.test_surface_native_authored_references import human_grant
+
+    (client, csrf, world), _ = guests[0]
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    publish(lane)
+    session_id = str(UUID(world.removeprefix('guest-')))
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world, guest_build_session=session_id))
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id=world, session_id=session_id, request=request)
+    binding = SimpleNamespace(managed_world_id=world, native_world_id=lane.world.world_id,
+                              binding_version=1, provisioning_id=None)
+    selected = AuthoredReferencesV2(references=(AuthoredGraphReferenceV1(managed_world_id=world,
+        native_world_id=lane.world.world_id, binding_version=1,
+        graph_revision=lane.repo.get_head(lane.world.world_id).head_revision_id,
+        node_id=lane.ids['B'], label='B'),))
+    context, _ = native_graph_reads.prepare_query(world, 'What did B do?', principal,
+        repository=lane.repo, resolve_binding=lambda _: binding, authored_references=selected)
+    authorization = human_grant(context, selected)
+    original = native_graph_reads._read_assertions
+    def reset_after_read(*args, **kwargs):
+        result = original(*args, **kwargs)
+        assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+        return result
+    monkeypatch.setattr(native_graph_reads, '_read_assertions', reset_after_read)
+    with pytest.raises(ApplicationStateConflictError):
+        native_graph_reads.read_authored_reference(context, authorization, principal)
+
+
+@pytest.mark.parametrize('reset_during_direct_read', [False, True])
+def test_guest_reset_revokes_prepared_native_source_body(guests, tmp_path, monkeypatch, reset_during_direct_read):
+    from types import SimpleNamespace
+    from uuid import UUID
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context, open_native_corpus_member, read_direct_native_source
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    from tests.test_source_statements import make_lane
+    from tests.test_native_plan_assertions import publish
+
+    (client, csrf, world), _ = guests[0]
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    publish(lane)
+    session_id = str(UUID(world.removeprefix('guest-')))
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world, guest_build_session=session_id))
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id=world, session_id=session_id, request=request)
+    binding = SimpleNamespace(managed_world_id=world, native_world_id=lane.world.world_id,
+                              binding_version=1, provisioning_id=None)
+    context = prepare_native_source_context(managed_world_id=world, principal=principal,
+        repository=lane.repo, resolve_identity=lambda _: binding)
+    member, _ = open_native_corpus_member(context, lane.meta.evidence_ref_ids[0])
+    def reset():
+        assert client.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+
+    if reset_during_direct_read:
+        from application_state.agent_conversation import native_corpus
+        original = native_corpus.build_native_body_catalog
+        def reset_after_open(*args, **kwargs):
+            result = original(*args, **kwargs)
+            reset()
+            return result
+        monkeypatch.setattr(native_corpus, 'build_native_body_catalog', reset_after_open)
+        with pytest.raises(ApplicationStateConflictError):
+            read_direct_native_source(context, authority=context.authority,
+                source_artifact_id=member.artifact.source_artifact_id,
+                source_revision_id=member.revision.source_revision_id,
+                content_sha256=member.revision.content_sha256)
+    else:
+        reset()
+        with pytest.raises(ApplicationStateConflictError):
+            open_native_corpus_member(context, lane.meta.evidence_ref_ids[0])
+
+
+@pytest.mark.parametrize('reset_during_writer', [False, True])
+def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer):
+    import json
+    import re
+    import httpx2
+    from threading import Event
+    from concurrent.futures import ThreadPoolExecutor
+    from uuid import uuid4
+    from tests.test_source_statements import make_lane
+    from tests.test_native_plan_assertions import publish, grant
+    from application_state.world_catalog.service import get_world
+    from apps.live_control_server.services.hosted_native_graph_access import HostedGuestGraphPrincipal
+    from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
+    from types import SimpleNamespace
+    from uuid import UUID
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import plan_jev_harness
+    from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+    from apps.live_control_server.routes import native_graph_inspection
+    from apps.live_control_server.routes import native_source_inspection
+    from apps.live_control_server.services import native_source_inspection as source_inspection_service
+    from tests.test_plan_jev_writer import WriterWire
+    from application_state.agent_conversation.native_plan_assertions import POLICY
+
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    publish(lane)
+    monkeypatch.setattr(graph_service, 'repository', lambda: lane.repo)
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'production')
+    monkeypatch.setenv('DMB_AUTH_MODE', 'hosted_dms')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_GRAPH_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_BUILD_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAN_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    monkeypatch.delenv('DMB_HOSTED_GUEST_PLAY_ENABLED', raising=False)
+    monkeypatch.setenv('DMB_HOSTED_GUEST_TURN_ENABLED', '1')
+    monkeypatch.setenv('DMB_GUEST_GRAPH_SOURCE_SPACE', lane.world.world_id)
+    monkeypatch.setenv('DMB_GUEST_GRAPH_SOURCE_REVISION', lane.repo.get_head(lane.world.world_id).head_revision_id)
+    monkeypatch.setenv('AUTH_TRUSTED_FRONTEND_ORIGINS', 'https://buddy.example')
+    app = FastAPI()
+    app.include_router(index_graph.router)
+    app.include_router(workspace_documents.router)
+    app.include_router(live.router)
+    app.include_router(native_graph_inspection.router)
+    app.include_router(native_source_inspection.router)
+    monkeypatch.setattr(workspace_documents, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(live, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
+    monkeypatch.setattr(native_registry_source, 'repository', lambda **_kw: lane.repo)
+    monkeypatch.setattr(native_registry_source, 'read_repository', lambda **_kw: lane.repo)
+    monkeypatch.setattr(source_inspection_service, 'turn_source_repository', lambda **_kw: lane.repo)
+    from dataclasses import asdict
+    monkeypatch.setattr(native_registry_source, 'binding', lambda world_id: asdict(native_registry_source.resolve_managed_world_binding(world_id)))
+    monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
+        lambda **_: ('openai-api', 'gpt-6-luna', 'https://api.openai.com/v1'))
+    install_hosted_request_boundary(app)
+    async def signed_out(_request):
+        return None
+    app.state.dms_principal_resolver = signed_out
+    client = TestClient(app, base_url='https://buddy.example', headers={'Origin': 'https://buddy.example', 'Sec-Fetch-Site': 'same-origin'})
+    session = client.post('/api/live/index-graph/session')
+    assert session.status_code == 200, session.text
+    headers = {'X-DMB-Index-Graph-CSRF': session.json()['csrf_token']}
+    guest = client.post('/api/live/index-graph/world', headers=headers)
+    assert guest.status_code == 200, guest.text
+    world = get_world(guest.json()['world_id']).record
+    assert world.native_graph_binding.native_world_id != lane.world.world_id
+    assert lane.repo.get_head(world.native_graph_binding.native_world_id) is not None
+    inspection_scope = {'managed_world_id': world.world_id, 'scope_mode': 'world', 'campaign_id': None}
+    assert client.post('/api/live/native-graph-inspection/catalog', json=inspection_scope).status_code == 403
+    catalog = client.post('/api/live/native-graph-inspection/catalog', headers=headers, json=inspection_scope)
+    assert catalog.status_code == 200, catalog.text
+    inspection = {'scope': catalog.json()['scope'], 'selection': {'kind': 'entity', 'entity_id': lane.ids['B']}}
+    selected = client.post('/api/live/native-graph-inspection/read', headers=headers, json=inspection)
+    assert selected.status_code == 200, selected.text
+    forbidden = {**inspection, 'scope': {**inspection['scope'], 'managed_world_id': 'foreign-world'}}
+    assert client.post('/api/live/native-graph-inspection/read', headers=headers, json=forbidden).status_code == 403
+    forged = {**inspection, 'scope': {**inspection['scope'], 'native_world_id': lane.world.world_id}}
+    assert client.post('/api/live/native-graph-inspection/read', headers=headers, json=forged).status_code != 200
+    assert client.post('/api/live/native-graph-inspection/read', headers=headers,
+        json={**inspection, 'selection': {'kind': 'chronology'}}).status_code == 403
+    assert client.post('/api/live/native-source-inspection/catalog', json=inspection_scope).status_code == 403
+    sources = client.post('/api/live/native-source-inspection/catalog', headers=headers, json=inspection_scope)
+    assert sources.status_code == 200, sources.text
+    item = sources.json()['catalogue']['sources'][0]
+    source_read = {'scope': sources.json()['scope'], 'source_artifact_id': item['source_artifact']['source_artifact_id'],
+                   'source_revision_id': item['source_revision']['source_revision_id'], 'evidence_ref_id': item['evidence_ref_ids'][0]}
+    opened_source = client.post('/api/live/native-source-inspection/read', headers=headers, json=source_read)
+    assert opened_source.status_code == 200, opened_source.text
+    assert 'A reports that B fled' in opened_source.text
+    foreign_source = {**source_read, 'scope': {**source_read['scope'], 'managed_world_id': 'foreign-world'}}
+    assert client.post('/api/live/native-source-inspection/read', headers=headers, json=foreign_source).status_code == 403
+    forged_source = {**source_read, 'scope': {**source_read['scope'], 'native_world_id': lane.world.world_id}}
+    assert client.post('/api/live/native-source-inspection/read', headers=headers, json=forged_source).status_code != 200
+    session_id = str(UUID(world.world_id.removeprefix('guest-')))
+    request = SimpleNamespace(state=SimpleNamespace(guest_build_world=world.world_id, guest_build_session=session_id))
+    principal = HostedGuestGraphPrincipal(subject='hosted_guest', role='gm', auth_method='hosted_guest',
+        managed_world_id=world.world_id, session_id=session_id, request=request)
+    context, _ = prepare_query(world.world_id, 'What did B do?', principal, repository=lane.repo)
+    reads, _ = read_selected(context, grant(context), principal)
+    assert reads
+    plan = client.post('/api/live/workspace-documents/world-plans', headers=headers,
+        json={'schema_version': 'dmb_workspace_document_create_v2', 'scope_mode': 'world',
+              'world_id': world.world_id, 'title': 'Guest source question'})
+    assert plan.status_code == 200, plan.text
+    document = plan.json()['document_id']
+    draft = {'document_id': document, 'markdown': '# Session\n\nInvestigate the report.',
+             'world_id': world.world_id, 'scope_mode': 'world',
+             'schema_version': 'dmb_tiptap_markdown_write_prepare_v2'}
+    prepared = client.post('/api/live/tiptap/markdown-write/prepare', headers=headers, json=draft)
+    assert prepared.status_code == 200, prepared.text
+    commit = {**draft, 'schema_version': 'dmb_tiptap_markdown_write_commit_v2',
+              'writer_confirm_token': prepared.json()['writer_confirm_token'],
+              'expected_revision': prepared.json()['registry_revision']}
+    saved = client.post('/api/live/tiptap/markdown-write/commit', headers=headers, json=commit)
+    assert saved.status_code == 200, saved.text
+    snapshot = client.get(f'/api/live/workspace-documents/{document}/snapshot')
+    assert snapshot.status_code == 200, snapshot.text
+    assert 'Investigate the report.' in snapshot.json()['markdown']
+    revision = client.get(f'/api/live/workspace-documents/{document}/committed-revision')
+    assert revision.status_code == 200, revision.text
+
+    class Decisions(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, req):
+            body = json.loads(req.content)
+            candidates = body.get('state', {}).get('candidates', [])
+            answers = {}
+            for name, entry in body['questions'].items():
+                choice = ('review_after_reads' if name == 'post_read_plan' else
+                          'discuss' if name == 'requested_work' else
+                          'finish_retrieval' if name == 'operation' else
+                          'include' if name.startswith('candidate_') and
+                          candidates[int(name.split('_')[-1])]['kind'].startswith('Native Graph object') else 'exclude')
+                answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1,
+                                 'probabilities': {key: float(key == choice) for key in entry['criteria']}}
+            return httpx2.Response(200, request=req, json={'model': 'jev-1.14.0', 'answers': answers,
+                'usage': {'input_tokens': 37, 'output_tokens': 9}})
+
+    writer_entered, writer_release = Event(), Event()
+    class Writer(WriterWire):
+        async def handle_async_request(self, req):
+            if reset_during_writer:
+                writer_entered.set()
+                assert writer_release.wait(15)
+            body = json.loads(req.content)
+            messages = [item['content'] for item in body['input'] if item['content'] != 'Return JSON.']
+            prose = messages[-1] if messages[-1].startswith('# Plan evidence\n\n') else None
+            if prose is not None:
+                match = re.search(r'^\[(assertion\d+)\] .+ · summary · .+$', prose, re.MULTILINE)
+                assert match, prose
+                handle = match[1]
+            else:
+                frames = [json.loads(message) for message in messages]
+                frame = next(item for item in frames if 'native_assertions' in item and 'native_body_evidence' in item)
+                handle = next(row['assertion_handle'] for row in frame['native_assertions']['records']
+                              if row['assertion']['predicate'] == 'dnd5e:summary')
+            output = {'schema': POLICY, 'limitations': [],
+                'answer_segments': [{'kind': 'native_assertion_claim', 'text': 'A reports that B fled; uncertain.',
+                                     'assertion_handles': [handle]}]}
+            if 'requested_detail_gaps' in body['text']['format']['schema']['properties']:
+                output['requested_detail_gaps'] = []
+            self.text = json.dumps(output)
+            return await super().handle_async_request(req)
+
+    wire = Writer(None, '')
+    class Harness(PlanJevHarness):
+        def execute(self, adapter, **kwargs):
+            wire.adapter = adapter
+            return super().execute(adapter, **kwargs)
+    monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: Harness(
+        decision_transport=Decisions(), writer_transport=wire,
+        decision_api_key='synthetic', writer_api_key='synthetic'))
+    from apps.live_control_server.services.workspace_document_registry import get_committed_playable_revision
+    committed = get_committed_playable_revision(document)
+    payload = {'schema': 'dmb_agent_turn_request_v1', 'client_thread_id': str(uuid4()), 'turn_id': str(uuid4()),
+        'surface': {'surface_id': 'plan', 'instance_id': 'plan-main'},
+        'owner_scope': {'kind': 'world', 'world_id': world.world_id},
+        'primary_work': {'kind': 'plan', 'object_id': document, 'expected_revision': committed.object_revision,
+                         'expected_revision_n': committed.revision_n, 'expected_content_sha256': committed.content_sha256},
+        'client_work_state': 'saved_clean', 'graph_request': {'mode': 'none'}, 'graph_selection': None,
+        'plan_context_policy': {'schema': 'dmb_plan_context_policy_v2', 'policy': 'auto_plan_world',
+                                'graph_source': 'reviewed_native_graph'}, 'message': 'What did B do?'}
+    binding = world.native_graph_binding
+    reference = {'schema': 'dmb_authored_graph_reference_v1', 'managed_world_id': world.world_id,
+                 'native_world_id': binding.native_world_id, 'binding_version': binding.binding_version,
+                 'graph_revision': lane.repo.get_head(binding.native_world_id).head_revision_id,
+                 'node_id': lane.ids['B'], 'label': 'B'}
+    source_reference = {'schema': 'dmb_authored_source_reference_v1', 'managed_world_id': world.world_id,
+        'native_world_id': binding.native_world_id, 'binding_version': binding.binding_version,
+        'knowledge_revision': sources.json()['scope']['revision_id'], 'source_artifact_id': source_read['source_artifact_id'],
+        'source_revision_id': source_read['source_revision_id'], 'evidence_ref_id': source_read['evidence_ref_id'],
+        'content_sha256': item['source_revision']['content_sha256'], 'selection_kind': 'full_document',
+        'section_id': None, 'label': 'Report'}
+    payload['authored_references'] = {'schema': 'dmb_authored_references_v2', 'references': [reference, source_reference]}
+    foreign = {**payload, 'authored_references': {'schema': 'dmb_authored_references_v2',
+               'references': [{**reference, 'managed_world_id': 'foreign-world'}]}}
+    assert client.post('/api/live/agent/turn', headers=headers, json=foreign).status_code in (400, 403, 422)
+    for invalid in ({**reference, 'native_world_id': lane.world.world_id},
+                    {**reference, 'binding_version': binding.binding_version + 1},
+                    {**reference, 'graph_revision': 'rev:missing'}):
+        invalid_payload = {**payload, 'turn_id': str(uuid4()),
+                           'authored_references': {'schema': 'dmb_authored_references_v2', 'references': [invalid]}}
+        invalid_response = client.post('/api/live/agent/turn', headers=headers, json=invalid_payload)
+        assert invalid_response.status_code != 200, invalid_response.text
+    for invalid in ({**source_reference, 'native_world_id': lane.world.world_id},
+                    {**source_reference, 'content_sha256': '0' * 64},
+                    {**source_reference, 'selection_kind': 'section', 'section_id': '0' * 64}):
+        invalid_payload = {**payload, 'turn_id': str(uuid4()),
+                           'authored_references': {'schema': 'dmb_authored_references_v2', 'references': [invalid]}}
+        invalid_response = client.post('/api/live/agent/turn', headers=headers, json=invalid_payload)
+        assert invalid_response.status_code != 200, invalid_response.text
+    assert not wire.calls
+    if reset_during_writer:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(client.post, '/api/live/agent/turn', headers=headers, json=payload)
+            try:
+                assert writer_entered.wait(15)
+                assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+            finally:
+                writer_release.set()
+            answer = pending.result(timeout=15)
+        assert answer.status_code != 200, answer.text
+        assert 'A reports that B fled' not in answer.text
+        from application_state.engine import connect
+        with connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT count(*) FROM agent.turn WHERE world_id=%s AND status='completed'", (world.world_id,)).fetchone()[0] == 0
+        return
+    answer = client.post('/api/live/agent/turn', headers=headers, json=payload)
+    assert answer.status_code == 200, answer.text
+    assert 'B fled' in answer.json()['answer']['text']
+    from apps.live_control_server.services import guest_build_access
+    from application_state.engine import connect
+    from application_state.errors import ApplicationStateConflictError
+    with connect(application_state_dsn) as conn:
+        guest_build_access._lock_guest_session(request, conn, world.world_id)
+        before = guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+        updated = conn.execute("UPDATE agent.turn_context_trace SET payload=payload || jsonb_build_object('quota_probe', repeat('x', 4096)) WHERE turn_id=%s", (wire.adapter.turn.turn_id,))
+        assert updated.rowcount == 1
+        monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', before + 1024)
+        with pytest.raises(ApplicationStateConflictError):
+            guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+        conn.rollback()
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
+    from time import monotonic
+    with connect(application_state_dsn) as conn:
+        guest_build_access._lock_guest_session(request, conn, world.world_id)
+        conn.execute("UPDATE agent.turn SET assistant_text=repeat('x', 30 * 1024 * 1024) WHERE turn_id=%s", (wire.adapter.turn.turn_id,))
+        started = monotonic()
+        measured = guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+        elapsed = monotonic() - started
+        assert 30 * 1024 * 1024 < measured < 32 * 1024 * 1024
+        assert elapsed < 5
+        conn.rollback()
+    citation = f'/api/live/agent/worlds/{world.world_id}/conversation/turns/{wire.adapter.turn.turn_id}/native-assertion-sources/0'
+    opened = client.get(citation)
+    assert opened.status_code == 200, opened.text
+    assert opened.json()['content'] == 'A reports that B fled; uncertain.\n'
+    from application_state.unit_of_work import unit_of_work
+    with unit_of_work() as conn:
+        guest_build_access._lock_guest_session(request, conn, world.world_id)
+        current_bytes = guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', current_bytes + 6000)
+    def append_under_budget():
+        try:
+            with unit_of_work() as conn:
+                guest_build_access._lock_guest_session(request, conn, world.world_id)
+                conn.execute("UPDATE agent.turn SET assistant_text=assistant_text || repeat('x', 4000) WHERE turn_id=%s", (wire.adapter.turn.turn_id,))
+                guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+            return 'committed'
+        except ApplicationStateConflictError:
+            return 'rejected'
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(lambda _: append_under_budget(), range(2)))
+    assert sorted(outcomes) == ['committed', 'rejected']
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
+    other = TestClient(app, base_url='https://buddy.example', headers={'Origin': 'https://buddy.example', 'Sec-Fetch-Site': 'same-origin'})
+    other_session = other.post('/api/live/index-graph/session')
+    assert other_session.status_code == 200
+    other_world = other.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': other_session.json()['csrf_token']})
+    assert other_world.status_code == 200
+    assert other.get(f'/api/live/workspace-documents/{document}/committed-revision').status_code == 403
+    other_headers = {'X-DMB-Index-Graph-CSRF': other_session.json()['csrf_token']}
+    assert other.post('/api/live/native-graph-inspection/catalog', headers=other_headers, json=inspection_scope).status_code == 403
+    assert other.post('/api/live/native-source-inspection/read', headers=other_headers, json=source_read).status_code == 403
+    other_conversation = other.post(f"/api/live/agent/worlds/{other_world.json()['world_id']}/conversation/new",
+        headers=other_headers, json={'command_id': str(uuid4()), 'expected_pointer_revision': 0,
+                                    'expected_active_conversation_id': None})
+    assert other_conversation.status_code == 200, other_conversation.text
+    assert other.get(citation).status_code == 403
+    from apps.live_control_server.services import native_graph_inspection as inspection_service
+    inspection_entered, inspection_release = Event(), Event()
+    original_catalog = inspection_service.catalog
+    def paused_catalog(*args, **kwargs):
+        result = original_catalog(*args, **kwargs)
+        inspection_entered.set()
+        assert inspection_release.wait(15)
+        return result
+    monkeypatch.setattr(inspection_service, 'catalog', paused_catalog)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending_inspection = pool.submit(client.post, '/api/live/native-graph-inspection/catalog', headers=headers, json=inspection_scope)
+        try:
+            assert inspection_entered.wait(15)
+            assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+        finally:
+            inspection_release.set()
+        rejected = pending_inspection.result(timeout=15)
+    assert rejected.status_code != 200
+    assert 'catalogue' not in rejected.text
+    assert client.post('/api/live/native-graph-inspection/catalog', headers=headers, json=inspection_scope).status_code in (401, 403, 409)
+    assert client.post('/api/live/native-source-inspection/read', headers=headers, json=source_read).status_code in (401, 403, 409)
+    assert client.get(citation).status_code in (401, 403)
+    from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.engine import connect
+    with connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
+    other_id = str(UUID(other_world.json()['world_id'].removeprefix('guest-')))
+    with pytest.raises(ApplicationStateConflictError):
+        cleanup_expired_guest_conversation(other_id)
+    other_scope = {'managed_world_id': other_world.json()['world_id'], 'scope_mode': 'world', 'campaign_id': None}
+    other_catalog = other.post('/api/live/native-source-inspection/catalog', headers=other_headers, json=other_scope)
+    assert other_catalog.status_code == 200
+    other_item = other_catalog.json()['catalogue']['sources'][0]
+    other_read = {'scope': other_catalog.json()['scope'], 'source_artifact_id': other_item['source_artifact']['source_artifact_id'],
+                  'source_revision_id': other_item['source_revision']['source_revision_id'], 'evidence_ref_id': other_item['evidence_ref_ids'][0]}
+    source_entered, source_release = Event(), Event()
+    original_inspect = source_inspection_service.inspect
+    def paused_source(*args, **kwargs):
+        result = original_inspect(*args, **kwargs)
+        source_entered.set()
+        assert source_release.wait(15)
+        return result
+    monkeypatch.setattr(source_inspection_service, 'inspect', paused_source)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending_source = pool.submit(other.post, '/api/live/native-source-inspection/read', headers=other_headers, json=other_read)
+        try:
+            assert source_entered.wait(15)
+            assert other.post('/api/live/index-graph/reset', headers=other_headers).status_code == 200
+        finally:
+            source_release.set()
+        rejected_source = pending_source.result(timeout=15)
+    assert rejected_source.status_code != 200
+    assert 'A reports that B fled' not in rejected_source.text
+    cleanup_expired_guest_conversation(session_id)
+    with connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
+        assert conn.execute('SELECT count(*) FROM agent.turn WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
+        assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (other_world.json()['world_id'],)).fetchone()[0] == 0
+
+
+def test_guest_normal_turn_uses_guest_conversation(guests, monkeypatch, tmp_path):
+    from tests.test_agent_turn_route import FakeRuntime, _payload
+    from apps.live_control_server.routes import agent
+
+    (client, csrf, world), (other, _, _) = guests[0]
+    monkeypatch.setenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", "1")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_TURN_ENABLED", "1")
+    monkeypatch.setattr(agent, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(agent, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(agent, "session_dir", lambda: tmp_path / "sessions")
+    runtime = FakeRuntime()
+    client.app.state.agent_turn_runtime = runtime
+    payload = {**_payload(), "owner_scope": {"kind": "world", "world_id": world}}
+    headers = {"X-DMB-Index-Graph-CSRF": csrf}
+    response = client.post("/api/live/agent/turn", json=payload, headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["answer"]["text"] == "A simple answer."
+    assert len(runtime.invocations) == 1
+    assert other.get(f"/api/live/agent/worlds/{world}/conversation").status_code == 403
+    assert client.get(f"/api/live/agent/worlds/{world}/conversation").status_code == 200
+    messages = f"/api/live/agent/worlds/{world}/conversations/active/messages?limit=50"
+    page = client.get(messages)
+    assert page.status_code == 200, page.text
+    assert page.json()['messages'][0]['assistant_text'] == 'A simple answer.'
+    assert other.get(messages).status_code == 403
+
+
+def test_guest_storage_limit_rejects_provider_answer_without_replaying(guests, monkeypatch, tmp_path):
+    from tests.test_agent_turn_route import FakeRuntime, _payload
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import guest_build_access
+    from application_state.agent_conversation import AgentConversationService
+
+    (client, csrf, world), _ = guests[0]
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_TURN_ENABLED', '1')
+    monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
+    class LimitAfterProvider(FakeRuntime):
+        def run(self, invocation):
+            result = super().run(invocation)
+            monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 1)
+            return result
+    runtime = LimitAfterProvider()
+    client.app.state.agent_turn_runtime = runtime
+    payload = {**_payload(), 'owner_scope': {'kind': 'world', 'world_id': world}}
+    headers = {'X-DMB-Index-Graph-CSRF': csrf}
+    response = client.post('/api/live/agent/turn', json=payload, headers=headers)
+    assert response.status_code != 200, response.text
+    assert 'A simple answer.' not in response.text
+    assert len(runtime.invocations) == 1
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
+    service = AgentConversationService()
+    conversation = service.get_active_conversation(world)
+    turns = service.list_turns(world, conversation.conversation_id)
+    assert len(turns) == 1 and turns[0].status != 'completed'
+    client.post('/api/live/agent/turn', json=payload, headers=headers)
+    assert len(runtime.invocations) == 1
+
+
+def test_guest_reset_during_turn_does_not_return_or_complete_answer(guests, monkeypatch, tmp_path, application_state_dsn):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from application_state.engine import connect
+    from tests.test_agent_turn_route import FakeRuntime, _payload
+    from apps.live_control_server.routes import agent
+
+    (client, csrf, world), _ = guests[0]
+    monkeypatch.setenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED", "1")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_TURN_ENABLED", "1")
+    monkeypatch.setattr(agent, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(agent, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(agent, "session_dir", lambda: tmp_path / "sessions")
+    entered, release = Event(), Event()
+
+    class WaitingRuntime(FakeRuntime):
+        def run(self, invocation):
+            entered.set()
+            assert release.wait(15)
+            return super().run(invocation)
+
+    client.app.state.agent_turn_runtime = WaitingRuntime()
+    payload = {**_payload(), "owner_scope": {"kind": "world", "world_id": world}}
+    headers = {"X-DMB-Index-Graph-CSRF": csrf}
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        turn = pool.submit(client.post, "/api/live/agent/turn", json=payload, headers=headers)
+        try:
+            assert entered.wait(15)
+            reset = client.post("/api/live/index-graph/reset", headers=headers)
+            assert reset.status_code == 200, reset.text
+        finally:
+            release.set()
+        response = turn.result(timeout=15)
+    assert response.status_code != 200, response.text
+    assert "A simple answer." not in response.text
+    with connect(application_state_dsn) as conn:
+        completed = conn.execute("SELECT count(*) FROM agent.turn WHERE world_id = %s AND status = 'completed'", (world,)).fetchone()[0]
+    assert completed == 0
 
 
 def test_guest_image_generation_and_document_reopen(guests, monkeypatch):
@@ -207,6 +997,7 @@ def test_guest_image_retention_serializes_with_reset(guests, application_state_d
             deadline = time.monotonic() + 5
             with connect(application_state_dsn) as conn:
                 while time.monotonic() < deadline:
+                    conn.execute('SELECT pg_stat_clear_snapshot()')
                     waiting = conn.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
                     if waiting: break
                     time.sleep(0.05)
@@ -542,6 +1333,7 @@ def test_reset_waits_for_guest_commit_transaction(guests, application_state_dsn,
             deadline = time.monotonic() + 5
             with connect(application_state_dsn) as connection:
                 while time.monotonic() < deadline:
+                    connection.execute('SELECT pg_stat_clear_snapshot()')
                     waiting = connection.execute(
                         "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
                     ).fetchone()[0]
