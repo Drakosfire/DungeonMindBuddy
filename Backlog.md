@@ -48,6 +48,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 
 | Idea | Next useful slice or decision |
 | --- | --- |
+| [Simple bulk selection and deletion](#idea-simple-bulk-selection-and-deletion--captured-2026-11-25) | Make multi-item selection and deletion consistent across Buddy, including a real purge for deleted conversations. |
 | [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
 | [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Loaded-empty Graph guidance shipped. Audit setup, unavailable, and optional-Graph states across surfaces. |
 | [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
@@ -71,6 +72,14 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Background relationship suggestions](#deferred-background-suggestions-for-missing-world-graph-relationships) | One opt-in, source-backed suggested relationship with duplicate suppression. |
 | [Create a campaign inside an existing World](#deferred-create-a-campaign-inside-an-existing-world) | Define membership ownership and prove ordinary scoped creation. |
 | [Propose edits to a related page](#deferred-propose-edits-to-an-existing-related-page-from-the-current-workspace) | Target one existing passage without leaving or corrupting the current draft. |
+
+## [IDEA] Simple bulk selection and deletion — captured 2026-11-25
+
+**Context:** Dogfooding conversation history: deleting old conversations one at a time is cumbersome, and Move to Trash currently leaves their stored records in place. The conversation loader is working; it is not part of this issue.
+**Insight:** Across Buddy, people should be able to select multiple items and delete them as easily and consistently as they can delete one. Deletion must be honest about recovery and actual storage removal.
+**Action:** Audit applicable collections and provide a consistent, accessible bulk-selection and deletion flow, with clear scope, confirmation and partial-failure handling. Start with conversations: make deletion register and execute a real purge of conversation data, preserve independently saved pages, and handle active work, retries, permissions and restore/purge races. Define the recovery period and explain backup or other retained copies before promising permanent removal; do not silently schedule existing trashed conversations. Current conversation trash uses pointer-revision-guarded commands and retained references, so a safe batch and purge need an explicit storage contract rather than a naive cascade.
+**Surfaces when:** Building collection management, conversation history, trash, retention, data deletion or bulk actions in Buddy.
+**Refs:** `apps/live-control-ui/src/agentInteraction/ConversationLibrary.tsx`, `src/application_state/agent_conversation/service.py`, `tests/application_state/test_conversation_trash.py`.
 
 ## [IDEA] Delete the current Build page — captured 2026-11-19
 
