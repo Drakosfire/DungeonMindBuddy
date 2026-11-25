@@ -161,7 +161,9 @@ class NativeRulesRuntime:
                 corpus_sha256=cap.corpus_sha256, authorization_id=self.authorization_id,
                 capability_policy_sha256=cap.policy_sha256, budget=cap.budget,
             )
-            self.record = a.service.begin_rules_execution(scope, expected_turn_revision=turn.revision)
+            self.record = (a.service.begin_pending_rules_execution(scope, expected_turn_revision=turn.revision,
+                authorize_current_access=a.pending_build_access) if type(receipt) is BuildPendingContextReceiptV1
+                else a.service.begin_rules_execution(scope, expected_turn_revision=turn.revision))
         elif (self.record.execution.scope.turn_id != turn.turn_id
                 or self.record.execution.scope.product_attempt != turn.attempt):
             raise ValueError("Native Rules execution crossed a product attempt")

@@ -1223,6 +1223,30 @@ class AgentConversationService:
             record = open_execution_locked(conn, scope, expected_turn_revision=expected_turn_revision)
         return record
 
+    def begin_pending_rules_execution(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+                                      authorize_current_access) -> RulesLedgerRecordV1:
+        """Adopt only this pending attempt's frozen Rules scope under its live owner."""
+        from .rules_authority_store import _read_record_locked, open_execution_locked
+        from .build_pending_app_coverage import pending_writer_access_pages
+        if not callable(authorize_current_access):
+            raise ApplicationStateValidationError('Pending Rules requires current App access')
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, scope.world_id, scope.conversation_id, scope.turn_id,
+                expected_revision=expected_turn_revision, expected_attempt=scope.product_attempt)
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending Rules')
+            stored = _read_record_locked(conn, turn.turn_id, turn.attempt)
+            if stored is not None:
+                actual = stored.execution.scope
+                if scope.model_copy(update={'execution_id': actual.execution_id}) != actual:
+                    raise ApplicationStateConflictError('Pending Rules recovery differs from its frozen scope')
+                scope = actual
+            record = open_execution_locked(conn, scope, expected_turn_revision=expected_turn_revision)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending Rules recovery')
+            return record
+
     def authorize_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
                                expected_ledger_revision: int, event: RulesToolAuthorizedV1) -> RulesLedgerRecordV1:
         """Commit exact call authority before the parent starts a local read."""

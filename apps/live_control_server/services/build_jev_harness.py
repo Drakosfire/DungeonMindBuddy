@@ -565,9 +565,17 @@ class BuildJevHarness:
         writer = None
         try:
             proof = {}
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            pending = type(adapter._broker_receipt()) is BuildPendingContextReceiptV1
+            if pending:
+                rules.restore_pending()
             if terminal is None:
-                retrieval = PlanJevDriver(adapter,dialogue=dialogue,rules=rules)
-                proof = asyncio.run(retrieval.run(transport=self.decision_transport))
+                if pending:
+                    from .build_pending_native_retrieval import run_pending_native_retrieval
+                    proof = asyncio.run(run_pending_native_retrieval(adapter, self, dialogue=dialogue, rules=rules))
+                else:
+                    retrieval = PlanJevDriver(adapter,dialogue=dialogue,rules=rules)
+                    proof = asyncio.run(retrieval.run(transport=self.decision_transport))
                 terminal = {'status':'ready','reason':'native_retrieval_finished'}
             from .build_jev_writer_selection import WriterSelectionDriver
             selector = WriterSelectionDriver(adapter,work_driver,terminal)

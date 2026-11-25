@@ -4495,7 +4495,7 @@ def test_pending_native_materialization_checks_live_owner_and_never_reopens_repl
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
 
 
-@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context', 'loop_selection', 'loop_selection_history', 'loop_selection_access', 'loop_selection_unknown'])
+@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context', 'loop_selection', 'loop_selection_history', 'loop_selection_access', 'loop_selection_unknown', 'loop_selection_main'])
 def test_pending_guarded_direct_read_uses_public_core_with_original_real_authority(monkeypatch, mode):
     from types import SimpleNamespace
     from application_state.agent_conversation import native_corpus as bodies
@@ -4647,6 +4647,54 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     for i in range(60) for role in ('user', 'assistant'))
                 harness = BuildJevHarness(decision_transport=Transport(), accounting=runtime_adapter._build_jev_accounting)
                 harness.adapter, harness.calls, harness.timings, harness._inflight = runtime_adapter, [], [], {}
+                if mode == 'loop_selection_main':
+                    import httpx
+                    from types import MethodType
+                    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter, _turn_idempotency_key
+                    from application_state.agent_conversation.rules_authority_policy import rules_capability
+                    nonce = str(uuid4())
+                    runtime_adapter.request = SimpleNamespace(turn_id=nonce, surface=SimpleNamespace(surface_id='build'),
+                        message=state.turn.user_text, build_draft_context=None, build_write_capability=None)
+                    runtime_adapter.world_id, runtime_adapter.expected_conversation_id = state.turn.world_id, None
+                    runtime_adapter.submitted_intent = state.turn.graph_context_execution.policy.action.intent
+                    runtime_adapter.service = state.service
+                    runtime_adapter.budget['estimator'] = state.turn.graph_context_execution.policy.provider_input_accounting.estimator
+                    runtime_adapter.stop = MethodType(_PolicyExecutionAdapter.stop, runtime_adapter)
+                    state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={
+                        'idempotency_key': _turn_idempotency_key(state.turn.world_id, nonce)}).model_dump_json(by_alias=True))
+                    runtime_adapter.turn = state.turn
+                    runtime_adapter.fence.renewer.update_turn(state.turn)
+                    runtime_adapter.build_frozen_history = json.loads(state.initial_request)['state']['interaction']['history']
+                    runtime_adapter.pending_build_source_preparation = owner
+                    owner.reopen_query = lambda query, principal: adapter.native_query_context
+                    state.writer_trace = state.trace.model_dump(mode='json', by_alias=True)
+                    configure_pending_rules_storage(state)
+                    configure_pending_completion_storage(monkeypatch, state)
+                    writers = []
+                    def reply(request):
+                        writers.append(json.loads(request.content))
+                        candidate = {'answer_segments': [{'kind': 'native_body_claim',
+                            'text': 'The source says “Éphanna heard the guard.”', 'excerpt_handles': ['body0']}], 'limitations': []}
+                        return httpx.Response(200, request=request, json={'id': 'resp_main_native', 'object': 'response',
+                            'created_at': 1, 'model': writers[-1]['model'], 'status': 'completed', 'output': [{'type': 'message',
+                                'id': 'msg_main_native', 'role': 'assistant', 'status': 'completed',
+                                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+                    monkeypatch.setenv('OPENAI_API_KEY', 'synthetic-only')
+                    from apps.live_control_server.services import plan_jev_driver
+                    monkeypatch.setattr(plan_jev_driver, 'PlanJevDriver', lambda *a, **kw: pytest.fail('Pending cannot enter legacy driver'))
+                    harness.rules_capability = rules_capability(graph=True)
+                    harness.writer_transport = httpx.MockTransport(reply)
+                    work = SimpleNamespace(operation='answer_from_sources', selection=SimpleNamespace(paragraph_placement=None),
+                        _material=lambda: ((), (), ()))
+                    completed = harness._native_completion(runtime_adapter, work)
+                    assert completed.status == 'completed' and state.completions == 1
+                    assert completed.completion.native_body_citations
+                    row, references = stored_row(completed)
+                    assert repository._turn_from_row(None, row, references=references) == completed
+                    assert len(calls) == 3 and len(writers) == len(opens) == len(searches) == 1
+                    assert all(len(body['state'].get('dialogue_reference', body['state'].get('conversation', {}).get('history', []))) in {60, 120}
+                        for body in calls)
+                    return
                 def run(): return asyncio.run(run_pending_native_retrieval(runtime_adapter, harness, dialogue=dialogue))
                 if mode == 'loop_invalid':
                     with pytest.raises(GenerationEngineError): run()
@@ -4966,3 +5014,69 @@ def test_pending_native_finish_requires_real_owned_rules_ledger_closure(monkeypa
                     asyncio.run(harness._decide(adapter, driver))
                 assert driver.selection is None
                 assert not any(getattr(e, 'operation', None) == 'finish_retrieval' for e in state.turn.graph_context_execution.events)
+
+@pytest.mark.parametrize('mode', ['fresh', 'reuse', 'scope_changed', 'access_lost', 'access_changes', 'expired'])
+def test_pending_rules_open_reuses_only_exact_frozen_scope_under_current_claim(monkeypatch, mode):
+    from application_state.errors import ApplicationStateError
+    from application_state.agent_conversation.rules_authority_policy import rules_capability, rules_submission_authorization_id
+    from application_state.agent_conversation.rules_authority_types import RulesScopeV1
+    from application_state.agent_conversation.rules_authority_events import empty_execution
+    state, _ = settlement_harness(monkeypatch)
+    configure_pending_rules_storage(state)
+    cap, turn = rules_capability(graph=True), state.turn
+    scope = RulesScopeV1(schema='dmb_rules_scope_v1', execution_id=uuid4(), world_id=turn.world_id,
+        conversation_id=turn.conversation_id, turn_id=turn.turn_id, product_attempt=turn.attempt,
+        ruleset_id=cap.ruleset_id, corpus_sha256=cap.corpus_sha256,
+        authorization_id=rules_submission_authorization_id(world_id=turn.world_id,
+            conversation_id=turn.conversation_id, idempotency_key=turn.idempotency_key,
+            submitted_intent_sha256=turn.submitted_intent_fingerprint_v2, capability=cap),
+        capability_policy_sha256=cap.policy_sha256, budget=cap.budget)
+    if mode != 'fresh':
+        state.rules_payload = empty_execution(scope).model_dump(mode='json', by_alias=True)
+    candidate = scope.model_copy(update={'execution_id': uuid4()})
+    if mode == 'scope_changed': candidate = candidate.model_copy(update={'authorization_id': 'f' * 64})
+    if mode == 'access_lost': state.denied = True
+    if mode == 'expired': state.now = turn.claim_expires_at
+    access = state.authorize
+    if mode == 'access_changes':
+        calls = []
+        def access(*args):
+            calls.append(1)
+            return len(calls) == 1
+    def run():
+        return state.service.begin_pending_rules_execution(candidate, expected_turn_revision=turn.revision,
+            authorize_current_access=access)
+    if mode in {'scope_changed', 'access_lost', 'access_changes', 'expired'}:
+        with pytest.raises(ApplicationStateError): run()
+    else:
+        record = run()
+        assert record.execution.scope == (candidate if mode == 'fresh' else scope)
+        assert state.rules_inserts == int(mode == 'fresh')
+        assert run().execution.scope == record.execution.scope
+        assert state.rules_inserts == int(mode == 'fresh')
+
+@pytest.mark.parametrize('settled', [False, True])
+def test_pending_rules_runtime_restores_completed_calls_without_lookup_or_resend(settled):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+    from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    receipt = pending_submission().graph_context_receipt
+    grant = RulesToolAuthorizedV1.model_construct(call_id='stored-call')
+    observation = RulesQueryObservedV1.model_construct(call_id='stored-call')
+    record = SimpleNamespace(execution=SimpleNamespace(events=[grant, *([observation] if settled else [])]))
+    bindings = []
+    native = SimpleNamespace(record=record, _bind=lambda: bindings.append('bind'))
+    fence = SimpleNamespace(turn=SimpleNamespace(graph_context_receipt=receipt),
+        rules_checkpoint=lambda action, read: action())
+    runtime = object.__new__(PlanRulesRuntime)
+    runtime.adapter, runtime.selected, runtime.call_ids = SimpleNamespace(fence=fence), False, ()
+    runtime._initialize = lambda: native
+    if settled:
+        runtime.restore_pending()
+        assert runtime.selected and runtime.call_ids == ('stored-call',)
+        with pytest.raises(ValueError, match='cannot repeat'): runtime.lookup_selected('never-used')
+    else:
+        with pytest.raises(ValueError, match='cannot resend'): runtime.restore_pending()
+        assert not runtime.selected and runtime.call_ids == ()
+    assert bindings == ['bind']

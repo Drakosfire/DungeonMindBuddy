@@ -41,6 +41,23 @@ class PlanRulesRuntime:
             self.adapter.rules_runtime = self
         return self.native
 
+    def restore_pending(self):
+        """Reuse completed pending Rules work; never resend an unresolved lookup."""
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+        if type(self.adapter.fence.turn.graph_context_receipt) is not BuildPendingContextReceiptV1:
+            return
+        native = self._initialize()
+        def restore():
+            native._bind()
+            events = native.record.execution.events
+            calls = tuple(e.call_id for e in events if isinstance(e, RulesToolAuthorizedV1))
+            settled = {e.call_id for e in events if type(e) is RulesQueryObservedV1}
+            if any(call not in settled for call in calls):
+                raise ValueError('Pending Rules recovery cannot resend an unresolved lookup')
+            self.selected, self.call_ids = bool(calls), calls
+        self.adapter.fence.rules_checkpoint(restore, lambda: native.record)
+
     def lookup_selected(self, parent_request_json):
         if self.selected:
             raise ValueError("Plan Rules cannot repeat the same selected question")
