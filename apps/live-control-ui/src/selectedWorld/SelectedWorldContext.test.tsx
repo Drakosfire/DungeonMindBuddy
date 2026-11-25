@@ -278,8 +278,12 @@ describe('World lifetime and incoming page admission',()=>{
   vi.mocked(getWorkspaceDocumentAny).mockRejectedValue(new Error('page unavailable'));
   view.rerender(<SelectedWorldProvider locationSnapshot={`/build?world=${world.world_id}&documentId=new-doc`}><AdmissionProbe/></SelectedWorldProvider>);
   expect(screen.getByTestId('identity')).toHaveTextContent(`managed:${world.world_id}:`);
+  await waitFor(()=>expect(getHostedWorldContainer).toHaveBeenCalledTimes(3));
+  const recoverySignal=vi.mocked(getHostedWorldContainer).mock.calls[2]![1];
+  expect(recoverySignal.aborted).toBe(false);
   auth.mockReturnValue({status:'authenticated',subject:'second',displayName:null,refreshWarning:false});
   view.rerender(<SelectedWorldProvider locationSnapshot={`/build?world=${world.world_id}&documentId=new-doc`}><AdmissionProbe/></SelectedWorldProvider>);
+  expect(recoverySignal.aborted).toBe(true);
   expect(screen.getByTestId('identity')).not.toHaveTextContent(`managed:${world.world_id}:`);
   expect(screen.getByTestId('admission')).toHaveTextContent('loading');
   auth.mockReturnValue({status:'authenticated',subject:'first',displayName:null,refreshWarning:false});
