@@ -1027,3 +1027,30 @@ This is actual history HTTP plus ordinary replay-envelope evidence, not a fresh
 POST through complete startup/controller/providers, real SQL or mixed Rules
 backend persistence. Those, current serving fence, source-backed acquisition and
 writer, and signed-in page save/reopen/citation/latency acceptance remain open.
+
+## Pending App evidence coverage continuation
+
+ACTIVE within the same routing capability: a separate App evidence assessment
+must decide whether exact acquired saved pages suffice or native sources are
+required before preparing Core. This closes the explicit App coverage gate; it
+is not another product capability or PR. PlanJevDriver/PR4580 remains untouched.
+New build_pending_app_coverage.py owns the exact semantic input compiled from
+captured full dialogue and all acknowledged selected-page reads. All pages are
+untrusted authored references, never independently played truth. A later distinct
+controller admission/result must bind this input/read set and current claim/access
+before using its outcome. No title heuristic or inferred absence; source-needed
+must retain the positive native preparation path. This first checkpoint compiles
+and validates the input only, with focused full-dialogue/read-binding failures.
+Runtime/transport activation and writer closure remain required.
+
+App coverage input evidence:8 focused controls passed1.33s. The actual pending
+App catalog/selection/read codec and captured60-turn opening produce full saved
+markdown plus semantic dialogue/cards with local page aliases. Missing reads,
+changed body/digest or page revision, unresolved controller response, changed
+captured dialogue, duplicate reads and empty choice are refused. Receipt/read/
+page IDs and execution hashes are absent from the compiled model input. No Core
+preparation or source authority is manufactured. This compiles evidence for a
+future actual decision; it does not admit sufficiency, dispatch a model, close
+writer selection or enable a runtime path. Dedicated controller/result/SDK access
+checks and writer closure remain required, as do source-needed native continuation
+and all SQL/full-Send/deployed app gates.

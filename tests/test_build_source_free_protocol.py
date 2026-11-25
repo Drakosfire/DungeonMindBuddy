@@ -3401,3 +3401,60 @@ def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_
         changed = completed.model_copy(update={'assistant_text': 'Changed stored answer'})
         with pytest.raises(AgentTurnServiceError):
             project_plan_turn_context(changed, delivery_replay=True)
+
+
+def pending_app_coverage_case():
+    from hashlib import sha256
+    from tests.test_surface_native_execution import outcomes
+    from application_state.agent_conversation.build_related_pages import PageReference
+    receipt, before, auth, initial, _, history = pending_page_input_case()
+    page = before.events[-1].pages[0]
+    selected = t.RelatedPagesSelection(event_id=uuid4(), sequence=8,
+        controller_attempt_id=auth.provider_attempt_id, controller_envelope_sha256=auth.envelope_sha256,
+        controller_response_sha256='a' * 64, document_ids=[page.document_id])
+    markdown = 'Ethel dreamed of Maelthor. The cult password is “Remember the rain”.'
+    read = t.RelatedPageRead(event_id=uuid4(), sequence=9, read_id=uuid4(), selection_event_id=selected.event_id,
+        page=PageReference(**page.model_dump(), content_sha256=sha256(markdown.encode()).hexdigest()), markdown=markdown)
+    execution = pending_execution(receipt, before.policy, [*before.events, auth, *outcomes(auth, 6), selected, read])
+    return receipt, execution, initial, history, read
+
+
+def test_pending_app_coverage_input_uses_exact_saved_text_and_full_dialogue_without_native_preparation():
+    from application_state.agent_conversation.build_pending_app_coverage import pending_app_coverage_input
+    from application_state.agent_conversation.build_source_free import effective_pending_source
+    receipt, execution, initial, history, read = pending_app_coverage_case()
+    wire = pending_app_coverage_input(receipt, execution, initial)
+    assert wire['state']['history'] == history and len(history) == 60
+    page, = wire['state']['saved_authored_pages']
+    assert page == {'source': 'page1', 'title': read.page.title, 'role': read.role, 'markdown': read.markdown}
+    assert 'Remember the rain' in json.dumps(wire, ensure_ascii=False)
+    assert set(wire['questions']['source_requirement']['criteria']) == {'saved_pages_sufficient', 'native_sources_required'}
+    assert effective_pending_source(receipt, execution) is None
+    rendered = json.dumps(wire)
+    for binding in (str(read.event_id), str(read.read_id), str(read.page.document_id),
+            receipt.context_receipt_sha256, execution.execution_policy_sha256):
+        assert binding not in rendered
+
+
+@pytest.mark.parametrize('failure', ['missing_read', 'changed_text', 'changed_page', 'no_ack',
+    'changed_history', 'duplicate_read', 'empty_choice'])
+def test_pending_app_coverage_refuses_unread_or_changed_evidence_and_context(failure):
+    from application_state.agent_conversation.build_pending_app_coverage import pending_app_coverage_input
+    receipt, execution, initial, _, read = pending_app_coverage_case()
+    events = list(execution.events)
+    if failure == 'missing_read':
+        events.pop()
+    elif failure == 'changed_text':
+        events[-1] = read.model_copy(update={'markdown': 'Different saved content'})
+    elif failure == 'changed_page':
+        events[-1] = read.model_copy(update={'page': read.page.model_copy(update={'registry_revision': 99})})
+    elif failure == 'no_ack':
+        events[7] = events[7].model_copy(update={'outcome': 'outcome_unknown'})
+    elif failure == 'changed_history':
+        initial = initial.replace('User detail 0', 'Changed first user detail')
+    elif failure == 'duplicate_read':
+        events.append(read.model_copy(update={'event_id': uuid4(), 'sequence': 10}))
+    else:
+        events = events[:8] + [events[8].model_copy(update={'document_ids': []})]
+    with pytest.raises(ValueError):
+        pending_app_coverage_input(receipt, execution.model_copy(update={'events': events}), initial)
