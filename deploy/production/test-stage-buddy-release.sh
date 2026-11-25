@@ -162,4 +162,14 @@ ln -s "$scratch/bundle-symlink-target" "$scratch/guest-documents-template.json"
 printf '%s' '{}' > "$scratch/bundle-symlink-target"
 if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Symlink template accepted' >&2; exit 1; fi
 grep -F 'symlink in deployment policy' "$scratch/stderr"
+rm "$scratch/guest-documents-template.json" "$scratch/guest-document-bundles/$bundle_sha.json" "$record" "$scratch/tag"
+printf '%s' '{"version":1,"documents":[{"title":"Source","markdown":"A clue."}]}' > "$scratch/guest-documents-template.json"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-plan-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Build-only image accepted as guest Plan' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1' TEST_SERVING_PARENT="$rollback" run guest-plan-documents-serving "$template_sha"
+grep -Fx 'guest_plan_enabled=1' "$record"
+grep -Fx 'guest_build_enabled=1' "$record"
+grep -Fx "guest_document_sha=$bundle_sha" "$record"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1;plan=1' TEST_SERVING_PARENT=wrong run guest-plan-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Wrong Plan serving parent accepted' >&2; exit 1; fi
+grep -F 'registry image does not match' "$scratch/stderr"
 printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'
