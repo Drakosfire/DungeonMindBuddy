@@ -1,3 +1,4 @@
+import './BuddyEvidence.css';
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 export type TraceTab = 'evidence' | 'timeline' | 'prompt' | 'diagnostics';
