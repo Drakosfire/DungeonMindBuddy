@@ -67,3 +67,18 @@ def test_prepared_plan_has_playable_scenes_and_confrontation_choice():
     assert {'scene:contract', 'scene:mirrors', 'scene:trap-room', 'scene:return'} <= scenes
     assert 'choice:confrontation' in markdown
     assert 'six skeletons' in markdown and 'five feet each round' in markdown
+
+
+def test_malformed_duplicate_and_tampered_bundles_do_not_seed(monkeypatch, tmp_path):
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAN_ENABLED', '1')
+    monkeypatch.setattr(seed, '_SOURCE_SHA256', hashlib.sha256(b'source').hexdigest())
+    bundle = tmp_path / 'bundle.json'
+    monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE', str(bundle))
+    for raw, tamper in [(b'{', False), (json.dumps({'documents': [{'title': "Sizzek's Apprentice", 'markdown': 'source'}] * 2}).encode(), False), (b'{}', True)]:
+        bundle.write_bytes(raw)
+        digest = hashlib.sha256(raw).hexdigest()
+        monkeypatch.setenv('DMB_GUEST_DOCUMENT_BUNDLE_SHA256', digest)
+        if tamper: bundle.write_bytes(b'changed')
+        conn = Connection(digest)
+        seed.seed_guest_apprentice_plan(conn, session_id='one', world_id='guest-one')
+        assert not conn.writes
