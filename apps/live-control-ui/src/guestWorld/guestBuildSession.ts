@@ -32,6 +32,9 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
       pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/workspace-documents/world-runbooks" ||
       /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}(?:\/progress|\/reference-manifest|\/content|\/creation)?$/.test(pathname) ||
       /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}\/committed-revision(?:\/[1-9][0-9]*)?$/.test(pathname));
+  const playContent = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && (
+    method === "GET" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/(?:revisions\/[0-9]+|commands\/[0-9a-f-]{36})$/.test(pathname)
+    || method === "PUT" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/commands\/[0-9a-f-]{36}$/.test(pathname));
   const combat = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
     (pathname === "/api/live/combat/encounters" || /^\/api\/live\/combat\/encounters\/[0-9a-f-]{36}$/.test(pathname)) &&
     ((method === "GET") || (method === "POST" && pathname === "/api/live/combat/encounters") ||
@@ -43,7 +46,7 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
   const write = method === "POST" && (pathname === "/api/live/workspace-documents"
     || pathname === "/api/live/tiptap/markdown-write/prepare" || pathname === "/api/live/tiptap/markdown-write/commit"
     || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && pathname === "/api/live/workspace-documents/world-plans");
-  return read || write || conversation || combat || play && ["GET", "POST", "PUT"].includes(method) || media && ["GET", "POST"].includes(method) ? epoch : null;
+  return read || write || conversation || combat || playContent || play && ["GET", "POST", "PUT"].includes(method) || media && ["GET", "POST"].includes(method) ? epoch : null;
 }
 
 export function guestBuildEpochCurrent(value: number): boolean { return active !== null && epoch === value; }
@@ -54,6 +57,7 @@ export function guestBuildCsrf(path: string, method: string): string | null {
   if (import.meta.env.VITE_HOSTED_GUEST_BUDDY === "1" && method === "POST" &&
       (pathname === "/api/live/agent/turn" || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname) || pathname === `/api/live/agent/worlds/${active.worldId}/conversation/new`)) return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && guestBuildRequestEpoch(path, method) !== null && pathname.startsWith("/api/live/combat/encounters")) return active.csrf;
+  if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && method === "PUT" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/commands\/[0-9a-f-]{36}$/.test(pathname)) return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_MEDIA === "1" && pathname === "/api/live/media/images/generate" && method === "POST") return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
       (pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/world-play-runs/v2/active" ||
