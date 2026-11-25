@@ -251,7 +251,7 @@ it('reveals recorded seeds, draws directed hops in order, and explains object-li
   fireEvent.click(next)
   expect(seed).toHaveAttribute('transform', position)
   expect(within(trail).getByRole('button', { name: 'Unnamed object' })).toHaveAttribute('data-visit', 'pruned')
-  expect(screen.getByText('Dropped by the neighborhood object limit.')).toBeInTheDocument()
+  expect(screen.getByText('Exclude 1 candidate. Dropped by the neighborhood object limit.')).toBeInTheDocument()
 })
 
 it('opens and closes contextual details for the selected replay node', () => {
