@@ -732,7 +732,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert work["saved_statblocks"] == [expected]
                 assert locator.revision_id not in req.content.decode()
             if (work.get('citation_policy') == 'supplied_source_references_v1'
-                    or body['text']['format']['name'] == 'lore_page_response'):
+                    or body['text']['format']['name'] in {'lore_page_response', 'build_reply'}):
                 assert 'supporting_quotes containing' not in body['instructions']
                 if work['saved_sections'] or work.get('related_pages'):
                     assert 'Do not return supporting_quotes' in body['instructions']
@@ -767,7 +767,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
                     content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
-                answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,**({} if work.get('citation_policy') == 'supplied_source_references_v1' or body['text']['format']['name'] == 'lore_page_response' else {'supporting_quotes':[source_text(r) for r in sections]}))] if saved else []),
+                answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,**({} if work.get('citation_policy') == 'supplied_source_references_v1' or body['text']['format']['name'] in {'lore_page_response', 'build_reply'} else {'supporting_quotes':[source_text(r) for r in sections]}))] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
             if image_move == "other_discussion":
                 candidate["answer_segments"] = [
@@ -877,15 +877,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     ordered_refs=[dict(domain="base", segment_index=None),
                                   dict(domain="rules", segment_index=0)],
                 )
-            if body["text"]["format"]["name"] == "surface_native_evidence_selectors_v7":
+            segment_schema = body['text']['format']['schema'].get('properties', {}).get('answer_segments', {}).get('items', {})
+            if (body["text"]["format"]["name"] == "surface_native_evidence_selectors_v7"
+                    or segment_schema.get('properties', {}).get('kind', {}).get('const') == 'discussion'):
                 candidate["answer_segments"] = [
                     dict(kind="discussion", text="We can explore a truce for this creature.")
                 ]
             if source_answer_output:
-                if source_answer_output in {'typed', 'typed_gap_format'}:
+                if source_answer_output in {'typed', 'typed_gap_format', 'host_schema_echo', 'foreign_source_alias', 'regenerated_quote'}:
                     candidate['answer_segments'] = [dict(kind='related_page_claim',
                         text='The saved lore proposes that the local node wants freedom.',
                         read_id=next(page['selection'] for page in work['related_pages'] if page['title'] == 'Optional lore'))]
+                    if source_answer_output == 'foreign_source_alias':
+                        candidate['answer_segments'][0]['read_id'] = 'source_foreign'
+                    if source_answer_output == 'regenerated_quote':
+                        candidate['answer_segments'][0]['supporting_quotes'] = ['The saved lore proposes freedom.']
                     if source_answer_output == 'typed_gap_format':
                         candidate['limitations'] = ['missing_requested_details']
                         candidate['requested_detail_gaps'] = [dict(question_phrase="the local node's alliance")]
@@ -941,7 +947,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             output_base = body['text']['format']['schema'].get('$defs', {}).get('Base', body['text']['format']['schema'])
             if 'schema' not in output_base['properties']:
                 base = candidate['base_output'] if candidate.get('kind') == 'rules_answer' else candidate
-                if base is not None and source_answer_output != 'lore_extra_schema':
+                if base is not None and source_answer_output not in {'lore_extra_schema', 'host_schema_echo'}:
                     base.pop('schema', None)
             self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
@@ -3507,6 +3513,87 @@ def test_deferred_build_display_keeps_admission_and_exact_native_citations(lane,
         assert membership["assertions"]
 
 
+@pytest.mark.parametrize("output,accepted", [
+    ("typed_gap_format", True), ("foreign_source_alias", False), ("regenerated_quote", False),
+])
+def test_streamed_build_reply_preserves_finite_citation_admission(lane, tmp_path, monkeypatch, output, accepted):
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+
+    original_init = BuildJevHarness.__init__
+    preview_text = 'The saved lore proposes the local node wants "freedom" — a proposal.'
+    frames = []
+
+    def streaming_writer(self, *args, **kwargs):
+        transport = kwargs['writer_transport']
+        original_send = transport.handle_async_request
+
+        async def send(request):
+            assert json.loads(request.content)['stream'] is True
+            response = await original_send(request)
+            payload = response.json()
+            final = payload['output'][0]
+            final['phase'] = 'final_answer'
+            candidate = json.loads(final['content'][0]['text'])
+            if accepted:
+                candidate['answer_segments'][0]['text'] = preview_text
+            raw = json.dumps(candidate, ensure_ascii=True)
+            final['content'][0]['text'] = raw
+            transport.actual_output = raw
+
+            class Events(httpx.AsyncByteStream):
+                async def __aiter__(self):
+                    events = [('response.output_item.added', dict(output_index=0,
+                        item={**final, 'status': 'in_progress', 'content': []}))]
+                    events.extend(('response.output_text.delta', dict(item_id=final['id'],
+                        output_index=0, content_index=0, delta=raw[start:start + 7]))
+                        for start in range(0, len(raw), 7))
+                    events.append(('response.completed', dict(response=payload)))
+                    for index, (kind, fields) in enumerate(events):
+                        yield ('data: ' + json.dumps(dict(type=kind, sequence_number=index, **fields))
+                            + '\n\n').encode()
+
+            return httpx.Response(200, request=request,
+                headers={'content-type': 'text/event-stream'}, stream=Events())
+
+        transport.handle_async_request = send
+        return original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(BuildJevHarness, '__init__', streaming_writer)
+
+    def dispatch(client, world, body):
+        response = client.post('/api/live/agent/turn', json=body,
+            headers={'accept': 'text/event-stream', 'x-buddy-reply-stream': '1'})
+        assert response.status_code == 200
+        frames.extend(json.loads(line[6:]) for line in response.text.splitlines() if line.startswith('data: '))
+        assert len([frame for frame in frames if frame['kind'] in {'result', 'error'}]) == 1
+        terminal = frames[-1]
+        if terminal['kind'] == 'result':
+            return httpx.Response(200, json=terminal['response'])
+        assert terminal['kind'] == 'error'
+        return httpx.Response(terminal['status'], json={'detail': terminal['detail']})
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='source_lookup', read_optional_page=True,
+        source_answer_output=output, dispatch=dispatch,
+        message='What does the saved lore establish about the local node’s alliance?')
+    assert len(case.writer.calls) == 1
+    if not accepted:
+        assert case.response.status_code == 503
+        assert case.turn.completion is None
+        assert frames[-1]['kind'] == 'error'
+        return
+    assert case.response.status_code == 200, case.response.text
+    assert any(frame['kind'] == 'reply_context_ready' for frame in frames)
+    assert ''.join(frame['text'] for frame in frames if frame['kind'] == 'reply_text') == preview_text
+    assert case.turn.completion.answer_segments[0].text == preview_text
+    claim = case.turn.completion.answer_segments[0]
+    opened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages/{claim.read_id}')
+    assert opened.status_code == 200
+    assert opened.json()['markdown'] == 'The local node is proposed to want freedom.'
+    assert AgentConversationService().inspect_turn(world_id=case.world,
+        turn_id=case.turn.turn_id).completion == case.turn.completion
+
+
 @pytest.mark.parametrize('output', ['typed', 'uncited', 'empty', 'gap', 'typed_gap_format', 'gap_format'])
 def test_source_lookup_discussion_requires_bound_claims_without_forcing_a_fact(lane, tmp_path, monkeypatch, output):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
@@ -3514,7 +3601,7 @@ def test_source_lookup_discussion_requires_bound_claims_without_forcing_a_fact(l
         source_answer_output=output, message='What does the saved lore establish about the local node’s alliance?' if output in {'gap', 'typed_gap_format', 'gap_format'}
         else 'What does the saved lore propose about the local node?')
     request = json.loads(case.writer.calls[0].content)
-    assert request['text']['format']['name'] == 'surface_native_build_source_answer_v1'
+    assert request['text']['format']['name'] == 'build_reply'
     assert len(case.writer.calls) == 1
     if output in {'uncited', 'empty'}:
         assert case.response.status_code == 503
@@ -3545,6 +3632,45 @@ def test_anchored_creative_discussion_keeps_its_no_acquisition_grammar(lane, tmp
     assert json.loads(case.writer.calls[0].content)['text']['format']['name'] != 'surface_native_build_source_answer_v1'
 
 
+@pytest.mark.parametrize('scope,output', [('source_lookup', 'typed'), ('anchored', 'creative')])
+def test_current_ordinary_build_sdk_has_semantic_input_and_reopens(lane, tmp_path, monkeypatch, scope, output):
+    message = 'Discuss the local node. Preserve citation_policy as a fictional motto.'
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need=scope, read_optional_page=True,
+        source_answer_output=output, message=message)
+    assert case.response.status_code == 200, case.response.text
+    assert len(case.writer.calls) == 1
+    request = json.loads(case.writer.calls[0].content)
+    assert request['text']['format']['name'] == 'build_reply'
+    schema = request['text']['format']['schema']
+    assert 'schema' not in schema['properties']
+    frames = [json.loads(row['content']) for row in request['input']]
+    work, = [frame['build_work'] for frame in frames if 'build_work' in frame]
+    assert not {'citation_policy', 'source_answer_policy', 'lore_limitation_policy'} & set(work)
+    evidence, = [frame for frame in frames if 'user_question' in frame]
+    assert evidence['user_question'] == message
+    visible = request['instructions'] + json.dumps(request['input']) + json.dumps(schema)
+    for sentinel in ('dmb_surface_evidence_answer_v8', 'supplied_source_references_v1',
+                     'typed_supplied_source_answer_v1', 'validated_lore_review_generic_gaps_v1',
+                     str(case.turn.turn_id), str(case.turn.conversation_id), case.world):
+        assert sentinel not in visible
+    assert 'schema' not in json.loads(case.writer.actual_output)
+    reopened = AgentConversationService().inspect_turn(world_id=case.world, turn_id=case.turn.turn_id)
+    assert reopened.completion == case.turn.completion
+    assert reopened.assistant_text == case.turn.assistant_text
+    assert len(case.writer.calls) == 1
+
+
+@pytest.mark.parametrize('output', ['host_schema_echo', 'foreign_source_alias', 'regenerated_quote'])
+def test_semantic_build_reply_rejects_host_echo_and_unbound_citation(lane, tmp_path, monkeypatch, output):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False,
+        requested_work='discuss', source_need='source_lookup', read_optional_page=True,
+        source_answer_output=output)
+    assert case.response.status_code == 503
+    assert len(case.writer.calls) == 1
+    assert case.turn.completion is None
+
+
 def test_fresh_factual_build_refuses_old_discussion_contract_before_writer_io(lane, tmp_path, monkeypatch):
     from application_state.agent_conversation import native_build_work_view
     original = native_build_work_view.semantic_frame
@@ -3559,7 +3685,7 @@ def test_fresh_factual_build_refuses_old_discussion_contract_before_writer_io(la
     assert case.turn.completion is None
 
 
-@pytest.mark.parametrize('mutation', ['unknown_policy', 'omitted_policy', 'old_format', 'ineligible_context'])
+@pytest.mark.parametrize('mutation', ['unknown_policy', 'reintroduced_policy', 'old_format', 'ineligible_context'])
 def test_factual_build_recomputed_sdk_packet_cannot_forge_source_answer_policy(lane, tmp_path, monkeypatch, mutation):
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
     original = PlanJevWriter.__init__
@@ -3574,8 +3700,8 @@ def test_factual_build_recomputed_sdk_packet_cannot_forge_source_answer_policy(l
                 continue
             if mutation == 'unknown_policy':
                 frame['build_work']['source_answer_policy'] = 'foreign_source_policy'
-            elif mutation == 'omitted_policy':
-                frame['build_work'].pop('source_answer_policy')
+            elif mutation == 'reintroduced_policy':
+                frame['build_work']['citation_policy'] = 'supplied_source_references_v1'
             else:
                 frame['build_work']['source_answer_policy'] = 'typed_supplied_source_answer_v1'
             message['content'] = json.dumps(frame)

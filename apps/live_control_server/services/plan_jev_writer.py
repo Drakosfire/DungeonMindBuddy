@@ -379,6 +379,8 @@ SUPPLIED_SOURCE_RESPONSE = ('\nFor saved_source_claim select the supplied local 
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules, *, dialogue=()):
         self.lore_outcome = False
+        self.semantic_reply = False
+        self.typed_source_answer = False
         self.adapter, self.proof, self.rules = adapter, proof, rules
         self.failure_stage = 'prepare'
         native_budget = getattr(adapter.fence.turn.graph_context_execution.policy,'writer_context_budget',None)
@@ -432,18 +434,24 @@ class PlanJevWriter:
                                     for event in turn.graph_context_execution.events)
                         and any(is_anchored_discussion(event) for event in turn.graph_context_execution.events)):
                     format_version = 7
-                from application_state.agent_conversation.native_build_work_view import lore_outcome_eligible
+                from application_state.agent_conversation.native_build_work_view import (
+                    lore_outcome_eligible, semantic_reply_eligible, source_backed_discussion,
+                )
                 self.lore_outcome = lore_outcome_eligible(self.work_frame, turn.graph_context_execution)
+                self.semantic_reply = not rule_frame.lookups and semantic_reply_eligible(self.work_frame, turn.graph_context_execution)
+                self.typed_source_answer = source_backed_discussion(self.work_frame, turn.graph_context_execution)
                 self.provider_work=build_work_view(
                     self.work_frame, turn.graph_context_execution, include_variant=variant_format, variant_edits=variant_format,
                     variant_passage_review=format_version in {9, 10, 11}, bind_lore_page=True,
                     supplied_source_references=True,
                     typed_source_answer=True, lore_page_limitations=True, lore_request_reference=True, lore_outcome=self.lore_outcome,
+                    semantic_reply=self.semantic_reply,
                 )
             self.output_format=native_output_format(self.frame,rule_frame,
                 self.work_frame | self.provider_work,
                 build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA},
-                format_version=format_version, execution=turn.graph_context_execution, generic_reply_limits=True, lore_outcome=self.lore_outcome)
+                format_version=format_version, execution=turn.graph_context_execution, generic_reply_limits=True,
+                lore_outcome=self.lore_outcome, semantic_reply=self.semantic_reply)
             from application_state.agent_conversation.plan_writer_output_schema import offered_generic_limits
             self.generic_reply_limits = offered_generic_limits(self.output_format)
             # Discussion ends with current evidence rather than prior assistant
@@ -496,7 +504,7 @@ class PlanJevWriter:
             ] + self.messages
         self.prompt_components = None
         related_page_response = (SUPPLIED_SOURCE_RESPONSE
-            if self.shared and (self.lore_outcome or self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1')
+            if self.shared and (self.lore_outcome or self.semantic_reply or self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1')
             else PLAN_SOURCE_REFERENCE_RESPONSE if self.shared and self.provider_work.get('citation_policy') == 'supplied_source_references_v1'
             else RELATED_PAGE_RESPONSE)
         task = (_conversation_response_task(adapter._broker_execution())
@@ -557,15 +565,16 @@ class PlanJevWriter:
                 from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
                 from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY, GENERIC_BODY_INSTRUCTIONS
                 native_body_instructions = GENERIC_BODY_INSTRUCTIONS if self.generic_reply_limits else BODY_INSTRUCTIONS
-                if self.lore_outcome:
+                if self.lore_outcome or self.semantic_reply:
                     # An explicit variant of host-authored instructions, never a scrub of source/user text.
                     prefix = f'Current answer policy: {BODY_POLICY}.\nReturn only {{"schema":"{BODY_POLICY}",'
                     if not native_body_instructions.startswith(prefix):
-                        raise ValueError('Lore instructions lack their known host-authored prefix')
+                        raise ValueError('Semantic reply instructions lack their known host-authored prefix')
                     native_body_instructions = 'Return only {' + native_body_instructions[len(prefix):]
-                    native_body_instructions = native_body_instructions.replace(
-                        'If no requested fact is supported, return answer_segments:[] with the applicable\nlimitations.',
-                        'If essential context is missing, ask the specific needs_context question with no draft segments.')
+                    if self.lore_outcome:
+                        native_body_instructions = native_body_instructions.replace(
+                            'If no requested fact is supported, return answer_segments:[] with the applicable\nlimitations.',
+                            'If essential context is missing, ask the specific needs_context question with no draft segments.')
                 instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + native_body_instructions.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
                 from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
                 if SCOPE_KEY in self.work_frame:
@@ -643,11 +652,11 @@ class PlanJevWriter:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
 
                 self.instructions += "\n" + VARIANT_BASE.text
-        if (self.shared and (self.lore_outcome or self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1')
+        if (self.shared and (self.lore_outcome or self.semantic_reply or self.provider_work.get('build_work', {}).get('citation_policy') == 'supplied_source_references_v1')
                 and (self.work_frame['artifact_under_edit']['sections']
                      or self.work_frame.get('related_authored_pages', {}).get('pages'))):
             self.instructions += SUPPLIED_SOURCE_RESPONSE
-        if self.shared and self.provider_work.get('build_work', {}).get('source_answer_policy') == 'typed_supplied_source_answer_v1':
+        if self.shared and self.typed_source_answer:
             self.instructions += SOURCE_BACKED_DISCUSSION_RESPONSE
         if self.shared and self.provider_work.get('build_work', {}).get('lore_limitation_policy') == 'validated_lore_review_generic_gaps_v1' and not self.generic_reply_limits:
             self.instructions += ('\nOptional requested_detail_gaps select phrases from the CURRENT user request only, '
