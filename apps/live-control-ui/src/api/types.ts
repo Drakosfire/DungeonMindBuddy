@@ -1297,7 +1297,7 @@ export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextRespon
 export type BuildSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
   receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'build'}>};
 };
-export type WorldBuildKnowledgeContext = WorldBuildKnowledgeContextV1 | BuildSurfaceNativeContextResponseV1;
+export type WorldBuildKnowledgeContext = WorldBuildKnowledgeContextV1 | BuildSurfaceNativeContextResponseV1 | AgentBuildPendingContextResponseV1;
 export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1 | AgentPlanNativeContextResponseV1 | PlanSurfaceNativeContextResponseV1;
 
 export interface WorldBuildGraphReceiptV1 extends Omit<WorldPlanGraphContextReceiptV1, "schema" | "plan_context_policy" | "plan_basis" | "playable_target"> {

@@ -940,3 +940,33 @@ buddy-check.pending-reader.A8hkGW/ui, and the global frontend lock. These are
 focused working-source diagnostics, not fresh exact-source release qualification.
 No broad frontend test suite ran. Build dispatcher/digests/Rules wiring, ordinary
 HTTP delivery, serving fence and live source-backed/app acceptance remain open.
+
+
+## Build UI dispatcher continuation
+
+ACTIVE within same serial PR: WorldBuildKnowledgeContext/RulesUnclaimedContext
+unions and exact pending branches in WorldPlanAgentConversation's Build decoder,
+source-basis/request/Graph matching, history provenance/digest and Build display.
+Pending Graph matching requires not_requested with all null fields, never a
+verified source pointer. Bind captured conversation to actual response/history.
+Focused shared decoder and World history tests plus affected compile diagnostic;
+no broad suite. API endpoint and serving fence remain later gates.
+
+Build dispatcher/history checkpoint:8 focused component cases passed420ms,
+covering pending Maelthor draft rendering plus conversation/provenance/receipt/
+completion/World rejection and the adjacent two legacy source-only Build history
+controls. The foreign conversation case is correctly rehashed, so its refusal
+proves page/conversation binding rather than merely an invalid digest. Actual
+Build/history and Rules-base unions now include the distinct response; Plan and
+Play unions remain narrow. Pending send Graph matching requires not_requested
+and all null Graph fields, never authority inferred from the observed pointer.
+History checks both canonical receipt and provenance digests. Build draft display
+uses its actual source basis.
+
+The external app TypeScript compile passed after correcting the Graph matcher
+parameter to include its real status field. Checks used the existing verified
+Projects scratch/dependencies/Node24/global lock recorded above. The send branch
+is wired but has not yet been exercised by an actual send/component request
+control; focused history success is not that evidence. Ordinary backend endpoint,
+Rules mixed/unclaimed paths, current serving fence, source-backed acquisition,
+SQL/full-Send and signed-in save/reopen remain required.

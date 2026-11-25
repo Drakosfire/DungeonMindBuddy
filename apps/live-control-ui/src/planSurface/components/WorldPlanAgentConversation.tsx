@@ -9,7 +9,7 @@ import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
 import { ConversationReplyDetails } from './ConversationReplyDetails';
-import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply,imageMoveReply} from '../../shared/surfaceNativeProtocol';
+import {isBuildPendingReceipt,isBuildPendingContext,isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply,imageMoveReply} from '../../shared/surfaceNativeProtocol';
 import { BuildGraphReferenceReview } from '../../buildSurface/BuildGraphReferenceReview';
 import { BuildImageMoveReview } from '../../buildSurface/BuildImageMoveReview';
 import { isBuildImageMoveCapture } from '../../api/buildImageMoveReviewApi';
@@ -1519,7 +1519,7 @@ function isRulesUnclaimedContext(value: unknown, worldId: string,
     || !isWorldPlanGraphExecution(value.execution) || value.execution.claimability !== 'completed'
     || value.execution.authorization_state !== 'response_received' || !isRecord(value.receipt)) return false;
   const receipt = value.receipt;
-  if(receipt.schema==='dmb_surface_native_context_receipt_v1') {
+  if(receipt.schema==='dmb_surface_native_context_receipt_v1'||receipt.schema==='dmb_build_pending_context_receipt_v1') {
     if(isSharedBuildReceipt(receipt,worldId)) {
       if(value.completion!==undefined&&value.completion!==null&&(!isSurfaceNativeCompletion(value.completion,receipt)
         ||value.completion.answer_segments.length!==0||value.completion.collaboration===null||value.completion.answer_context_status!=='discussion'))return false;
@@ -1577,21 +1577,24 @@ function hasObjectOnlyBuildReply(turn: WorldAgentConversationHistoryTurn): boole
 function isSharedBuildWork(work:unknown,worldId:string):work is Extract<import('../../api/types').SurfaceNativeWorkContextV1,{surface_id:'build'}> {
   return hasExactKeys(work,['surface_id','source_basis'])&&work.surface_id==='build'&&isBuildSourceBasis(work.source_basis,worldId);
 }
-function buildSourceBasis(receipt:WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt']) {
-  return receipt.schema==='dmb_surface_native_context_receipt_v1'?receipt.work_context.source_basis:receipt.source_basis;
+function buildSourceBasis(receipt:WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt']|import('../../api/types').BuildPendingContextReceiptV1) {
+  return receipt.schema==='dmb_surface_native_context_receipt_v1'||receipt.schema==='dmb_build_pending_context_receipt_v1'?receipt.work_context.source_basis:receipt.source_basis;
 }
-function buildReceiptMatchesRequest(receipt:WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt'],request:WorldBuildAgentTurnRequestV1):boolean {
+function buildReceiptMatchesRequest(receipt:WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt']|import('../../api/types').BuildPendingContextReceiptV1,request:WorldBuildAgentTurnRequestV1):boolean {
   const source=buildSourceBasis(receipt);
   return source.world_id===request.owner_scope.world_id&&source.document_id===request.primary_work.object_id
     &&source.registry_revision===request.primary_work.expected_revision&&source.content_sha256===request.primary_work.expected_content_sha256
     &&(receipt.schema!=='dmb_surface_native_context_receipt_v1'||receipt.native_query.schema==='dmb_native_plan_query_unavailable_v1'||receipt.native_query.question===request.message);
 }
-function buildReceiptMatchesGraph(receipt:WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt'],graph:{world_id:unknown;revision_id:unknown}):boolean {
+function buildReceiptMatchesGraph(receipt:WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt']|import('../../api/types').BuildPendingContextReceiptV1,graph:{status:unknown;world_id:unknown;revision_id:unknown}):boolean {
+  if(receipt.schema==='dmb_build_pending_context_receipt_v1')return isRecord(graph)&&graph.status==='not_requested'
+    &&Object.entries(graph).every(([key,value])=>key==='status'||value===null);
   if(receipt.schema==='dmb_surface_native_context_receipt_v1')return receipt.native_query.schema!=='dmb_native_plan_query_unavailable_v1'
     &&receipt.native_query.authority.native_world_id===graph.world_id&&receipt.native_query.authority.revision_id===graph.revision_id;
   return receipt.graph_authority.native_world_id===graph.world_id&&receipt.graph_authority.graph_revision===graph.revision_id;
 }
-function isSharedBuildReceipt(value:unknown,worldId:string):value is import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt'] {
+function isSharedBuildReceipt(value:unknown,worldId:string):value is import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt']|import('../../api/types').BuildPendingContextReceiptV1 {
+  if(isBuildPendingReceipt(value,(work):work is Extract<import('../../api/types').SurfaceNativeWorkContextV1,{surface_id:'build'}>=>isSharedBuildWork(work,worldId)))return true;
   return isSurfaceNativeReceipt(value,(work):work is Extract<import('../../api/types').SurfaceNativeWorkContextV1,{surface_id:'build'}>=>isSharedBuildWork(work,worldId));
 }
 
@@ -1616,6 +1619,8 @@ function isBuildGraphReceipt(value: unknown, worldId: string): value is WorldBui
 }
 
 function isBuildKnowledgeContext(value: unknown, worldId: string, historyTurn=false): value is WorldBuildKnowledgeContext {
+  if(isRecord(value)&&value.schema==='dmb_agent_build_pending_context_response_v1')
+    return isBuildPendingContext(value,(work):work is Extract<import('../../api/types').SurfaceNativeWorkContextV1,{surface_id:'build'}>=>isSharedBuildWork(work,worldId),isWorldPlanGraphExecution,historyTurn);
   if(isRecord(value)&&value.schema==='dmb_agent_surface_native_context_response_v1')
     return isSurfaceNativeContext(value,(work):work is Extract<import('../../api/types').SurfaceNativeWorkContextV1,{surface_id:'build'}>=>isSharedBuildWork(work,worldId),isWorldPlanGraphExecution,historyTurn);
   const required = ["saved_source_name", "schema", "receipt", "completion", "execution", "delivery_replay", "source_open_targets", "evidence_anchor_statuses", "related_recap_context_statuses"];
@@ -1667,7 +1672,7 @@ function isBuildKnowledgeContext(value: unknown, worldId: string, historyTurn=fa
     && isWorldPlanRelatedRecapStatuses(value.related_recap_context_statuses, completion);
 }
 
-function isHistoryBuildReceiptBound(receipt: WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt'], provenance: Record<string, unknown>, worldId: string,question?:unknown): boolean {
+function isHistoryBuildReceiptBound(receipt: WorldBuildGraphReceiptV1|import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt']|import('../../api/types').BuildPendingContextReceiptV1, provenance: Record<string, unknown>, worldId: string,question?:unknown): boolean {
   if (!isRecord(provenance.primary_work) || !Array.isArray(provenance.supporting_work)) return false;
   const source = buildSourceBasis(receipt);
   if(!isBuildSourceBasis(source,worldId))return false;
@@ -1676,6 +1681,7 @@ function isHistoryBuildReceiptBound(receipt: WorldBuildGraphReceiptV1|import('..
     &&ref.resolution==='resolved'&&ref.kind==='build'&&ref.object_id===source.document_id
     &&ref.revision===String(source.registry_revision)&&ref.content_sha256===source.content_sha256
     &&ref.object_revision===null&&ref.work_revision_id===null&&ref.revision_n===null;
+  if(receipt.schema==='dmb_build_pending_context_receipt_v1')return primaryBound&&isSharedBuildReceipt(receipt,worldId);
   if(receipt.schema==='dmb_surface_native_context_receipt_v1')return primaryBound&&isSharedBuildReceipt(receipt,worldId)
     &&(question===undefined||receipt.native_query.schema==='dmb_native_plan_query_unavailable_v1'||receipt.native_query.question===question);
   const authority = receipt.graph_authority;
@@ -1801,7 +1807,7 @@ function isHistoryTurn(
         || !isRecord(_rules) || !isRecord(_rules.accepted_binding) || _rules.accepted_binding.base_disposition !== 'absent')) return false;
       if (!isHistoryTurn(envelope, 'dmb_agent_conversation_history_v3', worldId)) return false;
       return isRulesAnswerContext(value.rules_context, value.assistant_text, worldId, base =>
-        isRecord(base) && ((base.schema === 'dmb_build_graph_context_response_v1'||base.schema==='dmb_agent_surface_native_context_response_v1'&&isRecord(base.receipt)&&isSharedBuildReceipt(base.receipt,worldId))
+        isRecord(base) && ((base.schema === 'dmb_build_graph_context_response_v1'||base.schema==='dmb_agent_build_pending_context_response_v1'||base.schema==='dmb_agent_surface_native_context_response_v1'&&isRecord(base.receipt)&&isSharedBuildReceipt(base.receipt,worldId))
           ? isBuildKnowledgeContext(base, worldId, true) && isHistoryBuildReceiptBound(base.receipt, value.provenance as Record<string, unknown>, worldId,value.user_text)
           : base.schema === 'dmb_agent_play_world_graph_context_response_v1'
             ? isWorldPlayContextProjection(base, isWorldPlanGraphExecution, undefined, true) && isPlayContextProvenanceBound(base.receipt, value.provenance, worldId)
@@ -1966,6 +1972,11 @@ function isWorldConversationHistory(value: unknown): value is WorldAgentConversa
   for (const turn of turns) {
     if (!isRecord(turn) || typeof turn.turn_id !== "string" || !isPositiveRevision(turn.sequence)
       || turn.sequence === previousSequence || seenIds.has(turn.turn_id)) return false;
+    const rules=isRecord(turn.rules_context)?turn.rules_context:null;
+    const context=turn.knowledge_context??rules?.base_context??rules?.unclaimed_context;
+    if(isRecord(context)&&isRecord(context.receipt)&&context.receipt.schema==='dmb_build_pending_context_receipt_v1'
+      &&(!isRecord(context.receipt.conversation_observation)
+        ||context.receipt.conversation_observation.conversation_id!==value.conversation_id))return false;
     if (previousSequence !== 0) {
       const currentDirection = turn.sequence > previousSequence ? "ascending" : "descending";
       if (sequenceDirection !== null && currentDirection !== sequenceDirection) return false;
@@ -2085,7 +2096,7 @@ export async function confirmedNewConversationStatus(value: unknown, worldId: st
     && typeof receipt.recorded_at === "string" && Number.isFinite(Date.parse(receipt.recorded_at));
 }
 
-async function isReceiptDigestBound(receipt: PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1 | WorldPlayGraphContextReceiptV1 | import('../../api/types').SurfaceNativeContextReceiptV1): Promise<boolean> {
+async function isReceiptDigestBound(receipt: PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1 | WorldPlayGraphContextReceiptV1 | import('../../api/types').SurfaceNativeContextReceiptV1 | import('../../api/types').BuildPendingContextReceiptV1): Promise<boolean> {
   try {
     if (receipt.schema === "dmb_play_world_graph_context_receipt_v1"||receipt.schema==='dmb_surface_native_context_receipt_v1'&&receipt.work_context.surface_id==='play') return await playReceiptDigestsBound(receipt);
     if((receipt.schema==='dmb_plan_source_context_receipt_v1' || receipt.schema==='dmb_plan_native_context_receipt_v1') && receipt.graph_capability!==null
@@ -2103,7 +2114,7 @@ async function isHistoryReceiptDigestBound(turn: unknown): Promise<boolean> {
   if (!isRecord(turn)) return true;
   const rules=isRecord(turn.rules_context)?turn.rules_context:null;
   const sharedContext=turn.knowledge_context??turn.plan_context??turn.play_context??rules?.base_context??rules?.unclaimed_context;
-  if(isRecord(sharedContext)&&isRecord(sharedContext.receipt)&&sharedContext.receipt.schema==='dmb_surface_native_context_receipt_v1') {
+  if(isRecord(sharedContext)&&isRecord(sharedContext.receipt)&&(sharedContext.receipt.schema==='dmb_surface_native_context_receipt_v1'||sharedContext.receipt.schema==='dmb_build_pending_context_receipt_v1')) {
     const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(turn.provenance)));
     if(Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')!==sharedContext.receipt.provenance_sha256)return false;
   }
@@ -4464,6 +4475,14 @@ export function WorldPlanAgentConversation({
         && loreReference.conversation_id === response.conversation.conversation_id
         && response.graph.status === 'not_requested' && response.answer.status === 'ok'
         && !response.answer.graph_grounded;
+      const pendingBuildContext=request.primary_work.kind==='build'
+        ? mixed?response.rules_context.base_context??response.rules_context.unclaimed_context
+          :'knowledge_context' in response?response.knowledge_context:undefined : undefined;
+      const pendingBuild=isRecord(pendingBuildContext)&&isRecord(pendingBuildContext.receipt)
+        &&pendingBuildContext.receipt.schema==='dmb_build_pending_context_receipt_v1'
+        &&isSharedBuildReceipt(pendingBuildContext.receipt,request.owner_scope.world_id)
+        &&pendingBuildContext.receipt.conversation_observation.conversation_id===response.conversation.conversation_id
+        &&matchesPlayGraphResponse(response.graph,{...request,graph_request:{mode:'none'}} as WorldBuildAgentTurnRequestV1);
       const contextKeys = [...(localLore ? ['lore_save_review'] : mixed ? ['rules_context'] : nativePlay ? ['play_context'] : request.graph_request.mode === 'world' ? ['knowledge_context'] : []),
         ...(sourcePlay ? ['play_source_context'] : [])];
       if (!hasExactKeys(response, ['schema', 'client_thread_id', 'turn_id', 'surface', 'owner_scope', 'primary_work',
@@ -4492,7 +4511,7 @@ export function WorldPlanAgentConversation({
         || response.primary_work.expected_revision !== request.primary_work.expected_revision
         || response.primary_work.revision_used !== request.primary_work.expected_revision
         || response.client_work_state_reported !== request.client_work_state
-        || !(localLore || matchesPlayGraphResponse(response.graph, request)||request.primary_work.kind==='run'
+        || !(localLore || pendingBuild || matchesPlayGraphResponse(response.graph, request)||request.primary_work.kind==='run'
           &&sharedPlayGraphResponseMatches(mixed?response.rules_context.base_context?.receipt??response.rules_context.unclaimed_context?.receipt:'play_context' in response&&isRecord(response.play_context)?response.play_context.receipt:null,response.graph))) {
         throw new Error("The reply did not match the saved request. Check World history before continuing.");
       }
@@ -6728,7 +6747,7 @@ export function WorldPlanAgentConversation({
         && next.collaboration.destination.title === loreTitle;
     });
     const context=graphContextForTurn(turn);
-    const buildSource=context?.receipt.schema==='dmb_surface_native_context_receipt_v1'&&context.receipt.work_context.surface_id==='build'
+    const buildSource=(context?.receipt.schema==='dmb_surface_native_context_receipt_v1'||context?.receipt.schema==='dmb_build_pending_context_receipt_v1')&&context.receipt.work_context.surface_id==='build'
       ?context.receipt.work_context.source_basis:context?.schema==='dmb_build_graph_context_response_v1'?context.receipt.source_basis:null;
     const pageWorkPlan=turn.provenance.surface_id==='build'&&collaboration?.kind==='plan';
     // The immutable receipt records generation; proposal controls own current review state.
