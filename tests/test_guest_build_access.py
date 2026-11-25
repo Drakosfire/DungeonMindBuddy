@@ -828,6 +828,7 @@ def test_guest_image_retention_serializes_with_reset(guests, application_state_d
             deadline = time.monotonic() + 5
             with connect(application_state_dsn) as conn:
                 while time.monotonic() < deadline:
+                    conn.execute('SELECT pg_stat_clear_snapshot()')
                     waiting = conn.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
                     if waiting: break
                     time.sleep(0.05)
@@ -933,6 +934,7 @@ def test_guest_play_write_serializes_with_reset(guests, application_state_dsn, m
             deadline = time.monotonic() + 5
             with connect(application_state_dsn) as connection:
                 while time.monotonic() < deadline:
+                    connection.execute('SELECT pg_stat_clear_snapshot()')
                     waiting = connection.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
                     if waiting: break
                     time.sleep(0.05)
@@ -1162,6 +1164,7 @@ def test_reset_waits_for_guest_commit_transaction(guests, application_state_dsn,
             deadline = time.monotonic() + 5
             with connect(application_state_dsn) as connection:
                 while time.monotonic() < deadline:
+                    connection.execute('SELECT pg_stat_clear_snapshot()')
                     waiting = connection.execute(
                         "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
                     ).fetchone()[0]
