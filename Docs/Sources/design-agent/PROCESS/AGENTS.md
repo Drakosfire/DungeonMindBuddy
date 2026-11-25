@@ -151,10 +151,24 @@ independently approved contract/retirement change. Do not delete tests merely fo
 speed. Existing verified benchmark artifacts can inform worker choice, not stand
 in for exact-current-source verification.
 
-Run affected backend contracts locally in an isolated exact-SHA checkout using
-`scripts/ci_contract.py run <contract>` and the owning locked Python environment.
-Database contracts require uniquely owned disposable databases and existing
-session-template/per-test-clone isolation; never operator/live data or providers.
+For backend verification, identify the changed invariant and its owning boundary,
+then select the smallest exact-SHA checks that exercise that boundary and the
+relevant failure cases. A test's membership in a broad named contract does not
+by itself make the whole contract affected. Inspect the contract's scope and
+cost before running it; run the full contract when it is necessary to establish
+the affected invariant or an explicit user, assignment, security, or release
+requirement calls for it. Focused checks use the owning locked Python environment
+in an isolated exact-SHA checkout; record the selected commands, coverage and
+omitted full suites. Do not present focused results as full-contract, hosted, or
+release qualification. The repo-owned `scripts/ci_contract.py` runs complete
+named contracts when those are required.
+
+Database checks use one explicitly owned disposable App clone per workstream,
+reused across serial cases and retries. Prepare/reset fixture state between cases;
+close workers and connections before final exact-clone teardown after acceptance
+or abandonment. Use the existing read-only Core snapshot where required. Never
+use operator/live data or providers, allocate per-case App clones, or run full
+contents scans merely to inventory an exclusively owned benchmark database.
 Retain SHA, commands, versions, isolation/cleanup and all exit/failure evidence.
 Auth/principal/CAS/rollback/history and graph draft-loss protections remain required
 when affected. Independent exact-head review and user/process merge authority
@@ -189,6 +203,28 @@ focused review PRs. `DOCUMENTS` is retired as a generic standalone flow.
 Handoffs use `HANDOFF-<FLOW>-<short-slug>.md`; PR titles use `<FLOW>: <capability>`.
 FLOW names the owning workstream, not a fixed enum. PR numbers are transport
 metadata, not naming authority. Git history is the default archive.
+
+## Agent action catalog
+
+The [Buddy action catalog](evals/plan-authoring-benchmark.md#action-catalog)
+is the canonical inventory of actions Buddy can choose, actions the operator
+can complete through Buddy, and requested capabilities. Other READMEs,
+handoffs and benchmark documents link to this inventory.
+
+Before changing an action, its routing, or its review, confirmation or
+recovery boundary, check the catalog. The owning lane must update the
+affected entry in the same PR when an action is added, changed, removed,
+or its evidence status changes. Record the surface and action owner, the
+strongest verified boundary and its evidence link, and any remaining gap.
+Distinguish ordinary agent turns, operator actions, component tests, and
+requested behavior. A shipped route or passing component test alone does
+not establish ordinary workflow proof.
+
+When a change affects which action Buddy should choose or when it may act,
+use the [benchmark catalog](evals/README.md) to identify the owning suite
+and update its coverage in the same PR. Follow that suite’s fixture,
+scoring, and verification requirements. Apply the state-settlement rule
+above when new evidence arrives after merge.
 
 ## Efficient investigation
 

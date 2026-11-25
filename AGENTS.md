@@ -151,9 +151,19 @@ independently approved contract/retirement change. Do not delete tests merely fo
 speed. Existing verified benchmark artifacts can inform worker choice, not stand
 in for exact-current-source verification.
 
-Run affected backend contracts locally in an isolated exact-SHA checkout using
-`scripts/ci_contract.py run <contract>` and the owning locked Python environment.
-Database contracts use one explicitly owned disposable App clone per workstream,
+For backend verification, identify the changed invariant and its owning boundary,
+then select the smallest exact-SHA checks that exercise that boundary and the
+relevant failure cases. A test's membership in a broad named contract does not
+by itself make the whole contract affected. Inspect the contract's scope and
+cost before running it; run the full contract when it is necessary to establish
+the affected invariant or an explicit user, assignment, security, or release
+requirement calls for it. Focused checks use the owning locked Python environment
+in an isolated exact-SHA checkout; record the selected commands, coverage and
+omitted full suites. Do not present focused results as full-contract, hosted, or
+release qualification. The repo-owned `scripts/ci_contract.py` runs complete
+named contracts when those are required.
+
+Database checks use one explicitly owned disposable App clone per workstream,
 reused across serial cases and retries. Prepare/reset fixture state between cases;
 close workers and connections before final exact-clone teardown after acceptance
 or abandonment. Use the existing read-only Core snapshot where required. Never
