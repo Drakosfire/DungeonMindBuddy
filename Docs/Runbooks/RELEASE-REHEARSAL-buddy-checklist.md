@@ -2,6 +2,12 @@
 
 The [deployment runbook](RUNBOOK-buddy-production-deployment.md) owns commands, required safety gates and stop conditions. Use this checklist to record the pending on-host and public rehearsal evidence for the selected release. The release record owns outcomes; [Buddy #3560](https://github.com/Drakosfire/DungeonMindBuddy/issues/3560) tracks public DNS and hosted Graph/browser acceptance. Local synthetic evidence is not hosted acceptance. No deployment is authorized by this document.
 
+Use this checklist for first deployment, a full release rehearsal, or evidence
+for a deployment boundary that changed. For a routine reversible image update,
+start with the [routine image update](RUNBOOK-buddy-actions-cutover.md#routine-image-update).
+Record which rehearsal items apply to the selected release, which retained
+evidence still applies, and who owns any outstanding release gate.
+
 ## Preflight and build
 
 - **Builder capability — recorded build verified:** the deployment owner built and locally loaded release `9b30bb78e` using the production Dockerfile/api target and full-SHA tag/revision label. The build log and inspected tag agree on image `2f86ffbde204…`; host Compose 2.32.4/Buildx 0.30.1 and the default docker driver were observed. Keep the runbook’s builder preflight and image-ID/revision guard for each selected release. This does not qualify the later serving image or replay the protected preparation wrapper. [Builder disposition](https://github.com/Drakosfire/DungeonMindBuddy/blob/ea9726ca8e9730f2cea0f7cb323bf190f0c7bf62/Backlog-DONE.md) · [Owning release record #3560](https://github.com/Drakosfire/DungeonMindBuddy/issues/3560).

@@ -5,6 +5,23 @@ configuration. Use the [production runbook](RUNBOOK-buddy-production-deployment.
 for dependency, schema, proxy and persistent-state changes. For migration 0172,
 retain the separate paired backup rehearsal and migration procedure.
 
+## Routine image update
+
+For an existing host with unchanged deployment configuration and compatible
+data and schema, use [Publish and approve one release](#publish-and-approve-one-release)
+and the activation steps below. Confirm the observed serving parent, pin the
+candidate and compatible rollback image, keep the existing protected staging
+and activation steps, confirm readiness, and smoke the changed workflow where
+applicable. Use the one-time setup only when provisioning or changing that setup.
+Reuse evidence for unchanged behavior on a serving port. Compare the effective
+code and release settings and check differences that can affect the change.
+
+Use the [production runbook](RUNBOOK-buddy-production-deployment.md) for first
+deployment or for the affected boundary when changing database or persistent
+state, dependencies that affect deployment, permissions, proxy, or recovery
+compatibility. Record pending evidence and its owner at the delivery gate
+where it applies.
+
 ## One-time production setup
 
 1. An operator installs the reviewed deploy/production/activate-buddy-release as

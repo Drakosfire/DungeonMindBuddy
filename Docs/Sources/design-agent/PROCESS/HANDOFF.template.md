@@ -211,6 +211,12 @@ Include only the matrices that apply; otherwise write `Not applicable — <reaso
 
 ## §7 Evidence required to merge
 
+For a product slice, name the ordinary user action and visible result. Connect
+the smallest safe app path early. Name any infrastructure prerequisite by the
+failure it prevents. Identify any separate merge, staging, activation, or
+acceptance gate and its owner. Use the root delivery policy and release runbook
+for shared requirements.
+
 Before dispatch, list the checks that will prove each material invariant at its owning boundary. Record results as the work runs and require them for the applicable review, merge, or delivery gate. Do not treat missing implementation results as an activation blocker. Evidence of an actual prerequisite belongs in the activation gate above. Follow the repository root verification policy. Use the minimum focused cases, including relevant failures, and inspect what each command selects. For docs, check the diff, affected links and mirrors. Record separate release evidence with its owner and status.
 
 | Guarantee / invariant clause | Owning boundary | Evidence class | Command or manual scenario | Expected evidence | Stop condition |
