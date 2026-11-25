@@ -228,8 +228,8 @@ function ReplyTraceOverview({ trace, passages, ownerActive }: {
       source_read_id: passage.source_read_id, content_sha256: passage.content_sha256,
     }} />
 
-  return <section aria-label="How Buddy built this reply">
-    <h4>How Buddy built this reply</h4>
+  if (!incomplete && !searches.length && !startingNodes.length && !trace.native_discovery_replay && !writerGraph && !writerPassages.length && !otherPassages.length) return null
+  return <section aria-label="Recorded retrieval evidence">
     {incomplete && <p>Some activity is missing from this trace.</p>}
     {searches.length > 0
       ? <p>Buddy searched the World Graph for {searches.map(query => `“${query}”`).join(', ')}.</p>
@@ -242,7 +242,7 @@ function ReplyTraceOverview({ trace, passages, ownerActive }: {
         {writerGraph && <p>The trace records World Graph evidence sent to the writer.</p>}
         {writerPassages.map(openPassage)}
       </section>
-      : <p>This trace does not identify evidence sent to the answer writer.</p>}
+      : null}
     {otherPassages.length > 0 && <details>
       <summary>Other excerpts recorded during retrieval</summary>
       <p>The trace does not establish whether the writer received these excerpts.</p>
@@ -281,7 +281,7 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     {replyDetails && <div hidden={tab !== null && tab !== 'evidence'}><ReplyTraceOverview trace={trace} passages={passages} ownerActive={ownerActive} /></div>}
     {!replyDetails && <>{traceHeader}{diagnostics}</>}
     {replyDetails && failed && <p role="alert">This attempt stopped before completing a reply.</p>}
-    {replyDetails && tab !== null && <div hidden={tab !== 'crawler'}>{visitedCrawler && (replaySteps(trace).length ? <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`} trace={trace} steps={replaySteps(trace)} active={tab === 'crawler'} /> : <p>No graph crawler replay was captured for this attempt.</p>)}</div>}
+    {replyDetails && tab !== null && <div hidden={tab !== 'crawler'}>{visitedCrawler && (replaySteps(trace).length ? <BuddyRetrievalReplay key={`${trace.trace_id}:${trace.attempt}`} trace={trace} steps={replaySteps(trace)} active={tab === 'crawler'} /> : <p>This trace contains no recorded Graph traversal. The reply may still cite other sources.</p>)}</div>}
     {replyDetails && tab === null && <RetrievalReplayDetails trace={trace} initialOpen />}
     {replyDetails && <div hidden={tab !== null && tab !== 'timeline'}>{tab === null ? <details><summary>Execution timeline</summary>{timeline}</details> : timeline}</div>}
     {replyDetails && tab === 'prompt' && <BuddyPromptInspector trace={trace} />}

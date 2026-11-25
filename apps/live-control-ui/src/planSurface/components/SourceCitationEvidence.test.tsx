@@ -1,4 +1,4 @@
-import {act,fireEvent,render,screen,within} from '@testing-library/react';
+import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {describe,it,expect,vi} from 'vitest';
 import {SourceCitationEvidence,type CitationChoice} from './SourceCitationEvidence';
 
@@ -19,4 +19,31 @@ describe('on-demand source display',()=>{
   await act(async()=>read.resolve({title:'Stale source title',content:'Stale source text'}));
   expect(screen.queryByText('Stale source title')).toBeNull();expect(screen.queryByText('Stale source text')).toBeNull();expect(screen.queryByRole('region',{name:'Opened source section'})).toBeNull();
  });
+});
+
+
+it('resolves a verified document name for a citation list and reuses the exact read',async()=>{
+ const read=pending(),load=vi.fn(()=>read.promise);
+ render(<SourceCitationEvidence identity="turn-a" prefetchTitles statements={[{choices:[{...choice(load),resolveTitle:true,buttonText:'1. Source · Full document'}]}]}/>);
+ await waitFor(()=>expect(load).toHaveBeenCalledTimes(1));
+ await act(async()=>read.resolve({title:'The City of Mirathorn · Full document',content:'Exact retained passage.'}));
+ fireEvent.click(screen.getByRole('button',{name:'1. The City of Mirathorn'}));
+ await screen.findByText('Exact retained passage.');expect(load).toHaveBeenCalledTimes(1);
+});
+
+it('does not apply a verified name to a different turn after a late read',async()=>{
+ const read=pending(),load=vi.fn(()=>read.promise);const c={...choice(load),resolveTitle:true,buttonText:'1. Source · Full document'};
+ const view=render(<SourceCitationEvidence identity="turn-a" prefetchTitles statements={[{choices:[c]}]}/>);
+ await waitFor(()=>expect(load).toHaveBeenCalledTimes(1));
+ view.rerender(<SourceCitationEvidence identity="turn-b" statements={[{choices:[c]}]}/>);
+ await act(async()=>read.resolve({title:'Old name · Full document',content:'Old passage'}));
+ expect(screen.queryByText('1. Old name')).not.toBeInTheDocument();
+});
+
+
+it('does not present a document name when the exact read fails validation',async()=>{
+ const load=vi.fn().mockRejectedValue(new Error('Source binding differs'));
+ render(<SourceCitationEvidence identity="turn-a" prefetchTitles statements={[{choices:[{...choice(load),resolveTitle:true,buttonText:'1. Source · Full document'}]}]}/>);
+ expect(await screen.findByRole('button',{name:'1. Source name unavailable'})).toBeVisible();
+ expect(screen.queryByText('1. The City of Mirathorn')).not.toBeInTheDocument();
 });

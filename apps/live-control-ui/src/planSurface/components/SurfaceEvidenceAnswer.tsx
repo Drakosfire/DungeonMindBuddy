@@ -69,7 +69,7 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
         summaries.has(index)
           ? <ul key={index}>{summaries.get(index)!.entries.map(entry =>
             <li key={entry.target}><a href={entry.target} title={entry.title}>{entry.number}. {entry.title}</a></li>)}</ul>
-          : <SourceCitationEvidence key={index} identity={canonical([completion,worldId,turnId,index])}
+          : <SourceCitationEvidence key={index} identity={canonical([completion,worldId,turnId,index])} prefetchTitles
             statements={[{choices:choicesBySegment[index]!.map(choice => ({
               ...choice, buttonText: `${choice.number}. ${citationLabel(index, choice.title || choice.label)}`,
             }))}]}/>)}</section>}

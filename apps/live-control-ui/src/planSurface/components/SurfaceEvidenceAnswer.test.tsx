@@ -1,9 +1,9 @@
 import sharedWire from '../../test/surface-native-http.json';
-import {render,screen,fireEvent} from '@testing-library/react';
+import {render,screen,fireEvent,waitFor} from '@testing-library/react';
 import {it,expect,vi} from 'vitest';
 import {webcrypto,createHash} from 'node:crypto';
-import {getAgentSourcePassage,getAgentNativeSourceClause,getAgentNativeAssertionSource,getNativeRelatedRecaps,readNativeRecapPage} from '../../api/liveApi';
-vi.mock('../../api/liveApi',()=>({getAgentSourcePassage:vi.fn(),getAgentNativeSourceClause:vi.fn(),getAgentNativeAssertionSource:vi.fn(),getNativeRelatedRecaps:vi.fn(),readNativeRecapPage:vi.fn()}));
+import {getAgentSourcePassage,getAgentNativeSourceClause,getAgentNativeAssertionSource,getNativeRelatedRecaps,readNativeRecapPage,getAgentNativeBodyExcerpt} from '../../api/liveApi';
+vi.mock('../../api/liveApi',()=>({getAgentNativeBodyExcerpt:vi.fn(),getAgentSourcePassage:vi.fn(),getAgentNativeSourceClause:vi.fn(),getAgentNativeAssertionSource:vi.fn(),getNativeRelatedRecaps:vi.fn(),readNativeRecapPage:vi.fn()}));
 import {SurfaceEvidenceAnswer} from './SurfaceEvidenceAnswer';
 import type {SurfaceEvidenceCompletionV1} from '../../api/types';
 function evidence():SurfaceEvidenceCompletionV1 {
@@ -165,4 +165,37 @@ it.each([false, true])('verifies native recap pages before displaying text (chan
     ? 'The exact cited section is unavailable. No newer text has been substituted.'
     : source.content.trim());
   expect(readNativeRecapPage).toHaveBeenLastCalledWith(scope, selection, 'next');
+});
+
+
+it('names a cited document only after its exact saved source read is verified',async()=>{
+ vi.stubGlobal('crypto',webcrypto);
+ const {savedCitationPreviewFixture}=await import('../../test/savedCitationPreviewFixture');
+ const {preview,body,citation}=await savedCitationPreviewFixture();
+ const completion={...evidence(),schema:'dmb_surface_evidence_completion_v5',answer_segments:preview.answer_segments,
+  native_source_citations:[],native_body_citations:[citation],source_citations:[]} as unknown as import('../../api/types').SurfaceEvidenceCompletion;
+ const source=vi.mocked(getAgentNativeBodyExcerpt);source.mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v2',
+  world_id:'world',turn_id:'turn',citation_index:0,citation,content:body,display_label:'Bridge recap'});
+ render(<SurfaceEvidenceAnswer completion={completion} worldId="world" turnId="turn" citationsOnly/>);
+ expect(source).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByText('Cited in the reply'));
+ const button=await screen.findByRole('button',{name:'1. Bridge recap'});
+ expect(source).toHaveBeenCalledExactlyOnceWith('world','turn',0);
+ fireEvent.click(button);await screen.findByText(body);
+ await waitFor(()=>expect(source).toHaveBeenCalledTimes(1));
+});
+
+
+it('does not expose a source name from an invalid saved citation read',async()=>{
+ vi.stubGlobal('crypto',webcrypto);
+ const {savedCitationPreviewFixture}=await import('../../test/savedCitationPreviewFixture');
+ const {preview,citation}=await savedCitationPreviewFixture();
+ const completion={...evidence(),schema:'dmb_surface_evidence_completion_v5',answer_segments:preview.answer_segments,
+  native_source_citations:[],native_body_citations:[citation],source_citations:[]} as unknown as import('../../api/types').SurfaceEvidenceCompletion;
+ vi.mocked(getAgentNativeBodyExcerpt).mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v2',
+  world_id:'wrong-world',turn_id:'turn',citation_index:0,citation,content:'Unverified text',display_label:'Unverified name'});
+ render(<SurfaceEvidenceAnswer completion={completion} worldId="world" turnId="turn" citationsOnly/>);
+ fireEvent.click(screen.getByText('Cited in the reply'));
+ expect(await screen.findByRole('button',{name:'1. Source name unavailable'})).toBeVisible();
+ expect(screen.queryByText('1. Unverified name')).not.toBeInTheDocument();
 });

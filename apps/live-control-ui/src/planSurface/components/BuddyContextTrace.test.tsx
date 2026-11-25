@@ -40,9 +40,9 @@ describe('Buddy context trace', () => {
       ...trace([{ kind: 'failure', sequence: 0, elapsed_ms: 1, phase: 'provider', code: 'private_failure_code' }]),
       terminal_status: 'failed', capture_status: 'incomplete', capture_failure_code: 'capture_gap',
     }} />)
-    const overview = screen.getByRole('region', { name: 'How Buddy built this reply' })
+    const overview = screen.getByRole('region', { name: 'Recorded retrieval evidence' })
     expect(within(overview).getByText('Some activity is missing from this trace.')).toBeVisible()
-    expect(within(overview).getByText('This trace does not identify evidence sent to the answer writer.')).toBeVisible()
+    expect(screen.queryByText('This trace does not identify evidence sent to the answer writer.')).not.toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('This attempt stopped before completing a reply.')
     for (const code of screen.getAllByText('private_failure_code')) expect(code).not.toBeVisible()
   })
@@ -401,6 +401,13 @@ it('shows recorded execution activity immediately in the timeline tab', () => {
 
 it('explains when a graph crawler replay was not captured', () => {
   render(<TraceTabContext.Provider value="crawler"><BuddyContextTrace replyDetails ownerActive={false} trace={trace([])} /></TraceTabContext.Provider>);
-  expect(screen.getByText('No graph crawler replay was captured for this attempt.')).toBeVisible();
+  expect(screen.getByText('This trace contains no recorded Graph traversal. The reply may still cite other sources.')).toBeVisible();
   expect(screen.queryByRole('list', {name:'Recorded activity'})).not.toBeInTheDocument();
 });
+
+
+it('does not claim a cited reply has no evidence when the trace has no writer attribution', () => {
+  render(<TraceTabContext.Provider value="evidence"><BuddyContextTrace replyDetails ownerActive={false} trace={trace([])} /></TraceTabContext.Provider>)
+  expect(screen.queryByText('This trace does not identify evidence sent to the answer writer.')).not.toBeInTheDocument()
+  expect(screen.queryByRole('region', {name:'Recorded retrieval evidence'})).not.toBeInTheDocument()
+})
