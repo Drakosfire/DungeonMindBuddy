@@ -1949,6 +1949,28 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     assert first.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
     assert len(first.get(path, params={'world_id': world}).json()['records']) == 1
     monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_ENABLED', '1')
+    from apps.live_control_server.routes import combat_encounters
+    first.app.include_router(combat_encounters.router)
+    for client, csrf in ((first, token), (second, other_token)):
+        assert client.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': csrf}).status_code == 200
+    combat_path = '/api/live/combat/encounters'
+    encounters = first.get(combat_path, params={'world_id': world})
+    assert encounters.status_code == 200, encounters.text
+    encounter, = encounters.json()['records'] if isinstance(encounters.json(), dict) else encounters.json()
+    assert encounter['draft']['title'] == 'Funhouse: The Closing Walls'
+    assert sum(actor['name'].startswith('Skeleton ') for actor in encounter['draft']['entities']) == 6
+    other_encounters = second.get(combat_path, params={'world_id': other_world})
+    other_records = other_encounters.json()['records'] if isinstance(other_encounters.json(), dict) else other_encounters.json()
+    assert other_records[0]['encounter_id'] != encounter['encounter_id']
+    assert second.get(f"{combat_path}/{encounter['encounter_id']}", params={'world_id': other_world}).status_code in (403, 404)
+    draft = dict(encounter['draft']); draft['title'] = 'Guest combat edit'
+    saved_combat = first.put(f"{combat_path}/{encounter['encounter_id']}", params={'world_id': world},
+                             headers={'X-DMB-Index-Graph-CSRF': token},
+                             json={'expected_revision': encounter['revision'], 'draft': draft})
+    assert saved_combat.status_code == 200, saved_combat.text
+    assert first.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
+    reopened_combat = first.get(f"{combat_path}/{encounter['encounter_id']}", params={'world_id': world})
+    assert reopened_combat.status_code == 200 and reopened_combat.json()['draft']['title'] == 'Guest combat edit'
     revision = first.get(f'/api/live/workspace-documents/{doc}/committed-revision')
     assert revision.status_code == 200, revision.text
     pin = revision.json()
@@ -1968,4 +1990,6 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     assert second.get(run_path, params={'world_id': world}).status_code == 403
     assert first.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
     assert first.get(run_path, params={'world_id': world}).status_code in (401, 403)
+    assert first.get(f"{combat_path}/{encounter['encounter_id']}", params={'world_id': world}).status_code in (401, 403)
+    assert second.get(f"{combat_path}/{other_records[0]['encounter_id']}", params={'world_id': other_world}).status_code == 200
     assert first.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code in (401, 403)
