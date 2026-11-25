@@ -494,6 +494,8 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert selected.status_code == 200, selected.text
     forbidden = {**inspection, 'scope': {**inspection['scope'], 'managed_world_id': 'foreign-world'}}
     assert client.post('/api/live/native-graph-inspection/read', headers=headers, json=forbidden).status_code == 403
+    forged = {**inspection, 'scope': {**inspection['scope'], 'native_world_id': lane.world.world_id}}
+    assert client.post('/api/live/native-graph-inspection/read', headers=headers, json=forged).status_code != 200
     assert client.post('/api/live/native-graph-inspection/read', headers=headers,
         json={**inspection, 'selection': {'kind': 'chronology'}}).status_code == 403
     session_id = str(UUID(world.world_id.removeprefix('guest-')))
@@ -674,7 +676,25 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
                                     'expected_active_conversation_id': None})
     assert other_conversation.status_code == 200, other_conversation.text
     assert other.get(citation).status_code == 403
-    assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+    from apps.live_control_server.services import native_graph_inspection as inspection_service
+    inspection_entered, inspection_release = Event(), Event()
+    original_catalog = inspection_service.catalog
+    def paused_catalog(*args, **kwargs):
+        result = original_catalog(*args, **kwargs)
+        inspection_entered.set()
+        assert inspection_release.wait(15)
+        return result
+    monkeypatch.setattr(inspection_service, 'catalog', paused_catalog)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending_inspection = pool.submit(client.post, '/api/live/native-graph-inspection/catalog', headers=headers, json=inspection_scope)
+        try:
+            assert inspection_entered.wait(15)
+            assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
+        finally:
+            inspection_release.set()
+        rejected = pending_inspection.result(timeout=15)
+    assert rejected.status_code != 200
+    assert 'catalogue' not in rejected.text
     assert client.post('/api/live/native-graph-inspection/catalog', headers=headers, json=inspection_scope).status_code in (401, 403, 409)
     assert client.get(citation).status_code in (401, 403)
     from application_state.index_graph.guest_conversation_cleanup import cleanup_expired_guest_conversation
