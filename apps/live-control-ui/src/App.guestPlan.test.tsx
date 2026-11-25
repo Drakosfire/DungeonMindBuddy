@@ -71,3 +71,21 @@ it("opens the normal Plan surface in the session World", async () => {
   render(<App />);
   await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("A clue."));
 }, 20000);
+
+it("opens the prepared adventure Plan for a fresh guest", async () => {
+  vi.stubEnv("PROD", true); vi.stubEnv("VITE_HOSTED_GUEST_GRAPH", "1"); vi.stubEnv("VITE_HOSTED_GUEST_BUILD", "1"); vi.stubEnv("VITE_HOSTED_GUEST_PLAN", "1");
+  const worldId = `guest-${"b".repeat(32)}`; const documentId = "22222222-2222-4222-8222-222222222222";
+  const record = {schema_version:"dmb_world_owned_plan_record_v2",scope_mode:"world",document_id:documentId,title:"Sizzek's Apprentice",campaign_id:null,world_id:worldId,target_session:null,kind:"plan",target_relpath:null,status:"active",content_status:"committed",revision:2,created_at:"2026-01-01T00:00:00Z",updated_at:"2026-01-01T00:00:00Z"};
+  vi.stubGlobal("fetch", vi.fn(async (input:RequestInfo | URL) => {
+    const path=String(input);
+    if(path==="/api/auth/session") return response(401,{status:"signed_out"});
+    if(path==="/api/live/index-graph/session") return response(200,{csrf_token:"guest-csrf"});
+    if(path==="/api/live/index-graph/world") return response(200,{world_id:worldId,name:"Sizzek World"});
+    if(path.startsWith("/api/live/plan-view?")) return response(200,{schema_version:"dmb_managed_world_plan_context_v2",scope_mode:"world",world_id:worldId,campaign_id:null,session:null,timeline:[]});
+    if(path.startsWith("/api/live/workspace-documents/world-plans?")) return response(200,{world_id:worldId,records:[record]});
+    if(path===`/api/live/workspace-documents/${documentId}/snapshot`) return response(200,{schema_version:"dmb_workspace_document_snapshot_v2",record,markdown:"# Sizzek's Apprentice\n\nExplore the funhouse.",content_sha256:"b".repeat(64),file_fingerprint:"postgres",file_exists:true,loaded_revision:2});
+    return response(404,{error:"Not found.",code:"not_found"});
+  }));
+  window.history.replaceState({},"","/plan"); render(<App />);
+  await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Explore the funhouse."),{timeout:10000});
+}, 20000);

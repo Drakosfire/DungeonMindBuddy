@@ -80,6 +80,7 @@ exclude = ["agent", "agent.*"]
 [tool.setuptools.package-data]
 application_state = [
     "alembic.ini",
+    "index_graph/sizzek_apprentice_plan.md",
     "migrations/*.py",
     "migrations/*.mako",
     "migrations/versions/*.py",
