@@ -9,7 +9,7 @@ import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
-import { ConversationReplyDetails } from './ConversationReplyDetails';
+import { ConversationReplyDetails, TraceEvidence } from './ConversationReplyDetails';
 import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply,imageMoveReply} from '../../shared/surfaceNativeProtocol';
 import { BuildGraphReferenceReview } from '../../buildSurface/BuildGraphReferenceReview';
 import { BuildImageMoveReview } from '../../buildSurface/BuildImageMoveReview';
@@ -6702,7 +6702,7 @@ export function WorldPlanAgentConversation({
       {open && buildCompose.items.find(item => item.originTurnId === turn.turn_id)?.details}
       {verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open} replyDetails
         worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>}
-      {content}
+      <TraceEvidence>{content}</TraceEvidence>
     </ConversationReplyDetails>;
   };
   const renderConversationEvent = (event: WorldConversationDisplayEvent,
