@@ -8,15 +8,20 @@ printf -v candidate '%040d' 1
 printf -v rollback '%040d' 2
 printf -v candidate_id 'sha256:%064d' 1
 printf -v rollback_id 'sha256:%064d' 2
-export rollback rollback_id
+export candidate candidate_id rollback rollback_id
 request="$candidate $candidate_id $candidate_id $rollback $rollback_id default"
 sed -e "s|^export PATH=.*|export PATH=\"$scratch:\$PATH\"|" \
     -e "s|/run/lock/buddy-production-deploy.lock|$scratch/lock|g" \
+    -e "s|/etc/buddy-deploy|$scratch|g" \
     -e "s|/usr/local/sbin/|$scratch/|g" \
     "$source_dir/deploy-buddy-release" > "$scratch/deploy"
 cat > "$scratch/docker" <<'MOCK'
 #!/usr/bin/env bash
-printf '%s %s %s\n' "$rollback" "$rollback_id" "${TEST_HEALTH:-healthy}"
+if [[ ${TEST_CANDIDATE:-0} == 1 ]]; then
+  printf '%s %s healthy\n' "$candidate" "$candidate_id"
+else
+  printf '%s %s %s\n' "$rollback" "$rollback_id" "${TEST_HEALTH:-healthy}"
+fi
 MOCK
 cat > "$scratch/stage-buddy-release" <<'MOCK'
 #!/usr/bin/env bash
@@ -43,5 +48,11 @@ if TEST_STAGE_EXIT=2 bash "$scratch/deploy" "$request"; then exit 1; fi
 [[ $(<"$scratch/calls") == stage ]]
 : > "$scratch/calls"
 bash "$scratch/deploy" "$request"
+[[ $(<"$scratch/calls") == $'stage\nactivate' ]]
+if TEST_CANDIDATE=1 bash "$scratch/deploy" "$request"; then exit 1; fi
+mkdir "$scratch/releases"
+touch "$scratch/releases/$candidate.conf"
+: > "$scratch/calls"
+TEST_CANDIDATE=1 bash "$scratch/deploy" "$request"
 [[ $(<"$scratch/calls") == $'stage\nactivate' ]]
 printf '%s\n' 'Restricted request, stale rollback, locking, and stage-before-activate checks passed.'
