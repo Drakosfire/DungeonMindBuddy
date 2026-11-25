@@ -5,7 +5,7 @@ from uuid import UUID
 
 _OPTIONAL = frozenset({'working_draft_context', 'response_contract', 'captured_editor',
     'reviewed_discussion_scope', 'plan_output_contract', 'related_authored_pages',
-    'authored_references', 'saved_statblocks', 'retained_authored_context'})
+    'authored_references', 'saved_statblocks', 'retained_authored_context', 'current_page_navigation'})
 
 SOURCE_ANSWER_POLICY = 'typed_supplied_source_answer_v1'
 SOURCE_ANSWER_FORMAT = 'surface_native_build_source_answer_v1'
@@ -184,6 +184,13 @@ def semantic_frame(host, execution, *, include_variant=False, variant_edits=Fals
     work = {'source_class': 'authored_context_not_played_events',
         'visibility': host['source_basis']['visibility'],
         'saved_sections': [section(row) for row in host['artifact_under_edit']['sections']]}
+    if 'current_page_navigation' in host:
+        page = host['current_page_navigation']
+        if (not isinstance(page, dict) or set(page) != {'title', 'role'}
+                or not isinstance(page['title'], str)
+                or page['role'] != 'untrusted_saved_page_title_for_navigation_not_evidence'):
+            raise ValueError('Invalid current page navigation')
+        work['current_page'] = deepcopy(page)
     if supplied_source_references:
         work['citation_policy'] = 'supplied_source_references_v1'
     if typed_source_answer and source_backed_discussion(host, execution):
