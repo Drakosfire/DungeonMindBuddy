@@ -46,6 +46,12 @@ The designer or owner named in the bounded assignment authors or adopts its hand
   a short pinned brief; no separate handoff PR or full template is required.
 - The ACTIVE allowlist is an exclusive expected write lease. Other lanes may
   read those paths but must not edit them without an explicit transfer or split.
+- For a product slice, name the ordinary user action and visible result. Connect
+  the smallest safe path through the real app entry point early. Add supporting
+  infrastructure when a concrete boundary or failure case requires it. If that
+  prerequisite grows before the app path works, checkpoint the scope and
+  deliver the smallest independently useful outcome the user authorized.
+  Helper evidence does not complete a product slice.
 - Before activation, critique the invariant and its failure cases. Re-anchor when
   gates change; record newly knowable facts without silently changing the mission.
 - A lane names its branch/base, isolated checkout, handoff, write set and relevant
@@ -162,14 +168,45 @@ Auth/principal/CAS/rollback/history and graph draft-loss protections remain requ
 when affected. Independent exact-head review and user/process merge authority
 remain separate from test evidence. The local tool is not a self-hosted runner or
 a replacement GitHub status check; no fabricated hosted-green claim is permitted.
-Manual full qualification remains red/not release-qualified until actual proof;
-no selector activation or exemption is implied. Existing unmerged CI drafts do not
+Report full qualification as missing or failed until the required proof exists.
+Apply that status only to the delivery gate that requires it. Existing unmerged CI drafts do not
 silently reactivate long PR runs: reconcile triggers/authority with this policy.
 
 Rollback: restore only the two removed pull_request trigger blocks from the parent
 revision after an explicit reviewed rollback decision; the manual commands/tests
 are unchanged. Review workflow changes and local guard evidence together. Never
 change protections/security rules or deployment as part of this policy.
+
+## Delivery and deployment
+
+**Name the gate.** State whether a blocker affects implementation, merge,
+staging, activation, or product acceptance. Record the affected behavior or
+risk, the missing evidence or operator action, and its owner. Continue
+authorized work outside that gate. An inherited failure, historical HOLD, or
+unfinished platform qualification blocks a delivery only when it affects the
+candidate or an applicable gate explicitly requires that evidence.
+
+**Use the routine path for reversible image updates.** Follow the approved
+deployment path. Verify the current serving parent, the exact candidate source
+and image, and a compatible rollback. Check readiness and smoke the changed
+user workflow where applicable. Use the relevant first-deployment or change
+procedure when the release affects schemas or persisted data, permissions,
+networking, proxy configuration, or recovery compatibility. Preserve applicable
+release, security, and operator gates. Keep local verification focused as
+specified above.
+
+**Reuse evidence on serving ports.** Compare the reviewed change and serving
+candidate for the behavior being carried over. Reuse evidence when the
+relevant code, configuration, schema, and runtime assumptions still match.
+Check the differences that can affect behavior and record both source and
+serving revisions. Verify the actual live release separately.
+
+**Carry authorization through delivery.** Once an authorized deployment names
+its target and scope, proceed through the approved path when the applicable
+gates are met. Request a new decision for a material change in target, scope,
+data impact, or recovery plan. If the workflow requires an operator-controlled
+step, prepare the exact candidate and evidence before handing it off. Report
+which stages actually happened: merged, staged, live, and accepted.
 
 ## State settlement and documentation
 
