@@ -631,3 +631,26 @@ def test_pending_observation_cannot_replace_a_rehashed_explicit_request_pin():
     execution = pending_execution(receipt, policy)
     with pytest.raises(ValueError, match='explicitly requested revision'):
         effective_pending_source(receipt, execution)
+
+
+def test_pending_work_closes_controller_phase_but_keeps_preselection_retries():
+    from uuid import uuid4
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    from tests.test_surface_native_execution import controller, outcomes, build_resolution
+    receipt, policy = pending_execution_pair(with_source=True)
+    events = pending_work_prefix(policy)
+    late = controller('build', policy, sequence=4)
+    settled = pending_settlement(receipt, policy, events[-1]).model_copy(update={'sequence': 5})
+    with pytest.raises(ValidationError, match='precede work selection'):
+        pending_execution(receipt, policy, [*events, late, settled])
+    first = controller('build', policy)
+    not_sent = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=1,
+        provider_attempt_id=first.provider_attempt_id, outcome='known_not_sent')
+    retry = controller('build', policy, sequence=2)
+    selected = build_resolution(policy, retry, 5)
+    selected = type(selected).model_validate(selected.model_dump(mode='python') | {
+        'resolution': resolution_for(policy, 'discuss', source_scope='source_lookup')})
+    settled = pending_settlement(receipt, policy, selected).model_copy(update={'sequence': 6})
+    execution = pending_execution(receipt, policy, [first, not_sent, retry, *outcomes(retry, 3), selected, settled])
+    assert execution.events[-1].work_event_id == selected.event_id

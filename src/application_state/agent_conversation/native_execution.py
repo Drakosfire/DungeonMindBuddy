@@ -647,16 +647,19 @@ class BuildPendingExecutionV1(Strict):
         from .build_source_free import validate_pending_work_records
         validate_pending_work_records(self)
         settled = False
+        work_selected = False
         for event in self.events:
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
-                if (settled or (event.provider, event.model, event.api_mode)
+                if (settled or work_selected or (event.provider, event.model, event.api_mode)
                         != self.policy.provider_roles.controller.identity()):
-                    raise ValueError("Pending prefix permits only its pre-settlement controller")
+                    raise ValueError("Pending controller authorization must precede work selection")
                 if (event.included_assertion_ids or event.included_relationship_ids
                         or event.included_evidence_ref_ids or event.included_graph_event_ids
                         or event.included_source_read_event_ids
                         or getattr(event, "included_source_reuse_event_ids", ())):
                     raise ValueError("Pending controller cannot include unacquired source evidence")
+            elif type(event) is t.BuildRequestedWorkResolutionV1:
+                work_selected = True
             elif type(event) is NativeBuildSourceSettledV1:
                 work = [e for e in self.events[:event.sequence]
                         if type(e) is t.BuildRequestedWorkResolutionV1]
