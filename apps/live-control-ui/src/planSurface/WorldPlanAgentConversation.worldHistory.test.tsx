@@ -101,7 +101,7 @@ function ensureWorldGraphAskDisabled() {
 }
 
 async function expandAnswerEvidence(index = 0) {
-  await screen.findAllByText("Details", {selector:"summary"});
+  await screen.findAllByText("Trace", {selector:"summary"});
   const controls = Array.from(document.querySelectorAll<HTMLSummaryElement>(
     ".world-plan-agent-conversation__turn-details > summary",
   ));
@@ -114,7 +114,7 @@ async function expandAnswerEvidence(index = 0) {
 
 async function expandAllAnswerEvidence() {
   await waitForConversationReady();
-  await screen.findAllByText("Details", {selector:"summary"});
+  await screen.findAllByText("Trace", {selector:"summary"});
   document.querySelectorAll<HTMLSummaryElement>(".world-plan-agent-conversation__turn-details > summary").forEach((control) => {
     const disclosure = control.parentElement;
     if (disclosure instanceof HTMLDetailsElement && !disclosure.open) fireEvent.click(control);
@@ -1356,7 +1356,7 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse, inspect
     // Opening latency and lazy-read regressions opt out of this interaction helper.
     const clicked = new WeakSet<Element>();
     const observer = new MutationObserver(() => {
-      for (const button of screen.queryAllByText('Details', {selector: 'summary'})) if (!clicked.has(button) && !button.closest("details")?.open) {
+      for (const button of screen.queryAllByText('Trace', {selector: 'summary'})) if (!clicked.has(button) && !button.closest("details")?.open) {
         clicked.add(button); act(() => fireEvent.click(button));
       }
     });
@@ -1385,7 +1385,7 @@ async function waitForConversationReady(details = true) {
   await waitFor(() => expect(screen.getByRole("region", { name: "World conversation transcript" })).toHaveAttribute("aria-busy", "false"));
   if (details) {
     // These existing action/citation tests start from explicitly opened saved replies.
-    for (const button of screen.queryAllByText('Details', {selector: 'summary'})) if (!button.closest('details')?.open) fireEvent.click(button);
+    for (const button of screen.queryAllByText('Trace', {selector: 'summary'})) if (!button.closest('details')?.open) fireEvent.click(button);
     await waitFor(() => expect(screen.queryAllByText('Loading reply details…')).toHaveLength(0));
   }
 
@@ -2926,7 +2926,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     const mounted = render(conversationElement());
-    const evidenceTrail = await screen.findByText("Details");
+    const evidenceTrail = await screen.findByText("Trace");
     if (!evidenceTrail.closest('details')?.open) fireEvent.click(evidenceTrail);
     const openEvidence = await screen.findByRole("button", { name: "Open evidence" });
     expect(openEvidence.closest("details")).toBe(evidenceTrail.closest("details"));
@@ -3958,7 +3958,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ documentId: otherPlanId }));
 
     expect(await screen.findByText("Buddy couldn’t finish this reply. Your Plan was not changed.")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Details"));
+    fireEvent.click(screen.getByText("Trace"));
     const graphRecovery = await screen.findByRole("region", { name: "World Graph evidence and recovery" });
     expect(graphRecovery).toHaveTextContent("World history records this turn as failed.");
     expect(graphRecovery).toHaveTextContent("World history records this turn as failed.");
@@ -3995,7 +3995,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ playableTarget, editBridge: {} }));
 
     expect(await screen.findByText("Buddy couldn’t finish this reply. Your Plan was not changed.")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Details"));
+    fireEvent.click(screen.getByText("Trace"));
     const graphRecovery = await screen.findByRole("region", { name: "World Graph evidence and recovery" });
     await waitFor(() => expect(graphRecovery).toHaveTextContent("Exact V3 World history records this turn as failed."));
     expect(graphRecovery).toHaveTextContent("Execution disposition requires a separate new Ask for any new attempt.");
@@ -4996,7 +4996,7 @@ describe("World Plan conversation consumer", () => {
     if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
     expect(screen.getByLabelText('Answer sources')).toHaveTextContent(/^Sources$/);expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
-    fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : within(screen.getByText('Details',{selector:'summary'}).closest('details')!)).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
+    fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : within(screen.getByText('Trace',{selector:'summary'}).closest('details')!)).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
@@ -5198,7 +5198,7 @@ describe("World Plan conversation consumer", () => {
       render(conversationElement());await waitForConversationReady(false);
       expect(await screen.findByText(answer)).toBeInTheDocument();expect(api.getHistory).not.toHaveBeenCalled();
       fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep this unsent draft'}});
-      fireEvent.click(screen.getByText('Details',{selector:'summary'}));
+      fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
       await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
       expect(screen.getByText(answer)).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
       await act(async()=>hydration.resolve());
@@ -5220,7 +5220,7 @@ describe("World Plan conversation consumer", () => {
     }
     if(change==='unavailable'){await screen.findByText(answer);expect(open).not.toHaveBeenCalled();return;}
     await screen.findByText(answer);
-    expect(screen.getAllByText('Details',{selector:'summary'})).toHaveLength(1);
+    expect(screen.getAllByText('Trace',{selector:'summary'})).toHaveLength(1);
     expect(screen.queryByText('Graph record details')).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button',{name:'Read Graph assertion source'}));
     await screen.findByRole('region',{name:'Opened source section'});
@@ -5296,7 +5296,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByLabelText("Answer sources")).toHaveTextContent(/^Sources$/);
     expect(open).not.toHaveBeenCalled();
     openLatestTurnDetails();
-    fireEvent.click(within(screen.getByText("Details", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
+    fireEvent.click(within(screen.getByText("Trace", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
     await screen.findByRole("region", {name: "Opened source passage"});
     expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
     expect(screen.queryByRole("tab", {name: "The Prompt"})).not.toBeInTheDocument();
@@ -5537,7 +5537,7 @@ describe("World Plan conversation consumer", () => {
     await screen.findByText("Question");
     await waitForConversationReady(false);
     expect(loadTrace).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText("Details"));
+    fireEvent.click(screen.getByText("Trace"));
     await screen.findByText("How Buddy built this reply");
     expect(screen.getByText("trace-model")).toBeInTheDocument();
     expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
@@ -5547,8 +5547,8 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByText("The Prompt", { selector: "summary" }));
     await screen.findByText(/No complete request was captured for this call/);
     expect(loadTrace).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByText("Details"));
-    fireEvent.click(screen.getByText("Details"));
+    fireEvent.click(screen.getByText("Trace"));
+    fireEvent.click(screen.getByText("Trace"));
     expect(loadTrace).toHaveBeenCalledTimes(1);
   });
 
@@ -5572,7 +5572,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText("Buddy is working on this reply…")).not.toBeInTheDocument();
     const deliveryDiagnostic = screen.getByText(/Delivery · The outcome of this Ask is uncertain/);
     expect(deliveryDiagnostic).not.toBeVisible();
-    fireEvent.click(screen.getByText("Details"));
+    fireEvent.click(screen.getByText("Trace"));
     expect(deliveryDiagnostic).toBeVisible();
     expect(screen.queryByText("Buddy is working on this reply…")).not.toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Submitted message" })).toHaveTextContent("Query the graph about Mirathorn.");
@@ -6329,7 +6329,7 @@ it('keeps toolbar references and completed activity out of the composer',async()
  const view=render(conversationElement({presentationHosts:{header,newConversation:toolbar,context:null,messages,composer}}));
  await waitForConversationReady();expect(within(toolbar).getByRole('button',{name:'Conversation history'}).querySelector('svg')).not.toBeNull();
  expect(within(toolbar).getByRole('button',{name:'@ Reference'})).toHaveTextContent('@');expect(within(composer).queryByRole('button',{name:'@ Reference'})).toBeNull();
- expect(within(composer).queryByText('Reply details')).toBeNull();expect(screen.getByText('Details',{selector:'summary'}).closest('details')).toHaveAttribute('open');
+ expect(within(composer).queryByText('Reply details')).toBeNull();expect(screen.getByText('Trace',{selector:'summary'}).closest('details')).toHaveAttribute('open');
  view.unmount();header.remove();toolbar.remove();messages.remove();composer.remove();
 });
 
@@ -6349,9 +6349,9 @@ it('opens saved text through the light owner without fetching receipts or retry 
   await waitForConversationReady(false);
   expect(screen.getByText('A saved short answer')).toBeInTheDocument();
   expect(api.getHistory).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByText('Details', {selector: 'summary'}));
+  fireEvent.click(screen.getByText('Trace', {selector: 'summary'}));
   await waitFor(() => expect(api.getHistory).toHaveBeenCalledWith(worldId, expect.objectContaining({ limit: 1, beforeSequence: 2, includeTurnCorrelation: true })));
-  await waitFor(() => expect(screen.getByText('Details', {selector: 'summary'})).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText('Trace', {selector: 'summary'})).toBeInTheDocument());
 });
 
 
@@ -6360,7 +6360,7 @@ it('keeps saved text and the composer draft when explicit details fail, then ret
   render(conversationElement()); await waitForConversationReady(false);
   fireEvent.change(screen.getByLabelText('Message DungeonBuddy'), { target: { value: 'My unsent draft' } });
   api.getHistory.mockRejectedValueOnce(new Error('Synthetic detail failure'));
-  fireEvent.click(screen.getByText('Details', {selector: 'summary'}));
+  fireEvent.click(screen.getByText('Trace', {selector: 'summary'}));
   expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic detail failure');
   expect(screen.getByText('A saved short answer')).toBeInTheDocument(); expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My unsent draft');
   expect(api.getHistory).toHaveBeenCalledTimes(1);
@@ -6375,7 +6375,7 @@ it.each(['conversation', 'turn', 'text'])('refuses mismatched lazy %s details wi
   render(conversationElement()); await waitForConversationReady(false);
   const full = { ...turn, idempotency_key: '00000000-0000-4000-8000-000000000099', ...(mismatch === 'turn' ? { turn_id: 'different-turn' } : mismatch === 'text' ? { assistant_text: 'Substituted answer' } : {}) };
   api.getHistory.mockResolvedValueOnce({ ...history(mismatch === 'conversation' ? 'other-conversation' : 'conversation-a', 4, [full]), schema: 'dmb_agent_conversation_history_v3' } as any);
-  fireEvent.click(screen.getByText('Details', {selector: 'summary'}));
+  fireEvent.click(screen.getByText('Trace', {selector: 'summary'}));
   expect(await screen.findByRole('alert')).toHaveTextContent(mismatch === 'conversation' || mismatch === 'turn' || mismatch === 'text' ? 'no longer match' : 'invalid Graph-context receipt');
   expect(screen.getByText('A saved short answer')).toBeInTheDocument(); expect(screen.queryByText('Substituted answer')).not.toBeInTheDocument();
 });
@@ -6449,12 +6449,12 @@ it('keeps one reply Details view open through completion while the activity shor
   const api=setupApi(history('conversation-a',4,[running]),false);
   function RefreshProbe(){const state=useWorldAgentConversationState();return <button onClick={()=>state?.setHistoryRefreshNonce(value=>value+1)}>Refresh completion fixture</button>;}
   render(<WorldAgentConversationProvider worldId={worldId}><RefreshProbe/>{conversationElement()}</WorldAgentConversationProvider>);
-  await waitForConversationReady(false);fireEvent.click(screen.getByText('Details',{selector:'summary'}));
-  await waitFor(()=>expect(screen.getByText('Details',{selector:'summary'}).closest('details')).toHaveAttribute('open'));
+  await waitForConversationReady(false);fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
+  await waitFor(()=>expect(screen.getByText('Trace',{selector:'summary'}).closest('details')).toHaveAttribute('open'));
   api.setCurrent(history('conversation-a',4,[makeTurn(1,'activity-turn','Question','Completed reply')]));
   fireEvent.click(screen.getByRole('button',{name:'Refresh completion fixture'}));await screen.findByText('Completed reply');
-  expect(screen.getAllByText('Details',{selector:'summary'})).toHaveLength(1);
-  expect(screen.getByText('Details',{selector:'summary'}).closest('details')).toHaveAttribute('open');
+  expect(screen.getAllByText('Trace',{selector:'summary'})).toHaveLength(1);
+  expect(screen.getByText('Trace',{selector:'summary'}).closest('details')).toHaveAttribute('open');
   expect(document.querySelector('details.buddy-activity')).toBeNull();
 });
 
@@ -6462,11 +6462,11 @@ it.each(['conversation','turn'])('does not open another %s reply when inspecting
   const api=setupApi(history('conversation-a',4,[makeTurn(1,'activity-turn','Question','Answer')]),false);
   function RefreshProbe(){const state=useWorldAgentConversationState();return <button onClick={()=>state?.setHistoryRefreshNonce(value=>value+1)}>Refresh identity fixture</button>;}
   render(<WorldAgentConversationProvider worldId={worldId}><RefreshProbe/>{conversationElement()}</WorldAgentConversationProvider>);
-  await waitForConversationReady(false);fireEvent.click(screen.getByText('Details',{selector:'summary'}));
-  await waitFor(()=>expect(screen.getByText('Details',{selector:'summary'}).closest('details')).toHaveAttribute('open'));
+  await waitForConversationReady(false);fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
+  await waitFor(()=>expect(screen.getByText('Trace',{selector:'summary'}).closest('details')).toHaveAttribute('open'));
   api.setCurrent(history(change==='conversation'?'conversation-b':'conversation-a',change==='conversation'?5:4,[makeTurn(2,'new-turn','New question','New reply')]));
   fireEvent.click(screen.getByRole('button',{name:'Refresh identity fixture'}));await screen.findByText('New reply');
-  expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
+  expect(screen.getByText('Trace',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
   expect(document.querySelector('details.buddy-activity')).toBeNull();
 });
 
@@ -6483,7 +6483,7 @@ it('shows native citations on initial lightweight history without opening Detail
   fireEvent.click(screen.getByRole('button',{name:'Read source · Full document'}));
   expect(await screen.findByText(body)).toBeInTheDocument();expect(source).toHaveBeenCalledExactlyOnceWith(worldId,turn.turn_id,0);expect(api.getHistory).not.toHaveBeenCalled();
   expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My unsent message');
-  expect(screen.getByText('Details').closest('details')).not.toHaveAttribute('open');
+  expect(screen.getByText('Trace').closest('details')).not.toHaveAttribute('open');
   expect(screen.queryByRole('button',{name:'Show citations'})).not.toBeInTheDocument();
 });
 
@@ -6493,7 +6493,7 @@ it('keeps uncited lightweight reply text mounted when exact details hydrate',asy
   render(conversationElement());await waitForConversationReady(false);
   const before=await screen.findByText('Saved plain reply');
   expect(api.getHistory).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByText('Details'));
+  fireEvent.click(screen.getByText('Trace'));
   await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
   await waitFor(()=>expect(screen.queryByText('Loading reply details…')).not.toBeInTheDocument());
   expect(screen.getByText('Saved plain reply')).toBe(before);
@@ -6510,7 +6510,7 @@ it.each(['completed','interrupted'] as const)('shows saved selections before Det
  const chip=screen.getByRole('button',{name:'Inspect Selected saved object'});
  expect(api.getHistory).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'My unsent draft'}});
- fireEvent.click(screen.getByText('Details',{selector:'summary'}));
+ fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
  await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
  await waitFor(()=>expect(screen.queryByText('Loading reply details…')).not.toBeInTheDocument());
  expect(screen.getByRole('button',{name:'Inspect Selected saved object'})).toBe(chip);
@@ -6540,7 +6540,7 @@ it('opens a lightweight saved Plan page review through one exact read without op
  expect(api.getHistory).not.toHaveBeenCalled();fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep my next thought'}});
  fireEvent.click(screen.getByRole('button',{name:'Review new page'}));await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
  await waitFor(()=>expect(screen.queryByText('Loading reply sources…')).not.toBeInTheDocument());
- expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
+ expect(screen.getByText('Trace',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep my next thought');
 });
 
@@ -6554,7 +6554,7 @@ it('keeps the saved Plan review, text and unsent draft when its exact read fails
  fireEvent.click(screen.getByRole('button',{name:'Review new page'}));await screen.findByText('Exact page review temporarily unavailable');
  expect(screen.getByText('Preview stays here')).toBeInTheDocument();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep drafting');
  expect(screen.getByRole('button',{name:'Review new page'})).toBeEnabled();
- expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
+ expect(screen.getByText('Trace',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
 });
 
 
@@ -6572,7 +6572,7 @@ it.each([undefined,'discuss','write_current_page'] as const)('retries a lightwei
  const request=post.mock.calls[0][0];expect(request.message).toBe('Original Plan question');expect(request.authored_references).toEqual(references);expect(request.plan_requested_operation).toBe(operation);
  expect(api.getHistory).toHaveBeenCalledExactlyOnceWith(worldId,expect.objectContaining({limit:1,beforeSequence:2,includeTurnCorrelation:true}));
  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My newer independent draft');
- expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
+ expect(screen.getByText('Trace',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
 });
 
 it.each(['read-failure','foreign-pointer','changed-references','changed-editor'] as const)('keeps a lightweight Plan retry unsent after %s',async failure=>{

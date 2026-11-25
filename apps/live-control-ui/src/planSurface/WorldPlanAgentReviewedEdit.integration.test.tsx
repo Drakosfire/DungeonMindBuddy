@@ -685,7 +685,7 @@ it.each(liveApplyScenarios)("stages, reviews, explicitly saves, and reloads a li
     expect(liveApi.getWorldOwnedPlanSnapshot).toHaveBeenLastCalledWith(documentId);
     fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
     await screen.findByRole("region", {name: "World conversation"});
-    fireEvent.click(await screen.findByText("Details", {selector: "summary"}));
+    fireEvent.click(await screen.findByText("Trace", {selector: "summary"}));
     await screen.findByText("Suggestion saved on the Plan.");
     expect(screen.queryByRole("textbox", {name: "Suggestion text"})).not.toBeInTheDocument();
     expect(screen.queryByRole("button", {name: "Save", exact: true})).not.toBeInTheDocument();
@@ -935,7 +935,7 @@ it("settles a late native Plan turn after unmount and recovers its suggestion wi
     const reopenedSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
     const reopenedEditor = (reopenedSurface.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor;
     fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
-    fireEvent.click(await screen.findByText("Details", {exact: true}));
+    fireEvent.click(await screen.findByText("Trace", {exact: true}));
     expect(await screen.findByRole("textbox", {name: "Suggestion text"})).toHaveTextContent("A late lantern glows.");
     expect(await screen.findByText("Add a late lantern.", {exact: true})).toBeInTheDocument();
     expect(reopenedEditor.getJSON()).toEqual(before);
