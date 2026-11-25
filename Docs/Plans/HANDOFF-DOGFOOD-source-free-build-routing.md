@@ -1426,3 +1426,47 @@ unproven. Source callbacks still hold App row locks; measure and qualify that
 behavior with the focused integrated SQL run. No database/provider was started.
 Next required work is runtime navigation/loop and native writer closure, then the
 remaining fresh startup/Rules/current reader fence/SQL/live app/review/merge gates.
+
+
+Native navigation integration lease: current main985c196d7c390c680f0c60092d4c1818cfb80f97
+and active4580/4584/4561 heads rechecked. Pin native_source_navigation.navigator's
+exact pending registration and corpus_source_navigation.NativeBodyNavigation's
+constructor/source-context matching, source/query joins in offered/examined/
+scoped offers, pending keyword/selection delegation, and _commit exact pending
+service mapping. Add only private actual-owner helpers; preserve all ranking,
+coverage, extent and legacy producer logic. No whole-file lock, Core edit or
+PlanJevDriver/test_corpus_source_navigation write is claimed. This is serial
+within4642; validate public-Core navigation and no-repeat behavior before main
+native runtime activation and native writer integration.
+
+Navigation recovery checkpoint: a reopened pending source context may have a newer
+Core access epoch at the original R. Pin only the exact pending authority/capture
+join in native_reads.observe_body_search_locked and search-catalog comparison in
+native_corpus.validate_native_body_events. Require every non-epoch authority field
+unchanged and epoch nondecreasing. Legacy comparisons stay exact. This closes the
+renewal behavior named by prior review; validate actual public Core renewed reads
+before accepting navigator integration, not by fabricating a legacy authority.
+
+
+Pending native navigation checkpoint: factory dispatches the exact pending Build
+receipt to existing NativeBodyNavigation. Private helpers resolve the stored
+source/query, preserving legacy fields and policy identities. The navigator
+routes only its six existing source operations to pending guarded service owners;
+no pending Plan session is fabricated. Existing scoped offers, keywords, extent
+coverage and semantic labels are reused. Physical source callbacks still use Core.
+A renewed pending Core context may advance access epoch only with all other
+original authority fields unchanged; pending search production and retained
+catalog validation enforce the same rule. Legacy equality remains exact.
+
+64 focused pending protocol/guard/runtime/public-Core/main-App controls passed
+5.15s, including14 public memory-Core cases with actual authority and navigation.
+New coverage proves direct and selected-section navigation, recovered navigator
+metadata without rescan/reopen, App denial before body IO, renewed-context section
+reads at original R, and backward-epoch/foreign-scope refusal both at capture and
+self-consistent stored-catalog validation. Eleven focused legacy scope/Core/direct
+writer controls passed2.01s; existing four tuple/list serializer warnings remain.
+Source/query preparation remain once in these runs. No database or live provider
+was started. These are fake-App/in-memory/mock transport checks, not SQL lock
+latency/concurrency/rollback or live semantic/app/release qualification. Complete
+pending runtime orchestration and native writer closure are still unimplemented;
+PlanJevDriver and its leased expansion helpers/tests remain untouched.

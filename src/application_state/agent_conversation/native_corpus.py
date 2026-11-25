@@ -618,7 +618,12 @@ def validate_native_body_events(execution):
             pairs, catalogs = set(), {}
             for catalog in event.catalogs:
                 pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
-                if catalog.authority != grant.authority or pair in pairs:
+                same_authority = catalog.authority == grant.authority
+                if not same_authority and type(execution) is BuildPendingExecutionV1:
+                    same_authority = (catalog.authority.model_dump(mode='json', exclude={'acquisition_epoch'})
+                        == grant.authority.model_dump(mode='json', exclude={'acquisition_epoch'})
+                        and catalog.authority.acquisition_epoch >= grant.authority.acquisition_epoch)
+                if not same_authority or pair in pairs:
                     raise ValueError("Native search repeated or changed its source authority")
                 pairs.add(pair)
                 catalogs[catalog.catalog_sha256] = {section.section_id for section in catalog.sections}

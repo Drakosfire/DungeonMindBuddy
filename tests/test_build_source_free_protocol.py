@@ -4481,7 +4481,7 @@ def test_pending_native_materialization_checks_live_owner_and_never_reopens_repl
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
 
 
-@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost'])
+@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch'])
 def test_pending_guarded_direct_read_uses_public_core_with_original_real_authority(monkeypatch, mode):
     from types import SimpleNamespace
     from application_state.agent_conversation import native_corpus as bodies
@@ -4553,17 +4553,93 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
             state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_execution':
                 execution.model_copy(update={'events': [*execution.events, auth, *outcomes(auth, auth.sequence + 1), selected]})
             }).model_dump_json(by_alias=True))
+        if 'navigation' in mode:
+            from apps.live_control_server.services.native_source_navigation import navigator
+            from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+            adapter.pending_build_access = state.authorize
+            adapter.request = SimpleNamespace(message=state.turn.user_text)
+            if mode == 'section_navigation_epoch':
+                admit(memory, 'later', body='# Later source\nNot the original source.\n')
+                adapter.native_corpus_context = core.prepare_native_source_context(
+                    managed_world_id=state.turn.world_id, principal=principal,
+                    revision_id=authority.revision_id, repository=memory.repo,
+                    resolve_identity=lambda _: memory.bound)
+                assert adapter.native_corpus_context.authority.acquisition_epoch > authority.acquisition_epoch
+            nav = navigator(adapter)
+            assert type(nav) is NativeBodyNavigation and navigator(adapter) is nav
+            offers = nav.offered()
+            assert not opens
+            handle = next(row.handle for row in offers if row.handle.startswith(
+                'native-corpus-search:' if section_mode else 'native-direct-source:'))
+            choose(handle)
+            fence.renewer.update_turn(state.turn)
+            if mode == 'navigation_denied':
+                state.denied = True
+                with pytest.raises(ApplicationStateError): nav.select((handle,))
+                assert not opens
+                return
+            nav.select((handle,))
+            if section_mode:
+                handle = next(row.handle for row in nav.offered() if row.handle.startswith('native-body:'))
+                choose(handle)
+                fence.renewer.update_turn(state.turn)
+                before_open = len(opens)
+                nav.select((handle,))
+                assert len(opens) == before_open + 1
+                selected_read = state.turn.graph_context_execution.events[-1]
+                assert state.turn.user_text in selected_read.excerpt.text
+                search = next(e for e in state.turn.graph_context_execution.events if type(e) is bodies.NativeBodySearchObservedV1)
+                assert search.catalogs[0].authority.revision_id == authority.revision_id
+                if mode == 'section_navigation_epoch':
+                    assert search.catalogs[0].authority.acquisition_epoch > authority.acquisition_epoch
+            else:
+                assert state.turn.graph_context_execution.events[-1].excerpt.text == BODY and len(opens) == 1
+            before_open = len(opens)
+            if section_mode:
+                nav.select((handle,))
+            else:
+                with pytest.raises(ValueError): nav.select((handle,))
+            assert len(opens) == before_open and handle not in {row.handle for row in nav.offered()}
+            recovered = NativeBodyNavigation(adapter)
+            assert handle not in {row.handle for row in recovered.offered()} and len(opens) == before_open
+            assert prepares == [observation.observed_head_revision_id] and len(searches) == 1
+            return
         grant_id = uuid4()
         if section_mode:
             from hashlib import sha256
             choose(bodies.native_corpus_search_handle(sha256(state.turn.user_text.encode()).hexdigest()))
             call('authorize_pending_native_body_search', event_id=grant_id)
             search_id = uuid4()
-            capture_calls = []
+            capture_calls, captured_results = [], []
             def capture():
                 capture_calls.append(1)
                 assert state.depth == 1
-                return core.capture_native_sources(managed_world_id=state.turn.world_id, principal=principal, prepared=context)
+                result = core.capture_native_sources(managed_world_id=state.turn.world_id, principal=principal, prepared=context)
+                captured_results.append(result)
+                if mode in {'section_capture_scope', 'section_capture_epoch'}:
+                    from dataclasses import replace
+                    changed = ({'revision_id': 'foreign'} if mode == 'section_capture_scope'
+                               else {'acquisition_epoch': authority.acquisition_epoch - 1})
+                    return replace(result, authority=result.authority.model_copy(update=changed))
+                return result
+            if mode in {'section_capture_scope', 'section_capture_epoch'}:
+                before = state.persisted
+                with pytest.raises(ApplicationStateError):
+                    call('observe_pending_native_body_search', event_id=search_id, authorization_event_id=grant_id, capture=capture)
+                assert state.persisted == before and capture_calls == [1]
+                changed = ({'revision_id': 'foreign'} if mode == 'section_capture_scope'
+                           else {'acquisition_epoch': authority.acquisition_epoch - 1})
+                altered_authority = authority.model_copy(update=changed)
+                member = captured_results[0].members[0].model_copy(update={'proof_epoch': 0})
+                altered_catalog = bodies.build_native_body_catalog(altered_authority, member, source_body)
+                observed = bodies.NativeBodySearchObservedV1(event_id=search_id,
+                    sequence=len(state.turn.graph_context_execution.events), authorization_event_id=grant_id,
+                    catalogs=(altered_catalog,), matches=(), unavailable_source_count=0)
+                candidate = state.turn.graph_context_execution.model_copy(update={
+                    'events': [*state.turn.graph_context_execution.events, observed]})
+                with pytest.raises(ValueError, match='changed its source authority'):
+                    type(candidate).model_validate_json(candidate.model_dump_json(by_alias=True))
+                return
             call('observe_pending_native_body_search', event_id=search_id, authorization_event_id=grant_id, capture=capture)
             assert call('observe_pending_native_body_search', event_id=search_id, authorization_event_id=grant_id, capture=capture)[1] is False
             assert capture_calls == [1]

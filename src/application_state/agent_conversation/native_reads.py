@@ -321,8 +321,14 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
             for event in execution.events):
         raise ValueError("Native source search already has an observation; reuse its receipt")
     captured = capture()
-    if captured.authority != authority:
+    from .native_context import BuildPendingContextReceiptV1
+    pending = type(receipt) is BuildPendingContextReceiptV1
+    if captured.authority != authority and (not pending
+            or captured.authority.model_dump(mode='json', exclude={'acquisition_epoch'})
+                != authority.model_dump(mode='json', exclude={'acquisition_epoch'})
+            or captured.authority.acquisition_epoch < authority.acquisition_epoch):
         raise ValueError("Native source capture differs from its frozen authority")
+    catalog_authority = captured.authority if pending else authority
     from collections import Counter
     from math import log1p
     import re
@@ -334,7 +340,7 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
     for member in captured.members:
         key = (member.artifact.source_artifact_id, member.revision.source_revision_id)
         body = captured.bodies[key]
-        catalog = build_native_body_catalog(authority, member, body)
+        catalog = build_native_body_catalog(catalog_authority, member, body)
         catalogs.append(catalog)
         for section in catalog.sections:
             words = Counter(re.findall(r"\w+", body[section.char_start:section.char_end].casefold()))
