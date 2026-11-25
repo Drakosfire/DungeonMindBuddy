@@ -38,6 +38,8 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
   const playReview = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" && (
     method === "GET" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/review$/.test(pathname)
     || method === "PUT" && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/review\/commands\/[0-9a-f-]{36}$/.test(pathname));
+  const playProposals = import.meta.env.VITE_HOSTED_GUEST_PLAY_BUDDY === "1" && method === "GET"
+    && /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}\/content\/proposals(?:\/[0-9a-f-]{36})?$/.test(pathname);
   const combat = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
     (pathname === "/api/live/combat/encounters" || /^\/api\/live\/combat\/encounters\/[0-9a-f-]{36}$/.test(pathname)) &&
     ((method === "GET") || (method === "POST" && pathname === "/api/live/combat/encounters") ||
@@ -49,7 +51,7 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
   const write = method === "POST" && (pathname === "/api/live/workspace-documents"
     || pathname === "/api/live/tiptap/markdown-write/prepare" || pathname === "/api/live/tiptap/markdown-write/commit"
     || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && pathname === "/api/live/workspace-documents/world-plans");
-  return read || write || conversation || combat || playContent || playReview || play && ["GET", "POST", "PUT"].includes(method) || media && ["GET", "POST"].includes(method) ? epoch : null;
+  return read || write || conversation || combat || playContent || playReview || playProposals || play && ["GET", "POST", "PUT"].includes(method) || media && ["GET", "POST"].includes(method) ? epoch : null;
 }
 
 export function guestBuildEpochCurrent(value: number): boolean { return active !== null && epoch === value; }

@@ -28,6 +28,7 @@ _PLAY_ROOT = "/api/live/world-play-runs/v2"
 _PLAY_RUN = re.compile(r"^/api/live/world-play-runs/v2/([0-9a-f-]{36})(/progress|/reference-manifest|/content|/creation)?$")
 _PLAY_CONTENT = re.compile(r"^/api/live/world-play-runs/v2/([0-9a-f-]{36})/content/(?:revisions/([0-9]+)|commands/([0-9a-f-]{36}))$")
 _PLAY_REVIEW = re.compile(r"^/api/live/world-play-runs/v2/([0-9a-f-]{36})/review(?:/commands/([0-9a-f-]{36}))?$")
+_PLAY_PROPOSALS = re.compile(r"^/api/live/world-play-runs/v2/([0-9a-f-]{36})/content/proposals(?:/([0-9a-f-]{36}))?$")
 _PLAN_REVISION = re.compile(r"^/api/live/workspace-documents/([0-9a-f-]{36})/committed-revision(?:/[1-9][0-9]*)?$")
 _MEDIA_ROOT = "/api/live/media/images"
 _MEDIA_ASSET = re.compile(r"^/api/live/media/images/([0-9a-f-]{36})(/metadata|/original)?$")
@@ -199,6 +200,10 @@ def matches_guest_build_route(method: str, path: str) -> bool:
                 or method == "PUT" and _COMBAT_RECORD.fullmatch(path)):
             return True
     if os.getenv("DMB_HOSTED_GUEST_PLAY_ENABLED") == "1" and os.getenv("DMB_HOSTED_GUEST_PLAN_ENABLED") == "1":
+        if (method == "GET" and _PLAY_PROPOSALS.fullmatch(path)
+                and os.getenv("DMB_HOSTED_GUEST_CONVERSATION_ENABLED") == "1"
+                and os.getenv("DMB_HOSTED_GUEST_PLAY_BUDDY_ENABLED") == "1"):
+            return True
         match = _PLAY_RUN.fullmatch(path)
         content = _PLAY_CONTENT.fullmatch(path)
         if content and ((method == "GET") or (method == "PUT" and content.group(3))):
@@ -281,6 +286,7 @@ async def admit_guest_build_request(request: Request) -> str:
         play_run = _PLAY_RUN.fullmatch(path)
         play_content = _PLAY_CONTENT.fullmatch(path)
         play_review = _PLAY_REVIEW.fullmatch(path)
+        play_proposals = _PLAY_PROPOSALS.fullmatch(path)
         asset = _MEDIA_ASSET.fullmatch(path)
         if path == _COMBAT_ROOT or _COMBAT_RECORD.fullmatch(path):
             if query != [("world_id", world_id)]:
@@ -316,7 +322,7 @@ async def admit_guest_build_request(request: Request) -> str:
             if query or await request.body() or await run_in_threadpool(_document_world, plan_revision.group(1)) != (world_id, "plan"):
                 raise HTTPException(403, detail={"code": "guest_document_forbidden"})
             request.state.hosted_plan_context_world = world_id
-        elif path in {_PLAY_ROOT, _PLAY_ROOT + "/active", _PLAY_ROOT + "/preparation", "/api/live/workspace-documents/world-runbooks"} or play_run or play_content or play_review:
+        elif path in {_PLAY_ROOT, _PLAY_ROOT + "/active", _PLAY_ROOT + "/preparation", "/api/live/workspace-documents/world-runbooks"} or play_run or play_content or play_review or play_proposals:
             allowed = {"world_id", "entry_scene_id"} if path == _PLAY_ROOT + "/preparation" else {"world_id"}
             if set(key for key, _ in query) - allowed or request.query_params.get("world_id") != world_id:
                 raise HTTPException(403, detail={"code": "guest_world_forbidden"})
@@ -328,6 +334,10 @@ async def admit_guest_build_request(request: Request) -> str:
                         raise HTTPException(403, detail={"code": "guest_world_forbidden"})
             if play_review:
                 for ident in play_review.groups():
+                    if ident and str(UUID(ident)) != ident:
+                        raise HTTPException(403, detail={"code": "guest_world_forbidden"})
+            if play_proposals:
+                for ident in play_proposals.groups():
                     if ident and str(UUID(ident)) != ident:
                         raise HTTPException(403, detail={"code": "guest_world_forbidden"})
             request.state.hosted_plan_context_world = world_id
