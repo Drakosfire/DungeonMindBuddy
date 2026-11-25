@@ -17,17 +17,20 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
   const error = message ? <div><p role="alert">{message}</p><button type="button" onClick={refresh}>Retry trace read</button></div> : null
   if (error && !data) return error
   if (!data) return <p role="status">Loading execution trace…</p>
-  const attempts = data.attempts
-  const incomplete = !running && (attempts.length === 0 || attempts.some(trace => trace.closed_at == null || trace.capture_status === 'incomplete'))
-  const captureControls = error ?? ((!replyDetails || incomplete) && <>
-    {incomplete && <p role="note">The turn has ended, but the saved trace is incomplete.</p>}
-    <button type="button" onClick={refresh}>Refresh trace</button>
-  </>)
+  const latest = data.attempts.at(-1)
+  const earlier = data.attempts.slice(0, -1).reverse()
+  const incomplete = !running && (!latest || latest.closed_at == null || latest.capture_status === 'incomplete')
+  const captureControls = error ?? ((!replyDetails || incomplete) && <button type="button" onClick={refresh}>Refresh trace</button>)
   return <div>{captureControls}
-    {!attempts.length ? running ? <p role="status">Trace capture has not started yet.</p> : <DebugAttempt trace={null} running={running} replyDetails={replyDetails} />
-      : attempts.map((trace, index) => index === attempts.length - 1
-        ? <DebugAttempt key={trace.trace_id} trace={trace} running={running} replyDetails={replyDetails} />
-        : <details key={trace.trace_id}><summary>Earlier attempt {trace.attempt} · {trace.terminal_status ?? 'recording'}</summary><DebugAttempt trace={trace} running={running} replyDetails={replyDetails} /></details>)}
+    {!latest && running ? <p role="status">Trace capture has not started yet.</p>
+      : <DebugAttempt key={latest?.trace_id} trace={latest ?? null} running={running} replyDetails={replyDetails} />}
+    {earlier.length > 0 && <details>
+      <summary>Earlier trace attempts</summary>
+      {earlier.map(trace => <details key={trace.trace_id}>
+        <summary>Attempt {trace.attempt}</summary>
+        <DebugAttempt trace={trace} running={false} replyDetails={replyDetails} />
+      </details>)}
+    </details>}
   </div>
 }
 

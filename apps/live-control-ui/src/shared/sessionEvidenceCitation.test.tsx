@@ -60,8 +60,20 @@ it.each(['body','kind','ordinal','owner','checkpoint'])('refuses a changed %s in
  if(change==='checkpoint')packet.session_content_sha256='e'.repeat(64);
  await expect(verifiedSessionEntryTargets(packet)).rejects.toThrow(/digest/);
 });
-it('renders synthesis with numbered links and source titles, without blockquoting it',()=>{
- const {completion,packet}=fixture();render(<SurfaceEvidenceAnswer completion={completion} worldId={packet.world_id}/>);
+it.each([false,true])('renders exact session citation links with citationsOnly=%s',async(citationsOnly)=>{
+ const {completion,packet}=fixture();render(<SurfaceEvidenceAnswer completion={completion} worldId={packet.world_id} citationsOnly={citationsOnly}/>);
+ if(citationsOnly){
+  expect(screen.queryByRole('link',{name:'1'})).not.toBeInTheDocument();
+  const disclosure=screen.getByText('Cited in the reply').closest('details')!;
+  disclosure.open=true;
+  await screen.findByRole('region',{name:'Cited in the reply'});
+ }
+
+ if(citationsOnly){
+  expect(screen.queryByText('The rehearsal left the route unresolved.')).not.toBeInTheDocument();
+  expect(screen.getByRole('link',{name:/^1[.] Gate rehearsal/})).toHaveAttribute('href',sessionCitationTarget(packet.world_id,fixture().summary.supports[0]!));
+  return;
+ }
  expect(screen.getByLabelText('Saved session summary').textContent).toContain('route unresolved');
  expect(screen.getByRole('link',{name:'1'})).toHaveAttribute('title','Gate rehearsal — notes and reflections · Scene notes');
  expect(screen.getByRole('link',{name:'2'})).toHaveAttribute('title','Gate rehearsal — notes and reflections · Closing reflections');
