@@ -52,23 +52,42 @@ export function PreparedRequestInspector({ payloadJson, previousPayloadJson }: {
     if (before && after && JSON.stringify(before.value) === JSON.stringify(after.value)) return []
     return [{ pointer, before, after, kind: !before ? 'Added' : !after ? 'Removed' : 'Changed' }]
   }) : []
+  const messages = parts.filter(item => item.pointer.startsWith('/input/') || item.pointer.startsWith('/messages/')
+    || ((item.pointer === '/input' || item.pointer === '/messages') && typeof item.value === 'string'))
+  const systemMessages = messages.filter(item => item.value !== null && typeof item.value === 'object'
+    && !Array.isArray(item.value) && 'role' in item.value && item.value.role === 'system')
+  const otherMessages = messages.filter(item => !systemMessages.includes(item))
+  const system = parts.find(item => item.pointer === '/instructions')
+  const inputText = (value: unknown) => {
+    if (value && typeof value === 'object' && !Array.isArray(value) && 'content' in value) {
+      return format((value as {content: unknown}).content, false)
+    }
+    return format(value, false)
+  }
   return <div className="buddy-prompt">
-    <p>Input message numbers and roles belong to this model request, not separate chat turns. Readable view decodes JSON message content; Exact JSON bytes preserves the captured request.</p>
-    <div className="buddy-prompt__toolbar"><button type="button" onClick={() => setSelected(null)}>Show full request</button>
-      <label><input type="checkbox" checked={raw} onChange={event => setRaw(event.target.checked)} /> Exact JSON bytes</label></div>
-    <div className="buddy-prompt__layout">
-      <nav aria-label="Request components">{parts.map(item => <button key={item.pointer} type="button" aria-pressed={selected === item.pointer}
-        onClick={() => setSelected(item.pointer)}>{item.label}<small>{item.pointer}</small></button>)}</nav>
-      <section aria-label="Captured request"><h5>{part ? part.label : 'Full composed request'}</h5>
-        <pre tabIndex={0}>{part ? format(part.value, raw) : raw ? payloadJson : format(body, false)}</pre>
-      </section>
-    </div>
+    <section aria-label="Captured request" className="buddy-prompt__readable">
+      {system && <section><h5>System instructions</h5><pre tabIndex={0}>{inputText(system.value)}</pre></section>}
+      {systemMessages.map(item => <section key={item.pointer}><h5>{item.label}</h5><pre tabIndex={0}>{inputText(item.value)}</pre></section>)}
+      {otherMessages.map(item => <section key={item.pointer}><h5>{item.label}</h5><pre tabIndex={0}>{inputText(item.value)}</pre></section>)}
+      {!system && messages.length === 0 && <p>No message text was captured in a recognized format.</p>}
+    </section>
+    <details className="buddy-prompt__disclosure">
+      <summary>Request details and exact JSON</summary>
+      <p>Captured request configuration and tool definitions.</p>
+      <div className="buddy-prompt__toolbar"><button type="button" onClick={() => setSelected(null)}>Show full request</button>
+        <label><input type="checkbox" checked={raw} onChange={event => setRaw(event.target.checked)} /> Exact JSON bytes</label></div>
+      <div className="buddy-prompt__layout">
+        <nav aria-label="Request components">{parts.map(item => <button key={item.pointer} type="button" aria-pressed={selected === item.pointer}
+          onClick={() => setSelected(item.pointer)}>{item.label}<small>{item.pointer}</small></button>)}</nav>
+        <section aria-label="Request details"><h5>{part ? part.label : 'Full composed request'}</h5>
+          <pre tabIndex={0}>{part ? format(part.value, raw) : raw ? payloadJson : format(body, false)}</pre>
+        </section>
+      </div>
+    </details>
     {previousPayloadJson && <details aria-label="Changes since previous model call" className="buddy-prompt__changes buddy-prompt__disclosure">
       <summary>Changes since previous captured call</summary>
-      <p>Compared by request field and input-message position. Calls may use different models or formats; removed fields do not mean erased conversation or model memory. Green: added · red: removed · gold: changed.</p>
-      {!changes.length && <p>No request components changed.</p>}
       {changes.map(change => <details key={change.pointer} className={`buddy-prompt__disclosure buddy-prompt__change buddy-prompt__change--${change.kind.toLowerCase()}`}>
-        <summary>{change.kind} · {change.after?.label ?? change.before?.label} · {change.pointer}<span className="buddy-prompt__collapse" aria-hidden="true">Collapse</span></summary>
+        <summary>{change.kind} · {change.after?.label ?? change.before?.label} · {change.pointer}</summary>
         {change.before && <div className="buddy-prompt__removed"><h6>Before</h6><pre>{format(change.before.value, raw)}</pre></div>}
         {change.after && <div className="buddy-prompt__added"><h6>Now</h6><pre>{format(change.after.value, raw)}</pre></div>}
       </details>)}

@@ -268,12 +268,12 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     <summary>The Prompt</summary>
     {promptOpen && <BuddyPromptInspector trace={trace} />}
   </details>
-  const timeline = <details open={!replyDetails}><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
+  const timeline = <ol aria-label="Recorded activity">{rows.map(({ event, observations }) => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
       <div><Event event={event} passages={passages} trace={trace} />
         {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
           <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
-      </div></li>)}</ol></details>
+      </div></li>)}</ol>
   const traceHeader = <header><div><h4>{failed ? 'Reply error report' : replyDetails ? 'Capture information' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
       {!replyDetails && copy}
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
@@ -295,6 +295,6 @@ export function BuddyContextTrace({ trace, ownerActive, replyDetails = false }: 
     </section>}
     {!replyDetails && trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
     {!replyDetails && <RetrievalReplayDetails trace={trace} initialOpen={false} />}
-    {!replyDetails && timeline}
+    {!replyDetails && <details open><summary>Execution timeline</summary>{timeline}</details>}
   </section>
 }

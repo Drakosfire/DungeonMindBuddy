@@ -17,39 +17,42 @@ function ScopedPromptInspector({ trace }: { trace: BuddyTurnContextTrace }) {
   const callId = selection ?? callIds.at(-1) ?? ''
   const reference = refs.find(item => item.provider_attempt_id === callId)
   return <div className="buddy-prompt">
-    <p>Exact prepared request at the dispatch gate. Authorization alone does not mean the request was sent. Credentials and HTTP headers are outside this capture.</p>
+
     {callIds.length > 0 && <label>Model call <select value={callId} onChange={event => setSelection(event.target.value)}>
       {callIds.map((id, index) => {
         const call = refs.find(item => item.provider_attempt_id === id) ?? calls.find(item => item.kind === 'provider_call' && item.provider_attempt_id === id)
         return <option key={id} value={id}>{index + 1} · {call && 'model' in call ? call.model : id}</option>
       })}</select></label>}
-    {reference ? <CapturedPrompt key={`${callId}:${reference.evidence_id}:${reference.payload_sha256}`} trace={trace} reference={reference} />
+    {reference ? <CapturedPrompt trace={trace} reference={reference} />
       : <p>No complete request was captured for this call. It cannot be reconstructed from current context.</p>}
   </div>
 }
 export function CapturedPrompt({ trace, reference, previousReference }: { trace: BuddyTurnContextTrace; reference: BuddyTracePromptReference; previousReference?: BuddyTracePromptReference }) {
   const readPrompt = useBuddyPromptReader()
-  const [state, setState] = useState<{ owner?: typeof readPrompt; evidence?: BuddyPromptEvidence; previous?: BuddyPromptEvidence; comparisonUnavailable?: boolean; error?: string }>({})
+  const [state, setState] = useState<{ owner?: typeof readPrompt; evidence?: BuddyPromptEvidence; previous?: BuddyPromptEvidence; comparisonUnavailable?: boolean; error?: string; requestId?: string }>({})
+  const requestId = `${reference.provider_attempt_id}:${reference.evidence_id}:${reference.payload_sha256}`
+  const current = state.requestId === requestId
   useEffect(() => {
     let active = true
     const controller = new AbortController()
     readPrompt(trace, reference, controller.signal).then(evidence => {
         if (!active) return
-        if (!previousReference) { setState({ owner: readPrompt, evidence }); return }
+        if (!previousReference) { setState({ owner: readPrompt, requestId, evidence }); return }
         readPrompt(trace, previousReference, controller.signal).then(previous => {
-          if (active) setState({ owner: readPrompt, evidence, previous })
-        }).catch(() => { if (active) setState({ owner: readPrompt, evidence, comparisonUnavailable: true }) })
-      }).catch(() => { if (active) setState({ owner: readPrompt, error: 'This captured request is unavailable. No reconstructed request is shown.' }) })
+          if (active) setState({ owner: readPrompt, requestId, evidence, previous })
+        }).catch(() => { if (active) setState({ owner: readPrompt, requestId, evidence, comparisonUnavailable: true }) })
+      }).catch(() => { if (active) setState({ owner: readPrompt, requestId, error: 'This captured request is unavailable. No reconstructed request is shown.' }) })
     return () => { active = false; controller.abort() }
   }, [readPrompt, trace.world_id, trace.conversation_id, trace.turn_id, trace.trace_id, trace.attempt, reference.provider_attempt_id, reference.evidence_id, reference.payload_sha256, reference.payload_utf8_bytes, previousReference?.evidence_id, previousReference?.payload_sha256, previousReference?.provider_attempt_id, previousReference?.payload_utf8_bytes])
   if (state.owner !== readPrompt) return <p role="status">Loading captured request…</p>
-  if (state.error) return <p role="alert">{state.error}</p>
+  if (current && state.error) return <p role="alert">{state.error}</p>
   if (!state.evidence) return <p role="status">Loading captured request…</p>
   const evidence = state.evidence
   return <>
+    {!current && <p role="status">Loading selected model call…</p>}
     {state.comparisonUnavailable && <p role="note">The previous captured input is unavailable. No comparison is reconstructed.</p>}
-    <PreparedRequestInspector payloadJson={evidence.payload_json} previousPayloadJson={state.previous?.payload_json} />
-    <details className="buddy-prompt__disclosure"><summary>Capture identity<span className="buddy-prompt__collapse" aria-hidden="true">Collapse</span></summary><p>{reference.provider} · {reference.model} · {reference.api_mode} · {reference.serializer_version}</p>
+    <div hidden={!current}><PreparedRequestInspector payloadJson={evidence.payload_json} previousPayloadJson={state.previous?.payload_json} /></div>
+    <details hidden={!current} className="buddy-prompt__disclosure"><summary>Capture identity<span className="buddy-prompt__collapse" aria-hidden="true">Collapse</span></summary><p>{reference.provider} · {reference.model} · {reference.api_mode} · {reference.serializer_version}</p>
       <p>{reference.payload_utf8_bytes.toLocaleString()} UTF-8 bytes · SHA-256 {reference.payload_sha256}</p>
       <p>Provider attempt {reference.provider_attempt_id}</p></details>
   </>
