@@ -130,7 +130,8 @@ def public_record(record) -> dict:
 
 async def propose_scene_edit(*, root: Path, world_id: str, run_id: str, proposal_id: UUID,
                              request: PlaySceneEditProposalRequest, generation_client=None, store=None,
-                             authorize_world: Callable[[], object] | None = None) -> dict:
+                             authorize_world: Callable[[], object] | None = None,
+                             authorize_transaction: Callable[[object, bool], None] | None = None) -> dict:
     store = store or PlaySceneEditProposalService()
     payload = request.model_dump(mode="json")
     # Replays never consult today's content and never dispatch a second inference.
@@ -156,7 +157,8 @@ async def propose_scene_edit(*, root: Path, world_id: str, run_id: str, proposal
         raise ValueError("The exact saved session copy is unavailable")
     start, end = scene_body_range(markdown, request.scene_id)
     record, created = store.reserve(world_id=world_id, run_id=run_id, proposal_id=proposal_id,
-                                    request=payload, context_receipt=receipt, authorize_world=authorize_world)
+                                    request=payload, context_receipt=receipt, authorize_world=authorize_world,
+                                    authorize_transaction=authorize_transaction)
     if not created:
         return public_record(record)
     started = time.perf_counter()
@@ -184,8 +186,9 @@ async def propose_scene_edit(*, root: Path, world_id: str, run_id: str, proposal
         candidate.update(schema_version="dmb_play_scene_edit_result_v1", summary=generated.summary, assumptions=generated.assumptions, model=observed,
                          model_observed=True, model_latency_ms=observation.latency_ms,
                          wall_latency_ms=max(0, int((time.perf_counter()-started)*1000)))
-        record = store.finish(world_id=world_id, run_id=run_id, proposal_id=proposal_id, result=candidate, failure_code=None)
     except Exception:
-        record = store.finish(world_id=world_id, run_id=run_id, proposal_id=proposal_id,
-                              result=None, failure_code="proposal_generation_failed")
+        candidate = None
+    record = store.finish(world_id=world_id, run_id=run_id, proposal_id=proposal_id,
+                          result=candidate, failure_code=None if candidate is not None else "proposal_generation_failed",
+                          authorize_transaction=authorize_transaction)
     return public_record(record)
