@@ -4783,12 +4783,41 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     monkeypatch.setattr(plan_jev_driver, 'PlanJevDriver', lambda *a, **kw: pytest.fail('Pending cannot enter legacy driver'))
                     harness.rules_capability = rules_capability(graph=True)
                     harness.writer_transport = httpx.MockTransport(reply)
-                    work = SimpleNamespace(operation='answer_from_sources', selection=SimpleNamespace(paragraph_placement=None),
+                    work = SimpleNamespace(operation='answer_from_sources', selection=SimpleNamespace(operation='answer_from_sources', paragraph_placement=None),
                         _material=lambda: ((), (), ()))
                     completed = harness._native_completion(runtime_adapter, work)
                     assert completed.status == 'completed' and state.completions == 1
                     assert (completed.completion.native_assertion_citations if mode == 'loop_selection_main_object'
                         else completed.completion.native_body_citations)
+                    if mode == 'loop_selection_main':
+                        from apps.live_control_server.services.agent_native_source_sections import open_native_body_excerpt
+                        from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+                        service = SimpleNamespace(inspect_turn=lambda **_: completed)
+                        opened = open_native_body_excerpt(world_id=completed.world_id, turn_id=completed.turn_id,
+                            citation_index=0, principal=principal, service=service, repository=memory.repo,
+                            resolve_identity=lambda _: memory.bound)
+                        assert opened.content == BODY
+                        assert opened.citation == completed.completion.native_body_citations[0]
+                        admit(memory, name='later-head', body='# Later\n\nA later source.\n')
+                        reopened = open_native_body_excerpt(world_id=completed.world_id, turn_id=completed.turn_id,
+                            citation_index=0, principal=principal, service=service, repository=memory.repo,
+                            resolve_identity=lambda _: memory.bound)
+                        assert reopened.content == BODY and reopened.citation == opened.citation
+                        damaged = completed.completion.native_body_citations[0].model_copy(update={'excerpt_sha256': '0' * 64})
+                        bad_completion = completed.completion.model_copy(update={'native_body_citations': (damaged,)})
+                        bad_turn = completed.model_copy(update={'completion': bad_completion})
+                        with pytest.raises(SourcePassageOpenError, match='native_body_access_unavailable'):
+                            open_native_body_excerpt(world_id=completed.world_id, turn_id=completed.turn_id,
+                                citation_index=0, principal=principal, service=SimpleNamespace(inspect_turn=lambda **_: bad_turn),
+                                repository=memory.repo, resolve_identity=lambda _: memory.bound)
+                        foreign = SimpleNamespace(**(vars(memory.bound) | {'binding_version': memory.bound.binding_version + 1}))
+                        with pytest.raises(SourcePassageOpenError, match='native_body_access_unavailable'):
+                            open_native_body_excerpt(world_id=completed.world_id, turn_id=completed.turn_id,
+                                citation_index=0, principal=principal, service=service, repository=memory.repo,
+                                resolve_identity=lambda _: foreign)
+                        with pytest.raises(SourcePassageOpenError, match='native_body_access_denied'):
+                            open_native_body_excerpt(world_id=completed.world_id, turn_id=completed.turn_id,
+                                citation_index=0, principal=SimpleNamespace(role='player'), service=service)
                     from apps.live_control_server.services.agent_turn_service import project_plan_turn_context
                     projected = project_plan_turn_context(completed, delivery_replay=False)
                     if mode == 'loop_selection_main_object':
@@ -4798,7 +4827,7 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     row, references = stored_row(completed)
                     assert repository._turn_from_row(None, row, references=references) == completed
                     assert len(calls) == (2 if mode == 'loop_selection_main_object' else 3)
-                    assert len(opens) == (0 if mode == 'loop_selection_main_object' else 1)
+                    assert len(opens) == (0 if mode == 'loop_selection_main_object' else 3)
                     assert len(writers) == len(searches) == 1
                     assert all(len(body['state'].get('dialogue_reference', body['state'].get('conversation', {}).get('history', []))) in {60, 120}
                         for body in calls)
