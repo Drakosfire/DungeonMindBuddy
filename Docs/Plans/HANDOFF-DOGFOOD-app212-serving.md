@@ -1,6 +1,21 @@
 # DOGFOOD: serve anchored chat drafts through Actions
 
-## Current serving re-anchor
+## Delivered predecessor
+
+PR4715 merged e57dfbd60ae3aa5747eee90509f4cfbb3322ddb4. Actions publication45680021182
+and App-fence deployment45680833955 succeeded after exact fresh final-archive
+restore and independent ACK. STAGED/LIVE and public readiness/signed-out401 passed.
+Signed-in original briefing completed8.3s; full retained-context page generation
+11.8s with zero acquisition, then review/confirm/save/reopen revision2 passed.
+Successor serving4717/6a preserves the writer fix. A concurrent cutover caused one
+HTML save-review response; retry on the healthy successor succeeded.
+
+The broader goal is not complete: follow-up citations for retained authored pages
+are the bounded successor in HANDOFF-DOGFOOD-retained-authored-citations.md.
+Private evidence remains in the existing external directory. No new-world routing
+or universal semantic-quality claim is made.
+
+## Historical serving re-anchor
 
 PR4710 merged as321033ef53cbfbcd52d23a455eb63fccce1b505a and its Actions
 publication45677176552 passed. Before installation, the healthy-serving CAS
