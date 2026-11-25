@@ -48,6 +48,7 @@ def test_seed_once_and_retry_preserves_guest_edits(tmp_path, monkeypatch):
     seed.seed_guest_documents(conn, session_id='00000000-0000-0000-0000-000000000001', world_id='guest-one')
     assert len(created) == len(committed) == len(conn.insertions) == 1
     assert created[0][2:5] == ('guest-one', 'Apprentice', 'guest-one')
+    assert created[0][5].document_class == 'lore'
     assert committed[0][0][2] == 'original'
     receipt = json.loads(conn.insertions[0][2])
     assert receipt['entries'] == [{'ordinal': 0, 'document_id': str(created[0][1])}]
@@ -68,3 +69,30 @@ def test_rejects_changed_bundle_without_writes(tmp_path, monkeypatch):
     with pytest.raises(ApplicationStateUnavailableError):
         seed.seed_guest_documents(conn, session_id='00000000-0000-0000-0000-000000000001', world_id='guest-one')
     assert conn.insertions == []
+
+
+def test_existing_seed_repairs_only_missing_classes_in_its_world(tmp_path, monkeypatch):
+    bundle(tmp_path, monkeypatch)
+    receipt = {'entries': [{'ordinal': 0, 'document_id': '11111111-1111-4111-8111-111111111111'}]}
+    class RepairConnection(Connection):
+        def __init__(self):
+            super().__init__(None, (json.dumps(receipt),))
+            self.updates = []
+        def execute(self, query, args):
+            if query.startswith('UPDATE'):
+                self.updates.append((query, args))
+                return Cursor(None)
+            return super().execute(query, args)
+    conn = RepairConnection()
+    seed.seed_guest_documents(conn, session_id='00000000-0000-0000-0000-000000000001', world_id='guest-one')
+    assert len(conn.updates) == 1
+    query, args = conn.updates[0]
+    assert 'm.document_class IS NULL' in query and "w.kind = 'worldbuilding_source'" in query
+    assert args[0] == 'guest-one' and str(args[1][0]) == receipt['entries'][0]['document_id']
+
+
+def test_invalid_seed_receipt_does_not_repair(tmp_path, monkeypatch):
+    bundle(tmp_path, monkeypatch)
+    conn = Connection(None, (json.dumps({'entries': [{'document_id': 'not-a-uuid'}]}),))
+    with pytest.raises(ApplicationStateUnavailableError, match='receipt'):
+        seed.seed_guest_documents(conn, session_id='00000000-0000-0000-0000-000000000001', world_id='guest-one')

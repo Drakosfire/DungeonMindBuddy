@@ -6,7 +6,7 @@ import json
 import os
 import re
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from application_state.content import pages
 from application_state.content import service as content
@@ -33,6 +33,26 @@ def seed_guest_documents(conn, *, session_id: str, world_id: str) -> None:
         (session_id, _MARKER),
     ).fetchone()
     if seeded is not None:
+        # Earlier releases seeded source pages without a document class. Repair
+        # only those exact pages in this World, leaving all content and any class
+        # the guest has since chosen untouched.
+        try:
+            receipt = json.loads(seeded[0])
+            entries = receipt['entries']
+            if not isinstance(entries, list) or not 1 <= len(entries) <= _MAX_PAGES:
+                raise ValueError('invalid seed entries')
+            ids = [UUID(entry['document_id']) for entry in entries]
+            if len(set(ids)) != len(ids):
+                raise ValueError('duplicate seed entries')
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ApplicationStateUnavailableError('Guest document seed receipt is invalid') from exc
+        conn.execute(
+            "UPDATE content.page_metadata m SET document_class = 'lore' "
+            "FROM content.work_object w WHERE m.work_object_id = w.work_object_id "
+            "AND w.world_id = %s AND w.kind = 'worldbuilding_source' "
+            "AND w.work_object_id = ANY(%s::uuid[]) AND m.document_class IS NULL",
+            (world_id, ids),
+        )
         return
     snapshot = conn.execute(
         "SELECT value FROM application_state.index_graph_bindings WHERE session_id = %s::uuid AND key = 'source_snapshot'",
@@ -85,7 +105,7 @@ def seed_guest_documents(conn, *, session_id: str, world_id: str) -> None:
     entries = []
     for ordinal, doc in enumerate(documents):
         ident = uuid4()
-        pages._insert_page(conn, ident, world_id, doc['title'], world_id, pages.PageMetadata())
+        pages._insert_page(conn, ident, world_id, doc['title'], world_id, pages.PageMetadata(document_class='lore'))
         content._commit_in_connection(conn, str(ident), doc['markdown'],
                                       kind='worldbuilding_source', expected_revision=1)
         entries.append({'ordinal': ordinal, 'document_id': str(ident)})
