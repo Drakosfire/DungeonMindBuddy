@@ -21,11 +21,30 @@ These rules are intentionally shared across active DungeonMind ecosystem reposit
 2. **Respect ownership boundaries.** Cross-repository architecture and sequencing belong in DungeonOverMind; runtime/product implementation belongs in the repository that owns the capability. When a change crosses owners, name the contract.
 3. **Handoffs are portable bounded contracts.** A handoff may live on `main`, a branch, a PR, or another durable pinned ref/location. Its location alone neither activates nor invalidates it. Execution authority comes from explicit authorization/status, a pinned authority/ref, and bounded scope/write ownership. Do not require a handoff to be merged to `main` unless the specific workstream explicitly makes that a gate.
 4. **Finish authorized implementation work all the way to a PR.** Once implementation is authorized, ordinary completion includes: implement → test/verify → inspect the cumulative diff → commit intended changes → push the branch → open or update the assigned PR. If no PR exists, open it. Do not stop with intended work only local, uncommitted, or unpushed and wait for another prompt to commit/push/open the PR.
-5. **Merge is separate authority.** Opening/updating a PR is part of implementation completion; merging it is not. Merge only when the user or the repository's explicit process authorizes merge.
+5. **Merge follows the repository process.** Buddy grants standing merge authority for qualifying PRs within an authorized assignment. Follow the gates in [Scoped merge authority](#scoped-merge-authority).
 6. **Use isolated Git lanes.** Do not develop on local `main`. Use a branch/worktree or equivalent isolated checkout, and treat file/runtime/state collisions as coordination problems rather than relying on Git conflicts.
 7. **Keep slices bounded.** One implementation slice should deliver one independently useful capability. A second capability, new durable/public contract, or unplanned extra PR is a stop/split signal unless explicitly authorized.
 8. **Verify at the owning boundary.** Review the exact cumulative base→head diff and prove behavior at the layer that owns the invariant. A green helper test is not evidence for a boundary it does not exercise.
 9. **Settle after merge.** Re-anchor, synchronize mutable authority that now became stale, and prune superseded process/transition scaffolding. Git history is the default archive; preserve a separate archive copy only when it carries unique durable evidence.
+
+## Scoped merge authority
+
+Agents may merge a Buddy PR within their authorized assignment without
+requesting per-PR confirmation. Before merging, confirm that:
+
+- The cumulative diff, target branch, and dependency order stay within the
+  assignment, and any required predecessor has landed.
+- Independent review approves the exact current head SHA, required checks for
+  that head pass, and actionable findings and applicable acceptance gates are
+  resolved. If the head changes, re-establish review and check evidence for it.
+- The user or handoff has placed no applicable hold, reserved the merge for
+  another owner, or required separate acceptance. Existing GitHub branch
+  protections and required checks apply in full.
+
+Merge using the expected head SHA and verify the resulting merge. If a gate
+fails, report the specific blocker and continue work within the assignment.
+Standing authority covers the merge itself. Deployment, production access,
+and other actions follow their own authorization and delivery gates.
 
 ## Handoff and lane authority
 
@@ -165,8 +184,8 @@ use operator/live data or providers, allocate per-case App clones, or run full
 contents scans merely to inventory an exclusively owned benchmark database.
 Retain SHA, commands, versions, isolation/cleanup and all exit/failure evidence.
 Auth/principal/CAS/rollback/history and graph draft-loss protections remain required
-when affected. Independent exact-head review and user/process merge authority
-remain separate from test evidence. The local tool is not a self-hosted runner or
+when affected. Independent exact-head review and the scoped merge gates
+apply alongside test evidence. The local tool is not a self-hosted runner or
 a replacement GitHub status check; no fabricated hosted-green claim is permitted.
 Report full qualification as missing or failed until the required proof exists.
 Apply that status only to the delivery gate that requires it. Existing unmerged CI drafts do not
