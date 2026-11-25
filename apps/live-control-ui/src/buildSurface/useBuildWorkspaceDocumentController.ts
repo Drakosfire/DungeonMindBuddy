@@ -584,6 +584,20 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     [documents, loadBuildDocument, persistPendingImportDocumentId],
   );
 
+  // A fresh guest session starts on the released adventure source. Explicit
+  // links and subsequent user selections always take precedence.
+  const guestDefaultAttempted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!guestBuildActive() || !selectedWorldId || listStatus !== "ready" || !documents) return;
+    if (guestDefaultAttempted.current === selectedWorldId) return;
+    guestDefaultAttempted.current = selectedWorldId;
+    const params = new URLSearchParams(window.location.search);
+    if ([...params.keys()].some((key) => key !== "world") || activeRecordRef.current) return;
+    const adventure = documents.find((entry) => entry.title === "Sizzek's Apprentice"
+      && entry.world_id === selectedWorldId);
+    if (adventure) void selectDocument(adventure.document_id);
+  }, [documents, listStatus, selectedWorldId, selectDocument]);
+
   const activateCreatedRecord = useCallback(
     async (record: WorkspaceDocumentRecord): Promise<boolean> => {
       if (typeof window === "undefined") return false;
