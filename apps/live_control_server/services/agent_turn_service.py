@@ -1733,9 +1733,10 @@ class _TurnClaimRenewer:
 class _ClaimFence:
     """Serialize event appends with renewals through one moving APP fence."""
 
-    def __init__(self, service: AgentTurnExecutionPersistencePort, turn: Turn, *, trace=None) -> None:
+    def __init__(self, service: AgentTurnExecutionPersistencePort, turn: Turn, *, trace=None, pending_build_access=None) -> None:
         self.service = service
         self.trace = trace
+        self.pending_build_access = pending_build_access
         self.renewer = _TurnClaimRenewer(service, turn)
 
     @property
@@ -1747,6 +1748,7 @@ class _ClaimFence:
         phase_name = {
             "authorize_provider_attempt_v2": "first_jev_provider_authorization_append",
             "authorize_build_opening_with_prompt": "first_jev_provider_authorization_append",
+            "authorize_pending_build_opening_with_prompt": "first_jev_provider_authorization_append",
             "record_provider_outcome": "first_jev_provider_outcome_append",
             "record_build_draft_context": "first_jev_build_draft_context_append",
         }.get(method_name)
@@ -1839,7 +1841,7 @@ class _ClaimFence:
                     with measure("native_writer_authorization_persistence"):
                         result = method(current.world_id, current.conversation_id, current.turn_id,
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
-                if method_name == "authorize_build_opening_with_prompt":
+                if method_name in {"authorize_build_opening_with_prompt", "authorize_pending_build_opening_with_prompt"}:
                     updated, fresh, _ = result
                 else:
                     updated, fresh = result
@@ -2410,7 +2412,9 @@ class _PolicyExecutionAdapter:
         self.turn = claim.turn
         if self.trace is not None:
             self.trace.bind_durable_turn(claim.turn)
-        self.fence = _ClaimFence(self.service, claim.turn, trace=self.trace)
+        self.fence = _ClaimFence(self.service, claim.turn, trace=self.trace,
+            **({'pending_build_access': self.pending_build_access}
+               if self.pending_build_source_observation is not None else {}))
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
         if (plan_request_dialogue is not None or plan_jev_request is not None or self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
@@ -3254,6 +3258,9 @@ class _PolicyExecutionAdapter:
         from application_state.agent_conversation.native_context import NativeReviewedActionInputV1
         from .build_jev_driver import wire_questions
         driver=getattr(self,'_build_jev_driver',None)
+        pending = self.pending_build_source_observation is not None
+        if pending and view.get('contextPhase') != 'select':
+            return False  # Later pending phases retain their dedicated admission owners.
         reviewed_auxiliary = (self.fence is not None
             and isinstance(self.turn.graph_context_receipt.assembled_input,NativeReviewedActionInputV1)
             and driver is not None and driver.reviewed_binding is not None
@@ -3267,7 +3274,7 @@ class _PolicyExecutionAdapter:
         if (self.failure is not None or not self._is_build_turn()
                 or self.fence is not None and view.get('contextPhase') not in {'writer_selection', 'graph_reference'} and not reviewed_auxiliary
                 or (view.get('contextPhase') == 'graph_reference') != (graph_reference_decision is not None)
-                or self.native_source_authority is None
+                or (self.native_source_authority is None and not pending)
                 or canonical(view) != canonical(prepared_driver_view(prepared,projection,accounting=self._build_jev_accounting))):
             return False
         self._active_build_driver_projection = projection
@@ -3295,9 +3302,9 @@ class _PolicyExecutionAdapter:
             graph_reference_inventory_sha256=(graph_reference_decision.host_inventory_sha256()
                                                if graph_reference_decision is not None else None))
         from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
-        opening = view["contextPhase"] == "select" and isinstance(
-            getattr(self.turn.graph_context_receipt, "native_query", None), NativeBuildQueryPendingV1,
-        )
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        opening = view["contextPhase"] == "select" and (type(self.turn.graph_context_receipt) is BuildPendingContextReceiptV1
+            or isinstance(getattr(self.turn.graph_context_receipt, "native_query", None), NativeBuildQueryPendingV1))
         if opening:
             self.turn = _require_fresh_execution_append(self.context_capture.authorize_build_opening(view, event))
         else:
@@ -3399,10 +3406,26 @@ class _PolicyExecutionAdapter:
             if (transition == "sdk_entered" and self._is_build_turn() and self.trace is not None
                     and type(self.fence.service) is AgentConversationService):
                 record_options["measure"] = self.trace.phase_before_first_jev
-            if record_options or checkpoint is None or not self.fence.commit_plan_provider_outcome(event):
-                self.turn = _require_fresh_execution_append(
-                    self.fence.append("record_provider_outcome", "outcome", event, **record_options)
-                )
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            pending = type(self._broker_receipt()) is BuildPendingContextReceiptV1
+            if pending or record_options or checkpoint is None or not self.fence.commit_plan_provider_outcome(event):
+                if pending:
+                    if not callable(self.pending_build_access):
+                        raise ValueError('Pending lifecycle requires its current App access owner')
+                    options = {'authorize_current_access': self.pending_build_access}
+                    if transition == 'sdk_entered':
+                        prepared = getattr(self, '_prepared_build_decision', None)
+                        if (prepared is None or type(prepared.body) is not bytes
+                                or str(prepared.attempt_id) != str(self.last_provider_attempt_id)):
+                            raise ValueError('Pending SDK entry requires its actual prepared request')
+                        options['prepared_request_json'] = prepared.body.decode('utf-8')
+                        method = 'enter_pending_app_page_sdk'
+                    else:
+                        method = 'record_pending_app_controller_outcome'
+                    result = self.fence.append(method, 'outcome', event, **options)
+                else:
+                    result = self.fence.append('record_provider_outcome', 'outcome', event, **record_options)
+                self.turn = _require_fresh_execution_append(result)
                 execution = self._broker_execution()
                 auth = next(item for item in execution.events if _is_provider_authorization(item)
                     and item.provider_attempt_id == self.last_provider_attempt_id)

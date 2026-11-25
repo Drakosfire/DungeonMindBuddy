@@ -577,3 +577,14 @@ expected_conversation_id. The adapter's initial claim calls the reviewed pending
 freeze_build branch, returns empty Graph membership and compares pending fields
 on retained admission instead of reading legacy Graph authority. No model-visible
 host metadata or default startup activation is introduced by these optional inputs.
+
+
+## Current lease addition: initial transport handoff
+
+Pin only pending-specific branches in _PolicyExecutionAdapter.authorize_native_build_decision,
+record_lifecycle and initial _ClaimFence construction; _ClaimFence.__init__/_commit
+host callback/triple-result handling; ContextTraceCollector.authorize_build_opening.
+These connect existing pending service owners for the initial select phase and
+its actual prepared bytes. No general provider bypass, Plan session, writer phase,
+old receipt behavior or released whole-file reservation is added. Startup remains
+unselected until the remaining runtime path is integrated.

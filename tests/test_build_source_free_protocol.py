@@ -1707,3 +1707,117 @@ def test_pending_empty_pointer_rejects_stale_capture_before_conversation_creatio
     with pytest.raises(ValueError, match='cannot create a replacement'):
         adapter.create_build_jev_driver()
     assert state.created == state.history_reads == 0 and state.pointer.active_conversation_id is None
+
+
+from contextlib import contextmanager as _pending_test_contextmanager
+
+
+@_pending_test_contextmanager
+def pending_transport_case(monkeypatch):
+    from types import SimpleNamespace
+    from datetime import UTC, datetime, timedelta
+    from hashlib import sha256
+    from generationengine.decision_dispatch import PreparedDecisionDispatch, DecisionContextMode
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter, _ClaimFence
+    from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+    from apps.live_control_server.services import agent_prompt_evidence
+    from apps.live_control_server.services.build_jev_dispatch import prepared_driver_view
+    from apps.live_control_server.services.plan_source_turn import freeze_build
+    from application_state.agent_conversation import context_trace_store
+    from application_state.agent_conversation.context_trace import TurnContextTraceV1
+    from tests.test_surface_native_execution import BUILD_TURN_ID
+    state, _ = settlement_harness(monkeypatch, with_source=False)
+    kwargs = pending_runtime_freeze_case()
+    receipt, execution, _ = freeze_build(**kwargs)
+    intent = kwargs['submitted_intent']
+    sub = t.TurnSubmission(world_id=intent.world_id, conversation_id=receipt.conversation_observation.conversation_id,
+        idempotency_key=uuid4(), expected_conversation_revision=1, user_text=intent.message,
+        provenance=kwargs['provenance'], submitted_intent_v2=intent,
+        graph_context_receipt=receipt, graph_context_execution=execution)
+    state.turn = retained(sub, turn_id=BUILD_TURN_ID, status='running', revision=2, attempt=1,
+        claim_expires_at=state.now + timedelta(minutes=2))
+    state.pointer = t.WorldPointer(world_id=intent.world_id, active_conversation_id=sub.conversation_id,
+        revision=receipt.conversation_observation.pointer_revision)
+    state.trace = TurnContextTraceV1(trace_id=uuid4(), world_id=intent.world_id, conversation_id=sub.conversation_id,
+        turn_id=BUILD_TURN_ID, attempt=1, started_at=datetime.now(UTC), execution_start_sequence=0, observations=[])
+    raw = kwargs['view']['payloadJson'].encode()
+    prepared = PreparedDecisionDispatch(str(uuid4()), 'typesafe', 'vercel_ai_gateway', 'jev-1.14.0',
+        'POST', 'https://ai-gateway.vercel.sh/typesafe/v1/systemone', raw, sha256(raw).hexdigest(), len(raw), DecisionContextMode.DEFAULT)
+    view = prepared_driver_view(prepared, kwargs['projection'], accounting=kwargs['accounting'])
+    first = t.ProviderAttemptAuthorizedEventV5(kind='provider_attempt_authorized_v5', event_id=uuid4(), sequence=0,
+        provider_attempt_id=UUID(prepared.attempt_id), envelope_sha256=view['payloadSha256'],
+        serializer_version=view['serializerVersion'], provider=view['provider'], model=view['model'], api_mode=view['apiMode'],
+        tool_schema_sha256=t.canonical_sha256([]), input_accounting_kind='estimated_token_count',
+        input_estimator=kwargs['accounting'].descriptor['policy'], input_tokens=kwargs['accounting'].estimate(json.loads(raw)),
+        output_token_reserve=0, included_assertion_ids=[], included_relationship_ids=[], included_evidence_ref_ids=[],
+        included_graph_event_ids=[], included_source_read_event_ids=[], context_mode=view['contextMode'],
+        context_phase=view['contextPhase'], max_question_input_tokens=view['maxQuestionInputTokens'],
+        dispatch_identity_sha256=view['dispatchIdentitySha256'])
+    def trace_row(conn, turn_id, attempt):
+        assert conn is state.conn and turn_id == BUILD_TURN_ID and attempt == 1
+        return state.trace.trace_id, state.trace.model_dump(mode='json', by_alias=True)
+    def save(conn, trace):
+        assert conn is state.conn
+        state.trace = trace
+    monkeypatch.setattr(context_trace_store, '_trace_row', trace_row)
+    monkeypatch.setattr(context_trace_store, '_save_trace', save)
+    def query(sql, args):
+        if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+            return state.leaf_query(sql, args)
+        assert sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s' and args == (BUILD_TURN_ID,)
+        return SimpleNamespace(fetchall=lambda: [(state.trace.model_dump(mode='json', by_alias=True),)])
+    state.conn.execute = query
+    def prompt_store(payload, *, digest, size):
+        assert payload == raw.decode() and digest == sha256(raw).hexdigest() and size == len(raw)
+        return uuid4()
+    monkeypatch.setattr(agent_prompt_evidence, 'store_prompt', prompt_store)
+    def append_observation(*, observation, **binding):
+        assert binding['turn_id'] == BUILD_TURN_ID and binding['expected_revision'] == state.turn.revision
+        state.trace = TurnContextTraceV1.model_validate(state.trace.model_copy(update={
+            'observations': [*state.trace.observations, observation]}))
+        return state.trace
+    monkeypatch.setattr(state.service, 'append_context_trace', append_observation)
+    request = kwargs['request']
+    request.primary_work, request.graph_request = intent.primary_work, intent.graph_request
+    adapter = _PolicyExecutionAdapter(service=state.service, request=request, world_id=intent.world_id,
+        work=kwargs['work'], bootstrap=None, playable_target=None, submitted_intent=intent,
+        existing_turn=state.turn, budget=kwargs['budget'], pending_build_source_observation=receipt.source_observation,
+        pending_build_conversation_observation=receipt.conversation_observation, pending_build_access=state.authorize)
+    fence = _ClaimFence(state.service, state.turn, pending_build_access=state.authorize)
+    adapter.fence = fence
+    adapter.context_capture = ContextTraceCollector(fence, initial_trace=state.trace)
+    adapter._prepared_build_decision = prepared
+    adapter.last_provider_attempt_id = first.provider_attempt_id
+    try:
+        yield state, adapter, view, first
+    finally:
+        fence.stop()
+
+
+def test_pending_transport_routes_actual_prompt_and_sdk_lifecycle_through_reviewed_owners(monkeypatch):
+    with pending_transport_case(monkeypatch) as (state, adapter, view, first):
+        updated, fresh = adapter.context_capture.authorize_build_opening(view, first)
+        assert fresh and updated.revision == 3 and adapter.fence.turn == updated
+        assert adapter.record_lifecycle({'transition': 'sdk_entered', 'runtimeApiRequestId': 'actual-sdk-attempt'})
+        assert adapter.record_lifecycle({'transition': 'response_received', 'runtimeApiRequestId': 'actual-sdk-attempt'})
+        assert state.turn.revision == 5 and state.persisted == 3 and state.materialized == 0
+        assert [row.outcome for row in state.turn.graph_context_execution.events if isinstance(row, t.ProviderOutcomeEventV1)] == ['sdk_entered', 'response_received']
+        assert adapter.context_capture.provider_attempts_by_request['actual-sdk-attempt'] == first.provider_attempt_id
+
+
+def test_pending_transport_refuses_changed_prepared_bytes_before_sdk_entry(monkeypatch):
+    from dataclasses import replace
+    with pending_transport_case(monkeypatch) as (state, adapter, view, first):
+        adapter.context_capture.authorize_build_opening(view, first)
+        adapter._prepared_build_decision = replace(adapter._prepared_build_decision,
+            body=adapter._prepared_build_decision.body + b' ')
+        assert not adapter.record_lifecycle({'transition': 'sdk_entered'})
+        assert state.persisted == 1 and adapter.failure is not None
+
+
+def test_pending_transport_never_grants_sdk_entry_twice(monkeypatch):
+    with pending_transport_case(monkeypatch) as (state, adapter, view, first):
+        adapter.context_capture.authorize_build_opening(view, first)
+        assert adapter.record_lifecycle({'transition': 'sdk_entered'})
+        assert not adapter.record_lifecycle({'transition': 'sdk_entered'})
+        assert state.persisted == 2

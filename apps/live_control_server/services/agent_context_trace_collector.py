@@ -168,10 +168,19 @@ class ContextTraceCollector:
                 "provider_attempt_id": authorization.provider_attempt_id,
                 "provider": authorization.provider, "model": authorization.model,
             })
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            pending = type(self.fence.turn.graph_context_receipt) is BuildPendingContextReceiptV1
+            options = {}
+            if pending:
+                access = getattr(self.fence, 'pending_build_access', None)
+                if not callable(access):
+                    raise ApplicationStateValidationError('Pending opening capture requires its current App access owner')
+                options['authorize_current_access'] = access
             turn, fresh, trace = self.fence.append(
-                "authorize_build_opening_with_prompt", "provider_attempt_event", authorization,
-                prepared_decision_json=view["payloadJson"], trace_id=self.trace.trace_id,
-                prompt=prompt, authorized=authorized,
+                'authorize_pending_build_opening_with_prompt' if pending else 'authorize_build_opening_with_prompt',
+                'provider_attempt_event', authorization,
+                prepared_decision_json=view['payloadJson'], trace_id=self.trace.trace_id,
+                prompt=prompt, authorized=authorized, **options,
             )
             self.trace = trace
             return turn, fresh
