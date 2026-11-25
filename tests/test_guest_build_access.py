@@ -2008,6 +2008,75 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     other_command = f"{content_path}/commands/22222222-2222-4222-8222-222222222222"
     assert first.put(other_command, params={'world_id': world}, headers=headers, json=edit).status_code == 409
     assert second.get(content_path, params={'world_id': world}).status_code == 403
+    review_path = f'{run_path}/review'
+    review = first.get(review_path, params={'world_id': world})
+    assert review.status_code == 200 and review.json()['review'] is None
+    assert second.get(review_path, params={'world_id': world}).status_code == 403
+    current_content = first.get(content_path, params={'world_id': world}).json()
+    review_body = {'action': 'end', 'expected_revision': 0,
+                   'expected_run_revision': created.json()['run']['run_revision'],
+                   'expected_content_sha256': current_content['content_sha256'], 'final_thoughts': ''}
+    review_command = f'{review_path}/commands/33333333-3333-4333-8333-333333333333'
+    assert first.put(review_command, params={'world_id': world}, json=review_body).status_code == 403
+    ended = first.put(review_command, params={'world_id': world}, headers=headers, json=review_body)
+    assert ended.status_code == 200 and ended.json()['status'] == 'ended', ended.text
+    from apps.live_control_server.services import guest_build_access
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_PLAY_REVIEWS', 1)
+    assert first.put(review_command, params={'world_id': world}, headers=headers, json=review_body).status_code == 200
+    reopen_path = f'{review_path}/commands/44444444-4444-4444-8444-444444444444'
+    reopen = {**review_body, 'action': 'reopen', 'expected_revision': 1}
+    limited_review = first.put(reopen_path, params={'world_id': world}, headers=headers, json=reopen)
+    assert limited_review.status_code == 409 and 'limit' in limited_review.text
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_PLAY_REVIEWS', 256)
+    reopened = first.put(reopen_path, params={'world_id': world}, headers=headers, json=reopen)
+    assert reopened.status_code == 200 and reopened.json()['status'] == 'playing', reopened.text
+    # A second guest's review write must hold the same session lock as reset.
+    other_doc = b[0]['document_id']
+    other_pin = second.get(f'/api/live/workspace-documents/{other_doc}/committed-revision').json()
+    other_source = {'playable_artifact_id': other_doc, 'expected_playable_revision': other_pin['revision_n'],
+                    'expected_playable_work_revision_id': other_pin['work_revision_id'],
+                    'expected_playable_content_sha256': other_pin['content_sha256']}
+    other_headers = {'X-DMB-Index-Graph-CSRF': other_token}
+    other_preview = second.post('/api/live/world-play-runs/v2/preparation', params={'world_id': other_world, 'entry_scene_id': 'scene:contract'}, headers=other_headers, json=other_source)
+    assert other_preview.status_code == 200, other_preview.text
+    other_run = str(UUID(other_world.removeprefix('guest-')))
+    other_run_path = f'/api/live/world-play-runs/v2/{other_run}'
+    other_created = second.put(other_run_path, params={'world_id': other_world}, headers=other_headers, json=other_preview.json()['request'])
+    assert other_created.status_code == 200, other_created.text
+    other_content = second.get(f'{other_run_path}/content', params={'world_id': other_world}).json()
+    other_review = {'action': 'end', 'expected_revision': 0, 'expected_run_revision': other_created.json()['run']['run_revision'],
+                    'expected_content_sha256': other_content['content_sha256'], 'final_thoughts': ''}
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    entered_review, release_review = Event(), Event()
+    original_review_capacity = guest_build_access.guest_play_review_capacity
+    def hold_review(request, conn, scoped_world, payload_bytes, replay):
+        original_review_capacity(request, conn, scoped_world, payload_bytes, replay)
+        if replay is False:
+            entered_review.set()
+            if not release_review.wait(15): raise RuntimeError('guest review race timed out')
+    monkeypatch.setattr(guest_build_access, 'guest_play_review_capacity', hold_review)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending_review = pool.submit(second.put, f'{other_run_path}/review/commands/55555555-5555-4555-8555-555555555555', params={'world_id': other_world}, headers=other_headers, json=other_review)
+        try:
+            assert entered_review.wait(15)
+            resetting_other = pool.submit(second.post, '/api/live/index-graph/reset', headers=other_headers)
+            import time
+            from application_state.engine import connect
+            deadline = time.monotonic() + 5
+            with connect(application_state_dsn) as observer:
+                while time.monotonic() < deadline:
+                    observer.execute('SELECT pg_stat_clear_snapshot()')
+                    waiting = observer.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetchone()[0]
+                    if waiting: break
+                    time.sleep(.05)
+            assert waiting and not resetting_other.done()
+        finally:
+            release_review.set()
+        assert pending_review.result(timeout=15).status_code in (200, 401, 403)
+        assert resetting_other.result(timeout=15).status_code == 200
+    assert second.get(f'{other_run_path}/review', params={'world_id': other_world}).status_code in (401, 403)
+    assert first.get(review_path, params={'world_id': world}).status_code == 200
     # Reset must serialize with a content commit, not revoke the session midway.
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
@@ -2050,9 +2119,10 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
         assert pending.result(timeout=15).status_code in (200, 401, 403)
         assert resetting.result(timeout=15).status_code == 200
     assert first.get(content_path, params={'world_id': world}).status_code in (401, 403)
+    assert first.get(review_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(run_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(f"{combat_path}/{encounter['encounter_id']}", params={'world_id': world}).status_code in (401, 403)
-    assert second.get(f"{combat_path}/{other_records[0]['encounter_id']}", params={'world_id': other_world}).status_code == 200
+    assert second.get(f"{combat_path}/{other_records[0]['encounter_id']}", params={'world_id': other_world}).status_code in (401, 403)
     assert first.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code in (401, 403)
 
 
@@ -2071,3 +2141,8 @@ def test_guest_play_content_routes_are_narrow_and_feature_gated(monkeypatch):
     assert not matches_guest_build_route('PUT', f'{root}/revisions/0')
     assert not matches_guest_build_route('POST', f'{root}/commands/{cmd}')
     assert not matches_guest_build_route('GET', f'{root}/proposals')
+    review = f'/api/live/world-play-runs/v2/{run}/review'
+    assert matches_guest_build_route('GET', review)
+    assert matches_guest_build_route('PUT', f'{review}/commands/{cmd}')
+    assert not matches_guest_build_route('GET', f'{review}/commands/{cmd}')
+    assert not matches_guest_build_route('POST', review)

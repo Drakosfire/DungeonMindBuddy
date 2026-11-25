@@ -701,9 +701,14 @@ async def put_world_session_review(run_id: str, command_id: str, request: Reques
     try:
         if authorize_world is not None:
             authorize_world()
+        authorize_transaction = None
+        if getattr(request.state, "guest_build_world", None) is not None:
+            from apps.live_control_server.services.guest_build_access import guest_play_review_capacity
+            authorize_transaction = lambda conn, size, replay: guest_play_review_capacity(request, conn, world_id, size, replay)
         review = commit_review(
             run_id=run_id, world_id=world_id, command_id=command_id, request=body,
-            authorize_world=authorize_world,
+            authorize_world=None if authorize_transaction else authorize_world,
+            **({"authorize_transaction": authorize_transaction} if authorize_transaction else {}),
         )
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

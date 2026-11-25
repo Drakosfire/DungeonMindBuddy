@@ -27,6 +27,7 @@ _PLAN_VIEW = "/api/live/plan-view"
 _PLAY_ROOT = "/api/live/world-play-runs/v2"
 _PLAY_RUN = re.compile(r"^/api/live/world-play-runs/v2/([0-9a-f-]{36})(/progress|/reference-manifest|/content|/creation)?$")
 _PLAY_CONTENT = re.compile(r"^/api/live/world-play-runs/v2/([0-9a-f-]{36})/content/(?:revisions/([0-9]+)|commands/([0-9a-f-]{36}))$")
+_PLAY_REVIEW = re.compile(r"^/api/live/world-play-runs/v2/([0-9a-f-]{36})/review(?:/commands/([0-9a-f-]{36}))?$")
 _PLAN_REVISION = re.compile(r"^/api/live/workspace-documents/([0-9a-f-]{36})/committed-revision(?:/[1-9][0-9]*)?$")
 _MEDIA_ROOT = "/api/live/media/images"
 _MEDIA_ASSET = re.compile(r"^/api/live/media/images/([0-9a-f-]{36})(/metadata|/original)?$")
@@ -43,6 +44,8 @@ MAX_GUEST_RUNS = 16
 MAX_GUEST_COMBAT_ENCOUNTERS = 16
 MAX_GUEST_PLAY_EDITS = 256
 MAX_GUEST_PLAY_EDIT_BYTES = 16 * 1024 * 1024
+MAX_GUEST_PLAY_REVIEWS = 256
+MAX_GUEST_PLAY_REVIEW_BYTES = 16 * 1024 * 1024
 MAX_GUEST_CONVERSATIONS = 16
 MAX_GUEST_TURNS = 100
 MAX_GUEST_TURN_BYTES = 16 * 1024
@@ -200,6 +203,9 @@ def matches_guest_build_route(method: str, path: str) -> bool:
         content = _PLAY_CONTENT.fullmatch(path)
         if content and ((method == "GET") or (method == "PUT" and content.group(3))):
             return True
+        review = _PLAY_REVIEW.fullmatch(path)
+        if review and ((method == "GET" and not review.group(2)) or (method == "PUT" and review.group(2))):
+            return True
         if (method == "GET" and (path in {_PLAY_ROOT, _PLAY_ROOT + "/active", "/api/live/workspace-documents/world-runbooks"} or _PLAN_REVISION.fullmatch(path) or (match and match.group(2) != "/progress"))
                 or method == "POST" and path == _PLAY_ROOT + "/preparation"
                 or method == "PUT" and (path == _PLAY_ROOT + "/active" or match and match.group(2) in (None, "/progress"))):
@@ -274,6 +280,7 @@ async def admit_guest_build_request(request: Request) -> str:
         plan_revision = _PLAN_REVISION.fullmatch(path)
         play_run = _PLAY_RUN.fullmatch(path)
         play_content = _PLAY_CONTENT.fullmatch(path)
+        play_review = _PLAY_REVIEW.fullmatch(path)
         asset = _MEDIA_ASSET.fullmatch(path)
         if path == _COMBAT_ROOT or _COMBAT_RECORD.fullmatch(path):
             if query != [("world_id", world_id)]:
@@ -309,7 +316,7 @@ async def admit_guest_build_request(request: Request) -> str:
             if query or await request.body() or await run_in_threadpool(_document_world, plan_revision.group(1)) != (world_id, "plan"):
                 raise HTTPException(403, detail={"code": "guest_document_forbidden"})
             request.state.hosted_plan_context_world = world_id
-        elif path in {_PLAY_ROOT, _PLAY_ROOT + "/active", _PLAY_ROOT + "/preparation", "/api/live/workspace-documents/world-runbooks"} or play_run or play_content:
+        elif path in {_PLAY_ROOT, _PLAY_ROOT + "/active", _PLAY_ROOT + "/preparation", "/api/live/workspace-documents/world-runbooks"} or play_run or play_content or play_review:
             allowed = {"world_id", "entry_scene_id"} if path == _PLAY_ROOT + "/preparation" else {"world_id"}
             if set(key for key, _ in query) - allowed or request.query_params.get("world_id") != world_id:
                 raise HTTPException(403, detail={"code": "guest_world_forbidden"})
@@ -317,6 +324,10 @@ async def admit_guest_build_request(request: Request) -> str:
                 raise HTTPException(400, detail={"code": "invalid_guest_request"})
             if play_content:
                 for ident in (play_content.group(1), play_content.group(3)):
+                    if ident and str(UUID(ident)) != ident:
+                        raise HTTPException(403, detail={"code": "guest_world_forbidden"})
+            if play_review:
+                for ident in play_review.groups():
                     if ident and str(UUID(ident)) != ident:
                         raise HTTPException(403, detail={"code": "guest_world_forbidden"})
             request.state.hosted_plan_context_world = world_id
@@ -480,6 +491,20 @@ def guest_play_edit_capacity(request: Request, conn, world_id: str, content_byte
     ).fetchone()
     if revisions >= MAX_GUEST_PLAY_EDITS or total + content_bytes > MAX_GUEST_PLAY_EDIT_BYTES:
         raise ApplicationStateConflictError('This guest World has reached its session edit limit')
+
+
+def guest_play_review_capacity(request: Request, conn, world_id: str, payload_bytes: int, replay: bool | None) -> None:
+    """Serialize review writes with reset and bound the complete retained payload."""
+    _lock_guest_session(request, conn, world_id)
+    if replay is None or replay:
+        return
+    revisions, total = conn.execute(
+        'SELECT count(*), coalesce(sum(octet_length(e.payload::text)), 0) '
+        'FROM play.session_review_revision e JOIN play.run r ON r.run_id = e.run_id WHERE r.world_id = %s',
+        (world_id,),
+    ).fetchone()
+    if revisions >= MAX_GUEST_PLAY_REVIEWS or total + payload_bytes > MAX_GUEST_PLAY_REVIEW_BYTES:
+        raise ApplicationStateConflictError('This guest World has reached its session review limit')
 
 
 def guest_write_capacity(request: Request, conn, world_id: str, *, creating: bool = False,
