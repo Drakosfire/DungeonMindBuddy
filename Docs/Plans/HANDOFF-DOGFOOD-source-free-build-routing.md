@@ -1272,3 +1272,27 @@ proof, physical SQL isolation, Core reads or release evidence. Existing live
 claim/principal/public Core checks remain required before any IO. Runtime/native
 writer continuation, exact integrated review, SQL/full Send/live semantic/app and
 preserving-current-production deployment remain mandatory merge/delivery gates.
+
+
+Guarded pending native dispatch continuation (same serial PR4642): dedicated
+service methods authorize_pending_native_retrieval and record_pending_native_selection
+join actual prepared parent/SDK bytes and protected response through the existing
+native proof validators. Both use pending World/conversation/Turn locks, captured
+pointer, running attempt, leaf, expiry and current App/PageReference checks before
+and after proof; exact replay is non-fresh. The existing pending one-shot SDK-entry
+and observed-outcome owners accept only the additional exact neutral native
+authorization. Generic append explicitly refuses pending retrieval selections.
+This is dispatch admission, not Core IO or runtime activation; current public Core
+access and selected read materialization remain separate existing owners.
+
+46 focused lifecycle, coverage/main-App orchestration, native proof and failure
+checks passed3.66s. New tests exercise actual wire/parent validators, unique prompt
+reference, protected typed response, one-shot entry, exact replay, changed parent/
+wire/prompt/result/capture/World, lost pointer/access/expiry/leaf/CAS, unknown outcome
+and generic-append refusal. Setup import and placeholder-parent-digest failures
+were corrected in the new test fixture; no production predicate was relaxed.
+No database or provider was used, so these are fake-App locked owner checks, not
+physical transaction rollback/races, actual SDK dispatch or release qualification.
+Pending-compatible runtime/body/direct-source acquisition and native writer
+completion remain unfinished; SQL/full Send/live semantic/signed-in app evidence,
+current serving integration and independent integrated review still gate merge.

@@ -1,5 +1,6 @@
 """Stored pending Build codec boundary; no database, providers or source grants."""
 import json
+from contextlib import contextmanager
 from uuid import UUID, uuid4
 
 import pytest
@@ -4099,3 +4100,174 @@ def test_pending_native_selected_records_use_actual_query_and_existing_closure(m
         with pytest.raises(ValueError):
             decoded([*execution.events[:-1], auth.model_copy(update={'sequence': len(execution.events) - 1})])
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
+
+
+
+@contextmanager
+def pending_native_dispatch_case(monkeypatch):
+    import json
+    from hashlib import sha256
+    from types import SimpleNamespace
+    from generationengine.types import DecisionResult, ChoiceDecisionAnswer, InferenceObservation
+    from application_state.agent_conversation import native_retrieval
+    from application_state.agent_conversation.build_decision_context import identity
+    from application_state.agent_conversation.jev_retrieval_contract import NativeBuildRetrievalDecisionInputV3, prepare_decision
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    from tests.test_surface_native_execution import controller
+    with pending_source_runtime_case(monkeypatch) as (state, adapter, _):
+        assert prepare_pending_native_source(adapter)
+        receipt, execution = native_retrieval.owner(state.turn)
+        auth = controller('build', execution.policy, sequence=len(execution.events), semantic=False)
+        parent = NativeBuildRetrievalDecisionInputV3(request_id=auth.decision_request_id,
+            parent_attempt_id=auth.provider_attempt_id, scope_sha256=native_retrieval.scope_digest(state.turn),
+            question=state.turn.user_text, candidates=(), allowed_operations=('discover_more', 'finish_retrieval'),
+            **native_retrieval.source_pins(receipt, execution))
+        prepared = prepare_decision(parent, controller_accounting=native_retrieval.controller_accounting(execution))
+        raw = json.dumps({'model': prepared.model, 'state': prepared.state, 'questions': {
+            row.name: {'type': 'choice', 'instructions': row.question, 'criteria': dict.fromkeys(row.options)}
+            for row in prepared.questions}})
+        envelope = sha256(raw.encode()).hexdigest()
+        auth = auth.model_copy(update={
+            'parent_request_sha256': parent.digest,
+            'envelope_sha256': envelope, 'tool_schema_sha256': t.canonical_sha256([]),
+            'build_context': auth.build_context.model_copy(update={'dispatch_identity_sha256': identity(
+                envelope_sha256=envelope, provider=auth.provider, model=auth.model, api_mode=auth.api_mode,
+                context_mode=auth.build_context.context_mode)})})
+        proof = {'parent_request_json': parent.model_dump_json(by_alias=True), 'request_json': raw}
+        result = DecisionResult(answers={row.name: ChoiceDecisionAnswer(selected='finish_retrieval',
+            probabilities={key: .9 if key == 'finish_retrieval' else .1 for key in row.options})
+            for row in prepared.questions}, observation=InferenceObservation(provider='typesafe',
+                resolved_model='jev-1.14.0', response_model='jev-1.14.0', latency_ms=1,
+                retry_count=0, state='completed', provider_attempt_count=1))
+        response = result.model_dump_json(by_alias=True)
+        state.native_trace = {'world_id': state.turn.world_id, 'conversation_id': str(state.turn.conversation_id),
+            'turn_id': str(state.turn.turn_id), 'attempt': state.turn.attempt, 'capture_status': 'recording',
+            'observations': [{'kind': 'context_snapshot', 'stage': 'after', 'materials': [{
+                'item_id': f'unvalidated-native-retrieval-result:{auth.provider_attempt_id}', 'text': response}]}]}
+        state.native_prompt = {'kind': 'prompt_reference', 'sequence': 0, 'elapsed_ms': 0,
+            'evidence_id': str(uuid4()), 'provider_attempt_id': str(auth.provider_attempt_id),
+            'provider': auth.provider, 'model': auth.model, 'api_mode': auth.api_mode,
+            'serializer_version': auth.serializer_version, 'payload_sha256': auth.envelope_sha256,
+            'payload_utf8_bytes': len(raw.encode())}
+        state.prompt_count = 1
+        def query(sql, args):
+            if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s': return state.leaf_query(sql, args)
+            assert state.depth == 1
+            if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s':
+                assert args == (state.turn.turn_id,)
+                return SimpleNamespace(fetchall=lambda: [({'observations': [state.native_prompt] * state.prompt_count},)])
+            assert sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s'
+            assert args == (state.turn.turn_id, state.turn.attempt)
+            return SimpleNamespace(fetchone=lambda: (state.native_trace,))
+        state.conn.execute = query
+        def call(method, **kwargs):
+            return getattr(state.service, method)(state.turn.world_id, state.turn.conversation_id, state.turn.turn_id,
+                expected_revision=state.turn.revision, expected_attempt=state.turn.attempt,
+                authorize_current_access=state.authorize, **kwargs)
+        yield state, auth, proof, response, call
+
+
+def test_pending_native_dispatch_selection_join_exact_bytes_capture_and_one_shot_entry(monkeypatch):
+    from hashlib import sha256
+    from tests.test_surface_native_execution import outcomes, choice
+    with pending_native_dispatch_case(monkeypatch) as (state, auth, proof, response, call):
+        before = state.persisted
+        assert call('authorize_pending_native_retrieval', authorization=auth, prepared_input_proof=proof)[1]
+        assert call('authorize_pending_native_retrieval', authorization=auth, prepared_input_proof=proof)[1] is False
+        entry, outcome = outcomes(auth, len(state.turn.graph_context_execution.events))
+        outcome = outcome.model_copy(update={'response_sha256': sha256(response.encode()).hexdigest()})
+        assert call('enter_pending_app_page_sdk', outcome=entry, prepared_request_json=proof['request_json'])[1]
+        assert call('enter_pending_app_page_sdk', outcome=entry, prepared_request_json=proof['request_json'])[1] is False
+        assert call('record_pending_app_controller_outcome', outcome=outcome)[1]
+        selected = choice(state.turn.graph_context_receipt, state.turn.graph_context_execution, auth,
+            len(state.turn.graph_context_execution.events), 'finish_retrieval').model_copy(update={
+                'controller_response_sha256': sha256(response.encode()).hexdigest()})
+        evidence = proof | {'response_json': response}
+        assert call('record_pending_native_selection', selection=selected, producer_proof=evidence)[1]
+        assert call('record_pending_native_selection', selection=selected, producer_proof=evidence)[1] is False
+        assert state.persisted == before + 4
+        assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
+
+
+@pytest.mark.parametrize('failure', ['wire', 'parent', 'pointer', 'access', 'expired', 'successor', 'cas', 'access_changed'])
+def test_pending_native_authorization_refuses_bad_proof_or_lost_current_fence(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    with pending_native_dispatch_case(monkeypatch) as (state, auth, proof, _, call):
+        before = state.persisted
+        if failure == 'wire': proof = proof | {'request_json': proof['request_json'] + ' '}
+        elif failure == 'parent': proof = proof | {'parent_request_json': proof['parent_request_json'].replace(state.turn.user_text, 'Changed request')}
+        elif failure == 'pointer': state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 1})
+        elif failure == 'access': state.denied = True
+        elif failure == 'expired': state.now += timedelta(hours=1)
+        elif failure == 'successor': state.successor = True
+        elif failure == 'cas': state.cas_failure = True
+        elif failure == 'access_changed':
+            original = state.authorize
+            calls = []
+            def changed(conn, turn, pages):
+                calls.append(1)
+                return original(conn, turn, pages) and len(calls) == 1
+            state.authorize = changed
+        with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+            call('authorize_pending_native_retrieval', authorization=auth, prepared_input_proof=proof)
+        assert state.persisted == before
+        assert not any(e.event_id == auth.event_id for e in state.turn.graph_context_execution.events)
+
+
+@pytest.mark.parametrize('failure', ['missing_prompt', 'changed_prompt', 'wire', 'access', 'expired'])
+def test_pending_native_sdk_entry_refuses_missing_capture_or_lost_access(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    from tests.test_surface_native_execution import outcomes
+    with pending_native_dispatch_case(monkeypatch) as (state, auth, proof, _, call):
+        call('authorize_pending_native_retrieval', authorization=auth, prepared_input_proof=proof)
+        before = state.persisted
+        entry = outcomes(auth, len(state.turn.graph_context_execution.events))[0]
+        if failure == 'missing_prompt': state.prompt_count = 0
+        elif failure == 'changed_prompt': state.native_prompt['payload_sha256'] = '0' * 64
+        elif failure == 'wire': proof = proof | {'request_json': proof['request_json'] + ' '}
+        elif failure == 'access': state.denied = True
+        else: state.now += timedelta(hours=1)
+        with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+            call('enter_pending_app_page_sdk', outcome=entry, prepared_request_json=proof['request_json'])
+        assert state.persisted == before
+        assert not any(e.event_id == entry.event_id for e in state.turn.graph_context_execution.events)
+
+
+@pytest.mark.parametrize('failure', ['capture', 'foreign_trace', 'response', 'selection', 'access', 'expired', 'cas', 'unknown', 'generic'])
+def test_pending_native_selection_refuses_unbound_output_and_lost_fence(monkeypatch, failure):
+    from datetime import timedelta
+    from hashlib import sha256
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    from tests.test_surface_native_execution import outcomes, choice
+    with pending_native_dispatch_case(monkeypatch) as (state, auth, proof, response, call):
+        call('authorize_pending_native_retrieval', authorization=auth, prepared_input_proof=proof)
+        entry, outcome = outcomes(auth, len(state.turn.graph_context_execution.events))
+        outcome = outcome.model_copy(update={'response_sha256': sha256(response.encode()).hexdigest()})
+        call('enter_pending_app_page_sdk', outcome=entry, prepared_request_json=proof['request_json'])
+        if failure == 'unknown': outcome = outcome.model_copy(update={'outcome': 'outcome_unknown'})
+        call('record_pending_app_controller_outcome', outcome=outcome)
+        selected = choice(state.turn.graph_context_receipt, state.turn.graph_context_execution, auth,
+            len(state.turn.graph_context_execution.events), 'finish_retrieval').model_copy(update={
+                'controller_response_sha256': sha256(response.encode()).hexdigest()})
+        evidence = proof | {'response_json': response}
+        before = state.persisted
+        if failure == 'capture': state.native_trace['observations'] = []
+        elif failure == 'foreign_trace': state.native_trace['world_id'] = 'foreign'
+        elif failure == 'response': evidence['response_json'] += ' '
+        elif failure == 'selection': selected = selected.model_copy(update={'operation': 'discover_more'})
+        elif failure == 'access': state.denied = True
+        elif failure == 'expired': state.now += timedelta(hours=1)
+        elif failure == 'cas': state.cas_failure = True
+        with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+            if failure == 'generic':
+                from application_state.agent_conversation import service as service_module
+                monkeypatch.setattr(service_module, '_execution_append_transaction', lambda measure: state.uow())
+                state.service._append_graph_execution_event(state.turn.world_id, state.turn.conversation_id,
+                    state.turn.turn_id, expected_revision=state.turn.revision, expected_attempt=1,
+                    event=selected, duplicate_key='event_id', plan_jev_selection_proof=evidence)
+            else:
+                call('record_pending_native_selection', selection=selected, producer_proof=evidence)
+        assert state.persisted == before
+        assert not any(e.event_id == selected.event_id for e in state.turn.graph_context_execution.events)

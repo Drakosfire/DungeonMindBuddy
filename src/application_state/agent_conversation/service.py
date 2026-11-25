@@ -1750,9 +1750,11 @@ class AgentConversationService:
             from .build_related_pages import RelatedPagesSelection, RelatedPageRead
             from .types import BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1
             from .build_pending_app_coverage import BuildAppCoverageDecidedV1
+            from .types import PlanJevRetrievalSelectionV1
             if type(turn.graph_context_execution) is BuildPendingExecutionV1 and isinstance(event, (
                     ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead,
-                    BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1, BuildAppCoverageDecidedV1)):
+                    BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1, BuildAppCoverageDecidedV1,
+                    PlanJevRetrievalSelectionV1)):
                 raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
@@ -3358,6 +3360,86 @@ class AgentConversationService:
                 return turn, False
             return self._append_pending_checked(conn, turn, decision, expected_revision)
 
+    def authorize_pending_native_retrieval(self, world_id, conversation_id, turn_id, *,
+                                           expected_revision, expected_attempt, authorization,
+                                           prepared_input_proof, authorize_current_access):
+        """Admit exact native SDK bytes under the pending pointer/claim fence.
+
+        This grants dispatch admission only. Core public access and selected-read
+        admission remain with their existing IO owners. Exact replay is non-fresh.
+        """
+        from .native_retrieval import NativeRetrievalAuthorizedV1, verify_input
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        if (type(authorization) is not NativeRetrievalAuthorizedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending retrieval requires its exact native authorization and access owner')
+        try:
+            authorization = NativeRetrievalAuthorizedV1.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize native retrieval')
+            try:
+                verify_input(turn, authorization, prepared_input_proof)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during native retrieval proof')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native retrieval claim expired during proof')
+            prior = [e for e in turn.graph_context_execution.events if e.event_id == authorization.event_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == authorization:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending retrieval identity was reused with changed content')
+            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+
+    def record_pending_native_selection(self, world_id, conversation_id, turn_id, *,
+                                        expected_revision, expected_attempt, selection,
+                                        producer_proof, authorize_current_access):
+        """Join native choices to their protected actual SDK request/response."""
+        from .native_retrieval import NativeRetrievalSelectedV1, verify_selection
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        if (type(selection) is not NativeRetrievalSelectedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending native selection requires its exact producer and access owner')
+        try:
+            selection = NativeRetrievalSelectedV1.model_validate_json(selection.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize native selection')
+            try:
+                row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchone()
+                verify_selection(turn, selection, producer_proof, row[0] if row else None)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during native selection proof')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native selection claim expired during proof')
+            prior = [e for e in turn.graph_context_execution.events if e.event_id == selection.event_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == selection:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending native selection identity was reused with changed content')
+            return self._append_pending_checked(conn, turn, selection, expected_revision)
+
     def authorize_pending_app_page_selection(self, world_id, conversation_id, turn_id, *,
                                              expected_revision, expected_attempt, authorization,
                                              prepared_request_json, initial_request_json,
@@ -3452,13 +3534,16 @@ class AgentConversationService:
             authorization = authorizations[-1] if authorizations else None
             initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
             from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
-            if (not initial and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1)
+            from .native_retrieval import NativeRetrievalAuthorizedV1
+            if (not initial and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, NativeRetrievalAuthorizedV1)
                     or authorization is None or outcome.provider_attempt_id != authorization.provider_attempt_id):
                 raise ApplicationStateValidationError('Pending SDK entry lacks its latest admitted Build controller')
             self._validate_pending_prompt(conn, turn, authorization, prepared_request_json)
             catalogs = [event for event in turn.graph_context_execution.events
                         if type(event) is BuildAppPageCatalogObservedV1]
-            pages = (tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
+            from .build_pending_app_coverage import pending_writer_access_pages
+            pages = (pending_writer_access_pages(turn) if type(authorization) is NativeRetrievalAuthorizedV1
+                else tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
                 if type(authorization) is BuildAppCoverageAuthorizedV1 else None if initial else catalogs[0].pages)
             if authorize_current_access(conn, turn, pages) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize SDK entry')
@@ -3532,12 +3617,15 @@ class AgentConversationService:
             authorization = authorizations[-1] if authorizations else None
             initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
             from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
-            if (not initial and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1)
+            from .native_retrieval import NativeRetrievalAuthorizedV1
+            if (not initial and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, NativeRetrievalAuthorizedV1)
                     or authorization is None or authorization.provider_attempt_id != outcome.provider_attempt_id):
                 raise ApplicationStateValidationError('Pending outcome differs from its latest Build controller')
             catalogs = [event for event in turn.graph_context_execution.events
                         if type(event) is BuildAppPageCatalogObservedV1]
-            pages = (tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
+            from .build_pending_app_coverage import pending_writer_access_pages
+            pages = (pending_writer_access_pages(turn) if type(authorization) is NativeRetrievalAuthorizedV1
+                else tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
                 if type(authorization) is BuildAppCoverageAuthorizedV1 else None if initial else catalogs[0].pages)
             if authorize_current_access(conn, turn, pages) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize pending outcome admission')
