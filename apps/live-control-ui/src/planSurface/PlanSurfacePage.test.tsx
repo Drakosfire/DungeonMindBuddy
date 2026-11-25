@@ -976,7 +976,7 @@ it("binds Ask to the exact committed revision and complete current working draft
   expect(renderedTurns.map((turn) => turn.getAttribute("data-sequence"))).toEqual(["1", "2"]);
   expect(renderedTurns[0]).toHaveTextContent("What Plan metadata can you see?");
   expect(renderedTurns[1]).toHaveTextContent("And what is its saved revision?");
-  for (const details of within(conversation).queryAllByText("Details", {selector: "summary"})) if (!details.closest("details")?.open) fireEvent.click(details);
+  for (const details of within(conversation).queryAllByText("Trace", {selector: "summary"})) if (!details.closest("details")?.open) fireEvent.click(details);
   await waitFor(() => expect(renderedTurns.every((turn) => turn.textContent?.includes(`plan ${savedAgentPlanId} · revision 4`))).toBe(true));
   expect(conversationLibraryApi.readActiveConversationMessages).toHaveBeenCalledWith(worldId, undefined, expect.any(AbortSignal));
   expect(vi.mocked(liveApi.getWorldAgentConversationHistory).mock.calls.every(([, options]) => options?.limit === 1)).toBe(true);
@@ -4618,7 +4618,7 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
     vi.spyOn(editor.view, 'scrollToSelection').mockImplementation(()=>{});
     act(()=>editor.commands.undo());
     await openPlanConversation();
-    const details=await screen.findByText('Details',{selector:'summary'});
+    const details=await screen.findByText('Trace',{selector:'summary'});
     if(!details.closest('details')?.open)fireEvent.click(details);
     const retry=screen.queryByRole('button',{name:'Retry exact confirm operation'});
     if(retry)fireEvent.click(retry);
@@ -4635,7 +4635,7 @@ it.each(['valid','offered_boundary','altered_boundary','wrong_work_revision','lo
     await waitFor(()=>expect(document.body.textContent).toContain('Lost confirmation'));
     expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:plan-application-hold:'))).toHaveLength(1);
     mounted.unmount();mounted=render(tree());await screen.findByTestId('world-owned-plan-markdown-editor');await openPlanConversation();
-    fireEvent.click(await screen.findByText('Details', {selector: 'summary'}));
+    fireEvent.click(await screen.findByText('Trace', {selector: 'summary'}));
     expect(commands.mock.calls.filter(call=>call[2].operation==='confirm')).toHaveLength(1);
     expect(ordinary).not.toHaveBeenCalled();
     if(mode==='lost_before_commit')fireEvent.click(await screen.findByRole('button',{name:'Retry exact confirm operation'}));

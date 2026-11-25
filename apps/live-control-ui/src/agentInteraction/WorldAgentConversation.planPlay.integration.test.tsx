@@ -914,7 +914,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const article=review.closest('article[data-turn-id]')!;
     expect(article).toHaveAttribute('data-turn-id',row.turn_id);
     expect(within(article as HTMLElement).queryByText(row.assistant_text)).not.toBeInTheDocument();
-    fireEvent.click(within(article as HTMLElement).getByText('Details',{selector:'summary'}));
+    fireEvent.click(within(article as HTMLElement).getByText('Trace',{selector:'summary'}));
     await screen.findByText('Loading reply details…');expect(review).toBeEnabled();expect(preview.textContent).toBe(text);
     const response=structuredClone(wire.history);
     if(mode==='invalid')response.turns[0].knowledge_context.receipt.context_receipt_sha256='0'.repeat(64);
@@ -1673,9 +1673,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const debug = failureText.closest('details')!;
     expect(debug).not.toHaveAttribute('open');
     expect(retry.closest('.world-plan-agent-conversation__turn-status')).not.toContainElement(failureText);
-    fireEvent.click(within(debug).getByText('Details', {exact:true}));
+    fireEvent.click(within(debug).getByText('Trace', {exact:true}));
     expect(debug).toHaveAttribute('open');
-    fireEvent.click(within(debug).getByText('Details', {exact:true}));
+    fireEvent.click(within(debug).getByText('Trace', {exact:true}));
     const input=screen.getByLabelText("Message DungeonBuddy");
     if(otherDraft)fireEvent.change(input,{target:{value:"Keep my unsent draft"}});
     fireEvent.click(retry);fireEvent.click(retry);
@@ -1707,7 +1707,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await screen.findByRole('button',{name:'Retry question'});
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
     expect(screen.queryByText(/Earlier conversation/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText('Details',{exact:true}));
+    fireEvent.click(screen.getByText('Trace',{exact:true}));
     expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
     expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
     view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -1843,7 +1843,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(priorAttempts).not.toBeVisible();
     const debug=priorAttempts.closest('details.world-plan-agent-conversation__turn-details');
     expect(debug).not.toBeNull();expect(debug).not.toHaveAttribute('open');
-    fireEvent.click(within(debug as HTMLElement).getByText('Details',{exact:true}));
+    fireEvent.click(within(debug as HTMLElement).getByText('Trace',{exact:true}));
     expect(priorAttempts).toBeVisible();
     view.unmount();render(<Harness initial='build'/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByText('Retry result');expect(screen.getAllByText(first.user_text,{exact:true})).toHaveLength(1);
@@ -1962,7 +1962,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     } as Awaited<ReturnType<typeof postWorldGraphSourceAnchorRead>>);
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", {name: "Open"}));
-    const details = await screen.findByText("Details", { selector: "summary" });
+    const details = await screen.findByText("Trace", { selector: "summary" });
     fireEvent.click(details);
     if (foreign) {
       await screen.findByText(/invalid Graph-context receipt/);
@@ -3555,7 +3555,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer note'}});
     expect(vi.mocked(getWorldAgentConversationHistory).mock.calls.filter(([,options])=>options?.limit===1)).toHaveLength(0);
     expect(readDiscussionRetryInput).not.toHaveBeenCalled();
-    if(hydrated){fireEvent.click(screen.getByText('Details',{selector:'summary'}));await screen.findByText('Retry this saved request.');}
+    if(hydrated){fireEvent.click(screen.getByText('Trace',{selector:'summary'}));await screen.findByText('Retry this saved request.');}
     const retry=await screen.findByRole('button',{name:'Retry question'});fireEvent.click(retry);fireEvent.click(retry);
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({retry_of:{turn_id:id,revision:4},build_authored_references:frozen,message:base.user_text});
@@ -3580,7 +3580,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const bridge=retryBridge();render(<Harness initial="build" buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Keep my newer note'}});
-    if(hydrated){fireEvent.click(screen.getByText('Details',{selector:'summary'}));await screen.findByText('Retry this saved request.');}
+    if(hydrated){fireEvent.click(screen.getByText('Trace',{selector:'summary'}));await screen.findByText('Retry this saved request.');}
     const retry=await screen.findByRole('button',{name:'Retry question'});fireEvent.click(retry);fireEvent.click(retry);
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
