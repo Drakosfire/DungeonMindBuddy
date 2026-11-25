@@ -637,6 +637,8 @@ BuildPendingPrefixEventV1 = Annotated[
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
     | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
+    | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
+    | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
     | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1,
@@ -772,6 +774,8 @@ class BuildPendingExecutionV1(Strict):
                 settled = True
             elif type(event) in (NativeRetrievalSelectedV1,
                     t.NativeDirectSourceAuthorizedV1, t.NativeDirectSourceObservedV1,
+                    t.NativeBodySearchAuthorizedV1, t.NativeBodySearchObservedV1,
+                    t.NativeBodyReadAuthorizedV1, t.NativeBodyReadObservedV1,
                     t.NativePlanStatementReadAuthorizedV1, t.NativePlanStatementReadObservedV1,
                     t.NativePlanAssertionReadAuthorizedV1, t.NativePlanAssertionReadObservedV1):
                 if not settled:

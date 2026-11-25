@@ -239,6 +239,8 @@ def _selected_controller(turn, handle):
 
 def authorize_body_search_locked(turn, *, event_id):
     receipt, execution = _owner(turn, require_source=True)
+    from .build_pending_native import read_source_authority
+    authority = read_source_authority(receipt, execution)
     query = sha256(turn.user_text.encode()).hexdigest()
     prior = _prior_event(execution, event_id, NativeBodySearchAuthorizedV1, query_sha256=query)
     if prior is not None:
@@ -249,7 +251,7 @@ def authorize_body_search_locked(turn, *, event_id):
         provider_attempt_id=_selected_controller(turn, native_corpus_search_handle(query)),
         context_receipt_sha256=receipt.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
-        authority=receipt.source_authority, query_sha256=query)
+        authority=authority, query_sha256=query)
 
 
 def authorize_initial_source_search_locked(turn, *, event_id):
@@ -292,6 +294,8 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
     """The trusted Core capture runs only after a durable discovery grant."""
     from .corpus_source_search import terms
     receipt, execution = _owner(turn, require_source=True)
+    from .build_pending_native import read_source_authority
+    authority = read_source_authority(receipt, execution)
     prior = _prior_event(execution, event_id, NativeBodySearchObservedV1,
         authorization_event_id=authorization_event_id)
     if prior is not None:
@@ -317,7 +321,7 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
             for event in execution.events):
         raise ValueError("Native source search already has an observation; reuse its receipt")
     captured = capture()
-    if captured.authority != receipt.source_authority:
+    if captured.authority != authority:
         raise ValueError("Native source capture differs from its frozen authority")
     from collections import Counter
     from math import log1p
@@ -330,7 +334,7 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
     for member in captured.members:
         key = (member.artifact.source_artifact_id, member.revision.source_revision_id)
         body = captured.bodies[key]
-        catalog = build_native_body_catalog(receipt.source_authority, member, body)
+        catalog = build_native_body_catalog(authority, member, body)
         catalogs.append(catalog)
         for section in catalog.sections:
             words = Counter(re.findall(r"\w+", body[section.char_start:section.char_end].casefold()))
@@ -494,7 +498,8 @@ def observe_body_reads_locked(turn, *, reads, read):
         raise ValueError('Native body group already has an observation; reuse its receipt')
     # External code sees detached authority/member only, never the private Turn.
     # Exceptions propagate. A failed physical capture is not unavailability.
-    text = read(deepcopy(receipt.source_authority), deepcopy(catalog.source))
+    from .build_pending_native import read_source_authority
+    text = read(deepcopy(read_source_authority(receipt, execution)), deepcopy(catalog.source))
     if reads != tuple(dict(event_id=eid, authorization_event_id=aid) for eid, aid in command):
         raise ValueError('Native body group command changed during physical capture')
     if text is not None and not isinstance(text, str):

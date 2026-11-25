@@ -1383,3 +1383,46 @@ physical SQL rollback/races or release qualification. Full pending native runtim
 loop/body IO/writer closure and integrated SQL/full Send/live semantic/signed-in
 app/current serving review/deployment remain required. No database/provider or
 background benchmark was started.
+
+
+Pending section-acquisition checkpoint: current main a6b33b5c3fba41da39e2e693a5233b172776fc11
+and PR4580/4584 current file sets checked. Extend only native_reads exact pending
+source-authority joins in authorize_body_search_locked/observe_body_search_locked,
+plus pending body/search/read event registration and the closed pending service
+producer/wrapper allowlist. Reuse existing body group selection/extent validation
+and Core capture/member reads; do not change ranking, selectors, PlanJevDriver or
+Core implementations. This closes required pending source acquisition rather
+than introducing a new capability. Verify actual public Core capture/read under
+pending authority and failure cases; retain physical SQL/latency gate separately.
+
+Selected-section public Core check exposed the same legacy authority assumption
+in observe_body_reads_locked at callback entry. Adopt only that exact pending
+read_source_authority delegation, preserving its existing grouping and extent
+checks. No new producer family or Core ownership is added.
+
+
+Public-Core/section checkpoint: pending codec now admits the existing lexical
+search and grouped body-read families after settlement. Pending service wrappers
+reuse the same closed materialization owner; body producers resolve the actual
+settled authority at grant, capture/catalog and section callback entry. The
+Surface union, ranking/extent rules and Core implementations are unchanged.
+58 focused pending source/materialization/runtime/main-App controls passed4.80s.
+
+Eight new cases use actual public Core observation, source preparation, query,
+source catalog/capture and direct/member reads in an in-memory repository. No
+catalog authority is rebound. They cover full source, later Core head with
+original R retained, actual selected section, changed binding/current GM/App
+access refusal and exact search/read replay without repeat IO. Query/source
+preparation each occur once. The new tests caught a missing pending event
+registration and the legacy receipt authority at section callback entry; both
+were corrected. A fixture's missing canonical schema alias was corrected without
+weakening receipt commitments.
+
+This now proves successful public Core reads under the pending authority in
+memory, rather than only synthetic unavailable callbacks. App storage remains
+fake; PostgreSQL lock latency/rollback/concurrency, actual live provider quality,
+main runtime acquisition/writer closure and signed-in deployment acceptance remain
+unproven. Source callbacks still hold App row locks; measure and qualify that
+behavior with the focused integrated SQL run. No database/provider was started.
+Next required work is runtime navigation/loop and native writer closure, then the
+remaining fresh startup/Rules/current reader fence/SQL/live app/review/merge gates.

@@ -3369,13 +3369,15 @@ class AgentConversationService:
         current public Core access checks. No generic Turn callback is accepted.
         """
         from .native_reads import (_NativeReadOperation, authorize_read,
-            observe_selected_read_locked, authorize_direct_sources_locked, observe_direct_source_locked)
+            observe_selected_read_locked, authorize_direct_sources_locked, observe_direct_source_locked,
+            authorize_body_search_locked, observe_body_search_locked, authorize_body_reads_locked, observe_body_reads_locked)
         from .native_execution import BuildPendingExecutionV1
         from .build_pending_native import pending_native_owner
         from .build_pending_app_coverage import pending_writer_access_pages
         world_id = _world_id(world_id)
         if (not any(producer is allowed for allowed in (authorize_read, observe_selected_read_locked,
-                             authorize_direct_sources_locked, observe_direct_source_locked))
+                             authorize_direct_sources_locked, observe_direct_source_locked,
+                             authorize_body_search_locked, observe_body_search_locked, authorize_body_reads_locked, observe_body_reads_locked))
                 or type(expected_revision) is not int or expected_revision < 1
                 or type(expected_attempt) is not int or expected_attempt < 1
                 or not callable(authorize_current_access)):
@@ -3459,6 +3461,43 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             producer=observe_direct_source_locked, event_id=event_id,
             authorization_event_id=authorization_event_id, read=read,
+            authorize_current_access=authorize_current_access)
+
+    def authorize_pending_native_body_search(self, world_id, conversation_id, turn_id, *,
+                                             expected_revision, expected_attempt, event_id,
+                                             authorize_current_access):
+        from .native_reads import authorize_body_search_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_body_search_locked, event_id=event_id,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_native_body_search(self, world_id, conversation_id, turn_id, *,
+                                           expected_revision, expected_attempt, event_id,
+                                           authorization_event_id, capture, authorize_current_access):
+        from .native_reads import observe_body_search_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_body_search_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, capture=capture,
+            authorize_current_access=authorize_current_access)
+
+    def authorize_pending_native_body_reads(self, world_id, conversation_id, turn_id, *,
+                                            expected_revision, expected_attempt, grants,
+                                            authorize_current_access):
+        from .native_reads import authorize_body_reads_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_body_reads_locked, grants=grants,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_native_body_reads(self, world_id, conversation_id, turn_id, *,
+                                          expected_revision, expected_attempt, reads, read,
+                                          authorize_current_access):
+        from .native_reads import observe_body_reads_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_body_reads_locked, reads=reads, read=read,
             authorize_current_access=authorize_current_access)
 
     def authorize_pending_native_retrieval(self, world_id, conversation_id, turn_id, *,

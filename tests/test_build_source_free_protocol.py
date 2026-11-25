@@ -1,4 +1,4 @@
-"""Stored pending Build codec boundary; no database, providers or source grants."""
+"""Pending Build boundaries: fake App, in-memory Core and mock provider transports."""
 import json
 from contextlib import contextmanager
 from uuid import UUID, uuid4
@@ -4479,3 +4479,144 @@ def test_pending_native_materialization_checks_live_owner_and_never_reopens_repl
             assert state.persisted == before
             assert len(callbacks) == int(failure in {'access_after', 'expiry_after', 'cas'})
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
+
+
+@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost'])
+def test_pending_guarded_direct_read_uses_public_core_with_original_real_authority(monkeypatch, mode):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import native_corpus as bodies
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as core
+    from apps.live_control_server.services import native_graph_reads
+    from apps.live_control_server.services.build_pending_source import PendingBuildSourcePreparation, prepare_pending_native_source
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from dungeonmind.application.vnext import list_admitted_native_text_sources
+    from tests.test_native_corpus_source_access import lane, admit, BODY
+    from tests.test_surface_native_execution import controller, outcomes, choice
+    memory = lane.__wrapped__()
+    state, _ = settlement_harness(monkeypatch, with_source=True)
+    section_mode = mode.startswith('section')
+    source_body = '# Maelthor\n\n' + state.turn.user_text + '\n\n# Elsewhere\n\nOther material.\n' if section_mode else BODY
+    admit(memory, body=source_body)
+    memory.bound = SimpleNamespace(**(vars(memory.bound) | {'managed_world_id': state.turn.world_id}))
+    principal = SimpleNamespace(role='gm', managed_world_id=state.turn.world_id)
+    observation = core.observe_build_source_pointer(managed_world_id=state.turn.world_id,
+        principal=principal, repository=memory.repo, resolve_identity=lambda _: memory.bound)
+    original_receipt = state.turn.graph_context_receipt
+    payload = original_receipt.model_dump(mode='json', by_alias=True)
+    payload.pop('context_receipt_sha256')
+    receipt = seal_pending_receipt(payload | {'source_observation': observation.model_dump(mode='json', by_alias=True)})
+    original_execution = state.turn.graph_context_execution
+    policy = original_execution.policy.model_copy(update={'source_observation_sha256': t.canonical_sha256(observation)})
+    state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_receipt': receipt,
+        'graph_context_execution': pending_execution(receipt, policy, original_execution.events)}).model_dump_json(by_alias=True))
+    prepares, searches, opens = [], [], []
+    def prepare(world, actual_principal, *, revision_id, resolve_identity):
+        assert state.depth == 0 and actual_principal is principal
+        prepares.append(revision_id)
+        context = core.prepare_native_source_context(managed_world_id=world, principal=actual_principal,
+            revision_id=revision_id, repository=memory.repo, resolve_identity=resolve_identity)
+        return context, context.authority
+    def resolve_query(turn, context):
+        assert state.depth == 0
+        searches.append(turn.user_text)
+        return native_graph_reads.prepare_query(turn.world_id, turn.user_text, principal,
+            source_context=context, resolve_binding=lambda _: memory.bound)
+    owner = PendingBuildSourcePreparation(world_id=state.turn.world_id, principal=principal,
+        app_access=state.authorize, prepare_source=prepare, resolve_query=resolve_query,
+        resolve_identity=lambda _: memory.bound)
+    fence = _ClaimFence(state.service, state.turn, pending_build_access=state.authorize)
+    adapter = SimpleNamespace(turn=state.turn, fence=fence, native_corpus_context=None,
+        native_source_authority=None, native_query_context=None, native_query=None,
+        pending_build_source_preparation=owner,
+        _broker_receipt=lambda: fence.turn.graph_context_receipt,
+        _broker_execution=lambda: fence.turn.graph_context_execution)
+    actual_open = core.open_admitted_native_text
+    def opened(*args, **kwargs):
+        opens.append(1)
+        return actual_open(*args, **kwargs)
+    monkeypatch.setattr(core, 'open_admitted_native_text', opened)
+    try:
+        assert prepare_pending_native_source(adapter)
+        assert not opens and len(prepares) == len(searches) == 1
+        context, authority = adapter.native_corpus_context, adapter.native_source_authority
+        item = list_admitted_native_text_sources(context.access).sources[0]
+        target = dict(source_artifact_id=item.source_artifact.source_artifact_id,
+            source_revision_id=item.source_revision.source_revision_id, content_sha256=item.source_revision.content_sha256)
+        def call(method, **kwargs):
+            return getattr(state.service, method)(state.turn.world_id, state.turn.conversation_id, state.turn.turn_id,
+                expected_revision=state.turn.revision, expected_attempt=1, authorize_current_access=state.authorize, **kwargs)
+        def choose(handle):
+            execution = state.turn.graph_context_execution
+            auth = controller('build', execution.policy, sequence=len(execution.events), semantic=False)
+            selected = choice(receipt, execution, auth, auth.sequence + 3, 'select_candidates', (handle,))
+            state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_execution':
+                execution.model_copy(update={'events': [*execution.events, auth, *outcomes(auth, auth.sequence + 1), selected]})
+            }).model_dump_json(by_alias=True))
+        grant_id = uuid4()
+        if section_mode:
+            from hashlib import sha256
+            choose(bodies.native_corpus_search_handle(sha256(state.turn.user_text.encode()).hexdigest()))
+            call('authorize_pending_native_body_search', event_id=grant_id)
+            search_id = uuid4()
+            capture_calls = []
+            def capture():
+                capture_calls.append(1)
+                assert state.depth == 1
+                return core.capture_native_sources(managed_world_id=state.turn.world_id, principal=principal, prepared=context)
+            call('observe_pending_native_body_search', event_id=search_id, authorization_event_id=grant_id, capture=capture)
+            assert call('observe_pending_native_body_search', event_id=search_id, authorization_event_id=grant_id, capture=capture)[1] is False
+            assert capture_calls == [1]
+            search = state.turn.graph_context_execution.events[-1]
+            hit = search.matches[0]
+            catalog = next(c for c in search.catalogs if c.catalog_sha256 == hit.catalog_sha256)
+            section = next(s for s in catalog.sections if s.section_id == hit.section_id)
+            choose(bodies.native_body_handle(catalog.catalog_sha256, section.section_id))
+            grant_id = uuid4()
+            call('authorize_pending_native_body_reads', grants=({'event_id': grant_id, 'search_event_id': search_id,
+                'catalog_sha256': catalog.catalog_sha256, 'retrieval_kind': 'section', 'section_id': section.section_id},))
+            expected_text = source_body[section.char_start:section.char_end]
+            opens.clear()
+        else:
+            choose(bodies.native_direct_source_handle(authority, **target))
+            call('authorize_pending_native_direct_sources', grants=({'event_id': grant_id, **target},))
+            expected_text = BODY
+        if mode == 'later_head': admit(memory, 'later', body='# Elsewhere\nDifferent source.\n')
+        elif mode.endswith('binding_changed'): memory.bound = SimpleNamespace(**(vars(memory.bound) | {'binding_version': 2}))
+        elif mode == 'principal_lost': principal.role = 'player'
+        elif mode in {'app_access_lost', 'section_access_lost'}: state.denied = True
+        before = state.persisted
+        event_id = uuid4()
+        callbacks = []
+        def read(grant):
+            callbacks.append(grant)
+            assert state.depth == 1 and grant.authority == authority
+            return core.read_direct_native_source(context, authority=grant.authority,
+                source_artifact_id=grant.source_artifact_id, source_revision_id=grant.source_revision_id,
+                content_sha256=grant.content_sha256)
+        def read_member(actual_authority, member):
+            callbacks.append(member)
+            assert state.depth == 1 and actual_authority == authority
+            return core.read_native_corpus_member(authority=actual_authority, member=member,
+                principal=principal, prepared=context)
+        def observe():
+            if section_mode:
+                return call('observe_pending_native_body_reads', reads=({'event_id': event_id,
+                    'authorization_event_id': grant_id},), read=read_member)
+            return call('observe_pending_native_direct_source', event_id=event_id,
+                authorization_event_id=grant_id, read=read)
+        if mode in {'binding_changed', 'principal_lost', 'app_access_lost', 'section_binding_changed', 'section_access_lost'}:
+            with pytest.raises(ApplicationStateError): observe()
+            assert state.persisted == before and not opens
+            assert len(callbacks) == int(mode not in {'app_access_lost', 'section_access_lost'})
+        else:
+            updated, fresh = observe()
+            observed = updated.graph_context_execution.events[-1]
+            assert fresh and observed.excerpt.text == expected_text and len(opens) == 1
+            result_catalog = catalog if section_mode else observed.catalog
+            assert result_catalog.authority.revision_id == observation.observed_head_revision_id
+            assert result_catalog.authority.acquisition_epoch >= authority.acquisition_epoch
+            assert observe()[1] is False and len(opens) == len(callbacks) == 1
+        assert prepares == [observation.observed_head_revision_id] and len(searches) == 1
+    finally:
+        fence.stop()

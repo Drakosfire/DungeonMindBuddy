@@ -39,3 +39,10 @@ def read_selection(turn):
     else:
         from .plan_jev_decision import current_selection
     return current_selection(turn)
+
+
+def read_source_authority(receipt, execution):
+    """Resolve the prepared pending source; legacy owners keep their own fields."""
+    if type(receipt) is BuildPendingContextReceiptV1:
+        return prepared_pending_source(receipt, execution)[0]
+    return receipt.source_authority
