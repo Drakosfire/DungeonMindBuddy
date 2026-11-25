@@ -5,12 +5,13 @@ umask 077
 
 fail() { printf 'Buddy stage: %s\n' "$*" >&2; exit 1; }
 
-[[ $# == 5 || $# == 6 ]] || fail "expected revision, registry digest, image ID, rollback revision, rollback image ID and optional guest mode"
+[[ $# == 5 || $# == 6 || $# == 7 ]] || fail "expected release pins, optional guest mode and optional document template digest"
 mode=${6:-default}
-[[ "$mode" == default || "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]] || fail "invalid staging mode"
+[[ "$mode" == default || "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving || "$mode" == guest-build-documents-serving ]] || fail "invalid staging mode"
+[[ ( "$mode" == guest-build-documents-serving && $# == 7 && "$7" =~ ^[0-9a-f]{64}$ ) || ( "$mode" != guest-build-documents-serving && $# != 7 ) ]] || fail "invalid guest document template digest"
 guest_config='review=0;page=0;home='
-if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]]; then guest_config="$guest_config;graph=1"; fi
-if [[ "$mode" == guest-build || "$mode" == guest-build-serving ]]; then guest_config="$guest_config;build=1"; fi
+if [[ "$mode" != default ]]; then guest_config="$guest_config;graph=1"; fi
+if [[ "$mode" == guest-build || "$mode" == guest-build-serving || "$mode" == guest-build-documents-serving ]]; then guest_config="$guest_config;build=1"; fi
 revision=$1
 digest=$2
 candidate_id=$3
@@ -48,7 +49,7 @@ done
 
 # The selected baseline is operator-owned policy, not a request parameter.
 # Freeze it in the immutable release record so later edits cannot retarget it.
-if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]]; then
+if [[ "$mode" != default ]]; then
   guest_policy="$config_dir/guest-graph.conf"
   [[ -f "$guest_policy" ]] || fail "missing guest Graph baseline policy"
   trusted "$guest_policy"
@@ -59,14 +60,57 @@ if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == gue
   [[ "${guest_graph_revision:-}" =~ ^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$ ]] || fail "invalid guest Graph revision"
 fi
 
+if [[ "$mode" == guest-build-documents-serving ]]; then
+  template="$config_dir/guest-documents-template.json"
+  bundles="$config_dir/guest-document-bundles"
+  [[ -f "$template" && -d "$bundles" ]] || fail "missing guest document release inputs"
+  trusted "$template"
+  trusted "$bundles"
+  [[ "$(sha256sum "$template" | cut -d' ' -f1)" == "$7" ]] || fail "guest document template digest mismatch"
+  bundle_tmp=$(mktemp "$bundles/.bundle.XXXXXX")
+  trap 'rm -f -- "$bundle_tmp" "${tmp:-}"' EXIT
+  GUEST_TEMPLATE="$template" GUEST_BUNDLE="$bundle_tmp" GUEST_SPACE="$guest_graph_space" GUEST_REVISION="$guest_graph_revision" python3 - <<'PY' || fail "invalid guest document template"
+import json, os
+from pathlib import Path
+source = Path(os.environ['GUEST_TEMPLATE']).read_bytes()
+if not source or len(source) > 16 * 1024 * 1024:
+    raise ValueError('invalid template size')
+obj = json.loads(source)
+if not isinstance(obj, dict) or set(obj) != {'version', 'documents'} or obj['version'] != 1:
+    raise ValueError('invalid template')
+docs = obj['documents']
+if not isinstance(docs, list) or not 1 <= len(docs) <= 32:
+    raise ValueError('invalid document count')
+if any(not isinstance(d, dict) or set(d) != {'title', 'markdown'} or not isinstance(d['title'], str)
+       or not d['title'].strip() or not isinstance(d['markdown'], str) for d in docs):
+    raise ValueError('invalid document')
+obj['graph_space'] = os.environ['GUEST_SPACE']
+obj['graph_revision'] = os.environ['GUEST_REVISION']
+Path(os.environ['GUEST_BUNDLE']).write_text(json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(',', ':')), encoding='utf-8')
+if Path(os.environ['GUEST_BUNDLE']).stat().st_size > 16 * 1024 * 1024:
+    raise ValueError('bound bundle exceeds size limit')
+PY
+  guest_document_sha=$(sha256sum "$bundle_tmp" | cut -d' ' -f1)
+  bundle="$bundles/$guest_document_sha.json"
+  chmod 644 "$bundle_tmp"
+  if [[ -e "$bundle" || -L "$bundle" ]]; then
+    [[ -f "$bundle" ]] || fail "guest document bundle is not a regular file"
+    trusted "$bundle"
+    cmp -s "$bundle_tmp" "$bundle" || fail "guest document bundle differs from its digest"
+  else
+    ln -T -- "$bundle_tmp" "$bundle"
+  fi
+fi
+
 tmp=$(mktemp "$config_dir/releases/.stage.XXXXXX")
-trap 'rm -f -- "$tmp"' EXIT
+trap 'rm -f -- "$tmp" "${bundle_tmp:-}"' EXIT
 printf 'candidate_tag=%s\ncandidate_id=%s\nrollback_tag=%s\nrollback_id=%s\nrollback_revision=%s\nregistry_digest=%s\n' \
   "$candidate_tag" "$candidate_id" "$rollback_tag" "$rollback_id" "$rollback_revision" "$digest" > "$tmp"
-if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]]; then
+if [[ "$mode" != default ]]; then
   printf 'guest_graph_enabled=1\nguest_graph_space=%s\nguest_graph_revision=%s\n' \
     "$guest_graph_space" "$guest_graph_revision" >> "$tmp"
-  if [[ "$mode" == guest-build || "$mode" == guest-build-serving ]]; then printf 'guest_build_enabled=1\n' >> "$tmp"; fi
+  if [[ "$mode" == guest-build || "$mode" == guest-build-serving || "$mode" == guest-build-documents-serving ]]; then printf 'guest_build_enabled=1\n' >> "$tmp"; fi
+  if [[ "$mode" == guest-build-documents-serving ]]; then printf 'guest_document_sha=%s\n' "$guest_document_sha" >> "$tmp"; fi
 fi
 if [[ -e "$record" || -L "$record" ]]; then
   [[ -f "$record" ]] || fail "release policy is not a regular file"
@@ -80,9 +124,9 @@ identity='{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
 docker pull --platform linux/amd64 "$ref"
 candidate_identity="$identity {{.Os}}/{{.Architecture}} {{index .Config.Labels \"org.dungeonmindbuddy.guest-build\"}}"
 expected_identity="$candidate_id $revision linux/amd64 $guest_config"
-if [[ "$mode" == guest-graph || "$mode" == guest-graph-serving || "$mode" == guest-build || "$mode" == guest-build-serving ]]; then
+if [[ "$mode" != default ]]; then
   candidate_identity="$candidate_identity {{index .Config.Labels \"org.dungeonmindbuddy.serving-parent\"}}"
-  if [[ "$mode" == guest-graph-serving || "$mode" == guest-build-serving ]]; then
+  if [[ "$mode" == guest-graph-serving || "$mode" == guest-build-serving || "$mode" == guest-build-documents-serving ]]; then
     expected_identity="$expected_identity $rollback_revision"
   else
     expected_identity="$expected_identity <no value>"

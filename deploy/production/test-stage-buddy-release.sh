@@ -109,4 +109,32 @@ if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' run guest-graph >"$s
 grep -F 'registry image does not match' "$scratch/stderr"
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' run guest-build
 grep -Fx 'guest_build_enabled=1' "$record"
+rm "$record" "$scratch/tag"
+mkdir "$scratch/guest-document-bundles"
+printf '%s' '{"version":1,"documents":[{"title":"Source","markdown":"A clue."}]}' > "$scratch/guest-documents-template.json"
+template_sha=$(sha256sum "$scratch/guest-documents-template.json" | cut -d' ' -f1)
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving invalid >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Invalid template digest accepted' >&2; exit 1; fi
+grep -F 'invalid guest document template digest' "$scratch/stderr"
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha"
+bundle_sha=$(sed -n 's/^guest_document_sha=//p' "$record")
+[[ "$bundle_sha" =~ ^[0-9a-f]{64}$ && -f "$scratch/guest-document-bundles/$bundle_sha.json" ]]
+python3 - "$scratch/guest-document-bundles/$bundle_sha.json" <<'PY'
+import json, sys
+bundle = json.load(open(sys.argv[1]))
+assert bundle['graph_space'] == 'space:test' and bundle['graph_revision'] == 'rev:test'
+assert bundle['documents'] == [{'title': 'Source', 'markdown': 'A clue.'}]
+PY
+TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha"
+printf ' ' >> "$scratch/guest-documents-template.json"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Changed template accepted' >&2; exit 1; fi
+grep -F 'guest document template digest mismatch' "$scratch/stderr"
+printf '%s' '{"version":1,"documents":[{"title":"Source","markdown":"A clue."}]}' > "$scratch/guest-documents-template.json"
+printf ' ' >> "$scratch/guest-document-bundles/$bundle_sha.json"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Changed existing bundle accepted' >&2; exit 1; fi
+grep -F 'guest document bundle differs from its digest' "$scratch/stderr"
+rm "$scratch/guest-documents-template.json"
+ln -s "$scratch/bundle-symlink-target" "$scratch/guest-documents-template.json"
+printf '%s' '{}' > "$scratch/bundle-symlink-target"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Symlink template accepted' >&2; exit 1; fi
+grep -F 'symlink in deployment policy' "$scratch/stderr"
 printf 'Staging, idempotency, conflict, guest mode and lock checks passed.\n'
