@@ -1238,3 +1238,13 @@ runtime continuation and actual writer closure still need integration; no source
 read or SDK grant follows from this helper. PlanJevDriver remains untouched.
 SQL/current reader fence/full-Send/live semantic and signed-in deployment gates
 remain open.
+
+
+Native-read binding checkpoint: the existing read owner now delegates exact
+pending Build turns to the prepared pending owner, and the standalone binding
+validator joins the actual settlement instead of requiring legacy policy hashes.
+14 focused owner/scope and mutation controls passed (2.04s). This remains a
+historical binding check: it neither authorizes selected records nor activates
+pending native read events, Core IO, or the runtime continuation. Surface owner
+controls remain passing. No database or provider was used. Selected acquisition,
+current-access checks, writer closure and integrated release gates remain open.

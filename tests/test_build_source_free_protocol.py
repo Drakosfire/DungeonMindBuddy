@@ -3962,7 +3962,7 @@ def test_pending_main_build_harness_completes_app_citation_without_native_prepar
 
 
 def test_pending_native_retrieval_owner_uses_only_actual_settlement_without_repreparing_or_relabeling(monkeypatch):
-    from application_state.agent_conversation import native_retrieval
+    from application_state.agent_conversation import native_reads, native_retrieval
     from application_state.agent_conversation.build_pending_native import prepared_pending_source
     from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
     from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
@@ -3974,6 +3974,8 @@ def test_pending_native_retrieval_owner_uses_only_actual_settlement_without_repr
         assert prepare_pending_native_source(adapter)
         receipt,execution=native_retrieval.owner(state.turn)
         assert type(receipt) is BuildPendingContextReceiptV1 and type(execution) is BuildPendingExecutionV1
+        assert native_reads._owner(state.turn, require_source=True) == (receipt, execution)
+        native_reads.validate_execution_binding(receipt, execution)
         authority,query=prepared_pending_source(receipt,execution)
         assert authority==adapter.native_source_authority and query==adapter.native_query
         pins=native_retrieval.source_pins(receipt,execution)
@@ -4010,6 +4012,13 @@ def test_pending_native_retrieval_owner_refuses_mutated_or_borrowed_prepared_sco
             turn=turn.model_copy(update={'graph_context_receipt':other})
         else:turn=SimpleNamespace(**turn.__dict__)
         with pytest.raises(ValueError):native_retrieval.owner(turn)
+        from application_state.agent_conversation import native_reads
+        with pytest.raises(ValueError):native_reads._owner(turn, require_source=True)
+        if failure in {'changed_receipt', 'changed_query', 'foreign_pair'}:
+            with pytest.raises(ValueError):
+                native_reads.validate_execution_binding(
+                    turn.graph_context_receipt, turn.graph_context_execution
+                )
         assert len(state.source_prepares)==len(state.query_searches)==1 and not state.query_reopens
 
 

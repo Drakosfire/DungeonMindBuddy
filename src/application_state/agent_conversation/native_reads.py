@@ -65,6 +65,11 @@ def validate_execution_binding(receipt, execution):
     from . import types as t
     from .native_context import SurfaceNativeContextReceiptV1
     from .native_execution import SurfaceNativeExecutionV1, validate_context_binding
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        prepared_pending_source(receipt, execution)
+        return
     if (type(receipt), type(execution)) == (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
         validate_context_binding(receipt, execution)
         return
@@ -97,7 +102,14 @@ def _owner(turn, *, require_source=False):
     from .plan_jev_decision import _owner as plan_owner
     from .plan_source_context import validate_source_provenance
 
-    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
+    if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import pending_native_owner, prepared_pending_source
+        receipt, execution = pending_native_owner(turn)
+        authority, _ = prepared_pending_source(receipt, execution)
+        if require_source and not isinstance(authority, NativeCorpusAuthorityV1):
+            raise ValueError("Native body acquisition requires its available frozen source authority")
+        return receipt, execution
     if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
         from .native_retrieval import owner
         receipt, execution = owner(turn)
