@@ -3148,7 +3148,7 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible,
+    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible && !guestBuildActive(),
     onReviewOnPage:()=>agent.setPaneOpen(false),
     onConstructionVisible:()=>{
       if(!(composerDraftsRef.current[composerDraftKey]??'').trim())agent.setPaneOpen(false);

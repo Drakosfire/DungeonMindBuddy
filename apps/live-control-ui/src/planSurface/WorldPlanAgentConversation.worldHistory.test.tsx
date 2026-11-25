@@ -6128,11 +6128,13 @@ it('sends a guest Plan discussion without capturing an editor write target', asy
   const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
   setupApi(history('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 4, []));
   const bridge = {capture: vi.fn(), sealAuthoring: vi.fn(), capturePlacementCatalog: vi.fn(), apply: vi.fn()};
+  const listProposals = vi.spyOn(buildProposalApi, 'listBuildProposals');
   const received = deferred<void>(), outcome = deferred<never>();
   const post = vi.spyOn(liveApi, 'postWorldPlanAgentTurn').mockImplementation(() => { received.resolve(); return outcome.promise; });
   try {
     render(conversationElement({editBridge: bridge, savedDirty: true, draftGeneration: 1}));
     await waitForConversationReady();
+    expect(listProposals).not.toHaveBeenCalled();
     ensureWorldGraphAskEnabled();
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Message DungeonBuddy'), {target: {value: 'What happened at the carnival?'}});
