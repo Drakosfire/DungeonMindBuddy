@@ -796,6 +796,7 @@ def pending_page_dispatch_harness(monkeypatch):
         'provider': first.provider, 'model': first.model, 'api_mode': first.api_mode,
         'serializer_version': first.serializer_version, 'payload_sha256': first.envelope_sha256,
         'payload_utf8_bytes': len(initial.encode())}
+    state.initial_request, state.prepared_request = initial, raw
     state.prompt_count = 1
     def query(sql, args):
         if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
@@ -859,14 +860,19 @@ def test_locked_pending_page_dispatch_rejects_stale_or_unproven_calls(monkeypatc
     assert state.persisted == state.materialized == 0
 
 
-@pytest.mark.parametrize('event_kind', ['authorization', 'sdk_entry'])
+@pytest.mark.parametrize('event_kind', ['authorization', 'sdk_entry', 'response', 'selection', 'page_read'])
 def test_pending_generic_append_cannot_bypass_prepared_dispatch_owner(monkeypatch, event_kind):
     from application_state.agent_conversation import service as service_module
     from application_state.errors import ApplicationStateValidationError
     state, _, auth, _ = pending_page_dispatch_harness(monkeypatch)
     monkeypatch.setattr(service_module, '_execution_append_transaction', lambda measure: state.uow())
-    event = auth if event_kind == 'authorization' else t.ProviderOutcomeEventV1(kind='provider_outcome',
-        event_id=uuid4(), sequence=6, provider_attempt_id=auth.provider_attempt_id, outcome='sdk_entered')
+    if event_kind in {'selection', 'page_read'}:
+        _, _, events = pending_page_phase_case()
+        event = events[8 if event_kind == 'selection' else 9]
+    else:
+        event = auth if event_kind == 'authorization' else t.ProviderOutcomeEventV1(kind='provider_outcome',
+            event_id=uuid4(), sequence=6, provider_attempt_id=auth.provider_attempt_id,
+            outcome='sdk_entered' if event_kind == 'sdk_entry' else 'response_received')
     with pytest.raises(ApplicationStateValidationError, match='exact prepared-input admission owner'):
         state.service._append_graph_execution_event(state.turn.world_id, state.turn.conversation_id,
             state.turn.turn_id, expected_revision=3, expected_attempt=1, event=event, duplicate_key='event_id')
@@ -1062,3 +1068,119 @@ def test_pending_selection_rejects_unproven_controller_votes(failure):
         selected = selected.model_copy(update={'controller_response_sha256': sha256(proof['response_json'].encode()).hexdigest()})
     with pytest.raises(ValueError):
         validate_pending_app_page_selection_result(receipt, execution, selected, proof, trace)
+
+
+def pending_selection_service_harness(monkeypatch):
+    from types import SimpleNamespace
+    from hashlib import sha256
+    from generationengine.types import DecisionResult, ChoiceDecisionAnswer, InferenceObservation
+    from application_state.agent_conversation.build_related_pages import RelatedPagesSelection
+    state, enter, entry, _ = pending_sdk_entry_harness(monkeypatch)
+    _, fresh = enter()
+    assert fresh and state.turn.revision == 5
+    response = DecisionResult(answers={'page1': ChoiceDecisionAnswer(selected='read', probabilities={'read': .9, 'skip': .1})},
+        observation=InferenceObservation(provider='typesafe', resolved_model='jev-1.14.0', response_model='jev-1.14.0',
+            latency_ms=1, retry_count=0, state='completed', provider_attempt_count=1))
+    raw = response.model_dump_json(by_alias=True)
+    received = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=7,
+        provider_attempt_id=entry.provider_attempt_id, outcome='response_received')
+    def acknowledge(*, event=received, revision=5):
+        return state.service.record_pending_app_controller_outcome(state.turn.world_id,
+            state.turn.conversation_id, state.turn.turn_id, expected_revision=revision, expected_attempt=1,
+            outcome=event, authorize_current_access=state.authorize)
+    _, fresh = acknowledge()
+    assert fresh and state.turn.revision == 6
+    capture, store, _ = pending_response_collector(components=(state.turn.graph_context_receipt, state.turn.graph_context_execution))
+    capture.controller_decision_response(raw, producing_provider_attempt_id=entry.provider_attempt_id)
+    state.stored_trace = store.trace.model_dump(mode='json', by_alias=True)
+    state.stored_trace['observations'][-1]['sequence'] = 2
+    state.stored_trace['observations'] = [state.prompt, state.sdk_prompt | {'sequence': 1}, *state.stored_trace['observations']]
+    def query(sql, args):
+        if sql == 'SELECT 1 FROM agent.turn_retry WHERE predecessor_id=%s':
+            return state.leaf_query(sql, args)
+        assert state.depth == 1
+        if sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s':
+            assert args == (state.turn.turn_id,)
+            return SimpleNamespace(fetchall=lambda: [(state.stored_trace,)])
+        assert sql == 'SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s'
+        assert args == (state.turn.turn_id, state.turn.attempt)
+        return SimpleNamespace(fetchone=lambda: (state.stored_trace,))
+    state.conn.execute = query
+    catalog = state.turn.graph_context_execution.events[4]
+    authorization = state.turn.graph_context_execution.events[5]
+    selection = RelatedPagesSelection(event_id=uuid4(), sequence=8,
+        controller_attempt_id=entry.provider_attempt_id, controller_envelope_sha256=authorization.envelope_sha256,
+        controller_response_sha256=sha256(raw.encode()).hexdigest(), document_ids=[catalog.pages[0].document_id])
+    proof = {'request_json': state.prepared_request, 'response_json': raw, 'initial_request_json': state.initial_request}
+    def select(*, event=selection, producer_proof=proof, revision=6):
+        return state.service.record_pending_app_page_selection(state.turn.world_id, state.turn.conversation_id,
+            state.turn.turn_id, expected_revision=revision, expected_attempt=1, selection=event,
+            producer_proof=producer_proof, authorize_current_access=state.authorize)
+    return state, acknowledge, select, selection, proof
+
+
+def test_pending_selection_service_loads_stored_capture_and_admits_exact_choices_once(monkeypatch):
+    state, acknowledge, select, selection, _ = pending_selection_service_harness(monkeypatch)
+    replay, fresh = acknowledge(revision=6)
+    assert not fresh and replay == state.turn
+    updated, fresh = select()
+    assert fresh and updated.revision == 7 and updated.graph_context_execution.events[-1] == selection
+    replay, fresh = select(revision=7)
+    assert not fresh and replay == updated and state.persisted == 4
+    assert state.materialized == 0
+
+
+@pytest.mark.parametrize('failure', ['stored_capture_missing', 'stored_capture_changed', 'caller_trace',
+    'wrong_vote', 'pointer', 'access', 'expiry', 'successor', 'cas_failure'])
+def test_pending_selection_service_refuses_unproven_or_stale_choices(monkeypatch, failure):
+    from datetime import timedelta
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    state, _, select, selection, proof = pending_selection_service_harness(monkeypatch)
+    if failure == 'stored_capture_missing':
+        state.stored_trace['observations'] = state.stored_trace['observations'][:2]
+    elif failure == 'stored_capture_changed':
+        state.stored_trace['observations'][-1]['materials'][0]['text'] += ' '
+    elif failure == 'caller_trace':
+        proof = proof | {'trace': state.stored_trace}
+    elif failure == 'wrong_vote':
+        selection = selection.model_copy(update={'document_ids': []})
+    elif failure == 'pointer':
+        state.pointer = state.pointer.model_copy(update={'revision': state.pointer.revision + 2})
+    elif failure == 'access':
+        state.denied = True
+    elif failure == 'expiry':
+        state.now += timedelta(hours=1)
+    elif failure == 'successor':
+        state.successor = True
+    else:
+        state.cas_failure = True
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        select(event=selection, producer_proof=proof)
+    assert state.persisted == 3 and state.materialized == 0
+
+
+def test_pending_outcome_cannot_report_a_response_before_sdk_entry(monkeypatch):
+    from application_state.errors import ApplicationStateValidationError
+    state, admit, authorization, _ = pending_page_dispatch_harness(monkeypatch)
+    admit()
+    event = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=6,
+        provider_attempt_id=authorization.provider_attempt_id, outcome='response_received')
+    with pytest.raises(ApplicationStateValidationError, match='observed SDK entry'):
+        state.service.record_pending_app_controller_outcome(state.turn.world_id, state.turn.conversation_id,
+            state.turn.turn_id, expected_revision=4, expected_attempt=1, outcome=event,
+            authorize_current_access=state.authorize)
+    assert state.persisted == 1
+
+
+def test_pending_outcome_records_known_not_sent_without_sdk_entry(monkeypatch):
+    state, admit, authorization, _ = pending_page_dispatch_harness(monkeypatch)
+    admit()
+    event = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=6,
+        provider_attempt_id=authorization.provider_attempt_id, outcome='known_not_sent')
+    updated, fresh = state.service.record_pending_app_controller_outcome(state.turn.world_id,
+        state.turn.conversation_id, state.turn.turn_id, expected_revision=4, expected_attempt=1,
+        outcome=event, authorize_current_access=state.authorize)
+    assert fresh and updated.revision == 5 and updated.graph_context_execution.events[-1] == event
+    assert not any(getattr(row, 'outcome', None) == 'sdk_entered' and
+        getattr(row, 'provider_attempt_id', None) == authorization.provider_attempt_id
+        for row in updated.graph_context_execution.events)

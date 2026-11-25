@@ -1743,10 +1743,10 @@ class AgentConversationService:
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             from .native_execution import BuildPendingExecutionV1
-            if type(turn.graph_context_execution) is BuildPendingExecutionV1 and (
-                    isinstance(event, ProviderAttemptAuthorizedEventV1)
-                    or isinstance(event, ProviderOutcomeEventV1) and event.outcome == 'sdk_entered'):
-                raise ApplicationStateValidationError('Pending Build dispatch requires its exact prepared-input admission owner')
+            from .build_related_pages import RelatedPagesSelection, RelatedPageRead
+            if type(turn.graph_context_execution) is BuildPendingExecutionV1 and isinstance(event, (
+                    ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead)):
+                raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
             native_plan_decision = (
@@ -3186,6 +3186,111 @@ class AgentConversationService:
             if updated is None:
                 raise ApplicationStateConflictError('Pending SDK entry lost its claim fence')
             return updated, True
+
+    def _append_pending_checked(self, conn, turn, event, expected_revision):
+        """Append only after the caller's locked pending claim and proof checks."""
+        from .native_execution import BuildPendingExecutionV1
+        from .build_source_free import effective_pending_source
+        try:
+            execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                turn.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                    'events': [row.model_dump(mode='json', by_alias=True)
+                               for row in [*turn.graph_context_execution.events, event]]}))
+            effective_pending_source(turn.graph_context_receipt, execution)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        if turn.claim_expires_at <= repo.database_clock(conn):
+            raise ApplicationStateConflictError('Pending claim expired before verified append')
+        updated = self._persist_execution_append(conn, world_id=turn.world_id, turn_id=turn.turn_id,
+            expected_revision=expected_revision, execution=execution)
+        if updated is None:
+            raise ApplicationStateConflictError('Pending verified append lost its claim fence')
+        return updated, True
+
+    def record_pending_app_controller_outcome(self, world_id, conversation_id, turn_id, *,
+                                              expected_revision, expected_attempt, outcome,
+                                              authorize_current_access):
+        """Record the actual resolved/unknown observation; never grant SDK entry."""
+        from .native_execution import BuildAppPageSelectionAuthorizedV1
+        from .build_source_free import BuildAppPageCatalogObservedV1
+        world_id = _world_id(world_id)
+        if (type(outcome) is not ProviderOutcomeEventV1 or outcome.outcome == 'sdk_entered'
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending outcome requires its actual non-entry observation and App owner')
+        try:
+            outcome = ProviderOutcomeEventV1.model_validate_json(outcome.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            authorizations = [event for event in turn.graph_context_execution.events
+                              if isinstance(event, ProviderAttemptAuthorizedEventV1)]
+            authorization = authorizations[-1] if authorizations else None
+            if (type(authorization) is not BuildAppPageSelectionAuthorizedV1
+                    or authorization.provider_attempt_id != outcome.provider_attempt_id):
+                raise ApplicationStateValidationError('Pending outcome differs from its latest App controller')
+            catalog, = [event for event in turn.graph_context_execution.events
+                        if type(event) is BuildAppPageCatalogObservedV1]
+            if authorize_current_access(conn, turn, catalog.pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending outcome admission')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending outcome claim expired during access validation')
+            prior = [event for event in turn.graph_context_execution.events if event.event_id == outcome.event_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == outcome:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending outcome identity was reused with changed content')
+            return self._append_pending_checked(conn, turn, outcome, expected_revision)
+
+    def record_pending_app_page_selection(self, world_id, conversation_id, turn_id, *,
+                                          expected_revision, expected_attempt, selection,
+                                          producer_proof, authorize_current_access):
+        """Admit SDK page choices against the actual stored trace, never caller materials."""
+        from .build_related_pages import RelatedPagesSelection
+        from .native_execution import BuildPendingExecutionV1
+        from .build_source_free import BuildAppPageCatalogObservedV1, validate_pending_app_page_selection_result
+        world_id = _world_id(world_id)
+        if (type(selection) is not RelatedPagesSelection
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not isinstance(producer_proof, dict) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending selection requires its actual producing proof and App owner')
+        try:
+            selection = RelatedPagesSelection.model_validate_json(selection.model_dump_json())
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            self._validate_pending_initial_prompt(conn, turn, producer_proof.get('initial_request_json'))
+            row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                               (turn.turn_id, turn.attempt)).fetchone()
+            prior = [event for event in turn.graph_context_execution.events if type(event) is RelatedPagesSelection]
+            if prior and (len(prior) != 1 or prior[0] != selection):
+                raise ApplicationStateConflictError('Pending App page choices were already admitted differently')
+            try:
+                execution = turn.graph_context_execution
+                if prior:
+                    execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                        execution.model_dump(mode='json', by_alias=True) | {
+                            'events': [event.model_dump(mode='json', by_alias=True)
+                                       for event in execution.events[:selection.sequence]]}))
+                validate_pending_app_page_selection_result(turn.graph_context_receipt,
+                    execution, selection, producer_proof, row[0] if row else None)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            catalog, = [event for event in turn.graph_context_execution.events
+                        if type(event) is BuildAppPageCatalogObservedV1]
+            if authorize_current_access(conn, turn, catalog.pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending page choices')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending page choice claim expired during validation')
+            if prior:
+                return turn, False
+            return self._append_pending_checked(conn, turn, selection, expected_revision)
 
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):

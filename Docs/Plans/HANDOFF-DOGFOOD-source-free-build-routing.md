@@ -460,3 +460,19 @@ format, transport, provider or other policy behavior changes are leased here.
 Relevant open PR inventories remain non-overlapping (CLARIFICATION4652,
 RETRIEVAL4580/4584 and selected-passage4561). Owning focused tests exercise the
 actual collector with fake persistence; SQL/runtime proof remains separate.
+
+
+## Stored-response and page-choice admission checkpoint
+
+Dedicated pending App outcome admission preserves the existing provider lifecycle
+and current pointer/claim/access/leaf fences; it never grants SDK entry. Page
+selection admission loads the actual current-attempt stored trace, checks the
+captured opening reference, then binds the acknowledged SDK votes and exact
+captured response to the immutable catalog. No caller-provided trace is accepted.
+The generic append path refuses pending outcomes, selections and page-read
+records as well as authorizations, reserving them for these owning methods.
+Replaying an exact admitted record at the current revision returns non-fresh;
+changed records and stale claims fail. The existing historical append path and
+choice/read semantics are unchanged. Public App body materialization/read admission
+and real runtime callbacks remain activation gates; fake-storage checks are not
+SQL isolation qualification.
