@@ -177,9 +177,14 @@ it.each(['plain','identity-only','composed','protected','clean-arrival'] as cons
     await expect(reopenedBridge.restore(basis,undefined,undefined,proof)).rejects.toThrow('page has changed');
     const restored = await reopenedBridge.restore(basis,undefined,undefined,proof,originalJson);
     expect(restored.proseTarget).toEqual(proof);
-    const preparedAfterReload = await reopenedBridge.prepareProposal(restored, 'A lantern waits at the crossing.');
+    const markdown = 'A lantern waits at the crossing.';
+    const recovery = {originalEditorJson:originalJson,markdown};
+    const preparedBeforeReload = await bridge.prepareProposal(captured,markdown);
+    const preparedAfterReload = await reopenedBridge.prepareProposal(restored,markdown);
     expect(await reopenedBridge.inspectProposal(basis,preparedAfterReload.afterEditorSha256,
-     preparedAfterReload.afterDraftSha256,proof,originalJson)).toEqual({state:'before'});
+     preparedAfterReload.afterDraftSha256,proof,recovery)).toEqual({state:'before'});
+    expect(await reopenedBridge.inspectProposal(basis,preparedBeforeReload.afterEditorSha256,
+     preparedBeforeReload.afterDraftSha256,proof,recovery)).toEqual({state:'changed'});
     expect(reopened.getJSON()).toEqual(before);
     expect(changed).not.toHaveBeenCalled();
     reopenedState.canEdit = false;

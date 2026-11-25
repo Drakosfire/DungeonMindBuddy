@@ -86,7 +86,7 @@ export interface BuildComposeBridge {
   saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection,
     proseTarget?: BuildProseBoundaryTarget) => Promise<void>;
   inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string,
-    proseTarget?: BuildProseBoundaryTarget, originalEditorJson?:string) => Promise<ProposalInspection>;
+    proseTarget?: BuildProseBoundaryTarget, recovery?:{originalEditorJson:string;markdown:string}) => Promise<ProposalInspection>;
   restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget,
     proseTarget?:BuildProseBoundaryTarget, originalEditorJson?:string) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
@@ -482,7 +482,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       if (proseTarget) await persist(basis,afterEditor,afterDraft,savedProjection,proseTarget);
       else await persist(basis,afterEditor,afterDraft,savedProjection);
     },
-    async inspectProposal(basis,afterEditor,afterDraft,proseTarget,originalEditorJson) {
+    async inspectProposal(basis,afterEditor,afterDraft,proseTarget,recovery) {
       const now=getCurrent();
       if(!now?.canEdit||now.editor.isDestroyed||now.worldId!==basis.world_id||now.documentId!==basis.document_id
         ||now.visibility!==basis.visibility||now.revision<basis.registry_revision)return {state:'changed'};
@@ -506,11 +506,12 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       }
       if(editorDigest===basis.editor_sha256&&draftDigest===basis.draft_sha256
         &&savedPageMatches(now,basis,true))return {state:'before'};
-      if(proseTarget && originalEditorJson && draftDigest===basis.draft_sha256){
+      if(proseTarget && recovery && draftDigest===basis.draft_sha256){
         try {
-          await bridge.restore(basis,undefined,undefined,proseTarget,originalEditorJson);
+          const captured = await bridge.restore(basis,undefined,undefined,proseTarget,recovery.originalEditorJson);
+          const prepared = await bridge.prepareProposal(captured,recovery.markdown);
           assertCurrent();
-          return {state:'before'};
+          if(prepared.afterEditorSha256===afterEditor && prepared.afterDraftSha256===afterDraft)return {state:'before'};
         } catch { return {state:'changed'}; }
       }
       return {state:'changed'};

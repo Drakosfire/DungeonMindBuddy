@@ -167,7 +167,8 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(saved.state!=='applying'||!saved.apply)return;
     const basis={...basisFor(saved),caret:saved.placement_caret},prose=proseFor(saved);
     const state=prose
-      ?await bridge.inspectProposal(basis,saved.apply.after_editor_sha256,saved.apply.after_draft_sha256,prose,saved.original_editor_json)
+      ?await bridge.inspectProposal(basis,saved.apply.after_editor_sha256,saved.apply.after_draft_sha256,prose,
+        saved.original_editor_json ? {originalEditorJson:saved.original_editor_json,markdown:saved.markdown} : undefined)
       :await bridge.inspectProposal(basis,saved.apply.after_editor_sha256,saved.apply.after_draft_sha256);
     if(!current(start))return;
     if(state.state==='changed')throw new Error('The current page differs from the earlier insertion snapshots. Its outcome is unresolved. Review the retained text before choosing a new position.');
