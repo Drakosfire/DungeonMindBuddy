@@ -2530,6 +2530,8 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
             raise
         trace.complete_phase(auth_span)
 
+        from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
         result = execute_agent_turn(
             body,
             root=repo_root(),
@@ -2553,6 +2555,8 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
             trace_builder=trace,
             operator_subject=principal.subject,
             native_principal=principal,
+            authorize_build_world=lambda world_id: require_conversation_access(
+                request, world_id, authorize_local=enforce_native_graph_gm),
             native_statement_transport=getattr(request.app.state, "native_statement_writer_transport", None),
         )
         _finalize_unlogged_agent_trace(trace, status="ok")

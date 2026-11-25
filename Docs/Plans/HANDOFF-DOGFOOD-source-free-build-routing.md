@@ -588,3 +588,15 @@ These connect existing pending service owners for the initial select phase and
 its actual prepared bytes. No general provider bypass, Plan session, writer phase,
 old receipt behavior or released whole-file reservation is added. Startup remains
 unselected until the remaining runtime path is integrated.
+
+
+## Current lease addition: live App access injection
+
+Pin only the new authorize_build_world host callback parameter in execute_agent_turn,
+a private _pending_build_app_access adapter and the matching keyword injection in
+routes/agent.py::_execute_agent_turn. The route delegates to the existing
+require_conversation_access owner with its existing local authorization boundary;
+no permission semantics or auth middleware are changed. The App adapter rechecks
+that owner and validates World-local PagePointer/PageReference inputs, rejecting
+native authority/query tuples. This is a host capability, never an HTTP/model
+field; startup selection remains a separate integration step.

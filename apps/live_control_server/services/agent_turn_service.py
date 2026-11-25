@@ -7073,6 +7073,30 @@ def _interrupt_policy_delivery(
         ) from exc
 
 
+def _pending_build_app_access(world_id, authorize_world):
+    """Adapt the existing live route authorization owner for pending App checks.
+
+    This grants neither Core source access nor a new permission. The original
+    request-scoped owner rechecks current World access on every invocation.
+    """
+    if not isinstance(world_id, str) or not world_id or not callable(authorize_world):
+        raise ValueError('Pending Build requires its actual live World authorization owner')
+
+    def authorize(conn, turn, pages):
+        from application_state.agent_conversation.build_related_pages import PagePointer, PageReference
+        if turn.world_id != world_id:
+            return False
+        if authorize_world(world_id) is not None:
+            return False
+        if pages is None:
+            return True
+        if type(pages) not in (tuple, list) or any(type(page) not in (PagePointer, PageReference) for page in pages):
+            return False  # App authorization cannot serve as native source authority.
+        return all(page.world_id == world_id for page in pages)
+
+    return authorize
+
+
 def execute_agent_turn(
     request: AgentTurnRequest,
     *,
@@ -7092,6 +7116,7 @@ def execute_agent_turn(
     operator_subject: str | None = None,
     native_principal=None,
     native_statement_transport=None,
+    authorize_build_world: Callable[[str], None] | None = None,
 ) -> AgentTurnResponse:
     """Resolve authority on each call, then execute one read-only conversation turn.
 

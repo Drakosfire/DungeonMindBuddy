@@ -1821,3 +1821,71 @@ def test_pending_transport_never_grants_sdk_entry_twice(monkeypatch):
         assert adapter.record_lifecycle({'transition': 'sdk_entered'})
         assert not adapter.record_lifecycle({'transition': 'sdk_entered'})
         assert state.persisted == 2
+
+
+def test_pending_app_access_rechecks_live_world_owner_without_native_source_authority():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from apps.live_control_server.services.agent_turn_service import _pending_build_app_access
+    state = {'allow': True, 'calls': []}
+    def live(world):
+        state['calls'].append(world)
+        return None if state['allow'] else False
+    access = _pending_build_app_access('world-one', live)
+    turn = SimpleNamespace(world_id='world-one')
+    page = PagePointer(world_id='world-one', document_id=uuid4(), registry_revision=1, title='Maelthor', visibility='internal')
+    assert access(object(), turn, None) is True
+    assert access(object(), turn, (page,)) is True
+    state['allow'] = False
+    assert access(object(), turn, (page,)) is False
+    assert state['calls'] == ['world-one'] * 3
+
+
+@pytest.mark.parametrize('kind', ['foreign_turn', 'foreign_page', 'native_source'])
+def test_pending_app_access_cannot_authorize_foreign_worlds_or_core_material(kind):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from apps.live_control_server.services.agent_turn_service import _pending_build_app_access
+    from tests.test_build_source_free_routing import settled_source, prepared_query
+    access = _pending_build_app_access('world-one', lambda world: None)
+    turn = SimpleNamespace(world_id='foreign-world' if kind == 'foreign_turn' else 'world-one')
+    if kind == 'native_source':
+        source = settled_source(managed_world_id='world-one')
+        pages = (source, prepared_query(source))
+    else:
+        pages = (PagePointer(world_id='foreign-world' if kind == 'foreign_page' else 'world-one',
+            document_id=uuid4(), registry_revision=1, title='Saved page', visibility='internal'),)
+    assert access(object(), turn, pages) is False
+
+
+def test_agent_route_injects_existing_live_conversation_authorizer(monkeypatch):
+    from types import SimpleNamespace
+    from pathlib import Path
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import hosted_native_graph_access as access_owner
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
+    body = SimpleNamespace(turn_id=str(uuid4()))
+    calls, allowed = [], {'value': True}
+    def require(actual_request, world_id, *, authorize_local):
+        assert actual_request is request and authorize_local is route.enforce_native_graph_gm
+        calls.append(world_id)
+        if not allowed['value']:
+            raise PermissionError('World access was revoked')
+    monkeypatch.setattr(access_owner, 'require_conversation_access', require)
+    monkeypatch.setattr(route, '_chat_turn_principal', lambda *args: SimpleNamespace(subject='test-gm', role='gm'))
+    monkeypatch.setattr(route, '_conversation_service', lambda request: object())
+    monkeypatch.setattr(route, 'repo_root', lambda: Path('/synthetic-app'))
+    monkeypatch.setattr(route, 'session_dir', lambda: Path('/synthetic-app/sessions'))
+    monkeypatch.setattr(route, 'HermesSessionPointerStore', lambda path: object())
+    monkeypatch.setattr(route, '_finalize_unlogged_agent_trace', lambda *args, **kwargs: None)
+    def backend(actual_body, **kwargs):
+        assert actual_body is body
+        authorize = kwargs['authorize_build_world']
+        assert authorize('world-one') is None
+        allowed['value'] = False
+        with pytest.raises(PermissionError):
+            authorize('world-one')
+        return SimpleNamespace(model_dump=lambda **kwargs: {'checked': True})
+    monkeypatch.setattr(route, 'execute_agent_turn', backend)
+    assert route._execute_agent_turn(body, request) == {'checked': True}
+    assert calls == ['world-one', 'world-one']
