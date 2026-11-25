@@ -1613,7 +1613,9 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
   // Keep immutable request bytes/CAS/correlation for the sole permitted retry.
   const frozenInit = { ...init, headers: headerRecord(init?.headers) };
   const dispatch = async (expectedEpoch?: number) => {
-    const csrf = target.localGraphRequest && !nativeGraphAccessToken
+    const method = (frozenInit.method ?? "GET").toUpperCase();
+    const guestEpoch = !baseUrl ? guestBuildRequestEpoch(path, method) : null;
+    const csrf = target.localGraphRequest && !nativeGraphAccessToken && guestEpoch === null
       ? await ensureNativeGraphSession() : null;
     if (expectedEpoch !== undefined && (nativeGraphSessionEpoch !== expectedEpoch
       || nativeGraphSessionRevoked || nativeGraphAccessToken)) {
@@ -1622,8 +1624,6 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
     }
     const requestEpoch = nativeGraphSessionEpoch;
     const usedBearer = Boolean(nativeGraphAccessToken);
-    const method = (frozenInit.method ?? "GET").toUpperCase();
-    const guestEpoch = !baseUrl ? guestBuildRequestEpoch(path, method) : null;
     const guestCsrf = guestEpoch !== null ? guestBuildCsrf(path, method) : null;
     const response = await fetch(target.url, {
       ...frozenInit,

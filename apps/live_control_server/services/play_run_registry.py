@@ -819,12 +819,13 @@ def world_session_outcome(result):
             "manifest": result.aggregate.manifest.manifest, "receipt": result.receipt}
 
 
-def create_or_replay_world_play_run(*, world_id: str, run_id: str, request):
+def create_or_replay_world_play_run(*, world_id: str, run_id: str, request, authorize_creation=None):
     from application_state.errors import ApplicationStateError
     from application_state.play.service import create_world_play_run
     try:
         return world_session_outcome(create_world_play_run(
-            world_id=_validate_world_id(world_id), run_id=_validate_run_id(run_id), request=request))
+            world_id=_validate_world_id(world_id), run_id=_validate_run_id(run_id), request=request,
+            **({"authorize_creation": authorize_creation} if authorize_creation is not None else {})))
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
 
@@ -836,6 +837,7 @@ def replace_world_play_run_progress(
     expected_run_revision: int,
     progress: PlayRunProgress,
     authorize_world: Callable[[], None] | None = None,
+    authorize_transaction=None,
 ) -> WorldPlayRunRecord:
     from application_state.errors import ApplicationStateError
     from application_state.play.service import replace_world_play_run_progress as replace_progress
@@ -855,6 +857,7 @@ def replace_world_play_run_progress(
             expected_run_revision=expected_run_revision,
             progress=progress.model_dump(mode="json"),
             authorize_world=authorize_world,
+            **({"authorize_transaction": authorize_transaction} if authorize_transaction is not None else {}),
         )
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc

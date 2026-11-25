@@ -16,19 +16,28 @@ export function guestBuildActive(): boolean { return active !== null; }
 export function guestBuildRequestEpoch(path: string, method: string): number | null {
   if (!active) return null;
   const pathname = path.split("?", 1)[0];
+  const play = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
+    (pathname === "/api/live/world-play-runs/v2" || pathname === "/api/live/world-play-runs/v2/active" ||
+      pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/workspace-documents/world-runbooks" ||
+      /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}(?:\/progress|\/reference-manifest|\/content|\/creation)?$/.test(pathname) ||
+      /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}\/committed-revision(?:\/[1-9][0-9]*)?$/.test(pathname));
   const read = method === "GET" && (pathname === "/api/live/workspace-documents/pages/inventory"
     || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && (pathname === "/api/live/workspace-documents/world-plans" || pathname === "/api/live/plan-view")
     || /^\/api\/live\/workspace-documents\/[0-9a-f-]{36}(?:\/snapshot)?$/.test(pathname));
   const write = method === "POST" && (pathname === "/api/live/workspace-documents"
     || pathname === "/api/live/tiptap/markdown-write/prepare" || pathname === "/api/live/tiptap/markdown-write/commit"
     || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && pathname === "/api/live/workspace-documents/world-plans");
-  return read || write ? epoch : null;
+  return read || write || play && ["GET", "POST", "PUT"].includes(method) ? epoch : null;
 }
 
 export function guestBuildEpochCurrent(value: number): boolean { return active !== null && epoch === value; }
 
 export function guestBuildCsrf(path: string, method: string): string | null {
   if (!active || method === "GET" || method === "HEAD") return null;
+  const pathname = path.split("?", 1)[0];
+  if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
+      (pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/world-play-runs/v2/active" ||
+        /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}(?:\/progress)?$/.test(pathname))) return active.csrf;
   if (path === "/api/live/workspace-documents" || path === "/api/live/tiptap/markdown-write/prepare"
       || path === "/api/live/tiptap/markdown-write/commit"
       || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && path === "/api/live/workspace-documents/world-plans") return active.csrf;
