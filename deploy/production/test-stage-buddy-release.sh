@@ -27,6 +27,8 @@ case "$*" in
     printf '%s %s\n' "$rollback_id" "$rollback" ;;
   "pull --platform linux/amd64 ghcr.io/drakosfire/dungeonmindbuddy@$digest")
     ;;
+  "run --rm --network=none --entrypoint python ghcr.io/drakosfire/dungeonmindbuddy@$digest -c "*)
+    [[ ${TEST_NO_DOCUMENT_SEED:-0} != 1 ]] ;;
   "image inspect "*"@$digest")
     if [[ "$*" == *org.dungeonmindbuddy.serving-parent* ]]; then
       printf '%s %s linux/amd64 %s %s\n' "$candidate_id" "$revision" "${TEST_GUEST_BUILD-review=0;page=0;home=}" "${TEST_SERVING_PARENT-<no value>}"
@@ -115,6 +117,8 @@ printf '%s' '{"version":1,"documents":[{"title":"Source","markdown":"A clue."}]}
 template_sha=$(sha256sum "$scratch/guest-documents-template.json" | cut -d' ' -f1)
 if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving invalid >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Invalid template digest accepted' >&2; exit 1; fi
 grep -F 'invalid guest document template digest' "$scratch/stderr"
+if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" TEST_NO_DOCUMENT_SEED=1 run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Image without document seeding accepted' >&2; exit 1; fi
+grep -F 'candidate image lacks guest document seeding' "$scratch/stderr"
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha"
 bundle_sha=$(sed -n 's/^guest_document_sha=//p' "$record")
 [[ "$bundle_sha" =~ ^[0-9a-f]{64}$ && -f "$scratch/guest-document-bundles/$bundle_sha.json" ]]
@@ -127,7 +131,7 @@ PY
 TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha"
 printf ' ' >> "$scratch/guest-documents-template.json"
 if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Changed template accepted' >&2; exit 1; fi
-grep -F 'guest document template digest mismatch' "$scratch/stderr"
+grep -F 'invalid guest document template' "$scratch/stderr"
 printf '%s' '{"version":1,"documents":[{"title":"Source","markdown":"A clue."}]}' > "$scratch/guest-documents-template.json"
 printf ' ' >> "$scratch/guest-document-bundles/$bundle_sha.json"
 if TEST_GUEST_BUILD='review=0;page=0;home=;graph=1;build=1' TEST_SERVING_PARENT="$rollback" run guest-build-documents-serving "$template_sha" >"$scratch/stdout" 2>"$scratch/stderr"; then echo 'Changed existing bundle accepted' >&2; exit 1; fi

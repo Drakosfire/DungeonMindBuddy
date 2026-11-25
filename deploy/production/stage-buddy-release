@@ -66,15 +66,17 @@ if [[ "$mode" == guest-build-documents-serving ]]; then
   [[ -f "$template" && -d "$bundles" ]] || fail "missing guest document release inputs"
   trusted "$template"
   trusted "$bundles"
-  [[ "$(sha256sum "$template" | cut -d' ' -f1)" == "$7" ]] || fail "guest document template digest mismatch"
   bundle_tmp=$(mktemp "$bundles/.bundle.XXXXXX")
   trap 'rm -f -- "$bundle_tmp" "${tmp:-}"' EXIT
-  GUEST_TEMPLATE="$template" GUEST_BUNDLE="$bundle_tmp" GUEST_SPACE="$guest_graph_space" GUEST_REVISION="$guest_graph_revision" python3 - <<'PY' || fail "invalid guest document template"
-import json, os
+  GUEST_TEMPLATE="$template" GUEST_TEMPLATE_SHA="$7" GUEST_BUNDLE="$bundle_tmp" GUEST_SPACE="$guest_graph_space" GUEST_REVISION="$guest_graph_revision" python3 - <<'PY' || fail "invalid guest document template"
+import hashlib, json, os
 from pathlib import Path
-source = Path(os.environ['GUEST_TEMPLATE']).read_bytes()
+with Path(os.environ['GUEST_TEMPLATE']).open('rb') as stream:
+    source = stream.read(16 * 1024 * 1024 + 1)
 if not source or len(source) > 16 * 1024 * 1024:
     raise ValueError('invalid template size')
+if hashlib.sha256(source).hexdigest() != os.environ['GUEST_TEMPLATE_SHA']:
+    raise ValueError('template digest mismatch')
 obj = json.loads(source)
 if not isinstance(obj, dict) or set(obj) != {'version', 'documents'} or obj['version'] != 1:
     raise ValueError('invalid template')
@@ -134,6 +136,11 @@ if [[ "$mode" != default ]]; then
 fi
 [[ "$(docker image inspect --format "$candidate_identity" "$ref")" == "$expected_identity" ]] ||
   fail "registry image does not match the approved release identity"
+if [[ "$mode" == guest-build-documents-serving ]]; then
+  docker run --rm --network=none --entrypoint python "$ref" -c \
+    'from application_state.index_graph.guest_documents import seed_guest_documents; import sys; sys.exit(0 if callable(seed_guest_documents) else 1)' ||
+    fail "candidate image lacks guest document seeding"
+fi
 
 existing=$(docker image ls --filter "reference=$candidate_tag" --format '{{.Repository}}:{{.Tag}}')
 if [[ -z "$existing" ]]; then
