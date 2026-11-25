@@ -50,7 +50,7 @@ def read_review(*, run_id: str, world_id: str):
 
 
 def commit_review(*, run_id: str, world_id: str, command_id: str, request: ReviewCommand,
-                  authorize_world: Callable[[], None] | None = None):
+                  authorize_world: Callable[[], None] | None = None, authorize_transaction: Callable | None = None):
     from application_state.play.service import _as_uuid
     run_id, world_id = _coordinates(run_id, world_id)
     command_id = _as_uuid(command_id, field_name="command_id")
@@ -64,12 +64,16 @@ def commit_review(*, run_id: str, world_id: str, command_id: str, request: Revie
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        if authorize_transaction is not None:
+            authorize_transaction(conn, 0, None)
         state = _locked_state(conn, run_id, world_id)
         run = state[0]
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("SELECT request_sha256,payload FROM play.session_review_revision WHERE run_id=%s AND command_id=%s", (run_id, command_id))
             prior = cur.fetchone()
         if prior:
+            if authorize_transaction is not None:
+                authorize_transaction(conn, 0, True)
             if authorize_world is not None:
                 authorize_world()
             if prior["request_sha256"] != digest:
@@ -103,6 +107,8 @@ def commit_review(*, run_id: str, world_id: str, command_id: str, request: Revie
         payload = {"schema_version": "dmb_session_review_v1", "world_id": world_id, "run_id": str(run_id),
                    "revision": request.expected_revision + 1, "status": status, "updated_at": now,
                    "checkpoint": checkpoint, "final_thoughts": thoughts, "draft_markdown": draft}
+        if authorize_transaction is not None:
+            authorize_transaction(conn, len(json.dumps(payload, ensure_ascii=True).encode('utf-8')), False)
         if authorize_world is not None:
             authorize_world()
         conn.execute("INSERT INTO play.session_review_revision(run_id,revision_n,command_id,request_sha256,payload) VALUES (%s,%s,%s,%s,%s)",
