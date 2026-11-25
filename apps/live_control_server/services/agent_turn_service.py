@@ -7204,6 +7204,8 @@ def _pending_build_startup_eligible(request, *, principal, durable_turn, authori
     from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
     retained = getattr(durable_turn, 'graph_context_receipt', None)
     pending_retained = type(retained) is BuildPendingContextReceiptV1
+    if not pending_retained:
+        return False  # Recovery artifact: keep new readers, stop fresh pending admission.
     if not _governed_build_turn(request):
         return False
     eligible = (callable(authorize_world) and principal is not None and principal.role == 'gm'

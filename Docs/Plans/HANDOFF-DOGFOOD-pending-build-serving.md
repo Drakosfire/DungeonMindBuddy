@@ -63,3 +63,16 @@ Delivery remains unfinished until deployed signed-in app evidence proves current
 context/long-chat reuse, no redundant search, valid citations and page creation,
 review/save/reopen, plus clarification flow, semantic relevance/attribution/summary
 and latency. Source merge or mocked tests alone are not final acceptance.
+
+## NON-MERGE recovery artifact
+
+This branch derives from candidate797f659367f7ec603d3c4dbe62e2d1ab76440619.
+Its only runtime difference is _pending_build_startup_eligible refusing fresh
+pending admission while retaining existing pending delivery/startup/readers and
+all schema211, native citation/Rules readers and production feature flags. It
+reverts fresh requests to the prior eager native route; source-free Worlds may
+therefore be unavailable during recovery. It is not the desired final behavior
+and is never merged as the product solution. New pending records are preserved,
+not rewritten/downgraded/restored over production. Verify exact installed-reader
+compatibility on retained pending rows before use; independently review image,
+operator and final drained archive evidence.
