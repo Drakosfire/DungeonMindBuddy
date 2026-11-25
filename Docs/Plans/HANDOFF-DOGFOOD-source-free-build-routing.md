@@ -532,3 +532,10 @@ admission, authored references or acquired page catalog. Bind the conversation
 observation to the captured host interaction without refreshing it. The historical
 shared/Plan/Play factory paths and bytes stay unchanged. This optional factory
 branch does not enable startup or release by itself.
+
+
+The existing leased BuildJevHarness.configured_budget accepts a host-only
+explicit defer_related_pages option for the pending startup caller. It omits
+catalog discovery while retaining the same existing collaboration/authoring
+capabilities and policy flags. Default calls retain their existing discovery
+behavior. This option is not a client/model setting or startup activation.

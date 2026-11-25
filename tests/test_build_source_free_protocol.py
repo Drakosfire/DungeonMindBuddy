@@ -1570,3 +1570,33 @@ def test_real_build_runtime_freezer_keeps_historical_shared_path_separate():
     assert type(receipt) is SurfaceNativeContextReceiptV1 and type(receipt.assembled_input) is NativeBuildProviderInputV2
     assert receipt.source_authority == kwargs['authority']
     assert execution.policy.policy_version == 'surface_native_execution_v1'
+
+
+def test_pending_budget_defers_discovery_but_preserves_actual_authoring_capabilities(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from apps.live_control_server.services import build_related_pages
+    from application_state.agent_conversation.build_draft_context import BuildDraftContextRequestV1
+    from application_state.agent_conversation.build_intentional_response import policy_capabilities
+    from tests.test_surface_native_build_work import case
+    kwargs = pending_runtime_freeze_case()
+    _, _, captured, *_ = case()
+    request = kwargs['request']
+    request.build_draft_context = BuildDraftContextRequestV1(snapshot=captured.record.snapshot,
+        conversation_id=captured.record.conversation_id, expected_pointer_revision=captured.record.expected_pointer_revision)
+    request.reviewed_step = None
+    calls = []
+    catalog = [{'title': 'Other saved page'}]
+    def discover(actual):
+        assert actual is request
+        calls.append(actual)
+        return catalog
+    monkeypatch.setattr(build_related_pages, 'discover', discover)
+    harness = BuildJevHarness(accounting=kwargs['accounting'], world_context=True, named_citations=True, related_pages=True)
+    deferred = harness.configured_budget(request, defer_related_pages=True)
+    assert not calls and 'related_page_catalog' not in deferred['buildJevActions']
+    ordinary = harness.configured_budget(request)
+    assert calls == [request] and ordinary['buildJevActions']['related_page_catalog'] == catalog
+    assert policy_capabilities(SimpleNamespace(**deferred['buildJevActions'])) == policy_capabilities(SimpleNamespace(**ordinary['buildJevActions']))
+    for key in ['collaboration_output_policy', 'connected_page_review_policy', 'relationship_review_policy', 'source_quote_binding_policy']:
+        assert deferred['buildJevActions'][key] == ordinary['buildJevActions'][key]

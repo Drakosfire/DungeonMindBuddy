@@ -144,13 +144,13 @@ class BuildJevHarness:
                 working_draft_context_sha256=digest(draft.model_dump(mode="json", by_alias=True)))
         return budget
 
-    def configured_budget(self, request):
+    def configured_budget(self, request, *, defer_related_pages=False):
         result=self.budget(request, accounting=self.accounting, world_context=self.world_context, named_citations=self.named_citations)
         if self.related_pages and request.build_draft_context is not None:
             from .build_related_pages import discover,POLICY
             from application_state.agent_conversation.collaboration import POLICY as COLLABORATION_POLICY, CONNECTED_POLICY
             from application_state.agent_conversation.source_quote_binding import CURRENT_POLICY as QUOTE_POLICY
-            result["buildJevActions"].update(related_page_context_policy=POLICY,related_page_catalog=discover(request), collaboration_output_policy=COLLABORATION_POLICY, connected_page_review_policy=CONNECTED_POLICY, source_quote_binding_policy=QUOTE_POLICY, relationship_review_policy="typed_saved_relationship_review_v1")
+            result["buildJevActions"].update(related_page_context_policy=POLICY, **({} if defer_related_pages else {"related_page_catalog": discover(request)}), collaboration_output_policy=COLLABORATION_POLICY, connected_page_review_policy=CONNECTED_POLICY, source_quote_binding_policy=QUOTE_POLICY, relationship_review_policy="typed_saved_relationship_review_v1")
         if self.related_pages and request.reviewed_step is None:
             from application_state.agent_conversation.build_intentional_response import budget_fields
             result['buildJevActions'].update(budget_fields(result['buildJevActions']))
