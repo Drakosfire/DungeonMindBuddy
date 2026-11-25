@@ -13,7 +13,7 @@ from .model_markdown import project_retained_source_markdown
 
 from . import types as t
 from .build_source_free import (
-    _pending_components, pending_source_work, pending_app_page_selection_input,
+    _pending_components, _pending_evidence_work, pending_app_page_selection_input,
 )
 
 class BuildAppCoverageAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
@@ -52,7 +52,7 @@ def pending_app_coverage_reads(receipt, execution):
     authorizations = [row for row in execution.events if type(row) is BuildAppCoverageAuthorizedV1]
     if authorizations:
         execution = execution.model_copy(update={'events': execution.events[:authorizations[0].sequence]})
-    pending_source_work(execution)
+    _pending_evidence_work(execution)
     selections = [row for row in execution.events if type(row) is t.RelatedPagesSelection]
     reads = [row for row in execution.events if type(row) is t.RelatedPageRead]
     if (len(selections) != 1 or not selections[0].document_ids
@@ -83,7 +83,7 @@ def pending_app_coverage_input(receipt, execution, initial_request_json):
 def validate_coverage_authorization(execution, authorization):
     prefix = execution.model_copy(update={'events': execution.events[:authorization.sequence]})
     # Fresh component decoding belongs to the outer receipt binding owner.
-    pending_source_work(prefix)
+    _pending_evidence_work(prefix)
     reads = sorted((row for row in prefix.events if type(row) is t.RelatedPageRead),
         key=lambda row: str(row.page.document_id))
     choices = [row for row in prefix.events if type(row) is t.RelatedPagesSelection]

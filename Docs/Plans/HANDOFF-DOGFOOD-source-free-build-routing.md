@@ -1096,3 +1096,13 @@ outcomes; they do not prove PostgreSQL rollback/concurrency. The new runtime
 coverage Driver is not yet integrated and no writer selection or sufficiency
 answer is activated. That, native source-needed continuation, current reader
 fence and full-Send/signed-in acceptance remain open.
+
+Independent d0e889 review found a phase bypass: requiring coverage only after its
+authorization allowed direct native settlement immediately after saved-page reads.
+pending_source_work now requires native_sources_required whenever any App read
+exists, including before coverage starts. A narrower _pending_evidence_work
+predicate permits only metadata/input assessment without granting preparation.
+Direct prefix and service tests prove read-complete→native-settlement refuses
+before any materializer call. Earlier unresolved-page controls now also require
+coverage after reads complete. Positive native-needed and sufficient/unknown
+negative controls remain covered. No runtime activation is implied.

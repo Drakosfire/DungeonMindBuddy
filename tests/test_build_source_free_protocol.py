@@ -779,7 +779,8 @@ def test_pending_native_preparation_cannot_cross_an_unresolved_app_page_phase(en
     with pytest.raises(ValueError, match='must resolve before native source preparation'):
         pending_source_work(partial)
     complete = pending_execution(receipt, policy, events)
-    assert pending_source_work(complete).event_id == events[3].event_id
+    with pytest.raises(ValueError, match='further-source coverage'):
+        pending_source_work(complete)
 
 
 def pending_page_dispatch_harness(monkeypatch):
@@ -3700,3 +3701,26 @@ def test_pending_app_coverage_verdict_requires_actual_capture_access_claim_and_d
     else:
         with pytest.raises(ApplicationStateError):settle()
     assert state.persisted==before and state.materialized==0
+
+
+def test_pending_app_reads_cannot_prepare_native_sources_before_coverage_starts(monkeypatch):
+    from application_state.agent_conversation.build_source_free import pending_source_work
+    from application_state.errors import ApplicationStateError
+    from tests.test_build_source_free_routing import pending_settlement
+    state,_,_,_,_,_,_,_=pending_app_coverage_service_case(monkeypatch)
+    receipt,execution=state.turn.graph_context_receipt,state.turn.graph_context_execution
+    with pytest.raises(ValueError,match='further-source coverage'):
+        pending_source_work(execution)
+    work=execution.events[3]
+    settlement=pending_settlement(receipt,execution.policy,work).model_copy(update={'sequence':len(execution.events)})
+    with pytest.raises(ValueError,match='further-source coverage'):
+        pending_execution(receipt,execution.policy,[*execution.events,settlement])
+    calls=[]
+    def forbidden(turn):
+        calls.append(turn)
+        raise AssertionError('Read-complete App work attempted native preparation without coverage')
+    with pytest.raises(ApplicationStateError,match='further-source coverage'):
+        state.service.settle_pending_build_source(state.turn.world_id,state.turn.conversation_id,state.turn.turn_id,
+            expected_revision=state.turn.revision,expected_attempt=1,event_id=uuid4(),
+            materialize_source=forbidden,authorize_current_access=state.authorize)
+    assert not calls and state.persisted==state.materialized==0

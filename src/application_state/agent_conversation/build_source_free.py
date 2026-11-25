@@ -299,7 +299,19 @@ def _join_pending_turn(turn):
 
 
 def pending_source_work(execution):
-    """Select the one acknowledged evidence-seeking work; grants no IO itself."""
+    """Select acknowledged work only after App evidence requires further sources."""
+    from . import types as t
+    from .build_pending_app_coverage import BuildAppCoverageDecidedV1
+    work = _pending_evidence_work(execution)
+    if any(type(event) is t.RelatedPageRead for event in execution.events):
+        decisions = [event for event in execution.events if type(event) is BuildAppCoverageDecidedV1]
+        if len(decisions) != 1 or decisions[0].verdict != 'native_sources_required':
+            raise ValueError('Native preparation requires acknowledged further-source coverage work')
+    return work
+
+
+def _pending_evidence_work(execution):
+    """Pre-coverage work shape only; never permission for source preparation."""
     from . import types as t
     from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
     if type(execution) is not BuildPendingExecutionV1:
@@ -318,11 +330,6 @@ def pending_source_work(execution):
         if (outcomes[-1:] != ['response_received'] or len(choices) != 1
                 or set(choices[0].document_ids) != read_pages):
             raise ValueError('Pending App page acquisition must resolve before native source preparation')
-    from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, BuildAppCoverageDecidedV1
-    if any(type(event) is BuildAppCoverageAuthorizedV1 for event in execution.events):
-        decisions = [event for event in execution.events if type(event) is BuildAppCoverageDecidedV1]
-        if len(decisions) != 1 or decisions[0].verdict != 'native_sources_required':
-            raise ValueError('Native preparation requires acknowledged further-source coverage work')
     work, = rows
     if any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events):
         raise ValueError('Pending retained conversation cannot acquire another source scope')
