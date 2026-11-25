@@ -403,3 +403,21 @@ it('resolves discovery-only historical names across bounded pages', async () => 
     setNativeGraphAccessToken(null)
   }
 })
+
+it('pauses playback when the timeline is hidden and retains the current step', () => {
+  vi.useFakeTimers()
+  try {
+    const steps = [lookup(1, 'Caelynn'), lookup(2, 'Mossglade'), lookup(3, 'Arena')]
+    const view = render(<BuddyRetrievalReplay steps={steps} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+    view.rerender(<BuddyRetrievalReplay steps={steps} active={false} />)
+    act(() => vi.advanceTimersByTime(5000))
+    expect(screen.getByRole('status')).toHaveTextContent('Step 2 of 3')
+    view.rerender(<BuddyRetrievalReplay steps={steps} active />)
+    expect(screen.getByRole('button', { name: 'Play' })).toBeEnabled()
+    expect(screen.getByRole('status')).toHaveTextContent('Step 2 of 3')
+  } finally {
+    vi.useRealTimers()
+  }
+})
