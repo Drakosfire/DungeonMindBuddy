@@ -74,6 +74,7 @@ export function WwnSheetProjection({ sheet, config, overrides }: WwnSheetProject
       data-resource-kind="reviewed-sheet" aria-label={`WWN statblock for ${name}`}>
       <header className="statblock-renderer-header">
         <h3>{name}</h3>
+        {identity?.state === "confirmed" && <FieldSource evidence={identity.evidence} />}
         <p className="statblock-renderer-identity">Worlds Without Number</p>
         <details>
           <summary>Reviewed sheet revision</summary>
