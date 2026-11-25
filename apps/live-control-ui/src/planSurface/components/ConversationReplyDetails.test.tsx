@@ -28,7 +28,7 @@ it('keeps failed details local and retries only when requested',async()=>{
   function Harness(){const[open,setOpen]=useState(false);return <ConversationReplyDetails id="reply" open={open} onOpenChange={setOpen} loaded={false} load={load}><p>Execution timeline</p></ConversationReplyDetails>;}
   render(<Harness/>);fireEvent.click(screen.getByText('Trace'));
   expect(await screen.findByRole('alert')).toHaveTextContent('Invalid receipt');
-  expect(screen.getByText('Execution timeline')).toBeInTheDocument();expect(load).toHaveBeenCalledTimes(1);
+  expect(screen.getByText('Execution timeline', {selector: 'p'})).toBeInTheDocument();expect(load).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByText('Trace'));fireEvent.click(screen.getByText('Trace'));
   expect(load).toHaveBeenCalledTimes(1);fireEvent.click(screen.getByRole('button',{name:'Retry details'}));
   await waitFor(()=>expect(load).toHaveBeenCalledTimes(2));
@@ -71,4 +71,19 @@ it('uses the same exact read for direct page review without opening Details',asy
  fireEvent.click(screen.getByRole('button',{name:'Review new page'}));await screen.findByText('Exact saved page review');
  expect(load).toHaveBeenCalledTimes(1);expect(screen.getByText('Trace').closest('details')).not.toHaveAttribute('open');
  expect(screen.getByLabelText('Unsent draft')).toHaveValue('Keep this thought');
+});
+
+it('switches Trace tabs using the keyboard while keeping the selected tab focused', () => {
+  render(<ConversationReplyDetails id="reply" open onOpenChange={() => {}} loaded load={async () => {}}>
+    <p>Evidence content</p>
+  </ConversationReplyDetails>);
+  const evidence = screen.getByRole('tab', {name: 'Evidence'});
+  evidence.focus();
+  fireEvent.keyDown(evidence, {key: 'ArrowRight'});
+  const timeline = screen.getByRole('tab', {name: 'Execution timeline'});
+  expect(timeline).toHaveFocus();
+  expect(timeline).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', timeline.id);
+  fireEvent.keyDown(timeline, {key: 'End'});
+  expect(screen.getByRole('tab', {name: 'Diagnostics'})).toHaveFocus();
 });

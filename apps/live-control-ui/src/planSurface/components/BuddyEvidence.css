@@ -9,7 +9,7 @@
 .buddy-context-trace__source blockquote { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; line-height: 1.55; }
 @media (max-width: 640px) { .buddy-context-trace header { flex-direction: column; gap: 4px; } }
 
-.buddy-context-trace__tabs { display: flex; gap: 6px; border-bottom: 1px solid #3b5163; margin-bottom: 16px; }
+.buddy-context-trace__tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #3b5163; margin-bottom: 16px; }
 .buddy-context-trace__tabs button { padding: 10px 16px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: inherit; }
 .buddy-context-trace__tabs button[aria-selected="true"] { border-bottom-color: #d5aa54; color: #f2d390; }
 .buddy-prompt { min-width: 0; max-inline-size: 100%; }

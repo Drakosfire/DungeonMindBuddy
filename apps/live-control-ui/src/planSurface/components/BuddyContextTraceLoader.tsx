@@ -1,3 +1,5 @@
+import { useContext } from 'react'
+import { TraceTabContext } from './ConversationReplyDetails'
 import { deferredComponent } from '../../ui/deferredComponent'
 import { useBuddyTurnInspection } from './BuddyTurnInspection'
 
@@ -12,6 +14,7 @@ interface Props {
 }
 
 export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversationId, replyDetails }: Props) {
+  const tab = useContext(TraceTabContext)
   const { data, error: message, refresh, running } = useBuddyTurnInspection({ worldId, conversationId, turnId }, enabled)
   if (!enabled) return null
   const error = message ? <div><p role="alert">{message}</p><button type="button" onClick={refresh}>Retry trace read</button></div> : null
@@ -24,11 +27,11 @@ export function BuddyContextTraceLoader({ enabled, worldId, turnId, conversation
   return <div>{captureControls}
     {!latest && running ? <p role="status">Trace capture has not started yet.</p>
       : <DebugAttempt key={latest?.trace_id} trace={latest ?? null} running={running} replyDetails={replyDetails} />}
-    {earlier.length > 0 && <details>
+    {earlier.length > 0 && <details hidden={replyDetails && tab !== null && tab !== 'diagnostics'}>
       <summary>Earlier trace attempts</summary>
       {earlier.map(trace => <details key={trace.trace_id}>
         <summary>Attempt {trace.attempt}</summary>
-        <DebugAttempt trace={trace} running={false} replyDetails={replyDetails} />
+        <DebugAttempt trace={trace} running={false} />
       </details>)}
     </details>}
   </div>

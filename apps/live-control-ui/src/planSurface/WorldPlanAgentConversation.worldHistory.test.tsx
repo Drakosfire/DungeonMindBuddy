@@ -5543,8 +5543,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
     expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace", expect.any(AbortSignal));
     openLatestTurnDetails();
-    fireEvent.click(screen.getByText("Diagnostics", { selector: "summary" }));
-    fireEvent.click(screen.getByText("The Prompt", { selector: "summary" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Prompt" }));
     await screen.findByText(/No complete request was captured for this call/);
     expect(loadTrace).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByText("Trace"));
