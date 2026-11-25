@@ -313,6 +313,10 @@ def authoring_input(native_context, capability, instruction, operation):
         raise ValueError('Native authoring requires the actual Build action')
     action=execution.policy.action
     selected=selected_action(execution)
+    if type(execution) is BuildPendingExecutionV1:
+        from .build_source_free import pending_paragraph_proposal
+        if not pending_paragraph_proposal(execution, selected):
+            raise ValueError('Pending authoring requires an exact anchored paragraph placement')
     from application_state.build_proposal.types import explicit_build_page_target
     explicit_target = explicit_build_page_target(action.write_capability, selected)
     paragraph_work = _build_paragraph_work(action, selected)

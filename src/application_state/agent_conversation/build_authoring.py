@@ -50,13 +50,17 @@ def completion_for_proposal(record, receipt):
 
 def validate_native_authoring_binding(completion,receipt,execution,producer,bindings):
     """Stored object acknowledgement uses the actual shared Build action/writer."""
-    from .native_context import BuildWorkContextV1
+    from .native_context import BuildPendingContextReceiptV1, BuildWorkContextV1
     from .native_execution import NativeBuildActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
     from .build_intentional_response import selected_action
     action=execution.policy.action
     image=isinstance(completion,BuildImagePreparationCompletionV1)
     from uuid import uuid5
     expected_operation='prepare_build_image' if image else 'propose_build_insertion'
+    if isinstance(receipt, BuildPendingContextReceiptV1):
+        from .build_source_free import pending_paragraph_proposal
+        if image or not pending_paragraph_proposal(execution, selected_action(execution)):
+            raise ValueError('Pending proposal completion requires the admitted paragraph placement')
     if (not isinstance(completion,(BuildAuthoringCompletionV1,BuildImagePreparationCompletionV1)) or bindings!={}
             or not isinstance(receipt.work_context,BuildWorkContextV1) or not isinstance(action,NativeBuildActionV1)
             or action.write_capability is None or selected_action(execution).operation!=expected_operation

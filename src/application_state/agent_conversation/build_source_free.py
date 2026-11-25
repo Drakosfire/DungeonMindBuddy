@@ -563,7 +563,7 @@ def pending_source_free_terminal(execution):
     from . import types as t
     from .native_execution import (BuildPendingExecutionV1, NativeBuildSourceSettledV1,
         BuildAppPageCatalogObservedV1, native_read_event_ids)
-    from .build_intentional_response import validate_resolution_metadata
+    from .build_intentional_response import placement_question, validate_resolution_metadata
     if type(execution) is not BuildPendingExecutionV1:
         return None
     work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
@@ -571,10 +571,15 @@ def pending_source_free_terminal(execution):
             'clarify_request', 'clarify_creation', 'review_blank_lore_page', 'write_current_page'}:
         return None
     work = work[0]
+    if work.requested_work == 'write_current_page':
+        placement = work.paragraph_placement
+        if (work.resolution.get('source_scope') != 'anchored'
+                or work.resolution.get('barrier') is not None
+                or placement is None
+                or execution.policy.action.intent.build_reference_image_id is not None
+                or (placement.target is None and placement_question(execution, work) is None)):
+            return None
     validate_resolution_metadata(work, execution.policy)
-    if (work.requested_work == 'write_current_page'
-            and (work.resolution.get('source_scope') != 'anchored' or work.resolution.get('barrier') is not None)):
-        return None
     controllers = [row for row in execution.events[:work.sequence]
         if isinstance(row, t.ProviderAttemptAuthorizedEventV3)]
     outcomes = [row.outcome for row in execution.events[:work.sequence]
@@ -588,6 +593,14 @@ def pending_source_free_terminal(execution):
                 or isinstance(row, t.BuildPriorBodyEvidenceAdmittedV1) for row in execution.events)):
         return None
     return {'status': 'ready', 'reason': 'pending_source_free_' + work.requested_work}
+
+
+def pending_paragraph_proposal(execution, selection):
+    """Only the exact anchored paragraph path may use pending proposal completion."""
+    terminal = pending_source_free_terminal(execution)
+    placement = getattr(selection, 'paragraph_placement', None)
+    return (terminal is not None and terminal['reason'] == 'pending_source_free_write_current_page'
+            and placement is not None and placement.target is not None)
 
 
 def pending_native_terminal(execution):
