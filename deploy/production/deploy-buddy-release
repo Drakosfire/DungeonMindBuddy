@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Restricted SSH entry point. The caller supplies one request as one argument.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+
+fail() { printf 'Buddy deploy request: %s\n' "$*" >&2; exit 1; }
+
+sha='[0-9a-f]{40}'
+digest='sha256:[0-9a-f]{64}'
+request="^($sha) ($digest) ($digest) ($sha) ($digest) ([a-z-]+)( ([0-9a-f]{64}))?$"
+[[ $# == 1 && $1 =~ $request ]] || fail "invalid release request"
+revision=${BASH_REMATCH[1]}
+registry_digest=${BASH_REMATCH[2]}
+candidate_id=${BASH_REMATCH[3]}
+rollback_revision=${BASH_REMATCH[4]}
+rollback_id=${BASH_REMATCH[5]}
+mode=${BASH_REMATCH[6]}
+document_digest=${BASH_REMATCH[8]}
+
+exec 9>/run/lock/buddy-production-deploy.lock
+flock -n 9 || fail "another Buddy deploy is active"
+export BUDDY_DEPLOY_LOCK_HELD=1
+
+live=$(docker --context default inspect --type container --format \
+  '{{index .Config.Labels "org.opencontainers.image.revision"}} {{.Image}} {{.State.Health.Status}}' buddy-buddy-1)
+[[ "$live" == "$rollback_revision $rollback_id healthy" ]] ||
+  fail "the healthy serving image does not match the expected rollback"
+
+stage_args=("$revision" "$registry_digest" "$candidate_id" "$rollback_revision" "$rollback_id" "$mode")
+if [[ -n $document_digest ]]; then
+  stage_args+=("$document_digest")
+fi
+/usr/local/sbin/stage-buddy-release "${stage_args[@]}"
+exec /usr/local/sbin/activate-buddy-release "$revision"
