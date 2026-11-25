@@ -77,3 +77,19 @@ it('includes tool calls and tool result identifiers in the readable messages', (
   expect(request).toHaveTextContent('call-1')
   expect(request).toHaveTextContent('Found Caelynn')
 })
+
+it('shows Jev state and questions in the readable input without model configuration', () => {
+  const payloadJson = JSON.stringify({model:'jev', state:{interaction:{question:'Where is Caelynn?'}},
+    questions:{selection:{instructions:'Choose relevant evidence', criteria:{yes:null, no:null}}}})
+  render(<PreparedRequestInspector payloadJson={payloadJson} />)
+  const request = screen.getByLabelText('Captured request')
+  expect(within(request).getAllByRole('heading').map(item => item.textContent)).toEqual(['State', 'Questions'])
+  expect(request).toHaveTextContent('Where is Caelynn?')
+  expect(request).toHaveTextContent('Choose relevant evidence')
+  expect(request).not.toHaveTextContent('jev')
+})
+
+it('shows an unfamiliar captured envelope instead of an empty input view', () => {
+  render(<PreparedRequestInspector payloadJson={JSON.stringify({prompt:'Exact input', options:{temperature:0}})} />)
+  expect(screen.getByLabelText('Captured request')).toHaveTextContent('Exact input')
+})
