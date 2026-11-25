@@ -89,6 +89,27 @@ it('fails closed for an incoming mismatched document and only admits a fresh own
  fireEvent.click(screen.getByRole('button',{name:'Retry selection'}));await screen.findByTestId('plan-page');
  expect(screen.getByTestId('world-controller')).not.toBe(node);expect(screen.getByTestId('world-controller')).toHaveAttribute('data-document','wrong');
 });
+it('retains the hidden conversation through a same-World document read failure and retry',async()=>{
+ await start();const node=screen.getByTestId('world-controller');
+ fireEvent.change(screen.getByRole('textbox',{name:'Unsent World draft'}),{target:{value:'Keep even without storage'}});
+ vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('storage unavailable');});
+ vi.mocked(api.getWorkspaceDocumentAny).mockRejectedValueOnce(new Error('temporary page failure'));
+ navigate('/plan?world=A&documentId=doc-next');await screen.findByRole('alert');
+ expect(screen.getByTestId('world-controller')).toBe(node);expect(node).not.toBeVisible();
+ expect(screen.queryByTestId('plan-page')).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Use current Plan bridge'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Retry selection'}));await screen.findByTestId('plan-page');
+ expect(screen.getByTestId('world-controller')).toBe(node);
+ expect(screen.getByRole('textbox',{name:'Unsent World draft'})).toHaveValue('Keep even without storage');
+});
+it('retires the conversation when a failed page read is followed by failed World verification',async()=>{
+ await start();const node=screen.getByTestId('world-controller');
+ vi.mocked(api.getWorkspaceDocumentAny).mockRejectedValueOnce(new Error('page unavailable'));
+ vi.mocked(api.listWorldContainers).mockRejectedValueOnce(new Error('World unavailable'));
+ navigate('/plan?world=A&documentId=doc-next');await screen.findByRole('alert');
+ expect(node).not.toBeInTheDocument();expect(screen.queryByTestId('world-controller')).not.toBeInTheDocument();
+ expect(screen.queryByTestId('plan-page')).not.toBeInTheDocument();
+});
 it.each(['resolve','reject'] as const)('ignores an abandoned document %s after returning to the accepted selector',async settlement=>{
  await start();const node=screen.getByTestId('world-controller');const gate=deferred<Awaited<ReturnType<typeof api.getWorkspaceDocumentAny>>>();vi.mocked(api.getWorkspaceDocumentAny).mockReturnValueOnce(gate.promise);
  navigate('/plan?world=A&documentId=abandoned');navigate('/plan?world=A&documentId=doc-A');await screen.findByTestId('plan-page');

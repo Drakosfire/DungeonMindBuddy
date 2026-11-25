@@ -170,9 +170,15 @@ export function BuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
       <BuddyGraphPage locationSnapshot={locationSnapshot} />
     </IsolatedEntry>;
   }
-  const pageAdmitted = admission.kind !== "loading";
+  const pageAdmitted = admission.kind !== "loading" && admission.kind !== "error";
   let content;
-  if (!pageAdmitted) {
+  if (admission.kind === "error") {
+    content = <main className="app-status app-error" role="alert">
+      <h1>Page selection unavailable</h1>
+      <p>{admission.message}</p>
+      <button type="button" onClick={retrySelectedWorld}>Retry selection</button>
+    </main>;
+  } else if (!pageAdmitted) {
     content = <main className="app-status" role="status">Verifying page selection…</main>;
   } else if (route === "graph") {
     content = <BuddyGraphPage locationSnapshot={locationSnapshot} />;
