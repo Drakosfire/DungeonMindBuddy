@@ -37,7 +37,7 @@ from apps.live_control_server.services.trusted_cookie_origin import (
 SESSION_COOKIE_PREFIX = "dmb_index_graph_session"
 COOKIE_PATH = "/api/live/index-graph"
 SESSION_TTL = timedelta(days=30)
-MAX_ACTIVE_SESSIONS = 64
+MAX_ACTIVE_SESSIONS = 256
 MAX_SESSION_RECORDS = 1024
 _SESSION_ADVISORY_LOCK = (1145910596, 123456789)
 _FORWARDED_HEADERS = (
