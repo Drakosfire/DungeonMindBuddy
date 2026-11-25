@@ -138,11 +138,12 @@ export function BuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
   const retrySelectedWorld = useRetrySelectedWorld();
   const admission = useSelectedWorldAdmission();
   const route = appRouteFromLocationSnapshot(locationSnapshot);
-  const guestBuild = auth.status === "signed_out" && route === "build" && import.meta.env.VITE_HOSTED_GUEST_BUILD === "1";
+  const guestBuild = auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" &&
+    (route === "build" || route === "plan" && import.meta.env.VITE_HOSTED_GUEST_PLAN === "1");
   if (route === "index") return <IsolatedEntry><BuddyLandingPage /></IsolatedEntry>;
   if (selectedWorld.kind === "loading") {
     const loading = <main className="app-status" role="status">Verifying World selection…</main>;
-    return guestBuild ? <IsolatedEntry><AppChrome activeRoute="build" localOnlyNavigation>{loading}</AppChrome></IsolatedEntry> : loading;
+    return guestBuild ? <IsolatedEntry><AppChrome activeRoute={route} localOnlyNavigation>{loading}</AppChrome></IsolatedEntry> : loading;
   }
   if (selectedWorld.kind === "error") {
     const error = <main className="app-status app-error" role="alert">
@@ -151,7 +152,7 @@ export function BuddyApp({ locationSnapshot }: { locationSnapshot: string }) {
       <button type="button" onClick={retrySelectedWorld}>Retry selection</button>
       {!guestBuild && <WorldSelector />}
     </main>;
-    return guestBuild ? <IsolatedEntry><AppChrome activeRoute="build" localOnlyNavigation>{error}</AppChrome></IsolatedEntry> : error;
+    return guestBuild ? <IsolatedEntry><AppChrome activeRoute={route} localOnlyNavigation>{error}</AppChrome></IsolatedEntry> : error;
   }
   if (auth.status === "authenticated" && selectedWorld.kind !== "managed") {
     return <IsolatedEntry>

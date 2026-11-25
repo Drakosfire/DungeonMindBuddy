@@ -11,6 +11,17 @@ from apps.live_control_server.services.hosted_auth import install_hosted_request
 from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
 
 
+def test_guest_plan_routes_are_default_off(monkeypatch):
+    from apps.live_control_server.services.guest_build_access import matches_guest_build_route
+    monkeypatch.delenv("DMB_HOSTED_GUEST_PLAN_ENABLED", raising=False)
+    assert not matches_guest_build_route("GET", "/api/live/workspace-documents/world-plans")
+    assert not matches_guest_build_route("POST", "/api/live/workspace-documents/world-plans")
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
+    assert matches_guest_build_route("GET", "/api/live/workspace-documents/world-plans")
+    assert matches_guest_build_route("POST", "/api/live/workspace-documents/world-plans")
+    assert not matches_guest_build_route("DELETE", "/api/live/workspace-documents/world-plans")
+
+
 @pytest.fixture
 def guests(application_state_dsn, monkeypatch, tmp_path):
     repo = InMemoryNativeSourceEvidenceRepository()
@@ -83,6 +94,42 @@ def test_guest_create_save_and_reopen_isolated_document(guests):
     assert reset.status_code == 200
     assert first.get(f"/api/live/workspace-documents/{doc}").status_code in (401, 403)
     assert other_world != world
+
+
+def test_guest_plan_create_and_isolation(guests, monkeypatch):
+    monkeypatch.setenv("DMB_HOSTED_GUEST_PLAN_ENABLED", "1")
+    contexts, _, _ = guests
+    (first, token, world), (second, _, other_world) = contexts
+    headers = {"X-DMB-Index-Graph-CSRF": token}
+    path = "/api/live/workspace-documents/world-plans"
+    body = {"schema_version": "dmb_workspace_document_create_v2", "scope_mode": "world", "world_id": world, "title": "Guest plan"}
+    assert first.post(path, json=body).status_code == 403
+    assert first.post(path, headers=headers, json={**body, "world_id": other_world}).status_code == 403
+    assert first.post(path, headers={**headers, "Origin": "https://bad.example"}, json=body).status_code == 403
+    assert first.get(path, params=[("world_id", world), ("world_id", world)]).status_code in (400, 403)
+    created = first.post(path, headers=headers, json=body)
+    assert created.status_code == 200, created.text
+    doc = created.json()["document_id"]
+    inventory = first.get(path, params={"world_id": world})
+    assert inventory.status_code == 200, inventory.text
+    assert any(record["document_id"] == doc for record in inventory.json()["records"])
+    draft = {"document_id": doc, "markdown": "# Guest plan\n\nA new clue.", "scope_mode": "world", "world_id": world,
+             "schema_version": "dmb_tiptap_markdown_write_prepare_v2"}
+    prepared = first.post("/api/live/tiptap/markdown-write/prepare", headers=headers, json=draft)
+    assert prepared.status_code == 200, prepared.text
+    assert second.post("/api/live/tiptap/markdown-write/prepare", headers={"X-DMB-Index-Graph-CSRF": contexts[1][1]}, json=draft).status_code == 403
+    receipt = prepared.json()
+    commit = {**draft, "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+              "writer_confirm_token": receipt["writer_confirm_token"], "expected_revision": receipt["registry_revision"]}
+    saved = first.post("/api/live/tiptap/markdown-write/commit", headers=headers, json=commit)
+    assert saved.status_code == 200, saved.text
+    snapshot = first.get(f"/api/live/workspace-documents/{doc}/snapshot")
+    assert snapshot.status_code == 200, snapshot.text
+    assert "A new clue." in snapshot.json()["markdown"]
+    assert second.get(f"/api/live/workspace-documents/{doc}/snapshot").status_code == 403
+    assert second.get(path, params={"world_id": world}).status_code == 403
+    assert first.post("/api/live/index-graph/reset", headers=headers).status_code == 200
+    assert first.get(f"/api/live/workspace-documents/{doc}/snapshot").status_code in (401, 403)
 
 
 def test_released_pages_open_through_ordinary_guest_build(guests, monkeypatch, tmp_path):

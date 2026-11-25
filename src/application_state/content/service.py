@@ -85,6 +85,7 @@ def create_work_object(
     target_relpath: str | None = None,
     document_id: str | None = None,
     authorize_world: Callable[[str | None], None] | None = None,
+    authorize_allocation: Callable | None = None,
 ) -> WorkObject:
     cleaned_world = world_id.strip() if world_id is not None else None
     cleaned_campaign = campaign_id.strip() if campaign_id is not None else None
@@ -122,6 +123,8 @@ def create_work_object(
     with unit_of_work(dsn) as conn:
         if authorize_world is not None:
             authorize_world(obj.world_id)
+        if authorize_allocation is not None:
+            authorize_allocation(conn, obj.world_id)
         return repo.insert_work_object(conn, obj)
 
 
@@ -151,14 +154,17 @@ def create_world_plan(
     world_id: str,
     target_relpath: str | None = None,
     document_id: str | None = None,
+    authorize_allocation: Callable | None = None,
 ) -> WorkObject:
-    return create_plan(
+    return create_work_object(
+        kind="plan",
         title=title,
         campaign_id=None,
         world_id=world_id,
         target_session=None,
         target_relpath=target_relpath,
         document_id=document_id,
+        authorize_allocation=authorize_allocation,
     )
 
 

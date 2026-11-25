@@ -53,7 +53,8 @@ function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
     const homeAnchor = url.pathname === "/" && (["", "#buddy-about", "#buddy-home-main"].includes(url.hash)
       || Boolean(guestHomeId()) && isGuestHomeLocation(locationSnapshot));
     const guestBuild = import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" && url.pathname === "/build";
-    return guestBuild || url.search === "" && (homeAnchor || url.pathname === "/graph" && url.hash === "");
+    const guestPlan = import.meta.env.VITE_HOSTED_GUEST_BUILD === "1" && import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && url.pathname === "/plan";
+    return guestBuild || guestPlan || url.search === "" && (homeAnchor || url.pathname === "/graph" && url.hash === "");
   } catch {
     return false;
   }
@@ -70,7 +71,8 @@ function HomeOrWorld({ locationSnapshot }: { locationSnapshot: string }) {
     return <GuestProductGraph publicId={publicId} />;
   }
   const isGuestBuild = auth.status === "signed_out" && import.meta.env.VITE_HOSTED_GUEST_BUILD === "1"
-    && new URL(locationSnapshot, "http://localhost").pathname === "/build";
+    && (new URL(locationSnapshot, "http://localhost").pathname === "/build" ||
+      import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && new URL(locationSnapshot, "http://localhost").pathname === "/plan");
   if (isGuestBuild) return <GuestBuildWorldProvider locationSnapshot={locationSnapshot}>
     <SharedBuddyApp locationSnapshot={locationSnapshot} />
   </GuestBuildWorldProvider>;

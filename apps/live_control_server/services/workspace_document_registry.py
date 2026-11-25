@@ -641,7 +641,7 @@ def create_workspace_document(
 
 
 def create_world_owned_plan_v2(
-    root: Path, *, world_id: str, title: str
+    root: Path, *, world_id: str, title: str, authorize_allocation=None
 ) -> WorldOwnedPlanRecordV2:
     cleaned_world = _validate_world_id(world_id)
     cleaned_title = _validate_title(title)
@@ -665,6 +665,7 @@ def create_world_owned_plan_v2(
             title=cleaned_title,
             target_relpath=_plan_workspace_target_relpath(document_id),
             document_id=document_id,
+            **({"authorize_allocation": authorize_allocation} if authorize_allocation is not None else {}),
         )
     except WorldContainerRegistryError as exc:
         raise WorkspaceDocumentRegistryError(
