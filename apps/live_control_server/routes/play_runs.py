@@ -535,14 +535,21 @@ async def put_world_run_content_command(
     body = parse_commit(bytes(raw))
     if authorize_world is not None:
         authorize_world()
+    authorize_transaction = None
+    if getattr(request.state, "guest_build_world", None) is not None:
+        from apps.live_control_server.services.guest_build_access import guest_play_edit_capacity
+        authorize_transaction = lambda conn, replay: guest_play_edit_capacity(
+            request, conn, world_id, len(body.markdown.encode("utf-8")), replay
+        )
     response = edition_response(
         commit_content,
         run_id=run_id,
         world_id=world_id,
         command_id=command_id,
         request=body,
-        authorize_world=authorize_world,
+        authorize_world=None if authorize_transaction else authorize_world,
         validate_media=validate_media,
+        **({"authorize_transaction": authorize_transaction} if authorize_transaction else {}),
     )
     if authorize_world is not None:
         authorize_world()

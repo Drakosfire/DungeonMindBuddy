@@ -1988,8 +1988,78 @@ def test_prepared_apprentice_plan_guest_isolation_and_reset(guests, monkeypatch,
     assert created.json()['run']['progress']['current_scene_id'] == 'scene:contract'
     assert first.put(run_path, params={'world_id': world}, headers=headers, json=preview.json()['request']).status_code == 200
     assert second.get(run_path, params={'world_id': world}).status_code == 403
-    assert first.post('/api/live/index-graph/reset', headers={'X-DMB-Index-Graph-CSRF': token}).status_code == 200
+    content_path = f'{run_path}/content'
+    content = first.get(content_path, params={'world_id': world})
+    assert content.status_code == 200, content.text
+    body = content.json()
+    command = str(UUID('11111111-1111-4111-8111-111111111111'))
+    command_path = f'{content_path}/commands/{command}'
+    edit = {'schema_version': 'dmb_world_play_run_content_commit_v1', 'expected_origin': body['origin'],
+            'expected_edition_revision': body['edition_revision'], 'expected_content_sha256': body['content_sha256'],
+            'markdown': body['markdown'] + '\nA guest clue.\n'}
+    assert first.put(command_path, params={'world_id': world}, json=edit).status_code == 403
+    assert second.put(command_path, params={'world_id': world}, headers={'X-DMB-Index-Graph-CSRF': other_token}, json=edit).status_code == 403
+    saved = first.put(command_path, params={'world_id': world}, headers=headers, json=edit)
+    assert saved.status_code == 200, saved.text
+    assert first.put(command_path, params={'world_id': world}, headers=headers, json=edit).status_code == 200
+    assert first.get(command_path, params={'world_id': world}).status_code == 200
+    assert first.get(content_path, params={'world_id': world}).json()['markdown'].endswith('A guest clue.\n')
+    assert 'A guest clue.' not in first.get(f'/api/live/workspace-documents/{doc}/snapshot').json()['markdown']
+    other_command = f"{content_path}/commands/22222222-2222-4222-8222-222222222222"
+    assert first.put(other_command, params={'world_id': world}, headers=headers, json=edit).status_code == 409
+    assert second.get(content_path, params={'world_id': world}).status_code == 403
+    # Reset must serialize with a content commit, not revoke the session midway.
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from apps.live_control_server.services import guest_build_access
+    current = first.get(content_path, params={'world_id': world}).json()
+    next_edit = {**edit, 'expected_edition_revision': current['edition_revision'],
+                 'expected_content_sha256': current['content_sha256'],
+                 'markdown': current['markdown'] + '\nAnother guest clue.\n'}
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_PLAY_EDITS', 1)
+    assert first.put(command_path, params={'world_id': world}, headers=headers, json=edit).status_code == 200
+    limited = first.put(other_command, params={'world_id': world}, headers=headers, json=next_edit)
+    assert limited.status_code == 409 and 'limit' in limited.text
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_PLAY_EDITS', 256)
+    entered, release = Event(), Event()
+    original_capacity = guest_build_access.guest_play_edit_capacity
+    def hold_capacity(request, conn, scoped_world, content_bytes, replay):
+        original_capacity(request, conn, scoped_world, content_bytes, replay)
+        if replay is False:
+            entered.set()
+            if not release.wait(15): raise RuntimeError('guest Play edit race timed out')
+    monkeypatch.setattr(guest_build_access, 'guest_play_edit_capacity', hold_capacity)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = pool.submit(first.put, other_command, params={'world_id': world}, headers=headers, json=next_edit)
+        try:
+            assert entered.wait(15)
+            resetting = pool.submit(first.post, '/api/live/index-graph/reset', headers=headers)
+            import time
+            time.sleep(.2)
+            assert not resetting.done()
+        finally:
+            release.set()
+        assert pending.result(timeout=15).status_code in (200, 401, 403)
+        assert resetting.result(timeout=15).status_code == 200
+    assert first.get(content_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(run_path, params={'world_id': world}).status_code in (401, 403)
     assert first.get(f"{combat_path}/{encounter['encounter_id']}", params={'world_id': world}).status_code in (401, 403)
     assert second.get(f"{combat_path}/{other_records[0]['encounter_id']}", params={'world_id': other_world}).status_code == 200
     assert first.get(f'/api/live/workspace-documents/{doc}/snapshot').status_code in (401, 403)
+
+
+def test_guest_play_content_routes_are_narrow_and_feature_gated(monkeypatch):
+    from apps.live_control_server.services.guest_build_access import matches_guest_build_route
+    run = '11111111-1111-4111-8111-111111111111'
+    cmd = '22222222-2222-4222-8222-222222222222'
+    root = f'/api/live/world-play-runs/v2/{run}/content'
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAN_ENABLED', '1')
+    monkeypatch.delenv('DMB_HOSTED_GUEST_PLAY_ENABLED', raising=False)
+    assert not matches_guest_build_route('PUT', f'{root}/commands/{cmd}')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_PLAY_ENABLED', '1')
+    assert matches_guest_build_route('PUT', f'{root}/commands/{cmd}')
+    assert matches_guest_build_route('GET', f'{root}/commands/{cmd}')
+    assert matches_guest_build_route('GET', f'{root}/revisions/0')
+    assert not matches_guest_build_route('PUT', f'{root}/revisions/0')
+    assert not matches_guest_build_route('POST', f'{root}/commands/{cmd}')
+    assert not matches_guest_build_route('GET', f'{root}/proposals')

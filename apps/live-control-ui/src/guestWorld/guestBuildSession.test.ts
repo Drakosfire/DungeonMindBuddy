@@ -154,3 +154,22 @@ it('routes only basic Combat Tracker operations through the guest session', asyn
   expect(guestBuildRequestEpoch(`/api/live/combat/encounters/${id}/mechanics-adoptions?world_id=${world}`, 'POST')).toBeNull();
   expect(guestBuildRequestEpoch(root, 'DELETE')).toBeNull();
 });
+
+it('scopes Play content commands to the enabled guest session', async () => {
+  vi.stubEnv('VITE_HOSTED_GUEST_PLAY', '1');
+  const world = `guest-${'a'.repeat(32)}`;
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(Response.json({csrf_token:'guest-token'}))
+    .mockResolvedValueOnce(Response.json({world_id:world,name:'Adventure'})));
+  await openGuestBuildWorld(new AbortController().signal);
+  const run='11111111-1111-4111-8111-111111111111', command='22222222-2222-4222-8222-222222222222';
+  const path=`/api/live/world-play-runs/v2/${run}/content/commands/${command}?world_id=${world}`;
+  expect(guestBuildRequestEpoch(path,'GET')).not.toBeNull();
+  expect(guestBuildRequestEpoch(path,'PUT')).not.toBeNull();
+  expect(guestBuildCsrf(path,'PUT')).toBe('guest-token');
+  expect(guestBuildCsrf(path,'GET')).toBeNull();
+  expect(guestBuildCsrf(path,'POST')).toBeNull();
+  expect(guestBuildRequestEpoch(path,'POST')).toBeNull();
+  expect(guestBuildRequestEpoch(`/api/live/world-play-runs/v2/${run}/content/proposals`,'GET')).toBeNull();
+  clearGuestBuildSession();
+  expect(guestBuildCsrf(path,'PUT')).toBeNull();
+});

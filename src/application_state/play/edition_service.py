@@ -249,6 +249,7 @@ def commit_content(
     *, run_id: str, world_id: str, command_id: str, request: ContentCommit,
     authorize_world: Callable[[], None] | None = None,
     validate_media: Callable[[str], None] | None = None,
+    authorize_transaction: Callable | None = None,
 ) -> ContentReceipt:
     run_id, world_id = _coordinates(run_id, world_id)
     command_id = _as_uuid(command_id, field_name="command_id")
@@ -258,9 +259,13 @@ def commit_content(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
+        if authorize_transaction is not None:
+            authorize_transaction(conn, None)
         state = _locked_state(conn, run_id, world_id, allow_trashed=True)
         run, manifest, pin, structure, edition, history = state
         replay = next((row for row in history if row["command_id"] == command_id), None)
+        if authorize_transaction is not None:
+            authorize_transaction(conn, replay is not None)
         if replay is not None:
             if authorize_world is not None:
                 authorize_world()
