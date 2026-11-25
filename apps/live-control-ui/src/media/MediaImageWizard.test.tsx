@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MediaImageWizard, type ImageGenerationPort } from './MediaImageWizard';
+import * as guestSession from '../guestWorld/guestBuildSession';
 const selectedWorld = vi.hoisted(() => ({ worldId: undefined as string | undefined }));
 vi.mock('../selectedWorld/SelectedWorldContext', async importOriginal => {
   const actual = await importOriginal<typeof import('../selectedWorld/SelectedWorldContext')>();
@@ -31,6 +32,18 @@ const createPort = (): ImageGenerationPort => ({ capabilities: vi.fn().mockResol
   { id: 'flux-2-pro', label: 'FLUX 2 Pro', formats: ['png', 'jpeg'], controls: ['seed'] },
   { id: 'gpt-image-1.5', label: 'GPT Image 1.5', formats: ['png', 'jpeg', 'webp'], controls: ['quality', 'background'] },
 ] }), list: vi.fn().mockResolvedValue({ items: [] }), get: vi.fn(), save: vi.fn().mockResolvedValue({ asset_id: 'asset-1', state: 'ready', delivery_url: 'https://imagedelivery.net/test/asset-1/public' }), generate: vi.fn().mockResolvedValue({ images: [{ data_url: 'data:image/png;base64,iVBORw0KGgo=', media_type: 'image/png', asset_id: 'asset-1', state: 'staged' }], prompt: 'Edge', model: 'flux-2-pro' }) });
+
+it('keeps unsupported catalog, public save and image editing out of guest Studio', async () => {
+  const guest = vi.spyOn(guestSession, 'guestBuildActive').mockReturnValue(true);
+  const api = createPort(); api.catalog = vi.fn();
+  await settings(api);
+  expect(screen.queryByText('Explore the fal model catalog')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+  await screen.findByRole('link', { name: 'Download image' });
+  expect(screen.queryByRole('button', { name: 'Save image' })).not.toBeInTheDocument();
+  expect(api.catalog).not.toHaveBeenCalled();
+  guest.mockRestore();
+});
 async function settings(api: ImageGenerationPort) {
   render(<MediaImageWizard onClose={() => {}} port={api} />);
   fireEvent.change(screen.getByRole('textbox', { name: /What would you like/ }), { target: { value: 'Edge' } });

@@ -111,6 +111,7 @@ def stage_image(
     *,
     asset_id: str | UUID | None = None,
     dsn: str | None = None,
+    authorize_stage=None,
 ) -> dict[str, Any]:
     """The caller must stage before acknowledging the generated candidate."""
     owner = _owner(owner)
@@ -131,6 +132,8 @@ def stage_image(
     identity["provenance_sha256"] = hashlib.sha256(encoded).hexdigest()
     aid = _uuid(asset_id) if asset_id is not None else uuid4()
     with unit_of_work(dsn) as conn:
+        if authorize_stage is not None:
+            authorize_stage(conn, owner, len(content))
         inserted = conn.execute(
             "INSERT INTO media.asset(asset_id,owner_id,mime_type,width,height,byte_length,content_sha256,provenance_sha256,provenance) "
             "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (asset_id) DO NOTHING RETURNING asset_id",

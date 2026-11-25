@@ -12,6 +12,7 @@ import {
 import { fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
 import type { MarkdownCanvasSessionValue } from "../markdownCanvas/MarkdownCanvasSession";
 import { BuildSurfaceContext } from "./BuildSurfaceContext";
+import * as guestSession from "../guestWorld/guestBuildSession";
 
 const recoveryDialogPrototype = Object.getPrototypeOf(document.createElement("dialog"));
 const originalRecoveryClose = Object.getOwnPropertyDescriptor(recoveryDialogPrototype, "close");
@@ -352,6 +353,17 @@ it("sends image intent from the surface navbar",async()=>{
   const dispatch=vi.spyOn(window,"dispatchEvent");
   await userEvent.click(screen.getByRole("button",{name:"Open Image Studio"}));
   expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({type:"dmb:build-studio-action",detail:"image"}));dispatch.mockRestore();
+});
+
+it.each([false, true])("enables guest Images only when released (enabled=%s)", enabled => {
+  vi.stubEnv("VITE_HOSTED_GUEST_MEDIA", enabled ? "1" : "0");
+  const guest = vi.spyOn(guestSession, "guestBuildActive").mockReturnValue(true);
+  selectedWorldMock.managed = true;
+  sessionMock.current = makeSession();
+  renderBuildContext();
+  expect(screen.getByRole("button", { name: "Open Image Studio" }).hasAttribute("disabled")).toBe(!enabled);
+  guest.mockRestore();
+  vi.unstubAllEnvs();
 });
 
 it("disables node linking when no reference tool is published even for an editable page",()=>{

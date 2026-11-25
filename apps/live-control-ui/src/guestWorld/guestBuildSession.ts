@@ -16,6 +16,9 @@ export function guestBuildActive(): boolean { return active !== null; }
 export function guestBuildRequestEpoch(path: string, method: string): number | null {
   if (!active) return null;
   const pathname = path.split("?", 1)[0];
+  const media = import.meta.env.VITE_HOSTED_GUEST_MEDIA === "1" &&
+    (pathname === "/api/live/media/images/capabilities" || pathname === "/api/live/media/images/library" || pathname === "/api/live/media/images/generate" ||
+      /^\/api\/live\/media\/images\/[0-9a-f-]{36}(?:\/metadata|\/original)?$/.test(pathname));
   const play = import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
     (pathname === "/api/live/world-play-runs/v2" || pathname === "/api/live/world-play-runs/v2/active" ||
       pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/workspace-documents/world-runbooks" ||
@@ -27,7 +30,7 @@ export function guestBuildRequestEpoch(path: string, method: string): number | n
   const write = method === "POST" && (pathname === "/api/live/workspace-documents"
     || pathname === "/api/live/tiptap/markdown-write/prepare" || pathname === "/api/live/tiptap/markdown-write/commit"
     || import.meta.env.VITE_HOSTED_GUEST_PLAN === "1" && pathname === "/api/live/workspace-documents/world-plans");
-  return read || write || play && ["GET", "POST", "PUT"].includes(method) ? epoch : null;
+  return read || write || play && ["GET", "POST", "PUT"].includes(method) || media && ["GET", "POST"].includes(method) ? epoch : null;
 }
 
 export function guestBuildEpochCurrent(value: number): boolean { return active !== null && epoch === value; }
@@ -35,6 +38,7 @@ export function guestBuildEpochCurrent(value: number): boolean { return active !
 export function guestBuildCsrf(path: string, method: string): string | null {
   if (!active || method === "GET" || method === "HEAD") return null;
   const pathname = path.split("?", 1)[0];
+  if (import.meta.env.VITE_HOSTED_GUEST_MEDIA === "1" && pathname === "/api/live/media/images/generate" && method === "POST") return active.csrf;
   if (import.meta.env.VITE_HOSTED_GUEST_PLAY === "1" &&
       (pathname === "/api/live/world-play-runs/v2/preparation" || pathname === "/api/live/world-play-runs/v2/active" ||
         /^\/api\/live\/world-play-runs\/v2\/[0-9a-f-]{36}(?:\/progress)?$/.test(pathname))) return active.csrf;
