@@ -1,6 +1,12 @@
 # DOGFOOD: serve pending Build context reuse
 
-ACTIVE serial release assignment. Alan explicitly authorized deployment, reviewed
+SOURCE MERGED and deployed. PR4697 merged6b573964205afaf7a843ff59311f09784f87c32f;
+source1fec1277cf987630fe0f6b860f54bde6c80ab29b deployed healthy on schema211,
+image62cbcd24, preserving current guest/configuration ownership. Fresh final
+archive rehearsal and independent ACK passed. Signed-in acceptance then found
+an exact duplicate-question rejection at writer_validation; delivery continues
+in HANDOFF-DOGFOOD-inline-question-serving.md. No full goal completion is claimed.
+Historical serial release assignment follows. Alan explicitly authorized deployment, reviewed
 merges and production cutover while preserving current production changes. This
 slice adopts merged source PR4642 c5001f5caabbd2dfa66d8a991604507d0a69533a,
 reviewed implementation head e0bb59a53da9e0a5d09e7af210a1a15bae8809c8, into
