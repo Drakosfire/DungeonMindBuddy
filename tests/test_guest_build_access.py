@@ -603,7 +603,7 @@ def test_guest_reset_revokes_prepared_native_source_body(guests, tmp_path, monke
             open_native_corpus_member(context, lane.meta.evidence_ref_ids[0])
 
 
-@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build', 'reset_during_play', 'retained_reset'), [(False, False, False, None), (True, False, False, None), (False, True, False, None), (False, False, True, None), (False, False, False, 'admission'), (False, False, False, 'writer')])
+@pytest.mark.parametrize(('reset_during_writer', 'reset_during_build', 'reset_during_play', 'retained_reset'), [(False, False, False, None), (True, False, False, None), (False, True, False, None), (False, False, True, None), (False, False, False, 'admission'), (False, False, False, 'writer'), (False, False, False, 'quota-admission'), (False, False, False, 'quota-writer')])
 def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, tmp_path, monkeypatch, reset_during_writer, reset_during_build, reset_during_play, retained_reset):
     import json
     import re
@@ -819,16 +819,38 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     assert 'discuss this saved page' in build_response.json()['answer']['text']
     assert len(seen_build) == 1 and isinstance(seen_build[0].native_principal, HostedGuestGraphPrincipal)
     assert seen_build[0].native_principal.managed_world_id == world.world_id
+    if retained_reset and retained_reset.startswith('quota-'):
+        from application_state.agent_conversation import AgentConversationService
+        from application_state.errors import ApplicationStateConflictError
+        boundary = retained_reset.removeprefix('quota-')
+        method = 'admit_pending_build_prior_body_evidence' if boundary == 'admission' else 'authorize_pending_build_writer'
+        original = getattr(AgentConversationService, method)
+        rejected = []
+        def reject_transaction(owner, world_id, conversation_id, turn_id, **kwargs):
+            before = owner.inspect_turn(world_id=world_id, turn_id=turn_id)
+            previous = owner._validate_transaction
+            def reject(_conn):
+                rejected.append(True)
+                raise ApplicationStateConflictError('guest quota exceeded')
+            owner._validate_transaction = reject
+            try:
+                with pytest.raises(ApplicationStateConflictError, match='guest quota exceeded'):
+                    original(owner, world_id, conversation_id, turn_id, **kwargs)
+            finally:
+                owner._validate_transaction = previous
+            assert owner.inspect_turn(world_id=world_id, turn_id=turn_id) == before
+            raise ApplicationStateConflictError('guest quota exceeded')
+        monkeypatch.setattr(AgentConversationService, method, reject_transaction)
+        followup = {**build_payload, 'turn_id': str(uuid4()), 'message': 'Recap our conversation without another search.'}
+        result = client.post('/api/live/agent/turn', headers=headers, json=followup)
+        assert result.status_code != 200 and rejected
+        return
     if retained_reset:
         from application_state.agent_conversation import AgentConversationService
-        method = 'admit_build_prior_body_evidence' if retained_reset == 'admission' else 'authorize_native_writer'
+        method = 'admit_pending_build_prior_body_evidence' if retained_reset == 'admission' else 'authorize_pending_build_writer'
         original = getattr(AgentConversationService, method)
         locked, release = Event(), Event()
         def pause_after_guest_lock(owner, *args, **kwargs):
-            if retained_reset == 'writer':
-                from application_state.agent_conversation.retained_conversation import admission
-                current = owner.inspect_turn(world_id=args[0], turn_id=args[2])
-                assert admission(current.graph_context_execution) is not None
             previous = owner._authorize_transaction
             def hold(conn, *, read_only):
                 previous(conn, read_only=read_only)

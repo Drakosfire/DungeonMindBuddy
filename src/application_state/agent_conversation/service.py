@@ -1259,7 +1259,7 @@ class AgentConversationService:
         if (not callable(authorize_current_access) or type(expected_turn_revision) is not int
                 or expected_turn_revision < 1 or type(scope.product_attempt) is not int or scope.product_attempt < 1):
             raise ApplicationStateValidationError('Pending Rules requires exact revision/attempt and current App access')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, scope.world_id, scope.conversation_id, scope.turn_id,
                 expected_revision=expected_turn_revision, expected_attempt=scope.product_attempt)
             pages = pending_writer_access_pages(turn)
@@ -1377,6 +1377,8 @@ class AgentConversationService:
         world_id = _world_id(world_id)
         with unit_of_work(_ready_dsn()) as conn:
             conn.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=True)
             if repo.get_conversation(conn, world_id, conversation_id) is None:
                 raise ApplicationStateNotFoundError('conversation not found in verified World')
             return repo.list_pending_build_dialogue(conn, world_id, conversation_id)
@@ -2645,7 +2647,7 @@ class AgentConversationService:
             authorization = NativeBuildWriterAuthorizedV2.model_validate_json(authorization.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
@@ -2691,7 +2693,7 @@ class AgentConversationService:
             raise ApplicationStateValidationError('Pending writer lifecycle requires its actual SDK/request owner')
         from .build_pending_app_coverage import pending_writer_access_pages
         world_id = _world_id(world_id)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
@@ -2731,7 +2733,7 @@ class AgentConversationService:
             authorization = t.ProviderAttemptAuthorizedEventV5.model_validate_json(authorization.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             pages = pending_writer_access_pages(turn)
@@ -2771,7 +2773,7 @@ class AgentConversationService:
             raise ApplicationStateValidationError('Pending selection requires its exact prepared-input owner')
         from .build_pending_app_coverage import pending_writer_access_pages
         world_id = _world_id(world_id)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
@@ -2802,7 +2804,7 @@ class AgentConversationService:
                 or type(expected_attempt) is not int or expected_attempt < 1
                 or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('Pending retained context requires its exact host and App access owner')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             if authorize_current_access(conn, turn, None) is not True:
@@ -3150,7 +3152,7 @@ class AgentConversationService:
                 or type(expected_attempt) is not int or expected_attempt < 1
                 or not callable(materialize_source) or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('Pending source requires its host materialization and current-access owners')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt, replay_event_id=event_id)
             if authorize_current_access(conn, before, None) is not True:
@@ -3196,7 +3198,7 @@ class AgentConversationService:
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
         prepared = (settlement.source_authority, settlement.native_query)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             actual = (current.graph_context_receipt.context_receipt_sha256,
@@ -3240,7 +3242,7 @@ class AgentConversationService:
                 or type(expected_attempt) is not int or expected_attempt < 1
                 or not callable(reopen_source) or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('Pending reopening requires its exact host and current-access owners')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             try:
@@ -3259,7 +3261,7 @@ class AgentConversationService:
         reopened = reopen_source(before, source)
         if type(reopened) is not tuple or reopened != source:
             raise ApplicationStateValidationError('Pending reopening cannot replace its original authority or query')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             actual = (current.graph_context_receipt.context_receipt_sha256,
@@ -3292,7 +3294,7 @@ class AgentConversationService:
                 or type(expected_attempt) is not int or expected_attempt < 1
                 or not callable(discover_pages) or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('App catalog requires its actual discovery and access owners')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt,
                 replay_event_id=event_id, replay_event_type=BuildAppPageCatalogObservedV1)
@@ -3331,7 +3333,7 @@ class AgentConversationService:
             effective_pending_app_catalog(before.graph_context_receipt, prepared_execution)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             actual = (current.graph_context_receipt.context_receipt_sha256,
@@ -3408,7 +3410,7 @@ class AgentConversationService:
             authorization = BuildAppCoverageAuthorizedV1.model_validate_json(authorization.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt,
                 replay_event_id=authorization.event_id, replay_event_type=BuildAppCoverageAuthorizedV1)
@@ -3450,7 +3452,7 @@ class AgentConversationService:
             decision = BuildAppCoverageDecidedV1.model_validate_json(decision.model_dump_json())
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             self._validate_pending_initial_prompt(conn, turn, producer_proof.get('initial_request_json'))
@@ -3500,7 +3502,7 @@ class AgentConversationService:
                 or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('Pending native IO requires its closed producer and current App owner')
         operation = _NativeReadOperation(producer, arguments)
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             try:
@@ -3637,7 +3639,7 @@ class AgentConversationService:
             authorization = NativeRetrievalAuthorizedV1.model_validate_json(authorization.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             pages = pending_writer_access_pages(turn)
@@ -3674,7 +3676,7 @@ class AgentConversationService:
             selection = NativeRetrievalSelectedV1.model_validate_json(selection.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             pages = pending_writer_access_pages(turn)
@@ -3730,7 +3732,7 @@ class AgentConversationService:
             authorization = BuildAppPageSelectionAuthorizedV1.model_validate_json(authorization.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt,
                 replay_event_id=authorization.event_id, replay_event_type=BuildAppPageSelectionAuthorizedV1)
@@ -3792,7 +3794,7 @@ class AgentConversationService:
             outcome = ProviderOutcomeEventV1.model_validate_json(outcome.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             authorizations = [event for event in turn.graph_context_execution.events
@@ -3876,7 +3878,7 @@ class AgentConversationService:
             outcome = ProviderOutcomeEventV1.model_validate_json(outcome.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             authorizations = [event for event in turn.graph_context_execution.events
@@ -3923,7 +3925,7 @@ class AgentConversationService:
             selection = RelatedPagesSelection.model_validate_json(selection.model_dump_json())
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             self._validate_pending_initial_prompt(conn, turn, producer_proof.get('initial_request_json'))
@@ -3970,7 +3972,7 @@ class AgentConversationService:
                 or type(expected_attempt) is not int or expected_attempt < 1
                 or not callable(materialize_page) or not callable(authorize_current_access)):
             raise ApplicationStateValidationError('Pending page read requires its exact host selection and read/access owners')
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             catalogs = [event for event in before.graph_context_execution.events
@@ -4009,7 +4011,7 @@ class AgentConversationService:
                 raise ValueError('Pending page materialization changed the selected saved pointer')
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             actual = (current.graph_context_receipt.context_receipt_sha256,
@@ -4043,7 +4045,7 @@ class AgentConversationService:
             event = ProviderAttemptAuthorizedEventV5.model_validate_json(provider_attempt_event.model_dump_json(by_alias=True))
         except (ValueError, TypeError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
-        with unit_of_work(_ready_dsn()) as conn:
+        with self._transaction(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
                 expected_revision=expected_revision, expected_attempt=expected_attempt)
             initial = turn.graph_context_receipt.assembled_input
