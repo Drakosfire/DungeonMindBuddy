@@ -110,7 +110,8 @@ class _SessionAdmission(AgentConversationService):
     """Reuse the actual append admission, with a single private storage owner."""
 
     def __init__(self, owner):
-        super().__init__(authorize_transaction=owner._authorize_transaction)
+        super().__init__(authorize_transaction=owner._authorize_transaction,
+                         validate_transaction=owner._validate_transaction)
         self._owner = owner
 
     def _lock_execution_append_turn(self, conn, world_id, turn_id):
@@ -216,9 +217,11 @@ class PlanProviderCheckpoint:
 class NativePlanSession:
     """One nonescaping materialization, serialized with the runtime claim fence."""
 
-    def __init__(self, expected, *, measure=None, opening=False, authorize_transaction=None):
+    def __init__(self, expected, *, measure=None, opening=False, authorize_transaction=None,
+                 validate_transaction=None):
         self.opening = opening
         self._authorize_transaction = authorize_transaction
+        self._validate_transaction = validate_transaction
         accepts = eligible_opening if opening else eligible
         self._measure = measure if measure is not None else lambda _: nullcontext()
         self._lock = RLock()
@@ -241,9 +244,10 @@ class NativePlanSession:
         self._admission = _SessionAdmission(self)
 
     def _transaction(self, dsn):
-        if self._authorize_transaction is None:
+        if self._authorize_transaction is None and self._validate_transaction is None:
             return unit_of_work(dsn)
-        return AgentConversationService(authorize_transaction=self._authorize_transaction)._transaction(dsn)
+        return AgentConversationService(authorize_transaction=self._authorize_transaction,
+            validate_transaction=self._validate_transaction)._transaction(dsn)
 
     def _require_live(self):
         if self._sealed or self._committed is None:

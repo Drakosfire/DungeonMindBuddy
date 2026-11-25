@@ -40,6 +40,7 @@ MAX_GUEST_RUNS = 16
 MAX_GUEST_CONVERSATIONS = 16
 MAX_GUEST_TURNS = 100
 MAX_GUEST_TURN_BYTES = 16 * 1024
+MAX_GUEST_CONVERSATION_BYTES = 32 * 1024 * 1024
 
 
 def matches_guest_conversation_route(method: str, path: str) -> bool:
@@ -333,6 +334,42 @@ def guest_turn_capacity(request: Request, conn, world_id: str, submission) -> No
     count = conn.execute("SELECT count(*) FROM agent.turn WHERE world_id = %s", (world_id,)).fetchone()[0]
     if count >= MAX_GUEST_TURNS:
         raise ApplicationStateConflictError("This guest World has reached its turn limit")
+
+
+def guest_conversation_bytes(request: Request, conn, world_id: str) -> int:
+    """Bound logical JSON bytes in the current transaction before it commits.
+
+    This measures decoded row contents, not indexes, dead tuples, or WAL.
+    The guest session row must already be locked by the transaction guard.
+    """
+    if getattr(request.state, 'guest_build_world', None) != world_id:
+        raise ApplicationStateConflictError('Guest conversation World changed')
+    conn.execute("SET LOCAL statement_timeout = '5s'")
+    total = conn.execute("""
+        WITH turns AS MATERIALIZED (SELECT * FROM agent.turn WHERE world_id=%s),
+             drafts AS MATERIALIZED (SELECT * FROM agent.composer_draft WHERE world_id=%s),
+             sizes AS (
+          SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) AS n FROM turns x
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.world_state x WHERE world_id=%s
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.conversation x WHERE world_id=%s
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.command_receipt x WHERE world_id=%s
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.command_resolution x WHERE world_id=%s
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.import_receipt x WHERE world_id=%s
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM drafts x
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.draft_reference x JOIN drafts d USING (draft_id)
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.turn_reference x JOIN turns t USING (turn_id)
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.turn_retry x WHERE world_id=%s
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.turn_context_trace x JOIN turns t USING (turn_id)
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.turn_rules_execution x JOIN turns t USING (turn_id)
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.turn_reviewed_action x JOIN turns t USING (turn_id)
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.plan_execution_checkpoint x JOIN turns t USING (turn_id)
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.plan_execution_event x JOIN turns t USING (turn_id)
+          UNION ALL SELECT coalesce(sum(octet_length(to_jsonb(x)::text)),0) FROM agent.conversation_draft_revision x WHERE world_id=%s
+        ) SELECT coalesce(sum(n),0) FROM sizes
+    """, (world_id,) * 9).fetchone()[0]
+    if total > MAX_GUEST_CONVERSATION_BYTES:
+        raise ApplicationStateConflictError('This guest World has reached its conversation storage limit')
+    return int(total)
 
 
 def guest_play_capacity(request: Request, conn, world_id: str, replay: bool) -> None:

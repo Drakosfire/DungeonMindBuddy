@@ -177,6 +177,27 @@ def test_plan_session_rechecks_transaction_authorization_before_append(applicati
     assert stored.revision == case.turn.revision
 
 
+def test_plan_session_rolls_back_append_when_storage_limit_rejects(application_state_dsn):
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    allowed = True
+    def validate(_conn):
+        if not allowed:
+            raise ApplicationStateConflictError('guest storage limit')
+    session = NativePlanSession(case.turn, validate_transaction=validate)
+    allowed = False
+    step = case.steps[-1]
+    with pytest.raises(ApplicationStateConflictError, match='guest storage limit'):
+        session.execute(PlanSessionCommand.SELECTION, expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt, selection=step.selection, producer_proof=step.proof)
+    stored = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+    assert stored.revision == case.turn.revision
+    with pytest.raises(ApplicationStateConflictError, match='sealed'):
+        session.execute(PlanSessionCommand.SELECTION, expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt, selection=step.selection, producer_proof=step.proof)
+
+
 def test_locked_plan_waiter_reconstructs_suffix_committed_while_waiting(application_state_dsn):
     from concurrent.futures import ThreadPoolExecutor
     from time import monotonic, sleep

@@ -1342,7 +1342,7 @@ def _conversation_service(request: Request) -> AgentConversationService:
     guest_world = getattr(request.state, "guest_conversation_world", None)
     if guest_world is not None:
         from apps.live_control_server.services.guest_build_access import (
-            _check_guest_session, guest_conversation_capacity, guest_turn_capacity,
+            _check_guest_session, guest_conversation_capacity, guest_turn_capacity, guest_conversation_bytes,
         )
 
         return AgentConversationService(
@@ -1351,6 +1351,7 @@ def _conversation_service(request: Request) -> AgentConversationService:
             ),
             authorize_new_conversation=lambda conn, world: guest_conversation_capacity(request, conn, world),
             authorize_new_turn=lambda conn, world, submission: guest_turn_capacity(request, conn, world, submission),
+            validate_transaction=lambda conn: guest_conversation_bytes(request, conn, guest_world),
         )
     configured = getattr(request.app.state, "agent_conversation_service", None)
     return configured if configured is not None else AgentConversationService()

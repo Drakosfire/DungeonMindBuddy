@@ -295,7 +295,7 @@ def reuse_source_append_connection():
 
 
 @contextmanager
-def _execution_append_transaction(measure, *, source_append=False):
+def _execution_append_transaction(measure, *, source_append=False, validate_transaction=None):
     with ExitStack() as stack:
         with measure("first_jev_send_transaction_open"):
             lease = _source_append_connection.get() if source_append else None
@@ -309,6 +309,8 @@ def _execution_append_transaction(measure, *, source_append=False):
         with measure("first_jev_send_schema_check"):
             assert_connection_at_head(conn)
         yield conn
+        if validate_transaction is not None:
+            validate_transaction(conn)
         with measure("first_jev_send_commit_and_close"):
             stack.close()
 
@@ -494,10 +496,11 @@ class AgentConversationService:
     """Stateless storage boundary. World verification belongs to the caller."""
 
     def __init__(self, *, authorize_transaction=None, authorize_new_conversation=None,
-                 authorize_new_turn=None):
+                 authorize_new_turn=None, validate_transaction=None):
         self._authorize_transaction = authorize_transaction
         self._authorize_new_conversation = authorize_new_conversation
         self._authorize_new_turn = authorize_new_turn
+        self._validate_transaction = validate_transaction
 
     @contextmanager
     def _transaction(self, dsn=None, *, read_only=False):
@@ -508,6 +511,8 @@ class AgentConversationService:
             if self._authorize_transaction is not None:
                 self._authorize_transaction(conn, read_only=read_only)
             yield conn
+            if not read_only and self._validate_transaction is not None:
+                self._validate_transaction(conn)
 
     def _trace_store(self):
         return TurnContextTraceStore(
@@ -1781,6 +1786,7 @@ class AgentConversationService:
         else:
             transaction = _execution_append_transaction(
                 measure, source_append=native_source_materializer is not None,
+                validate_transaction=self._validate_transaction,
             )
         with transaction as conn:
             if self._authorize_transaction is not None:

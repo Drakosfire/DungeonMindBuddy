@@ -103,6 +103,10 @@ def test_guest_conversation_history_and_new_are_session_bound(guests, monkeypatc
     body = {"command_id": str(uuid4()), "expected_pointer_revision": 0,
             "expected_active_conversation_id": None}
     assert client.post(path + "/new", json=body).status_code == 403
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 1)
+    assert client.post(path + "/new", json=body, headers={"X-DMB-Index-Graph-CSRF": csrf}).status_code == 409
+    assert client.get(path).json()['conversation_state'] == 'absent'
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
     response = client.post(path + "/new", json=body, headers={"X-DMB-Index-Graph-CSRF": csrf})
     assert response.status_code == 200, response.text
     monkeypatch.setattr(guest_build_access, "MAX_GUEST_CONVERSATIONS", 1)
@@ -515,15 +519,61 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     answer = client.post('/api/live/agent/turn', headers=headers, json=payload)
     assert answer.status_code == 200, answer.text
     assert 'B fled' in answer.json()['answer']['text']
+    from apps.live_control_server.services import guest_build_access
+    from application_state.engine import connect
+    from application_state.errors import ApplicationStateConflictError
+    with connect(application_state_dsn) as conn:
+        guest_build_access._lock_guest_session(request, conn, world.world_id)
+        before = guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+        updated = conn.execute("UPDATE agent.turn_context_trace SET payload=payload || jsonb_build_object('quota_probe', repeat('x', 4096)) WHERE turn_id=%s", (wire.adapter.turn.turn_id,))
+        assert updated.rowcount == 1
+        monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', before + 1024)
+        with pytest.raises(ApplicationStateConflictError):
+            guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+        conn.rollback()
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
+    from time import monotonic
+    with connect(application_state_dsn) as conn:
+        guest_build_access._lock_guest_session(request, conn, world.world_id)
+        conn.execute("UPDATE agent.turn SET assistant_text=repeat('x', 30 * 1024 * 1024) WHERE turn_id=%s", (wire.adapter.turn.turn_id,))
+        started = monotonic()
+        measured = guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+        elapsed = monotonic() - started
+        assert 30 * 1024 * 1024 < measured < 32 * 1024 * 1024
+        assert elapsed < 5
+        conn.rollback()
     citation = f'/api/live/agent/worlds/{world.world_id}/conversation/turns/{wire.adapter.turn.turn_id}/native-assertion-sources/0'
     opened = client.get(citation)
     assert opened.status_code == 200, opened.text
     assert opened.json()['content'] == 'A reports that B fled; uncertain.\n'
+    from application_state.unit_of_work import unit_of_work
+    with unit_of_work() as conn:
+        guest_build_access._lock_guest_session(request, conn, world.world_id)
+        current_bytes = guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', current_bytes + 6000)
+    def append_under_budget():
+        try:
+            with unit_of_work() as conn:
+                guest_build_access._lock_guest_session(request, conn, world.world_id)
+                conn.execute("UPDATE agent.turn SET assistant_text=assistant_text || repeat('x', 4000) WHERE turn_id=%s", (wire.adapter.turn.turn_id,))
+                guest_build_access.guest_conversation_bytes(request, conn, world.world_id)
+            return 'committed'
+        except ApplicationStateConflictError:
+            return 'rejected'
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(lambda _: append_under_budget(), range(2)))
+    assert sorted(outcomes) == ['committed', 'rejected']
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
     other = TestClient(app, base_url='https://buddy.example', headers={'Origin': 'https://buddy.example', 'Sec-Fetch-Site': 'same-origin'})
     other_session = other.post('/api/live/index-graph/session')
     assert other_session.status_code == 200
     other_world = other.post('/api/live/index-graph/world', headers={'X-DMB-Index-Graph-CSRF': other_session.json()['csrf_token']})
     assert other_world.status_code == 200
+    other_headers = {'X-DMB-Index-Graph-CSRF': other_session.json()['csrf_token']}
+    other_conversation = other.post(f"/api/live/agent/worlds/{other_world.json()['world_id']}/conversation/new",
+        headers=other_headers, json={'command_id': str(uuid4()), 'expected_pointer_revision': 0,
+                                    'expected_active_conversation_id': None})
+    assert other_conversation.status_code == 200, other_conversation.text
     assert other.get(citation).status_code == 403
     assert client.post('/api/live/index-graph/reset', headers=headers).status_code == 200
     assert client.get(citation).status_code in (401, 403)
@@ -539,6 +589,7 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     with connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
         assert conn.execute('SELECT count(*) FROM agent.turn WHERE world_id=%s', (world.world_id,)).fetchone()[0] == 0
+        assert conn.execute('SELECT count(*) FROM agent.conversation WHERE world_id=%s', (other_world.json()['world_id'],)).fetchone()[0] == 1
 
 
 def test_guest_normal_turn_uses_guest_conversation(guests, monkeypatch, tmp_path):
@@ -566,6 +617,40 @@ def test_guest_normal_turn_uses_guest_conversation(guests, monkeypatch, tmp_path
     assert page.status_code == 200, page.text
     assert page.json()['messages'][0]['assistant_text'] == 'A simple answer.'
     assert other.get(messages).status_code == 403
+
+
+def test_guest_storage_limit_rejects_provider_answer_without_replaying(guests, monkeypatch, tmp_path):
+    from tests.test_agent_turn_route import FakeRuntime, _payload
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import guest_build_access
+    from application_state.agent_conversation import AgentConversationService
+
+    (client, csrf, world), _ = guests[0]
+    monkeypatch.setenv('DMB_HOSTED_GUEST_CONVERSATION_ENABLED', '1')
+    monkeypatch.setenv('DMB_HOSTED_GUEST_TURN_ENABLED', '1')
+    monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
+    class LimitAfterProvider(FakeRuntime):
+        def run(self, invocation):
+            result = super().run(invocation)
+            monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 1)
+            return result
+    runtime = LimitAfterProvider()
+    client.app.state.agent_turn_runtime = runtime
+    payload = {**_payload(), 'owner_scope': {'kind': 'world', 'world_id': world}}
+    headers = {'X-DMB-Index-Graph-CSRF': csrf}
+    response = client.post('/api/live/agent/turn', json=payload, headers=headers)
+    assert response.status_code != 200, response.text
+    assert 'A simple answer.' not in response.text
+    assert len(runtime.invocations) == 1
+    monkeypatch.setattr(guest_build_access, 'MAX_GUEST_CONVERSATION_BYTES', 32 * 1024 * 1024)
+    service = AgentConversationService()
+    conversation = service.get_active_conversation(world)
+    turns = service.list_turns(world, conversation.conversation_id)
+    assert len(turns) == 1 and turns[0].status != 'completed'
+    client.post('/api/live/agent/turn', json=payload, headers=headers)
+    assert len(runtime.invocations) == 1
 
 
 def test_guest_reset_during_turn_does_not_return_or_complete_answer(guests, monkeypatch, tmp_path, application_state_dsn):
