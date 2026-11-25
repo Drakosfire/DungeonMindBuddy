@@ -1,0 +1,9 @@
+# ONBOARD: guest Build proposals serving integration
+
+Status: ACTIVE under the owner's Sizzek delivery, Bugbot, merge and deployment authority. Branch `codex/onboard-guest-proposals-serving` is stacked on PR #4693 head `579370504345298a1ee96f7e8f6024d3bd6bbdcb`. Delivery order is deploy #4681, then #4686, merge/deploy #4687, rebase and deploy #4693, then rebase this successor on its actual merged serving parent, review and deploy. No step assumes a different live parent or bypasses staging identity checks.
+
+Outcome: carry merged #4694 guest Build proposal source onto the serving lineage, and pass the #4695 frontend/Compose feature switches. Keep existing guest transaction, quota, reset and normal editor protections. No provider, production data, schema, publisher, stage or activation policy is changed here. The write set is the #4694 files, narrowly resolved integration conflicts, Dockerfile and serving Compose switch passthrough, focused tests, the action catalog entry and this handoff. #4693 is the explicit parent and its branch remains unchanged.
+
+Validate the cumulative parent-to-head diff and focused guest proposal HTTP, reset, quota, retained evidence and mounted editor paths using the existing owned disposable App clone and shared read-only Core; obtain exact-head Bugbot review. This is not live provider or signed-out production evidence.
+
+Integration checkpoint: the #4694 cherry-pick conflicted in the action catalog and shared real-guest fixture. Resolution retains the serving parent's two retained-evidence reset cases alongside proposal-generation reset; the serving catalog receives only the relevant proposal entry. Three focused guest proposal, reset and quota tests pass; both inherited retained-evidence reset cases pass; two mounted guest editor/conversation checks pass. Main's proposal-capable release verifier accepts this source. Synthetic-provider HTTP and mocked UI tests remain separate.

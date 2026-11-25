@@ -3151,7 +3151,7 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible && !guestBuildActive(),
+    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible && (!guestBuildActive() || import.meta.env.VITE_HOSTED_GUEST_BUILD_PROPOSALS === "1"),
     onReviewOnPage:()=>agent.setPaneOpen(false),
     onConstructionVisible:()=>{
       if(!(composerDraftsRef.current[composerDraftKey]??'').trim())agent.setPaneOpen(false);
@@ -4823,12 +4823,13 @@ export function WorldPlanAgentConversation({
       return;
     }
     if (isBuild) {
-      const guestBuildDiscussion = guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUILD_BUDDY === '1';
-      if (guestBuildDiscussion && !useWorldGraphForAsk) {
+      const guestBuild = guestBuildActive() && import.meta.env.VITE_HOSTED_GUEST_BUILD_BUDDY === '1';
+      const guestBuildDiscussion = guestBuild && import.meta.env.VITE_HOSTED_GUEST_BUILD_PROPOSALS !== '1';
+      if (guestBuild && !useWorldGraphForAsk) {
         setError('Enable World context before asking Buddy about this page.');
         return;
       }
-      if (guestBuildDiscussion && (source?.dirty || composerReferences.length || explicitRequest || freshBuildRetry)) {
+      if (guestBuild && (source?.dirty || composerReferences.length || explicitRequest || freshBuildRetry)) {
         setError('Save the page and remove selected references before asking Buddy.');
         return;
       }
@@ -4873,7 +4874,7 @@ export function WorldPlanAgentConversation({
           const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,guestBuildDiscussion||discussionOnly||explicitRequest?.reviewedKind==='discuss',
             freshBuildRetry?.context.author_interaction==='select_passage',!!freshBuildRetry?.context.reference_image_id,
             freshBuildRetry?.context.reference_image_id, !explicitRequest && !freshBuildRetry,
-            !explicitRequest && !freshBuildRetry && !discussionOnly && !source.dirty);
+            !guestBuild && !explicitRequest && !freshBuildRetry && !discussionOnly && !source.dirty);
           if(prepared.placementError){
             if(latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===placementFence
               &&latestRef.current.buildPlacementEpoch===epoch&&latestRef.current.buildPlacementBridge===bridge
