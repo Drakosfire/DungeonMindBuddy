@@ -471,10 +471,10 @@ def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_pa
         requested_work=lambda message: ('discuss' if discussion else 'review_lore_page_from_conversation') if message == synthesis else 'discuss',
         source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup')
     case.request['build_authored_references'] = None
-    method = 'admit_build_prior_body_evidence' if boundary == 'admission' else 'authorize_native_writer'
-    original = getattr(AgentConversationService, method)
+    methods = (('admit_build_prior_body_evidence', 'admit_pending_build_prior_body_evidence')
+               if boundary == 'admission' else ('authorize_native_writer', 'authorize_pending_build_writer'))
     resets = []
-    def reset_first(owner, world, conversation, turn_id, **values):
+    def reset_first(original, owner, world, conversation, turn_id, **values):
         current = owner.inspect_turn(world_id=world, turn_id=turn_id)
         if current.user_text == synthesis:
             pointer = owner.get_world_pointer(world)
@@ -492,7 +492,10 @@ def test_reset_fences_retained_capture_and_physical_writer_dispatch(lane, tmp_pa
                 assert returned.active_conversation_id == conversation
                 assert returned.revision > retained.admission(current.graph_context_execution).pointer_revision
         return original(owner, world, conversation, turn_id, **values)
-    monkeypatch.setattr(AgentConversationService, method, reset_first)
+    for method in methods:
+        original = getattr(AgentConversationService, method)
+        monkeypatch.setattr(AgentConversationService, method, lambda owner, *args, _original=original, **kwargs:
+                            reset_first(_original, owner, *args, **kwargs))
     before = len(case.writer.calls)
     response = case.client.post('/api/live/agent/turn', json=case.request | {
         'turn_id': str(uuid4()), 'message': synthesis})
