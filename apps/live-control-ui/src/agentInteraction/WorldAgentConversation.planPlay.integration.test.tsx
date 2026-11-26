@@ -1277,7 +1277,18 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await act(async()=>release());await screen.findByText('Saved rehearsal: communication was chosen; the child’s future remains unresolved.');
     if(mode==='fresh')await waitFor(()=>expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('completed'));
     else if(mode==='wrong-review')expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence).toHaveLength(0);
-    else await waitFor(()=>expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('existing'));
+    else {
+      if(mode==='wrong-key'||mode==='missing-correlation'){
+        expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('pending');
+        expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence).toHaveLength(0);
+        fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
+      }
+      if(mode==='missing-correlation'){
+        await screen.findByText('Reply details no longer match this saved message. Refresh the conversation before opening them again.');
+        expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('pending');
+        expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence).toHaveLength(0);
+      }else await waitFor(()=>expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('existing'));
+    }
     const evidence=readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence??[];
     if(evidence.length)expect(evidence[0]?.proof).toMatchObject({kind:'session-memory',turnId:physicalId});
     expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
