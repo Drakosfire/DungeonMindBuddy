@@ -238,6 +238,18 @@ SOURCE_NEED_GUIDANCE = _REUSE_SOURCE_NEED_GUIDANCE + (
     'evidence.'
 )
 
+# Reader-first contract. The producer continues to offer SOURCE_NEED_OPTIONS
+# and SOURCE_NEED_GUIDANCE until this exact variant is deployed everywhere that
+# may resume or read a turn. The distinction grants no source access itself.
+FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS = (*SOURCE_NEED_OPTIONS, "current_saved_page")
+FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE = SOURCE_NEED_GUIDANCE + (
+    " Choose current_saved_page only when the author explicitly asks to use the "
+    "open saved page as the sole source for the requested factual answer. If the "
+    "request also needs another source, choose source_lookup; if its source scope "
+    "is unclear, choose uncertain. This choice does not establish page contents "
+    "or authorize a read."
+)
+
 
 class UnresolvedDiscussionSource(ValueError):
     """The read-only work choice is settled, but its evidence scope is tied."""
@@ -248,11 +260,15 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
     if question is None:
         return None
     expected = {"type": "choice", "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
-    if question not in (expected | {"instructions": guidance}
-                        for guidance in (SOURCE_NEED_GUIDANCE, _REUSE_SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
+    old_questions = tuple(expected | {"instructions": guidance}
+                          for guidance in (SOURCE_NEED_GUIDANCE, _REUSE_SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE))
+    future_question = {"type": "choice", "criteria": dict.fromkeys(FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS),
+                       "instructions": FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE}
+    if question not in (*old_questions, future_question):
         raise ValueError("Build source scope differs from its offered decision")
+    options = FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS if question == future_question else SOURCE_NEED_OPTIONS
     return _selected_choice(
-        response["answers"]["source_need"], SOURCE_NEED_OPTIONS,
+        response["answers"]["source_need"], options,
         tie_fallback=tie_fallback, clarify_uncertain_tie=clarify_uncertain_tie,
     )
 
@@ -761,8 +777,10 @@ def resolution_for(policy, label, *, source_scope=None):
         raise ValueError("Unknown semantic menu or resolver")
     resolution = json.loads(canonical(resolve(label, caps, work_options=_menu_work(menu))))
     if source_scope is not None:
-        if source_scope not in SOURCE_NEED_OPTIONS:
+        if source_scope not in FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS:
             raise ValueError("Invalid Build source scope")
+        if source_scope == "current_saved_page" and getattr(policy, 'policy_version', None) != 'build_pending_execution_v1':
+            raise ValueError("Current-page source scope requires pending Build")
         resolution["source_scope"] = source_scope
     return resolution
 

@@ -64,6 +64,10 @@ async def acquire_pending_app_pages(adapter, harness):
     if len(work) != 1:
         raise ValueError('Pending App navigation requires one admitted work decision')
     work, = work
+    if work.resolution.get('source_scope') == 'current_saved_page':
+        # This reader recognizes future records but cannot produce this scope.
+        # In particular it must not resume them by enumerating the World catalog.
+        raise ValueError('Current-page-only acquisition requires its producer')
     if not pending_work_requests_evidence(work, execution.policy):
         return
     if not callable(adapter.pending_build_access) or adapter.fence is None:
