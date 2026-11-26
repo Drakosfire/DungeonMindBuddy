@@ -80,7 +80,7 @@ def test_live_plan_rejects_replay_options_before_loading_manifest(option, tmp_pa
 
 
 
-@pytest.mark.parametrize("status", ["active", "discarded"])
+@pytest.mark.parametrize("status", ["active", "discarded", "divergent"])
 def test_plan_fixture_requires_active_committed_revision(status):
     from evals.buddy_benchmark.browser_capture import require_plan_fixture_basis
 
@@ -89,11 +89,15 @@ def test_plan_fixture_requires_active_committed_revision(status):
     committed = {
         "schema_version": "dmb_workspace_committed_revision_v2", "scope_mode": "world",
         "campaign_id": None, "world_id": "elderwyld", "document_id": "plan-fixture",
-        "kind": "plan", "status": status, "object_revision": 3, "revision_n": 2,
+        "kind": "plan", "status": "active" if status == "divergent" else status,
+        "has_divergent_working_copy": status == "divergent", "object_revision": 3, "revision_n": 2,
         "content_sha256": "a" * 64, "markdown": "A unique placement paragraph.",
     }
     if status == "active":
         require_plan_fixture_basis(committed, "elderwyld", work, committed["markdown"])
+    elif status == "divergent":
+        with pytest.raises(ValueError, match="clean committed Plan"):
+            require_plan_fixture_basis(committed, "elderwyld", work, None, require_clean=True)
     else:
         with pytest.raises(ValueError, match="pinned active committed Plan"):
             require_plan_fixture_basis(committed, "elderwyld", work, committed["markdown"])

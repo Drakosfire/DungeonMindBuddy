@@ -374,7 +374,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         artifacts.immutable_save(directory, "committed-page-before", page_before)
                         if live_plan:
                             require_plan_fixture_basis(page_before["body"], world, work,
-                                                       manifest["browser_capture"].get("selection_text"))
+                                                       manifest["browser_capture"].get("selection_text"),
+                                                       require_clean=at_document_start)
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
@@ -625,7 +626,7 @@ def require_plan_history(history, expected):
         raise ValueError("Active conversation differs from the pinned Plan history")
 
 
-def require_plan_fixture_basis(committed, world, work, selection):
+def require_plan_fixture_basis(committed, world, work, selection, *, require_clean=False):
     """Require the same active committed Plan basis that the ordinary composer uses."""
     expected = {
         "schema_version": "dmb_workspace_committed_revision_v2",
@@ -641,5 +642,7 @@ def require_plan_fixture_basis(committed, world, work, selection):
     }
     if any(key not in committed or committed[key] != value for key, value in expected.items()):
         raise ValueError("Plan fixture is not the pinned active committed Plan")
+    if require_clean and committed.get("has_divergent_working_copy") is not False:
+        raise ValueError("Document-start placement requires a clean committed Plan")
     if selection is not None and committed["markdown"].count(selection) != 1:
         raise ValueError("Plan fixture selection is absent or ambiguous in the committed Plan")
