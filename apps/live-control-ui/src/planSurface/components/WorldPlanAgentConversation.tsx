@@ -140,15 +140,7 @@ import "../../agentInteraction/WorldConversationPresentation.css";
 const BUILD_SOURCE_REQUIRED_DESCRIPTION_ID = "world-plan-agent-build-source-required";
 
 function focusBuildSourceSelector(): void {
-  document.querySelector<HTMLSelectElement>("[data-testid='build-document-select']")?.focus({ preventScroll: false });
-}
-
-function openBuildSourceActions(): void {
-  const actions = document.querySelector<HTMLDetailsElement>("details.build-source-actions");
-  const summary = actions?.querySelector<HTMLElement>("summary");
-  if (!actions || !summary) return;
-  if (!actions.open) summary.click();
-  summary.focus({ preventScroll: true });
+  document.querySelector<HTMLButtonElement>("[data-testid='build-document-select']")?.focus({ preventScroll: false });
 }
 
 function buildSourceRequiredMessage(): string {
@@ -7731,7 +7723,6 @@ export function WorldPlanAgentConversation({
               {buildSourceRequiredMessage()}
             </p>
             <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={focusBuildSourceSelector}>Choose a source</button>
-            <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={openBuildSourceActions}>Open source actions</button>
           </> : null}
           {(isBuild||!isReadOnly) && !useWorldGraphForAsk ? <p role="note">Discussion only. Page proposals are available with World facts enabled.</p> : null}
           <p id="world-plan-agent-composer-hint" className="sr-only">
