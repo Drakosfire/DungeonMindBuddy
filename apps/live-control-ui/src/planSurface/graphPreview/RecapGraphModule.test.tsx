@@ -273,7 +273,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     fireEvent.change(screen.getByLabelText("Campaign"), { target: { value: "longmont-c1" } });
     await waitFor(() => expect(screen.getByLabelText("Focus session")).toHaveValue("session-16"));
     expect(read.mock.calls.some(call => call[1] === "longmont-c1")).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Load", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load", exact: true }));
     expect(await screen.findByText("Admitted longmont-c1 session-16.")).toBeInTheDocument();
     expect(read).toHaveBeenCalledWith("elderwyld", "longmont-c1", "session-16");
     expect(read.mock.calls.some(call => call[1] === "longmont-c1" && call[2] === "session-26")).toBe(false);
