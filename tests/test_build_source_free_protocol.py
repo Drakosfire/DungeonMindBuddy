@@ -2108,7 +2108,8 @@ def pending_app_runtime_case(monkeypatch, *, seed=None, initial_request_json=Non
         return state.trace
     monkeypatch.setattr(state.service, 'append_context_trace', append_observation)
     state.prompt_payloads = {}
-    def store(raw, *, digest, size):
+    def store(raw, *, digest, size, owner):
+        assert owner == (state.turn.world_id, state.turn.conversation_id)
         assert hashlib.sha256(raw.encode()).hexdigest() == digest and len(raw.encode()) == size
         identity = uuid4()
         state.prompt_payloads[str(identity)] = raw
