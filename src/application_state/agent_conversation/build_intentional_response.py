@@ -623,6 +623,17 @@ quoted examples, negations and alternatives do not themselves request creation.
 """
 
 
+_PRE_CREATIVE_CHAT_GUIDANCE = GUIDANCE
+GUIDANCE = _PRE_CREATIVE_CHAT_GUIDANCE + """
+Inventing names, titles, ideas or other text as the requested chat response is
+conversation or brainstorming, even when the ideas are new. Choose discuss,
+or draft_in_conversation when an editable draft for review is explicitly requested.
+Do not choose other_creation just because the text is creative. Keep a request
+for a concrete external action or artifact in its actual work category, and
+keep an explicit page destination or request for fresh source evidence.
+"""
+
+
 def _resolver_digest(work_options):
     return digest({
         "policy": POLICY,
@@ -636,6 +647,8 @@ MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
 _MENU_CONTRACTS = MappingProxyType({
     MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST, frozenset({"lore_outcomes"})),
+    digest(question(guidance=_PRE_CREATIVE_CHAT_GUIDANCE, work_options=WORK)):
+        (_PRE_CREATIVE_CHAT_GUIDANCE, WORK, _resolver_digest(WORK), frozenset({"lore_outcomes"})),
     digest(question(guidance=_PRE_LORE_OUTCOME_GUIDANCE, work_options=_PRE_LORE_OUTCOME_WORK)):
         (_PRE_LORE_OUTCOME_GUIDANCE, _PRE_LORE_OUTCOME_WORK, _resolver_digest(_PRE_LORE_OUTCOME_WORK)),
     digest(question(guidance=_PRE_REQUEST_REFERENCE_GUIDANCE, work_options=_PRE_REQUEST_REFERENCE_WORK)):

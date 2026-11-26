@@ -470,3 +470,19 @@ def test_current_source_scope_keeps_prior_reuse_guidance_and_adds_background_mea
     assert 'get familiar with an existing named subject' in c.SOURCE_NEED_GUIDANCE
     assert 'current-page draft is not evidence for the whole World' in c.SOURCE_NEED_GUIDANCE
     assert 'do not reacquire carried evidence' in c.SOURCE_NEED_GUIDANCE
+
+
+def test_creative_chat_guidance_preserves_the_previous_frozen_menu():
+    old = c.digest(c.question(guidance=c._PRE_CREATIVE_CHAT_GUIDANCE, work_options=c.WORK))
+    assert old != c.MENU_DIGEST
+    assert c.known_semantics(old, c.RESOLVER_DIGEST)
+    assert c.menu_offers_lore_outcomes(old)
+    assert c.decision_instructions(old).startswith(c._PRE_CREATIVE_CHAT_GUIDANCE)
+    assert c.decision_instructions().startswith(c.GUIDANCE)
+    assert 'Do not choose other_creation just because the text is creative' in c.decision_instructions()
+    assert 'request for fresh source evidence' in c.decision_instructions()
+    for label in ('discuss', 'draft_in_conversation', 'other_creation', 'write_current_page'):
+        response = {'answers': {'requested_work': {'selected': label,
+            'probabilities': {name: float(name == label) for name in c.WORK}}}}
+        assert c.selected(response, menu=old) == label
+        assert c.selected(response, menu=c.MENU_DIGEST) == label

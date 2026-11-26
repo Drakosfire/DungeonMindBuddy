@@ -51,6 +51,16 @@ provider-free boundary checks and ordinary captured turns for routing and
 surface evidence.
 
 
+## Creative conversation control
+
+Ask Buddy to invent a small list of new names as a chat reply and explicitly
+keep the page unchanged. The reply must provide the requested ideas, not an
+unavailable-action explanation, page proposal or source lookup. Include a
+contrasting request for a real external action and a factual request requiring
+fresh sources. Score the output and actual acquisition separately; missing
+acquisition capture is unknown. The synthetic negative benchmark case 151
+exposed a misclassification and is development evidence, not held-out proof.
+
 ## Unavailable Build executor control
 
 Ask for an action whose captured executor is explicitly unavailable, with no other information request. Cover both anchored and uncertain source-need decisions. The acknowledged Build work must complete with a truthful capability explanation, no invented successful action, no source acquisition and no page or Graph mutation. Measure real reads and mutations at their owners; missing capture is unknown. Also run a supported source-required request to confirm that required acquisition still occurs. Score a creative request misclassified as unavailable as a fulfillment failure.
