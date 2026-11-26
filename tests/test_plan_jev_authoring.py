@@ -188,8 +188,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             assert selected in question["criteria"]
             answers[name] = dict(type="choice", choice=selected, confidence=1.0,
                 probabilities={option: float(option == selected) for option in question["criteria"]})
+        assert body["model"] in {"jev-1.14.0", "typesafe-ai/jev-1.14.0"}
         return httpx2.Response(200, request=request, json={
-            "model": "jev-1.14.0", "answers": answers,
+            "model": body["model"], "answers": answers,
             "usage": {"input_tokens": 31, "output_tokens": 7},
         })
 

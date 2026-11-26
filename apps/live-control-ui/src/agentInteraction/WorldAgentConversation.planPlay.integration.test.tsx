@@ -2160,7 +2160,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     render(<Harness initial='build'/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));
-    expect(await screen.findByText(/This saved attempt cannot be retried safely/)).toBeVisible();
+    expect(await screen.findByText(/This request belongs to a reviewed plan step\. Continue from that plan\. Nothing was sent\./)).toBeVisible();
     expect(vi.mocked(getWorldAgentConversationHistory).mock.calls.some(([, options]) =>
       options?.limit === 1 && options.beforeSequence === reviewed.sequence + 1 && options.includeTurnCorrelation)).toBe(true);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
