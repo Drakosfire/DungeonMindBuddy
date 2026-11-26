@@ -424,6 +424,8 @@ The observed production turn searched the World and opened unrelated session
 recaps. Its zero Graph-search budget detects that failure even with partial
 capture. The current page is supplied as draft context; the assessor does not
 yet map an independently verified saved read of that same page, so it cannot
-qualify a saved-page citation or count that read as a proven violation. Preserve
+qualify a saved-page citation or count that read as a proven violation. The
+`current-page` allowance keeps unmapped App attempts unknown and excludes this
+case from the zero-allowed-read cohort aggregate. Preserve
 that distinction when interpreting this case; it is not an exact historical
 replay and does not establish complete capture.

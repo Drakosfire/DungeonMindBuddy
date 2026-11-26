@@ -3157,6 +3157,9 @@ def test_mixed_current_page_regression_flags_world_search_without_claiming_compl
     case = next(row for row in public['cases'] if row['id'] == 'dev-mixed-current-page')
     rubric = private['cases'][case['id']]
     assert 'recurring reminder' in case['request'] and 'saved The Tidekeeper page' in case['request']
+    from evals.negative_retrieval.trace_observation import UNKNOWN
+    assert assess(rubric, observation(outcome='answer', reads=[UNKNOWN], journal_complete=False))['checks']['unexpected_retrieval'] is None
+    assert assess(rubric, observation(outcome='answer', reads=['harbour'], journal_complete=False))['checks']['unexpected_retrieval'] is False
     assert assess(rubric, observation(outcome='answer', graph_query_attempts=1,
                                       graph_query_journal_complete=False))['checks']['graph_query_budget'] is False
     assert assess(rubric, observation(outcome='answer', graph_query_attempts=0,
