@@ -56,7 +56,7 @@ import { LoadedWorldGraphExplorer } from "../../graphLens/LoadedWorldGraphExplor
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { BuddyReadiness } from "../../agentInteraction/BuddyReadiness";
-import { ConversationRecovery } from "../../agentInteraction/ConversationRecovery";
+import { ConversationRecovery, retryUnavailableMessage } from "../../agentInteraction/ConversationRecovery";
 import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
@@ -5078,8 +5078,10 @@ export function WorldPlanAgentConversation({
       || !current || !sameHistoryPointer(current, snapshot))
       throw new Error('The page or conversation changed while checking this question. Nothing was sent.');
     if (isBuild) {
+      if (!full.retry_context?.eligible)
+        throw new Error(retryUnavailableMessage(full.retry_context));
       if (full.assistant_text || !['failed','interrupted'].includes(full.lifecycle_status)
-        || full.provenance.surface_id !== 'build' || !full.retry_context?.eligible)
+        || full.provenance.surface_id !== 'build')
         throw new Error('This saved attempt cannot be retried safely. Inspect its result or continue from its reviewed plan. Nothing was sent.');
       if (requirePassage && full.retry_context.author_interaction !== 'select_passage')
         throw new Error('The saved request changed. Refresh the conversation before continuing.');
