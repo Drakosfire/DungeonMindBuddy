@@ -427,6 +427,36 @@ def test_native_graph_probe_records_direct_calls_and_restores_after_error(monkey
             summarize_records(malformed)
 
 
+def test_native_graph_body_aliases_observe_attempts_without_payload(monkeypatch):
+    from apps.live_control_server.services import native_graph_reads
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners, summarize_records
+
+    sentinel = object()
+    def single(*args, **kwargs):
+        return sentinel
+    def batch(*args, **kwargs):
+        ids = args[1] if len(args) > 1 else kwargs.get("evidence_ref_ids")
+        if not ids:
+            return sentinel
+        raise ValueError("private failure")
+    monkeypatch.setattr(native_graph_reads, "open_admitted_native_text", single)
+    monkeypatch.setattr(native_graph_reads, "open_admitted_native_text_batch", batch)
+    with observe_native_graph_owners() as records:
+        assert native_graph_reads.open_admitted_native_text_batch("private", ()) is sentinel
+        assert native_graph_reads.open_admitted_native_text_batch("private", evidence_ref_ids=[]) is sentinel
+        assert records == []
+        assert native_graph_reads.open_admitted_native_text("private", "source") is sentinel
+        with pytest.raises(ValueError):
+            native_graph_reads.open_admitted_native_text_batch("private", ("source",))
+    assert records == [{"owner": "native_graph_body_open", "state": "returned"},
+                       {"owner": "native_graph_body_open_batch", "state": "raised"}]
+    assert summarize_records(records)["native_graph_body_open_batch"]["raised"] == 1
+    assert native_graph_reads.open_admitted_native_text is single
+    assert native_graph_reads.open_admitted_native_text_batch is batch
+    assert summarize_records([])["native_graph_body_open"] is None
+    assert summarize_records([])["native_graph_body_open_batch"] is None
+
+
 def test_app_catalog_source_body_probe_records_attempts_without_payload(monkeypatch):
     from application_state.agent_conversation import native_source_catalog
     from application_state.source import repository
@@ -805,6 +835,8 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         ("native_corpus_member_read", "returned", False),
         ("native_corpus_body_open", "returned", False),
         ("native_corpus_direct_read", "raised", False),
+        ("native_graph_body_open", "returned", False),
+        ("native_graph_body_open_batch", "raised", False),
         ("app_source_body_read", "returned", False),
         ("app_source_body_read", "raised", False),
         ("native_graph_selected_read", "entered", False),
@@ -818,6 +850,12 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         assert observed["status"] == "unproven"
     probe["records"] = []
     (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    # Empty batch calls produce no probe rows; partial absence stays unknown,
+    # not a false retrieval violation or a claim of complete zero.
+    native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
+        "coverage": "partial", "case_id": "case1", "status": "observed", "window": "turn_post_v1", "records": []}))
+    empty_batch = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+    assert empty_batch["checks"]["unexpected_retrieval"] is None
     native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
         "coverage": "partial", "case_id": "case1", "status": "observed",
         "records": [{"owner": "native_graph_query", "state": "returned"}]}))
@@ -2060,12 +2098,13 @@ def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
         assert negative["checks"]["unexpected_retrieval"] is False
     related["records"] = []
     (tmp_path / "related-page-probe.json").write_text(json.dumps(related))
-    for state in ("returned", "raised"):
-        native["records"] = [{"owner": "app_source_body_read", "state": state}]
-        (tmp_path / "native-graph-probe.json").write_text(json.dumps(native))
-        result = report_case(tmp_path, fixture, positive)
-        assert result["checks"]["required_evidence"] is None
-        assert result["status"] == "unproven"
+    for owner in ("app_source_body_read", "native_graph_body_open", "native_graph_body_open_batch"):
+        for state in ("returned", "raised"):
+            native["records"] = [{"owner": owner, "state": state}]
+            (tmp_path / "native-graph-probe.json").write_text(json.dumps(native))
+            result = report_case(tmp_path, fixture, positive)
+            assert result["checks"]["required_evidence"] is None
+            assert result["status"] == "unproven"
 
 
 def test_assessor_distinguishes_attempts_from_completed_required_reads():

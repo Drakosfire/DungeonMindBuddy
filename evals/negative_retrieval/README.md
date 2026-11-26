@@ -54,6 +54,16 @@ same search, so any number of unpaired trace events proves at least one search;
 the report takes the larger of that bound and the count of observed owner calls.
 Missing body-open coverage remains unknown.
 
+The native Graph reader imports its own single and batched native-text open
+aliases. The probe records these as `native_graph_body_open` and
+`native_graph_body_open_batch` attempts, including errors, without inputs or
+body text. The current batch path invokes the owner only for nonempty support
+IDs. Empty list or tuple batches do not attempt a source lookup and are not
+counted. These attempts can overlap other observed Graph/corpus owners, are not
+distinct-source or completed-read counts, and cannot credit required evidence.
+Old artifacts with no such observations remain unknown. PDF opens, other module
+aliases, workers and late calls remain uncovered; the journal stays partial.
+
 The App repository's `get_source_markdown` is observed as
 `app_source_body_read`, including the catalog navigation path. Calls are
 attempts, not proof that a body was returned or a count of distinct sources;

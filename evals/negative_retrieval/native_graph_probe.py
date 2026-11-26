@@ -18,6 +18,8 @@ _OWNERS = {
     "read_authored_reference": "native_graph_authored_reference_read",
     "reopen_context": "native_graph_context_reopen",
 }
+_GRAPH_BODY_OWNERS = {"open_admitted_native_text": "native_graph_body_open",
+                      "open_admitted_native_text_batch": "native_graph_body_open_batch"}
 _PREPARATION_OWNERS = {"prepare": "native_source_preparation"}
 _APP_SOURCE_OWNERS = {"get_source_markdown": "app_source_body_read"}
 _CORPUS_OWNERS = {
@@ -34,17 +36,18 @@ def summarize_records(records):
     if not isinstance(records, list) or any(
         not isinstance(row, dict) or set(row) != {"owner", "state"}
         or not isinstance(row["owner"], str) or not isinstance(row["state"], str)
-        or row["owner"] not in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values())
+        or row["owner"] not in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values(), *_GRAPH_BODY_OWNERS.values())
         or row["state"] not in {"entered", "returned", "raised"}
         for row in records
     ):
         raise ValueError("Malformed native Graph probe evidence")
     counts = {owner: {state: sum(row["owner"] == owner and row["state"] == state for row in records)
                       for state in ("entered", "returned", "raised")}
-              for owner in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values())}
+              for owner in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values(), *_GRAPH_BODY_OWNERS.values())}
     # Old v1 artifacts predate these hooks. Without an observed call, their
     # records cannot distinguish an inactive owner from absent instrumentation.
-    for owner in ("native_source_preparation", "native_graph_binding", "app_source_body_read"):
+    for owner in ("native_source_preparation", "native_graph_binding", "app_source_body_read",
+                  "native_graph_body_open", "native_graph_body_open_batch"):
         if not any(counts[owner].values()):
             counts[owner] = None
     return counts
@@ -65,6 +68,12 @@ def observe_native_graph_owners():
         def watch(owner, function):
             @wraps(function)
             def wrapped(*args, **kwargs):
+                # The Core batch owner does no source lookup for an empty
+                # list/tuple. Preserve its behavior without inventing a read.
+                if owner == "native_graph_body_open_batch":
+                    ids = args[1] if len(args) > 1 else kwargs.get("evidence_ref_ids")
+                    if isinstance(ids, (list, tuple)) and not ids:
+                        return function(*args, **kwargs)
                 row = {"owner": owner, "state": "entered"}
                 with record_lock:
                     records.append(row)
@@ -86,6 +95,8 @@ def observe_native_graph_owners():
             authored_source = getattr(authored, "read_authored_source", None)
             original_source = native_corpus_source.read_authored_source
             for name, owner in _OWNERS.items():
+                stack.enter_context(patch.object(native_graph_reads, name, watch(owner, getattr(native_graph_reads, name))))
+            for name, owner in _GRAPH_BODY_OWNERS.items():
                 stack.enter_context(patch.object(native_graph_reads, name, watch(owner, getattr(native_graph_reads, name))))
             for name, owner in _PREPARATION_OWNERS.items():
                 stack.enter_context(patch.object(plan_source_turn, name, watch(owner, getattr(plan_source_turn, name))))

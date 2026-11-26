@@ -67,6 +67,17 @@ The subsequent captures below add an App-source control; native Core control,
 complete acquisition coverage, independent held-out qualification and accepted
 cleanup remain outstanding.
 
+## Native Graph body-open coverage increment
+
+The current Graph reader has separately imported single and batch native-text
+open functions that the corpus-module probe did not cover. The evaluator now
+wraps those Graph-local aliases and treats their outcomes as unmapped attempts,
+not proof of a completed or distinct source read. No input, source identity or
+body enters these records. An old artifact without a call remains unknown. This
+is a partial diagnostic: PDF opens, other aliases, other processes and late
+work still require coverage. Existing development captures predate this hook
+and do not become proof of zero acquisition merely by rescoring them.
+
 ## Current-source development observations
 
 The 60-exchange frozen context-reuse case completed through the ordinary local
