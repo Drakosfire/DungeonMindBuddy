@@ -202,6 +202,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
                       "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read",
                       "native_corpus_body_open", "app_source_body_read", "app_source_body_read_batch",
+                      "app_source_body_read_revision",
                       "native_graph_body_open", "native_graph_body_open_batch"):
             counts = native_probe["counts"][owner]
             if counts is not None:

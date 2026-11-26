@@ -22,7 +22,8 @@ _GRAPH_BODY_OWNERS = {"open_admitted_native_text": "native_graph_body_open",
                       "open_admitted_native_text_batch": "native_graph_body_open_batch"}
 _PREPARATION_OWNERS = {"prepare": "native_source_preparation"}
 _APP_SOURCE_OWNERS = {"get_source_markdown": "app_source_body_read",
-                      "get_source_markdown_batch": "app_source_body_read_batch"}
+                      "get_source_markdown_batch": "app_source_body_read_batch",
+                      "get_source_markdown_by_revision_id": "app_source_body_read_revision"}
 _CORPUS_OWNERS = {
     "read_authored_source": "native_corpus_authored_source_read",
     "capture_native_sources": "native_corpus_discovery",
@@ -48,7 +49,8 @@ def summarize_records(records):
     # Old v1 artifacts predate these hooks. Without an observed call, their
     # records cannot distinguish an inactive owner from absent instrumentation.
     for owner in ("native_source_preparation", "native_graph_binding", "app_source_body_read",
-                  "native_graph_body_open", "native_graph_body_open_batch", "app_source_body_read_batch"):
+                  "native_graph_body_open", "native_graph_body_open_batch", "app_source_body_read_batch",
+                  "app_source_body_read_revision"):
         if not any(counts[owner].values()):
             counts[owner] = None
     return counts
