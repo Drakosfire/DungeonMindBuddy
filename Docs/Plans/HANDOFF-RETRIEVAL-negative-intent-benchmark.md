@@ -168,6 +168,22 @@ answers. The private naming rubric now explicitly treats this unnecessary caveat
 as a response-quality failure. A runtime correction belongs in the subsequent
 serial implementation slice with creative, mixed and required-source controls.
 
+## Capture requires an owned App clone
+
+The ordinary runner checked manifest database pins and read-only Core access,
+but the negative capture wrapper did not itself require the workstream's App
+ownership ledger before delegating. It now invokes the existing owner guard
+before fixture access, output creation or provider dispatch. The guard checks a
+live owner and worker group, exact source and clean checkout, App endpoint,
+OID and cluster identity. It does not create or drop a database; a separate
+owner must hold `disposable_benchmark_database` across the workstream and
+perform capacity checks and eventual teardown. Focused unit checks confirmed
+that a failed guard prevents runner entry and output creation, and that the
+verified guard precedes delegation. The preflight-window test was corrected to
+exercise an actual turn POST rather than a direct owner call outside the probe.
+Seventeen selected capture/isolation checks passed without a database or provider.
+These checks do not establish live capture or complete acquisition coverage.
+
 ## Pending Build fixture binding
 
 The former verifier accepted only `dmb_agent_surface_native_context_response_v1`,

@@ -20,6 +20,7 @@ from .fixture_binding import verify_preflight_history, verify_preflight_snapshot
 from .fixture_sources import inspect_related_pages
 from .related_page_probe import observe_related_page_owners
 from .native_graph_probe import observe_native_graph_owners
+from .owned_db_fixture import checked_owned_dsn
 
 _lock = Lock()
 
@@ -75,6 +76,11 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             for case in spec["cases"]:
                 if fixtures[case["id"]]["request"] != case["question"]:
                     raise ValueError("Fixture request differs from ordinary capture")
+        # The ordinary runner checks its manifest pins and Core login, but its
+        # cohort path does not establish that this caller owns the App clone.
+        # Require the live workstream owner and exact database identity before
+        # any fixture access, output creation or provider dispatch.
+        checked_owned_dsn()
         original = workflow.capture_case
 
         def observed_case(client, world, template, case, directory, **kwargs):

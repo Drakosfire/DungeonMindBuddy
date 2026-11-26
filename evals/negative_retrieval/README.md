@@ -160,8 +160,11 @@ checks the actual prior dialogue after capture. The wrapper does not seed the co
 and concurrent history changes must invalidate the binding. The wrapper refuses
 per-capture App cloning and selects the existing pinned cohort
 path, which enforces a dedicated read-only Core login and avoids full Core
-inventory scans. The executor must provide its already owned workstream App
-clone and prove ownership, capacity, reset and teardown separately. The wrapper
+inventory scans. Before delegating, capture requires the live workstream owner
+ledger and checks the App clone's endpoint, OID and cluster identity. The
+executor must provide the already owned clone and prove capacity, reset and
+teardown separately. The wrapper creates or drops no database; the clone owner
+must hold `disposable_benchmark_database` across the workstream. The wrapper
 does not seed a fixture, authorize a provider or deployment, or provide a
 complete acquisition journal. Read the ordinary benchmark manifest and policy
 before invoking it; Plan and the context-only writer stop are not supported.

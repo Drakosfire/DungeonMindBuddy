@@ -6,6 +6,13 @@ import pytest
 MANIFEST_PIN = sha256(b"{}").hexdigest()
 
 
+@pytest.fixture
+def verified_capture_owner(monkeypatch):
+    """Simulated owner for tests that never contact a real database."""
+    from evals.negative_retrieval import capture as module
+    monkeypatch.setattr(module, "checked_owned_dsn", lambda: "synthetic-owned-clone")
+
+
 def _test_manifest(tmp_path):
     path = tmp_path / "capture-manifest-input.json"
     path.write_text("{}")
@@ -447,7 +454,7 @@ def test_empty_catalog_discovery_is_not_a_zero_acquisition_pass():
     assert result["status"] == "fail"
 
 
-def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, monkeypatch):
+def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, monkeypatch, verified_capture_owner):
     import json
     import pytest
     from evals.buddy_benchmark import workflow
@@ -879,7 +886,7 @@ def test_related_page_fixture_preflight_rejects_extra_changed_and_duplicate_sour
             inspect_related_pages(request, fixture)
 
 
-def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_path, monkeypatch):
+def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_path, monkeypatch, verified_capture_owner):
     import json
     import pytest
     from apps.live_control_server.services import build_related_pages
@@ -894,14 +901,18 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
     monkeypatch.setattr(module, "verify_preflight_snapshot", lambda *a: True)
     monkeypatch.setattr(module, "inspect_related_pages", lambda *a: seen.append("fixture") or [])
     monkeypatch.setattr(build_related_pages, "discover", lambda _: [])
+    class Client:
+        def post(self, route):
+            assert route == "/api/live/agent/turn"
+            return build_related_pages.discover(None)
     def ordinary_case(client, world, template, current, directory, **kwargs):
         assert not directory.exists()
         seen.append("turn")
-        build_related_pages.discover(None)
+        client.post("/api/live/agent/turn")
         return "done"
     monkeypatch.setattr(workflow, "capture_case", ordinary_case)
     def ordinary_capture(manifest, output, **kwargs):
-        return workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output)
+        return workflow.capture_case(Client(), "w", {"primary_work": {"object_id": "page"}}, case, output)
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     out = tmp_path / "success"
     fixture_set = {"case1": fixture}
@@ -925,7 +936,7 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
     assert json.loads((tmp_path / "failure" / "fixture-sources.json").read_text())["status"] == "preflight_failed"
 
 
-def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch):
+def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch, verified_capture_owner):
     import pytest
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval import capture as module
@@ -1005,7 +1016,7 @@ def test_fixture_source_record_rejects_world_and_content_mismatches():
             verify_related_record(request, fixture, bad)
 
 
-def test_postflight_failure_is_retained_and_stops_capture(tmp_path, monkeypatch):
+def test_postflight_failure_is_retained_and_stops_capture(tmp_path, monkeypatch, verified_capture_owner):
     import json
     import pytest
     from evals.buddy_benchmark import workflow
@@ -1100,7 +1111,7 @@ def test_capture_rejects_changed_or_unpinned_fixture_before_dispatch(tmp_path, m
     assert not (tmp_path / "out").exists()
 
 
-def test_capture_uses_frozen_fixture_snapshot_if_caller_mutates_input(tmp_path, monkeypatch):
+def test_capture_uses_frozen_fixture_snapshot_if_caller_mutates_input(tmp_path, monkeypatch, verified_capture_owner):
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval import capture as module
 
@@ -1171,7 +1182,7 @@ def test_seeder_refuses_forged_saved_page_before_conversation(monkeypatch):
         module.seed_dialogue(fixture, world=world, template=template, snapshot=snapshot)
 
 
-def test_capture_delegates_to_read_only_core_cohort_path(tmp_path, monkeypatch):
+def test_capture_delegates_to_read_only_core_cohort_path(tmp_path, monkeypatch, verified_capture_owner):
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval.capture import capture
 
@@ -1386,7 +1397,7 @@ def test_response_latency_rejects_invalid_values(value):
     assert response_latency({}) is None
 
 
-def test_capture_probe_excludes_setup_and_history_activity(tmp_path, monkeypatch):
+def test_capture_probe_excludes_setup_and_history_activity(tmp_path, monkeypatch, verified_capture_owner):
     import json
     from apps.live_control_server.services import build_related_pages
     from evals.buddy_benchmark import workflow
@@ -1424,7 +1435,7 @@ def test_capture_probe_excludes_setup_and_history_activity(tmp_path, monkeypatch
     assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "returned"}]
 
 
-def test_capture_probe_marks_predispatch_failure_not_started(tmp_path, monkeypatch):
+def test_capture_probe_marks_predispatch_failure_not_started(tmp_path, monkeypatch, verified_capture_owner):
     import json
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval.capture import capture
@@ -1444,7 +1455,7 @@ def test_capture_probe_marks_predispatch_failure_not_started(tmp_path, monkeypat
         assert evidence["status"] == "not_started" and evidence["records"] == []
 
 
-def test_probe_freezes_rows_before_late_alias_and_background_completion(tmp_path, monkeypatch):
+def test_probe_freezes_rows_before_late_alias_and_background_completion(tmp_path, monkeypatch, verified_capture_owner):
     import json
     from threading import Event, Thread
     from apps.live_control_server.services import build_related_pages
@@ -1487,7 +1498,7 @@ def test_probe_freezes_rows_before_late_alias_and_background_completion(tmp_path
 
 
 @pytest.mark.parametrize("kind", ["async_method", "awaitable_response"])
-def test_capture_rejects_async_post_without_claiming_a_completed_window(tmp_path, monkeypatch, kind):
+def test_capture_rejects_async_post_without_claiming_a_completed_window(tmp_path, monkeypatch, verified_capture_owner, kind):
     import json
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval.capture import capture
@@ -1514,7 +1525,7 @@ def test_capture_rejects_async_post_without_claiming_a_completed_window(tmp_path
         assert evidence["records"] == []
 
 
-def test_probe_window_wraps_real_sync_testclient_turn_post(tmp_path, monkeypatch):
+def test_probe_window_wraps_real_sync_testclient_turn_post(tmp_path, monkeypatch, verified_capture_owner):
     import json
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -1809,3 +1820,34 @@ def test_pending_fixture_binding_uses_real_receipt_and_conversation_pointer():
         verify_fixture(fixture, request, envelope(prior), envelope({**after, 'turns': [turn | {'knowledge_context': damaged}]}))
     with pytest.raises(ValueError, match='Unsupported'):
         verify_fixture(fixture, request, envelope(prior), envelope({**after, 'turns': [turn | {'knowledge_context': {'schema': 'other'}}]}))
+
+
+def test_capture_rejects_unowned_app_before_runner_and_output(tmp_path, monkeypatch):
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+
+    calls = []
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
+                        ({"conversation_mode": "build_sequence"}, tmp_path))
+    monkeypatch.setattr(workflow, "capture", lambda *a, **k: calls.append("runner"))
+    def denied():
+        calls.append("owner")
+        raise ValueError("clone is not owned")
+    monkeypatch.setattr(module, "checked_owned_dsn", denied)
+    output = tmp_path / "not-created"
+    with pytest.raises(ValueError, match="clone is not owned"):
+        module.capture(_test_manifest(tmp_path), output, expected_manifest_sha256=MANIFEST_PIN)
+    assert calls == ["owner"] and not output.exists()
+
+
+def test_capture_checks_owned_app_before_delegating(tmp_path, monkeypatch):
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+
+    calls = []
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
+                        ({"conversation_mode": "build_sequence"}, tmp_path))
+    monkeypatch.setattr(module, "checked_owned_dsn", lambda: calls.append("owner"))
+    monkeypatch.setattr(workflow, "capture", lambda *a, **k: calls.append("runner") or "ok")
+    assert module.capture(_test_manifest(tmp_path), tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN) == "ok"
+    assert calls == ["owner", "runner"]
