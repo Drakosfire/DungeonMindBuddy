@@ -6,12 +6,14 @@ import asyncio
 import logging
 import os
 import stat
-from contextlib import ExitStack
+from collections.abc import Iterator
+from contextlib import ExitStack, closing, contextmanager
 from uuid import UUID
 
 import psycopg
 
 from application_state.agent_conversation.service import _ready_dsn
+from application_state.engine import connect
 from application_state.errors import ApplicationStateError, ApplicationStateUnavailableError
 from application_state.unit_of_work import unit_of_work
 from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
@@ -22,6 +24,32 @@ _EVIDENCE_DIRECTORIES = {
 }
 _DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 _LOG = logging.getLogger(__name__)
+
+
+
+@contextmanager
+def register_private_evidence(
+    owner: tuple[str, UUID], *, kind: str, evidence_id: UUID,
+) -> Iterator[None]:
+    """Commit an owned file handle first, then fence its creation against deletion."""
+    world_id, conversation_id = owner
+    with closing(connect()) as conn:
+        with conn.transaction():
+            conn.execute("""
+                INSERT INTO agent.conversation_evidence_file
+                    (world_id, conversation_id, evidence_id, kind)
+                VALUES (%s, %s, %s, %s)
+            """, (world_id, conversation_id, evidence_id, kind))
+        with conn.transaction():
+            parent = conn.execute("""
+                SELECT 1 FROM agent.conversation
+                WHERE world_id=%s AND conversation_id=%s FOR KEY SHARE
+            """, (world_id, conversation_id)).fetchone()
+            if parent is None:
+                raise ApplicationStateUnavailableError("Conversation evidence owner is unavailable.")
+            # The erasure transaction must wait for this lock before opening
+            # its outbox. No file can be created after the parent vanishes.
+            yield
 
 
 def _erase_file(kind: str, evidence_id: UUID) -> None:

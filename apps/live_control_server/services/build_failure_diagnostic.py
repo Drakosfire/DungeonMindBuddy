@@ -1,4 +1,5 @@
 """Private exception evidence; safe class/stage metadata is the only trace projection."""
+from contextlib import nullcontext
 from hashlib import sha256
 import json
 import os
@@ -15,7 +16,9 @@ def _name(exc):
     return name if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,127}', name) else 'Exception'
 
 
-def store_failure(exc, *, stage, turn_id, attempt):
+def store_failure(exc, *, stage, turn_id, attempt, owner=None):
+    from .conversation_erasure import register_private_evidence
+
     identity = uuid4()
     chain = []
     current = exc
@@ -30,34 +33,36 @@ def store_failure(exc, *, stage, turn_id, attempt):
     payload = json.dumps({'schema': 'dmb_build_failure_diagnostic_v1', 'diagnostic_id': str(identity),
         'turn_id': str(turn_id), 'attempt': attempt, 'stage': stage, 'exception_types': chain,
         'traceback': text[-64000:], 'truncated': truncated}, ensure_ascii=False).encode()
-    descriptors = []
-    try:
-        directory = os.open(artifact_data_root(), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        descriptors.append(directory)
-        for name in ('out', 'agent_failure_evidence'):
-            try:
-                os.mkdir(name, mode=0o700, dir_fd=directory)
-            except FileExistsError:
-                pass
-            directory = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
-            descriptors.append(directory)
-        info = os.fstat(directory)
-        if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
-            raise ValueError('failure_evidence_directory_not_private')
-        filename = str(identity) + '.json'
-        fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+    registration = register_private_evidence(owner, kind="failure", evidence_id=identity) if owner else nullcontext()
+    with registration:
+        descriptors = []
         try:
-            with os.fdopen(fd, 'wb') as stream:
-                stream.write(payload)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.fsync(directory)
-        except BaseException:
-            os.unlink(filename, dir_fd=directory)
-            raise
-    finally:
-        for fd in reversed(descriptors):
-            os.close(fd)
+            directory = os.open(artifact_data_root(), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            descriptors.append(directory)
+            for name in ('out', 'agent_failure_evidence'):
+                try:
+                    os.mkdir(name, mode=0o700, dir_fd=directory)
+                except FileExistsError:
+                    pass
+                directory = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+                descriptors.append(directory)
+            info = os.fstat(directory)
+            if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+                raise ValueError('failure_evidence_directory_not_private')
+            filename = str(identity) + '.json'
+            fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+            try:
+                with os.fdopen(fd, 'wb') as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.fsync(directory)
+            except BaseException:
+                os.unlink(filename, dir_fd=directory)
+                raise
+        finally:
+            for fd in reversed(descriptors):
+                os.close(fd)
     return {'diagnostic_id': identity, 'diagnostic_sha256': sha256(payload).hexdigest(),
         'exception_type': chain[0], 'cause_type': chain[-1], 'stage': stage}
 

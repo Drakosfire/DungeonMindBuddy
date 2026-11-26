@@ -430,8 +430,12 @@ class BuildJevHarness:
         logging.getLogger(__name__).error("Build execution failed at %s (%s)", stage, type(exc).__name__)
         try:
             turn = adapter.turn
-            metadata = store_failure(exc, stage=stage, turn_id=turn.turn_id if turn else None,
-                attempt=turn.attempt if turn else None)
+            if turn is None:
+                return
+            metadata = store_failure(
+                exc, stage=stage, turn_id=turn.turn_id, attempt=turn.attempt,
+                owner=(turn.world_id, turn.conversation_id),
+            )
             logging.getLogger(__name__).error("Build failure diagnostic %s", metadata["diagnostic_id"])
             if adapter.context_capture:
                 adapter.context_capture.observe({"kind": "failure", "phase": "context_build" if capacity else "provider" if stage == "writer_generation" else "delivery",

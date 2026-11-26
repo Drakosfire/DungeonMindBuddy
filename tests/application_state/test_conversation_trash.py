@@ -303,3 +303,39 @@ def test_retry_edge_is_immutable_until_its_trashed_conversation_is_erased(applic
     service.delete_conversation(ConversationDeleteCommand(**command(service, cid).model_dump()))
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute("SELECT 1 FROM agent.turn_retry WHERE conversation_id=%s", (cid,)).fetchall() == []
+
+
+def test_conversation_erases_files_without_an_acknowledged_trace(application_state_dsn, tmp_path, monkeypatch):
+    from hashlib import sha256
+
+    from application_state.agent_conversation.types import ConversationDeleteCommand
+    from apps.live_control_server.services import agent_prompt_evidence, build_failure_diagnostic, conversation_erasure
+
+    monkeypatch.setattr(agent_prompt_evidence, "artifact_data_root", lambda: tmp_path)
+    monkeypatch.setattr(build_failure_diagnostic, "artifact_data_root", lambda: tmp_path)
+    monkeypatch.setattr(conversation_erasure, "artifact_data_root", lambda: tmp_path)
+    service = AgentConversationService()
+    cid = new(service)
+    owner = ("world-one", cid)
+    prompt_id = agent_prompt_evidence.store_prompt(
+        "{}", digest=sha256(b"{}").hexdigest(), size=2, owner=owner,
+    )
+    diagnostic = build_failure_diagnostic.store_failure(
+        ValueError("private failure"), stage="delivery", turn_id=uuid4(), attempt=1, owner=owner,
+    )["diagnostic_id"]
+    files = [
+        tmp_path / "out" / "agent_request_evidence" / f"{prompt_id}.json",
+        tmp_path / "out" / "agent_failure_evidence" / f"{diagnostic}.json",
+    ]
+    assert all(path.is_file() for path in files)
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM agent.turn_context_trace").fetchone()[0] == 0
+
+    service.set_conversation_trash(command(service, cid), restore=False)
+    service.delete_conversation(ConversationDeleteCommand(**command(service, cid).model_dump()))
+    conversation_erasure.finish_conversation_erasure(cid)
+    assert all(not path.exists() for path in files)
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("""
+            SELECT count(*) FROM agent.conversation_evidence_file WHERE conversation_id=%s
+        """, (cid,)).fetchone()[0] == 0

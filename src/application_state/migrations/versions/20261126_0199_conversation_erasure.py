@@ -32,12 +32,37 @@ _CONVERSATION_CHILDREN = (
 def upgrade() -> None:
     op.execute("""
         CREATE TABLE agent.conversation_erasure_file (
-            conversation_id uuid NOT NULL REFERENCES agent.conversation_identity(conversation_id),
+            conversation_id uuid NOT NULL,
             evidence_id uuid NOT NULL,
             kind text NOT NULL CHECK (kind IN ('prompt', 'failure')),
             retry_after timestamptz NOT NULL DEFAULT '-infinity',
             PRIMARY KEY (conversation_id, kind, evidence_id)
         );
+        CREATE TABLE agent.conversation_evidence_file (
+            world_id text NOT NULL,
+            conversation_id uuid NOT NULL,
+            evidence_id uuid PRIMARY KEY,
+            kind text NOT NULL CHECK (kind IN ('prompt', 'failure')),
+            FOREIGN KEY (conversation_id, world_id)
+                REFERENCES agent.conversation (conversation_id, world_id) ON DELETE CASCADE
+        );
+        CREATE INDEX conversation_evidence_by_chat ON agent.conversation_evidence_file
+            (world_id, conversation_id);
+
+        CREATE FUNCTION agent.queue_registered_conversation_evidence() RETURNS trigger
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+        BEGIN
+            INSERT INTO agent.conversation_erasure_file (conversation_id, evidence_id, kind)
+                SELECT conversation_id, evidence_id, kind FROM agent.conversation_evidence_file
+                WHERE world_id = OLD.world_id AND conversation_id = OLD.conversation_id
+                ON CONFLICT DO NOTHING;
+            RETURN OLD;
+        END;
+        $$;
+        REVOKE EXECUTE ON FUNCTION agent.queue_registered_conversation_evidence() FROM PUBLIC;
+        CREATE TRIGGER conversation_queue_registered_evidence BEFORE DELETE ON agent.conversation
+            FOR EACH ROW EXECUTE FUNCTION agent.queue_registered_conversation_evidence();
+
         CREATE FUNCTION agent.lock_conversation_erasure_files(target_conversation uuid)
         RETURNS TABLE (conversation_id uuid, kind text, evidence_id uuid)
         LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
@@ -56,12 +81,54 @@ def upgrade() -> None:
             IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'dmb_app_runtime') THEN
                 GRANT SELECT, DELETE ON agent.conversation_erasure_file TO dmb_app_runtime;
                 GRANT UPDATE (retry_after) ON agent.conversation_erasure_file TO dmb_app_runtime;
+                GRANT INSERT ON agent.conversation_evidence_file TO dmb_app_runtime;
                 GRANT EXECUTE ON FUNCTION agent.lock_conversation_erasure_files(uuid)
                     TO dmb_app_runtime;
             END IF;
         END;
         $$;
     """)
+    # Guest expiry erases these records before removing the conversation row.
+    # Capture the older, pre-registration references as part of that same transaction.
+    op.execute("""
+        CREATE FUNCTION agent.queue_guest_trace_evidence() RETURNS trigger
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+        BEGIN
+            INSERT INTO agent.conversation_erasure_file (conversation_id, evidence_id, kind)
+            SELECT turn.conversation_id,
+                   (CASE event->>'kind' WHEN 'prompt_reference' THEN event->>'evidence_id'
+                                       ELSE event->>'diagnostic_id' END)::uuid,
+                   CASE event->>'kind' WHEN 'prompt_reference' THEN 'prompt' ELSE 'failure' END
+            FROM agent.turn AS turn
+            CROSS JOIN LATERAL jsonb_array_elements(OLD.payload->'observations') AS event
+            WHERE turn.turn_id = OLD.turn_id AND turn.world_id LIKE 'guest-%'
+              AND (event->>'kind' = 'prompt_reference' AND event->>'evidence_id' IS NOT NULL
+                OR event->>'kind' = 'failure' AND event->>'diagnostic_id' IS NOT NULL)
+            ON CONFLICT DO NOTHING;
+            RETURN OLD;
+        END;
+        $$;
+        REVOKE EXECUTE ON FUNCTION agent.queue_guest_trace_evidence() FROM PUBLIC;
+        CREATE TRIGGER queue_guest_trace_evidence BEFORE DELETE ON agent.turn_context_trace
+            FOR EACH ROW WHEN (OLD.payload->>'world_id' LIKE 'guest-%')
+            EXECUTE FUNCTION agent.queue_guest_trace_evidence();
+
+        CREATE FUNCTION agent.queue_guest_build_evidence() RETURNS trigger
+        LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+        BEGIN
+            INSERT INTO agent.conversation_erasure_file (conversation_id, evidence_id, kind)
+            VALUES (OLD.conversation_id, (OLD.payload #>> '{authorization,evidence_id}')::uuid, 'prompt')
+            ON CONFLICT DO NOTHING;
+            RETURN OLD;
+        END;
+        $$;
+        REVOKE EXECUTE ON FUNCTION agent.queue_guest_build_evidence() FROM PUBLIC;
+        CREATE TRIGGER queue_guest_build_evidence BEFORE DELETE ON agent.build_proposal
+            FOR EACH ROW WHEN (OLD.world_id LIKE 'guest-%'
+                           AND OLD.payload #>> '{authorization,evidence_id}' IS NOT NULL)
+            EXECUTE FUNCTION agent.queue_guest_build_evidence();
+    """)
+
     # Removing a turn removes its retry edges. Direct edits or deletes of a live
     # edge remain prohibited, including on a trashed conversation.
     for turn in ("predecessor_id", "successor_id", "root_id"):
