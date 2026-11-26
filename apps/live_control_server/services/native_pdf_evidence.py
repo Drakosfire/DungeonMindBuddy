@@ -1,9 +1,30 @@
 """Render a PDF evidence record after the caller verifies Graph admission."""
 
+from hashlib import sha256
+
+from dungeonmind.application.vnext.native_source_admission import allocate_native_source_id
+
 from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
 from dungeonmind.application.vnext.native_pdf_access import open_native_pdf_region
 from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from apps.live_control_server.services.build_pdf_region_render import render_region
+
+
+PDF_REGION_TEXT_CLIENT_REF = "reviewed-region"
+
+
+def pdf_region_text_admission_id(region):
+    locator_digest = sha256(region.model_dump_json().encode()).hexdigest()
+    return f"dmb:pdf-region-text:v1:{locator_digest}"
+
+
+def pdf_region_text_evidence_id(space_id, region):
+    return allocate_native_source_id(
+        space_id=space_id,
+        admission_id=pdf_region_text_admission_id(region),
+        identity_kind="evidence",
+        client_ref=PDF_REGION_TEXT_CLIENT_REF,
+    )
 
 
 def open_admitted_pdf_evidence(evidence, *, space_id, load):
