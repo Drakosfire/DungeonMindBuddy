@@ -9,7 +9,7 @@ assessment local.
 
 | Action | Strongest verified boundary | Remaining proof |
 | --- | --- | --- |
-| Explain an unavailable Build action | Build pending-work owner and writer: focused synthetic tests cover an acknowledged unavailable executor and an honest capability reply without source acquisition. [Slice and limits](../Docs/Plans/HANDOFF-RETRIEVAL-unavailable-action.md) | Verify an ordinary deployed turn, no action or source acquisition, and truthful limitations. A misclassified creative request still fails fulfillment even if safely handled. |
+| Explain an unavailable Build action | A signed-in Build reminder request returned an honest limitation after the source-free recovery was deployed. A reader-only slice prepares compatibility for an unavailable action combined with an explicit saved-source lookup; the producer remains unchanged. [Mixed-source slice and limits](../Docs/Plans/HANDOFF-RETRIEVAL-mixed-unavailable-source.md) | Enable and verify the mixed request through an ordinary deployed turn, including source support and no action. Mixed uncertain-source requests and complete acquisition coverage remain unproven. |
 | Discuss, clarify, or brainstorm in chat | The opening Meat Mind dogfood produced a grounded reply with excessive retrieval. PA01 retains a Sheep discussion where Buddy offered an unsolicited insertion after prior page writing. A default-off guest Plan discussion slice exercises a real guest session, copied synthetic World, selected Graph object and source, sourced answer and citation with synthetic provider transports, including reset and cross-session denial. Guest Build and Play discussions also complete through their normal guest HTTP paths with synthetic providers and reject reset-during-writer responses. [Plan evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-buddy.md) · [Build evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-build-buddy.md) · [Play evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-play-buddy.md) | Stay in conversation, ask a focused question when needed, reuse adequate admitted context, and offer zero page proposals. Verify guest discussion and Graph selection through the normal deployed UI with real Sizzek sources and provider; effects and streaming are not established by these synthetic tests. |
 | Resolve an ambiguous Build paragraph placement | The [pending App HTTP regression](../tests/application_state/test_pending_build_storage.py) exercises the saved clarification, original request with its answer, and exact paragraph review without acquisition. The [client protocol](../apps/live-control-ui/src/shared/surfaceNativeProtocol.test.ts) checks the pending proposal acknowledgement. The [editor regression](../apps/live-control-ui/src/buildSurface/buildComposeBridge.test.ts) covers proposal reopening after plain Markdown reload. | Exercise the pending question, answer, and proposal reopen in the deployed app. The editor and saved page must remain unchanged until acceptance. |
 | Ask and resume clarifying questions in conversation | Clarification is an existing intent and inline conversation response. Retained [conversation-first cases](conversation_first/cases.py) cover asking first, staying off the page, and proceeding after the user answers. The [duplicate-question delivery slice](../Docs/Plans/HANDOFF-CLARIFICATION-duplicate-question-delivery.md) verifies native completion replay; a synthetic local app retry rendered the question and accepted its answer, but the subsequent suggestion failed to complete. | Qualify reopen and continuation with ordinary-turn evidence. An unanswered preference calls for a question, with no retrieval or page proposal. Keep the request and the user's answer bound to the same workflow. |
@@ -60,6 +60,16 @@ contrasting request for a real external action and a factual request requiring
 fresh sources. Score the output and actual acquisition separately; missing
 acquisition capture is unknown. The synthetic negative benchmark case 151
 exposed a misclassification and is development evidence, not held-out proof.
+
+## Mixed unavailable action and source-required control
+
+Ask for an unavailable external action and, in the same message, an answer
+that requires a specific saved source. Buddy must say the action cannot be
+performed, retrieve and cite the requested source for the factual answer,
+preserve its qualifications, and make no action or page mutation. Score source
+identity, support, side effects and response separately; unknown acquisition
+coverage is not a zero-read claim. Also run the action-only negative and an
+ordinary source-required request.
 
 ## Unavailable Build executor control
 

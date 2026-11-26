@@ -326,6 +326,22 @@ def pending_source_work(execution):
     return work
 
 
+def pending_work_requests_evidence(work, policy):
+    """Keep an unavailable executor barred while allowing an explicit factual lookup."""
+    if (work.resolution.get('source_scope') not in {'source_lookup', 'uncertain'}
+            or work.requested_work in {'review_blank_lore_page', 'clarify_request', 'clarify_creation'}):
+        return False
+    barrier = work.resolution.get('barrier')
+    if barrier is None:
+        return True
+    from .build_intentional_response import UNAVAILABLE, validate_resolution_metadata
+    if (barrier != 'requested_executor_not_offered' or work.requested_work not in UNAVAILABLE
+            or work.resolution.get('source_scope') != 'source_lookup'):
+        return False
+    validate_resolution_metadata(work, policy)
+    return True
+
+
 def _pending_evidence_work(execution):
     """Pre-coverage work shape only; never permission for source preparation."""
     from . import types as t
@@ -349,9 +365,7 @@ def _pending_evidence_work(execution):
     work, = rows
     if any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events):
         raise ValueError('Pending retained conversation cannot acquire another source scope')
-    if (work.resolution.get('barrier') is not None
-            or work.resolution.get('source_scope') not in {'source_lookup', 'uncertain'}
-            or work.requested_work in {'review_blank_lore_page', 'clarify_request', 'clarify_creation'}):
+    if not pending_work_requests_evidence(work, execution.policy):
         raise ValueError("Pending source work does not request evidence acquisition")
     return work
 
