@@ -340,8 +340,14 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         page_after = workflow.response_envelope(
                             client.get(page_route, params={"view": "committed"}).raise_for_status())
                         artifacts.immutable_save(directory, "committed-page-after", page_after)
+                        matched_turn = turns[0] if len(turns) == 1 else None
+                        lifecycle = matched_turn["lifecycle_status"] if matched_turn is not None else None
                         artifacts.immutable_save(directory, "committed-page-comparison", {
                             "document_id": work["object_id"],
+                            "durable_turn_id": matched_turn["turn_id"] if matched_turn is not None else None,
+                            "lifecycle_status": lifecycle,
+                            "readback_scope": ("through_terminal_turn" if lifecycle in
+                                               {"completed", "failed", "interrupted"} else "observed_interval"),
                             "before_sha256": page_before["raw_body_sha256"],
                             "after_sha256": page_after["raw_body_sha256"],
                             "unchanged": page_before["body"] == page_after["body"],
