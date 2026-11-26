@@ -559,6 +559,19 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     local_authored = local_authored or (execution.policy.action.surface_id=='play'
         and any(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1)) for s in segments)
         and all(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1,t.PlanWorldGraphProposalSegmentV1)) for s in segments))
+    # A pending Build discussion explicitly anchored in the supplied context
+    # can answer with creative proposals without preparing native sources. The
+    # absence of an unneeded source is not a partial-retrieval result. Keep the
+    # original partial frame and any writer-supplied limitations intact.
+    from .native_context import BuildPendingContextReceiptV1
+    creative_only_anchored = False
+    if (type(receipt) is BuildPendingContextReceiptV1 and action.surface_id == 'build'
+            and collaboration is None and segments
+            and all(isinstance(segment, t.PlanWorldGraphProposalSegmentV1) for segment in segments)):
+        from .build_source_free import effective_pending_source, pending_retained_work
+        work = pending_retained_work(execution)
+        creative_only_anchored = (work is not None and work.requested_work == 'discuss'
+                                  and effective_pending_source(receipt, execution) is None)
     has_cited_answer = bool(body_cites or statement_cites or assertion_cites or saved_cites
                             or any(isinstance(s, StatblockPdfClaim) for s in segments)
                             or (evidence.typed_source_answer
@@ -566,7 +579,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     limitations = project_surface_limitations(candidate['limitations'],
         [] if evidence.generic_limitations else candidate['requested_detail_gaps'],
         user_question=execution.policy.action.intent.message, derive_missing=True,
-        host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,
+        host_partial=evidence.frame['input_status'] == 'partial' and not (local_authored or creative_only_anchored),
         empty_answer=not segments and collaboration is None, strict_gap_array=True,
         generic_codes_only=evidence.generic_limitations,
         allow_generic_gap=(has_cited_answer or (evidence.lore_page_limitations
