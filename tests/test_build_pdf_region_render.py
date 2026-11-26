@@ -68,3 +68,70 @@ def test_statblock_pdf_quote_must_match_the_selected_crop():
         resolve_statblock_pdf_quote(work, "pdf0:1", "Hit Points 207")
     with pytest.raises(ValueError, match="not offered"):
         resolve_statblock_pdf_quote(work, "pdf0:2", "Hit Points 207")
+
+
+@pytest.mark.parametrize("has_stored_passage", [False, True])
+def test_statblock_support_reads_only_the_exact_stored_passage(monkeypatch, has_stored_passage):
+    from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
+
+    from apps.live_control_server.services import native_graph_inspection as inspection
+
+    region = NativePdfRegionV1(
+        schema_version="dm_native_pdf_region_v1",
+        source_revision_id="srev:reviewed",
+        content_sha256="a" * 64,
+        page=1,
+        left=0.1,
+        top=0.2,
+        right=0.7,
+        bottom=0.8,
+    )
+    region_text_id = inspection.pdf_region_text_evidence_id("native", region)
+    ids = ["pdf-region:reviewed"]
+    if has_stored_passage:
+        ids.append(region_text_id)
+    source_view = SimpleNamespace(epoch=1)
+    access = SimpleNamespace(source_view=source_view)
+    reference = SimpleNamespace(
+        managed_world_id="world", native_world_id="native", binding_version=1,
+        graph_revision="rev:graph", node_id="creature",
+    )
+    monkeypatch.setattr(inspection, "_pinned", lambda pin, principal: (None, None, access, pin, None))
+    monkeypatch.setattr(inspection, "_response", lambda bound, pin, **payload: payload)
+    monkeypatch.setattr(inspection, "_repository", lambda: SimpleNamespace(
+        get_native_pdf_source=lambda *args: pytest.fail("Retrieval tried to load a PDF"),
+        open_native_source_view=lambda *_: source_view,
+    ))
+    monkeypatch.setattr(inspection, "EntityReadService", lambda: SimpleNamespace(
+        get_complete_entity=lambda *args: SimpleNamespace(
+            found=True, completeness=SimpleNamespace(status="complete"),
+            assertions=[SimpleNamespace(subject_entity_id="creature", assertion_id="assertion:reviewed")],
+        ),
+    ))
+    monkeypatch.setattr(inspection, "EvidenceReadService", lambda: SimpleNamespace(
+        get_assertion_evidence=lambda *args: SimpleNamespace(
+            available=True, completeness=SimpleNamespace(status="complete"),
+            evidence=[SimpleNamespace(evidence_ref_id=ref, evidence_role="support") for ref in ids],
+        ),
+    ))
+    reads = []
+
+    def open_text(context, ref_id):
+        reads.append(ref_id)
+        return SimpleNamespace(
+            status="available", body_text="é Stored passage. Trailing text.",
+            span_start_byte=3, span_end_byte=18,
+        )
+
+    monkeypatch.setattr(inspection, "open_admitted_native_text", open_text)
+    result = inspection.statblock_pdf_support(reference, (region,), object())
+    if has_stored_passage:
+        assert reads == [region_text_id]
+        assert result["support"] == [{
+            "assertion_id": "assertion:reviewed",
+            "evidence_ref_id": region_text_id,
+            "text": "Stored passage.",
+        }]
+    else:
+        assert reads == []
+        assert result["support"] == []

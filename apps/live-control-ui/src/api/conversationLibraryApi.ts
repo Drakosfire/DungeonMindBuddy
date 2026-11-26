@@ -259,5 +259,5 @@ function validSavedStatblockPdfSources(value: unknown, world: string): boolean {
     && Array.isArray(sources.support) && sources.support.every(item => !!item
       && exactObject(item, ['assertion_id', 'evidence_ref_id'])
       && typeof item.assertion_id === 'string' && !!item.assertion_id
-      && typeof item.evidence_ref_id === 'string' && item.evidence_ref_id.startsWith('pdf-region:'));
+      && typeof item.evidence_ref_id === 'string' && /^(?:pdf-region:.+|ev:[0-9a-f]{64})$/.test(item.evidence_ref_id));
 }
