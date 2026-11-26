@@ -1673,12 +1673,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
       const view=render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
       fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
       await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
-      expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+      await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
       await waitFor(()=>expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>!node.closest('details:not([open])'))).toHaveLength(1));
       view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
       fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
       await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
-      expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+      await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
       await waitFor(()=>expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>!node.closest('details:not([open])'))).toHaveLength(1));
       return;
     }
@@ -1689,7 +1689,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.queryByText(/Earlier conversation/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Trace',{exact:true}));
     await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
-    expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+    await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
     view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByRole('button',{name:'Retry question'});
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
