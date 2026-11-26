@@ -182,6 +182,13 @@ citation reopening.
 For authoring actions, conversation-only boundaries, and Build and Ingest
 workflows, see the [Buddy actions and authoring benchmark](plan-authoring-benchmark.md).
 
+To test recovery after a lost Build confirmation, use the live Build fixture
+with both `browser_capture.confirm_save` and `browser_capture.lose_confirm_ack`
+set to `true`. The browser drops the response to the bound confirmation
+after the owning server has processed it. The capture retains that receipt
+and compares committed page and proposal readbacks before and after reload.
+A timeout before the confirmation is observed leaves recovery unverified.
+
 For an unsent draft recovery control, use `capture --build-fixture --case
 RECOVERY-1 --clone-app` and set `browser_capture.unsent_draft` to `true`.
 The browser fills the composer and reloads it without clicking Send. The
