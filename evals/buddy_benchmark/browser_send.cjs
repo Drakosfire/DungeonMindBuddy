@@ -209,6 +209,15 @@ async function run() {
         if (text.trim() !== exactReview.markdown.trim()) throw new Error("Visible suggestion differs from the bound proposal");
         if (process.env.DMB_BENCHMARK_LOSE_CONFIRM_ACK === "1") {
           const exactPath = url => url.origin === origin && url.pathname === reviewPath && !url.search;
+          const confirmPosts = [];
+          confirmation.confirm_posts = confirmPosts;
+          page.on("request", request => {
+            if (request.method() !== "POST" || !exactPath(new URL(request.url()))) return;
+            const command = request.postDataJSON();
+            if (command?.operation === "confirm") {
+              confirmPosts.push({apply_id: command.apply_id, expected_revision: command.expected_revision});
+            }
+          });
           let held;
           let intercepting = false;
           const intercept = async route => {
@@ -257,15 +266,29 @@ async function run() {
           confirmation.afterReopen = await readOwners();
           const before = confirmation.afterSave;
           const after = confirmation.afterReopen;
-          const reopened = after.review.body.review ?? after.review.body;
+          const receiptMatches = observation => {
+            const observed = observation.body.review ?? observation.body;
+            return observation.status === 200 && observed.state === "applied"
+              && observed.action_id === action && observed.world_id === world
+              && observed.reservation_sha256 === exactReview.reservation_sha256
+              && observed.revision === saved.revision
+              && observed.apply?.apply_id === held.request.apply_id;
+          };
+          const pageMatches = observation => observation.status === 200
+            && observation.body.record?.document_id === documentId
+            && observation.body.record?.world_id === world
+            && /^[a-f0-9]{64}$/.test(observation.body.committed_content_sha256 ?? "");
           const savedRevision = before.page.body.record?.revision;
-          confirmation.verified = before.page.status === 200 && after.page.status === 200
-            && before.review.status === 200 && after.review.status === 200
-            && savedRevision === beforeSave.page.body.record?.revision + 1
-            && savedRevision === after.page.body.record?.revision
-            && before.page.body.committed_content_sha256 === after.page.body.committed_content_sha256
-            && reopened.state === "applied" && reopened.action_id === action
-            && reopened.apply?.apply_id === held.request.apply_id;
+          confirmation.verified = confirmPosts.length === 1
+            && confirmPosts[0].apply_id === held.request.apply_id
+            && confirmPosts[0].expected_revision === held.request.expected_revision
+            && [beforeSave.page, before.page, after.page].every(pageMatches)
+            && receiptMatches(before.review) && receiptMatches(after.review)
+            && Number.isInteger(savedRevision)
+            && savedRevision === beforeSave.page.body.record.revision + 1
+            && savedRevision === after.page.body.record.revision
+            && before.page.body.committed_content_sha256 === after.page.body.committed_content_sha256;
+          confirmation.retry_exercised = false;
         } else {
           const confirmed = page.waitForResponse(result => {
             const request = result.request();
