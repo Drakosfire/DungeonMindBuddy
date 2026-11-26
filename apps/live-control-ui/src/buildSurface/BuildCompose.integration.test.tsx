@@ -33,8 +33,12 @@ const history: WorldAgentConversationHistoryResponse = { schema: 'dmb_agent_conv
   pointer_revision: 1, conversation_state: 'active', turns: [], next_before_sequence: null };
 let session: ReturnType<typeof useMarkdownCanvasSession>;
 async function proposalSave() {
-  const review = await screen.findByRole('region', {name:'Proposed page change'});
-  return within(review).getByRole('button', {name:'Save', exact:true});
+  return waitFor(() => {
+    const review = screen.getByRole('region', {name:'Proposed page change'});
+    const save = within(review).getByRole('button', {name:'Save', exact:true});
+    expect(save).toBeEnabled();
+    return save;
+  });
 }
 function Controls() {
   session = useMarkdownCanvasSession();
@@ -375,9 +379,9 @@ it('reviews and inserts a guest proposal in the existing Build editor, then save
       idempotency_key:'11111111-1111-4111-8111-111111111111', conversation_id:history.conversation_id!,
       expected_pointer_revision:1, basis:cap.basis, draft_markdown:cap.draftMarkdown, instruction:'A table'});
     await act(async () => { finish([record]); });
-    const review = await screen.findByRole('region', {name:'Proposed page change'});
+    const save = await proposalSave();
     expect(session.editor!.state.doc.textContent).not.toContain('Nella');
-    fireEvent.click(within(review).getByRole('button', {name:'Save'}));
+    fireEvent.click(save);
     await waitFor(() => expect(session.dirty).toBe(true));
     expect(session.editor!.state.doc.textContent).toContain('Nella');
     await act(async () => { await session.saveMarkdown(); });
