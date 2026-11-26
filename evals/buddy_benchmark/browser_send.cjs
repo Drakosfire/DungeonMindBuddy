@@ -121,9 +121,24 @@ async function run() {
       try {
         const checkpoint = await page.evaluate(async () =>
           (await fetch("/__benchmark/build-response-retained")).json());
-        const action = checkpoint.action_id;
-        if (!action || !/^[a-f0-9-]{36}$/i.test(action)) throw new Error("Turn has no bound proposal to confirm");
+        let action = checkpoint.action_id;
         const world = process.env.DMB_BENCHMARK_WORLD;
+        if (!action && checkpoint.idempotency_key) {
+          const durable = await page.waitForFunction(async ({ world, checkpoint }) => {
+            const path = "/api/live/agent/worlds/" + encodeURIComponent(world)
+              + "/conversation?include_turn_correlation=true";
+            const response = await fetch(path);
+            if (!response.ok) return false;
+            const history = await response.json();
+            if (history.active_conversation_id !== checkpoint.conversation_id) return false;
+            const turns = history.turns.filter(turn => turn.idempotency_key === checkpoint.idempotency_key);
+            if (turns.length !== 1 || ["accepted", "running"].includes(turns[0].lifecycle_status)) return false;
+            return { action_id: turns[0].knowledge_context?.completion?.action_id ?? null };
+          }, { world, checkpoint }, { timeout: 40000, polling: 500 });
+          ({ action_id: action } = await durable.jsonValue());
+          if (action) await page.reload();
+        }
+        if (!action || !/^[a-f0-9-]{36}$/i.test(action)) throw new Error("Turn has no bound proposal to confirm");
         const reviewPath = "/api/live/agent/worlds/" + encodeURIComponent(world)
           + "/build-proposals/" + encodeURIComponent(action) + "/review";
         confirmation.action_id = action;

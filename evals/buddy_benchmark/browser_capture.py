@@ -11,7 +11,7 @@ import socket
 import subprocess
 from threading import Thread
 from time import monotonic_ns, sleep
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import httpx
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse
@@ -134,6 +134,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             wire_path = directory / "build-wire-response.json"
             result = {"retained": wire_path.is_file()}
             if confirm_save and result["retained"] and browser_request is not None:
+                result["idempotency_key"] = str(uuid5(
+                    NAMESPACE_URL, f"dmb-agent-turn:{world}:{browser_request['turn_id']}"))
+                result["conversation_id"] = fresh["active_conversation_id"]
                 wire = json.loads(wire_path.read_bytes())
                 try:
                     body, status = build_browser_terminal(bytes.fromhex(wire["raw_body_hex"]),
