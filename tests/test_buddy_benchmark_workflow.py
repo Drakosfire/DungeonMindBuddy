@@ -1808,19 +1808,22 @@ def test_protected_work_revisions_reads_named_columns(monkeypatch):
 def test_saved_citation_reopen_retains_exact_and_failed_reads():
     import httpx
 
-    first, second = str(uuid4()), str(uuid4())
+    first, second, third = (str(uuid4()) for _ in range(3))
     root = "/api/live/agent/worlds/fixture/conversation/turns/" + str(uuid4())
 
     def respond(request):
         if request.url.path == f"{root}/saved-sections/0/{first}":
             return httpx.Response(200, json={"content": "Before. Exact passage. After."})
+        if request.url.path == f"{root}/saved-sections/0/{third}":
+            raise httpx.ReadTimeout("fixture")
         assert request.url.path == f"{root}/saved-sections/0/{second}"
         return httpx.Response(404, json={"detail": "Unavailable"})
 
     with httpx.Client(base_url="http://test", transport=httpx.MockTransport(respond)) as client:
         report = w.reopen_saved_citations(client, root, {
             "answer_segments": [{"text": "“Exact passage.”"}],
-            "saved_source_citations": [{"segment_index": 0, "section_event_ids": [first, second]}],
+            "saved_source_citations": [{"segment_index": 0, "section_event_ids": [first, second, third]}],
         })
-    assert [r["http_status"] for r in report["citations"]] == [200, 404]
-    assert [r["claim_exact_substring_of_reopened_text"] for r in report["citations"]] == [True, None]
+    assert [r["http_status"] for r in report["citations"]] == [200, 404, None]
+    assert [r["claim_exact_substring_of_reopened_text"] for r in report["citations"]] == [True, None, None]
+    assert report["citations"][2]["transport_error"] == "ReadTimeout"

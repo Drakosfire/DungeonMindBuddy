@@ -351,6 +351,8 @@ def report(manifest_path, *, oracle=None, citation_readback=None):
 
 def reopen_saved_citations(client, turn_route, completion):
     """Reopen delivered saved sections through their ordinary turn owner."""
+    from httpx import RequestError
+
     results = []
     for citation in completion.get("saved_source_citations") or []:
         index = citation["segment_index"]
@@ -359,7 +361,13 @@ def reopen_saved_citations(client, turn_route, completion):
         claim = completion["answer_segments"][index].get("text", "").strip().strip('“”"')
         for value in citation["section_event_ids"]:
             event_id = str(UUID(value))
-            response = client.get(f"{turn_route}/saved-sections/{index}/{event_id}")
+            try:
+                response = client.get(f"{turn_route}/saved-sections/{index}/{event_id}")
+            except RequestError as error:
+                results.append({"segment_index": index, "section_event_id": event_id,
+                                "http_status": None, "transport_error": type(error).__name__,
+                                "claim_exact_substring_of_reopened_text": None})
+                continue
             evidence = response_envelope(response)
             body = evidence["body"]
             results.append({
