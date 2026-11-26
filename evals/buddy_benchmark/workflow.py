@@ -1233,6 +1233,75 @@ def _action_operation_metrics(capture, expected_turn_id):
     }
 
 
+def retained_action_report(ledger, base):
+    """Join reviewed case judgments to independently pinned ordinary turn measurements."""
+    rows = []
+    by_action = {}
+    seen_turns = set()
+    seen_cases = set()
+    for case in ledger["cases"]:
+        case_id = case["id"]
+        tiers = by_action.setdefault(case["action"], {})
+        tier = str(case["tier"])
+        if case_id in seen_cases or tier in tiers:
+            raise ValueError("Duplicate action case or tier")
+        seen_cases.add(case_id)
+        row = {key: case.get(key) for key in (
+            "id", "action", "tier", "specification", "run_status", "unrun_reason",
+            "review_note", "qualification_required", "fixture_limitation",
+            "unnecessary_retrieval", "unnecessary_jev_source_opens",
+            "zero_new_retrieval_disposition")}
+        row["reviewed_outcome"] = case.get("outcome", "unrun")
+        row["turns"] = []
+        if case["run_status"] == "executed":
+            for variant in case.get("variants", [case]):
+                answer = json.loads(read_pin(variant["answer"], base))
+                trace = json.loads(read_pin(variant["trace"], base))["body"]
+                directory = (base / variant["answer"]["path"]).parent
+                request = json.loads((directory / "request.json").read_text())
+                history = _wrapped(directory / "history-after.json")["body"]
+                turns = _request_turns(history, request, trace["world_id"])
+                if [t["turn_id"] for t in turns] != [trace["turn_id"]]:
+                    raise ValueError("Request and history do not identify this durable trace")
+                if answer["http_status"] == 200 and answer["body"]["turn_id"] != request["turn_id"]:
+                    raise ValueError("Answer belongs to another client request")
+                turn_id = trace["turn_id"]
+                if not turn_id or turn_id in seen_turns:
+                    raise ValueError("Missing or duplicate retained turn")
+                seen_turns.add(turn_id)
+                operation = None
+                if answer["body"].get("answer", {}).get("trace"):
+                    if answer["body"]["conversation"]["conversation_id"] != trace["attempts"][0]["conversation_id"]:
+                        raise ValueError("Answer and durable trace belong to different conversations")
+                    operation = _action_operation_metrics(answer, answer["body"]["turn_id"])
+                attempts = trace["attempts"]
+                if any((a["turn_id"], a["world_id"], a["conversation_id"]) !=
+                       (turn_id, history["world_id"], history["conversation_id"]) for a in attempts):
+                    raise ValueError("Trace attempt belongs to another turn")
+                row["turns"].append({
+                    "id": variant.get("case_id", case_id), "turn_id": turn_id,
+                    "answer": variant["answer"], "trace": variant["trace"],
+                    "http_status": answer["http_status"], "http_elapsed_ms": answer["elapsed_ms"],
+                    "ledger_elapsed_ms": variant.get("latency_ms"), "operation": operation,
+                    "attempts": [{
+                        "attempt": a["attempt"], "capture_status": a["capture_status"],
+                        "recorded_retrieved_decisions": sum(
+                            x["kind"] == "context_decision" and x["action"] == "retrieved"
+                            for x in a["observations"]),
+                        "recorded_expanded_decisions": sum(
+                            x["kind"] == "context_decision" and x["action"] == "expanded"
+                            for x in a["observations"]),
+                        "recorded_discovery_hops": len(a["native_discovery_replay"]["hops"])
+                            if a.get("native_discovery_replay") is not None else None,
+                    } for a in attempts],
+                })
+        tiers[tier] = {key: row[key] for key in (
+            "id", "reviewed_outcome", "unnecessary_retrieval", "unnecessary_jev_source_opens")}
+        rows.append(row)
+    return {"schema": "dmb_retained_action_report_v1", "build": ledger["product_build_executed"],
+            "cases": rows, "by_action_tier": by_action}
+
+
 def action_report(manifest_path):
     """Score retained action observations without starting an ordinary turn."""
     from .action_assessment import (
@@ -1249,6 +1318,8 @@ def action_report(manifest_path):
 
     path = Path(manifest_path)
     manifest = json.loads(path.read_text())
+    if manifest.get("schema") == "dmb_right_action_baseline_status_v1":
+        return retained_action_report(manifest, path.parent)
     if manifest.get("schema") != "dmb_aw_assessment_v1":
         raise ValueError("Unknown AW assessment manifest")
     cases = manifest["cases"]
