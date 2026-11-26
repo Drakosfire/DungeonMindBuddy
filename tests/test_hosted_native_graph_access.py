@@ -562,6 +562,11 @@ def hosted(monkeypatch, request):
             ("GET", "/api/live/agent/worlds/{world_id}/conversation/commands/{command_id}"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations"): access.resolve_hosted_conversation_world,
             ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume")],
+            **{
+                key: HOSTED_WORLD_SCOPE_RESOLVERS[key]
+                for operation in ("trash", "restore")
+                for key in [("POST", f"/api/live/agent/worlds/{{world_id}}/conversations/{{conversation_id}}/{operation}")]
+            },
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id:uuid}/messages"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns"): access.resolve_hosted_conversation_world,
@@ -3642,6 +3647,55 @@ def test_hosted_resume_switches_to_archived_conversation(hosted, application_sta
     assert resumed.json()["active_conversation_id"] == original["conversation_id"]
     assert hosted.client.request("POST", path, json=command).json() == resumed.json()
     assert hosted.client.request("GET", base).json()["conversation_id"] == original["conversation_id"]
+
+
+@pytest.mark.parametrize("operation", ["trash", "restore"])
+def test_hosted_conversation_lifecycle_authorizes_exact_owner(hosted, monkeypatch, operation):
+    from datetime import datetime, timezone
+    from apps.live_control_server.routes import conversation_library
+    from application_state.agent_conversation.types import ConversationCommandReceipt
+
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    conversation_id = str(uuid4())
+    command = {
+        "world_id": "managed", "conversation_id": conversation_id, "command_id": str(uuid4()),
+        "expected_pointer_revision": 4, "expected_active_conversation_id": None,
+    }
+    calls = []
+    owner_record = hosted.records["managed"]
+
+    def change(body, *, restore, authorize_write):
+        calls.append(body.command_id)
+        authorize_write()
+        return ConversationCommandReceipt(
+            world_id=body.world_id, conversation_id=body.conversation_id,
+            command_id=body.command_id, command_kind="restore" if restore else "trash",
+            active_conversation_id=None, pointer_revision=5, recorded_at=datetime.now(timezone.utc),
+        )
+
+    service = SimpleNamespace(set_conversation_trash=change)
+    monkeypatch.setattr(conversation_library, "_conversation_service", lambda request: service)
+    path = f"/api/live/agent/worlds/managed/conversations/{conversation_id}/{operation}"
+    assert hosted.client.request("POST", path, session=None, json=command).status_code == 401
+    assert hosted.client.request("POST", path, session="other-session", json=command).status_code == 403
+    assert hosted.client.request("POST", path, origin=None, json=command).status_code == 403
+    assert hosted.client.request("POST", path, json=command | {"world_id": "foreign"}).status_code == 403
+    assert hosted.client.request("POST", path, json=command | {"conversation_id": str(uuid4())}).status_code == 422
+    assert calls == []
+
+    def transfer_then_change(*args, **kwargs):
+        hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
+        return change(*args, **kwargs)
+
+    service.set_conversation_trash = transfer_then_change
+    assert hosted.client.request("POST", path, json=command).status_code == 403
+    hosted.records["managed"] = owner_record
+    service.set_conversation_trash = change
+    result = hosted.client.request("POST", path, json=command)
+    assert result.status_code == 200, result.text
+    assert result.headers["cache-control"] == "no-store"
+    assert result.json()["command_kind"] == operation
+    assert result.json()["conversation_id"] == conversation_id
 
 
 def test_hosted_citation_read_binds_world_and_saved_turn(hosted, monkeypatch):
