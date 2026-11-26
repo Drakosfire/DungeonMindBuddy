@@ -83,3 +83,13 @@
 }
 
 .conversation-library__exports { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+
+.conversation-library__bulk {
+  padding: 0.5rem;
+}
+.conversation-library__list li.conversation-library__selectable-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.25rem;
+}

@@ -9,13 +9,21 @@ import {listConversations,readConversationName,readConversationTurns,readConvers
 import {WorldPlanAgentAnswer} from '../planSurface/components/WorldPlanAgentAnswer';
 import {BuddyContextTraceLoader} from '../planSurface/components/BuddyContextTraceLoader';
 import {BuddyTurnInspection} from '../planSurface/components/BuddyTurnInspection';
+import type {BulkConversationPlan, BulkConversationResult} from './conversationBulkLifecycle';
 import './ConversationLibrary.css';
 const message=(error:unknown)=>error instanceof Error?error.message:'The conversation could not be read.';
-export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecycle,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;onLifecycle?:(command:ResumeConversationCommand,operation:ConversationLifecycleOperation)=>Promise<void>;continueDisabledReason?:string|null}){
+export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecycle,onBulkLifecycle,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;onLifecycle?:(command:ResumeConversationCommand,operation:ConversationLifecycleOperation)=>Promise<void>;onBulkLifecycle?:(plan:BulkConversationPlan,isCurrent:()=>boolean)=>Promise<BulkConversationResult>;continueDisabledReason?:string|null}){
  const [renaming,setRenaming]=useState(false);
  const actionMenu=useRef<HTMLDetailsElement>(null);
  const filterControl=useRef<HTMLSelectElement>(null);
  const [lifecycleNotice,setLifecycleNotice]=useState('');
+ const [bulkMode,setBulkMode]=useState(false);
+ const [bulkSelection,setBulkSelection]=useState<Map<string,string>>(new Map());
+ const [bulkResult,setBulkResult]=useState<BulkConversationResult|null>(null);
+ const [bulkError,setBulkError]=useState('');
+ const [bulkBusy,setBulkBusy]=useState(false);
+ const bulkInFlight=useRef(false);
+ const bulkRetry=bulkResult?.retry??null;
  const [fullDetails,setFullDetails]=useState(false);
  const [continuing,setContinuing]=useState(false);
  const pendingOperation=useRef<'reopen'|ConversationLifecycleOperation|null>(null);
@@ -69,7 +77,8 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   }catch(reason){if(alive(owner)&&epoch===listEpoch.current)setListError(message(reason));}
   finally{if(listRequest.current===request)listRequest.current=null;if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
  }
- useEffect(()=>{detailEpoch.current++;setLifecycleNotice('');setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();detailRequest.current?.abort();};},[worldId,filter]);
+ useEffect(()=>{detailEpoch.current++;setLifecycleNotice('');setItems([]);
+  setBulkSelection(new Map());setBulkResult(null);setBulkError('');setBulkMode(false);setBulkBusy(false);bulkInFlight.current=false;setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();detailRequest.current?.abort();};},[worldId,filter]);
  async function olderTurns(){
   if(!selected||before===null||loading)return;
   const owner=scope.current,epoch=detailEpoch.current,id=selected,cursor=before;setLoading(true);setError('');
@@ -112,7 +121,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   finally{if(detailRequest.current===request)detailRequest.current=null;}
  }
  async function continueSelected(operation:'reopen'|ConversationLifecycleOperation='reopen'){
-  if(!detail||!pointer||continueInFlight.current||continuing||continueDisabledReason)return;
+  if(!detail||!pointer||continueInFlight.current||continuing||bulkMode||continueDisabledReason)return;
   if(operation==='reopen'?(detail.status!=='archived'||!onContinue):!onLifecycle)return;
   const owner=scope.current,id=detail.conversation_id;
   if(pendingResume.current&&(pendingResume.current.conversation_id!==id||pendingOperation.current!==operation)){setError('Refresh the current conversation before switching to another.');return;}
@@ -134,48 +143,110 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   catch(reason){if(alive(owner)){
    if(reason instanceof LiveApiError&&[401,403,404,409,422].includes(reason.status)){
     pendingResume.current=null;pendingOperation.current=null;
-    setError(reason.status===409
+    setError(reason.status===409&&reason.message!=='This conversation has a reply in progress.'
      ? 'The conversation changed. Refresh conversations before trying again.'
      : message(reason));
    }else setError(message(reason)+' Refresh conversations to check the result, or retry this same action.');
   }}
   finally{if(alive(owner)){continueInFlight.current=false;setContinuing(false);}}
  }
+ function toggleBulkSelection(item:ConversationSummary){
+  setBulkSelection(previous=>{
+   const selection=new Map(previous);
+   if(selection.has(item.conversation_id))selection.delete(item.conversation_id);
+   else selection.set(item.conversation_id,item.title);
+   return selection;
+  });
+ }
+
+ async function applyBulk(){
+  if(!onBulkLifecycle||!pointer||!bulkSelection.size||bulkInFlight.current||continuing||continueDisabledReason||pendingResume.current)return;
+  const owner=scope.current;
+  const plan:BulkConversationPlan=bulkRetry??{
+   worldId, pointer, operation:filter==='trashed'?'restore':'trash',
+   targets:Array.from(bulkSelection,([conversationId,title])=>({conversationId,title,commandId:crypto.randomUUID()})),
+  };
+  bulkInFlight.current=true;setBulkBusy(true);setBulkError('');setLifecycleNotice('');
+  try{
+   const result=await onBulkLifecycle(plan,()=>alive(owner));
+   if(!alive(owner))return;
+   const applied=new Set(result.applied.map(target=>target.conversationId));
+   setBulkSelection(previous=>new Map([...previous].filter(([id])=>!applied.has(id))));
+   setBulkResult(previous=>bulkRetry&&previous
+    ? {...result,applied:[...previous.applied,...result.applied],failed:[...previous.failed,...result.failed]}
+    :result);
+   setItems(previous=>previous.filter(item=>!applied.has(item.conversation_id)));
+   if(selected&&applied.has(selected)){
+    detailEpoch.current++;detailRequest.current?.abort();
+    setSelected(null);setDetail(null);setTurns([]);setBefore(null);setRenaming(false);setLoading(false);
+   }
+   void loadList();
+  }catch(reason){if(alive(owner))setBulkError(message(reason));}
+  finally{if(alive(owner)){bulkInFlight.current=false;setBulkBusy(false);}}
+ }
+
  useEffect(()=>{
   if(lifecycleNotice&&!continuing)filterControl.current?.focus();
  },[lifecycleNotice,continuing]);
  const ownDetail=detail?.world_id===worldId?detail:null;
+ const libraryBusy=continuing||bulkBusy;
+ const bulkLabels=filter==='trashed'?{action:'Restore selected',applied:'restored'}:{action:'Move selected to Trash',applied:'moved to Trash'};
  return createPortal(<dialog ref={dialog} className="conversation-library" aria-label="Conversations" onKeyDown={event=>{
   if(event.key==='Escape'&&actionMenu.current?.open){event.preventDefault();event.stopPropagation();actionMenu.current.open=false;actionMenu.current.querySelector('summary')?.focus();}
- }} onCancel={event=>{event.preventDefault();onClose();}}>
-  <header className="conversation-library__shell-header"><h2>Conversations</h2><button type="button" className="conversation-library__close" aria-label="Close conversations" onClick={onClose}>×</button></header>
+ }} onCancel={event=>{event.preventDefault();if(!bulkBusy&&!bulkRetry)onClose();}}>
+  <header className="conversation-library__shell-header"><h2>Conversations</h2><button type="button" className="conversation-library__close" aria-label="Close conversations" disabled={bulkBusy||Boolean(bulkRetry)} onClick={onClose}>×</button></header>
   <div className="conversation-library__panes"><nav aria-label="Saved conversations">
-   <div className="conversation-library__list-tools"><label>Show<select ref={filterControl} disabled={continuing} value={filter} onChange={event=>setFilter(event.target.value as Exclude<ConversationLibraryFilter,'all'|'archived'>)}><option value="recent">Recent</option><option value="explicitly_archived">Archived</option><option value="trashed">Trash</option></select></label>
-    <button type="button" className="conversation-library__refresh" aria-label="Refresh conversations" title="Refresh conversations" disabled={listing||continuing} onClick={()=>void loadList()}>↻</button></div>
+   <div className="conversation-library__list-tools"><label>Show<select ref={filterControl} disabled={libraryBusy||Boolean(bulkRetry)} value={filter} onChange={event=>setFilter(event.target.value as Exclude<ConversationLibraryFilter,'all'|'archived'>)}><option value="recent">Recent</option><option value="explicitly_archived">Archived</option><option value="trashed">Trash</option></select></label>
+    <button type="button" className="conversation-library__refresh" aria-label="Refresh conversations" title="Refresh conversations" disabled={listing||libraryBusy} onClick={()=>void loadList()}>↻</button></div>
+   {onBulkLifecycle&&<div className="conversation-library__bulk">
+    <button type="button" aria-pressed={bulkMode} disabled={libraryBusy||Boolean(bulkRetry)||Boolean(pendingResume.current)} onClick={()=>{
+     setBulkMode(!bulkMode);setBulkSelection(new Map());setBulkResult(null);setBulkError('');
+    }}>{bulkMode?'Done selecting':'Select conversations'}</button>
+    {bulkMode&&<>
+     <p role="status">{bulkSelection.size} selected in {filter==='trashed'?'Trash':filter==='explicitly_archived'?'Archived':'Recent'}</p>
+     <button type="button" disabled={libraryBusy||!pointer||Boolean(continueDisabledReason)||!bulkSelection.size}
+      onClick={()=>void applyBulk()}>{bulkBusy?'Updating conversations…':bulkRetry?'Retry unconfirmed action':bulkLabels.action}</button>
+     {bulkRetry&&<button type="button" disabled={bulkBusy} onClick={()=>{
+      setBulkResult(previous=>previous&&{...previous,retry:null});setBulkSelection(new Map());void loadList();
+     }}>Clear selection and refresh</button>}
+     {bulkError&&<p role="alert">{bulkError}</p>}
+     {bulkResult&&<>
+      <p role="status">{bulkResult.applied.length} {bulkLabels.applied}. {bulkResult.failed.length} failed. {bulkResult.stopped.length} {bulkRetry?'unconfirmed or waiting':'skipped'}.</p>
+      <details><summary>Results by conversation</summary><ul>
+       {bulkResult.applied.map(target=><li key={target.commandId}>{target.title}: {bulkLabels.applied}</li>)}
+       {bulkResult.failed.map(({target,reason})=><li key={target.commandId}>{target.title}: {reason}</li>)}
+       {bulkResult.stopped.map((target,index)=><li key={target.commandId}>{target.title}: {bulkRetry&&index===0?'Result unconfirmed':'Awaiting your action'}</li>)}
+      </ul></details>
+     </>}
+    </>}
+   </div>}
    {lifecycleNotice&&<p role="status">{lifecycleNotice}</p>}
    {listError&&<p role="alert">{listError}<button type="button" onClick={()=>void loadList()}>Retry list</button></p>}
-   <div className="conversation-library__list"><ul>{(listOwner===worldId?items:[]).map(item=><li key={item.conversation_id}><button type="button" disabled={continuing} aria-pressed={selected===item.conversation_id} title={item.title} onClick={()=>void select(item.conversation_id)}>
+   <div className="conversation-library__list"><ul>{(listOwner===worldId?items:[]).map(item=><li key={item.conversation_id} className={bulkMode?'conversation-library__selectable-row':undefined}>
+    {bulkMode&&<input type="checkbox" aria-label={`Select ${item.title}`} checked={bulkSelection.has(item.conversation_id)}
+     disabled={libraryBusy||Boolean(bulkRetry)} onChange={()=>toggleBulkSelection(item)}/>}
+    <button type="button" disabled={libraryBusy} aria-pressed={selected===item.conversation_id} title={item.title} onClick={()=>void select(item.conversation_id)}>
     <strong>{item.title}</strong><span><span className={item.status==='active'?'conversation-library__current':undefined}>{item.status==='active'?'Current':item.status==='trashed'?'Trash':item.library_archived?'Archived':'Saved'}</span> · {item.turn_count} {item.turn_count===1?'turn':'turns'} · {new Date(item.updated_at).toLocaleDateString()}</span></button></li>)}</ul>
    {listing&&<p role="status">Loading conversations…</p>}{!listing&&!items.length&&!listError&&<p>{filter==='trashed'?'Trash is empty.':filter==='explicitly_archived'?'No archived conversations.':'No recent conversations.'}</p>}
-   {next&&<button type="button" className="conversation-library__more" disabled={listing||continuing} onClick={()=>void loadList(true)}>More conversations</button>}</div>
+   {next&&<button type="button" className="conversation-library__more" disabled={listing||libraryBusy} onClick={()=>void loadList(true)}>More conversations</button>}</div>
   </nav><section className="conversation-library__reader" aria-label="Selected conversation">
    {ownDetail&&<header className="conversation-library__conversation-header">
     <div className="conversation-library__heading"><h3 title={ownDetail.title}>{ownDetail.title}</h3><p>{ownDetail.status==='active'?'Current conversation':ownDetail.status==='trashed'?'In Trash':ownDetail.library_archived?'Archived conversation':'Saved conversation'} · Read-only transcript</p></div>
     <div className="conversation-library__actions">
-     {onContinue&&ownDetail.status==='archived'&&<button type="button" className="conversation-library__primary" aria-label="Continue conversation" title={continueDisabledReason??'Your unsent message and references are kept. Saved pages and previous actions stay unchanged.'} disabled={loading||continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected()}>{continuing?'Continuing…':'Continue conversation'}</button>}
-     {onLifecycle&&ownDetail.status==='trashed'&&<button type="button" className="conversation-library__primary" disabled={loading||continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('restore')}>{continuing?'Restoring…':'Restore conversation'}</button>}
+     {onContinue&&ownDetail.status==='archived'&&<button type="button" className="conversation-library__primary" aria-label="Continue conversation" title={continueDisabledReason??'Your unsent message and references are kept. Saved pages and previous actions stay unchanged.'} disabled={loading||libraryBusy||bulkMode||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected()}>{continuing?'Continuing…':'Continue conversation'}</button>}
+     {onLifecycle&&ownDetail.status==='trashed'&&<button type="button" className="conversation-library__primary" disabled={loading||libraryBusy||bulkMode||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('restore')}>{continuing?'Restoring…':'Restore conversation'}</button>}
      <details key={`${worldId}:${ownDetail.conversation_id}`} ref={actionMenu} className="conversation-library__action-menu"><summary aria-label="Conversation actions" title="Conversation actions">•••</summary><div className="conversation-library__menu">
-      <button type="button" disabled={loading||continuing} onClick={()=>{setRenaming(true);if(actionMenu.current)actionMenu.current.open=false;}}>Rename conversation</button>
-      <fieldset className="conversation-library__exports" disabled={loading||continuing}><ConversationExport key={`${worldId}:${ownDetail.conversation_id}`} worldId={worldId} conversationId={ownDetail.conversation_id}/></fieldset>
-      {onLifecycle&&ownDetail.status!=='trashed'&&!ownDetail.library_archived&&<button type="button" disabled={loading||continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('archive')}>Archive conversation</button>}
-      {onLifecycle&&ownDetail.status!=='trashed'&&<div className="conversation-library__trash-action"><button type="button" disabled={loading||continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('trash')}>{continuing?'Updating…':'Move to Trash'}</button><p>Recoverable in Trash. Saved pages are kept.</p></div>}
+      <button type="button" disabled={loading||libraryBusy} onClick={()=>{setRenaming(true);if(actionMenu.current)actionMenu.current.open=false;}}>Rename conversation</button>
+      <fieldset className="conversation-library__exports" disabled={loading||libraryBusy}><ConversationExport key={`${worldId}:${ownDetail.conversation_id}`} worldId={worldId} conversationId={ownDetail.conversation_id}/></fieldset>
+      {onLifecycle&&ownDetail.status!=='trashed'&&!ownDetail.library_archived&&<button type="button" disabled={loading||libraryBusy||bulkMode||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('archive')}>Archive conversation</button>}
+      {onLifecycle&&ownDetail.status!=='trashed'&&<div className="conversation-library__trash-action"><button type="button" disabled={loading||libraryBusy||bulkMode||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('trash')}>{continuing?'Updating…':'Move to Trash'}</button><p>Recoverable in Trash. Saved pages are kept.</p></div>}
      </div></details>
     </div>
     {continueDisabledReason&&<p className="conversation-library__availability" role="status">{continueDisabledReason}</p>}
     {ownDetail.status==='trashed'&&<p className="conversation-library__availability">Restore this conversation to return it to history.</p>}
    </header>}
    {ownDetail&&renaming&&<form className="conversation-library__rename" onSubmit={event=>{event.preventDefault();void save();}}><label>Conversation name<input autoFocus value={title} onChange={event=>setTitle(event.target.value)} maxLength={160} disabled={saving}/></label><button type="submit" disabled={saving||!title.trim()}>{saving?'Saving…':'Save name'}</button><button type="button" disabled={saving} onClick={()=>{setTitle(ownDetail.title);setRenaming(false);}}>Cancel</button>{error&&<button type="button" onClick={()=>void reloadName()}>Reload saved name</button>}</form>}
-   {ownDetail&&<div className="conversation-library__view-bar"><span>{fullDetails?'Full saved details':'Saved-message preview'}</span><button type="button" disabled={loading||continuing||saving} title={fullDetails?'Return to the saved messages.':'Include references, saved objects and previous attempts.'} onClick={()=>{const details=!fullDetails;setFullDetails(details);void select(ownDetail.conversation_id,details,ownDetail);}}>{fullDetails?'Show message preview':'Load saved details'}</button></div>}
+   {ownDetail&&<div className="conversation-library__view-bar"><span>{fullDetails?'Full saved details':'Saved-message preview'}</span><button type="button" disabled={loading||libraryBusy||saving} title={fullDetails?'Return to the saved messages.':'Include references, saved objects and previous attempts.'} onClick={()=>{const details=!fullDetails;setFullDetails(details);void select(ownDetail.conversation_id,details,ownDetail);}}>{fullDetails?'Show message preview':'Load saved details'}</button></div>}
    <div className="conversation-library__transcript" aria-busy={loading}>
    {notice&&<p role="status">{notice}</p>}
    {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading messages…</p>}

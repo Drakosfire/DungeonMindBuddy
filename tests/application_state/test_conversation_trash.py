@@ -56,6 +56,17 @@ def test_archived_trash_keeps_turns_and_current_pointer(application_state_dsn):
     assert service.get_active_conversation("world-one").conversation_id == pointer.active_conversation_id
 
 
+def test_trash_does_not_hide_a_reply_accepted_in_another_tab(application_state_dsn):
+    service = AgentConversationService()
+    cid = archive(service, count=1, keep_active=True)
+    before = service.get_world_pointer("world-one")
+    with pytest.raises(ApplicationStateConflictError, match="reply in progress"):
+        service.set_conversation_trash(command(service, cid), restore=False)
+    assert service.get_world_pointer("world-one") == before
+    assert service.get_conversation("world-one", cid).status == "active"
+    assert library.list_library("world-one", status="trashed")["items"] == []
+
+
 def test_lifecycle_scope_conflict_and_uncertain_replay(application_state_dsn):
     service = AgentConversationService()
     cid = new(service)
