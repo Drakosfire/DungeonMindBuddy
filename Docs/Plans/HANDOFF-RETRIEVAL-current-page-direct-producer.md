@@ -1,8 +1,8 @@
 # RETRIEVAL: read the explicitly requested current saved page directly
 
 Status: ACTIVE under the user's over-retrieval objective. Serial successor to
-#4892, whose reader is live at `9a21c8684e44a601ea76943d887884d2a59a2a32`
-after Actions run 45909259818; existing signed-in conversation reopened.
+#4893, whose projection reader is live at `1d7fb17497dcab608e0625a0a0ccc7d63e451a04`
+after Actions run 45910450014; an existing signed-in conversation reopened.
 Branch `codex/current-page-direct-producer`, checkout `retrieval-source-window`.
 The user owns and authorized this lane. Current #4884 was checked for overlapping
 paths; re-anchor and requalify the serving lineage before delivery. Reuse the
@@ -21,8 +21,8 @@ a separate subsequent slice; until then these exceptional cases may fail closed
 and must not be presented as product-complete.
 
 Write lease: this handoff, `apps/live_control_server/services/build_jev_driver.py`,
-`build_pending_app_pages.py`, `build_pending_source.py`, a new focused test file
-`tests/test_build_current_page_direct.py`, and the affected action-catalog entry
+`build_pending_app_pages.py`, `build_pending_source.py`, focused tests
+`tests/test_build_current_page_direct.py` and `tests/test_build_current_scope_reader.py`, and the affected action-catalog entry
 in `evals/plan-authoring-benchmark.md`. The existing negative development control
 and private budget are owned on main by #4890; do not relax or duplicate them.
 Validate the actual runtime path, exact metadata identity and no inventory scan,

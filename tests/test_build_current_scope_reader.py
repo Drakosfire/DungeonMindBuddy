@@ -1,7 +1,6 @@
 """Reader-first current-page scope; this slice never emits the new choice."""
 from types import SimpleNamespace
 from hashlib import sha256
-import asyncio
 import json
 
 import pytest
@@ -110,17 +109,14 @@ def test_pending_selection_validates_the_actual_future_request_and_vote():
             user_text=policy.action.intent.message, turn_id=work['turn_id'], attempt=1)
 
 
-def test_reader_refuses_to_resume_future_scope_before_any_app_or_native_acquisition():
-    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+def test_current_scope_never_falls_through_to_native_when_no_app_read_exists():
     from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
     receipt, policy = pending_execution_pair(with_source=True)
     execution = pending_execution(receipt, policy, pending_work_prefix(policy, scope='current_saved_page'))
-    # No discovery, source preparation, access or read owners exist here: a
-    # guard after any attempted acquisition would raise a different exception.
+    # No native preparation owner exists: an attempted fallback would raise a
+    # different exception.
     adapter = SimpleNamespace(_broker_receipt=lambda: receipt, _broker_execution=lambda: execution)
-    with pytest.raises(ValueError, match='requires its producer'):
-        asyncio.run(acquire_pending_app_pages(adapter, object()))
-    with pytest.raises(ValueError, match='requires its producer'):
+    with pytest.raises(ValueError, match='unavailable or insufficient'):
         prepare_pending_native_source(adapter)
 
 
