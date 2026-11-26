@@ -30,6 +30,9 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
               for path in bundle.rglob("*") if path.is_file()}
     if "index.html" not in actual or actual != expected or any(path.is_symlink() for path in bundle.rglob("*")):
         raise ValueError("Browser UI bundle differs from its pinned inventory")
+    unsent_draft = spec.get("unsent_draft", False)
+    if type(unsent_draft) is not bool or (unsent_draft and (not build_fixture or live_plan)):
+        raise ValueError("Unsent draft requires a Build browser fixture")
     wire = [] if build_fixture or live_plan else json.loads(workflow.read_pin(spec["jev_wire"], base))
     if not (build_fixture or live_plan) and (not wire or any(
         row["method"] != "POST" or row["response_status"] != 200
@@ -37,7 +40,7 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
         for row in wire
     )):
         raise ValueError("Browser benchmark requires a successful pinned Jev replay")
-    if (build_fixture or live_plan) and (not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()):
+    if not unsent_draft and (build_fixture or live_plan) and (not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()):
         raise ValueError("Browser placement fixture requires exact selected text")
     settled = spec.get("settled_pane", False)
     if type(settled) is not bool:
@@ -68,6 +71,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     live = live_build or live_plan
     wire_name = "plan-wire-response" if live_plan else "build-wire-response"
     confirm_save = manifest["browser_capture"].get("confirm_save", False)
+    unsent_draft = manifest["browser_capture"].get("unsent_draft", False)
+    if unsent_draft and (live or confirm_save or not build_fixture):
+        raise ValueError("Unsent draft requires provider-free Build capture")
+    turn_posts = 0
     if type(confirm_save) is not bool or (confirm_save and not live_build):
         raise ValueError("Build confirmation requires an explicit live fixture opt-in")
     if live_build and (not build_fixture or detail):
@@ -128,7 +135,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         dependant.call = measured_handler
 
     async def dispatch(scope, receive, send):
-        nonlocal browser_request
+        nonlocal browser_request, turn_posts
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
@@ -177,6 +184,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             finally:
                 active_plan_get.reset(token)
         if path == "/api/live/agent/turn" and method == "POST":
+            if unsent_draft:
+                turn_posts += 1
+                return await JSONResponse({"code": "benchmark_unexpected_draft_dispatch"}, 409)(scope, receive, send)
             tick = monotonic_ns()
             chunks = []
             while True:
@@ -327,13 +337,14 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
                         "DMB_BENCHMARK_LIVE_BROWSER": "1" if live else "0",
+                        "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture or live_plan else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
                         "DMB_BENCHMARK_CHROMIUM": os.environ["DMB_BENCHMARK_CHROMIUM"],
                     }
-                    if live:
+                    if live or unsent_draft:
                         page_route = "/api/live/workspace-documents/" + work["object_id"]
                         page_route += "/committed-revision" if live_plan else "/snapshot"
                         page_params = {} if live_plan else {"view": "committed"}
@@ -353,6 +364,24 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     driver_failed = driver_status != {"return_code": 0}
                     if driver_failed:
                         artifacts.immutable_save(directory, "browser-driver-failure", driver_status)
+                    if unsent_draft:
+                        timing_path = output / "browser-timing.json"
+                        observation = json.loads(timing_path.read_bytes()) if timing_path.is_file() else {}
+                        after = client.get(route).raise_for_status().json()
+                        page_after = workflow.response_envelope(
+                            client.get(page_route, params=page_params).raise_for_status())
+                        artifacts.immutable_save(directory, "history-before", fresh)
+                        artifacts.immutable_save(directory, "history-after", after)
+                        artifacts.immutable_save(directory, "committed-page-after", page_after)
+                        artifacts.immutable_save(directory, "fixture-result", {
+                            "status": "incomplete" if driver_failed else "observed",
+                            "draft_restored": observation.get("draft_restore", {}).get("restored"),
+                            "attempted_turn_posts": turn_posts,
+                            "conversation_unchanged": after == fresh,
+                            "committed_page_unchanged": page_after["body"] == page_before["body"],
+                            "provider_calls": 0,
+                        })
+                        return
                     if browser_request is None or (driver_failed and not live):
                         raise ValueError("Ordinary browser Send did not capture the expected request")
                     artifacts.immutable_save(directory, "request", browser_request)

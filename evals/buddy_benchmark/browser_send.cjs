@@ -44,12 +44,29 @@ async function run() {
       encodeURIComponent(process.env.DMB_BENCHMARK_WORLD) + "&documentId=" + encodeURIComponent(documentId));
     const composer = build ? page.getByLabel("Message DungeonBuddy") :
       page.getByPlaceholder("Ask Buddy, or tell it what to change…");
-    if (!(await composer.isVisible())) {
-      const conversation = page.locator(build ? ".conversation-dock__launcher" : ".plan-conversation-dock__launcher").getByRole("button");
-      await conversation.click({ timeout: 15000 });
+    async function openComposer() {
+      if (!(await composer.isVisible())) {
+        const conversation = page.locator(build ? ".conversation-dock__launcher" : ".plan-conversation-dock__launcher").getByRole("button");
+        await conversation.click({ timeout: 15000 });
+      }
+      await composer.waitFor({ timeout: 20000 });
     }
-    await composer.waitFor({ timeout: 20000 });
-    await composer.fill(process.env.DMB_BENCHMARK_QUESTION);
+    await openComposer();
+    const draft = process.env.DMB_BENCHMARK_QUESTION;
+    const unsentDraft = process.env.DMB_BENCHMARK_UNSENT_DRAFT === "1";
+    if (unsentDraft && await composer.inputValue() !== "") throw new Error("Unsent draft fixture composer is not empty");
+    await composer.fill(draft);
+    if (unsentDraft) {
+      if (await composer.inputValue() !== draft) throw new Error("Draft entry did not match fixture");
+      await page.reload();
+      await openComposer();
+      await composer.locator("xpath=self::*[not(@disabled)]").waitFor({ timeout: 15000 });
+      const restored = await composer.inputValue() === draft;
+      writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
+        draft_restore: { restored }, apiFailures, turnNetworkFailures,
+      }, null, 2));
+      return;
+    }
     if (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1") {
       const selected = process.env.DMB_BENCHMARK_SELECTION;
       if (!selected || !selected.trim()) throw new Error("Placement fixture needs selected text");
