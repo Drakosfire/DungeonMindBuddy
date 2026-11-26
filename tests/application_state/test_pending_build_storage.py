@@ -316,5 +316,6 @@ def test_stored_statblock_reader_fence_refuses_previous_serving_reader(applicati
         assert cli._alembic_head() == "20261126_0214"
         cli.assert_connection_at_head(conn)
         monkeypatch.setattr(cli, "_alembic_head", lambda: "20261125_0213")
-        with pytest.raises(ApplicationStateMigrationError, match="20261126_0214"):
+        assert cli._revision_from_connection(conn) == "20261126_0214"
+        with pytest.raises(ApplicationStateMigrationError, match="schema is behind Alembic head"):
             cli.assert_connection_at_head(conn)
