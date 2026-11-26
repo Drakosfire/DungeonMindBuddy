@@ -532,6 +532,10 @@ class PlanJevDriver:
         event = None
         if prior is not None and prior[1].continuity_verified and anchor is not None:
             previous, record = prior
+            support = record.pdf_support
+            stored_support = support is None or all(
+                item.evidence_ref_id.startswith("ev:") for item in support.support
+            )
             candidate = BuildSavedStatblockReadV1(
                 **fields, definition=record.definition, pdf_support=record.pdf_support,
                 continuity_verified=True, association_anchor=anchor, reused_from_turn_id=previous.turn_id,
@@ -547,7 +551,7 @@ class PlanJevDriver:
             except ValueError:
                 pass
             else:
-                if current_epoch() == epoch:
+                if stored_support and current_epoch() == epoch:
                     event = candidate
         if event is None:
             opened = open_version(self.statblock_root, world_id=self.statblock_world,
