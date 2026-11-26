@@ -43,8 +43,9 @@ clarification delivery or continuation.
 `native_activity_counts` reports native acquisition stage observations by fixed
 policy and action (`expanded`, `retrieved`, `retained`) separately. It does not
 pair events, count distinct sources, include arbitrary labels or establish
-completeness. This prevents a start and its outcome from being reported as two
-actual reads.
+completeness. This view separates starts and outcomes; the existing raw
+acquisition list still contains one observation per stage and must not be
+interpreted as distinct read counts.
 
 `trace_observation.observed_acquisitions` projects a lower bound from the saved
 trace: Graph operations, new source passages, authored-reference reads, selected
