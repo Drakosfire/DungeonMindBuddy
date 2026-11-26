@@ -135,3 +135,58 @@ def test_statblock_support_reads_only_the_exact_stored_passage(monkeypatch, has_
     else:
         assert reads == []
         assert result["support"] == []
+
+
+@pytest.mark.parametrize("state", ["selected", "unselected", "stale", "duplicate"])
+def test_pending_statblock_acquisition_checks_selection_before_read(monkeypatch, state):
+    from uuid import uuid4
+
+    from application_state.agent_conversation import build_pending_native, native_retrieval
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    from application_state.agent_conversation.native_reads import observe_saved_statblock_locked
+    from application_state.world_mechanics.types import MechanicsLocator
+
+    handle = "saved-statblock:0"
+    locator = MechanicsLocator(
+        provider="dungeonmind", statblock_id="sb_example", revision_id="rev_example",
+        contract="dungeonmind.dungeonbuddy-statblocks", contract_version="1.0.0",
+        definition_digest="sha256:" + "a" * 64,
+    )
+    draft_id = uuid4()
+    selection = SimpleNamespace(
+        event_id=uuid4(), operation="select_candidates",
+        selected_handles=[] if state == "unselected" else [handle],
+    )
+    existing = BuildSavedStatblockReadV1(
+        event_id=uuid4(), sequence=0, selection_event_id=selection.event_id,
+        handle=handle, world_id="world", draft_id=draft_id, locator=locator,
+        definition={"name": "Example"},
+    )
+    turn = SimpleNamespace(
+        world_id="world", graph_context_receipt=object(),
+        graph_context_execution=SimpleNamespace(events=[existing] if state == "duplicate" else []),
+    )
+    authority = object()
+    monkeypatch.setattr(native_retrieval, "current_selection", lambda _: selection)
+    monkeypatch.setattr(build_pending_native, "prepared_pending_source", lambda *_: (authority, None))
+    calls = []
+
+    def read(*args):
+        calls.append(args)
+        return {"name": "Example"}, None
+
+    def acquire():
+        return observe_saved_statblock_locked(
+            turn, selection_event_id=uuid4() if state == "stale" else selection.event_id,
+            handle=handle, draft_id=draft_id, locator=locator, read=read,
+        )
+
+    if state == "selected":
+        result = acquire()
+        assert calls == [("world", draft_id, locator, authority)]
+        assert result.definition == existing.definition
+        assert result.selection_event_id == selection.event_id
+    else:
+        with pytest.raises(ValueError, match="acknowledged selection|already read"):
+            acquire()
+        assert calls == []
