@@ -427,7 +427,8 @@ def test_late_prior_completion_is_not_hidden_by_a_newer_retained_prefix(lane, tm
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, True, False,
         native_body='irrelevant', before_provider=before_provider,
         requested_work=lambda message: 'review_lore_page_from_conversation' if message == synthesis else 'discuss',
-        source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup')
+        source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup',
+        source_free_reply=lambda message: message == stalled)
     case.request['build_authored_references'] = None
     save_page(tmp_path, case.page.document_id, '# Retained notes\n\nA proposed conversation.\n')
     current = get_workspace_document_snapshot(tmp_path, case.page.document_id)
