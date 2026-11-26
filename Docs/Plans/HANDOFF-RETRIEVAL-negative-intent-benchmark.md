@@ -82,7 +82,7 @@ The offline report can accept an optional hash-pinned external review of respons
 
 ## App source-body observation
 
-The partial turn probe also observes `application_state.source.repository.get_source_markdown`, including the catalog navigation owner that calls it through the repository module. It records only returned or raised attempts, never source text or identifiers. A returned call may return no source and is not credited as required evidence. These calls may overlap other owner observations; they are not distinct-source counts. Old artifacts without observations remain unknown. Batch access, earlier captured aliases, background workers and other owners remain outside this hook; this is not a complete journal or a benchmark pass. Validate the increment on the current serving integration before use.
+The partial turn probe also observes `application_state.source.repository.get_source_markdown`, including the catalog navigation owner that calls it through the repository module. It records entered, returned or raised attempt states, never source text or identifiers. A returned call may return no source and is not credited as required evidence. These calls may overlap other owner observations; they are not distinct-source counts. Old artifacts without observations remain unknown. Batch access, earlier captured aliases, background workers and other owners remain outside this hook; this is not a complete journal or a benchmark pass. Six focused synthetic checks passed on both the benchmark head and the serving integration before this documentation correction; no database or provider was used.
 
 ## Outcome and lease
 
