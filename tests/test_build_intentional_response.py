@@ -486,3 +486,37 @@ def test_creative_chat_guidance_preserves_the_previous_frozen_menu():
             'probabilities': {name: float(name == label) for name in c.WORK}}}}
         assert c.selected(response, menu=old) == label
         assert c.selected(response, menu=c.MENU_DIGEST) == label
+
+
+def test_future_mixed_action_menu_is_readable_but_not_emitted():
+    old = c.MENU_DIGEST
+    future = c.FUTURE_MIXED_ACTION_MENU_DIGEST
+    assert old != future and c.digest(c.question()) == old
+    assert c.known_semantics(old, c.RESOLVER_DIGEST)
+    assert c.known_semantics(future, c.RESOLVER_DIGEST)
+    assert c.menu_offers_lore_outcomes(future)
+    assert 'separately choose whether the' in c.decision_instructions(future)
+    assert 'separately choose whether the' not in c.decision_instructions()
+    for label in ('discuss', 'other_creation', 'write_current_page'):
+        response = {'answers': {'requested_work': {'selected': label,
+            'probabilities': {name: float(name == label) for name in c.WORK}}}}
+        assert c.selected(response, menu=old) == c.selected(response, menu=future) == label
+    with pytest.raises(ValueError):
+        c.decision_instructions('f' * 64)
+
+
+def test_future_mixed_action_menu_roundtrips_frozen_action_and_barrier():
+    from tests.test_build_source_free_routing import pending_execution_pair
+    from application_state.agent_conversation.native_execution import NativeBuildActionV1
+    _, policy = pending_execution_pair()
+    action = policy.action.model_dump(mode='json', by_alias=True)
+    action['requested_work_menu_sha256'] = c.FUTURE_MIXED_ACTION_MENU_DIGEST
+    future_action = NativeBuildActionV1.model_validate_json(json.dumps(action))
+    future_policy = policy.model_copy(update={'action': future_action})
+    resolution = c.resolution_for(future_policy, 'other_creation', source_scope='source_lookup')
+    assert resolution['barrier'] == 'requested_executor_not_offered'
+    assert resolution['source_scope'] == 'source_lookup'
+    assert resolution['operation'] == 'answer_from_sources'
+    action['requested_work_menu_sha256'] = 'f' * 64
+    with pytest.raises(ValueError, match='Unknown frozen Build semantic menu'):
+        NativeBuildActionV1.model_validate_json(json.dumps(action))
