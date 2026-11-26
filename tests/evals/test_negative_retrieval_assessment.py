@@ -2315,3 +2315,338 @@ def test_trace_sized_shepherd_catalog_preserves_source_free_contract():
     assert rubric == private["cases"][small["id"]]
     assert assess(rubric, observation(outcome="answer", catalog_discoveries=1))["checks"]["catalog_budget"] is False
     assert assess(rubric, observation(outcome="answer", catalog_discoveries=0, catalog_journal_complete=False))["checks"]["catalog_budget"] is None
+
+
+def test_source_window_scopes_executor_and_flags_unrelated_calls():
+    from concurrent.futures import ThreadPoolExecutor
+    from evals.negative_retrieval.source_window import observe_source_window
+    def source(value):
+        if value == 'raise':
+            raise ValueError('synthetic')
+        return value
+    prebound = source
+    with ThreadPoolExecutor(max_workers=1) as build, ThreadPoolExecutor(max_workers=1) as unrelated:
+        build.submit(lambda: None).result()
+        unrelated.submit(lambda: None).result()
+        original = build.submit
+        with observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+            assert prebound('main') == 'main'
+            assert build.submit(prebound, 'worker').result() == 'worker'
+            with pytest.raises(ValueError, match='synthetic'):
+                build.submit(prebound, 'raise').result()
+            assert unrelated.submit(prebound, 'other').result() == 'other'
+        assert build.submit == original
+    assert state['status'] == 'uncertain'
+    assert state['scoped']['text'] == 3 and state['unscoped']['text'] == 1
+    assert state['pending_at_close'] == 0 and state['coverage'] == 'partial'
+
+
+def test_source_window_retains_unfinished_work_as_uncertain():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from evals.negative_retrieval.source_window import observe_source_window
+    entered, release = Event(), Event()
+    def source():
+        entered.set()
+        assert release.wait(5)
+    with ThreadPoolExecutor(max_workers=1) as build:
+        try:
+            with observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+                future = build.submit(source)
+                assert entered.wait(5)
+            assert state['status'] == 'uncertain' and state['pending_at_close'] == 1
+        finally:
+            release.set()
+        future.result(timeout=5)
+        assert state['status'] == 'uncertain' and state['pending_at_close'] == 1
+
+
+def test_source_window_unavailable_slots_do_not_claim_zero(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+    from evals.negative_retrieval import source_window
+    def source(): pass
+    fake = SimpleNamespace(get_tool=lambda slot: 'occupied')
+    with ThreadPoolExecutor(max_workers=1) as build:
+        with monkeypatch.context() as scoped:
+            scoped.setattr(source_window.sys, 'monitoring', fake)
+            with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+                source()
+        assert state['status'] == 'unavailable' and state['coverage'] == 'partial'
+        with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build) as next_state:
+            source()
+        assert next_state['scoped']['text'] == 1
+
+
+def test_source_window_monitors_actual_core_view_before_fake_database():
+    from concurrent.futures import ThreadPoolExecutor
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.negative_retrieval.source_window import observe_source_window
+    class NoDatabase:
+        def transaction(self): raise RuntimeError('synthetic sentinel')
+    view = _PostgresNativeTextSourceView(NoDatabase(), 'synthetic', 1)
+    prebound = view.get_native_text_source
+    def invoke():
+        with pytest.raises(RuntimeError, match='synthetic sentinel'):
+            prebound(source_artifact_id='synthetic', source_revision_id='synthetic', span_id='synthetic')
+    with ThreadPoolExecutor(max_workers=1) as build:
+        build.submit(lambda: None).result()
+        with observe_source_window(owners={prebound.__func__.__code__: 'text'}, executor=build) as state:
+            invoke()
+            build.submit(invoke).result()
+    assert state['status'] == 'observed' and state['scoped']['text'] == 2
+    assert state['coverage'] == 'partial'
+
+
+def test_source_window_cancelled_task_is_conservatively_unsettled():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from evals.negative_retrieval.source_window import observe_source_window
+    ready, release = Event(), Event()
+    def blocker():
+        ready.set()
+        assert release.wait(5)
+    def source(): raise AssertionError('cancelled task must not run')
+    with ThreadPoolExecutor(max_workers=1) as build:
+        blocker_future = build.submit(blocker)
+        assert ready.wait(5)
+        try:
+            with observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+                future = build.submit(source)
+                assert future.cancel()
+            assert state['status'] == 'uncertain' and state['pending_at_close'] == 1
+        finally:
+            release.set()
+        blocker_future.result(timeout=5)
+
+
+def test_source_window_preserves_original_failure_when_cleanup_fails(monkeypatch):
+    import sys
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+    from evals.negative_retrieval import source_window
+    monkeypatch.setattr(source_window, '_poisoned', False)
+    real = sys.monitoring
+    def source(): pass
+    def set_local(slot, code, events):
+        real.set_local_events(slot, code, events)
+        if not events:
+            raise RuntimeError('synthetic cleanup error')
+    proxy = SimpleNamespace(events=real.events, get_tool=real.get_tool, use_tool_id=real.use_tool_id,
+        set_local_events=set_local, register_callback=real.register_callback, free_tool_id=real.free_tool_id)
+    with ThreadPoolExecutor(max_workers=1) as build, monkeypatch.context() as scoped:
+        scoped.setattr(source_window.sys, 'monitoring', proxy)
+        with pytest.raises(ValueError, match='original post failure') as failure:
+            with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+                raise ValueError('original post failure')
+        assert state['status'] == 'uncertain' and state['monitor_error'] is True
+        assert any('cleanup also failed' in note for note in failure.value.__notes__)
+    assert all(real.get_tool(i) != 'buddy-negative-source-window' for i in range(6))
+
+
+def test_source_window_cleans_partially_armed_setup(monkeypatch):
+    import sys
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+    from evals.negative_retrieval import source_window
+    real = sys.monitoring
+    def source(): pass
+    def set_local(slot, code, events):
+        real.set_local_events(slot, code, events)
+        if events:
+            raise RuntimeError('synthetic setup error')
+    proxy = SimpleNamespace(events=real.events, get_tool=real.get_tool, use_tool_id=real.use_tool_id,
+        set_local_events=set_local, register_callback=real.register_callback, free_tool_id=real.free_tool_id)
+    with ThreadPoolExecutor(max_workers=1) as build, monkeypatch.context() as scoped:
+        scoped.setattr(source_window.sys, 'monitoring', proxy)
+        with pytest.raises(RuntimeError, match='synthetic setup error'):
+            with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build):
+                pytest.fail('must not dispatch')
+    assert all(real.get_tool(i) != 'buddy-negative-source-window' for i in range(6))
+    with ThreadPoolExecutor(max_workers=1) as build:
+        with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+            source()
+    assert state['scoped']['text'] == 1
+
+
+def test_capture_freezes_unfinished_source_window_artifact(tmp_path, monkeypatch, verified_capture_owner):
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import source_window
+    from evals.negative_retrieval.capture import capture
+    started, release = Event(), Event()
+    def source():
+        started.set()
+        assert release.wait(5)
+    with ThreadPoolExecutor(max_workers=1) as build:
+        monkeypatch.setattr(source_window, '_default_owners', lambda: ({source.__code__: 'text'}, build))
+        class Client:
+            def post(self, route, *args, **kwargs):
+                self.future = build.submit(source)
+                assert started.wait(5)
+                return {'ok': True}
+        client = Client()
+        monkeypatch.setattr(workflow, 'capture_case', lambda client, *args, **kwargs: client.post('/api/live/agent/turn'))
+        monkeypatch.setattr(workflow, 'capture', lambda manifest, output, *, cohort_manifest_sha256, clone_app=False:
+                            workflow.capture_case(client, 'world', {}, {'id': 'case1'}, output))
+        monkeypatch.setattr(workflow, 'load_manifest', lambda *args, **kwargs: ({'conversation_mode': 'build_sequence'}, tmp_path))
+        try:
+            assert capture(_test_manifest(tmp_path), tmp_path/'case1', expected_manifest_sha256=MANIFEST_PIN) == {'ok': True}
+            path = tmp_path/'case1'/'source-window-probe.json'
+            before = path.read_bytes()
+            row = json.loads(before)
+            assert row['status'] == 'uncertain' and row['pending_at_close'] == 1
+            assert row['coverage'] == 'partial' and row['scoped']['text'] == 1
+        finally:
+            release.set()
+        client.future.result(timeout=5)
+        assert path.read_bytes() == before
+
+
+def test_capture_records_source_window_setup_failure_before_dispatch(tmp_path, monkeypatch, verified_capture_owner):
+    import json
+    from contextlib import contextmanager
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+    @contextmanager
+    def broken_monitor():
+        raise RuntimeError('synthetic monitor setup failure')
+        yield
+    class Client:
+        def post(self, *args, **kwargs): pytest.fail('must not dispatch')
+    monkeypatch.setattr(module, 'observe_source_window', broken_monitor)
+    monkeypatch.setattr(workflow, 'capture_case', lambda client, *args, **kwargs: client.post('/api/live/agent/turn'))
+    monkeypatch.setattr(workflow, 'capture', lambda manifest, output, *, cohort_manifest_sha256, clone_app=False:
+                        workflow.capture_case(Client(), 'world', {}, {'id': 'case1'}, output))
+    monkeypatch.setattr(workflow, 'load_manifest', lambda *args, **kwargs: ({'conversation_mode': 'build_sequence'}, tmp_path))
+    with pytest.raises(RuntimeError, match='synthetic monitor setup failure'):
+        module.capture(_test_manifest(tmp_path), tmp_path/'case1', expected_manifest_sha256=MANIFEST_PIN)
+    row = json.loads((tmp_path/'case1'/'source-window-probe.json').read_text())
+    assert row['status'] == 'setup_failed' and row['monitor_error'] is True
+    assert row['coverage'] == 'partial'
+
+
+def test_source_window_submission_failure_preserves_exception():
+    from evals.negative_retrieval.source_window import observe_source_window
+    class BrokenExecutor:
+        def submit(self, *args, **kwargs): raise LookupError('synthetic submission failure')
+    def source(): pass
+    build = BrokenExecutor()
+    original = build.submit
+    with pytest.raises(LookupError, match='synthetic submission failure'):
+        with observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+            build.submit(source)
+    assert build.submit == original and state['pending_at_close'] == 0
+
+
+def test_source_window_cleanup_error_cannot_look_like_success(monkeypatch):
+    import sys
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+    from evals.negative_retrieval import source_window
+    monkeypatch.setattr(source_window, '_poisoned', False)
+    real = sys.monitoring
+    def source(): pass
+    def set_local(slot, code, events):
+        real.set_local_events(slot, code, events)
+        if not events: raise RuntimeError('synthetic cleanup error')
+    proxy = SimpleNamespace(events=real.events, get_tool=real.get_tool, use_tool_id=real.use_tool_id,
+        set_local_events=set_local, register_callback=real.register_callback, free_tool_id=real.free_tool_id)
+    with ThreadPoolExecutor(max_workers=1) as build, monkeypatch.context() as scoped:
+        scoped.setattr(source_window.sys, 'monitoring', proxy)
+        with pytest.raises(source_window.SourceWindowCleanupError):
+            with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+                source()
+        assert state['status'] == 'uncertain' and state['monitor_error'] is True
+    assert all(real.get_tool(i) != 'buddy-negative-source-window' for i in range(6))
+
+
+def test_capture_source_window_observes_real_view_through_testclient_executor(tmp_path, monkeypatch, verified_capture_owner):
+    import asyncio
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import source_window
+    from evals.negative_retrieval.capture import capture
+    class NoDatabase:
+        def transaction(self): raise RuntimeError('synthetic sentinel')
+    view = _PostgresNativeTextSourceView(NoDatabase(), 'synthetic', 1)
+    def acquire():
+        with pytest.raises(RuntimeError, match='synthetic sentinel'):
+            view.get_native_text_source(source_artifact_id='synthetic', source_revision_id='synthetic', span_id='synthetic')
+    app = FastAPI()
+    with ThreadPoolExecutor(max_workers=1) as build:
+        build.submit(lambda: None).result()
+        @app.post('/api/live/agent/turn')
+        async def turn():
+            await asyncio.get_running_loop().run_in_executor(build, acquire)
+            return {'ok': True}
+        monkeypatch.setattr(source_window, '_default_owners', lambda: ({view.get_native_text_source.__func__.__code__: 'text'}, build))
+        monkeypatch.setattr(workflow, 'capture_case', lambda client, *args, **kwargs: client.post('/api/live/agent/turn'))
+        monkeypatch.setattr(workflow, 'load_manifest', lambda *args, **kwargs: ({'conversation_mode': 'build_sequence'}, tmp_path))
+        with TestClient(app) as client:
+            monkeypatch.setattr(workflow, 'capture', lambda manifest, output, *, cohort_manifest_sha256, clone_app=False:
+                                workflow.capture_case(client, 'world', {}, {'id': 'case1'}, output))
+            response = capture(_test_manifest(tmp_path), tmp_path/'case1', expected_manifest_sha256=MANIFEST_PIN)
+        assert response.status_code == 200 and response.json() == {'ok': True}
+    row = json.loads((tmp_path/'case1'/'source-window-probe.json').read_text())
+    assert row['status'] == 'observed' and row['scoped']['text'] == 1
+    assert row['pending_at_close'] == 0 and row['coverage'] == 'partial'
+
+
+def test_source_window_report_exposes_only_valid_partial_diagnostics(tmp_path):
+    import copy
+    import json
+    from evals.negative_retrieval.report import report_case
+    row = {'schema': 'dmb_negative_retrieval_source_window_v1', 'case_id': 'case1',
+           'window': 'turn_post_v1', 'coverage': 'partial', 'status': 'observed',
+           'dispatch_uncertain': False, 'scoped': {'metadata': 1, 'text': 2, 'text_batch': 0},
+           'unscoped': {'metadata': 0, 'text': 0, 'text_batch': 0}, 'pending_at_close': 0,
+           'late': 0, 'monitor_error': False}
+    path = tmp_path/'source-window-probe.json'
+    path.write_text(json.dumps(row))
+    result = report_case(tmp_path, {'id': 'case1'}, CASE)
+    assert result['status'] == 'unproven' and result['partial_source_window'] == row
+    for mutate in (lambda x: x.update(coverage='complete'), lambda x: x.update(case_id='other'),
+                   lambda x: x['scoped'].update(text=-1), lambda x: x.update(pending_at_close=1),
+                   lambda x: x.update(source_text='private')):
+        changed = copy.deepcopy(row)
+        mutate(changed)
+        path.write_text(json.dumps(changed))
+        with pytest.raises(ValueError, match='source window'):
+            report_case(tmp_path, {'id': 'case1'}, CASE)
+    path.unlink()
+    assert report_case(tmp_path, {'id': 'case1'}, CASE)['partial_source_window'] is None
+
+
+def test_source_window_poisoned_when_cleanup_cannot_remove_hook(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+    from evals.negative_retrieval import source_window
+    monkeypatch.setattr(source_window, '_poisoned', False)
+    class FakeMonitoring:
+        events = SimpleNamespace(PY_START=1)
+        def __init__(self): self.owner = None; self.armed = False
+        def get_tool(self, slot): return self.owner if slot == 0 else 'occupied'
+        def use_tool_id(self, slot, name): self.owner = name
+        def register_callback(self, slot, event, callback): pass
+        def free_tool_id(self, slot): self.owner = None
+        def set_local_events(self, slot, code, events):
+            if not events: raise RuntimeError('hook remains active')
+            self.armed = True
+    fake = FakeMonitoring()
+    def source(): pass
+    with ThreadPoolExecutor(max_workers=1) as build, monkeypatch.context() as scoped:
+        scoped.setattr(source_window.sys, 'monitoring', fake)
+        with pytest.raises(source_window.SourceWindowCleanupError):
+            with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build) as state:
+                pass
+        assert fake.armed and state['status'] == 'uncertain' and state['monitor_error']
+        with pytest.raises(source_window.SourceWindowCleanupError, match='fresh process'):
+            with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build):
+                pytest.fail('poisoned observer must not dispatch')
