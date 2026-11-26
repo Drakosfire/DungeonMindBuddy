@@ -572,8 +572,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     if name.startswith("paragraph_")
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
+                probabilities = {key: float(key == chosen) for key in choices}
+                if name == 'requested_work' and selection_probabilities is not None:
+                    # Preserve the witnessed nonzero scores while accounting for
+                    # newly offered choices with zero probability.
+                    assert all(key in choices for key, value in selection_probabilities.items() if value)
+                    probabilities = {key: selection_probabilities.get(key, 0.0) for key in choices}
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
-                    probabilities=(selection_probabilities if name=='requested_work' and selection_probabilities is not None else {key: float(key == chosen) for key in choices}))
+                    probabilities=probabilities)
             return httpx2.Response(200, request=req, json=dict(model='jev-1.14.0', answers=answers,
                 usage=dict(input_tokens=37, output_tokens=9)))
 
