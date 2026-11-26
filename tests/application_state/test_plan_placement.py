@@ -539,7 +539,7 @@ def test_v2_reader_fence_refuses_older_application_and_downgrade_without_schema_
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_at_head(dsn=application_state_dsn)
     assert version() == current_head
-    with pytest.raises(RuntimeError, match="forward recovery"):
+    with pytest.raises(RuntimeError, match="Stored statblock conversations require a compatible forward reader"):
         command.downgrade(cli.alembic_config(), "20261120_0171")
     assert version() == current_head
     cli.assert_at_head(dsn=application_state_dsn)

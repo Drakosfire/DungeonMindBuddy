@@ -245,7 +245,8 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
                     'include' if name.startswith('candidate_') and int(name.split('_')[-1]) in native else 'exclude')
                 answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1,
                     'probabilities': {key: float(key == choice) for key in entry['criteria']}}
-            return httpx2.Response(200, request=req, json={'model': 'jev-1.14.0', 'answers': answers,
+            assert body['model'] in {'jev-1.14.0', 'typesafe-ai/jev-1.14.0'}
+            return httpx2.Response(200, request=req, json={'model': body['model'], 'answers': answers,
                 'usage': {'input_tokens': 37, 'output_tokens': 9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):

@@ -261,6 +261,11 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
         source_revision_id=source.source_revision_id, content_sha256=digest,
         page=1, left=0.1, top=0.1, right=0.9, bottom=0.9,
     )]
+    from apps.live_control_server.services import build_pdf_region_render
+
+    # The blank PDF exercises real storage and locator validation. Supply the
+    # extractor output to keep text extraction independent of this contract.
+    monkeypatch.setattr(build_pdf_region_render, "read_region_text", lambda *_: "Reviewed mechanics.")
     packet = prepare(case)
     response = confirm(case, packet)
     assert response.status_code == 200, response.text
@@ -281,6 +286,7 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
         locator, authorized_space_id=case.bound["native_world_id"],
         audience=frozenset(), declared_labels=frozenset(), load=fresh.get_native_pdf_source,
     ) == pdf
+    from apps.live_control_server.models.native_graph_inspection import InspectionRead
     from apps.live_control_server.services import native_graph_inspection
     from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
     from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
@@ -293,8 +299,27 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
         node_id=result.json()["node_id"], label="Fixture creature",
     )
     principal = NativeGraphPrincipal("local_operator", "gm", "local_operator")
+    (stored_id,) = packet["review"]["stored_region_evidence_ids"]
+
+    def no_pdf_read(*args):
+        pytest.fail("Conversation retrieval tried to load the original PDF")
+
+    with monkeypatch.context() as storage:
+        storage.setattr(fresh, "get_native_pdf_source", no_pdf_read)
+        support = native_graph_inspection.statblock_pdf_support(creature_ref, (locator,), principal)
+        (selected,) = support["support"]
+        assert selected["evidence_ref_id"] == stored_id
+        assert selected["text"] == "Reviewed mechanics."
+        stored = native_graph_inspection.inspect(
+            InspectionRead.model_validate({"scope": support["scope"], "selection": {
+                "kind": "source", "assertion_id": selected["assertion_id"], "evidence_ref_id": stored_id,
+            }}), principal,
+        )
+        assert stored["schema"] == "dmb_native_graph_source_v1"
+        assert stored["source"]["text"] == selected["text"]
+
     support = native_graph_inspection.statblock_pdf_support(creature_ref, (locator,), principal)
-    assert [item["evidence_ref_id"] for item in support["support"]] == [evidence_id]
+    assert [item["evidence_ref_id"] for item in support["support"]] == [stored_id]
     epoch = access.source_view.epoch
     assert native_graph_inspection.statblock_pdf_support(
         creature_ref, (locator,), principal, expected_source_epoch=epoch,
@@ -305,13 +330,12 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
         )
     from base64 import b64decode
     from PIL import Image
-    from apps.live_control_server.models.native_graph_inspection import InspectionRead
 
     (selected,) = support["support"]
     request = InspectionRead.model_validate({
         "scope": support["scope"],
         "selection": {"kind": "source", "assertion_id": selected["assertion_id"],
-                      "evidence_ref_id": selected["evidence_ref_id"]},
+                      "evidence_ref_id": evidence_id},
     })
     reopened = native_graph_inspection.inspect(request, principal)
     assert reopened["schema"] == "dmb_native_graph_pdf_region_v1"
@@ -330,16 +354,17 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
     assert replay.status_code == 200 and replay.json()["node_id"] == response.json()["node_id"]
     assert replay.json()["replayed"] is True
 
-    load = fresh.get_native_pdf_source
+    load = native_graph_inspection.open_admitted_native_text
 
-    def load_then_withdraw(space_id, source_revision_id):
-        exact = load(space_id, source_revision_id)
-        artifact, _, _, _ = exact
-        fresh.withdraw_native_source(space_id=space_id,
-            source_artifact_id=artifact.source_artifact_id, source_revision_id=source_revision_id)
+    def load_then_withdraw(context, requested_id):
+        exact = load(context, requested_id)
+        assert requested_id == stored_id and exact.status == "available"
+        fresh.withdraw_native_source(space_id=creature_ref.native_world_id,
+            source_artifact_id=exact.source_artifact_id, source_revision_id=exact.source_revision_id)
         return exact
 
-    monkeypatch.setattr(fresh, "get_native_pdf_source", load_then_withdraw)
+    monkeypatch.setattr(native_graph_inspection, "open_admitted_native_text", load_then_withdraw)
+    monkeypatch.setattr(fresh, "get_native_pdf_source", no_pdf_read)
     with pytest.raises(native_graph_inspection.InspectionUnavailable, match="statblock_pdf_source_epoch_changed"):
         native_graph_inspection.statblock_pdf_support(
             creature_ref, (locator,), principal, expected_source_epoch=epoch,

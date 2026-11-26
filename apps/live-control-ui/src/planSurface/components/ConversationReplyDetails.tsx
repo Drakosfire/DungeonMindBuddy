@@ -7,6 +7,10 @@ export function TraceEvidence({ children }: { children: ReactNode }) {
   const tab = useContext(TraceTabContext);
   return <div hidden={tab !== null && tab !== 'evidence'}>{children}</div>;
 }
+export function TraceDiagnostics({ children }: { children: ReactNode }) {
+  const tab = useContext(TraceTabContext);
+  return <div hidden={tab !== null && tab !== 'diagnostics'}>{children}</div>;
+}
 
 /** One disclosure for a reply. Saved text and independently owned actions never wait for it. */
 export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load, showSources = false, reviewLabel, traceAvailable = true, children }: {
