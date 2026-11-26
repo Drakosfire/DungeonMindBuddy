@@ -378,8 +378,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     artifacts.immutable_save(directory, "history-after", after)
                     if live:
                         if confirm_save:
-                            timing = json.loads((output / "browser-timing.json").read_bytes())
-                            confirmation = timing.get("confirmation") or {}
+                            timing_path = output / "browser-timing.json"
+                            timing = json.loads(timing_path.read_bytes()) if timing_path.is_file() else {}
+                            confirmation = timing.get("confirmation") or {"status": "unknown"}
                             action_id = confirmation.get("action_id")
                             if action_id is not None:
                                 action_id = str(UUID(action_id))

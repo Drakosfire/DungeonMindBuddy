@@ -146,10 +146,19 @@ def report_case(case, base):
     missing = [name for name, path in paths.items() if not path.exists()]
     if missing:
         failure_status = None
-        if not context_only and (directory / "plan-wire-response.json").is_file() and paths.get("answer-http", directory / "answer-http.json").is_file():
-            status = _wrapped(directory / "answer-http.json")["http_status"]
-            if status >= 400:
-                failure_status = status
+        if {"plan-wire-response", "answer-http", "request"} <= paths.keys() and all(
+                paths[name].is_file() for name in ("plan-wire-response", "answer-http", "request")):
+            wire_failure = json.loads(paths["plan-wire-response"].read_bytes())
+            raw_failure = bytes.fromhex(wire_failure["raw_body_hex"])
+            response = _wrapped(paths["answer-http"])
+            request = json.loads(paths["request"].read_bytes())
+            if (request["surface"]["surface_id"] != "plan" or request["message"] != case["question"]
+                    or sha256(raw_failure).hexdigest() != wire_failure["raw_body_sha256"]):
+                raise ValueError("Incomplete Plan wire capture differs from its retained request or hash")
+            if (wire_failure["transport_complete"] and response["http_status"] >= 400
+                    and wire_failure["status"] == response["http_status"]
+                    and json.loads(raw_failure) == response["body"]):
+                failure_status = response["http_status"]
         if case.get("assessment") is not None:
             raise ValueError("Reviewed capture evidence is missing")
         return {"case_id": case["id"], "question": case["question"],
