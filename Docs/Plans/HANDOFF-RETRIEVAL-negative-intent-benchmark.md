@@ -80,6 +80,10 @@ The first serving-integration focused run exposed one generator failure: the cur
 
 The offline report can accept an optional hash-pinned external review of response quality and, for source-required cases, evidence support. It binds the review to the case, rubric, fixture set and exact captured request, answer, history, trace and fixture artifacts, using one byte snapshot per artifact for hashing and parsing. Reads are not an atomic multi-file snapshot. It rejects missing bindings, changed artifacts, duplicate keys in the review JSON and unsupported judgments. Reviewer identity and independence remain unverified assertions; this does not establish a complete acquisition journal, capture environment or qualified cohort. Ten focused synthetic checks passed, including tampering and incomplete-report cases; no actual review, provider or database was used. The local serving integration must be updated before this evaluator increment can run.
 
+## App source-body observation
+
+The partial turn probe also observes `application_state.source.repository.get_source_markdown`, including the catalog navigation owner that calls it through the repository module. It records only returned or raised attempts, never source text or identifiers. A returned call may return no source and is not credited as required evidence. These calls may overlap other owner observations; they are not distinct-source counts. Old artifacts without observations remain unknown. Batch access, earlier captured aliases, background workers and other owners remain outside this hook; this is not a complete journal or a benchmark pass. Validate the increment on the current serving integration before use.
+
 ## Outcome and lease
 
 Build an independently reviewable evaluation of unnecessary acquisition and

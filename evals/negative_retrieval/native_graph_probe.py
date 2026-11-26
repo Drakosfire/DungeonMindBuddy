@@ -19,6 +19,7 @@ _OWNERS = {
     "reopen_context": "native_graph_context_reopen",
 }
 _PREPARATION_OWNERS = {"prepare": "native_source_preparation"}
+_APP_SOURCE_OWNERS = {"get_source_markdown": "app_source_body_read"}
 _CORPUS_OWNERS = {
     "read_authored_source": "native_corpus_authored_source_read",
     "capture_native_sources": "native_corpus_discovery",
@@ -33,17 +34,17 @@ def summarize_records(records):
     if not isinstance(records, list) or any(
         not isinstance(row, dict) or set(row) != {"owner", "state"}
         or not isinstance(row["owner"], str) or not isinstance(row["state"], str)
-        or row["owner"] not in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values())
+        or row["owner"] not in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values())
         or row["state"] not in {"entered", "returned", "raised"}
         for row in records
     ):
         raise ValueError("Malformed native Graph probe evidence")
     counts = {owner: {state: sum(row["owner"] == owner and row["state"] == state for row in records)
                       for state in ("entered", "returned", "raised")}
-              for owner in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values())}
+              for owner in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values())}
     # Old v1 artifacts predate these hooks. Without an observed call, their
     # records cannot distinguish an inactive owner from absent instrumentation.
-    for owner in ("native_source_preparation", "native_graph_binding"):
+    for owner in ("native_source_preparation", "native_graph_binding", "app_source_body_read"):
         if not any(counts[owner].values()):
             counts[owner] = None
     return counts
@@ -59,6 +60,7 @@ def observe_native_graph_owners():
     try:
         from apps.live_control_server.services import native_graph_reads, plan_source_turn
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+        from application_state.source import repository as app_sources
 
         def watch(owner, function):
             @wraps(function)
@@ -87,6 +89,8 @@ def observe_native_graph_owners():
                 stack.enter_context(patch.object(native_graph_reads, name, watch(owner, getattr(native_graph_reads, name))))
             for name, owner in _PREPARATION_OWNERS.items():
                 stack.enter_context(patch.object(plan_source_turn, name, watch(owner, getattr(plan_source_turn, name))))
+            for name, owner in _APP_SOURCE_OWNERS.items():
+                stack.enter_context(patch.object(app_sources, name, watch(owner, getattr(app_sources, name))))
             # This module imports the reader at module load; preserve its alias
             # when already loaded and avoid replacing a separately patched owner.
             if authored is not None and authored_reader is original_reader:

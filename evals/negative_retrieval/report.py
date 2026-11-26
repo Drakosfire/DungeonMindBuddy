@@ -197,9 +197,10 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     if native_turn:
         for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
                       "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read",
-                      "native_corpus_body_open"):
+                      "native_corpus_body_open", "app_source_body_read"):
             counts = native_probe["counts"][owner]
-            observed["reads"].extend([UNKNOWN] * sum(counts.values()))
+            if counts is not None:
+                observed["reads"].extend([UNKNOWN] * sum(counts.values()))
     related_discovery = catalog_discovery_count(probe.get("records")) if related_turn else 0
     native_discovery = (sum(native_probe["counts"]["native_corpus_discovery"].values()) if native_turn else 0)
     stage_counts = observed["native_activity"]["counts_by_policy"]

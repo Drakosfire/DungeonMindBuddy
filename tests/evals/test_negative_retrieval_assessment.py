@@ -419,11 +419,33 @@ def test_native_graph_probe_records_direct_calls_and_restores_after_error(monkey
     assert summarize_records(records)["native_graph_query"]["returned"] == 1
     assert summarize_records(records)["native_source_preparation"] is None
     assert summarize_records(records)["native_graph_binding"] is None
+    assert summarize_records(records)["app_source_body_read"] is None
     for malformed in ([{"owner": "native_graph_query", "state": []}],
                       [{"owner": "native_graph_query", "state": "returned", "text": "private"}],
                       [{"owner": "unknown", "state": "returned"}]):
         with pytest.raises(ValueError, match="Malformed"):
             summarize_records(malformed)
+
+
+def test_app_catalog_source_body_probe_records_attempts_without_payload(monkeypatch):
+    from application_state.agent_conversation import native_source_catalog
+    from application_state.source import repository
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners, summarize_records
+
+    sentinel = object()
+    def read(*args, **kwargs):
+        if kwargs.get("fail"):
+            raise ValueError("private failure")
+        return sentinel
+    monkeypatch.setattr(repository, "get_source_markdown", read)
+    with observe_native_graph_owners() as records:
+        assert native_source_catalog.sources.get_source_markdown("private") is sentinel
+        with pytest.raises(ValueError):
+            native_source_catalog.sources.get_source_markdown("private", fail=True)
+    assert records == [{"owner": "app_source_body_read", "state": "returned"},
+                       {"owner": "app_source_body_read", "state": "raised"}]
+    assert summarize_records(records)["app_source_body_read"]["raised"] == 1
+    assert repository.get_source_markdown is read
 
 
 def test_pending_build_preparation_and_binding_are_separate_observed_owners(monkeypatch):
@@ -783,6 +805,8 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         ("native_corpus_member_read", "returned", False),
         ("native_corpus_body_open", "returned", False),
         ("native_corpus_direct_read", "raised", False),
+        ("app_source_body_read", "returned", False),
+        ("app_source_body_read", "raised", False),
         ("native_graph_selected_read", "entered", False),
         ("native_graph_query", "returned", None),
     ):
@@ -2034,6 +2058,14 @@ def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
         assert result["status"] == "unproven"
         negative = report_case(tmp_path, fixture, CASE)
         assert negative["checks"]["unexpected_retrieval"] is False
+    related["records"] = []
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(related))
+    for state in ("returned", "raised"):
+        native["records"] = [{"owner": "app_source_body_read", "state": state}]
+        (tmp_path / "native-graph-probe.json").write_text(json.dumps(native))
+        result = report_case(tmp_path, fixture, positive)
+        assert result["checks"]["required_evidence"] is None
+        assert result["status"] == "unproven"
 
 
 def test_assessor_distinguishes_attempts_from_completed_required_reads():

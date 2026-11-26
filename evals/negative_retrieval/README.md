@@ -54,6 +54,13 @@ same search, so any number of unpaired trace events proves at least one search;
 the report takes the larger of that bound and the count of observed owner calls.
 Missing body-open coverage remains unknown.
 
+The App repository's `get_source_markdown` is observed as
+`app_source_body_read`, including the catalog navigation path. Calls are
+attempts, not proof that a body was returned or a count of distinct sources;
+they may overlap other observed owners. Absence is unknown for old artifacts
+and incomplete coverage. Batch reads, pre-captured aliases, other processes and
+other owners are not covered by this hook.
+
 The pending Build source-preparation and Graph-binding entry points are recorded
 separately as `native_source_preparation` and `native_graph_binding` attempt and
 outcome counts. These are not body reads or a source-search count, and a zero
