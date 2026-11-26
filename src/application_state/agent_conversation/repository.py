@@ -938,6 +938,20 @@ def list_conversations(
     return [Conversation.model_validate(row) for row in rows]
 
 
+def conversation_has_live_reply(
+    conn: psycopg.Connection, *, world_id: str, conversation_id: UUID,
+) -> bool:
+    return conn.execute(
+        """SELECT EXISTS(
+            SELECT 1 FROM agent.turn
+            WHERE world_id=%s AND conversation_id=%s
+              AND (status='accepted'
+                OR (status='running' AND claim_expires_at>clock_timestamp()))
+        )""",
+        (world_id, conversation_id),
+    ).fetchone()[0]
+
+
 def update_conversation_state(
     conn: psycopg.Connection,
     *,

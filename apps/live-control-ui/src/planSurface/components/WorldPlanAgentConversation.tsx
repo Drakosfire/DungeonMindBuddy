@@ -33,6 +33,7 @@ import {ConversationConnectedPageReview} from "./ConversationConnectedPageReview
 import {ConversationLorePageConfirmation} from "./ConversationLorePageConfirmation";
 import {ConversationLibrary} from '../../agentInteraction/ConversationLibrary';
 import {resumeConversation,changeConversationLifecycle,type ConversationLifecycleOperation,type ResumeConversationCommand} from '../../api/conversationLibraryApi';
+import {runBulkConversationLifecycle,type BulkConversationPlan} from '../../agentInteraction/conversationBulkLifecycle';
 import {ConversationExport} from '../../agentInteraction/ConversationExport';
 import {queueSurfaceConversationRequest,useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
@@ -7070,19 +7071,31 @@ export function WorldPlanAgentConversation({
               : "Conversation history is not ready yet."
             : null;
 
-  async function continueConversation(command:ResumeConversationCommand,operation:'reopen'|ConversationLifecycleOperation='reopen'){
-    if(conversationSwitchRef.current||newConversationDisabledReason||command.world_id!==verifiedWorldId)throw new Error('Wait for the current request and refresh conversation history.');
-    const owner=verifiedWorldId;conversationSwitchRef.current=true;setConversationSwitching(true);
+  async function mutateLibrary<T>(worldId: string, mutate: () => Promise<T>, closeLibrary = false) {
+    if(conversationSwitchRef.current||newConversationDisabledReason||worldId!==verifiedWorldId)throw new Error('Wait for the current request and refresh conversation history.');
+    conversationSwitchRef.current=true;setConversationSwitching(true);
     try{
-      if(operation==='reopen')await resumeConversation(command);else await changeConversationLifecycle(command,operation);
-      if(!latestRef.current.mounted||latestRef.current.verifiedWorldId!==owner)return;
-      historyGenerationRef.current++;historySnapshotRef.current=null;setHistory(null);
-      setContinuationOfActionId(null);setConversationActions([]);setSourcePassage(null);
-      setHistoryRefreshNonce(v=>v+1);
-      if(operation==='reopen')setLibraryOpen(false);
-      setConversationNotice(null);
-    }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===owner){setHistoryRefreshNonce(v=>v+1);setConversationNotice('Checking which conversation is current. Your unsent message was kept.');}throw reason;}
+      const result=await mutate();
+      if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===worldId){
+        historyGenerationRef.current++;historySnapshotRef.current=null;setHistory(null);
+        setContinuationOfActionId(null);setConversationActions([]);setSourcePassage(null);
+        setHistoryRefreshNonce(v=>v+1);
+        if(closeLibrary)setLibraryOpen(false);
+        setConversationNotice(null);
+      }
+      return result;
+    }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===worldId){setHistoryRefreshNonce(v=>v+1);setConversationNotice('Checking which conversation is current. Your unsent message was kept.');}throw reason;}
     finally{conversationSwitchRef.current=false;if(latestRef.current.mounted)setConversationSwitching(false);}
+  }
+
+  async function continueConversation(command:ResumeConversationCommand,operation:'reopen'|ConversationLifecycleOperation='reopen'){
+    await mutateLibrary(command.world_id,
+      ()=>operation==='reopen'?resumeConversation(command):changeConversationLifecycle(command,operation),
+      operation==='reopen');
+  }
+
+  function changeManyConversations(plan:BulkConversationPlan,isCurrent:()=>boolean){
+    return mutateLibrary(plan.worldId,()=>runBulkConversationLifecycle(plan,isCurrent));
   }
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'
     || Boolean(presentationHosts && !presentationHosts.header);
@@ -7193,7 +7206,7 @@ export function WorldPlanAgentConversation({
       {!activityInComposer && replyActivity}
       {verifiedWorldId&&<><button type="button" onClick={()=>setLibraryOpen(true)}>Conversations…</button>
         {history?.world_id===verifiedWorldId&&history.conversation_id&&<ConversationExport key={`${verifiedWorldId}:${history.conversation_id}`} worldId={verifiedWorldId} conversationId={history.conversation_id}/>}
-        {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)} pointer={history?{revision:history.pointer_revision,activeId:history.active_conversation_id}:undefined} onContinue={continueConversation} onLifecycle={(command,operation)=>continueConversation(command,operation)} continueDisabledReason={newConversationDisabledReason}/>}</>}
+        {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)} pointer={history?{revision:history.pointer_revision,activeId:history.active_conversation_id}:undefined} onContinue={continueConversation} onLifecycle={(command,operation)=>continueConversation(command,operation)} onBulkLifecycle={changeManyConversations} continueDisabledReason={newConversationDisabledReason}/>}</>}
 
       {playMode ? <div role="group" aria-label="Play message action">
           <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
