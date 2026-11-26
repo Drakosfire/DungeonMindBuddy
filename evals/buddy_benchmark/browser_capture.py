@@ -195,24 +195,30 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             response_bytes = bytearray()
             transport_status = None
             content_type = ""
+            transport_complete = False
 
             async def retain_build_response(frame):
-                nonlocal transport_status, content_type
+                nonlocal transport_status, content_type, transport_complete
                 if frame["type"] == "http.response.start":
                     transport_status = frame["status"]
                     content_type = dict(frame.get("headers", [])).get(b"content-type", b"").decode("latin-1")
                 elif frame["type"] == "http.response.body":
                     response_bytes.extend(frame.get("body", b""))
-                    if not frame.get("more_body"):
-                        artifacts.immutable_save(directory, "build-wire-response", {
-                            "status": transport_status, "content_type": content_type,
-                            "raw_body_hex": response_bytes.hex(),
-                            "raw_body_sha256": sha256(response_bytes).hexdigest(),
-                            "elapsed_ms": (monotonic_ns() - tick) / 1e6,
-                        })
+                    transport_complete = not frame.get("more_body")
                 await send(frame)
 
-            return await application(scope, deliver_body, retain_build_response)
+            try:
+                return await application(scope, deliver_body, retain_build_response)
+            finally:
+                if transport_status is not None:
+                    artifacts.immutable_save(directory, "build-wire-response", {
+                        "status": transport_status, "content_type": content_type,
+                        "transport_complete": transport_complete,
+                        "raw_body_hex": response_bytes.hex(),
+                        "raw_body_sha256": sha256(response_bytes).hexdigest(),
+                        "elapsed_ms": (monotonic_ns() - tick) / 1e6,
+                    })
+
         return await application(scope, receive, send)
 
     async def serve(scope, receive, send):
