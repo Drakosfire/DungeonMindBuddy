@@ -1152,28 +1152,63 @@ def test_v2_allows_empty_body_after_exact_yaml_frontmatter():
     assert page_presentation.PagePresentation.model_validate(payload).checked(source).items[0].id == 'blank'
 
 
-def test_existing_schema_upgrade_with_restricted_migration_role(application_state_dsn, monkeypatch):
-    from psycopg import sql
+def test_existing_schema_upgrade_with_restricted_migration_role(
+    application_state_dsn, application_state_database, monkeypatch,
+):
     from urllib.parse import urlsplit, urlunsplit
-    from application_state.config import APPLICATION_STATE_DSN_ENV
 
-    role = 'buddy_migration_test_' + uuid4().hex[:12]
-    expected_head = cli._alembic_head()
+    from alembic import command as alembic
+    from psycopg import sql
+
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from tests.application_state.database_fixture import empty_app_state
+    from tests.application_state.test_conversation_library import new
+
+    role = "buddy_migration_test_" + uuid4().hex[:12]
+    role_name = sql.Identifier(role)
+    parsed = urlsplit(application_state_dsn)
+    endpoint = f"{role}:synthetic-only@{parsed.hostname}:{parsed.port}"
+    migration_dsn = urlunsplit(parsed._replace(netloc=endpoint))
+    previous = "20261125_0213"
+    expected = cli._alembic_head()
     with psycopg.connect(application_state_dsn, autocommit=True) as admin:
-        admin.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD 'synthetic-only'").format(sql.Identifier(role)))
-        try:
-            assert not admin.execute("SELECT has_database_privilege(%s, current_database(), 'CREATE')", (role,)).fetchone()[0]
-            admin.execute(sql.SQL('GRANT USAGE ON SCHEMA application_state TO {}').format(sql.Identifier(role)))
-            admin.execute(sql.SQL('GRANT SELECT, INSERT, UPDATE, DELETE ON application_state.schema_migrations TO {}').format(sql.Identifier(role)))
-            # The fixture already has the head schema. Rewriting its marker
-            # would replay historical DDL against tables that already exist.
-            parsed = urlsplit(application_state_dsn)
-            endpoint = f'{role}:synthetic-only@{parsed.hostname}:{parsed.port}'
-            monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, urlunsplit(parsed._replace(netloc=endpoint)))
-            assert cli.upgrade_to_head() == (expected_head, expected_head)
-        finally:
-            admin.execute(sql.SQL('DROP OWNED BY {}').format(sql.Identifier(role)))
-            admin.execute(sql.SQL('DROP ROLE {}').format(sql.Identifier(role)))
+        admin.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD 'synthetic-only'").format(role_name))
+    try:
+        with empty_app_state(application_state_database):
+            with psycopg.connect(application_state_dsn, autocommit=True) as admin:
+                database = sql.Identifier(admin.info.dbname)
+                admin.execute(sql.SQL("GRANT CREATE ON DATABASE {} TO {}").format(database, role_name))
+                admin.execute(sql.SQL("GRANT USAGE, CREATE ON SCHEMA public TO {}").format(role_name))
+
+            with monkeypatch.context() as scoped:
+                scoped.setenv(APPLICATION_STATE_DSN_ENV, migration_dsn)
+                alembic.upgrade(cli.alembic_config(), previous)
+                with scoped.context() as predecessor:
+                    predecessor.setattr(cli, "_alembic_head", lambda: previous)
+                    conversation = new(AgentConversationService(), "restricted-schema-test")
+
+                with psycopg.connect(application_state_dsn, autocommit=True) as admin:
+                    admin.execute(sql.SQL("REVOKE CREATE ON DATABASE {} FROM {}").format(database, role_name))
+                    admin.execute(sql.SQL("REVOKE CREATE ON SCHEMA public FROM {}").format(role_name))
+                    assert not admin.execute(
+                        "SELECT has_database_privilege(%s, current_database(), 'CREATE')",
+                        (role,),
+                    ).fetchone()[0]
+
+                assert cli.upgrade_to_head() == (expected, expected)
+                with psycopg.connect(migration_dsn) as witness:
+                    assert witness.execute("""
+                        SELECT conversation_id FROM agent.conversation_identity
+                        WHERE world_id='restricted-schema-test'
+                    """).fetchall() == [(conversation,)]
+                    assert witness.execute(
+                        "SELECT to_regclass('agent.conversation_erasure_file') IS NOT NULL",
+                    ).fetchone()[0]
+    finally:
+        with psycopg.connect(application_state_dsn, autocommit=True) as admin:
+            admin.execute(sql.SQL("DROP OWNED BY {}").format(role_name))
+            admin.execute(sql.SQL("DROP ROLE {}").format(role_name))
 
 
 def test_erase_conversation_preserves_its_committed_lore_page(world, application_state_dsn):
