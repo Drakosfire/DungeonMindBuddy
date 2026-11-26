@@ -309,3 +309,12 @@ def test_retained_saved_page_citation_survives_actual_sql_and_schema_fence(appli
         monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0213')
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_connection_at_head(conn)
+
+
+def test_stored_statblock_reader_fence_refuses_previous_serving_reader(application_state_dsn, monkeypatch):
+    with psycopg.connect(application_state_dsn) as conn:
+        assert cli._alembic_head() == "20261126_0214"
+        cli.assert_connection_at_head(conn)
+        monkeypatch.setattr(cli, "_alembic_head", lambda: "20261125_0213")
+        with pytest.raises(ApplicationStateMigrationError, match="20261126_0214"):
+            cli.assert_connection_at_head(conn)
