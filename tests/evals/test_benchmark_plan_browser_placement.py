@@ -75,3 +75,23 @@ def test_live_plan_rejects_replay_options_before_loading_manifest(option, tmp_pa
     with pytest.raises(ValueError, match="response mode"):
         workflow.capture(tmp_path / "missing.json", tmp_path / "output", live_plan=True,
                          browser_case="PLAN-CARDS-1", clone_app=True, **{option: True})
+
+
+
+@pytest.mark.parametrize("status", ["active", "discarded"])
+def test_plan_fixture_requires_active_committed_revision(status):
+    from evals.buddy_benchmark.browser_capture import require_plan_fixture_basis
+
+    work = {"object_id": "plan-fixture", "expected_revision": 3, "expected_revision_n": 2,
+            "expected_content_sha256": "a" * 64}
+    committed = {
+        "schema_version": "dmb_workspace_committed_revision_v2", "scope_mode": "world",
+        "campaign_id": None, "world_id": "elderwyld", "document_id": "plan-fixture",
+        "kind": "plan", "status": status, "object_revision": 3, "revision_n": 2,
+        "content_sha256": "a" * 64, "markdown": "A unique placement paragraph.",
+    }
+    if status == "active":
+        require_plan_fixture_basis(committed, "elderwyld", work, committed["markdown"])
+    else:
+        with pytest.raises(ValueError, match="pinned active committed Plan"):
+            require_plan_fixture_basis(committed, "elderwyld", work, committed["markdown"])

@@ -340,6 +340,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         page_before = workflow.response_envelope(
                             client.get(page_route, params=page_params).raise_for_status())
                         artifacts.immutable_save(directory, "committed-page-before", page_before)
+                        if live_plan:
+                            require_plan_fixture_basis(page_before["body"], world, work,
+                                                       manifest["browser_capture"]["selection_text"])
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
@@ -542,3 +545,24 @@ def validate_plan_browser_placement(request, *, world, work, question, conversat
         if witness != selection_text:
             raise ValueError("Plan browser selection differs from the pinned passage")
     return parsed
+
+
+
+def require_plan_fixture_basis(committed, world, work, selection):
+    """Require the same active committed Plan basis that the ordinary composer uses."""
+    expected = {
+        "schema_version": "dmb_workspace_committed_revision_v2",
+        "scope_mode": "world",
+        "campaign_id": None,
+        "world_id": world,
+        "document_id": work["object_id"],
+        "kind": "plan",
+        "status": "active",
+        "object_revision": work["expected_revision"],
+        "revision_n": work["expected_revision_n"],
+        "content_sha256": work["expected_content_sha256"],
+    }
+    if any(key not in committed or committed[key] != value for key, value in expected.items()):
+        raise ValueError("Plan fixture is not the pinned active committed Plan")
+    if committed["markdown"].count(selection) != 1:
+        raise ValueError("Plan fixture selection is absent or ambiguous in the committed Plan")
