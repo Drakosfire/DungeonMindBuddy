@@ -133,6 +133,9 @@ def report_case(case, base):
     paths = {name: directory / (name + ".json") for name in names}
     if context_only and (directory / "answer-http.json").exists():
         paths["answer-http"] = directory / "answer-http.json"
+    saved_citation_path = directory / "saved-citation-reopen.json"
+    if not context_only and saved_citation_path.is_file():
+        paths["saved-citation-reopen"] = saved_citation_path
     wire_path = directory / "build-wire-response.json"
     if not context_only and wire_path.is_file():
         paths["build-wire-response"] = wire_path
@@ -346,6 +349,31 @@ def report(manifest_path, *, oracle=None, citation_readback=None):
             "Billing and missing measurements remain unknown; no estimated price is billed cost."]}
 
 
+def reopen_saved_citations(client, turn_route, completion):
+    """Reopen delivered saved sections through their ordinary turn owner."""
+    results = []
+    for citation in completion.get("saved_source_citations") or []:
+        index = citation["segment_index"]
+        if type(index) is not int or not 0 <= index < len(completion["answer_segments"]):
+            raise ValueError("Saved citation has no corresponding answer segment")
+        claim = completion["answer_segments"][index].get("text", "").strip().strip('“”"')
+        for value in citation["section_event_ids"]:
+            event_id = str(UUID(value))
+            response = client.get(f"{turn_route}/saved-sections/{index}/{event_id}")
+            evidence = response_envelope(response)
+            body = evidence["body"]
+            results.append({
+                "segment_index": index,
+                "section_event_id": event_id,
+                **evidence,
+                "claim_exact_substring_of_reopened_text": (
+                    bool(claim) and claim in body.get("content", "")
+                    if response.status_code == 200 and isinstance(body, dict) else None
+                ),
+            })
+    return {"scope": "saved_authored_sections", "citations": results}
+
+
 def capture_case(client, world, template, case, directory, *, context_only=False, writer_transport=False, detailed_trace=False,
                  build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None):
     """The single ordinary route sequence, shared by all question fixtures."""
@@ -443,6 +471,11 @@ def capture_case(client, world, template, case, directory, *, context_only=False
                         or trace_response.status_code != 200 or not isinstance(trace, dict)
                         or trace.get("world_id") != world or trace.get("turn_id") != durable["turn_id"]):
                     raise ValueError("Build turn delivery or trace could not be verified")
+            if not context_only and known_response and response.status_code == 200:
+                completion = (response.json().get("knowledge_context") or {}).get("completion") or {}
+                if completion.get("saved_source_citations"):
+                    readback = reopen_saved_citations(client, route + "/turns/" + durable["turn_id"], completion)
+                    immutable_save(directory, "saved-citation-reopen", readback)
             if context_stop is not None:
                 from application_state.agent_conversation import AgentConversationService
                 observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turns[0]["turn_id"]))
