@@ -40,6 +40,12 @@ UI evidence, and failed observations. The existing capture-context workflow
 intentionally stops before writer dispatch and therefore cannot alone establish
 clarification delivery or continuation.
 
+`native_activity_counts` reports native acquisition stage observations by fixed
+policy and action (`expanded`, `retrieved`, `retained`) separately. It does not
+pair events, count distinct sources, include arbitrary labels or establish
+completeness. This prevents a start and its outcome from being reported as two
+actual reads.
+
 `trace_observation.observed_acquisitions` projects a lower bound from the saved
 trace: Graph operations, new source passages, authored-reference reads, selected
 related-page reads, and recognized native Graph and corpus read/search activity.

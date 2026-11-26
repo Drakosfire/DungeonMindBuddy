@@ -1455,3 +1455,26 @@ def test_probe_window_wraps_real_sync_testclient_turn_post(tmp_path, monkeypatch
     evidence = json.loads((tmp_path / "case1" / "related-page-probe.json").read_text())
     assert evidence["status"] == "observed"
     assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "returned"}]
+
+
+def test_native_activity_counts_separate_stages_without_dedup_or_identity_leak():
+    from evals.negative_retrieval.trace_observation import native_activity_counts
+
+    policy = "native_source_document_read_progress_v2"
+    trace = {"schema": "dmb_turn_context_trace_v1", "observations": [
+        {"sequence": 0, "kind": "context_decision", "policy_version": policy,
+         "action": "expanded", "item_ids": ["private-source"]},
+        {"sequence": 1, "kind": "context_decision", "policy_version": policy,
+         "action": "retrieved", "item_ids": ["private-source"]},
+        {"sequence": 2, "kind": "context_decision", "policy_version": policy,
+         "action": "expanded", "item_ids": ["private-source"]},
+        {"sequence": 3, "kind": "context_decision", "policy_version": policy,
+         "action": "retained", "item_ids": ["other-private-source"]},
+    ]}
+    result = native_activity_counts(trace)
+    assert result["counts_by_policy"][policy] == {"expanded": 2, "retrieved": 1, "retained": 1}
+    assert result["coverage"] == "partial" and "not paired" in result["limit"]
+    assert "private-source" not in str(result)
+    trace["observations"][2]["sequence"] = 9
+    with pytest.raises(ValueError, match="sequence"):
+        native_activity_counts(trace)

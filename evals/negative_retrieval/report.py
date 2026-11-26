@@ -161,6 +161,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "trace_capture_status": observed["trace_capture_status"],
             "trace_acquisitions": observed["observed_acquisitions"],
             "decision_observations": observed["decision_observations"],
+            "native_activity": observed["native_activity"],
             "related_page_probe": probe["records"],
             "limits": ["Probe and trace are a partial acquisition journal.",
                        "Capture environment and prior citations are not independently verified here.",

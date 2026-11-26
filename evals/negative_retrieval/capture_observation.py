@@ -4,7 +4,7 @@ from hashlib import sha256
 import json
 from uuid import NAMESPACE_URL, uuid5
 
-from .trace_observation import controller_observations, observed_acquisitions
+from .trace_observation import controller_observations, native_activity_counts, observed_acquisitions
 
 
 def _body(envelope):
@@ -112,4 +112,5 @@ def observe(request, history_envelope, trace_envelope, answer_envelope, *, relat
             "outcome": "clarification" if typed_questions else "proposal" if typed_proposal else "answer" if typed_answer else None,
             "completed_turn": completed, "http_status": answer_envelope["http_status"],
             "terminal_status": status, "trace_capture_status": projected["trace_capture_status"],
-            "decision_observations": controller_observations(attempt)}
+            "decision_observations": controller_observations(attempt),
+            "native_activity": native_activity_counts(attempt)}

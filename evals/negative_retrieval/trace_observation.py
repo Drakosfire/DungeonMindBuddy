@@ -62,6 +62,22 @@ def observed_acquisitions(trace, *, related_labels=None, source_labels=None):
     }
 
 
+def native_activity_counts(trace):
+    """Count fixed native activity stages separately; not distinct source counts."""
+    observed_acquisitions(trace)  # Validate the trace shape and sequence first.
+    counts = {}
+    for event in trace["observations"]:
+        policy, action = event.get("policy_version"), event.get("action")
+        if event.get("kind") != "context_decision" or policy not in NATIVE_READ_POLICIES:
+            continue
+        if action not in {"expanded", "retrieved", "retained"}:
+            continue
+        bucket = counts.setdefault(policy, {"expanded": 0, "retrieved": 0, "retained": 0})
+        bucket[action] += 1
+    return {"counts_by_policy": counts, "coverage": "partial",
+            "limit": "stage observations, not paired operations or distinct sources"}
+
+
 def controller_observations(trace):
     """Project unvalidated opening votes and provider identity, not host authority.
 
