@@ -133,6 +133,11 @@ def report_case(case, base):
     paths = {name: directory / (name + ".json") for name in names}
     if context_only and (directory / "answer-http.json").exists():
         paths["answer-http"] = directory / "answer-http.json"
+    wire_path = directory / "build-wire-response.json"
+    if not context_only and wire_path.is_file():
+        paths["build-wire-response"] = wire_path
+        if not paths["answer-http"].is_file():
+            del paths["answer-http"]
     missing = [name for name, path in paths.items() if not path.exists()]
     if missing:
         if case.get("assessment") is not None:
@@ -224,10 +229,22 @@ def report_case(case, base):
                 if p.get("provider_attempt_id") == str(authorization.provider_attempt_id)
                 and p["payload_sha256"] == authorization.envelope_sha256]) != 1:
             raise ValueError("Context capture has no unique admitted prompt witness")
+    wire = documents.get("build-wire-response")
+    if wire is not None:
+        if request["surface"]["surface_id"] != "build":
+            raise ValueError("Build wire capture requires a Build request")
+        raw_wire = bytes.fromhex(wire["raw_body_hex"])
+        if sha256(raw_wire).hexdigest() != wire["raw_body_sha256"]:
+            raise ValueError("Build wire response bytes differ from their recorded hash")
     answer_body = answer["body"] if isinstance(answer["body"], dict) else {}
+    delivery_status = "unknown"
     delivered = (answer["http_status"] == 200 and turn["lifecycle_status"] == "completed"
         and bool(turn.get("assistant_text"))
         and answer_body.get("answer", {}).get("text") == turn["assistant_text"])
+    if "answer-http" in paths:
+        delivery_status = "pass" if delivered else "fail"
+    elif wire is not None and wire.get("client_disconnect_ms") is not None:
+        delivery_status = "disconnected"
     if answer["http_status"] == 200 and answer_body and (answer_body["turn_id"] != request["turn_id"]
         or answer_body["client_thread_id"] != request["client_thread_id"]):
         raise ValueError("HTTP response belongs to another client request")
@@ -298,7 +315,7 @@ def report_case(case, base):
         return sum(c[key] for c in calls.values()) if calls and all(c[key] is not None for c in calls.values()) else None
     return {"case_id": case["id"], "question": case["question"], "capture_status": "complete",
         "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
-        "delivery": {"status": "pass" if delivered else "fail", "http_status": answer["http_status"],
+        "delivery": {"status": delivery_status, "http_status": answer["http_status"],
             "lifecycle_status": turn["lifecycle_status"]},
         "operation": {"elapsed_ms": elapsed, "provider_attempts": len(calls),
             "input_tokens": total("input_tokens"), "output_tokens": total("output_tokens"),
