@@ -1652,6 +1652,24 @@ describe("one App-level World conversation host across Plan and Play", () => {
     if(surface==='build')page.turns=page.turns.map((row,index)=>({...row,retry_context:{...row.retry_context!,root_id:page.turns[0].turn_id,ordinal:index,
       predecessor_id:index?page.turns[index-1].turn_id:null,successor_id:index<2?page.turns[index+1].turn_id:null,
       eligible:index===2,reason:index===2?'ready':'retried'}}));
+    if (surface !== 'build') {
+      const correlated = page.turns.map(row=>({...row,idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`}));
+      vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world, options) => ({
+        ...page, schema:'dmb_agent_conversation_history_v3',
+        turns:options?.beforeSequence === undefined ? correlated : correlated.filter(row=>row.sequence===options.beforeSequence!-1),
+      }));
+      const view=render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+      fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
+      expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
+      expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+      await waitFor(()=>expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>!node.closest('details:not([open])'))).toHaveLength(1));
+      view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+      fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
+      expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
+      expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+      await waitFor(()=>expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>!node.closest('details:not([open])'))).toHaveLength(1));
+      return;
+    }
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(page);
     const view=render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByRole('button',{name:'Retry question'});
