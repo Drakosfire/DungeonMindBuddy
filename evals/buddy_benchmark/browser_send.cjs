@@ -1,5 +1,16 @@
 const { chromium } = require(process.env.DMB_BENCHMARK_PLAYWRIGHT);
 const { writeFileSync } = require("node:fs");
+const { setTimeout: delay } = require("node:timers/promises");
+
+async function pollBrowserRead(read, timeout, interval, description) {
+  const deadline = performance.now() + timeout;
+  while (performance.now() < deadline) {
+    const value = await read();
+    if (value) return value;
+    await delay(interval);
+  }
+  throw new Error("Timed out waiting for " + description);
+}
 
 async function run() {
   const origin = process.env.DMB_BENCHMARK_BROWSER_ORIGIN;
@@ -97,12 +108,11 @@ async function run() {
     let buildCheckpoint;
     if (process.env.DMB_BENCHMARK_LIVE_BUILD === "1") {
       // Keep the page alive while its ordinary client consumes the terminal event.
-      const retained = await page.waitForFunction(async () => {
+      buildCheckpoint = await pollBrowserRead(() => page.evaluate(async () => {
         const response = await fetch("/__benchmark/build-response-retained", { cache: "no-store" });
         const checkpoint = await response.json();
         return checkpoint.retained === true ? checkpoint : false;
-      }, undefined, { timeout: 75000, polling: 250 });
-      buildCheckpoint = await retained.jsonValue();
+      }), 75000, 250, "retained Build response");
     }
     const after = await calibrate();
     const browserMarks = await page.evaluate(() => {
@@ -128,7 +138,7 @@ async function run() {
         let action = checkpoint.action_id;
         const world = process.env.DMB_BENCHMARK_WORLD;
         if (!action && checkpoint.idempotency_key) {
-          const durable = await page.waitForFunction(async ({ world, checkpoint }) => {
+          const recovered = await pollBrowserRead(() => page.evaluate(async ({ world, checkpoint }) => {
             const path = "/api/live/agent/worlds/" + encodeURIComponent(world)
               + "/conversation?include_turn_correlation=true";
             const response = await fetch(path, { cache: "no-store" });
@@ -141,8 +151,7 @@ async function run() {
             const actionId = turn.knowledge_context?.completion?.action_id;
             if (turn.lifecycle_status === "completed" && !actionId) return false;
             return { action_id: actionId ?? null, lifecycle: turn.lifecycle_status };
-          }, { world, checkpoint }, { timeout: 40000, polling: 500 });
-          const recovered = await durable.jsonValue();
+          }, { world, checkpoint }), 40000, 500, "bound durable proposal");
           confirmation.recovered_lifecycle = recovered.lifecycle;
           action = recovered.action_id;
           if (action) await page.reload();
