@@ -133,9 +133,11 @@ def report_case(case, base):
     paths = {name: directory / (name + ".json") for name in names}
     if context_only and (directory / "answer-http.json").exists():
         paths["answer-http"] = directory / "answer-http.json"
-    saved_citation_path = directory / "saved-citation-reopen.json"
-    if not context_only and saved_citation_path.is_file():
-        paths["saved-citation-reopen"] = saved_citation_path
+    if not context_only:
+        for name in ("saved-citation-reopen", "native-citation-reopen"):
+            citation_path = directory / (name + ".json")
+            if citation_path.is_file():
+                paths[name] = citation_path
     for surface in ("build", "plan"):
         wire_name = surface + "-wire-response"
         wire_path = directory / (wire_name + ".json")
@@ -412,6 +414,64 @@ def reopen_saved_citations(client, turn_route, completion):
     return {"scope": "saved_authored_sections", "citations": results}
 
 
+def retain_citation_readbacks(client, directory, route, world, turn_id, answer):
+    """Retain owner readbacks for source citations delivered on an ordinary turn."""
+    turn_route = f"{route}/turns/{turn_id}"
+    completions = [(answer.get(key) or {}).get("completion") or {}
+                   for key in ("knowledge_context", "plan_context")]
+    saved = next((c for c in completions if c.get("saved_source_citations")), None)
+    if saved is not None:
+        immutable_save(directory, "saved-citation-reopen",
+                       reopen_saved_citations(client, turn_route, saved))
+    native = next((c for c in completions if c.get("native_body_citations")), None)
+    if native is not None:
+        immutable_save(directory, "native-citation-reopen",
+                       reopen_native_body_citations(client, turn_route, world, turn_id, native))
+
+
+def reopen_native_body_citations(client, turn_route, world, turn_id, completion):
+    """Verify exact native excerpt bytes and the original delivered citation."""
+    from httpx import RequestError
+
+    results = []
+    for index, citation in enumerate(completion["native_body_citations"]):
+        observed_digest = None
+        binding_matches = None
+        expected_digest = citation["excerpt_sha256"]
+        try:
+            response = client.get(f"{turn_route}/native-body-excerpts/{index}")
+        except RequestError as error:
+            evidence = {"http_status": None, "transport_error": type(error).__name__}
+        else:
+            evidence = response_envelope(response)
+            body = evidence["body"]
+            if response.status_code == 200 and isinstance(body, dict):
+                content = body.get("content")
+                if isinstance(content, str):
+                    observed_digest = sha256(content.encode()).hexdigest()
+                binding_matches = (
+                    set(body) == {"schema", "world_id", "turn_id", "citation_index", "citation", "content", "display_label"}
+                    and body["schema"] == "dmb_agent_native_body_excerpt_read_v2"
+                    and isinstance(content, str) and bool(content)
+                    and (body["display_label"] is None or
+                         isinstance(body["display_label"], str) and bool(body["display_label"].strip()))
+                    and body.get("world_id") == world
+                    and body.get("turn_id") == turn_id
+                    and type(body.get("citation_index")) is int
+                    and body["citation_index"] == index
+                    and body.get("citation") == citation
+                )
+        results.append({
+            "citation_index": index,
+            **evidence,
+            "expected_excerpt_sha256": expected_digest,
+            "observed_excerpt_sha256": observed_digest,
+            "binding_matches": binding_matches,
+            "exact_reopen": binding_matches is True and observed_digest == expected_digest,
+        })
+    return {"scope": "native_body_excerpts", "citations": results}
+
+
 def capture_case(client, world, template, case, directory, *, context_only=False, writer_transport=False, detailed_trace=False,
                  build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None):
     """The single ordinary route sequence, shared by all question fixtures."""
@@ -510,10 +570,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
                         or trace.get("world_id") != world or trace.get("turn_id") != durable["turn_id"]):
                     raise ValueError("Build turn delivery or trace could not be verified")
             if not context_only and known_response and response.status_code == 200:
-                completion = (response.json().get("knowledge_context") or {}).get("completion") or {}
-                if completion.get("saved_source_citations"):
-                    readback = reopen_saved_citations(client, route + "/turns/" + durable["turn_id"], completion)
-                    immutable_save(directory, "saved-citation-reopen", readback)
+                retain_citation_readbacks(client, directory, route, world, durable["turn_id"], response.json())
             if context_stop is not None:
                 from application_state.agent_conversation import AgentConversationService
                 observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turns[0]["turn_id"]))

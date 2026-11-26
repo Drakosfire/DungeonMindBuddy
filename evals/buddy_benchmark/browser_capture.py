@@ -433,6 +433,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
                             "elapsed_ms": wire_response["elapsed_ms"],
                         })
+                    if live and status == 200 and len(turns) == 1:
+                        workflow.retain_citation_readbacks(client, directory, route, world, turns[0]["turn_id"], body)
                     if live_plan and not turns and status >= 400:
                         return
                     if len(turns) != 1:

@@ -1827,3 +1827,43 @@ def test_saved_citation_reopen_retains_exact_and_failed_reads():
     assert [r["http_status"] for r in report["citations"]] == [200, 404, None]
     assert [r["claim_exact_substring_of_reopened_text"] for r in report["citations"]] == [True, None, None]
     assert report["citations"][2]["transport_error"] == "ReadTimeout"
+
+
+def test_native_citation_reopen_verifies_exact_binding_and_records_failures(tmp_path):
+    import httpx
+
+    turn_id = str(uuid4())
+    root = "/api/live/agent/worlds/fixture/conversation/turns"
+    content = "A paragraph with an accented character, é.\n"
+    citation = {"excerpt_sha256": sha256(content.encode()).hexdigest(), "source_artifact_id": "pinned"}
+    opened = {
+        "schema": "dmb_agent_native_body_excerpt_read_v2", "world_id": "fixture",
+        "turn_id": turn_id, "citation": citation, "content": content, "display_label": None,
+    }
+
+    def respond(request):
+        index = int(request.url.path.rsplit("/", 1)[1])
+        assert request.url.path == f"{root}/{turn_id}/native-body-excerpts/{index}"
+        if index == 3:
+            return httpx.Response(404, json={"detail": "Unavailable"})
+        if index == 4:
+            raise httpx.ReadTimeout("fixture")
+        body = dict(opened, citation_index=index)
+        if index == 1:
+            body["content"] = content.strip()
+        elif index == 2:
+            body["citation"] = dict(citation, source_artifact_id="different")
+        elif index == 5:
+            body.pop("display_label")
+        return httpx.Response(200, json=body)
+
+    with httpx.Client(base_url="http://test", transport=httpx.MockTransport(respond)) as client:
+        w.retain_citation_readbacks(client, tmp_path, root.removesuffix("/turns"), "fixture", turn_id,
+            {"plan_context": {"completion": {"native_body_citations": [citation] * 6}}})
+    result = json.loads((tmp_path / "native-citation-reopen.json").read_text())
+    rows = result["citations"]
+    assert [r["http_status"] for r in rows] == [200, 200, 200, 404, None, 200]
+    assert [r["binding_matches"] for r in rows] == [True, True, False, None, None, False]
+    assert [r["exact_reopen"] for r in rows] == [True, False, False, False, False, False]
+    assert rows[0]["observed_excerpt_sha256"] == citation["excerpt_sha256"]
+    assert rows[4]["transport_error"] == "ReadTimeout"
