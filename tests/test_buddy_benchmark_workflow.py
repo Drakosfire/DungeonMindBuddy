@@ -1772,3 +1772,22 @@ def test_recovery_rejects_unpinned_new_port(clone_recovery_fixture):
     with pytest.raises(ValueError, match='recovery identity'):
         with invoke_clone_recovery(template, pin): pass
     assert not control['statements']
+
+
+def test_protected_work_revisions_reads_named_columns(monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    from evals.buddy_benchmark import cohort_capture
+
+    def execute(query, parameters):
+        assert "current_revision_id" in query
+        assert parameters == (["page-id"],)
+        return SimpleNamespace(fetchall=lambda: [
+            {"work_object_id": "page-id", "current_revision_id": "revision-id"},
+        ])
+
+    connection = SimpleNamespace(execute=execute)
+    monkeypatch.setattr(cohort_capture, "readonly", lambda _: nullcontext(connection))
+    assert cohort_capture.protected_work_revisions("fixture", ["page-id"]) == {
+        "page-id": "revision-id",
+    }
