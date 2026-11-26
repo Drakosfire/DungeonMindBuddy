@@ -144,7 +144,8 @@ scoring; it does not make the partial capture journal complete.
 
 ## Pending App-page probe witness
 
-`tests/evals/test_negative_retrieval_pending_page_probe.py` exercises the
+`test_pending_page_probe_witnesses_admitted_app_acquisition` in
+`tests/evals/test_negative_retrieval_assessment.py` exercises the
 serving lineage's actual pending App-page acquisition owner using its synthetic
 in-memory App fixture and mock SDK transport. On exported serving source
 `6595a93e9b4c360a578bf9125876b1cccd6857be`, both read and skip cases passed:
@@ -154,7 +155,7 @@ the stale fixture model alias; it does not validate production provider routing.
 The test skips when this predecessor branch lacks the pending route and fails
 normally on missing dependencies when the route exists. The result does not
 exercise the ordinary HTTP turn, native acquisition, live provider or an
-exhaustive journal. Evidence: `Projects/.codex/buddy-check.pending-probe-evidence.txt`.
+exhaustive journal. Evidence: `Projects/.codex/buddy-check.pending-move-evidence.txt`.
 
 ## Focused serving-owner diagnostic
 
