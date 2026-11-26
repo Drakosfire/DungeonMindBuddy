@@ -210,16 +210,14 @@ async function run() {
         if (process.env.DMB_BENCHMARK_LOSE_CONFIRM_ACK === "1") {
           const exactPath = url => url.origin === origin && url.pathname === reviewPath && !url.search;
           const confirmPosts = [];
+          const confirmRequests = [];
           confirmation.confirm_posts = confirmPosts;
           page.on("request", request => {
             if (request.method() !== "POST" || !exactPath(new URL(request.url()))) return;
             const command = request.postDataJSON();
             if (command?.operation === "confirm") {
-              confirmPosts.push({
-                apply_id: command.apply_id,
-                expected_revision: command.expected_revision,
-                started_at_ms: request.timing().startTime,
-              });
+              confirmRequests.push(request);
+              confirmPosts.push({apply_id: command.apply_id, expected_revision: command.expected_revision});
             }
           });
           let held;
@@ -300,6 +298,13 @@ async function run() {
                 const receipt = observation.review.body.review ?? observation.review.body;
                 return observation.review.status === 200 && receipt.state === "applied" ? observation : false;
               }, 12000, 500, "applied recovery receipt");
+              await pollBrowserRead(() => {
+                if (confirmRequests.length !== 1) return false;
+                const startedAt = confirmRequests[0].timing().startTime;
+                if (!Number.isFinite(startedAt) || startedAt <= 0) return false;
+                confirmPosts[0].started_at_ms = startedAt;
+                return true;
+              }, 3000, 100, "recovered confirmation timing");
             } finally {
               confirmation.afterReopen = await readOwners();
               confirmation.alerts = await page.getByRole("alert").allTextContents();
