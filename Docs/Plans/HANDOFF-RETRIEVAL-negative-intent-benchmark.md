@@ -3,9 +3,9 @@
 Status: ACTIVE — user authorized the benchmark goal in this conversation. This
 brief assigns the first serial, eval-only slice to `codex/negative-retrieval-benchmark`,
 based on `origin/main` c3a2ae6032b0f16fc19d21be14759a0a8607782b (rebased from 42a524ade after checking the shared native-writer change). Checkout:
-`/home/drakosfire/Projects/.codex/793a/DungeonMindBuddy`. The diagnostic
-owner now holds one disposable App clone on loopback port 33351; the existing
-Core snapshot is read-only. No model, provider, or production state was used.
+`/home/drakosfire/Projects/.codex/dogfood-ci-one-app/DungeonMindBuddy`. This
+workstream currently owns no disposable App clone. The shared Core snapshot is
+read-only; no model, provider, or production state was used for the owner audit below.
 
 ## Outcome and lease
 
@@ -60,6 +60,33 @@ from scripted assessment. Retain exact pins, complete traces and failures.
 At qualification use repository-mandated exact-SHA boundary checks. The final
 goal additionally requires held-out cases, user-facing inline continuation and
 reopen, and deployed smoke evidence; this brief does not claim those achieved.
+
+## Serving-lineage measurement checkpoint
+
+The benchmark branch predates the pending-Build route. In the last observed
+healthy serving revision, `6595a93e9b4c360a578bf9125876b1cccd6857be`,
+`agent_turn_service` requests deferred related-page discovery for eligible
+pending Build turns. `build_pending_app_pages.acquire_pending_app_pages` then
+calls the related-page discovery and materialization owners only after the
+admitted work decision permits source lookup or uncertainty. Pending native
+retrieval and source preparation have additional owners. This source inspection
+is not evidence that the reported Shepherd turn used that route, that current
+production still serves this revision, or that the route avoids excess retrieval.
+
+The existing related-page hooks target `discover` and `materialize`; the pending
+App page path imports those functions within the measured operation, but an
+ordinary-turn witness on the exact serving lineage is still needed to establish
+that the hooks see its actual calls. The native probe has not been shown to
+cover every pending source-preparation and retrieval owner. Do not certify zero
+from these probes or apply predecessor-runtime results as serving baselines.
+Re-read the live serving identity and lab instructions before capture, exercise
+both source-free and required-source turns, and establish owner coverage and
+fixture binding before treating cohort results as qualified.
+
+On the latest capacity check, the three shared disposable App slots were occupied
+by other workstreams. No additional database was created or modified for this
+workstream. Recheck capacity before allocating its one reusable clone; do not
+clean up another owner's databases.
 
 ## Shepherd naming regression checkpoint
 
