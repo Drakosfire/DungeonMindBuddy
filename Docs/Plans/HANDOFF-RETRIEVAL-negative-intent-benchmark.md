@@ -175,8 +175,10 @@ but the negative capture wrapper did not itself require the workstream's App
 ownership ledger before delegating. It now invokes the existing owner guard
 before fixture access, output creation or provider dispatch. The guard checks a
 live owner and worker group, exact source and clean checkout, App endpoint,
-OID and cluster identity. It does not create or drop a database; a separate
-owner must hold `disposable_benchmark_database` across the workstream and
+OID and cluster identity. The source check uses the process working directory;
+the launcher must run from the intended checkout, and this one-time cooperative
+ledger check is not a lock or continuous ownership proof. It does not create or
+drop a database; a separate owner must hold `disposable_benchmark_database` across the workstream and
 perform capacity checks and eventual teardown. Focused unit checks confirmed
 that a failed guard prevents runner entry and output creation, and that the
 verified guard precedes delegation. The preflight-window test was corrected to
