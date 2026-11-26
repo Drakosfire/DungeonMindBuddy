@@ -420,8 +420,10 @@ left untouched.
 
 The `dev-mixed-current-page` development control models a signed-in request
 that combined an unavailable reminder with a question about the open page.
-The observed production turn searched the World and opened unrelated session
-recaps. Its zero Graph-search budget detects that failure even with partial
+The request uses “current page” because the fixture provisioner assigns the
+primary page a generic title; it does not claim that the synthetic title matches
+the historical Shepherd page. The observed production turn searched the World
+and opened unrelated session recaps. Its zero Graph-search budget detects that failure even with partial
 capture. The current page is supplied as draft context; the assessor does not
 yet map an independently verified saved read of that same page, so it cannot
 qualify a saved-page citation or count that read as a proven violation. The
