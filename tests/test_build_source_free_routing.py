@@ -665,3 +665,98 @@ def test_pending_work_closes_controller_phase_but_keeps_preselection_retries():
     settled = pending_settlement(receipt, policy, selected).model_copy(update={'sequence': 6})
     execution = pending_execution(receipt, policy, [first, not_sent, retry, *outcomes(retry, 3), selected, settled])
     assert execution.events[-1].work_event_id == selected.event_id
+
+
+@pytest.mark.parametrize('explicit_limitation,bad_citation', [(False, False), (True, False), (False, True)])
+def test_anchored_chat_draft_creative_warning_respects_writer(monkeypatch, explicit_limitation, bad_citation):
+    """The real pending writer must not invent a retrieval warning for a chat draft."""
+    import asyncio
+    import json
+    from contextlib import contextmanager
+    import httpx
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services import build_jev_dispatch
+    from tests import test_build_source_free_protocol as owner
+
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    from application_state.agent_conversation import conversation_drafts
+    drafts=[]
+    monkeypatch.setattr(conversation_drafts, 'create_draft',
+                        lambda conn, **kwargs: drafts.append(kwargs['markdown']))
+    original = owner.pending_retained_runtime_case
+    @contextmanager
+    def draft_seed(monkeypatch, *, lore_page=False):
+        with original(monkeypatch, lore_page=lore_page, chat_draft=True) as value:
+            yield value
+    monkeypatch.setattr(owner, 'pending_retained_runtime_case', draft_seed)
+
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
+            'text': 'Breezy Bee and Pocket Breeze.'}],
+            'limitations': ['partial_retrieval'] if explicit_limitation else []}
+        if bad_citation:
+            candidate['answer_segments'].append({'kind': 'source_passage_claim',
+                'text': 'Unsupported.', 'passage_handles': ['unbound']})
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_draft', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_draft', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+
+    with owner.pending_writer_completion_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        if bad_citation:
+            with pytest.raises(GenerationEngineError):
+                asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert state.completions == 0
+        else:
+            completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert completed.status == 'completed' and state.completions == 1
+            assert drafts == [completed.assistant_text]
+            warning = 'This answer uses partial retrieval and does not establish corpus completeness.'
+            assert (warning in completed.assistant_text) is explicit_limitation
+        assert state.materialized == 0
+
+
+def test_old_chat_draft_projection_is_rejected_atomically_by_new_owner(monkeypatch):
+    """A draft prepared under the old projection cannot partially commit after cutover."""
+    from contextlib import contextmanager
+    from tests import test_build_source_free_protocol as owner
+    original = owner.pending_retained_runtime_case
+    @contextmanager
+    def draft_seed(monkeypatch, *, lore_page=False):
+        with original(monkeypatch, lore_page=lore_page, chat_draft=True) as value:
+            yield value
+    monkeypatch.setattr(owner, 'pending_retained_runtime_case', draft_seed)
+    owner.test_old_projection_rejected_atomically_by_new_acceptance_owner(monkeypatch)
+
+
+def test_existing_chat_draft_with_old_warning_replays_unchanged(monkeypatch):
+    """Already accepted pre-cutover drafts retain their original text and evidence."""
+    from contextlib import contextmanager
+    from application_state.agent_conversation import conversation_drafts
+    from tests import test_build_source_free_protocol as owner
+    original = owner.pending_retained_runtime_case
+    @contextmanager
+    def draft_seed(monkeypatch, *, lore_page=False):
+        with original(monkeypatch, lore_page=lore_page, chat_draft=True) as value:
+            yield value
+    monkeypatch.setattr(owner, 'pending_retained_runtime_case', draft_seed)
+    monkeypatch.setattr(conversation_drafts, 'create_draft', lambda conn, **kwargs: None)
+    owner.test_pending_preexisting_creative_warning_replays_unchanged(monkeypatch, False)
+
+
+@pytest.mark.parametrize('scope', ['source_lookup', 'uncertain'])
+def test_chat_draft_with_unresolved_source_need_is_not_anchored(monkeypatch, scope):
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    from application_state.agent_conversation.build_source_free import pending_retained_work
+    from tests import test_build_source_free_protocol as owner
+    with owner.pending_retained_runtime_case(monkeypatch, chat_draft=True) as (state, adapter, turns):
+        execution = state.turn.graph_context_execution
+        work, = [e for e in execution.events if type(e) is t.BuildRequestedWorkResolutionV1]
+        revised = work.model_copy(update={'resolution': resolution_for(execution.policy, 'draft_in_conversation', source_scope=scope)})
+        changed = owner.pending_execution(state.turn.graph_context_receipt, execution.policy,
+            [revised if e.event_id == work.event_id else e for e in execution.events])
+        assert pending_retained_work(changed) is None
