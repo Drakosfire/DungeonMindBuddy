@@ -48,7 +48,7 @@ class _NativeReadOperation:
             authorize_initial_source_search_locked,
             authorize_request_source_search_locked,
             conclude_selected_batch,
-            authorize_body_reads_locked, observe_body_reads_locked,
+            authorize_body_reads_locked, observe_body_reads_locked, observe_saved_statblock_locked,
         }:
             raise ValueError('Native read requires its existing closed producer')
 
@@ -580,3 +580,28 @@ def observe_direct_source_locked(turn, *, event_id, authorization_event_id, read
     return NativeDirectSourceObservedV1(event_id=event_id, sequence=len(execution.events),
         authorization_event_id=auth.event_id, catalog=catalog, excerpt=excerpt,
         failure_code=None if result is not None else "native_body_unavailable")
+
+
+def observe_saved_statblock_locked(turn, *, selection_event_id, handle, draft_id, locator, read):
+    """Materialize the frozen statblock offer only for the current acknowledged selection."""
+    from uuid import uuid4
+
+    from .build_pending_native import prepared_pending_source
+    from .build_saved_statblock import BuildSavedStatblockReadV1
+    from .native_retrieval import current_selection
+
+    selection = current_selection(turn)
+    execution = turn.graph_context_execution
+    if (selection.event_id != selection_event_id or selection.operation != "select_candidates"
+            or handle not in selection.selected_handles):
+        raise ValueError("Saved statblock requires its current acknowledged selection")
+    if any(type(event) is BuildSavedStatblockReadV1 and event.handle == handle
+           for event in execution.events):
+        raise ValueError("Saved statblock selection was already read")
+    authority, _ = prepared_pending_source(turn.graph_context_receipt, execution)
+    definition, support = read(turn.world_id, draft_id, locator, authority)
+    return BuildSavedStatblockReadV1(
+        event_id=uuid4(), sequence=len(execution.events), selection_event_id=selection.event_id,
+        handle=handle, world_id=turn.world_id, draft_id=draft_id, locator=locator,
+        definition=definition, pdf_support=support,
+    )

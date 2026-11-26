@@ -1,0 +1,11 @@
+# PLAN: current Scene review races
+
+ACTIVE under the user's instruction to repair the release diagnostic. Serial successor of merged #4827 (`4a6962364c44099c8a42d8e89e7b0d17875186e2`), and parallel-independent of #4819, #4823 and #4825: this slice owns only the remaining four legacy cases in `WorldPlanAgentReviewedEdit.integration.test.tsx` and this brief. No write/runtime overlap; all frontend tests honor the per-user verification lock.
+
+The old tests target a global Option editor and an initial legacy proposal endpoint. Normal editable Cards now focus a Scene and use native Plan authoring. Re-express late-result, concurrent capture, save-time target change, and protected-sibling persistence at the mounted Scene boundary. Preserve Option body, marker, edge, and no-write safety at the existing `planPlayableBodyTarget.test.ts`, `planAgentEditProposal.test.ts`, and `useWorkspaceDocumentAuthoring.playableChoice.test.tsx` owners. No product capability or Option UI is added or claimed. Current behavior must be asserted, not assumed; a runtime defect must be split and repaired at its owner.
+
+Verify the full affected mounted file and the existing Option target/identity owners, clean exact-head hosted verification, independent cumulative review, and later integrated full discovery. Preserve any failure that cannot be mapped without weakening safety.
+
+Current native Scene admission serializes requests: the second UI witness verifies a second request cannot be sent while the first is pending; it does not claim the former competing-requests/newest-wins path still exists. The lower `planAgentEditProposal.test.ts` parameterized “rejects stale %s without applying a proposal” cases retain draft- and selection-generation invalidation. The native Scene review's explicit Save is not the former Option draft-only Apply; `planAgentEditProposal.test.ts` “reviews and applies only one Option body, then saves and freshly reopens with its edges and references intact” remains the Option-specific draft-only Apply and separate Save owner.
+
+The editor-unchanged assertion exposed a save race; #4827 delivered the view/Scene fence and retained recovery hold before this successor. Its new mounted view, round-trip, and Scene-switch witnesses remain intact.

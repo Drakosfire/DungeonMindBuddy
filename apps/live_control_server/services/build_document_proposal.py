@@ -296,7 +296,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         evidence_id = None
         if os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1":
             from apps.live_control_server.services.agent_prompt_evidence import store_prompt
-            evidence_id = store_prompt(prepared.body.decode(), digest=prepared.body_sha256, size=prepared.body_size)
+            evidence_id = store_prompt(prepared.body.decode(), digest=prepared.body_sha256, size=prepared.body_size, owner=(world, reservation.conversation_id))
         authorization = BuildProviderAuthorization(provider_attempt_id=UUID(prepared.attempt_id), model=model,
             payload_sha256=prepared.body_sha256, payload_utf8_bytes=prepared.body_size, evidence_id=evidence_id)
         advance("authorized", authorization=authorization)
