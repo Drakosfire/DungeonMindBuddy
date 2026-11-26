@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { StrictMode, type ReactNode } from "react";
+import { StrictMode, useMemo, useState, type ReactNode } from "react";
 import { webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -14,7 +14,9 @@ import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/Select
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
-import { WorldAgentConversation, WorldAgentConversationProvider } from "../agentInteraction/WorldAgentConversation";
+import { WorldAgentConversation, WorldAgentConversationProvider, usePublishWorldPlayConversation } from "../agentInteraction/WorldAgentConversation";
+import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
+import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { setupPlanAuthoringIntegration } from "../test/planAuthoringIntegrationFixture";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { activeThreadStorageKey, threadIndexStorageKey, threadStorageKey } from "../agentInteraction/agentInteractionStorage";
@@ -250,6 +252,27 @@ function CurrentIntegrationPage() {
       <WorldAgentConversation surface="plan" worldId={selected.worldId} worldName="Integration World" />
     </WorldAgentConversationProvider>
   </AskPluginSlotProvider></AgentInteractionProvider>;
+}
+
+function IntegrationPlayPublisher() {
+  const context = useMemo(() => ({surfaceId: "play" as const, label: "Play", campaignId: null, documentId: null,
+    sessionNumber: null, ambientSummary: "World Run", sourceEnvelope: null}), []);
+  const run = useMemo(() => ({worldId, runId: "run-one", runRevision: 3,
+    surfaceInstanceId: "play-instance", contentBasis: {edition_revision: 0, edition_revision_id: null,
+      content_sha256: "a".repeat(64)}, beatId: "beat:crossing", sceneId: "scene:west-gate",
+    beatTitle: "The Crossing", sceneTitle: "West Gate"}), []);
+  usePublishAgentSurfaceContext(context);
+  usePublishWorldPlayConversation(run, null);
+  return null;
+}
+
+function SwitchableNativeIntegrationPage() {
+  const [surface, setSurface] = useState<"plan" | "play">("plan");
+  return <AgentInteractionProvider><AskPluginSlotProvider><WorldAgentConversationProvider worldId={worldId}>
+    <button type="button" onClick={() => setSurface(current => current === "plan" ? "play" : "plan")}>Switch surface</button>
+    {surface === "plan" ? <PlanSurfacePage /> : <SurfaceContextProvider><IntegrationPlayPublisher /></SurfaceContextProvider>}
+    <AgentInteractionChrome /><WorldAgentConversation surface={surface} worldId={worldId} worldName="Integration World" />
+  </WorldAgentConversationProvider></AskPluginSlotProvider></AgentInteractionProvider>;
 }
 
 function ThreadSwitchControl() {
@@ -1309,4 +1332,53 @@ it("saves a Scene while preserving both Option identities and edges", async () =
     expect(markdown).toContain("Second option paragraph.");
     expect(markdown).toContain("Wait by the gate.");
   });
+});
+
+it("keeps a native Plan suggestion read-only in Play and reviewable after returning", async () => {
+  setupWorldApi();
+  const source = "Opening image: three lantern flashes ripple across the eastern ridge.\n";
+  const current = setupPlanAuthoringIntegration(planRecord(), source, "A lone watcher keeps vigil.");
+  const nativeNavigator = navigator;
+  vi.stubGlobal("navigator", new Proxy(nativeNavigator, {get: (target, key) => key === "locks"
+    ? {request: async (_name: string, work: () => unknown) => work()} : Reflect.get(target, key, target)}));
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><SwitchableNativeIntegrationPage /></SelectedWorldProvider></StrictMode>);
+  try {
+    const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+    const editor = (surface.querySelector(".ProseMirror") as HTMLElement & {editor: Editor}).editor;
+    act(() => editor.commands.setTextSelection(15));
+    const before = editor.getJSON();
+    fireEvent.click(await screen.findByRole("button", {name: "Open", exact: true}));
+    const conversation = await screen.findByRole("region", {name: "World conversation"});
+    await waitFor(() => expect(within(conversation).getByRole("region", {name: "World conversation transcript"})).toHaveAttribute("aria-busy", "false"));
+    fireEvent.change(within(conversation).getByLabelText("Message DungeonBuddy"), {target: {value: "Add a watcher to the Plan."}});
+    fireEvent.click(within(conversation).getByText(/^(Automatic|Plan change) · Change$/));
+    fireEvent.click(within(conversation).getByRole("button", {name: "Request a Plan change"}));
+    const propose = within(conversation).getByRole("button", {name: "Propose edit"});
+    await waitFor(() => expect(propose).toBeEnabled());
+    fireEvent.click(propose);
+    await screen.findByRole("textbox", {name: "Suggestion text"});
+    expect(editor.getJSON()).toEqual(before);
+    expect(current.readSaved().markdown).toBe(source);
+    fireEvent.click(screen.getByRole("button", {name: "Switch surface"}));
+    fireEvent.click((await screen.findAllByRole("button", {name: "Open", exact: true}))[0]!);
+    await screen.findByText("Add a watcher to the Plan.");
+    expect(await screen.findByText("Open the suggestion’s original page to review it.")).toBeVisible();
+    expect(screen.queryByRole("textbox", {name: "Suggestion text"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Save", exact: true})).not.toBeInTheDocument();
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(0);
+    expect(current.readSaved().markdown).toBe(source);
+    fireEvent.click(screen.getByRole("button", {name: "Switch surface"}));
+    await screen.findByTestId("world-owned-plan-markdown-editor");
+    const review = await screen.findByRole("region", {name: "Suggestion review"});
+    fireEvent.click(within(review).getByRole("button", {name: "Save", exact: true}));
+    await waitFor(() => expect(current.readReview()?.state).toBe("applied"));
+    expect(current.readSaved().markdown).toContain("A lone watcher keeps vigil.");
+    expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(1);
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
+  }
 });

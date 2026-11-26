@@ -2895,46 +2895,6 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(await screen.findByText("Rewrite the crossing scene")).toBeInTheDocument();
   });
 
-  it("keeps an active Plan proposal read-only in Play and reviewable on return", async () => {
-    const captured = { editor: {} as CapturedWorldPlanEditTarget["editor"],
-      request: { document_id: "plan-one", world_id: WORLD, session: 1, base_revision: 7,
-        base_content_sha256: SHA, draft_markdown: "# Draft Plan", draft_sha256: "d".repeat(64),
-        target_kind: "insert_at_caret" as const, selected_text: "" },
-      from: 1, to: 1, editorJson: "{}", selectionJson: "{}", draftGeneration: 0, selectionGeneration: 0 };
-    const bridge: WorldPlanEditBridge = { capture: vi.fn(async () => captured),
-      preview: vi.fn(() => ({ before: { markdown: "# Before" }, after: { markdown: "# After" } })),
-      apply: vi.fn(async () => undefined) };
-    vi.mocked(postWorldPlanDocumentEditProposal).mockImplementation(async (request) => ({
-      schema_version: "dmb_world_plan_document_edit_proposal_v1", action_id: "action-one",
-      idempotency_key: request.idempotency_key, document_id: request.document_id, world_id: request.world_id,
-      base_revision: request.base_revision, base_content_sha256: request.base_content_sha256,
-      draft_sha256: request.draft_sha256, target_kind: request.target_kind,
-      selected_text_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      replacement_markdown: "# After", summary: "A clearer opening.", assumptions: [], model: "test",
-      model_observed: false, model_latency_ms: 0, wall_latency_ms: 0, usage: null,
-    } as Awaited<ReturnType<typeof postWorldPlanDocumentEditProposal>>));
-    render(<Harness editBridge={bridge} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-    const composer = await screen.findByLabelText("Message DungeonBuddy");
-    await waitFor(() => expect(composer).toBeEnabled());
-    fireEvent.change(composer, { target: { value: "Rewrite this Plan opening" } });
-    fireEvent.click(screen.getByText("Automatic · Change", { selector: "summary" }));
-    fireEvent.click(screen.getByRole("button", { name: "Request a Plan change" }));
-    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-    await waitFor(() => expect(postWorldPlanDocumentEditProposal).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(bridge.preview).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText("This preview is no longer current. It cannot be applied.")).not.toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Apply to draft" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
-    expect(await screen.findByText("Rewrite this Plan opening")).toBeInTheDocument();
-    expect(screen.getByText("Plan proposal preview · return to Plan to review or apply")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
-    const apply = await screen.findByRole("button", { name: "Apply to draft" });
-    fireEvent.click(apply);
-    await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
-  });
-
   it("freezes the admitted Play request and shows its late reply on Plan without redispatch", async () => {
     let release!: (value: Awaited<ReturnType<typeof postWorldPlayAgentTurn>>) => void;
     const deferred = new Promise<Awaited<ReturnType<typeof postWorldPlayAgentTurn>>>((resolve) => { release = resolve; });
