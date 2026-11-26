@@ -2297,3 +2297,21 @@ def test_owned_app_guard_rejects_a_different_working_checkout(tmp_path, monkeypa
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="evaluator checkout"):
         checked_owned_dsn()
+
+
+def test_trace_sized_shepherd_catalog_preserves_source_free_contract():
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / "evals/negative_retrieval/fixtures"
+    public = json.loads((root / "development.json").read_text())
+    private = json.loads((root / "development-private.json").read_text())
+    cases = {row["id"]: row for row in public["cases"]}
+    small, large = cases["dev-shepherd-naming"], cases["dev-shepherd-catalog-20"]
+    assert (large["request"], large["page"], large["history"]) == (small["request"], small["page"], small["history"])
+    assert len(large["related_pages"]) == 20
+    assert len({row["label"] for row in large["related_pages"]}) == 20
+    assert len({row["title"] for row in large["related_pages"]}) == 20
+    rubric = private["cases"][large["id"]]
+    assert rubric == private["cases"][small["id"]]
+    assert assess(rubric, observation(outcome="answer", catalog_discoveries=1))["checks"]["catalog_budget"] is False
+    assert assess(rubric, observation(outcome="answer", catalog_discoveries=0, catalog_journal_complete=False))["checks"]["catalog_budget"] is None

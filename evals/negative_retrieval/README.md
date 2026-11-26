@@ -265,6 +265,14 @@ The reviewer identity and independence remain **unverified**; a matching hash pr
 independence. These assertions do not establish acquisition completeness,
 environment qualification, mutation safety, UI delivery or a passing cohort.
 
+`dev-shepherd-catalog-20` retains the trace-derived naming question and
+reconstructed development context from `dev-shepherd-naming`, but supplies
+20 entirely synthetic related pages. This approximates the number of related-page
+choices visible in the reported trace; it does not reconstruct that World or
+its full conversation. Its zero-acquisition rubric remains separate from the
+model input. This development variant is not a held-out case, and its existence
+does not constitute a replay or proof of complete acquisition coverage.
+
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
 the private rubric without calling a model. Supply the frozen mapping as

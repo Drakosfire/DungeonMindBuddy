@@ -145,6 +145,123 @@
         }
       ]
     },
-    {"id": "dev-shepherd-naming", "page": "# The Shepherd\nAn unfinished character concept connected to Maelthor.", "history": [{"role": "user", "content": "We need to work on the Shepherd’s name, background, origin, and encounter with Maelthor."}, {"role": "assistant", "content": "Those are open character-development questions; the origin and encounter are still proposals."}], "request": "The Shepherd is part of the group of humans that came from Mirathorn to settle BogBlossom. I like the idea that this person was who found the collapsed swamp Wizard Tower, which suggests they worked for the Wizard Tower Salvage company, maybe even helped found it. Then disappeared as they were polluted by Maelthor. \nGive me a list of 10 name options, I'm indifferent to gender.", "related_pages": [{"label": "town", "title": "BogBlossom", "body": "A fictional swamp settlement established by people from Mirathorn."}, {"label": "tower", "title": "Collapsed swamp tower", "body": "A fictional ruined tower with salvageable remains."}, {"label": "distractor", "title": "Market recipes", "body": "A fictional market sells honey cakes."}]}
+    {"id": "dev-shepherd-naming", "page": "# The Shepherd\nAn unfinished character concept connected to Maelthor.", "history": [{"role": "user", "content": "We need to work on the Shepherd’s name, background, origin, and encounter with Maelthor."}, {"role": "assistant", "content": "Those are open character-development questions; the origin and encounter are still proposals."}], "request": "The Shepherd is part of the group of humans that came from Mirathorn to settle BogBlossom. I like the idea that this person was who found the collapsed swamp Wizard Tower, which suggests they worked for the Wizard Tower Salvage company, maybe even helped found it. Then disappeared as they were polluted by Maelthor. \nGive me a list of 10 name options, I'm indifferent to gender.", "related_pages": [{"label": "town", "title": "BogBlossom", "body": "A fictional swamp settlement established by people from Mirathorn."}, {"label": "tower", "title": "Collapsed swamp tower", "body": "A fictional ruined tower with salvageable remains."}, {"label": "distractor", "title": "Market recipes", "body": "A fictional market sells honey cakes."}]},
+    {
+      "id": "dev-shepherd-catalog-20",
+      "page": "# The Shepherd\nAn unfinished character concept connected to Maelthor.",
+      "history": [
+        {
+          "role": "user",
+          "content": "We need to work on the Shepherd’s name, background, origin, and encounter with Maelthor."
+        },
+        {
+          "role": "assistant",
+          "content": "Those are open character-development questions; the origin and encounter are still proposals."
+        }
+      ],
+      "request": "The Shepherd is part of the group of humans that came from Mirathorn to settle BogBlossom. I like the idea that this person was who found the collapsed swamp Wizard Tower, which suggests they worked for the Wizard Tower Salvage company, maybe even helped found it. Then disappeared as they were polluted by Maelthor. \nGive me a list of 10 name options, I'm indifferent to gender.",
+      "related_pages": [
+        {
+          "label": "town",
+          "title": "BogBlossom",
+          "body": "A fictional swamp settlement established by people from Mirathorn."
+        },
+        {
+          "label": "tower",
+          "title": "Collapsed swamp tower",
+          "body": "A fictional ruined tower with salvageable remains."
+        },
+        {
+          "label": "distractor",
+          "title": "Market recipes",
+          "body": "A fictional market sells honey cakes."
+        },
+        {
+          "label": "settlers",
+          "title": "Mirathorn settlers",
+          "body": "Settlers crossed to the wetlands in small boats."
+        },
+        {
+          "label": "boats",
+          "title": "Wetland boats",
+          "body": "Low boats travel among reeds and shallow pools."
+        },
+        {
+          "label": "company",
+          "title": "Salvage company",
+          "body": "A company recovers objects from old ruins."
+        },
+        {
+          "label": "tools",
+          "title": "Salvage tools",
+          "body": "Ropes and lanterns are common salvage tools."
+        },
+        {
+          "label": "ruins",
+          "title": "Ruined towers",
+          "body": "Several ruined towers stand beyond the settlement."
+        },
+        {
+          "label": "weather",
+          "title": "Swamp weather",
+          "body": "Morning fog can last until midday."
+        },
+        {
+          "label": "routes",
+          "title": "Settler routes",
+          "body": "Travellers mark safe paths with bundles of reeds."
+        },
+        {
+          "label": "guild",
+          "title": "Local guilds",
+          "body": "Local guilds maintain their own membership records."
+        },
+        {
+          "label": "bell",
+          "title": "Town bell",
+          "body": "A bell marks the evening gathering."
+        },
+        {
+          "label": "orchard",
+          "title": "The old orchard",
+          "body": "A small orchard grows beside the northern path."
+        },
+        {
+          "label": "ferry",
+          "title": "The river ferry",
+          "body": "A ferry crosses the slow river."
+        },
+        {
+          "label": "tales",
+          "title": "Fireside tales",
+          "body": "The oldest tales change with each teller."
+        },
+        {
+          "label": "lanterns",
+          "title": "Reed lanterns",
+          "body": "Lanterns are hung above the waterside walk."
+        },
+        {
+          "label": "calendar",
+          "title": "Settlement calendar",
+          "body": "The settlement celebrates its founding each spring."
+        },
+        {
+          "label": "wildlife",
+          "title": "Swamp wildlife",
+          "body": "Small birds nest among the reeds."
+        },
+        {
+          "label": "workshop",
+          "title": "Repair workshop",
+          "body": "A workshop repairs boats and hand tools."
+        },
+        {
+          "label": "records",
+          "title": "Old records",
+          "body": "A few old ledgers were damaged by damp."
+        }
+      ]
+    }
   ]
 }

@@ -78,6 +78,16 @@ is a partial diagnostic: PDF opens, other aliases, other processes and late
 work still require coverage. Existing development captures predate this hook
 and do not become proof of zero acquisition merely by rescoring them.
 
+## Trace-sized related-page development fixture
+
+The supplied trace showed 20 related-page choices, whereas the prior synthetic
+Shepherd development case offered three. `dev-shepherd-catalog-20` keeps the
+same exact question and reconstructed page/history, with 20 synthetic related
+pages and the same zero-acquisition rubric. This approximates catalog size, not
+the original World or its contents. It is not an independent held-out case.
+A focused fixture and scoring check is required before capture; a replay,
+complete acquisition coverage and current-serving qualification remain open.
+
 ## Current-source development observations
 
 The 60-exchange frozen context-reuse case completed through the ordinary local
