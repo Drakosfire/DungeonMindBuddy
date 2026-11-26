@@ -287,7 +287,7 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
         raw=view['payloadJson'].encode()
         if (len(raw)!=view['payloadUtf8Bytes'] or sha256(raw).hexdigest()!=view['payloadSha256']
                 or body['state']!=projection.state() or body['questions']!=projection.questions()
-                or (view['provider'],view['model'],view['apiMode'])!=('typesafe','jev-1.14.0','typesafe_decision')):
+                or (view['provider'],view['model'],view['apiMode'])!=('typesafe','typesafe-ai/jev-1.14.0','typesafe_decision')):
             raise ValueError('Native Build initial prepared request changed before capture')
         accounting.validate(body,raw,context_mode=view['contextMode'],host_phase=getattr(projection,'host_phase',None))
     actions = budget['buildJevActions']
@@ -445,7 +445,7 @@ def freeze_play(request,work,view,budget,*,authority,native_query,provenance,sub
     if (request.surface.surface_id!='play' or type(parent) is not NativePlayRetrievalDecisionInputV1
             or parent.question!=request.message or work.play_context_receipt is None
             or authority.managed_world_id!=work.play_context_receipt.world_id
-            or (view['provider'],view['model'],view['apiMode'])!=('typesafe','jev-1.14.0','decision')):
+            or (view['provider'],view['model'],view['apiMode'])!=('typesafe','typesafe-ai/jev-1.14.0','decision')):
         raise ValueError('Native Play requires its actual Run and retrieval controller')
     proof=play_work_proof(request,work,[row.model_dump() for row in parent.dialogue])
     frame=t.PlaySourceFrameV1.model_validate_json(json.dumps(proof['source_frame']))

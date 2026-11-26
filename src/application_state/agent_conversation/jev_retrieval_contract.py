@@ -17,7 +17,7 @@ from generationengine.types import ChoiceDecisionAnswer, ChoiceDecisionQuestion,
 from .native_source_keywords import (KEYWORD_KIND, KEYWORD_GUIDANCE, RETAINED_KEYWORD_KIND,
     RECOVERY_KEYWORD_GUIDANCE)
 
-MODEL = "jev-1.14.0"
+MODEL = "typesafe-ai/jev-1.14.0"
 PROVIDER = "typesafe"
 Operation = Literal["select_candidates", "discover_more", "finish_retrieval"]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$", strict=True)]
@@ -390,15 +390,15 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
         max_transport_retries=0)
 
 
-def validated_choice_answers(result: DecisionResult, expected) -> dict[str, str]:
+def validated_choice_answers(result: DecisionResult, expected, *, expected_model=MODEL) -> dict[str, str]:
     """Validate one real Jev result once, before any semantic projection."""
     if not isinstance(result, DecisionResult):
         raise ValueError("Typed decision result required")
     observation = result.observation
     if (observation.state.value != "completed" or observation.retry_count != 0
             or observation.provider_attempt_count != 1
-            or observation.provider != PROVIDER or observation.resolved_model != MODEL
-            or observation.response_model != MODEL):
+            or observation.provider != PROVIDER or observation.resolved_model != expected_model
+            or observation.response_model != expected_model):
         raise ValueError("Decision provider/model differs")
     if set(result.answers) != expected:
         raise ValueError("Missing or unexpected decision answers")
@@ -410,12 +410,12 @@ def validated_choice_answers(result: DecisionResult, expected) -> dict[str, str]
     return choices
 
 
-def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) -> RetrievalSelection:
+def decode_selection(request: RetrievalDecisionInput, result: DecisionResult, *, expected_model=MODEL) -> RetrievalSelection:
     """Decode actual typed GE choices. Confidence is never evidence authority."""
     expected = {"operation", *(f"candidate_{i}" for i in range(len(request.candidates)))}
     if _planned_input(request):
         expected.add('post_read_plan')
-    return _selection_from_choices(request, validated_choice_answers(result, expected))
+    return _selection_from_choices(request, validated_choice_answers(result, expected, expected_model=expected_model))
 
 
 
@@ -534,7 +534,7 @@ def validate_prepared_decision(request: RetrievalDecisionInput, prepared, *, con
     validate_wire_body(request, prepared.body, controller_accounting=controller_accounting)
 
 
-def validate_wire_body(request: RetrievalDecisionInput, raw: bytes, *, controller_accounting=None) -> None:
+def validate_wire_body(request: RetrievalDecisionInput, raw: bytes, *, controller_accounting=None, expected_model=MODEL) -> None:
     """Recheck semantic-only request bytes at the owning durable append."""
     def unique(pairs):
         result = {}
@@ -548,5 +548,5 @@ def validate_wire_body(request: RetrievalDecisionInput, raw: bytes, *, controlle
     expected = prepare_decision(request, controller_accounting=controller_accounting)
     questions = {q.name: {"type": "choice", "instructions": q.question,
                          "criteria": {option: None for option in q.options}} for q in expected.questions}
-    if body != {"model": MODEL, "state": expected.state, "questions": questions}:
+    if body != {"model": expected_model, "state": expected.state, "questions": questions}:
         raise ValueError("Prepared decision question, catalog or choices changed")

@@ -11,6 +11,9 @@ SELECTION = "build_acquisition_selection_if_default_exceeded_v2"
 DEFAULT_QUESTION = 32_000
 DEFAULT_REQUEST = 64_000
 LONG_LIMIT = 262_000
+# Retained turns preserve the original model identity; new dispatch uses the
+# gateway-qualified identity. Each event is still bound to its own policy.
+JEV_CONTROLLER_MODELS = frozenset({"jev-1.14.0", "typesafe-ai/jev-1.14.0"})
 
 
 def phase(body, *, host_phase=None):
@@ -70,7 +73,7 @@ def validate_event(event, execution):
         raise ValueError("Decision context requires its frozen adaptive accounting")
     if (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity():
         raise ValueError("Decision context role belongs only to the Build controller")
-    if (event.provider, event.model, event.api_mode) != ("typesafe", "jev-1.14.0", "typesafe_decision"):
+    if event.provider != "typesafe" or event.model not in JEV_CONTROLLER_MODELS or event.api_mode != "typesafe_decision":
         raise ValueError("Decision context provider identity differs")
     if context.context_mode != selected_mode(context.context_phase, event.input_tokens, context.max_question_input_tokens, policy=descriptor.policy):
         raise ValueError("Decision context mode differs from frozen selection policy")

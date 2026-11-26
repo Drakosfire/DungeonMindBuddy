@@ -155,9 +155,9 @@ def prepare_build_boundary_decision(
     )
 
 
-def decode_build_boundary_decision(request: DecisionRequest, result) -> BuildBoundaryJudgment:
+def decode_build_boundary_decision(request: DecisionRequest, result, *, expected_model=None) -> BuildBoundaryJudgment:
     offered = {q.name: q.options for q in request.questions}
-    answers = validated_choice_answers(result, set(offered))
+    answers = validated_choice_answers(result, set(offered), **({'expected_model': expected_model} if expected_model else {}))
     if any(answers[name] not in options for name, options in offered.items()):
         raise ValueError("Build boundary decision contains an unoffered answer")
     return BuildBoundaryJudgment(
@@ -187,7 +187,7 @@ def build_boundary_opening(
     )
 
 
-def resolve_build_boundary_opening(catalog, request, response, *, question, title, requested_work, caret=None):
+def resolve_build_boundary_opening(catalog, request, response, *, question, title, requested_work, caret=None, expected_model=None):
     """Validate exact semantic offers and the real combined opening response."""
     version = 2 if OPENING_QUESTION_PREFIX + "destination" in request["questions"] else 1
     if OPENING_QUESTION_PREFIX + "insertion_location" not in request["questions"]:
@@ -216,7 +216,7 @@ def resolve_build_boundary_opening(catalog, request, response, *, question, titl
     boundary_request = prepare_build_boundary_decision(
         question, title, (), catalog, version=version, offer_caret=caret_target is not None)
     resolution = resolve_build_boundary(
-        catalog, decode_build_boundary_decision(boundary_request, boundary_response), caret_target=caret_target)
+        catalog, decode_build_boundary_decision(boundary_request, boundary_response, expected_model=expected_model), caret_target=caret_target)
 
     write_dispositions = {"unique", "explicit_page_end", "explicit_page_body"} if version == 2 else {"unique"}
     if resolution.disposition in write_dispositions and requested_work != "write_current_page":

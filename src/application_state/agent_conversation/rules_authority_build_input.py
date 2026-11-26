@@ -59,7 +59,8 @@ def verify_build_prepared_input(execution, event, body):
             or scope.ruleset_id != cap.ruleset_id):
         raise ValueError("Rules scope did not select the current typed Build proof policy")
     if event.role == "controller":
-        if set(body) != {"model", "state", "questions"} or body["model"] != "jev-1.14.0":
+        from .build_decision_context import JEV_CONTROLLER_MODELS
+        if set(body) != {"model", "state", "questions"} or body["model"] not in JEV_CONTROLLER_MODELS:
             raise ValueError("Unknown Build Rules controller envelope")
         if not isinstance(body["state"], dict) or not isinstance(body["questions"], dict) or not body["questions"]:
             raise ValueError("Malformed Build Rules controller state/questions")
