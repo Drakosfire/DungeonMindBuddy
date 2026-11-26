@@ -12,6 +12,7 @@ export interface BuildDocumentRenameControlProps {
   currentTitle: string;
   renaming?: boolean;
   disabled?: boolean;
+  pageTitle?: boolean;
   onRename: (title: string) => Promise<DocumentCommandResult<WorkspaceDocumentRecord>>;
 }
 
@@ -31,6 +32,7 @@ export function BuildDocumentRenameControl({
   currentTitle,
   renaming = false,
   disabled = false,
+  pageTitle = false,
   onRename,
 }: BuildDocumentRenameControlProps) {
   const [open, setOpen] = useState(false);
@@ -135,7 +137,7 @@ export function BuildDocumentRenameControl({
   );
 
   return (
-    <div className="build-document-rename build-document-rename--context" data-testid="build-document-rename">
+    <div className="build-document-rename build-document-rename--context" data-testid={pageTitle ? "build-page-title-rename" : "build-document-rename"}>
       <SurfaceContextPopover
         open={open}
         onOpenChange={(next) => {
@@ -148,7 +150,8 @@ export function BuildDocumentRenameControl({
         className="surface-context-popover--wide"
         trigger={
           <SurfaceContextAction
-            data-testid="build-document-rename-open"
+            data-testid={pageTitle ? "build-page-title-rename-open" : "build-document-rename-open"}
+            aria-label={pageTitle ? "Rename page title" : undefined}
             onClick={() => setOpen(true)}
             disabled={disabled || busy}
           >

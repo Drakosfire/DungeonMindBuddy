@@ -499,6 +499,25 @@ describe("BuildSurfacePage", () => {
     expect(liveApi.getCommittedPageSnapshot).not.toHaveBeenCalled();
   });
 
+  it("disables the visible title rename while another page is opening", async () => {
+    const otherId = "22222222-2222-4222-8222-222222222222";
+    const original = buildLongmontSnapshot(DOC_ID, "Original page");
+    let release!: (value: typeof original) => void;
+    const pending = new Promise<typeof original>(resolve => { release = resolve; });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async id => id === otherId ? pending : original);
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}`);
+    renderBuildPage();
+    await waitFor(() => expect(screen.getByTestId("build-page-title-rename-open")).toBeEnabled());
+    await act(async () => {
+      window.history.pushState({}, "", `/build?documentId=${otherId}`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await waitFor(() => expect(screen.getByTestId("build-page-title-rename-open")).toBeDisabled());
+    expect(liveApi.updateWorkspaceDocumentMetadata).not.toHaveBeenCalled();
+    await act(async () => { release(buildLongmontSnapshot(otherId, "Next page")); });
+    await waitFor(() => expect(within(screen.getByTestId("build-page-title")).getByRole("heading")).toHaveTextContent("Next page"));
+  });
+
   it("follows browser back/forward documentId changes", async () => {
     const otherId = "22222222-2222-4222-8222-222222222222";
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) => ({
@@ -1353,9 +1372,10 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expectBuildSaveState("unsaved");
     });
-    expect(screen.getByTestId("build-document-rename-open")).not.toBeDisabled();
+    expect(within(screen.getByTestId("build-page-title")).getByRole("heading", { name: "Ironveil Property", level: 1 })).toBeVisible();
+    expect(screen.getByTestId("build-page-title-rename-open")).not.toBeDisabled();
 
-    await user.click(screen.getByTestId("build-document-rename-open"));
+    await user.click(screen.getByTestId("build-page-title-rename-open"));
     const titleInput = screen.getByTestId("build-document-rename-title");
     await user.clear(titleInput);
     await user.type(titleInput, "Ironveil Manufactory Grounds");
@@ -1373,6 +1393,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
     });
+    expect(within(screen.getByTestId("build-page-title")).getByRole("heading", { name: "Ironveil Manufactory Grounds", level: 1 })).toBeVisible();
     // Stale list still held — selector must already show Canvas title.
     fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
