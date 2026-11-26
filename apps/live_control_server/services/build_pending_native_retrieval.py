@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from uuid import UUID, uuid4
 
 from application_state.agent_conversation import types as ledger
@@ -168,6 +169,84 @@ def _read_selected_objects(adapter, query, selection):
                 authorize_current_access=adapter.pending_build_access)
 
 
+def _followup_statblock(adapter, authority):
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    from .statblock_saved_revision import published_statblock_reference
+
+    turn = adapter.fence.turn
+    if turn.sequence <= 1:
+        return ()
+    previous = adapter.service.list_turns(
+        turn.world_id, turn.conversation_id, limit=1, before_sequence=turn.sequence,
+    )
+    if len(previous) != 1 or previous[0].status != "completed":
+        return ()
+    prior = previous[0]
+    work = getattr(prior.graph_context_receipt, "work_context", None)
+    if (getattr(work, "surface_id", None) != "build"
+            or work.source_basis != turn.graph_context_receipt.work_context.source_basis
+            or prior.graph_context_execution is None):
+        return ()
+    reads = [event for event in prior.graph_context_execution.events if type(event) is BuildSavedStatblockReadV1]
+    if len(reads) != 1 or reads[0].world_id != turn.world_id:
+        return ()
+    read = reads[0]
+    reference = published_statblock_reference(turn.world_id, authority, read.draft_id, read.locator)
+    if reference is None:
+        return ()
+    return ((reference.label, read.draft_id, read.locator),)
+
+
+def _statblock_catalog(adapter, authority):
+    from apps.live_control_server.routes.statblock_storage import statblock_data_root
+    from .statblock_saved_revision import iter_saved_mechanics
+
+    principal = getattr(adapter, "native_principal", None)
+    if getattr(principal, "role", None) != "gm":
+        return {}
+    if re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE):
+        root = statblock_data_root(adapter.root)
+        entries = iter_saved_mechanics(root, world_id=adapter.fence.turn.world_id)
+    else:
+        entries = _followup_statblock(adapter, authority)
+    return {
+        f"saved-statblock:{index}": (label, UUID(str(draft_id)), locator)
+        for index, (label, draft_id, locator) in enumerate(entries)
+    }
+
+
+def _read_statblock(adapter, world_id, draft_id, locator, authority):
+    from apps.live_control_server.routes.statblock_storage import statblock_data_root
+    from .native_graph_inspection import InspectionUnavailable, statblock_pdf_support
+    from .native_pdf_evidence import reviewed_pdf_regions
+    from .statblock_saved_revision import open_version, published_statblock_reference
+
+    principal = adapter.native_principal
+    if principal.role != "gm" or authority.managed_world_id != world_id:
+        raise ValueError("Saved statblock is outside the current World authority")
+    opened = open_version(
+        statblock_data_root(adapter.root), world_id=world_id,
+        draft_id=str(draft_id), revision_id=locator.revision_id,
+    )
+    if (opened["world_id"] != world_id or UUID(str(opened["draft_id"])) != draft_id
+            or opened["locator"] != locator.model_dump(mode="json")):
+        raise ValueError("Opened statblock differs from its selected saved revision")
+    resource = opened["resource"]
+    regions = reviewed_pdf_regions(resource, world_id=world_id)
+    support = None
+    if regions:
+        reference = published_statblock_reference(world_id, authority, draft_id, locator)
+        if reference is not None:
+            try:
+                support = statblock_pdf_support(
+                    reference, regions, principal, expected_source_epoch=authority.acquisition_epoch,
+                )
+            except InspectionUnavailable as exc:
+                if exc.code != "statblock_pdf_review_incomplete":
+                    raise
+    return resource["definition"], support
+
+
 async def run_pending_native_retrieval(adapter, harness, *, dialogue=(), rules=None):
     """Collect under actual pending owners until an acknowledged explicit finish.
 
@@ -182,13 +261,20 @@ async def run_pending_native_retrieval(adapter, harness, *, dialogue=(), rules=N
     from application_state.agent_conversation.plan_jev_rules_lookup import RULES_HANDLE, rules_candidate
     from .native_source_navigation import navigator
     receipt, execution = owner(adapter.fence.turn)
-    _, query = prepared_pending_source(receipt, execution)
+    authority, query = prepared_pending_source(receipt, execution)
     if getattr(adapter, 'native_query', None) != query:
         raise ValueError('Pending retrieval cannot substitute its prepared query')
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+
     sources = navigator(adapter)
+    statblocks = _statblock_catalog(adapter, authority)
     producing = None
     while True:
         _, execution = owner(adapter.fence.turn)
+        acquired_statblocks = {
+            e.handle for e in execution.events if type(e) is BuildSavedStatblockReadV1
+        }
         auths = [e for e in execution.events if type(e) is NativeRetrievalAuthorizedV1]
         selected = None
         if auths:
@@ -210,6 +296,7 @@ async def run_pending_native_retrieval(adapter, harness, *, dialogue=(), rules=N
             native_offers = {row.handle for row in sources.offered()}
             metadata = set(sources._keyword_catalog()) | {sources.expansion_handle()}
             known = object_handles | native_offers | settled | metadata | ({RULES_HANDLE} if rules is not None else set())
+            known |= set(statblocks) | acquired_statblocks
             if not set(selected.selected_handles) <= known:
                 raise ValueError('Pending native selection differs from its actual acquisition catalogue')
             _read_selected_objects(adapter, query, selected)
@@ -220,9 +307,27 @@ async def run_pending_native_retrieval(adapter, harness, *, dialogue=(), rules=N
                 if producing is None or producing.selection != selected:
                     raise ValueError('Recovered Rules selection requires its original runtime and prepared proof')
                 rules.lookup_selected(producing.proof['parent_request_json'])
+            for handle in selected.selected_handles:
+                if handle not in statblocks or handle in acquired_statblocks:
+                    continue
+                if producing is None or producing.selection != selected:
+                    raise ValueError("Pending statblock selection requires its original frozen catalogue")
+                _, draft_id, locator = statblocks[handle]
+                _commit(adapter, "observe_pending_saved_statblock", selection_event_id=selected.event_id,
+                    handle=handle, draft_id=draft_id, locator=locator,
+                    read=lambda *args: _read_statblock(adapter, *args),
+                    authorize_current_access=adapter.pending_build_access)
+                acquired_statblocks.add(handle)
         offers, examined = _object_candidates(query, adapter._broker_execution())
         candidates = [*offers, *sources.offered()]
         reviewed = [*examined, *sources.examined()]
+        for handle, (label, _, _) in statblocks.items():
+            if handle in acquired_statblocks:
+                reviewed.append(RetrievalCandidate(handle=handle, label=label, kind="Saved statblock: acquired exact mechanics in this turn"))
+            else:
+                candidates.append(RetrievalCandidate(
+                    handle=handle, label=label, kind="Saved statblock; open its exact stored mechanics revision",
+                ))
         if rules is not None:
             (reviewed if rules.selected else candidates).append(rules_candidate())
         producing = PendingNativeRetrievalDriver(adapter, candidates, dialogue=dialogue,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useMemo, useLayoutEffect } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -10,7 +10,7 @@ import { URL as NodeURL } from "node:url";
 
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
-import { AskPluginSlotProvider, useRegisterAskPluginPresence, useAskPluginSlot } from "./AskPluginSlot";
+import { AskPluginSlotProvider, useRegisterAskPluginPresence, useAskPluginSlot, useOwnedAskHostRef } from "./AskPluginSlot";
 import { usePublishAgentSurfaceContext } from "./usePublishAgentSurfaceContext";
 
 function PublishBuildContext() {
@@ -317,4 +317,24 @@ it('keeps the document-owned launcher usable before saved-object readiness and t
   expect(button).toHaveAttribute('aria-expanded','false');await user.click(button);expect(button).toHaveAttribute('aria-expanded','true');
   view.rerender(<Workspace ready/>);expect(screen.getByTestId('agent-interaction-open')).toBe(button);
   view.rerender(<Workspace ready={false}/>);expect(screen.getByTestId('agent-interaction-open')).toBe(button);expect(button).toHaveAttribute('aria-expanded','true');
+});
+
+it.each(['chrome', 'workspace'] as const)('keeps the successor host when the previous %s host releases late', previous => {
+  const callbacks: Record<string, (node: HTMLElement | null) => void> = {};
+  function Owner({name}: {name: string}) {
+    callbacks[name] = useOwnedAskHostRef();
+    return <div data-testid={name} />;
+  }
+  function CurrentHost() {
+    const slot = useAskPluginSlot();
+    return <output data-testid="current">{slot.hostElement?.dataset.testid ?? 'none'}</output>;
+  }
+  render(<AskPluginSlotProvider><Owner name="chrome" /><Owner name="workspace" /><CurrentHost /></AskPluginSlotProvider>);
+  const next = previous === 'chrome' ? 'workspace' : 'chrome';
+  act(() => callbacks[previous]!(screen.getByTestId(previous)));
+  act(() => callbacks[next]!(screen.getByTestId(next)));
+  act(() => callbacks[previous]!(null));
+  expect(screen.getByTestId('current')).toHaveTextContent(next);
+  act(() => callbacks[next]!(null));
+  expect(screen.getByTestId('current')).toHaveTextContent('none');
 });

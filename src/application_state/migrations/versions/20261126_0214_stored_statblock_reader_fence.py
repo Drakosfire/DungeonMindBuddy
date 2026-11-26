@@ -1,0 +1,13 @@
+"""Fence stored statblock evidence and pending saved-statblock events."""
+revision = "20261126_0214"
+down_revision = "20261125_0213"
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    pass
+
+
+def downgrade():
+    raise RuntimeError("Stored statblock conversations require a compatible forward reader")
