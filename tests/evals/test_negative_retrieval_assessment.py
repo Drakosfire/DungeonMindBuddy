@@ -620,6 +620,14 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
     native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
         "coverage": "partial", "case_id": "case1", "status": "observed",
+        "records": [{"owner": "native_graph_query", "state": "returned"}]}))
+    no_queries = {**CASE, "max_graph_query_attempts": 0}
+    graph_only = report_case(tmp_path, {"id": "case1", "request": request["message"]}, no_queries)
+    assert graph_only["checks"]["graph_query_budget"] is False
+    assert graph_only["checks"]["unexpected_retrieval"] is None
+    assert graph_only["status"] == "unproven"
+    native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
+        "coverage": "partial", "case_id": "case1", "status": "observed",
         "records": [{"owner": "native_corpus_discovery", "state": "returned"}]}))
     observed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
     assert observed["checks"]["catalog_budget"] is False
@@ -1224,7 +1232,12 @@ def test_creative_naming_rubric_requires_proven_no_acquisition_and_quality():
     rubric = private['cases'][case['id']]
     assert case['history'] == [] and len(case['related_pages']) >= 3
     assert rubric['outcomes'] == ['answer'] and not rubric['allowed_reads']
-    assert assess(rubric, observation(outcome='answer'))['status'] == 'pass'
+    clean_graph = {"graph_query_attempts": 0, "graph_query_journal_complete": True}
+    assert assess(rubric, observation(outcome='answer', **clean_graph))['status'] == 'pass'
+    assert assess(rubric, observation(outcome='answer', graph_query_attempts=1,
+                                      graph_query_journal_complete=False))['checks']['graph_query_budget'] is False
+    assert assess(rubric, observation(outcome='answer', graph_query_attempts=0,
+                                      graph_query_journal_complete=False))['status'] == 'unproven'
     assert assess(rubric, observation(outcome='answer', catalog_discoveries=1))['status'] == 'fail'
     assert assess(rubric, observation(outcome='answer', reads=[UNKNOWN], journal_complete=False))['status'] == 'fail'
     assert assess(rubric, observation(outcome='answer', journal_complete=False))['status'] == 'unproven'
@@ -1478,3 +1491,35 @@ def test_native_activity_counts_separate_stages_without_dedup_or_identity_leak()
     trace["observations"][2]["sequence"] = 9
     with pytest.raises(ValueError, match="sequence"):
         native_activity_counts(trace)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("max_graph_query_attempts", -1), ("max_graph_query_attempts", True),
+    ("graph_query_attempts", -1), ("graph_query_attempts", True),
+    ("graph_query_journal_complete", "yes"),
+])
+def test_graph_query_budget_rejects_invalid_metadata(field, value):
+    rubric = {**CASE, "max_graph_query_attempts": 0}
+    seen = observation(graph_query_attempts=0, graph_query_journal_complete=True)
+    if field == "max_graph_query_attempts":
+        rubric[field] = value
+    else:
+        seen[field] = value
+    with pytest.raises(ValueError, match=field):
+        assess(rubric, seen)
+
+
+def test_negative_rate_includes_graph_query_budget_and_missing_graph_proof():
+    from evals.negative_retrieval.assessment import REPORT_SCHEMA, rubric_sha256, summarize
+
+    rubric = {**CASE, "max_graph_query_attempts": 0}
+    cases = {"one": rubric}
+    common = {"schema": REPORT_SCHEMA, "case_id": "one", "rubric_sha256": rubric_sha256(rubric),
+              "fixture_context_verified": True, "capture_environment_verified": True}
+    for graph, expected in ((False, (1, 0)), (None, (0, 1)), (True, (0, 0))):
+        report = {**common, "checks": {"unexpected_retrieval": True, "catalog_budget": True,
+                                       "graph_query_budget": graph}}
+        result = summarize(cases, {"one": report})["unnecessary_retrieval"]
+        assert (result["failures"], result["unknown"]) == expected
+    del report["checks"]["graph_query_budget"]
+    assert summarize(cases, {"one": report})["unnecessary_retrieval"]["unknown"] == 1

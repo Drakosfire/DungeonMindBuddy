@@ -108,6 +108,13 @@ owner calls may count the same underlying source more than once, so these are
 not distinct-source counts. Imported aliases or other owners can bypass the
 probe; its coverage and the report remain partial even when no calls appear.
 
+A rubric may separately set `max_graph_query_attempts` for native Graph query
+preparation. The partial probe counts calls, including unsuccessful attempts;
+that count is not proof that a Core search completed. An observed excess is a
+failure, while an in-budget count stays unknown unless its own journal is
+verified complete. Negative cohort bounds include this check when the rubric
+requires it. This is separate from catalog discovery and materialization.
+
 `capture.capture(manifest, output)` wraps the existing ordinary
 Build sequence capture, preserving its runtime, source, provider, and database
 preflight. Probes are installed only around the actual turn POST, not the

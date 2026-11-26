@@ -132,6 +132,9 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     if native_probe is not None:
         observed["catalog_discoveries"] += sum(native_probe["counts"]["native_corpus_discovery"].values())
     observed["catalog_journal_complete"] = None
+    observed["graph_query_attempts"] = (None if native_probe is None or native_probe["status"] == "not_started"
+        else sum(native_probe["counts"]["native_graph_query"].values()))
+    observed["graph_query_journal_complete"] = None
     grade = assess(rubric, observed)
     # Use the history belonging to the request, not a previous active conversation.
     # A failed/missing binding is unqualified, even if a violation was observed.

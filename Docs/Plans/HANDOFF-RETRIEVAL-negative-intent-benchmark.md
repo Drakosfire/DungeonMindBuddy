@@ -100,6 +100,17 @@ FastAPI TestClient with synthetic routes now exercises pre-POST, POST and
 post-POST observations across the client/server thread boundary. This does not
 exercise the Buddy turn route, provider or its full set of acquisition owners.
 
+## Graph-query attempt budget
+
+Native Graph query preparation can reach entity search before any source body
+is opened. The creative naming rubric now separately requires zero query
+attempts, as well as zero catalog discovery and materialization. The evaluator
+records observed query-owner calls as attempts, including failures; a call is
+not proof a Core search completed. A partial journal may prove an excess but
+cannot prove zero. The negative cohort summary includes the separate budget
+when a rubric specifies it. Required-source cases without that constraint keep
+their original expectations. Full owner coverage remains unproven.
+
 ## Diagnostic checkpoint
 
 The question observer now validates the containing recognized Build completion,

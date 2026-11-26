@@ -73,6 +73,18 @@ def assess(case, observation):
     }
     if required:
         checks["required_support"] = observation.get("required_support")
+    if "max_graph_query_attempts" in case:
+        budget = case["max_graph_query_attempts"]
+        count = observation.get("graph_query_attempts")
+        graph_complete = observation.get("graph_query_journal_complete")
+        if type(budget) is not int or budget < 0:
+            raise ValueError("max_graph_query_attempts must be a nonnegative integer")
+        if count is not None and (type(count) is not int or count < 0):
+            raise ValueError("graph_query_attempts must be a nonnegative integer or null")
+        if graph_complete is not None and type(graph_complete) is not bool:
+            raise ValueError("graph_query_journal_complete must be boolean or null")
+        checks["graph_query_budget"] = (False if count is not None and count > budget
+                                        else True if count is not None and graph_complete is True else None)
     # An interrupted turn can show a retry/error without producing a typed
     # outcome. Preserve that independent UI observation without inventing one.
     if outcome != "clarification" and observation.get("no_retry_error") is not None:
@@ -126,8 +138,10 @@ def summarize(cases, results):
                     values.append(None)
                     continue
                 checks = results[case_id]["checks"]
-                pair = (checks["unexpected_retrieval"], checks["catalog_budget"])
-                values.append(False if False in pair else True if pair == (True, True) else None)
+                components = [checks["unexpected_retrieval"], checks["catalog_budget"]]
+                if "max_graph_query_attempts" in cases[case_id]:
+                    components.append(checks.get("graph_query_budget"))
+                values.append(False if False in components else True if all(v is True for v in components) else None)
         else:
             values = [results[case_id]["checks"][key] if eligible(case_id) else None for case_id in rows]
         failures = sum(value is False for value in values)
