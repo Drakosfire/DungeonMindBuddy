@@ -445,36 +445,11 @@ class PlanJevDriver:
         return entries
 
     def _published_statblock_reference(self, draft_id, locator):
-        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
-        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
-        from application_state.world_mechanics.service import list_current
-        from .world_creature_selection import catalog
+        from .statblock_saved_revision import published_statblock_reference
 
-        authority = self.adapter.fence.turn.graph_context_receipt.source_authority
-        if not isinstance(authority, NativeCorpusAuthorityV1):
-            return None
-        records = [
-            record for record in list_current(world_id=self.statblock_world)
-            if str(record.request.draft_id) == str(draft_id) and record.proof.locator == locator
-        ]
-        if not records:
-            return None
-        view = catalog(self.statblock_world, revision_id=authority.revision_id)
-        if (view.native_world_id, view.binding_version, view.revision_id) != (
-            authority.native_world_id, authority.binding_version, authority.revision_id
-        ) or view.revision_id != view.head_revision_id:
-            return None
-        matches = [
-            target for record in records for target in view.targets
-            if record.request.target.matches_association_target(target)
-        ]
-        if len(matches) != 1:
-            return None
-        target = matches[0]
-        return AuthoredGraphReferenceV1(
-            managed_world_id=view.managed_world_id, native_world_id=view.native_world_id,
-            binding_version=view.binding_version, graph_revision=view.revision_id,
-            node_id=target.node_id, label=target.label,
+        return published_statblock_reference(
+            self.statblock_world, self.adapter.fence.turn.graph_context_receipt.source_authority,
+            draft_id, locator,
         )
 
     def _current_statblock_anchor(self, reference, draft_id, locator):
