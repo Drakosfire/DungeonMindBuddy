@@ -289,7 +289,10 @@ it.each([routes[1], routes[2]])("never replays a hosted %s after auth rejection 
   expect(fetch.mock.calls.every(([url]) => url === path)).toBe(true);
 });
 
-it("invalidates pending hosted reads and already-returned bodies on account changes", async () => {
+it.each([
+  ["explorer", routes[0][1], routes[0][2]],
+  ["inspection", "/api/live/native-graph-inspection/read", entityInspectionBody],
+] as const)("invalidates pending hosted %s reads and already-returned bodies on account changes", async (_name, path, body) => {
   const api = await setup();
   hostedOrigin();
   api.invalidateHostedGraphAccess("owner-a");
@@ -297,15 +300,27 @@ it("invalidates pending hosted reads and already-returned bodies on account chan
   const fetch = vi.spyOn(globalThis, "fetch")
     .mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }))
     .mockResolvedValueOnce(Response.json({ account: "b" }));
-  const old = api.authenticatedApiFetch(routes[0][1], { method: "POST", body: JSON.stringify(routes[0][2]) });
+  const old = api.authenticatedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
   const oldRejection = expect(old).rejects.toThrow(/account changed/);
   await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
   api.invalidateHostedGraphAccess("owner-b");
-  const current = await api.authenticatedApiFetch(routes[0][1], { method: "POST", body: JSON.stringify(routes[0][2]) });
+  const current = await api.authenticatedApiFetch(path, { method: "POST", body: JSON.stringify(body) });
   resolveOld(Response.json({ account: "a" }));
   await oldRejection;
   api.invalidateHostedGraphAccess(null);
   await expect(current.response.json()).rejects.toThrow(/session changed|account changed/);
+});
+
+it("does not invalidate citation reads for inspection, but still invalidates around mutations", async () => {
+  const api = await setup();
+  const { getReadWaveVersion } = await import("./inFlightReads");
+  api.setNativeGraphAccessToken("synthetic-managed-graph-token");
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ fixture: true }));
+  const before = getReadWaveVersion();
+  await api.authenticatedApiFetch("/api/live/native-graph-inspection/read", { method: "POST", body: JSON.stringify(entityInspectionBody) });
+  expect(getReadWaveVersion()).toBe(before);
+  await api.authenticatedApiFetch(routes[1][1], { method: "POST", body: JSON.stringify(routes[1][2]) });
+  expect(getReadWaveVersion()).toBe(before + 2);
 });
 
 it("authenticates native complete-object reads with their exact revision pin", async () => {

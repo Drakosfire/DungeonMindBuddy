@@ -9,7 +9,7 @@ import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
-import { ConversationReplyDetails, TraceEvidence } from './ConversationReplyDetails';
+import { ConversationReplyDetails, TraceEvidence, TraceDiagnostics } from './ConversationReplyDetails';
 import {isBuildPendingReceipt,isBuildPendingContext,isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply,imageMoveReply} from '../../shared/surfaceNativeProtocol';
 import { BuildGraphReferenceReview } from '../../buildSurface/BuildGraphReferenceReview';
 import { BuildImageMoveReview } from '../../buildSurface/BuildImageMoveReview';
@@ -6740,6 +6740,12 @@ export function WorldPlanAgentConversation({
       {!guestBuildActive() && verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open} replyDetails
         worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>}
       <TraceEvidence>{content}</TraceEvidence>
+      <TraceEvidence>{turn.lifecycle_status !== 'completed' && renderGraphContextHistory(turn)}</TraceEvidence>
+      <TraceDiagnostics><details>
+        <summary>Saved turn information</summary>
+        <p className="world-plan-agent-conversation__context">Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}</p>
+        {turn.lifecycle_status === 'completed' && renderGraphContextHistory(turn)}
+      </details></TraceDiagnostics>
     </ConversationReplyDetails>;
   };
   const renderConversationEvent = (event: WorldConversationDisplayEvent,
@@ -7078,15 +7084,11 @@ export function WorldPlanAgentConversation({
             </details> : null}
             {pendingRetryTurnId === turn.turn_id && !historicalAttempt && (uncertainPlayNoticeRef.current || uncertainPlanNoticeRef.current)
               ? <p>{uncertainPlayNoticeRef.current?.message ?? uncertainPlanNoticeRef.current?.message}</p> : null}
-            <p className="world-plan-agent-conversation__context">
-              Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
-            </p>
             {deliveryDiagnostic ? <p className="world-plan-agent-conversation__context">Delivery · {deliveryDiagnostic}</p> : null}
             {targetReceipt ? (
               <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
             ) : null}
             {renderSourceActions(turn)}
-            {renderGraphContextHistory(turn)}
           </>)}
         </div>
       </article>
