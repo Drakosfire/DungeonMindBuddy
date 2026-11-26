@@ -103,8 +103,13 @@ probe; its coverage and the report remain partial even when no calls appear.
 
 `capture.capture(manifest, output)` wraps the existing ordinary
 Build sequence capture, preserving its runtime, source, provider, and database
-preflight. It records the partial probe separately for each turn, including a
-failure before a response, and restores the patched owner functions. The wrapper
+preflight. Probes are installed only around the actual turn POST, not the
+runner's history, conversation setup or subsequent trace reads. They record
+`not_started` if that POST was never entered, and retain partial observations
+if it fails. They are removed when the POST exits. Work that occurs after the
+response, outside this process, through stale aliases or other owners remains
+unobserved. Legacy probe records without a status wrapped the broader capture
+and cannot be assumed to have the narrower timing boundary. The wrapper
 is a process-global diagnostic: use an isolated serial process and the existing
 owned database procedure. The caller must pass the independently frozen
 `expected_manifest_sha256`; a missing or mismatched digest is rejected before

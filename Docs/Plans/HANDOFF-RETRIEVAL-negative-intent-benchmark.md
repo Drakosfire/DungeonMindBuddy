@@ -82,6 +82,18 @@ complete acquisition journal. Focused tests exercise owner wrapping, errors, cle
 attribution; an actual in-memory corpus capture also verifies nested body-open
 observation. An ordinary product-turn witness is still required.
 
+## Turn attribution boundary
+
+The original partial probes wrapped the full capture case, including history,
+conversation setup and post-response trace reads. This could attribute those
+operations to the tested turn. The evaluator now installs both probes only
+around the turn POST, forbids a second dispatch in one capture and records
+`not_started` when the POST was not entered. It retains failed-POST records and
+restores hooks before the runner continues. Legacy records without this status
+remain broad-window evidence. This is still partial: asynchronous activity
+after the response, subprocesses, stale aliases and other owners can escape;
+no zero-acquisition pass follows from an empty POST window.
+
 ## Diagnostic checkpoint
 
 The question observer now validates the containing recognized Build completion,

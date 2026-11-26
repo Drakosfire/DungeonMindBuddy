@@ -71,7 +71,10 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
                 or probe.get("coverage") != "partial" or probe.get("case_id") != fixture["id"]):
             raise ValueError("Related-page probe belongs to another case")
         records = probe.get("records")
-        partial_probe = {"catalog_discoveries": catalog_discovery_count(records),
+        status = probe.get("status")  # Legacy captures did not record the dispatch window.
+        if status not in (None, "observed", "not_started") or (status == "not_started" and records != []):
+            raise ValueError("Invalid related-page probe status")
+        partial_probe = {"status": status, "catalog_discoveries": catalog_discovery_count(records),
                          "materialization_attempts": len(acquisition_labels(records)),
                          "raised_discoveries": sum(row["state"] == "raised" and row["owner"] == "related_catalog_discovery"
                                                    for row in records),

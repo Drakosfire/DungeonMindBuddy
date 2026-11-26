@@ -129,21 +129,43 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     raise
             records = []
             native_records = None
+            dispatch_started = False
+            post_entered = False
+
+            class ObservedTurnClient:
+                """Instrument the actual turn POST, not history or setup calls."""
+                def __init__(self, wrapped):
+                    self.wrapped = wrapped
+
+                def __getattr__(self, name):
+                    return getattr(self.wrapped, name)
+
+                def post(self, route, *args, **options):
+                    nonlocal records, native_records, dispatch_started, post_entered
+                    if route != "/api/live/agent/turn":
+                        return self.wrapped.post(route, *args, **options)
+                    if dispatch_started:
+                        raise ValueError("A capture may dispatch only one turn")
+                    dispatch_started = True
+                    with observe_related_page_owners() as records:
+                        with observe_native_graph_owners() as native_records:
+                            post_entered = True
+                            return self.wrapped.post(route, *args, **options)
+
             try:
-                with observe_related_page_owners() as records:
-                    with observe_native_graph_owners() as native_records:
-                        return original(checked_client, world, template, case, directory, **kwargs)
+                return original(ObservedTurnClient(checked_client), world, template, case, directory, **kwargs)
             finally:
                 failure = sys.exc_info()[1]
                 try:
                     immutable_save(Path(directory), "related-page-probe", {
                         "schema": "dmb_negative_retrieval_related_page_probe_v1",
-                        "coverage": "partial", "case_id": case["id"], "records": records,
+                        "coverage": "partial", "case_id": case["id"],
+                        "status": "observed" if post_entered else "not_started", "records": records,
                     })
                     immutable_save(Path(directory), "native-graph-probe", {
                         "schema": "dmb_negative_retrieval_native_graph_probe_v1",
                         "coverage": "partial", "case_id": case["id"],
-                        "status": "observed" if native_records is not None else "not_started",
+                        "status": "observed" if post_entered else "not_started",
                         "records": native_records if native_records is not None else [],
                     })
                     if fixture is not None:

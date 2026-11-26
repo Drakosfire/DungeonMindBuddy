@@ -454,9 +454,14 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     from apps.live_control_server.services import build_related_pages, native_graph_reads
 
     original_discover = build_related_pages.discover
+    class Client:
+        def post(self, route, *args, **kwargs):
+            assert route == "/api/live/agent/turn"
+            native_graph_reads.prepare_query("private question")
+            return build_related_pages.discover(None)
+
     def fail_case(client, world, template, case, directory, **kwargs):
-        native_graph_reads.prepare_query("private question")
-        build_related_pages.discover(None)
+        return client.post("/api/live/agent/turn", json={})
 
     def fail_discovery(request):
         raise RuntimeError("observed failure")
@@ -467,7 +472,7 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     original_case = workflow.capture_case
     def ordinary_capture(manifest, output, **kwargs):
         assert kwargs["clone_app"] is False and len(kwargs["cohort_manifest_sha256"]) == 64
-        return workflow.capture_case(None, "world", {}, {"id": "case1"}, output)
+        return workflow.capture_case(Client(), "world", {}, {"id": "case1"}, output)
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     monkeypatch.setattr(workflow, "load_manifest", lambda *args, **kwargs: ({"conversation_mode": "build_sequence"}, tmp_path))
     with pytest.raises(RuntimeError, match="observed failure"):
@@ -523,7 +528,7 @@ def test_partial_capture_retains_probe_failure_without_claiming_a_rate(tmp_path)
     assert report["case_id"] == "case1" and report["rubric_sha256"] == rubric_sha256(CASE)
     assert report["status"] == "unproven" and "answer-http" in report["missing_artifacts"]
     assert report["partial_native_graph_probe"]["counts"]["native_graph_query"]["raised"] == 1
-    assert report["partial_probe"] == {"catalog_discoveries": 1, "materialization_attempts": 1,
+    assert report["partial_probe"] == {"status": None, "catalog_discoveries": 1, "materialization_attempts": 1,
                                        "raised_discoveries": 0, "raised_materializations": 1}
     assert report["capture_terminal"] == {"status": "outcome_unknown", "error_type": "RuntimeError"}
     assert summarize({"case1": CASE}, {"case1": report})["unnecessary_retrieval"]["unknown"] == 1
@@ -1283,3 +1288,61 @@ def test_response_latency_rejects_invalid_values(value):
     with pytest.raises(ValueError, match="Invalid response latency"):
         response_latency({"elapsed_ms": value})
     assert response_latency({}) is None
+
+
+def test_capture_probe_excludes_setup_and_history_activity(tmp_path, monkeypatch):
+    import json
+    from apps.live_control_server.services import build_related_pages
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+
+    monkeypatch.setattr(build_related_pages, "discover", lambda _: [])
+    class Client:
+        def get(self, route):
+            build_related_pages.discover(None)
+            return route
+
+        def post(self, route, **kwargs):
+            if route == "/api/live/agent/turn":
+                build_related_pages.discover(None)
+            return route
+
+    def case(client, world, template, case, directory, **kwargs):
+        client.get("/history-before")
+        client.post("/new-conversation")
+        client.post("/api/live/agent/turn", json={})
+        client.get("/history-after")
+        with pytest.raises(ValueError, match="only one turn"):
+            client.post("/api/live/agent/turn", json={})
+        return "complete"
+
+    monkeypatch.setattr(workflow, "capture_case", case)
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs:
+                        workflow.capture_case(Client(), "world", {}, {"id": "case1"}, output))
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
+                        ({"conversation_mode": "build_sequence"}, tmp_path))
+    result = capture(_test_manifest(tmp_path), tmp_path / "case1", expected_manifest_sha256=MANIFEST_PIN)
+    assert result == "complete"
+    evidence = json.loads((tmp_path / "case1" / "related-page-probe.json").read_text())
+    assert evidence["status"] == "observed" and evidence["coverage"] == "partial"
+    assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "returned"}]
+
+
+def test_capture_probe_marks_predispatch_failure_not_started(tmp_path, monkeypatch):
+    import json
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+
+    def fail_before_dispatch(*args, **kwargs):
+        raise RuntimeError("history unavailable")
+
+    monkeypatch.setattr(workflow, "capture_case", fail_before_dispatch)
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs:
+                        workflow.capture_case(None, "world", {}, {"id": "case1"}, output))
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
+                        ({"conversation_mode": "build_sequence"}, tmp_path))
+    with pytest.raises(RuntimeError, match="history unavailable"):
+        capture(_test_manifest(tmp_path), tmp_path / "case1", expected_manifest_sha256=MANIFEST_PIN)
+    for name in ("related-page-probe", "native-graph-probe"):
+        evidence = json.loads((tmp_path / "case1" / (name + ".json")).read_text())
+        assert evidence["status"] == "not_started" and evidence["records"] == []
