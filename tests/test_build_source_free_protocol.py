@@ -5975,3 +5975,47 @@ def test_pending_current_saved_page_reaches_writer_with_bound_citation(monkeypat
         assert str(read.page.document_id) == completed.graph_context_receipt.work_context.source_basis.document_id
         assert completed.completion.answer_segments[0].read_id == read.read_id
         assert completed.status == 'completed' and state.completions == 1
+
+
+def test_pending_catalog_omits_changed_current_page_and_keeps_other_source(monkeypatch):
+    import asyncio
+    import httpx2
+    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from apps.live_control_server.services import build_jev_dispatch, build_related_pages
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY', 'synthetic-only')
+    class Transport(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            body = json.loads(request.content)
+            return httpx2.Response(200, request=request, json={'model': body['model'],
+                'usage': {'input_tokens': 23, 'output_tokens': 4}, 'answers': {
+                    key: {'type': 'choice', 'choice': 'read', 'confidence': 1,
+                          'probabilities': {'read': 1.0, 'skip': 0.0}}
+                    for key in body['questions']}})
+    with pending_app_runtime_case(monkeypatch) as (state, adapter):
+        execution = state.turn.graph_context_execution
+        other = execution.events[-1].pages[0]
+        basis = state.turn.graph_context_receipt.work_context.source_basis
+        stale = PagePointer(world_id=basis.world_id, document_id=UUID(basis.document_id),
+            registry_revision=basis.registry_revision + 1, title='Newer current page', visibility=basis.visibility)
+        execution = type(execution).model_validate_json(execution.model_copy(update={
+            'events': execution.events[:-1]}).model_dump_json(by_alias=True))
+        state.turn = t.Turn.model_validate(state.turn.model_copy(update={'graph_context_execution': execution}))
+        adapter.fence.renewer.update_turn(state.turn)
+        monkeypatch.setattr(build_related_pages, 'discover', lambda request, *, include_current:
+            [stale.model_dump(mode='json'), other.model_dump(mode='json')])
+        reads = []
+        def materialize(pointer):
+            reads.append(pointer.document_id)
+            text = 'The other saved source answers the request.'
+            return pointer.model_dump(mode='json') | {'markdown': text, 'content_sha256': hashlib.sha256(text.encode()).hexdigest()}
+        import hashlib
+        monkeypatch.setattr(build_related_pages, 'materialize', materialize)
+        harness = BuildJevHarness(decision_transport=Transport())
+        harness.adapter, harness.calls, harness.timings, harness._inflight = adapter, [], [], {}
+        asyncio.run(acquire_pending_app_pages(adapter, harness))
+        catalogs = [row for row in state.turn.graph_context_execution.events if type(row).__name__ == 'BuildAppPageCatalogObservedV1']
+        assert len(catalogs) == 1 and catalogs[0].pages == (other,)
+        assert reads == [other.document_id]

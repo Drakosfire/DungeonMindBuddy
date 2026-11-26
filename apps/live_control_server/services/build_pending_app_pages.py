@@ -23,6 +23,22 @@ def _commit(adapter, method, **fields):
     adapter.turn = _require_fresh_execution_append(adapter.fence.commit(method, **fields))
 
 
+def _discover_pending_pages(adapter):
+    """Offer the current saved page only at the request's frozen revision."""
+    from .build_related_pages import discover
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    basis = adapter._broker_receipt().work_context.source_basis
+    pages = []
+    for row in discover(adapter.request, include_current=True):
+        pointer = PagePointer.model_validate(row)
+        if (str(pointer.document_id) == str(basis.document_id)
+                and (pointer.registry_revision != basis.registry_revision
+                     or pointer.visibility != basis.visibility)):
+            continue  # A newer or reclassified page cannot replace the captured basis.
+        pages.append(pointer.model_dump(mode='json'))
+    return pages
+
+
 def _initial_request(adapter):
     """Read the original captured request; never reconstruct today's history."""
     from .agent_prompt_evidence import read_prompt
@@ -56,9 +72,8 @@ async def acquire_pending_app_pages(adapter, harness):
     catalog = effective_pending_app_catalog(receipt, execution)
     if catalog is None:
         pending_source_work(execution)
-        from .build_related_pages import discover
         _commit(adapter, 'observe_pending_build_app_catalog', event_id=uuid4(),
-            discover_pages=lambda turn: discover(adapter.request, include_current=True),
+            discover_pages=lambda turn: _discover_pending_pages(adapter),
             authorize_current_access=adapter.pending_build_access)
         catalog = effective_pending_app_catalog(receipt, adapter._broker_execution())
     if not catalog:
