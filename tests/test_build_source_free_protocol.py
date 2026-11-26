@@ -2821,12 +2821,12 @@ def test_pending_writer_selection_requires_strict_positive_claim_integers_before
 
 
 @_pending_test_contextmanager
-def pending_rules_runtime_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
+def pending_rules_runtime_case(monkeypatch, *, source_free_work=None, source_scope='source_lookup', lore_page=False, app_pages=False):
     from types import SimpleNamespace
     from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
     from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
     from application_state.agent_conversation.rules_authority_policy import rules_capability
-    with pending_writer_runtime_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, selector, turns):
+    with pending_writer_runtime_case(monkeypatch, source_free_work=source_free_work, source_scope=source_scope, lore_page=lore_page, app_pages=app_pages) as (state, adapter, selector, turns):
         request_id = str(uuid4())
         adapter.request = SimpleNamespace(turn_id=request_id, surface=SimpleNamespace(surface_id='build'))
         adapter.world_id, adapter.expected_conversation_id = state.turn.world_id, None
@@ -2878,7 +2878,7 @@ def test_pending_rules_runtime_refuses_stale_or_crossed_parent_before_ledger_cre
 
 
 @_pending_test_contextmanager
-def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False, native_json=False):
+def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, source_scope='source_lookup', lore_page=False, app_pages=False, native_json=False):
     import asyncio
     import httpx
     from datetime import UTC, datetime
@@ -2895,7 +2895,7 @@ def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_pag
     from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
     from application_state.agent_conversation.native_writer import output_request_fields
     from tests.test_build_jev_estimated_continuations import counter
-    with pending_rules_runtime_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules):
+    with pending_rules_runtime_case(monkeypatch, source_free_work=source_free_work, source_scope=source_scope, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules):
         adapter.budget = {'estimator': state.turn.graph_context_execution.policy.provider_input_accounting.estimator,
             'apiMode': 'typesafe_decision'}
         adapter.trace, adapter.failure = None, None
@@ -3108,9 +3108,9 @@ def test_pending_writer_actual_serialized_request_omits_host_bindings_and_preser
 
 
 @_pending_test_contextmanager
-def pending_writer_completion_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
+def pending_writer_completion_case(monkeypatch, *, source_free_work=None, source_scope='source_lookup', lore_page=False, app_pages=False, native_json=False):
     from application_state.agent_conversation import repository
-    with pending_writer_dispatch_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules, writer, prepared):
+    with pending_writer_dispatch_case(monkeypatch, source_free_work=source_free_work, source_scope=source_scope, lore_page=lore_page, app_pages=app_pages, native_json=native_json) as (state, adapter, rules, writer, prepared):
         configure_pending_completion_storage(monkeypatch,state)
         yield state, adapter, rules, writer, prepared
 
@@ -3264,6 +3264,38 @@ def test_anchored_missing_page_target_is_source_free_at_writer_boundary(monkeypa
         changed[2] = changed[2].model_copy(update={'outcome': 'outcome_unknown'})
         assert pending_source_free_terminal(execution.model_copy(update={'events': tuple(changed)})) is None
         assert state.retained_reads == 0 and state.materialized == 0
+
+
+@pytest.mark.parametrize('outcome', ['discussion', 'unbound_citation', 'page_collaboration'])
+def test_missing_page_target_real_writer_completion(monkeypatch, outcome):
+    import asyncio
+    import httpx
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    calls = []
+    def respond(request):
+        calls.append(json.loads(request.content))
+        candidate = {'answer_segments': [{'kind': 'discussion', 'text': 'Choose a page target to insert the requested writing.'}], 'limitations': []}
+        if outcome == 'unbound_citation':
+            candidate['answer_segments'] = [{'kind': 'source_passage_claim', 'text': 'Unsupported fact.', 'passage_handles': ['unbound']}]
+        if 'collaboration' in calls[-1]['text']['format']['schema']['properties']:
+            candidate['collaboration'] = ({'kind': 'lore_page', 'destination': {'request': 'current_author_request', 'title': 'Invented page'}, 'open_questions': []}
+                if outcome == 'page_collaboration' else None)
+        elif outcome == 'page_collaboration':
+            candidate['collaboration'] = {'kind': 'lore_page', 'destination': {'request': 'current_author_request', 'title': 'Invented page'}, 'open_questions': []}
+        return httpx.Response(200, request=request, json={'id': 'resp_barrier', 'object': 'response', 'created_at': 1,
+            'model': calls[-1]['model'], 'status': 'completed', 'output': [{'type': 'message', 'id': 'msg_barrier',
+                'role': 'assistant', 'status': 'completed', 'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    with pending_writer_completion_case(monkeypatch, source_free_work='write_current_page', source_scope='anchored', native_json=True) as (state, adapter, rules, writer, prepared):
+        if outcome == 'discussion':
+            completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert completed.status == 'completed' and state.completions == 1
+        else:
+            with pytest.raises(GenerationEngineError):
+                asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert state.completions == 0
+        assert len(calls) == 1 and state.retained_reads == 0 and state.materialized == 0
 
 
 def test_missing_page_target_harness_skips_native_retrieval(monkeypatch):
