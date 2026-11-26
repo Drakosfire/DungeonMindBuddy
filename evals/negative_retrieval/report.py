@@ -60,7 +60,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         if (not isinstance(value, dict) or value.get("schema") != "dmb_negative_retrieval_native_graph_probe_v1"
                 or value.get("coverage") != "partial" or value.get("case_id") != fixture["id"]
                 or not isinstance(value.get("status"), str)
-                or value.get("status") not in {"observed", "not_started"}
+                or value.get("status") not in {"observed", "not_started", "dispatch_uncertain"}
                 or (value.get("status") == "not_started" and value.get("records") != [])):
             raise ValueError("Native Graph probe is malformed or belongs to another case")
         native_probe = {"status": value["status"], "counts": summarize_records(value.get("records"))}
@@ -72,7 +72,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             raise ValueError("Related-page probe belongs to another case")
         records = probe.get("records")
         status = probe.get("status")  # Legacy captures did not record the dispatch window.
-        if status not in (None, "observed", "not_started") or (status == "not_started" and records != []):
+        if status not in (None, "observed", "not_started", "dispatch_uncertain") or (status == "not_started" and records != []):
             raise ValueError("Invalid related-page probe status")
         partial_probe = {"status": status, "catalog_discoveries": catalog_discovery_count(records),
                          "materialization_attempts": len(acquisition_labels(records)),

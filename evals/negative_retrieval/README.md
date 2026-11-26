@@ -106,8 +106,11 @@ Build sequence capture, preserving its runtime, source, provider, and database
 preflight. Probes are installed only around the actual turn POST, not the
 runner's history, conversation setup or subsequent trace reads. They record
 `not_started` if that POST was never entered, and retain partial observations
-if it fails. They are removed when the POST exits. Work that occurs after the
-response, outside this process, through stale aliases or other owners remains
+if it fails. On exit the records are detached snapshots, so retained wrappers or
+late background completions cannot alter them. Async clients are unsupported:
+an async method is rejected before dispatch, and an unexpected awaitable
+response is marked `dispatch_uncertain`. Hooks are removed when the POST exits.
+Work that occurs after the response, outside this process, through stale aliases or other owners remains
 unobserved. Legacy probe records without a status wrapped the broader capture
 and cannot be assumed to have the narrower timing boundary. The wrapper
 is a process-global diagnostic: use an isolated serial process and the existing

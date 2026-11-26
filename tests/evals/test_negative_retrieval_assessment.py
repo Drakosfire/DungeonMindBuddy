@@ -1346,3 +1346,73 @@ def test_capture_probe_marks_predispatch_failure_not_started(tmp_path, monkeypat
     for name in ("related-page-probe", "native-graph-probe"):
         evidence = json.loads((tmp_path / "case1" / (name + ".json")).read_text())
         assert evidence["status"] == "not_started" and evidence["records"] == []
+
+
+def test_probe_freezes_rows_before_late_alias_and_background_completion(tmp_path, monkeypatch):
+    import json
+    from threading import Event, Thread
+    from apps.live_control_server.services import build_related_pages
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+
+    entered, release = Event(), Event()
+    def discover(_):
+        entered.set()
+        assert release.wait(5)
+        return []
+    monkeypatch.setattr(build_related_pages, "discover", discover)
+    threads = []
+    class Client:
+        def post(self, route, **kwargs):
+            alias = build_related_pages.discover
+            thread = Thread(target=alias, args=(None,))
+            threads.append(thread)
+            thread.start()
+            assert entered.wait(5)
+            self.alias = alias
+            return "response"
+        def get(self, route):
+            release.set()
+            threads[0].join(timeout=5)
+            assert not threads[0].is_alive()
+            self.alias(None)  # A retained wrapper called after the turn ended.
+            return "history"
+    def case(client, world, template, case, directory, **kwargs):
+        client.post("/api/live/agent/turn")
+        client.get("/history-after")
+    monkeypatch.setattr(workflow, "capture_case", case)
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs:
+                        workflow.capture_case(Client(), "world", {}, {"id": "case1"}, output))
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
+                        ({"conversation_mode": "build_sequence"}, tmp_path))
+    capture(_test_manifest(tmp_path), tmp_path / "case1", expected_manifest_sha256=MANIFEST_PIN)
+    evidence = json.loads((tmp_path / "case1" / "related-page-probe.json").read_text())
+    assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "entered"}]
+
+
+@pytest.mark.parametrize("kind", ["async_method", "awaitable_response"])
+def test_capture_rejects_async_post_without_claiming_a_completed_window(tmp_path, monkeypatch, kind):
+    import json
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+
+    async def later():
+        return "response"
+    class AsyncClient:
+        async def post(self, route):
+            return "response"
+    class AwaitableClient:
+        def post(self, route):
+            return later()
+    client = AsyncClient() if kind == "async_method" else AwaitableClient()
+    monkeypatch.setattr(workflow, "capture_case", lambda client, *a, **k: client.post("/api/live/agent/turn"))
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs:
+                        workflow.capture_case(client, "world", {}, {"id": "case1"}, output))
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
+                        ({"conversation_mode": "build_sequence"}, tmp_path))
+    with pytest.raises(TypeError, match="unsupported"):
+        capture(_test_manifest(tmp_path), tmp_path / "case1", expected_manifest_sha256=MANIFEST_PIN)
+    for name in ("related-page-probe", "native-graph-probe"):
+        evidence = json.loads((tmp_path / "case1" / (name + ".json")).read_text())
+        assert evidence["status"] == ("not_started" if kind == "async_method" else "dispatch_uncertain")
+        assert evidence["records"] == []

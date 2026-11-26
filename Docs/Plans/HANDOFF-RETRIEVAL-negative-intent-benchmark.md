@@ -89,8 +89,11 @@ conversation setup and post-response trace reads. This could attribute those
 operations to the tested turn. The evaluator now installs both probes only
 around the turn POST, forbids a second dispatch in one capture and records
 `not_started` when the POST was not entered. It retains failed-POST records and
-restores hooks before the runner continues. Legacy records without this status
-remain broad-window evidence. This is still partial: asynchronous activity
+restores hooks before the runner continues. Detached snapshots prevent late
+alias calls and background completions from changing recorded POST-window rows.
+Async client methods are rejected before dispatch; an unexpected awaitable
+response is rejected and marked `dispatch_uncertain`. Legacy records without
+this status remain broad-window evidence. This is still partial: asynchronous activity
 after the response, subprocesses, stale aliases and other owners can escape;
 no zero-acquisition pass follows from an empty POST window.
 

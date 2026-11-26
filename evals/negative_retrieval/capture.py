@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 import json
 import sys
+import inspect
 
 from evals.buddy_benchmark.artifacts import immutable_save
 from evals.buddy_benchmark import workflow
@@ -131,6 +132,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             native_records = None
             dispatch_started = False
             post_entered = False
+            dispatch_uncertain = False
 
             class ObservedTurnClient:
                 """Instrument the actual turn POST, not history or setup calls."""
@@ -141,16 +143,30 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     return getattr(self.wrapped, name)
 
                 def post(self, route, *args, **options):
-                    nonlocal records, native_records, dispatch_started, post_entered
+                    nonlocal records, native_records, dispatch_started, post_entered, dispatch_uncertain
                     if route != "/api/live/agent/turn":
                         return self.wrapped.post(route, *args, **options)
                     if dispatch_started:
                         raise ValueError("A capture may dispatch only one turn")
                     dispatch_started = True
+                    if inspect.iscoroutinefunction(self.wrapped.post):
+                        raise TypeError("Async clients are unsupported for serial capture")
                     with observe_related_page_owners() as records:
                         with observe_native_graph_owners() as native_records:
                             post_entered = True
-                            return self.wrapped.post(route, *args, **options)
+                            try:
+                                response = self.wrapped.post(route, *args, **options)
+                                if inspect.isawaitable(response):
+                                    dispatch_uncertain = True
+                                    if inspect.iscoroutine(response):
+                                        response.close()
+                                    raise TypeError("Awaitable response is unsupported for serial capture")
+                                return response
+                            finally:
+                                # Detached rows prevent late retained aliases or background
+                                # completions from altering this POST-window evidence.
+                                records = [dict(row) for row in records]
+                                native_records = [dict(row) for row in native_records]
 
             try:
                 return original(ObservedTurnClient(checked_client), world, template, case, directory, **kwargs)
@@ -160,12 +176,12 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     immutable_save(Path(directory), "related-page-probe", {
                         "schema": "dmb_negative_retrieval_related_page_probe_v1",
                         "coverage": "partial", "case_id": case["id"],
-                        "status": "observed" if post_entered else "not_started", "records": records,
+                        "status": "dispatch_uncertain" if dispatch_uncertain else "observed" if post_entered else "not_started", "records": records,
                     })
                     immutable_save(Path(directory), "native-graph-probe", {
                         "schema": "dmb_negative_retrieval_native_graph_probe_v1",
                         "coverage": "partial", "case_id": case["id"],
-                        "status": "observed" if post_entered else "not_started",
+                        "status": "dispatch_uncertain" if dispatch_uncertain else "observed" if post_entered else "not_started",
                         "records": native_records if native_records is not None else [],
                     })
                     if fixture is not None:
