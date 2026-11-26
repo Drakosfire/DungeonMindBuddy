@@ -187,7 +187,11 @@ with both `browser_capture.confirm_save` and `browser_capture.lose_confirm_ack`
 set to `true`. The browser drops the response to the bound confirmation
 after the owning server has processed it. The capture retains that receipt
 and compares committed page and proposal readbacks before and after reload.
-A timeout before the confirmation is observed leaves recovery unverified.
+If the page saved once and the bound review remains applying without a
+confirmation request, the harness also exercises Buddy’s Check insertion
+control after reload. The capture records whether that recovery reused the
+same receipt and left the saved revision unchanged. A run that reaches
+neither boundary leaves recovery unverified.
 
 For an unsent draft recovery control, use `capture --build-fixture --case
 RECOVERY-1 --clone-app` and set `browser_capture.unsent_draft` to `true`.

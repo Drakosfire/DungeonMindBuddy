@@ -238,19 +238,6 @@ async function run() {
             held = receipt;
             confirmation.withheld = receipt;
           };
-          await page.route(exactPath, intercept);
-          try {
-            confirmation.attempted = true;
-            await review.getByRole("button", { name: "Save", exact: true }).click();
-            await pollBrowserRead(() => held || false, 20000, 200, "confirmation response to withhold");
-          } finally {
-            await page.unroute(exactPath, intercept);
-          }
-          const saved = held.body.review ?? held.body;
-          if (held.status !== 200 || saved.state !== "applied" || saved.action_id !== action
-              || saved.world_id !== world || saved.apply?.apply_id !== held.request.apply_id) {
-            throw new Error("The withheld response was not a committed confirmation");
-          }
           const readOwners = () => page.evaluate(async ({ id, reviewPath }) => {
             const snapshotPath = "/api/live/workspace-documents/" + encodeURIComponent(id) + "/snapshot?view=committed";
             const [pageResponse, reviewResponse] = await Promise.all(
@@ -260,35 +247,98 @@ async function run() {
               review: { status: reviewResponse.status, body: await reviewResponse.json() },
             };
           }, { id: documentId, reviewPath });
-          confirmation.afterSave = await readOwners();
-          await page.reload();
-          await openComposer();
-          confirmation.afterReopen = await readOwners();
-          const before = confirmation.afterSave;
-          const after = confirmation.afterReopen;
-          const receiptMatches = observation => {
-            const observed = observation.body.review ?? observation.body;
-            return observation.status === 200 && observed.state === "applied"
-              && observed.action_id === action && observed.world_id === world
-              && observed.reservation_sha256 === exactReview.reservation_sha256
-              && observed.revision === saved.revision
-              && observed.apply?.apply_id === held.request.apply_id;
-          };
-          const pageMatches = observation => observation.status === 200
-            && observation.body.record?.document_id === documentId
-            && observation.body.record?.world_id === world
-            && /^[a-f0-9]{64}$/.test(observation.body.committed_content_sha256 ?? "");
-          const savedRevision = before.page.body.record?.revision;
-          confirmation.verified = confirmPosts.length === 1
-            && confirmPosts[0].apply_id === held.request.apply_id
-            && confirmPosts[0].expected_revision === held.request.expected_revision
-            && [beforeSave.page, before.page, after.page].every(pageMatches)
-            && receiptMatches(before.review) && receiptMatches(after.review)
-            && Number.isInteger(savedRevision)
-            && savedRevision === beforeSave.page.body.record.revision + 1
-            && savedRevision === after.page.body.record.revision
-            && before.page.body.committed_content_sha256 === after.page.body.committed_content_sha256;
-          confirmation.retry_exercised = false;
+          await page.route(exactPath, intercept);
+          let waitFailure;
+          try {
+            confirmation.attempted = true;
+            await review.getByRole("button", { name: "Save", exact: true }).click();
+            try {
+              await pollBrowserRead(() => held || false, 20000, 200, "confirmation response to withhold");
+            } catch (error) {
+              waitFailure = error;
+            }
+          } finally {
+            await page.unroute(exactPath, intercept);
+          }
+          if (!held) {
+            if (intercepting || confirmPosts.length !== 0) throw waitFailure;
+            const committed = await readOwners();
+            const pending = committed.review.body.review ?? committed.review.body;
+            const savedPage = committed.page.body;
+            if (committed.page.status !== 200 || committed.review.status !== 200
+                || pending.state !== "applying" || pending.world_id !== world || pending.action_id !== action
+                || pending.reservation_sha256 !== exactReview.reservation_sha256 || !pending.apply?.apply_id
+                || savedPage.record?.document_id !== documentId || savedPage.record?.world_id !== world
+                || savedPage.record.revision !== beforeSave.page.body.record.revision + 1
+                || !/^[a-f0-9]{64}$/.test(savedPage.committed_content_sha256 ?? "")) {
+              throw waitFailure;
+            }
+            confirmation.pending_after_save = committed;
+            confirmation.fault_injected = false;
+            await page.reload();
+            await openComposer();
+            const check = page.getByRole("region", { name: "Check suggestion insertion", exact: true })
+              .getByRole("button", { name: "Check insertion", exact: true });
+            await check.waitFor({ timeout: 10000 });
+            confirmation.retry_exercised = true;
+            await check.click();
+            try {
+              await pollBrowserRead(async () => {
+                const observation = await readOwners();
+                const receipt = observation.review.body.review ?? observation.review.body;
+                return observation.review.status === 200 && receipt.state === "applied" ? observation : false;
+              }, 12000, 500, "applied recovery receipt");
+            } finally {
+              confirmation.afterReopen = await readOwners();
+              confirmation.alerts = await page.getByRole("alert").allTextContents();
+            }
+            const after = confirmation.afterReopen;
+            const receipt = after.review.body.review ?? after.review.body;
+            confirmation.recovery_verified = after.page.status === 200 && after.review.status === 200
+              && receipt.state === "applied" && receipt.world_id === world && receipt.action_id === action
+              && receipt.reservation_sha256 === pending.reservation_sha256
+              && receipt.apply?.apply_id === pending.apply.apply_id
+              && after.page.body.record?.document_id === documentId
+              && after.page.body.record?.world_id === world
+              && after.page.body.record?.revision === savedPage.record.revision
+              && after.page.body.committed_content_sha256 === savedPage.committed_content_sha256
+              && confirmPosts.length === 1 && confirmPosts[0].apply_id === pending.apply.apply_id;
+          } else {
+            const saved = held.body.review ?? held.body;
+            if (held.status !== 200 || saved.state !== "applied" || saved.action_id !== action
+                || saved.world_id !== world || saved.apply?.apply_id !== held.request.apply_id) {
+              throw new Error("The withheld response was not a committed confirmation");
+            }
+            confirmation.afterSave = await readOwners();
+            await page.reload();
+            await openComposer();
+            confirmation.afterReopen = await readOwners();
+            const before = confirmation.afterSave;
+            const after = confirmation.afterReopen;
+            const receiptMatches = observation => {
+              const observed = observation.body.review ?? observation.body;
+              return observation.status === 200 && observed.state === "applied"
+                && observed.action_id === action && observed.world_id === world
+                && observed.reservation_sha256 === exactReview.reservation_sha256
+                && observed.revision === saved.revision
+                && observed.apply?.apply_id === held.request.apply_id;
+            };
+            const pageMatches = observation => observation.status === 200
+              && observation.body.record?.document_id === documentId
+              && observation.body.record?.world_id === world
+              && /^[a-f0-9]{64}$/.test(observation.body.committed_content_sha256 ?? "");
+            const savedRevision = before.page.body.record?.revision;
+            confirmation.verified = confirmPosts.length === 1
+              && confirmPosts[0].apply_id === held.request.apply_id
+              && confirmPosts[0].expected_revision === held.request.expected_revision
+              && [beforeSave.page, before.page, after.page].every(pageMatches)
+              && receiptMatches(before.review) && receiptMatches(after.review)
+              && Number.isInteger(savedRevision)
+              && savedRevision === beforeSave.page.body.record.revision + 1
+              && savedRevision === after.page.body.record.revision
+              && before.page.body.committed_content_sha256 === after.page.body.committed_content_sha256;
+            confirmation.retry_exercised = false;
+          }
         } else {
           const confirmed = page.waitForResponse(result => {
             const request = result.request();
