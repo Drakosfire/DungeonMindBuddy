@@ -104,7 +104,7 @@ class PendingAppPageDriver:
         self.adapter, self.initial = adapter, initial_request_json
         self.receipt = adapter._broker_receipt()
         self.before = adapter._broker_execution()
-        self.wire = pending_app_page_selection_input(self.receipt, self.before, self.initial)
+        self.wire = pending_app_page_selection_input(self.receipt, self.before, self.initial, current_variant=True)
         self.step = DecisionIntent(request_id='pending-app-pages:' + digest(self.wire), phase='navigate',
             state=self.wire['state'], questions=tuple(DecisionQuestion(name=name, kind='choice',
                 question=value['instructions'], options=tuple(value['criteria']))
@@ -161,9 +161,12 @@ class PendingAppPageDriver:
         response = canonical(actual_response.model_dump(mode='json'))
         catalog, = [event for event in adapter._broker_execution().events
                     if type(event) is BuildAppPageCatalogObservedV1]
+        current_id = str(self.receipt.work_context.source_basis.document_id)
+        current_offer = any(str(page.document_id) == current_id for page in catalog.pages)
         chosen = sorted([page.document_id for index, page in enumerate(catalog.pages)
             if should_read_page(page, self.wire['questions'][f'page{index + 1}'],
-                actual_response.answers[f'page{index + 1}'], semantic=True)], key=str)
+                actual_response.answers[f'page{index + 1}'], semantic=True,
+                current_offer=current_offer, is_current=str(page.document_id) == current_id)], key=str)
         event = RelatedPagesSelection(event_id=uuid4(), sequence=len(adapter._broker_execution().events),
             controller_attempt_id=UUID(self.prepared.attempt_id),
             controller_envelope_sha256=self.prepared.body_sha256,

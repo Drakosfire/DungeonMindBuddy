@@ -390,7 +390,7 @@ def effective_pending_app_catalog(receipt, execution):
     return rows[0].pages if rows else None
 
 
-def pending_app_page_selection_input(receipt, execution, initial_request_json):
+def pending_app_page_selection_input(receipt, execution, initial_request_json, *, current_variant=False):
     """Build the later decision from exact prior model input and App aliases.
 
     The first request is supplied by its existing trace owner, not reconstructed
@@ -401,7 +401,7 @@ def pending_app_page_selection_input(receipt, execution, initial_request_json):
     _join_pending_source(receipt, execution)
     catalogs = [event for event in execution.events if type(event) is BuildAppPageCatalogObservedV1]
     pages = catalogs[0].pages if catalogs else None
-    return _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages)
+    return _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages, current_variant=current_variant)
 
 
 def pending_semantic_context(receipt, execution, initial_request_json):
