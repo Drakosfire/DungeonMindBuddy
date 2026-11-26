@@ -107,9 +107,22 @@ def test_capacity_classification_uses_exact_host_type_not_provider_message():
 def test_harness_retains_capacity_diagnostic_at_context_preparation(tmp_path, monkeypatch):
     from apps.live_control_server.services.build_jev_writer import WriterCapacityError
     monkeypatch.setattr('apps.live_control_server.services.build_failure_diagnostic.artifact_data_root', lambda: tmp_path)
-    observations=[]
-    adapter=SimpleNamespace(turn=SimpleNamespace(turn_id=uuid4(),attempt=1),
-        context_capture=SimpleNamespace(observe=observations.append))
+    from contextlib import nullcontext
+    from apps.live_control_server.services import conversation_erasure
+
+    observations = []
+    registrations = []
+    conversation_id = uuid4()
+
+    def register(owner, **metadata):
+        registrations.append((owner, metadata))
+        return nullcontext()
+
+    monkeypatch.setattr(conversation_erasure, "register_private_evidence", register)
+    adapter = SimpleNamespace(
+        turn=SimpleNamespace(turn_id=uuid4(), attempt=1, world_id="world", conversation_id=conversation_id),
+        context_capture=SimpleNamespace(observe=observations.append),
+    )
     harness=BuildJevHarness(); harness.failure_stage='controller_validation'
     try:
         raise RuntimeError('SDK wrapper') from WriterCapacityError('bounded host message',
@@ -122,3 +135,6 @@ def test_harness_retains_capacity_diagnostic_at_context_preparation(tmp_path, mo
     assert event['exception_type']=='RuntimeError' and event['cause_type']=='WriterCapacityError'
     evidence=tmp_path/'out'/'agent_failure_evidence'/(str(event['diagnostic_id'])+'.json')
     assert evidence.is_file() and 'SDK wrapper' not in json.dumps(event,default=str)
+    assert registrations == [
+        (("world", conversation_id), {"kind": "failure", "evidence_id": event["diagnostic_id"]}),
+    ]
