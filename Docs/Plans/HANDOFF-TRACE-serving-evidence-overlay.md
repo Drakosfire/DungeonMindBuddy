@@ -1,0 +1,9 @@
+# Trace evidence serving overlay
+
+ACTIVE: user authorized Trace deployment and directed production releases through GitHub Actions. This serial serving overlay is based on healthy production revision `a19d88d9a07e9768a1eca107246e86bf1df4efae`, observed image `sha256:efe98f2a6446a8702e60429acead3774cba9eca868ea5513861ecf3216ac31e0`. Carry reviewed main changes #4752, #4790 and #4812: human-readable Trace evidence, exact-source inspection that stays open, and removal of a dead empty-Build action. They meet at the source-opening experience. Preserve production's pending Build receipt validation and guest switches, including Build proposals.
+
+Conflict resolution combines the serving-only pending-receipt imports with Trace diagnostics, and takes the reviewed metadata removal. Scope: the reviewed source/test diffs and this brief. Verify the cumulative serving-parent diff, focused Trace, guest Graph and authorization tests, exact-head hosted verification, integrated discovered diagnostic where applicable, and independent exact-head review. Before publication and deployment, re-read healthy production identity; if moved, requalify and carry onto its new serving lineage. Publish and cut over only using the Actions runbook, retaining `guest-build-proposals-documents-serving` and the active document digest. Verify staging/live identities, readiness, signed-out auth and saved conversation citation/replay smoke.
+
+Production advanced after the earlier #4801 overlay; this branch is a new carry onto the current serving parent. Preserve the intervening guest-node and Build-title changes. The catalog conflict retains serving content and adds only the reviewed Build operator entry.
+
+Production advanced again through #4820. Preserve its reviewed inline placement and pending-receipt behavior; retain its catalog entry while adding only the reviewed empty-Build entry.
