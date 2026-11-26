@@ -1901,9 +1901,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it('reports a same-page revision change during retry preparation instead of silently returning',async()=>{
-    const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
-      provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    const prior=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
+    const terminal={...prior,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',lifecycle_status:'interrupted' as const,
+      provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,kind:'build',object_id:'source-one'}},
+      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
+    vi.mocked(readDiscussionRetryInput).mockRejectedValueOnce(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -1917,6 +1920,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(bridge.captureContext).mockResolvedValue({...draftSnapshot(),registry_revision:3});
     vi.mocked(bridge.capture).mockResolvedValue({...insertionCapture(),basis:{...insertionCapture().basis,registry_revision:3}});
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    vi.mocked(readDiscussionRetryInput).mockRejectedValueOnce(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
     fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].primary_work.expected_revision).toBe(3);
@@ -1924,9 +1928,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it.each(['page','world'] as const)('retires retry preparation after foreign %s navigation without posting or showing an old error',async change=>{
-    const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
-      provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    const prior=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
+    const terminal={...prior,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',lifecycle_status:'interrupted' as const,
+      provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,kind:'build',object_id:'source-one'}},
+      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
+    vi.mocked(readDiscussionRetryInput).mockRejectedValueOnce(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
