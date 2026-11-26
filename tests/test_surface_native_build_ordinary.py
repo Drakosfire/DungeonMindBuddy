@@ -2897,14 +2897,25 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
     reads = [[event for event in turn.graph_context_execution.events
         if isinstance(event, BuildSavedStatblockReadV1)] for turn in turns]
     assert all(len(events) == 1 for events in reads)
+    from application_state.agent_conversation.build_pending_native import read_source_authority
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+
     initial_pin = reads[0][0].pdf_support.scope.revision_id
-    current_pin = turns[1].graph_context_receipt.source_authority.revision_id
+    followups = turns[1:]
+    current_pin = read_source_authority(followups[0].graph_context_receipt,
+        followups[0].graph_context_execution).revision_id
     assert initial_pin != current_pin
-    assert fresh_pdf_reads.call_count == 1
-    assert fresh_pdf_reads.call_args.args[0].graph_revision == current_pin
-    assert reads[1][0].reused_from_turn_id is None
+    assert all(events[0].locator == reads[0][0].locator for events in reads[1:])
     assert all(events[0].pdf_support.scope.revision_id == current_pin for events in reads[1:])
-    assert all(events[0].reused_from_turn_id is not None for events in reads[2:])
+    assert all(events[0].pdf_support.support == reads[0][0].pdf_support.support for events in reads[1:])
+    assert reads[1][0].reused_from_turn_id is None
+    assert type(turns[0].graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+    assert all(type(turn.graph_context_receipt) is BuildPendingContextReceiptV1 for turn in followups)
+    assert fresh_pdf_reads.call_count == len(followups)
+    assert all(events[0].reused_from_turn_id is None for events in reads[1:])
+    assert all(read_source_authority(turn.graph_context_receipt, turn.graph_context_execution).revision_id
+               == current_pin for turn in followups)
+    assert all(call.args[0].graph_revision == current_pin for call in fresh_pdf_reads.call_args_list)
     assert all(turn.conversation_id == case.turn.conversation_id for turn in turns)
     assert service.conversation_draft_turn_ids(case.world, case.turn.conversation_id,
         [turn.turn_id for turn in turns]) == {turns[-1].turn_id}
