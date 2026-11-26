@@ -1428,7 +1428,7 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             assert sha256(manifest.read_bytes()).hexdigest() == manifest_sha256
             events.append(output.name)
             row = {"case_id": output.name}
-            if not (missing_capture and output.name == "case2"):
+            if not (missing_capture and output.name == ("case2" if context_only else "case1")):
                 row["context"] = {"status": "captured"}
                 row["capture_status"] = "complete"
                 row["delivery"] = {"status": "fail" if output.name == "case2" else "pass"}
@@ -1451,12 +1451,17 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
                                   detailed_trace=browser, clone_app=clone_app, context_only=context_only)
         outcomes = json.loads((out / "members.json").read_text())
-        assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing" if context_only else "incomplete"}}
+        if context_only:
+            assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing"}}
+        else:
+            assert outcomes["case1"] == {"status": "failed", "case_statuses": {"case1": "incomplete"}}
+            assert outcomes["case2"] == {"status": "not_started"}
     else:
         cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
                                   detailed_trace=browser, clone_app=clone_app, context_only=context_only)
     if clone_app:
-        assert events == ["scan", "clone", "upgrade", "case1", "case2", "workers closed", "drop", "scan"]
+        expected_cases = ["case1"] if missing_capture and not context_only else ["case1", "case2"]
+        assert events == ["scan", "clone", "upgrade", *expected_cases, "workers closed", "drop", "scan"]
         assert json.loads((out / "owned-app.json").read_text())["database"] == owned_app
     else:
         assert events == ["scan", "case1", "case2", "scan"]
