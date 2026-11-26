@@ -1,5 +1,16 @@
 const { chromium } = require(process.env.DMB_BENCHMARK_PLAYWRIGHT);
 const { writeFileSync } = require("node:fs");
+const { setTimeout: delay } = require("node:timers/promises");
+
+async function pollBrowserRead(read, timeout, interval, description) {
+  const deadline = performance.now() + timeout;
+  while (performance.now() < deadline) {
+    const value = await read();
+    if (value) return value;
+    await delay(interval);
+  }
+  throw new Error("Timed out waiting for " + description);
+}
 
 async function run() {
   const origin = process.env.DMB_BENCHMARK_BROWSER_ORIGIN;
@@ -94,12 +105,14 @@ async function run() {
       throw error;
     }
     const delivered = await response;
+    let buildCheckpoint;
     if (process.env.DMB_BENCHMARK_LIVE_BUILD === "1") {
       // Keep the page alive while its ordinary client consumes the terminal event.
-      await page.waitForFunction(async () => {
-        const response = await fetch("/__benchmark/build-response-retained");
-        return (await response.json()).retained === true;
-      }, undefined, { timeout: 75000, polling: 250 });
+      buildCheckpoint = await pollBrowserRead(() => page.evaluate(async () => {
+        const response = await fetch("/__benchmark/build-response-retained", { cache: "no-store" });
+        const checkpoint = await response.json();
+        return checkpoint.retained === true ? checkpoint : false;
+      }), 75000, 250, "retained Build response");
     }
     const after = await calibrate();
     const browserMarks = await page.evaluate(() => {
@@ -115,8 +128,77 @@ async function run() {
         }));
       return { click, request, preflight };
     });
+    let confirmation;
+    if (process.env.DMB_BENCHMARK_CONFIRM_SAVE === "1") {
+      confirmation = { attempted: false };
+      try {
+        const checkpoint = buildCheckpoint;
+        confirmation.checkpoint = { retained: checkpoint.retained === true,
+          has_action: Boolean(checkpoint.action_id), has_correlation: Boolean(checkpoint.idempotency_key) };
+        let action = checkpoint.action_id;
+        const world = process.env.DMB_BENCHMARK_WORLD;
+        if (!action && checkpoint.idempotency_key) {
+          const recovered = await pollBrowserRead(() => page.evaluate(async ({ world, checkpoint }) => {
+            const path = "/api/live/agent/worlds/" + encodeURIComponent(world)
+              + "/conversation?include_turn_correlation=true";
+            const response = await fetch(path, { cache: "no-store" });
+            if (!response.ok) return false;
+            const history = await response.json();
+            if (history.active_conversation_id !== checkpoint.conversation_id) return false;
+            const turns = history.turns.filter(turn => turn.idempotency_key === checkpoint.idempotency_key);
+            if (turns.length !== 1 || ["accepted", "running"].includes(turns[0].lifecycle_status)) return false;
+            const turn = turns[0];
+            const actionId = turn.knowledge_context?.completion?.action_id;
+            if (turn.lifecycle_status === "completed" && !actionId) return false;
+            return { action_id: actionId ?? null, lifecycle: turn.lifecycle_status };
+          }, { world, checkpoint }), 40000, 500, "bound durable proposal");
+          confirmation.recovered_lifecycle = recovered.lifecycle;
+          action = recovered.action_id;
+          if (action) await page.reload();
+        }
+        if (!action || !/^[a-f0-9-]{36}$/i.test(action)) throw new Error("Turn has no bound proposal to confirm");
+        const reviewPath = "/api/live/agent/worlds/" + encodeURIComponent(world)
+          + "/build-proposals/" + encodeURIComponent(action) + "/review";
+        confirmation.action_id = action;
+        const review = page.getByRole("region", { name: "Suggestion review", exact: true });
+        await review.waitFor({ timeout: 15000 });
+        const beforeSave = await page.evaluate(async ({ id, reviewPath }) => {
+          async function read(path) {
+            const response = await fetch(path, { cache: "no-store" });
+            return { status: response.status, body: await response.json() };
+          }
+          return { page: await read("/api/live/workspace-documents/" + encodeURIComponent(id) + "/snapshot?view=committed"),
+            review: await read(reviewPath) };
+        }, { id: documentId, reviewPath });
+        confirmation.beforeSave = beforeSave;
+        const exactReview = beforeSave.review.body.review ?? beforeSave.review.body;
+        if (beforeSave.page.status !== 200 || beforeSave.review.status !== 200
+          || exactReview.action_id !== action || exactReview.world_id !== world || exactReview.state !== "editing") {
+          throw new Error("The exact editable proposal or committed page could not be read");
+        }
+        const text = await review.getByRole("textbox", { name: "Suggestion text" }).innerText();
+        if (text.trim() !== exactReview.markdown.trim()) throw new Error("Visible suggestion differs from the bound proposal");
+        const confirmed = page.waitForResponse(result => {
+          const request = result.request();
+          return request.method() === "POST" && new URL(result.url()).pathname === reviewPath
+            && request.postDataJSON()?.operation === "confirm";
+        }, { timeout: 20000 });
+        confirmed.catch(() => {});
+        confirmation.attempted = true;
+        await review.getByRole("button", { name: "Save", exact: true }).click();
+        const receipt = await confirmed;
+        confirmation.request = receipt.request().postDataJSON();
+        confirmation.status = receipt.status();
+        confirmation.body = await receipt.json();
+        const saved = confirmation.body.review ?? confirmation.body;
+        confirmation.verified = receipt.ok() && saved.state === "applied" && saved.action_id === action
+          && saved.world_id === world && saved.apply?.apply_id === confirmation.request.apply_id;
+      } catch (error) {
+        confirmation.error = String(error);
+      }
+    }
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-      before, after, browserMarks, status: delivered.status(), chromiumVersion: browser.version(),
+      before, after, browserMarks, confirmation, status: delivered.status(), chromiumVersion: browser.version(),
       playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
       request: delivered.request().postDataJSON(), turnNetworkFailures,
     }, null, 2));

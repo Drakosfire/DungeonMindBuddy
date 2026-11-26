@@ -11,7 +11,7 @@ import socket
 import subprocess
 from threading import Thread
 from time import monotonic_ns, sleep
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import httpx
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse
@@ -65,6 +65,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
+    confirm_save = manifest["browser_capture"].get("confirm_save", False)
+    if type(confirm_save) is not bool or (confirm_save and not live_build):
+        raise ValueError("Build confirmation requires an explicit live fixture opt-in")
     if live_build and (not build_fixture or detail):
         raise ValueError("Live browser delivery requires the Build fixture")
     if not live_build and any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
@@ -128,9 +131,23 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
         if live_build and path == "/__benchmark/build-response-retained" and method == "GET":
-            return await JSONResponse({
-                "retained": (directory / "build-wire-response.json").is_file(),
-            })(scope, receive, send)
+            wire_path = directory / "build-wire-response.json"
+            result = {"retained": wire_path.is_file()}
+            if confirm_save and result["retained"] and browser_request is not None:
+                result["idempotency_key"] = str(uuid5(
+                    NAMESPACE_URL, f"dmb-agent-turn:{world}:{browser_request['turn_id']}"))
+                result["conversation_id"] = fresh["active_conversation_id"]
+                wire = json.loads(wire_path.read_bytes())
+                try:
+                    body, status = build_browser_terminal(bytes.fromhex(wire["raw_body_hex"]),
+                        wire["status"], wire["content_type"], browser_request["turn_id"])
+                except BuildStreamWithoutTerminal:
+                    pass
+                else:
+                    if status == 200 and body.get("turn_id") == browser_request["turn_id"]:
+                        completion = (body.get("knowledge_context") or {}).get("completion") or {}
+                        result["action_id"] = completion.get("action_id")
+            return await JSONResponse(result, headers={"Cache-Control": "no-store"})(scope, receive, send)
         if path == "/__benchmark/clock" and method == "GET":
             return await PlainTextResponse(str(monotonic_ns() / 1e6))(scope, receive, send)
         if not path.startswith(("/api/", "/health/")) and method == "GET":
@@ -297,6 +314,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
                         "DMB_BENCHMARK_LIVE_BUILD": "1" if live_build else "0",
+                        "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
@@ -337,6 +355,18 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             turns = workflow._request_turns(after["body"], browser_request, world)
                     artifacts.immutable_save(directory, "history-after", after)
                     if live_build:
+                        if confirm_save:
+                            timing = json.loads((output / "browser-timing.json").read_bytes())
+                            confirmation = timing.get("confirmation") or {}
+                            action_id = confirmation.get("action_id")
+                            if action_id is not None:
+                                action_id = str(UUID(action_id))
+                                review_route = ("/api/live/agent/worlds/" + world +
+                                                "/build-proposals/" + action_id + "/review")
+                                review_after = client.get(review_route)
+                                artifacts.immutable_save(directory, "proposal-review-after",
+                                                         workflow.response_envelope(review_after))
+                            artifacts.immutable_save(directory, "confirmation", confirmation)
                         page_after = workflow.response_envelope(
                             client.get(page_route, params={"view": "committed"}).raise_for_status())
                         artifacts.immutable_save(directory, "committed-page-after", page_after)
