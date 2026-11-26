@@ -1,8 +1,11 @@
 # RETRIEVAL: negative intent benchmark
 
 Status: ACTIVE — user authorized the benchmark goal in this conversation. This
-brief assigns the eval-only slice to `codex/negative-retrieval-benchmark`,
-based on `origin/main` c3a2ae6032b0f16fc19d21be14759a0a8607782b (rebased from 42a524ade after checking the shared native-writer change). Checkout:
+brief assigns the eval-only slice to `codex/negative-retrieval-benchmark`.
+Its merge base with fetched `origin/main` 9b269c27fc68bec4b31a173212d715af769a99be
+is 082f874ca753aa9eaaec197d71e1e71162262fa7. Earlier assignment bases
+`c3a2ae6032b0f16fc19d21be14759a0a8607782b` and `42a524ade` are historical,
+not the current cumulative review boundary. Checkout:
 `/home/drakosfire/Projects/.codex/dogfood-ci-one-app/DungeonMindBuddy`. This
 workstream owns one recovered disposable App clone held by a live supervisor.
 The shared Core snapshot is read-only; no model, provider, or production state
