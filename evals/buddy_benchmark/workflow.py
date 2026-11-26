@@ -1308,8 +1308,29 @@ def retained_action_report(ledger, base):
         tiers[tier] = {key: row[key] for key in (
             "id", "reviewed_outcome", "unnecessary_retrieval", "unnecessary_jev_source_opens")}
         rows.append(row)
-    return {"schema": "dmb_retained_action_report_v1", "build": ledger["product_build_executed"],
-            "cases": rows, "by_action_tier": by_action}
+    source_open_reviews = [row["unnecessary_jev_source_opens"] for row in rows
+                           if row["unnecessary_jev_source_opens"] is not None]
+    zero_retrieval_reviews = [row["zero_new_retrieval_disposition"] for row in rows
+                              if row["zero_new_retrieval_disposition"] is not None]
+    return {
+        "schema": "dmb_retained_action_report_v1",
+        "build": ledger["product_build_executed"],
+        "cases": rows,
+        "by_action_tier": by_action,
+        "retrieval_review_counts": {
+            "jev_source_opens": {
+                "case_rows_assessed": len(source_open_reviews),
+                "case_rows_unnecessary": source_open_reviews.count(True),
+                "historical_aggregate": ledger.get("retrieval_counts"),
+            },
+            "zero_new_retrieval": {
+                "case_rows_audited": len(zero_retrieval_reviews),
+                "case_rows_failed": sum(value.startswith("fail:") for value in zero_retrieval_reviews),
+                "case_rows_unverified": sum(
+                    value.startswith("unverified:") for value in zero_retrieval_reviews),
+            },
+        },
+    }
 
 
 def action_report(manifest_path):
