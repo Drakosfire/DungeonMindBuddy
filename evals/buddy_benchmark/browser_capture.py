@@ -188,10 +188,15 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 return await JSONResponse({"error": "Benchmark request did not match fixture"}, 409)(scope, receive, send)
             browser_request = parsed
             sink.request_started_monotonic_ns = tick
+            disconnect_ns = None
+
             async def deliver_body():
-                nonlocal body
+                nonlocal body, disconnect_ns
                 if body is None:
-                    return await receive()
+                    frame = await receive()
+                    if frame["type"] == "http.disconnect":
+                        disconnect_ns = monotonic_ns()
+                    return frame
                 raw, body = body, None
                 return {"type": "http.request", "body": raw, "more_body": False}
             if not live_build:
@@ -219,6 +224,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     artifacts.immutable_save(directory, "build-wire-response", {
                         "status": transport_status, "content_type": content_type,
                         "transport_complete": transport_complete,
+                        "client_disconnect_ms": ((disconnect_ns - tick) / 1e6
+                                                 if disconnect_ns is not None else None),
                         "raw_body_hex": response_bytes.hex(),
                         "raw_body_sha256": sha256(response_bytes).hexdigest(),
                         "elapsed_ms": (monotonic_ns() - tick) / 1e6,
