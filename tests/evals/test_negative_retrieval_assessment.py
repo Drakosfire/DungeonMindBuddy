@@ -597,6 +597,7 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         ("native_graph_authored_reference_read", "raised", False),
         ("native_corpus_authored_source_read", "returned", False),
         ("native_corpus_member_read", "returned", False),
+        ("native_corpus_body_open", "returned", False),
         ("native_corpus_direct_read", "raised", False),
         ("native_graph_selected_read", "entered", False),
         ("native_graph_query", "returned", None),
@@ -615,6 +616,15 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     observed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
     assert observed["checks"]["catalog_budget"] is False
     assert observed["checks"]["unexpected_retrieval"] is None
+    assert observed["status"] == "unproven"
+    native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
+        "coverage": "partial", "case_id": "case1", "status": "observed",
+        "records": [{"owner": "native_corpus_discovery", "state": "returned"},
+                    {"owner": "native_corpus_body_open", "state": "returned"}]}))
+    one_catalog_no_reads = {**CASE, "max_catalog_discoveries": 1}
+    observed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, one_catalog_no_reads)
+    assert observed["checks"]["catalog_budget"] is None  # partial cannot prove completeness
+    assert observed["checks"]["unexpected_retrieval"] is False
     assert observed["status"] == "unproven"
 
 
@@ -1243,3 +1253,21 @@ def test_native_corpus_probe_records_discovery_and_reads_without_input_leak(monk
     assert native_corpus_source.capture_native_sources is succeeds
     assert native_corpus_source.read_direct_native_source is fails
     assert "private" not in str(records)
+
+
+def test_real_corpus_discovery_records_nested_body_open_without_source_data():
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
+    from tests import test_native_corpus_source_access as source_fixture
+
+    lane = source_fixture.lane.__wrapped__()
+    source_fixture.admit(lane)
+    with observe_native_graph_owners() as records:
+        captured = native_corpus_source.capture_native_sources(
+            managed_world_id="managed", principal=source_fixture.GM,
+            repository=lane.repo, resolve_identity=lambda _: lane.bound,
+        )
+    assert captured.members and captured.bodies
+    assert {row["owner"] for row in records} >= {"native_corpus_discovery", "native_corpus_body_open"}
+    assert all(set(row) == {"owner", "state"} for row in records)
+    assert source_fixture.BODY not in str(records)

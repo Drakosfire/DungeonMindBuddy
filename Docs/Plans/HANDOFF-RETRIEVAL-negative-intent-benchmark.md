@@ -70,16 +70,17 @@ The user reported a creative naming request that took 241 seconds and read 11 re
 ## Native corpus owner observation
 
 The negative capture's partial native probe now records the actual corpus
-capture, member-read and direct-source-read owner calls in addition to the
+capture, member-read, direct-source-read and body-open owner calls in addition to the
 previous Graph and authored-reference owners. A corpus capture counts as a
-known discovery attempt; a member or direct read is an unmapped read attempt.
+known discovery attempt; a member, direct read or body open is an unmapped
+read attempt.
 Nested calls can count one underlying source more than once. The probe captures
 no arguments, source IDs, query or body, and does not prove absence of work by
 other owners or stale aliases. Offline reports still cannot qualify the capture
 environment or a zero-read rate. Coverage is a diagnostic improvement, not a
-complete acquisition journal. Focused tests exercise owner wrapping, errors,
-cleanup, privacy and report attribution; a real runtime-boundary witness is
-still needed before treating these owners as verified on an ordinary turn.
+complete acquisition journal. Focused tests exercise owner wrapping, errors, cleanup, privacy and report
+attribution; an actual in-memory corpus capture also verifies nested body-open
+observation. An ordinary product-turn witness is still required.
 
 ## Diagnostic checkpoint
 

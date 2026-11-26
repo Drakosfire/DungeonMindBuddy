@@ -93,10 +93,10 @@ synthetic test confirmed that the real Build budget path invokes catalog
 discovery before a controller decision; its registry was stubbed, so this is
 not a model-quality or full-turn result.
 
-The native probe also records calls to the corpus discovery, member-read and
-explicit direct-source-read owners. It records only entry/outcome categories,
+The native probe also records calls to the corpus discovery, member-read, explicit direct-source-read and actual body-open owners. It records only entry/outcome categories,
 not source identity, query or body. Corpus discovery contributes an observed
-catalog attempt; member and direct reads are unmapped read attempts. Nested
+catalog attempt; member reads, direct reads and body opens are unmapped read
+attempts. Nested
 owner calls may count the same underlying source more than once, so these are
 not distinct-source counts. Imported aliases or other owners can bypass the
 probe; its coverage and the report remain partial even when no calls appear.

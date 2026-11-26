@@ -105,7 +105,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     # not evidence that a source was read.
     if native_probe is not None:
         for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
-                      "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read"):
+                      "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read",
+                      "native_corpus_body_open"):
             counts = native_probe["counts"][owner]
             observed["reads"].extend([UNKNOWN] * sum(counts.values()))
     observed["catalog_discoveries"] = catalog_discovery_count(probe.get("records"))

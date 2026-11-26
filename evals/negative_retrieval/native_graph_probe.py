@@ -20,6 +20,7 @@ _OWNERS = {
 _CORPUS_OWNERS = {
     "read_authored_source": "native_corpus_authored_source_read",
     "capture_native_sources": "native_corpus_discovery",
+    "open_admitted_native_text": "native_corpus_body_open",
     "read_native_corpus_member": "native_corpus_member_read",
     "read_direct_native_source": "native_corpus_direct_read",
 }
