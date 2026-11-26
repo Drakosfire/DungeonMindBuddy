@@ -21,7 +21,7 @@ from evals.buddy_benchmark import artifacts, workflow
 from evals.buddy_benchmark.context_capture import ContextCapture
 
 
-def browser_inputs(manifest, base):
+def browser_inputs(manifest, base, *, build_fixture=False):
     """Load the exact browser bundle inventory and retained Jev tapes before dispatch."""
     spec = manifest["browser_capture"]
     bundle = (base / spec["bundle"]).resolve()
@@ -30,13 +30,15 @@ def browser_inputs(manifest, base):
               for path in bundle.rglob("*") if path.is_file()}
     if "index.html" not in actual or actual != expected or any(path.is_symlink() for path in bundle.rglob("*")):
         raise ValueError("Browser UI bundle differs from its pinned inventory")
-    wire = json.loads(workflow.read_pin(spec["jev_wire"], base))
-    if not wire or any(
+    wire = [] if build_fixture else json.loads(workflow.read_pin(spec["jev_wire"], base))
+    if not build_fixture and (not wire or any(
         row["method"] != "POST" or row["response_status"] != 200
         or not bytes.fromhex(row["request_hex"]) or not bytes.fromhex(row["response_hex"])
         for row in wire
-    ):
+    )):
         raise ValueError("Browser benchmark requires a successful pinned Jev replay")
+    if build_fixture and (not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()):
+        raise ValueError("Build fixture requires exact selected text")
     settled = spec.get("settled_pane", False)
     if type(settled) is not bool:
         raise ValueError("Invalid browser cache condition")
@@ -54,7 +56,7 @@ def browser_scratch_directory(output):
     return scratch.resolve()
 
 
-def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail):
+def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail, build_fixture=False):
     from apps.live_control_server.hosted_worker import with_startup_gc
     from apps.live_control_server.services import plan_jev_dispatch
     import httpx2
@@ -161,6 +163,18 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     break
             body = b"".join(chunks)
             parsed = json.loads(body)
+            if build_fixture:
+                try:
+                    if browser_request is not None:
+                        raise ValueError("Only one Build fixture request is allowed")
+                    validate_build_browser_request(parsed, world=world, work=work, question=case["question"],
+                        selection_text=manifest["browser_capture"]["selection_text"],
+                        conversation_id=fresh["active_conversation_id"], pointer_revision=fresh["pointer_revision"])
+                except (ValueError, KeyError):
+                    return await JSONResponse({"error": "Build fixture request did not match"}, 409)(scope, receive, send)
+                browser_request = parsed
+                # This preflight never forwards the request to the application or a provider.
+                return await JSONResponse({"code": "benchmark_build_fixture_captured"}, 409)(scope, receive, send)
             if (browser_request is not None or parsed.get("message") != case["question"]
                     or parsed.get("surface", {}).get("surface_id") != "plan"
                     or parsed.get("owner_scope") != template["owner_scope"]
@@ -236,6 +250,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_BROWSER_ORIGIN": origin, "DMB_BENCHMARK_BROWSER_TOKEN": token,
                         "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
+                        "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
+                        "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
                         "DMB_BENCHMARK_CHROMIUM": os.environ["DMB_BENCHMARK_CHROMIUM"],
@@ -246,6 +262,15 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if run.returncode or browser_request is None:
                         raise ValueError("Ordinary Plan browser Send did not capture the expected request")
                     artifacts.immutable_save(directory, "request", browser_request)
+                    if build_fixture:
+                        after = client.get(route).raise_for_status().json()
+                        if after["turns"] or after["active_conversation_id"] != fresh["active_conversation_id"]:
+                            raise ValueError("Build fixture preflight unexpectedly created a turn")
+                        artifacts.immutable_save(directory, "fixture-result", {
+                            "status": "captured", "forwarded_to_application": False,
+                            "provider_calls": 0, "selection_text": manifest["browser_capture"]["selection_text"],
+                        })
+                        return
                     after = workflow.response_envelope(
                         client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
                     turns = workflow._request_turns(after["body"], browser_request, world)
@@ -272,3 +297,44 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         artifacts.immutable_save(output, "jev-replay", replayed)
         if detail:
             artifacts.immutable_save(output, "jev-transport-intervals", wire_intervals)
+
+
+def validate_build_browser_request(request, *, world, work, question, selection_text,
+                                   conversation_id, pointer_revision):
+    """Validate a real browser-captured Build request before any model dispatch.
+
+    This validates host bindings only. The caller must obtain the request and
+    selected text from the actual browser, not construct an editor capability.
+    """
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+
+    parsed = AgentTurnRequest.model_validate(request)
+    if (parsed.surface.surface_id != "build" or parsed.owner_scope is None
+            or parsed.owner_scope.world_id != world or parsed.primary_work is None
+            or parsed.primary_work.model_dump(mode="json", exclude_none=True) != work
+            or parsed.message != question):
+        raise ValueError("Build browser request differs from the pinned fixture")
+    capability = parsed.build_write_capability
+    context = parsed.build_draft_context
+    if capability is None or context is None or capability.basis.selection is None:
+        raise ValueError("Build browser request lacks its actual selected editor capability")
+    basis, snapshot = capability.basis, context.snapshot
+    if (str(capability.conversation_id) != str(conversation_id)
+            or str(context.conversation_id) != str(conversation_id)
+            or capability.expected_pointer_revision != pointer_revision
+            or context.expected_pointer_revision != pointer_revision):
+        raise ValueError("Build browser request differs from the current conversation")
+    if (basis.selection.text != selection_text or not selection_text.strip()
+            or snapshot.draft_markdown.count(selection_text) != 1):
+        raise ValueError("Build browser selection is absent, ambiguous, or differs")
+    if (not basis.editor_sha256 or basis.editor_sha256 != snapshot.editor_sha256
+            or basis.draft_sha256 != snapshot.draft_sha256
+            or capability.draft_markdown != snapshot.draft_markdown
+            or basis.world_id != snapshot.world_id
+            or basis.document_id != snapshot.document_id
+            or basis.registry_revision != snapshot.registry_revision
+            or basis.content_sha256 != snapshot.content_sha256
+            or basis.visibility != snapshot.visibility
+            or basis.draft_generation != snapshot.draft_generation):
+        raise ValueError("Build browser editor capability differs from its working snapshot")
+    return parsed

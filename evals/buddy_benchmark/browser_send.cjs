@@ -22,16 +22,40 @@ async function run() {
       }
     });
     const documentId = process.env.DMB_BENCHMARK_DOCUMENT_ID;
-    await page.goto(origin + "/plan?world=" + encodeURIComponent(process.env.DMB_BENCHMARK_WORLD) +
-      "&documentId=" + encodeURIComponent(documentId));
-    const composer = page.getByPlaceholder("Ask Buddy, or tell it what to change…");
+    const build = process.env.DMB_BENCHMARK_SURFACE === "build";
+    await page.goto(origin + (build ? "/build?world=" : "/plan?world=") +
+      encodeURIComponent(process.env.DMB_BENCHMARK_WORLD) + "&documentId=" + encodeURIComponent(documentId));
+    const composer = build ? page.getByLabel("Message DungeonBuddy") :
+      page.getByPlaceholder("Ask Buddy, or tell it what to change…");
     if (!(await composer.isVisible())) {
-      const conversation = page.locator(".plan-conversation-dock__launcher").getByRole("button");
+      const conversation = page.locator(build ? ".conversation-dock__launcher" : ".plan-conversation-dock__launcher").getByRole("button");
       await conversation.click({ timeout: 15000 });
     }
     await composer.waitFor({ timeout: 20000 });
     await composer.fill(process.env.DMB_BENCHMARK_QUESTION);
-    const send = page.getByRole("button", { name: "Send message", exact: true });
+    if (build) {
+      const selected = process.env.DMB_BENCHMARK_SELECTION;
+      if (!selected || !selected.trim()) throw new Error("Build fixture needs selected text");
+      const editor = page.locator(".build-surface-shell .ProseMirror[contenteditable=true]");
+      if (await editor.count() !== 1) throw new Error("Build fixture needs one editable editor");
+      await editor.focus();
+      await editor.evaluate((root, text) => {
+        const matches = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          let at = node.data.indexOf(text);
+          while (at !== -1) { matches.push([node, at]); at = node.data.indexOf(text, at + 1); }
+        }
+        if (matches.length !== 1) throw new Error("Selected text must occur exactly once in one editor text node");
+        const [node, at] = matches[0], range = document.createRange(), selection = window.getSelection();
+        range.setStart(node, at); range.setEnd(node, at + text.length);
+        selection.removeAllRanges(); selection.addRange(range);
+        document.dispatchEvent(new Event("selectionchange"));
+        if (selection.toString() !== text) throw new Error("Browser selection did not match fixture");
+      }, selected);
+    }
+    const send = page.getByRole("button", { name: build ? /^(Send message|Propose edit)$/ : "Send message", exact: !build });
     await send.waitFor({ state: "visible" });
     if (process.env.DMB_BENCHMARK_PANE_SETTLED === "1") {
       await page.waitForLoadState("networkidle", { timeout: 30000 });

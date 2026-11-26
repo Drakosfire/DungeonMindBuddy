@@ -475,12 +475,12 @@ class BuildSequenceStopped(ValueError):
 
 
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
-            browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None):
+            browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None, build_fixture=False):
     """Explicit live entry point; never invoked by offline reporting."""
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
     options = dict(context_only=context_only, writer_transport=writer_transport,
                    detailed_trace=detailed_trace, browser_case=browser_case,
-                   cohort_member=cohort_manifest_sha256 is not None)
+                   cohort_member=cohort_manifest_sha256 is not None, build_fixture=build_fixture)
     if cohort_app is not None:
         if cohort_manifest_sha256 is None or clone_app:
             raise ValueError("Shared App override requires a pinned cohort member")
@@ -510,7 +510,7 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
 
 
 def _capture(manifest, base, output, *, context_only, writer_transport, detailed_trace,
-             browser_case, cohort_member):
+             browser_case, cohort_member, build_fixture):
     if os.environ.get("DMB_AGENT_GRAPH_LOCAL_PROFILE"):
         raise ValueError("Capture cannot use a hidden local profile")
     if not manifest.get("pins"):
@@ -524,15 +524,18 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     validate_template(template, manifest["world"], context_only=context_only, build_sequence=build_sequence)
     browser = None
     if browser_case is not None:
-        if not (context_only and writer_transport and not build_sequence
-                and template["surface"]["surface_id"] == "plan"):
-            raise ValueError("Browser capture requires ordinary Plan and the writer transport sink")
+        plan_replay = (context_only and writer_transport and not build_sequence
+                       and template["surface"]["surface_id"] == "plan" and not build_fixture)
+        build_preflight = (build_fixture and not context_only and not writer_transport and build_sequence
+                           and template["surface"]["surface_id"] == "build")
+        if not (plan_replay or build_preflight):
+            raise ValueError("Browser capture requires Plan replay or Build selection preflight")
         selected = next((case for case in manifest["cases"] if case["id"] == browser_case), None)
         if selected is None:
             raise ValueError("Browser case is absent from the manifest")
         manifest["cases"] = [selected]
         from . import browser_capture as browser
-        browser_inputs = browser.browser_inputs(manifest, base)
+        browser_inputs = browser.browser_inputs(manifest, base, build_fixture=build_fixture)
     editor_snapshot = None
     if "build_editor_snapshot" in manifest:
         if not build_sequence:
@@ -619,7 +622,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     try:
         if browser is not None:
             browser.browser_capture(application.create_app(), manifest, selected, output, token,
-                                    browser_inputs, owned_env, detail=detailed_trace)
+                                    browser_inputs, owned_env, detail=detailed_trace, build_fixture=build_fixture)
             return
         with TestClient(application.create_app(), client=("127.0.0.1", 43021),
             headers={"Authorization": "Bearer " + token}, raise_server_exceptions=False) as client:
@@ -645,7 +648,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
         if not cohort_member:
             native_after = row_inventory(native_dsn, readonly=readonly)
             immutable_save(output, "native-after", native_after)
-        immutable_save(output, "report", report(output / "capture-manifest.json"))
+        if not build_fixture:
+            immutable_save(output, "report", report(output / "capture-manifest.json"))
         if not cohort_member and native_before != native_after:
             raise ValueError("Native authority changed during ordinary capture")
 
@@ -1382,6 +1386,7 @@ def main(argv=None):
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument("--build-fixture", action="store_true", help="Capture a Build editor selection before model dispatch")
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
     parser.add_argument("--citation-readback", help="Retained excerpt citation readback JSONL")
     parser.add_argument("--writer-transport", action="store_true",
@@ -1417,14 +1422,17 @@ def main(argv=None):
         return
     if args.trace_input is not None:
         parser.error("--trace-input requires trace-report")
-    if args.case is not None and not (args.mode == "capture-context" and args.writer_transport):
-        parser.error("--case requires trace-report or capture-context --writer-transport")
+    if args.build_fixture and (args.mode != "capture" or args.case is None or not args.clone_app):
+        parser.error("--build-fixture requires capture, --case and --clone-app")
+    if args.case is not None and not (args.mode == "capture-context" and args.writer_transport or args.mode == "capture" and args.build_fixture):
+        parser.error("--case requires trace-report, Build fixture, or capture-context --writer-transport")
     if args.mode == "report":
         immutable_save(Path(args.output), "report", report(args.manifest, oracle=args.oracle, citation_readback=args.citation_readback))
     elif args.mode == "action-report":
         immutable_save(Path(args.output), "action-report", action_report(args.manifest))
     elif args.mode == "capture":
-        capture(args.manifest, args.output, clone_app=args.clone_app)
+        options = {"browser_case": args.case, "build_fixture": True} if args.build_fixture else {}
+        capture(args.manifest, args.output, clone_app=args.clone_app, **options)
     elif args.mode == "capture-context":
         options = {"browser_case": args.case} if args.case is not None else {}
         if args.clone_app:
