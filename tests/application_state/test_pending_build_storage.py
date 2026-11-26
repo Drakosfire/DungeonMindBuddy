@@ -92,7 +92,7 @@ def test_pending_anchored_placement_saves_the_question_and_stages_the_answered_p
 
     with psycopg.connect(application_state_dsn) as conn:
         cli.assert_connection_at_head(conn)
-        assert cli._alembic_head() == '20261125_0213'
+        assert cli._alembic_head() == '20261126_0216'
 
     lane = make_lane(tmp_path, monkeypatch, narrow=True)
 
@@ -291,7 +291,7 @@ def test_retained_saved_page_citation_survives_actual_sql_and_schema_fence(appli
     row.update(request_fingerprint='a' * 64, idempotency_fingerprint='b' * 64, updated_at=turn.completed_at)
     with psycopg.connect(application_state_dsn) as conn:
         cli.assert_connection_at_head(conn)
-        assert cli._alembic_head() == '20261125_0213'
+        assert cli._alembic_head() == '20261126_0216'
         conn.execute('CREATE TEMP TABLE retained_saved_citation_sql (LIKE agent.turn INCLUDING CONSTRAINTS) ON COMMIT DROP')
         conn.execute('INSERT INTO retained_saved_citation_sql SELECT (jsonb_populate_record(NULL::agent.turn,%s)).*',
             (Jsonb(json.loads(to_json(row))),))
@@ -306,3 +306,16 @@ def test_retained_saved_page_citation_survives_actual_sql_and_schema_fence(appli
         assert opened['markdown'] == original.markdown and opened['page'] == original.page.model_dump(mode='json')
         monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0212')
         with pytest.raises(ApplicationStateMigrationError):cli.assert_connection_at_head(conn)
+        monkeypatch.setattr(cli, '_alembic_head', lambda: '20261125_0213')
+        with pytest.raises(ApplicationStateMigrationError):
+            cli.assert_connection_at_head(conn)
+
+
+def test_stored_statblock_reader_fence_refuses_previous_serving_reader(application_state_dsn, monkeypatch):
+    with psycopg.connect(application_state_dsn) as conn:
+        assert cli._alembic_head() == "20261126_0216"
+        cli.assert_connection_at_head(conn)
+        monkeypatch.setattr(cli, "_alembic_head", lambda: "20261126_0215")
+        assert cli._revision_from_connection(conn) == "20261126_0216"
+        with pytest.raises(ApplicationStateMigrationError, match="schema is behind Alembic head"):
+            cli.assert_connection_at_head(conn)
