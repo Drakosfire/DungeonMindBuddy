@@ -240,6 +240,13 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                 observed_statuses = {"captured"} if context_only else {"pass", "fail"}
                 captured = len(rows) == len(statuses) and statuses.keys() == ids and all(
                     value in observed_statuses for value in statuses.values())
+                if (not context_only and isinstance(error, BuildSequenceStopped)
+                        and len(rows) == len(statuses) and statuses.keys() == ids):
+                    deliveries = list(statuses.values())
+                    if "fail" in deliveries:
+                        index = deliveries.index("fail")
+                        captured = (all(value == "pass" for value in deliveries[:index])
+                                    and all(value == "not_started" for value in deliveries[index + 1:]))
                 outcomes[member.name] = {"status": "completed" if captured else "failed",
                                          "case_statuses": statuses}
                 if not context_only:
