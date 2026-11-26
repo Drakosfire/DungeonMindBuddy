@@ -1,0 +1,5 @@
+# TRACE: serving qualification test carry
+
+ACTIVE under the user's instruction to fix and deploy the Trace release. Serial successor to the reviewed serving candidate ed4bc6e20d54a92a3136d38484b220e7f39a9431, based on live parent a19d88d9a07e9768a1eca107246e86bf1df4efae. This isolated checkout owns only the failed test fixtures and their existing reviewed handoffs; it must retain all serving-only tests, guest/source/placement behavior, and the host and retry protections. No product runtime changes are authorized in this slice.
+
+Exact full discovery found 98 failures, all also present in the live parent's 109. Carry previously reviewed main test repairs only at their owning tests, preserving safety assertions and serving-specific fixtures. Run affected suites and full exact-source discovery; independently review the cumulative serving-parent change before publishing. Backend contracts and serving schema are separate dependencies and may require their own bounded repair. Do not claim qualification until the exact final candidate passes.
