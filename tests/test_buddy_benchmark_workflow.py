@@ -1347,9 +1347,10 @@ def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
     with pytest.raises(ValueError, match="bundle differs"):
         browser_inputs(manifest, tmp_path)
 
-@pytest.mark.parametrize("browser, clone_app", [(False, False), (True, False), (True, True)])
+@pytest.mark.parametrize("browser, clone_app, context_only",
+                         [(False, False, True), (True, False, True), (True, True, True), (False, True, False)])
 @pytest.mark.parametrize("changed, missing_capture", [(False, False), (True, False), (False, True)])
-def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app):
+def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app, context_only):
     from concurrent.futures import Future
     from evals.buddy_benchmark import cohort_capture as cohort
 
@@ -1418,6 +1419,7 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             return False
 
         def submit(self, member, manifest, output, app_dsn, manifest_sha256, **options):
+            assert options.pop("context_only") is context_only
             if clone_app:
                 assert options.pop("shared_app") == owned_app
                 assert app_dsn.endswith("/benchmark_run_owned")
@@ -1428,6 +1430,10 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             row = {"case_id": output.name}
             if not (missing_capture and output.name == "case2"):
                 row["context"] = {"status": "captured"}
+                row["capture_status"] = "complete"
+                row["delivery"] = {"status": "fail" if output.name == "case2" else "pass"}
+            else:
+                row["capture_status"] = "incomplete"
             immutable_save(output, "report", {"cases": [row]})
             f = Future()
             f.set_result(None)
@@ -1439,16 +1445,16 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
     if changed:
         with pytest.raises(ValueError, match="changed during cohort"):
             cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
-                                  detailed_trace=browser, clone_app=clone_app)
+                                  detailed_trace=browser, clone_app=clone_app, context_only=context_only)
     elif missing_capture:
         with pytest.raises(RuntimeError, match="cohort members failed"):
             cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
-                                  detailed_trace=browser, clone_app=clone_app)
+                                  detailed_trace=browser, clone_app=clone_app, context_only=context_only)
         outcomes = json.loads((out / "members.json").read_text())
-        assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing"}}
+        assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing" if context_only else "incomplete"}}
     else:
         cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
-                                  detailed_trace=browser, clone_app=clone_app)
+                                  detailed_trace=browser, clone_app=clone_app, context_only=context_only)
     if clone_app:
         assert events == ["scan", "clone", "upgrade", "case1", "case2", "workers closed", "drop", "scan"]
         assert json.loads((out / "owned-app.json").read_text())["database"] == owned_app

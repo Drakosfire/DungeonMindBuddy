@@ -81,7 +81,7 @@ def _endpoint(dsn, expected):
 
 
 def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
-                    browser_case=None, detailed_trace=False, shared_app=None):
+                    browser_case=None, detailed_trace=False, shared_app=None, context_only=True):
     from .workflow import capture
 
     scratch = output.parent / "scratch" / output.name
@@ -91,22 +91,25 @@ def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
         directory.mkdir()
         os.environ[key] = str(directory)
     os.environ[APP_DSN] = app_dsn
-    capture(manifest, output, context_only=True, cohort_manifest_sha256=manifest_sha256,
+    capture(manifest, output, context_only=context_only, cohort_manifest_sha256=manifest_sha256,
             browser_case=browser_case, writer_transport=browser_case is not None,
             detailed_trace=detailed_trace, cohort_app=shared_app)
 
 
-def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False, clone_app=False):
+def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False, clone_app=False,
+                   context_only=True):
     """Capture independent member manifests, then prove Core parity once."""
     from .workflow import load_manifest, read_pin
     from .disposable_database import disposable_benchmark_database
 
+    if not context_only and (browser or not clone_app):
+        raise ValueError("Response cohorts require an owned App clone and the ordinary request driver")
     if detailed_trace and not browser:
         raise ValueError("Detailed cohort tracing requires browser mode")
     if not 1 <= workers <= 8:
         raise ValueError("Cohort workers must be between 1 and 8")
-    if clone_app and (workers != 1 or not browser):
-        raise ValueError("A shared App clone requires one browser cohort worker")
+    if clone_app and (workers != 1 or (context_only and not browser)):
+        raise ValueError("A shared App clone requires one worker and a supported capture mode")
     path = Path(manifest_path).resolve()
     config = json.loads(path.read_text())
     if (config.get("schema") != "dmb_context_capture_cohort_v1"
@@ -179,7 +182,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                 jobs = [((manifest, member, shared_dsn, digest), ids)
                         for (manifest, member, _, digest), ids in jobs]
             futures = [
-                (job[1], ids, executor.submit(_capture_member, *job, **(
+                (job[1], ids, executor.submit(_capture_member, *job, context_only=context_only, **(
                     {"shared_app": shared_app} if shared_app is not None else {}
                 ), **(
                     {"browser_case": next(iter(ids)), "detailed_trace": detailed_trace} if browser else {}
@@ -194,13 +197,19 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                     continue
                 try:
                     rows = json.loads((member / "report.json").read_text())["cases"]
-                    statuses = {row["case_id"]: row.get("context", {}).get("status", "missing")
-                                for row in rows}
+                    if context_only:
+                        statuses = {row["case_id"]: row.get("context", {}).get("status", "missing")
+                                    for row in rows}
+                    else:
+                        statuses = {row["case_id"]: row["delivery"]["status"]
+                                    if row["capture_status"] == "complete" else "incomplete"
+                                    for row in rows}
                 except (OSError, ValueError, KeyError, TypeError, AttributeError):
                     outcomes[member.name] = {"status": "failed", "error_type": "InvalidMemberReport"}
                     continue
+                observed_statuses = {"captured"} if context_only else {"pass", "fail"}
                 captured = len(rows) == len(statuses) and statuses.keys() == ids and all(
-                    value == "captured" for value in statuses.values())
+                    value in observed_statuses for value in statuses.values())
                 outcomes[member.name] = {"status": "completed" if captured else "failed",
                                          "case_statuses": statuses}
             immutable_save(output, "members", outcomes)
