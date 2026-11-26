@@ -869,7 +869,8 @@ class AgentConversationService:
                 recorded_at=now,
             )
 
-    def archive_conversation(self, command: ArchiveCommand) -> ConversationCommandReceipt:
+    def archive_conversation(self, command: ArchiveCommand, *, authorize_write=None) -> ConversationCommandReceipt:
+        command = ArchiveCommand.model_validate_json(command.model_dump_json())
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
@@ -879,15 +880,26 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("command ID is retired")
             replay = _receipt_replay(conn, command, command_kind="archive")
             if replay is not None:
+                if authorize_write is not None:
+                    authorize_write()
                 return replay
             _expect_pointer(command, pointer)
-            if pointer.active_conversation_id != command.conversation_id:
-                raise ApplicationStateConflictError("only the active conversation can be archived")
-            _archive_active(conn, pointer, now)
+            if pointer.active_conversation_id == command.conversation_id:
+                _archive_active(conn, pointer, now, authorize_write=authorize_write)
+                active_id = None
+            else:
+                target = repo.lock_conversation(conn, world_id, command.conversation_id)
+                if target is None:
+                    raise ApplicationStateNotFoundError("conversation not found in verified World")
+                if target.status != "archived":
+                    raise ApplicationStateConflictError("only a saved conversation can be archived")
+                if authorize_write is not None:
+                    authorize_write()
+                active_id = pointer.active_conversation_id
             new_pointer = repo.update_world_state(
                 conn,
                 world_id=world_id,
-                active_conversation_id=None,
+                active_conversation_id=active_id,
                 pointer_revision=pointer.revision + 1,
                 now=now,
             )
@@ -900,7 +912,7 @@ class AgentConversationService:
                 expected_pointer_revision=command.expected_pointer_revision,
                 expected_active_conversation_id=command.expected_active_conversation_id,
                 conversation_id=command.conversation_id,
-                result_active_conversation_id=None,
+                result_active_conversation_id=new_pointer.active_conversation_id,
                 result_pointer_revision=new_pointer.revision,
                 recorded_at=now,
             )
