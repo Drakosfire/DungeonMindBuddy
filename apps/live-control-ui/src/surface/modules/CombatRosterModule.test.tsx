@@ -691,16 +691,23 @@ describe("CombatRosterModule", () => {
     vi.spyOn(combatApi,"getAnyWorldCombatEncounter").mockResolvedValue(initial);
     const save=vi.spyOn(combatApi,"saveWorldCombatEncounter").mockImplementation(async (_world,_id,_revision,draft)=>({...initial,draft,revision:2}));
     mount();await screen.findByRole("option",{name:"Mireward Gate · rev 1"});
-    await userEvent.selectOptions(screen.getByRole("combobox",{name:"Encounter"}),initial.encounter_id);
-    await userEvent.click(screen.getByRole("button",{name:"Open"}));
+    fireEvent.change(screen.getByRole("combobox", {name: "Encounter"}), {
+      target: {value: initial.encounter_id},
+    });
+    const open = screen.getByRole("button", {name: "Open"});
+    expect(open).toBeEnabled();
+    fireEvent.click(open);
     fireEvent.change(await screen.findByLabelText("Encounter title"),{target:{value:"Keep this edit"}});
     fireEvent.click(screen.getByText("Add combatants"));
     fireEvent.change(screen.getByLabelText("Combatant name"),{target:{value:"Overflow actor"}});
     expect(screen.getByRole("button",{name:"Add to encounter draft"})).toBeDisabled();
     const assembly = screen.getByText("Add combatants", {selector: "summary"}).closest("details")!;
     expect(within(assembly).getByRole("status")).toHaveTextContent("encounter is full");
-    await userEvent.click(screen.getByRole("button",{name:"Save"}));
-    expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][3].entities).toHaveLength(100);
+    const saveButton = screen.getByRole("button", {name: "Save"});
+    expect(saveButton).toBeEnabled();
+    fireEvent.click(saveButton);
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    expect(save.mock.calls[0][3].entities).toHaveLength(100);
     expect(save.mock.calls[0][3].title).toBe("Keep this edit");
   });
 
