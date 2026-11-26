@@ -82,11 +82,13 @@ fresh process. Entries include failed or
 empty operations, may overlap, and do not prove a source body was opened.
 Raw threads, other owners, subprocesses, late work and additional executor
 paths remain outside coverage. The artifact contains no arguments, IDs or
-bodies. A v2 artifact includes host-only hashes of the registered owner code and
+bodies. A v2 or v3 artifact includes host-only hashes of the registered owner code and
 source and interpreter metadata. For the pinned recognized implementation, a
 scoped single-text entry in a completed, fixture-bound POST with matching
 observed capture windows counts as one provisional unknown read attempt against
-a negative budget. It does not prove a completed read or satisfy required
+a negative budget. A v3 artifact can also record the pinned batch owner reaching
+its nonempty SQL-construction path, without inspecting arguments; empty batches
+and failures before that point do not count. It does not prove a completed read or satisfy required
 evidence. Legacy artifacts, unknown implementations, incomplete or uncertain
 windows remain diagnostic only. Overall capture remains partial and unproven;
 no empty window proves zero retrieval or a complete journal.

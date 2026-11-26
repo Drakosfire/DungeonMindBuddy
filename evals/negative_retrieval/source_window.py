@@ -29,12 +29,23 @@ KNOWN_TEXT_OWNERS = {
 }
 
 
+# The exact pinned code reaches this line once while constructing the
+# nonempty batch SQL. Earlier failures remain unobserved and therefore unknown.
+KNOWN_BATCH_CODE = "3e0f4f1602289759aa4cea23303e55f180bad8a8427400dec83248c1abb28a6e"
+KNOWN_BATCH_LINE = 1360
+
+
 def known_scoped_text_attempt(value):
     """Recognize one lower-bound attempt, never a completed source read."""
-    return (value is not None and value.get("schema") == "dmb_negative_retrieval_source_window_v2"
-            and value.get("owner_provenance") == KNOWN_TEXT_OWNERS
-            and value.get("status") == "observed" and value.get("dispatch_uncertain") is False
-            and value["scoped"]["text"] > 0)
+    if (value is None or value.get("schema") not in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3"}
+            or value.get("owner_provenance") != KNOWN_TEXT_OWNERS
+            or value.get("status") != "observed" or value.get("dispatch_uncertain") is not False):
+        return False
+    single = value["scoped"]["text"] > 0
+    batch = (value["schema"] == "dmb_negative_retrieval_source_window_v3"
+             and value["batch_read"]["code_sha256"] == KNOWN_BATCH_CODE
+             and value["batch_read"]["scoped"] > 0)
+    return single or batch
 
 
 class SourceWindowCleanupError(RuntimeError):
@@ -45,10 +56,12 @@ def validate_artifact(value, case_id):
     """Validate a partial diagnostic without converting attempts into grades."""
     expected = {"schema", "case_id", "window", "dispatch_uncertain", "coverage", "status",
                 "scoped", "unscoped", "pending_at_close", "late", "monitor_error"}
-    if isinstance(value, dict) and value.get("schema") == "dmb_negative_retrieval_source_window_v2":
+    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3"}:
         expected.add("owner_provenance")
+    if isinstance(value, dict) and value.get("schema") == "dmb_negative_retrieval_source_window_v3":
+        expected.add("batch_read")
     if (not isinstance(value, dict) or set(value) != expected
-            or value["schema"] not in {"dmb_negative_retrieval_source_window_v1", "dmb_negative_retrieval_source_window_v2"}
+            or value["schema"] not in {"dmb_negative_retrieval_source_window_v1", "dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3"}
             or value["case_id"] != case_id or value["window"] != "turn_post_v1"
             or value["coverage"] != "partial"
             or value["status"] not in {"observed", "uncertain", "not_started", "unavailable", "setup_failed"}
@@ -60,8 +73,19 @@ def validate_artifact(value, case_id):
         if (not isinstance(row, dict) or set(row) != set(_KINDS)
                 or any(type(n) is not int or n < 0 for n in row.values())):
             raise ValueError("Invalid source window counts")
+    if value["schema"] == "dmb_negative_retrieval_source_window_v3":
+        batch = value["batch_read"]
+        if (not isinstance(batch, dict) or set(batch) != {"scoped", "unscoped", "code_sha256"}
+                or any(type(batch[k]) is not int or batch[k] < 0 for k in ("scoped", "unscoped"))
+                or any(batch[k] > value[k]["text_batch"] for k in ("scoped", "unscoped"))
+                or (batch["code_sha256"] is not None and (not isinstance(batch["code_sha256"], str)
+                    or len(batch["code_sha256"]) != 64
+                    or any(c not in "0123456789abcdef" for c in batch["code_sha256"])))
+                or (batch["code_sha256"] is None and (batch["scoped"] or batch["unscoped"]))):
+            raise ValueError("Invalid source window batch read")
     troubled = (value["pending_at_close"] or value["late"] or value["monitor_error"]
-                 or any(value["unscoped"].values()))
+                 or any(value["unscoped"].values())
+                 or (value["schema"] == "dmb_negative_retrieval_source_window_v3" and value["batch_read"]["unscoped"]))
     if value["status"] == "observed" and troubled:
         raise ValueError("Observed source window has unresolved work")
     if value["status"] in {"not_started", "unavailable", "setup_failed"} and (
@@ -70,7 +94,7 @@ def validate_artifact(value, case_id):
         raise ValueError("Unstarted source window has activity")
     if value["status"] == "setup_failed" and not value["monitor_error"]:
         raise ValueError("Source window setup failure is missing its error flag")
-    if value["schema"] == "dmb_negative_retrieval_source_window_v2":
+    if value["schema"] in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3"}:
         provenance = value["owner_provenance"]
         if provenance is not None:
             if (not isinstance(provenance, dict)
@@ -164,10 +188,12 @@ def observe_source_window(*, owners=None, executor=None):
              "scoped": {key: 0 for key in _KINDS},
              "unscoped": {key: 0 for key in _KINDS}, "pending": 0,
              "pending_at_close": 0, "late": 0, "monitor_error": False,
-             "owner_provenance": None}
+             "owner_provenance": None,
+             "batch_read": {"scoped": 0, "unscoped": 0, "code_sha256": None}}
     guard = Lock()
     token = object()
     claimed = None
+    line_event = None
     armed = []
     old_submit = None
     reset = None
@@ -215,9 +241,31 @@ def observe_source_window(*, owners=None, executor=None):
                 state["monitor_error"] = True
 
         monitoring.register_callback(slot, event, on_start)
+        batch_code = None
+        candidates = [code for code, kind in owners.items() if kind == "text_batch"]
+        if state["owner_provenance"] == KNOWN_TEXT_OWNERS and len(candidates) == 1:
+            candidate = candidates[0]
+            digest = hashlib.sha256(marshal.dumps(_normalize_code(candidate))).hexdigest()
+            if digest == KNOWN_BATCH_CODE:
+                batch_code = candidate
+                state["batch_read"]["code_sha256"] = digest
+                line_event = monitoring.events.LINE
+                def on_line(code, line):
+                    if code is not batch_code or line != KNOWN_BATCH_LINE:
+                        return
+                    try:
+                        group = "scoped" if _scope.get() is token else "unscoped"
+                        with guard:
+                            if active:
+                                state["batch_read"][group] += 1
+                            else:
+                                state["late"] += 1
+                    except BaseException:
+                        state["monitor_error"] = True
+                monitoring.register_callback(slot, line_event, on_line)
         for code in owners:
             armed.append(code)
-            monitoring.set_local_events(slot, code, event)
+            monitoring.set_local_events(slot, code, event | (line_event if code is batch_code else 0))
 
         old_submit = executor.submit
 
@@ -273,6 +321,11 @@ def observe_source_window(*, owners=None, executor=None):
                     monitoring.register_callback(claimed, event, None)
                 except BaseException as error:
                     failures.append(error)
+                if line_event is not None:
+                    try:
+                        monitoring.register_callback(claimed, line_event, None)
+                    except BaseException as error:
+                        failures.append(error)
                 try:
                     monitoring.free_tool_id(claimed)
                 except BaseException as error:
@@ -283,7 +336,8 @@ def observe_source_window(*, owners=None, executor=None):
                     state["monitor_error"] = True
                     _poisoned = True
                 if state["status"] == "observed" and (state["pending_at_close"] or state["late"]
-                        or state["monitor_error"] or any(state["unscoped"].values())):
+                        or state["monitor_error"] or any(state["unscoped"].values())
+                        or state["batch_read"]["unscoped"]):
                     state["status"] = "uncertain"
             _serial.release()
         if failures:

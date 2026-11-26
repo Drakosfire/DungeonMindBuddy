@@ -235,7 +235,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
     fixture_bound = True if primary_bound and related_bound and pin_bound else None
-    # A recognized single-text owner entry proves at least one attempted read,
+    # A recognized single-text entry or nonempty batch path proves an attempted read,
     # never a returned body. Require a bound, completed POST; old/unknown
     # implementations and all uncertain windows remain diagnostic only.
     from .source_window import known_scoped_text_attempt

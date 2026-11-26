@@ -2574,11 +2574,17 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     from evals.negative_retrieval import source_window
     from evals.negative_retrieval.capture import capture
     class NoDatabase:
-        def transaction(self): raise RuntimeError('synthetic sentinel')
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
     view = _PostgresNativeTextSourceView(NoDatabase(), 'synthetic', 1)
     def acquire():
         with pytest.raises(RuntimeError, match='synthetic sentinel'):
             view.get_native_text_source(source_artifact_id='synthetic', source_revision_id='synthetic', span_id='synthetic')
+        assert view.get_native_text_sources([])==()
+        with pytest.raises(RuntimeError, match='synthetic sentinel'):
+            view.get_native_text_sources([('synthetic','synthetic','synthetic')])
     app = FastAPI()
     with ThreadPoolExecutor(max_workers=1) as build:
         build.submit(lambda: None).result()
@@ -2599,7 +2605,8 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     row = json.loads((tmp_path/'case1'/'source-window-probe.json').read_text())
     assert row['status'] == 'observed' and row['scoped']['text'] == 1
     assert row['pending_at_close'] == 0 and row['coverage'] == 'partial'
-    assert row['schema'] == 'dmb_negative_retrieval_source_window_v2' and row['owner_provenance'] == provenance
+    assert row['schema'] == 'dmb_negative_retrieval_source_window_v3' and row['owner_provenance'] == provenance
+    assert row['scoped']['text_batch']==2 and row['batch_read']['scoped']==1
 
 
 def test_source_window_report_exposes_only_valid_partial_diagnostics(tmp_path):
@@ -2747,6 +2754,24 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     positive={**CASE,'required_reads':['ledger'],'allowed_reads':['ledger']}
     got=assess_row(row,positive)
     assert got['checks']['required_evidence'] is None and got['checks']['unexpected_retrieval'] is None
+    from evals.negative_retrieval.source_window import KNOWN_BATCH_CODE
+    batch=copy.deepcopy(row);batch['schema']='dmb_negative_retrieval_source_window_v3'
+    batch['scoped']['text']=0;batch['scoped']['text_batch']=1
+    batch['batch_read']={'scoped':1,'unscoped':0,'code_sha256':KNOWN_BATCH_CODE}
+    got=assess_row(batch)
+    assert got['checks']['unexpected_retrieval'] is False and got['status']=='unproven'
+    got=assess_row(batch,positive)
+    assert got['checks']['required_evidence'] is None and got['checks']['unexpected_retrieval'] is None
+    for field,value in (('scoped',0),('code_sha256','0'*64),('code_sha256',None)):
+        value_row=copy.deepcopy(batch);value_row['batch_read'][field]=value
+        if field=='code_sha256' and value is None:value_row['batch_read']['scoped']=0
+        assert assess_row(value_row)['checks']['unexpected_retrieval'] is None
+    malformed=copy.deepcopy(batch);malformed['batch_read']['private_argument']='must not retain'
+    with pytest.raises(ValueError,match='source window'):
+        assess_row(malformed)
+    malformed=copy.deepcopy(batch);malformed['batch_read']['scoped']=2
+    with pytest.raises(ValueError,match='source window'):
+        assess_row(malformed)
     for change in ('legacy','unknown_provenance','different_code','different_source','different_python','uncertain','pending','dispatch','zero','metadata','batch'):
         value=copy.deepcopy(row)
         if change=='legacy':value['schema']='dmb_negative_retrieval_source_window_v1';value.pop('owner_provenance')
@@ -2849,3 +2874,81 @@ def test_source_window_default_provenance_is_bound_to_registered_core_owner():
     assert state['status']=='observed' and state['scoped']['text']==1
     assert state['owner_provenance'] is not None and state['coverage']=='partial'
     if sys.version_info[:3]==(3,13,12):assert state['owner_provenance']==KNOWN_TEXT_OWNERS
+
+
+def test_source_window_batch_real_owner_skips_empty_and_records_attempt():
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.negative_retrieval.source_window import observe_source_window, KNOWN_BATCH_CODE, KNOWN_TEXT_OWNERS
+    class NoDatabase:
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
+    view=_PostgresNativeTextSourceView(NoDatabase(),'synthetic',1)
+    with observe_source_window() as state:
+        assert view.get_native_text_sources([])==()
+        with pytest.raises(RuntimeError,match='synthetic sentinel'):
+            view.get_native_text_sources([('synthetic','synthetic','synthetic')])
+    assert state['status']=='observed' and state['owner_provenance']==KNOWN_TEXT_OWNERS
+    assert state['scoped']['text_batch']==2
+    assert state['batch_read']=={'scoped':1,'unscoped':0,'code_sha256':KNOWN_BATCH_CODE}
+
+
+def test_source_window_batch_unknown_code_is_diagnostic(monkeypatch):
+    from evals.negative_retrieval import source_window
+    original=source_window._default_owners
+    owners,executor,provenance=original()
+    batch=next(code for code,kind in owners.items() if kind=='text_batch')
+    altered=batch.replace(co_name='changed')
+    modified={altered if code is batch else code:kind for code,kind in owners.items()}
+    monkeypatch.setattr(source_window,'_default_owners',lambda:(modified,executor,provenance))
+    with source_window.observe_source_window() as state:pass
+    assert state['batch_read']=={'scoped':0,'unscoped':0,'code_sha256':None}
+
+
+def test_source_window_batch_unscoped_thread_marks_window_uncertain():
+    from concurrent.futures import ThreadPoolExecutor
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.negative_retrieval.source_window import observe_source_window
+    class NoDatabase:
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
+    view=_PostgresNativeTextSourceView(NoDatabase(),'synthetic',1)
+    def call():
+        with pytest.raises(RuntimeError,match='synthetic sentinel'):
+            view.get_native_text_sources([('synthetic','synthetic','synthetic')])
+    with ThreadPoolExecutor(max_workers=1) as other:
+        with observe_source_window() as state:
+            other.submit(call).result()
+    assert state['status']=='uncertain'
+    assert state['unscoped']['text_batch']==1 and state['batch_read']['unscoped']==1
+
+
+def test_source_window_batch_successful_transaction_counts_once():
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.negative_retrieval.source_window import observe_source_window, KNOWN_BATCH_CODE
+    class EmptyDatabase:
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args, **kwargs): return self
+        def fetchall(self): return []
+    view=_PostgresNativeTextSourceView(EmptyDatabase(),'synthetic',1)
+    with observe_source_window() as state:
+        assert view.get_native_text_sources([('synthetic','synthetic','synthetic')])==(None,)
+    assert state['status']=='observed' and state['scoped']['text_batch']==1
+    assert state['batch_read']=={'scoped':1,'unscoped':0,'code_sha256':KNOWN_BATCH_CODE}
+
+
+def test_source_window_batch_failure_before_sql_stays_unknown():
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.negative_retrieval.source_window import observe_source_window
+    class NoDatabase:
+        def transaction(self): raise RuntimeError('before SQL')
+    view=_PostgresNativeTextSourceView(NoDatabase(),'synthetic',1)
+    with observe_source_window() as state:
+        with pytest.raises(RuntimeError,match='before SQL'):
+            view.get_native_text_sources([('synthetic','synthetic','synthetic')])
+    assert state['scoped']['text_batch']==1 and state['batch_read']['scoped']==0
