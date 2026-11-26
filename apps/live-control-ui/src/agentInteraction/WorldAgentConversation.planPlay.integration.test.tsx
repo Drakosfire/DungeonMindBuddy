@@ -17,8 +17,8 @@ vi.mock('../api/conversationWorkPlanApi',async original=>({...await original<typ
 vi.mock('../api/conversationLibraryApi',()=>({
  readActiveConversationMessages:vi.fn(async(world:string)=>{
    const page=await getWorldAgentConversationHistory(world);
-   return {schema:'dmb_active_conversation_messages_v4',world_id:page.world_id,conversation_state:page.conversation_state,conversation_id:page.conversation_id,active_conversation_id:page.active_conversation_id,pointer_revision:page.pointer_revision,next_before_sequence:page.next_before_sequence,
-     messages:page.turns.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,citation_preview:null,reply_object:null,authored_references:row.authored_references??null,author_interaction:row.retry_context?.author_interaction,revision:'revision' in row?row.revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance}))};
+   return {schema:'dmb_active_conversation_messages_v5',world_id:page.world_id,conversation_state:page.conversation_state,conversation_id:page.conversation_id,active_conversation_id:page.active_conversation_id,pointer_revision:page.pointer_revision,next_before_sequence:page.next_before_sequence,
+     messages:page.turns.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,citation_preview:null,reply_object:null,authored_references:row.authored_references??null,author_interaction:row.retry_context?.author_interaction,...(row.retry_context && (row.retry_context.predecessor_id || row.retry_context.successor_id) ? {retry_lineage:{root_id:row.retry_context.root_id,predecessor_id:row.retry_context.predecessor_id,successor_id:row.retry_context.successor_id,ordinal:row.retry_context.ordinal}} : {}),revision:'revision' in row?row.revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance}))};
  }),
  listConversations:vi.fn(async(world:string,status:string)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{conversation_id:'33333333-3333-4333-8333-333333333333',world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'}],next_before:null})),
  readConversationName:vi.fn(async(world:string,id:string)=>({conversation_id:id,world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'})),
@@ -1672,13 +1672,13 @@ describe("one App-level World conversation host across Plan and Play", () => {
       }));
       const view=render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
       fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
-      expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
-      expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+      await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
+      await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
       await waitFor(()=>expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>!node.closest('details:not([open])'))).toHaveLength(1));
       view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
       fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
-      expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
-      expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+      await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
+      await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
       await waitFor(()=>expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>!node.closest('details:not([open])'))).toHaveLength(1));
       return;
     }
@@ -1688,8 +1688,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
     expect(screen.queryByText(/Earlier conversation/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Trace',{exact:true}));
-    expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
-    expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+    await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
+    await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
     view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByRole('button',{name:'Retry question'});
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
