@@ -3146,3 +3146,21 @@ def test_source_window_observes_prebound_app_batch_only_after_empty_guard():
                                       'unscoped_starts': 0, 'code_sha256': KNOWN_APP_BATCH_CODE}
     assert state['status'] == 'observed'
     assert repository.get_source_markdown_batch is batch
+
+
+def test_mixed_current_page_regression_flags_world_search_without_claiming_complete_capture():
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / 'evals/negative_retrieval/fixtures'
+    public = json.loads((root / 'development.json').read_text())
+    private = json.loads((root / 'development-private.json').read_text())
+    case = next(row for row in public['cases'] if row['id'] == 'dev-mixed-current-page')
+    rubric = private['cases'][case['id']]
+    assert 'recurring reminder' in case['request'] and 'saved The Tidekeeper page' in case['request']
+    from evals.negative_retrieval.trace_observation import UNKNOWN
+    assert assess(rubric, observation(outcome='answer', reads=[UNKNOWN], journal_complete=False))['checks']['unexpected_retrieval'] is None
+    assert assess(rubric, observation(outcome='answer', reads=['harbour'], journal_complete=False))['checks']['unexpected_retrieval'] is False
+    assert assess(rubric, observation(outcome='answer', graph_query_attempts=1,
+                                      graph_query_journal_complete=False))['checks']['graph_query_budget'] is False
+    assert assess(rubric, observation(outcome='answer', graph_query_attempts=0,
+                                      graph_query_journal_complete=False))['checks']['graph_query_budget'] is None
