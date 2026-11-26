@@ -887,3 +887,81 @@ def test_unavailable_uncertain_action_completes_capability_reply_without_acquisi
         assert completed.status == 'completed' and state.completions == 1
         assert 'cannot schedule' in completed.assistant_text
         assert state.retained_reads == 0 and state.materialized == 0
+
+
+@pytest.mark.parametrize("bad_citation", [False, True])
+def test_mixed_unavailable_action_and_source_reaches_supported_writer(monkeypatch, bad_citation):
+    """The unavailable executor must not suppress an explicitly requested source."""
+    import asyncio
+    import json
+    from contextlib import contextmanager
+    import httpx
+    from tests import test_build_source_free_protocol as owner
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_intentional_response import resolution_for, operation_id_for, digest
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    original = owner.pending_app_runtime_case
+    @contextmanager
+    def mixed_runtime(monkeypatch, **kwargs):
+        with original(monkeypatch, **kwargs) as (state, adapter):
+            execution = state.turn.graph_context_execution
+            events = list(execution.events)
+            index = next(i for i, row in enumerate(events) if type(row) is t.BuildRequestedWorkResolutionV1)
+            work = events[index]
+            resolution = resolution_for(execution.policy, 'other_creation', source_scope='source_lookup')
+            events[index] = work.model_copy(update={'requested_work': 'other_creation', 'resolution': resolution,
+                'intent_family': resolution['intent_family'], 'operation': resolution['operation'],
+                'broker_operation_id': operation_id_for(state.turn.turn_id, state.turn.attempt, work.machine_request_id, 'other_creation'),
+                'arguments_sha256': digest({})})
+            execution = owner.pending_execution(state.turn.graph_context_receipt, execution.policy, events)
+            state.turn = t.Turn.model_validate(state.turn.model_copy(update={'graph_context_execution': execution}))
+            adapter.turn = state.turn
+            adapter.fence.renewer.update_turn(state.turn)
+            yield state, adapter
+    monkeypatch.setattr(owner, 'pending_app_runtime_case', mixed_runtime)
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [
+            {'kind': 'related_page_claim', 'text': 'The cult password is “Remember the rain”.', 'read_id': 'unbound' if bad_citation else 'source0'},
+            {'kind': 'discussion', 'text': 'I cannot schedule a reminder here.'}], 'limitations': []}
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_mixed', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_mixed', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    with owner.pending_writer_completion_case(monkeypatch, app_pages=True) as (state, adapter, rules, writer, prepared):
+        if bad_citation:
+            from generationengine import GenerationEngineError
+            with pytest.raises(GenerationEngineError):
+                asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert state.completions == 0
+        else:
+            completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert completed.status == 'completed' and state.completions == 1
+            assert 'Remember the rain' in completed.assistant_text and 'cannot schedule' in completed.assistant_text
+            assert any(type(row) is t.RelatedPageRead for row in completed.graph_context_execution.events)
+            assert completed.completion.collaboration is None
+
+
+def test_mixed_unavailable_source_requires_exact_barrier_and_source_scope(monkeypatch):
+    from tests import test_build_source_free_protocol as owner
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_source_free import pending_work_requests_evidence
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    with owner.pending_writer_runtime_case(monkeypatch, source_free_work='other_creation', source_scope='anchored') as (state, adapter, selector, turns):
+        execution = state.turn.graph_context_execution
+        work = next(row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1)
+        assert not pending_work_requests_evidence(work, execution.policy)
+        uncertain = work.model_copy(update={'resolution': resolution_for(execution.policy, 'other_creation', source_scope='uncertain')})
+        assert not pending_work_requests_evidence(uncertain, execution.policy)
+        requested = work.model_copy(update={'resolution': resolution_for(execution.policy, 'other_creation', source_scope='source_lookup')})
+        assert pending_work_requests_evidence(requested, execution.policy)
+        forged = requested.model_copy(update={'resolution': requested.resolution | {'barrier_detail': 'forged'}})
+        with pytest.raises(ValueError):
+            pending_work_requests_evidence(forged, execution.policy)
+        wrong_barrier = requested.model_copy(update={'resolution': requested.resolution | {'barrier': 'current_page_target_absent'}})
+        assert not pending_work_requests_evidence(wrong_barrier, execution.policy)
