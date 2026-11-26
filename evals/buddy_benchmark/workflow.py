@@ -238,9 +238,15 @@ def report_case(case, base):
             raise ValueError("Build wire response bytes differ from their recorded hash")
     answer_body = answer["body"] if isinstance(answer["body"], dict) else {}
     delivery_status = "unknown"
+    response_completion = (answer_body.get("knowledge_context") or {}).get("completion") or {}
+    durable_completion = (turn.get("knowledge_context") or {}).get("completion") or {}
+    collaboration = response_completion.get("collaboration")
+    structured_delivery = (isinstance(collaboration, dict) and bool(collaboration.get("kind"))
+                           and collaboration == durable_completion.get("collaboration"))
+    prose_delivery = (bool(turn.get("assistant_text"))
+                      and answer_body.get("answer", {}).get("text") == turn["assistant_text"])
     delivered = (answer["http_status"] == 200 and turn["lifecycle_status"] == "completed"
-        and bool(turn.get("assistant_text"))
-        and answer_body.get("answer", {}).get("text") == turn["assistant_text"])
+                 and (prose_delivery or structured_delivery))
     if "answer-http" in paths:
         delivery_status = "pass" if delivered else "fail"
     elif wire is not None and wire.get("client_disconnect_ms") is not None:
