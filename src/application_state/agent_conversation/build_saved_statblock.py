@@ -10,7 +10,7 @@ from .native_statement_input import Strict
 
 class SavedStatblockPdfCrop(Strict):
     assertion_id: str = Field(min_length=1)
-    evidence_ref_id: str = Field(pattern=r"^pdf-region:.+$")
+    evidence_ref_id: str = Field(pattern=r"^(?:pdf-region:.+|ev:[0-9a-f]{64})$")
     text: str
 
 

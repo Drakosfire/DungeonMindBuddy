@@ -6,7 +6,8 @@ export function isUnansweredFailure(turn: WorldAgentConversationHistoryTurn): bo
 }
 
 /** Explicit APP lineage only; grouping never grants execution authority. */
-export function groupRetryLineage<T>(items: readonly T[], contextFor: (item:T)=>WorldAgentConversationHistoryTurn["retry_context"]): Array<{item:T;previous:T[];historical?:boolean}> {
+type DisplayLineage = Pick<NonNullable<WorldAgentConversationHistoryTurn["retry_context"]>, 'world_id' | 'conversation_id' | 'root_id' | 'ordinal' | 'successor_id'>;
+export function groupRetryLineage<T>(items: readonly T[], contextFor: (item:T)=>DisplayLineage | null | undefined): Array<{item:T;previous:T[];historical?:boolean}> {
   const groups:Array<{item:T;previous:T[];historical?:boolean}>=[];
   const roots=new Map<string,number>();
   for(const item of items){
@@ -23,8 +24,8 @@ export function groupRetryLineage<T>(items: readonly T[], contextFor: (item:T)=>
 }
 
 export function groupConversationAttempts<T>(items: readonly T[], turnFor: (item:T)=>WorldAgentConversationHistoryTurn|null,
- _breaksAfter:ReadonlySet<number>=new Set()) {
- const groups=groupRetryLineage(items,item=>turnFor(item)?.retry_context);
+ _breaksAfter:ReadonlySet<number>=new Set(), lineageFor?: (item:T)=>DisplayLineage | null | undefined) {
+ const groups=groupRetryLineage(items,item=>turnFor(item)?.retry_context ?? lineageFor?.(item));
  // Preserve existing Plan/Play presentation; this slice changes ordinary Build only.
  const result:typeof groups=[];
  for(const group of groups){

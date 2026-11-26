@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
+from psycopg.errors import CheckViolation
 
 from application_state.agent_conversation import repository as repo
 from application_state.agent_conversation.context_trace import (
@@ -64,6 +65,7 @@ from application_state.agent_conversation.types import (
     RelatedRecapContextProviderInclusionEventV2,
     ReopenCommand,
     ConversationTrashCommand,
+    ConversationDeleteCommand,
     SourceReadAuthorizationEventV2,
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
@@ -969,6 +971,8 @@ class AgentConversationService:
                 conn, world_id=world_id, conversation_id=target.conversation_id,
             ):
                 raise ApplicationStateConflictError("This conversation has a reply in progress.")
+            if repo.world_has_pending_build_insertion(conn, world_id=world_id):
+                raise ApplicationStateConflictError("Finish the current Build insertion before changing conversation history.")
             if authorize_write is not None:
                 authorize_write()
             changed = repo.update_conversation_state(
@@ -985,6 +989,60 @@ class AgentConversationService:
             )
             return repo.insert_command_receipt(
                 conn, world_id=world_id, command_id=command.command_id, command_kind=kind,
+                request_fingerprint=request_fingerprint(command),
+                expected_pointer_revision=command.expected_pointer_revision,
+                expected_active_conversation_id=command.expected_active_conversation_id,
+                conversation_id=target.conversation_id,
+                result_active_conversation_id=new_pointer.active_conversation_id,
+                result_pointer_revision=new_pointer.revision, recorded_at=now,
+            )
+
+    def delete_conversation(
+        self, command: ConversationDeleteCommand, *, authorize_write=None,
+    ) -> ConversationCommandReceipt:
+        """Erase a trashed conversation and record the exact replay in one transaction."""
+        command = ConversationDeleteCommand.model_validate_json(command.model_dump_json())
+        world_id = _world_id(command.world_id)
+        if world_id.startswith("guest-"):
+            raise ApplicationStateValidationError("Guest conversation data expires with its session.")
+        now = _now()
+        with self._transaction(_ready_dsn()) as conn:
+            pointer = _lock_pointer(conn, world_id)
+            if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
+                raise ApplicationStateConflictError("command ID is retired")
+            replay = _receipt_replay(conn, command, command_kind="delete")
+            if replay is not None:
+                if authorize_write is not None:
+                    authorize_write()
+                return replay
+            _expect_pointer(command, pointer)
+            target = repo.lock_conversation(conn, world_id, command.conversation_id)
+            if target is None:
+                raise ApplicationStateNotFoundError("conversation not found in verified World")
+            if target.status != "trashed" or pointer.active_conversation_id == target.conversation_id:
+                raise ApplicationStateConflictError("Move the conversation to Trash before deleting it.")
+            if repo.world_has_pending_build_insertion(conn, world_id=world_id):
+                raise ApplicationStateConflictError("Finish the current Build insertion before changing conversation history.")
+            if authorize_write is not None:
+                authorize_write()
+            try:
+                erased = conn.execute(
+                    """DELETE FROM agent.conversation
+                       WHERE world_id=%s AND conversation_id=%s AND status='trashed'""",
+                    (world_id, target.conversation_id),
+                )
+            except CheckViolation as exc:
+                if exc.diag.constraint_name == "conversation_erasure_in_flight":
+                    raise ApplicationStateConflictError("The conversation has a reply or save still in progress.") from exc
+                raise
+            if erased.rowcount != 1:
+                raise ApplicationStateConflictError("Conversation changed during permanent deletion.")
+            new_pointer = repo.update_world_state(
+                conn, world_id=world_id, active_conversation_id=pointer.active_conversation_id,
+                pointer_revision=pointer.revision + 1, now=now,
+            )
+            return repo.insert_command_receipt(
+                conn, world_id=world_id, command_id=command.command_id, command_kind="delete",
                 request_fingerprint=request_fingerprint(command),
                 expected_pointer_revision=command.expected_pointer_revision,
                 expected_active_conversation_id=command.expected_active_conversation_id,
@@ -3511,14 +3569,14 @@ class AgentConversationService:
         """
         from .native_reads import (_NativeReadOperation, authorize_read,
             observe_selected_read_locked, authorize_direct_sources_locked, observe_direct_source_locked,
-            authorize_body_search_locked, observe_body_search_locked, authorize_body_reads_locked, observe_body_reads_locked)
+            authorize_body_search_locked, observe_body_search_locked, authorize_body_reads_locked, observe_body_reads_locked, observe_saved_statblock_locked)
         from .native_execution import BuildPendingExecutionV1
         from .build_pending_native import pending_native_owner
         from .build_pending_app_coverage import pending_writer_access_pages
         world_id = _world_id(world_id)
         if (not any(producer is allowed for allowed in (authorize_read, observe_selected_read_locked,
                              authorize_direct_sources_locked, observe_direct_source_locked,
-                             authorize_body_search_locked, observe_body_search_locked, authorize_body_reads_locked, observe_body_reads_locked))
+                             authorize_body_search_locked, observe_body_search_locked, authorize_body_reads_locked, observe_body_reads_locked, observe_saved_statblock_locked))
                 or type(expected_revision) is not int or expected_revision < 1
                 or type(expected_attempt) is not int or expected_attempt < 1
                 or not callable(authorize_current_access)):
@@ -3583,6 +3641,17 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             producer=observe_selected_read_locked, event_id=event_id,
             authorization_event_id=authorization_event_id, read=read,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_saved_statblock(self, world_id, conversation_id, turn_id, *,
+                                        expected_revision, expected_attempt, selection_event_id,
+                                        handle, draft_id, locator, read, authorize_current_access):
+        from .native_reads import observe_saved_statblock_locked
+
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_saved_statblock_locked, selection_event_id=selection_event_id,
+            handle=handle, draft_id=draft_id, locator=locator, read=read,
             authorize_current_access=authorize_current_access)
 
     def authorize_pending_native_direct_sources(self, world_id, conversation_id, turn_id, *,
