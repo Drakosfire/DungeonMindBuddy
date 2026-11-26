@@ -10,6 +10,16 @@ const detail: NativeGraphEntity = { schema: "dmb_native_graph_entity_v1", scope:
 } };
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 describe("GraphNodeExplorer", () => {
+  it("offers readable, navigable snapshot connections without inventing an unknown node", () => {
+    const navigate = vi.fn();
+    render(<GraphNodeExplorer mode="playground" detail={null} node={{ id: "lysandra", name: "Lysandra", kind: "person" }} revision="rev" onFocus={vi.fn()} onClose={vi.fn()} labels={new Map([["stafl", "Stafl"]])} onExplore={navigate}
+      connections={[{ id: "one", source_id: "lysandra", target_id: "stafl", predicate: "dnd5e:associated_with" },
+        { id: "two", source_id: "missing", target_id: "lysandra", predicate: "knows" }]} />);
+    expect(screen.getByText(/associated with/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Stafl" }));
+    expect(navigate).toHaveBeenCalledWith("stafl");
+    expect(screen.getByRole("button", { name: "Unknown object in this snapshot" })).toBeDisabled();
+  });
   it("separates neighbors from records and navigates without writes or automatic source reads", () => {
     const navigate = vi.fn();
     render(<GraphNodeExplorer detail={detail} node={{ id: "lysandra", name: "Lysandra", kind: "person" }} revision="rev" onFocus={vi.fn()} onClose={vi.fn()} labels={new Map([["lysandra", "Lysandra"], ["stafl", "Stafl"]])} onExplore={navigate} partial />);

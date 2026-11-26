@@ -36,6 +36,10 @@
 .graph-node-explorer__names { margin-bottom: 12px; font-size: 12px; }
 .graph-node-explorer__names p { color: #b9b8ab; }
 .graph-node-explorer__evidence { margin-top: 4px; }
+.graph-node-explorer__story { margin-top: 14px; }
+.graph-node-explorer__story h3 { margin: 0 0 8px; color: #e8ddc6; font-size: 13px; }
+.graph-node-explorer__story p { margin: 0 0 8px; color: #c9c7bd; font-size: 12px; line-height: 1.5; }
+.graph-node-explorer__story summary { cursor: pointer; color: #cfc3a7; font-size: 12px; }
 .graph-node-explorer__evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 10px; }
 .graph-node-explorer__secondary { border-top: 1px solid #42463d; margin-top: 14px; padding-top: 6px; }
 

@@ -58,7 +58,13 @@ function GuestNodeSources({ nodeId, read }: { readonly nodeId: string; readonly 
     void read(nodeId).then(value => { if (active) setSources(value); }).catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [nodeId, read]);
-  return <section aria-label="Node sources"><h3>Sources</h3>{error ? <p role="alert">Sources are unavailable.</p> : sources === null ? <p>Opening sources…</p> : sources.length === 0 ? <p>No source excerpts are linked to this node.</p> : sources.map((source, index) => <details key={index}><summary>{source.role === "context" ? "Context" : "Source evidence"}: {source.claim}</summary><p>{source.qualification}</p><blockquote>{source.text}</blockquote></details>)}</section>;
+  const excerpts = [...new Set((sources ?? []).filter(source => source.role === "support").map(source => source.text.trim()).filter(Boolean))];
+  return <section className="graph-node-explorer__story" aria-label="Node sources">
+    {error ? <p role="alert">Sources are unavailable.</p> : sources === null ? <p role="status">Opening sources…</p> : sources.length === 0 ? <p>No source excerpts are linked to this node.</p> : <>
+      {excerpts.length > 0 && <><h3>From the story</h3>{excerpts.map(text => <p key={text}>{text}</p>)}</>}
+      <details className="graph-node-explorer__evidence"><summary>View sources ({sources.length})</summary>{sources.map((source, index) => <details key={index}><summary>{source.role === "context" ? "Context" : "Source evidence"}: {source.claim}</summary><p>{source.qualification}</p><blockquote>{source.text}</blockquote></details>)}</details>
+    </>}
+  </section>;
 }
 
 function BuddyGraphPage({
