@@ -1,0 +1,164 @@
+"""Assess independently observed turn evidence; absent proof is never a pass.
+
+This assessor does not capture product behavior or judge semantic quality. Its
+caller must supply independently reviewed judgments and complete journals.
+"""
+
+from .trace_observation import UNKNOWN
+from hashlib import sha256
+import json
+
+ASSESSMENT_SCHEMA = "dmb_negative_retrieval_assessment_v1"
+REPORT_SCHEMA = "dmb_negative_retrieval_report_v1"
+
+
+def rubric_sha256(rubric):
+    """Bind a report to the exact expected case outcome and budgets."""
+    return sha256(json.dumps(rubric, sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+
+
+def assess(case, observation):
+    """Score a case without treating missing observations as success."""
+    for field in ("required_reads", "allowed_reads", "outcomes"):
+        rows = case[field]
+        if (not isinstance(rows, list) or any(not isinstance(row, str) or not row.strip() for row in rows)
+                or len(rows) != len(set(rows))):
+            raise ValueError(f"{field} must contain unique nonblank labels")
+    catalog_budget = case["max_catalog_discoveries"]
+    if type(catalog_budget) is not int or catalog_budget < 0:
+        raise ValueError("max_catalog_discoveries must be a nonnegative integer")
+    required = set(case["required_reads"])
+    allowed = set(case["allowed_reads"])
+    if UNKNOWN in allowed:
+        raise ValueError("Unmapped acquisition cannot be an allowed source")
+    if not required <= allowed:
+        raise ValueError("Required reads must be allowed")
+    if not case["outcomes"] or not set(case["outcomes"]) <= {"clarification", "proposal", "answer"}:
+        raise ValueError("Unsupported outcome")
+    reads = observation.get("reads")
+    if reads is not None and (not isinstance(reads, list) or any(not isinstance(x, str) for x in reads)):
+        raise ValueError("reads must be a list of source labels or null")
+    # Legacy direct observations define reads as completed evidence. Capture
+    # reports supply this separately because attempted reads may have failed.
+    completed_reads = observation.get("completed_reads", reads)
+    if completed_reads is not None and (not isinstance(completed_reads, list)
+            or any(not isinstance(x, str) for x in completed_reads)):
+        raise ValueError("completed_reads must be a list of source labels or null")
+    complete = observation.get("journal_complete")
+    if complete is not None and type(complete) is not bool:
+        raise ValueError("journal_complete must be boolean or null")
+    catalog_count = observation.get("catalog_discoveries")
+    catalog_complete = observation.get("catalog_journal_complete")
+    if catalog_count is not None and (type(catalog_count) is not int or catalog_count < 0):
+        raise ValueError("catalog_discoveries must be a nonnegative integer or null")
+    if catalog_complete is not None and type(catalog_complete) is not bool:
+        raise ValueError("catalog_journal_complete must be boolean or null")
+    # Incomplete journals can prove an unwanted read, but cannot prove absence.
+    unknown_labels = reads is not None and UNKNOWN in reads
+    unexpected = None if reads is None else sorted(set(reads) - allowed - {UNKNOWN})
+    if unknown_labels and not allowed:
+        unexpected.append(UNKNOWN)
+    # Observed required reads prove presence even in a partial journal. Only a
+    # complete, fully mapped journal can prove a required read was missed.
+    unknown_completed = completed_reads is not None and UNKNOWN in completed_reads
+    missing = (None if completed_reads is None else [] if required <= set(completed_reads)
+               else None if complete is not True or unknown_completed
+               else sorted(required - set(completed_reads)))
+    outcome = observation.get("outcome")
+    checks = {
+        "catalog_budget": (False if catalog_count is not None and catalog_count > catalog_budget
+                           else True if catalog_count is not None and catalog_complete is True else None),
+        "unexpected_retrieval": (False if unexpected else True if unexpected is not None and complete is True
+                                 and not unknown_labels else None),
+        "required_evidence": None if missing is None else not missing,
+        "complete_journal": True if complete is True else None,
+        "allowed_outcome": None if outcome is None else outcome in case["outcomes"],
+        "completed_turn": observation.get("completed_turn"),
+        "no_premature_mutation": observation.get("no_premature_mutation"),
+        "semantic_quality": observation.get("semantic_quality"),
+    }
+    if required:
+        checks["required_support"] = observation.get("required_support")
+    if "max_graph_query_attempts" in case:
+        budget = case["max_graph_query_attempts"]
+        count = observation.get("graph_query_attempts")
+        graph_complete = observation.get("graph_query_journal_complete")
+        if type(budget) is not int or budget < 0:
+            raise ValueError("max_graph_query_attempts must be a nonnegative integer")
+        if count is not None and (type(count) is not int or count < 0):
+            raise ValueError("graph_query_attempts must be a nonnegative integer or null")
+        if graph_complete is not None and type(graph_complete) is not bool:
+            raise ValueError("graph_query_journal_complete must be boolean or null")
+        checks["graph_query_budget"] = (False if count is not None and count > budget
+                                        else True if count is not None and graph_complete is True else None)
+    # An interrupted turn can show a retry/error without producing a typed
+    # outcome. Preserve that independent UI observation without inventing one.
+    if outcome != "clarification" and observation.get("no_retry_error") is not None:
+        checks["no_retry_error"] = observation["no_retry_error"]
+    # When clarification is the only valid outcome, an observed missing inline
+    # component is meaningful even if the turn never produced a completion.
+    if outcome is None and set(case["outcomes"]) == {"clarification"} and observation.get("inline_questions") is not None:
+        checks["inline_questions"] = observation["inline_questions"]
+    if outcome == "clarification":
+        for field in ("question_addresses_gap", "question_answerable", "question_not_already_answered",
+                      "question_no_false_premises", "inline_questions", "no_retry_error",
+                      "saved_and_reopened", "answer_sent", "answer_continued", "answer_reopened"):
+            checks[field] = observation.get(field)
+    if outcome == "proposal":
+        checks["movable_proposal"] = observation.get("movable_proposal")
+    for key, value in checks.items():
+        if value is not None and type(value) is not bool:
+            raise ValueError(f"{key} must be boolean or null")
+    status = "fail" if False in checks.values() else "unproven" if None in checks.values() else "pass"
+    return {"schema": ASSESSMENT_SCHEMA, "status": status, "checks": checks,
+            "unexpected_reads": unexpected, "missing_reads": missing}
+
+
+def summarize(cases, results):
+    """Report bounds when incomplete observations cannot establish a rate.
+
+    Cases with no allowed reads form the negative cohort. Required-read cases
+    form the positive cohort. A known violation is counted even with an
+    incomplete journal; absent required reads are unknown without one.
+    """
+    if set(cases) != set(results):
+        raise ValueError("Each case must have exactly one assessment")
+
+    def bounds(rows, key):
+        def eligible(case_id):
+            result = results[case_id]
+            # A raw assessor result has no capture binding and cannot contribute
+            # to a cohort rate, even if it contains an observed violation.
+            if not isinstance(result.get("checks"), dict):
+                return False
+            return (result.get("schema") == REPORT_SCHEMA
+                    and result.get("case_id") == case_id
+                    and result.get("rubric_sha256") == rubric_sha256(cases[case_id])
+                    and result.get("fixture_context_verified") is True
+                    and result.get("capture_environment_verified") is True)
+
+        if key == "negative_retrieval":
+            values = []
+            for case_id in rows:
+                if not eligible(case_id):
+                    values.append(None)
+                    continue
+                checks = results[case_id]["checks"]
+                components = [checks["unexpected_retrieval"], checks["catalog_budget"]]
+                if "max_graph_query_attempts" in cases[case_id]:
+                    components.append(checks.get("graph_query_budget"))
+                values.append(False if False in components else True if all(v is True for v in components) else None)
+        else:
+            values = [results[case_id]["checks"][key] if eligible(case_id) else None for case_id in rows]
+        failures = sum(value is False for value in values)
+        unknown = sum(value is None for value in values)
+        total = len(values)
+        return {"cases": total, "failures": failures, "unknown": unknown,
+                "minimum_rate": failures / total if total else None,
+                "maximum_rate": (failures + unknown) / total if total else None}
+
+    negative = [key for key, case in cases.items() if not case["allowed_reads"]]
+    positive = [key for key, case in cases.items() if case["required_reads"]]
+    return {"unnecessary_retrieval": bounds(negative, "negative_retrieval"),
+            "missed_required_reads": bounds(positive, "required_evidence")}

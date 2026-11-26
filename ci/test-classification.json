@@ -856,6 +856,7 @@
       "tests/evals/test_embedding_scorer.py",
       "tests/evals/test_llm_ingestion_slice.py",
       "tests/evals/test_manual_entity_extraction_gold.py",
+      "tests/evals/test_negative_retrieval_assessment.py",
       "tests/evals/test_old_bath_house_compare.py",
       "tests/evals/test_remote_artifact_validator.py",
       "tests/evals/test_remote_inventory_builder.py",

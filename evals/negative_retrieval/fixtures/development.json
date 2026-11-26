@@ -1,0 +1,267 @@
+{
+  "schema": "negative_retrieval_cases_v1",
+  "split": "development",
+  "cases": [
+    {"id": "dev-placement", "page": "# The Glass Marsh\nA broken beacon marks the southern trail.", "history": [{"role": "user", "content": "How could the sleeping star return?"}, {"role": "assistant", "content": "The broken beacon could open a passage for the sleeping star to return."}], "request": "Use that idea to propose a passage on this page. There are nine beacons in the realm, three in the marsh, and this is the broken one.", "related_pages": [{"label": "harbour", "title": "Harbour trade", "body": "Barges carry salt to the northern coast."}]},
+    {"id": "dev-ambiguous", "page": "# The Glass Marsh\n## North\nThe bell is silent.\n## South\nThe bell is silent.", "history": [], "request": "Replace the sentence about the silent bell with a note that it rings at dawn.", "related_pages": [{"label": "bells", "title": "Bells of the realm", "body": "Bronze bells are cast in winter."}]},
+    {"id": "dev-creative-names", "page": "# The Lantern Keeper\nA traveler with an unfinished story.", "history": [], "request": "The Lantern Keeper left Bellhaven to settle Reedmere. I like the idea they found a fallen observatory, helped start a salvage guild, and disappeared after meeting the pale oracle. These are ideas, not settled history. Give me ten name options; any gender is fine.", "related_pages": [{"label": "settlement", "title": "Reedmere", "body": "A settlement on a tidal inlet."}, {"label": "oracle", "title": "The pale oracle", "body": "An enigmatic figure in an old coastal tale."}, {"label": "guild", "title": "Salvage guild", "body": "A guild recovers objects from ruined buildings."}, {"label": "unrelated", "title": "Festival food", "body": "The festival serves honey cakes."}]},
+    {"id": "dev-research", "page": "# The Glass Marsh\nThe warden keeps a ledger.", "history": [], "request": "What does the Warden's ledger say the bridge toll was?", "related_pages": [{"label": "ledger", "title": "Warden's ledger", "body": "On market days the bridge toll is two copper pieces."}]},
+    {
+      "id": "dev-long-context-reuse",
+      "page": "# Ferry notes\nThe dawn crossing needs a brief summary.",
+      "history": [
+          {"role": "user", "content": "For the dawn ferry, we chose a blue glass bead as the toll, collected by Mara Vale."},
+          {"role": "assistant", "content": "The dawn ferry toll is a blue glass bead, and Mara Vale collects it."},
+          {"role": "user", "content": "The river village keeps its anchors in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the anchors belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its aprons in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the aprons belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its baskets in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the baskets belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its bells in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the bells belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its blankets in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the blankets belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its bottles in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the bottles belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its bowls in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the bowls belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its braziers in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the braziers belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its buckets in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the buckets belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its candles in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the candles belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its canvases in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the canvases belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its carpets in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the carpets belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its casks in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the casks belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its chains in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the chains belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its chisels in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the chisels belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its clocks in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the clocks belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its combs in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the combs belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its compasses in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the compasses belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its cords in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the cords belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its cups in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the cups belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its curtains in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the curtains belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its drums in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the drums belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its easels in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the easels belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its feathers in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the feathers belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its ferrules in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the ferrules belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its flags in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the flags belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its flasks in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the flasks belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its frames in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the frames belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its funnels in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the funnels belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its gloves in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the gloves belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its hammers in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the hammers belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its hats in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the hats belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its hooks in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the hooks belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its horns in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the horns belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its jars in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the jars belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its kettles in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the kettles belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its keys in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the keys belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its ladders in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the ladders belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its lanterns in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the lanterns belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its ledgers in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the ledgers belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its lenses in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the lenses belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its locks in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the locks belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its maps in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the maps belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its mirrors in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the mirrors belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its needles in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the needles belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its oars in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the oars belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its paddles in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the paddles belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its paints in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the paints belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its pans in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the pans belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its pins in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the pins belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its planks in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the planks belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its pots in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the pots belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its pulleys in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the pulleys belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its quilts in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the quilts belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its racks in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the racks belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its rakes in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the rakes belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its ribbons in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the ribbons belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its ropes in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the ropes belong in the old ferry storehouse."},
+          {"role": "user", "content": "The river village keeps its saddles in the old ferry storehouse."},
+          {"role": "assistant", "content": "Noted: the saddles belong in the old ferry storehouse."}
+      ],
+      "request": "From our earlier conversation, what did we choose as the dawn ferry toll, and who collects it? Answer using what we already discussed.",
+      "related_pages": [
+        {
+          "label": "toll_distractor",
+          "title": "Old ferry tolls",
+          "body": "An abandoned proposal charged three copper pieces at dusk."
+        },
+        {
+          "label": "crew_distractor",
+          "title": "River crew",
+          "body": "Several unnamed crews work on the river."
+        }
+      ]
+    },
+    {"id": "dev-shepherd-naming", "page": "# The Shepherd\nAn unfinished character concept connected to Maelthor.", "history": [{"role": "user", "content": "We need to work on the Shepherd’s name, background, origin, and encounter with Maelthor."}, {"role": "assistant", "content": "Those are open character-development questions; the origin and encounter are still proposals."}], "request": "The Shepherd is part of the group of humans that came from Mirathorn to settle BogBlossom. I like the idea that this person was who found the collapsed swamp Wizard Tower, which suggests they worked for the Wizard Tower Salvage company, maybe even helped found it. Then disappeared as they were polluted by Maelthor. \nGive me a list of 10 name options, I'm indifferent to gender.", "related_pages": [{"label": "town", "title": "BogBlossom", "body": "A fictional swamp settlement established by people from Mirathorn."}, {"label": "tower", "title": "Collapsed swamp tower", "body": "A fictional ruined tower with salvageable remains."}, {"label": "distractor", "title": "Market recipes", "body": "A fictional market sells honey cakes."}]},
+    {
+      "id": "dev-shepherd-catalog-20",
+      "page": "# The Shepherd\nAn unfinished character concept connected to Maelthor.",
+      "history": [
+        {
+          "role": "user",
+          "content": "We need to work on the Shepherd’s name, background, origin, and encounter with Maelthor."
+        },
+        {
+          "role": "assistant",
+          "content": "Those are open character-development questions; the origin and encounter are still proposals."
+        }
+      ],
+      "request": "The Shepherd is part of the group of humans that came from Mirathorn to settle BogBlossom. I like the idea that this person was who found the collapsed swamp Wizard Tower, which suggests they worked for the Wizard Tower Salvage company, maybe even helped found it. Then disappeared as they were polluted by Maelthor. \nGive me a list of 10 name options, I'm indifferent to gender.",
+      "related_pages": [
+        {
+          "label": "town",
+          "title": "BogBlossom",
+          "body": "A fictional swamp settlement established by people from Mirathorn."
+        },
+        {
+          "label": "tower",
+          "title": "Collapsed swamp tower",
+          "body": "A fictional ruined tower with salvageable remains."
+        },
+        {
+          "label": "distractor",
+          "title": "Market recipes",
+          "body": "A fictional market sells honey cakes."
+        },
+        {
+          "label": "settlers",
+          "title": "Mirathorn settlers",
+          "body": "Settlers crossed to the wetlands in small boats."
+        },
+        {
+          "label": "boats",
+          "title": "Wetland boats",
+          "body": "Low boats travel among reeds and shallow pools."
+        },
+        {
+          "label": "company",
+          "title": "Salvage company",
+          "body": "A company recovers objects from old ruins."
+        },
+        {
+          "label": "tools",
+          "title": "Salvage tools",
+          "body": "Ropes and lanterns are common salvage tools."
+        },
+        {
+          "label": "ruins",
+          "title": "Ruined towers",
+          "body": "Several ruined towers stand beyond the settlement."
+        },
+        {
+          "label": "weather",
+          "title": "Swamp weather",
+          "body": "Morning fog can last until midday."
+        },
+        {
+          "label": "routes",
+          "title": "Settler routes",
+          "body": "Travellers mark safe paths with bundles of reeds."
+        },
+        {
+          "label": "guild",
+          "title": "Local guilds",
+          "body": "Local guilds maintain their own membership records."
+        },
+        {
+          "label": "bell",
+          "title": "Town bell",
+          "body": "A bell marks the evening gathering."
+        },
+        {
+          "label": "orchard",
+          "title": "The old orchard",
+          "body": "A small orchard grows beside the northern path."
+        },
+        {
+          "label": "ferry",
+          "title": "The river ferry",
+          "body": "A ferry crosses the slow river."
+        },
+        {
+          "label": "tales",
+          "title": "Fireside tales",
+          "body": "The oldest tales change with each teller."
+        },
+        {
+          "label": "lanterns",
+          "title": "Reed lanterns",
+          "body": "Lanterns are hung above the waterside walk."
+        },
+        {
+          "label": "calendar",
+          "title": "Settlement calendar",
+          "body": "The settlement celebrates its founding each spring."
+        },
+        {
+          "label": "wildlife",
+          "title": "Swamp wildlife",
+          "body": "Small birds nest among the reeds."
+        },
+        {
+          "label": "workshop",
+          "title": "Repair workshop",
+          "body": "A workshop repairs boats and hand tools."
+        },
+        {
+          "label": "records",
+          "title": "Old records",
+          "body": "A few old ledgers were damaged by damp."
+        }
+      ]
+    }
+  ]
+}

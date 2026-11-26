@@ -1,0 +1,9 @@
+{
+  "schema": "negative_retrieval_cases_v1",
+  "split": "heldout-draft",
+  "cases": [
+    {"id": "hold-followup", "page": "# Cloud Observatory\nThe lens points north.", "history": [{"role": "user", "content": "The telescope is powered by a captured storm."}, {"role": "assistant", "content": "The storm could dim whenever the lens detects a ship."}], "request": "Turn that into a short proposal for this page; there are five ships, and the flagship is missing.", "related_pages": [{"label": "orchard", "title": "Old orchard", "body": "Pear trees surround a small pond."}]},
+    {"id": "hold-ambiguous", "page": "# Cloud Observatory\n## Upper platform\nA copper hatch is locked.\n## Lower platform\nA copper hatch is locked.", "history": [], "request": "Change the locked copper hatch sentence to say it is open.", "related_pages": [{"label": "metals", "title": "Metals", "body": "Copper weathers green."}]},
+    {"id": "hold-research", "page": "# Cloud Observatory\nA ledger tracks visitors.", "history": [], "request": "According to the visitor log, who last serviced the lens?", "related_pages": [{"label": "visitor-log", "title": "Visitor log", "body": "Last lens service: Iona Vale."}]}
+  ]
+}
