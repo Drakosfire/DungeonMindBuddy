@@ -107,7 +107,7 @@ async function run() {
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
       before, after, browserMarks, status: delivered.status(), chromiumVersion: browser.version(),
       playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
-      request: delivered.request().postDataJSON(), responseHex, responseElapsedMs,
+      request: delivered.request().postDataJSON(), responseHex, responseElapsedMs, responseContentType: delivered.headers()["content-type"],
     }, null, 2));
   } finally {
     await browser.close();

@@ -89,3 +89,18 @@ def test_build_preflight_cli_selects_existing_capture_owner(monkeypatch, live):
                    "--build-fixture", "--case", "PAGE-EDIT-1", "--clone-app", *(["--live-build"] if live else [])])
     assert calls == [(("fixture.json", "capture"), {"clone_app": True,
         "browser_case": "PAGE-EDIT-1", "build_fixture": True, "live_build": live})]
+
+
+def test_live_build_terminal_handles_stream_delivery_and_error():
+    from evals.buddy_benchmark.browser_capture import build_browser_terminal
+
+    media = "text/event-stream; charset=utf-8"
+    assert build_browser_terminal(
+        b'data: {"kind":"progress"}\r\n\r\ndata: {"kind":"result","response":{"answer":"ok"}}\r\n\r\n',
+        200, media,
+    ) == ({"answer": "ok"}, 200)
+    assert build_browser_terminal(
+        b'data: {"kind":"error","status":409,"detail":"stale"}\n\n', 200, media,
+    ) == ({"detail": "stale"}, 409)
+    with pytest.raises(ValueError, match="no terminal"):
+        build_browser_terminal(b'data: {"kind":"progress"}\n\n', 200, media)

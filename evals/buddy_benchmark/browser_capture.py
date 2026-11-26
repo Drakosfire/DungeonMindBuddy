@@ -279,6 +279,18 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         return
                     after = workflow.response_envelope(
                         client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
+                    artifacts.immutable_save(directory, "history-after", after)
+                    if live_build:
+                        timing = json.loads((output / "browser-timing.json").read_bytes())
+                        wire_bytes = bytes.fromhex(timing["responseHex"])
+                        body, status = build_browser_terminal(
+                            wire_bytes, timing["status"], timing["responseContentType"])
+                        raw = json.dumps(body).encode("utf-8")
+                        artifacts.immutable_save(directory, "answer-http", {
+                            "body": body, "http_status": status, "transport_status": timing["status"],
+                            "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
+                            "elapsed_ms": timing["responseElapsedMs"],
+                        })
                     turns = workflow._request_turns(after["body"], browser_request, world)
                     if len(turns) != 1:
                         raise ValueError("Browser request has no unique retained Turn")
@@ -287,17 +299,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turn_id))
                     if len(replayed) != len(wire):
                         raise ValueError("Ordinary browser turn did not consume its entire Jev tape")
-                    if live_build:
-                        timing = json.loads((output / "browser-timing.json").read_bytes())
-                        raw = bytes.fromhex(timing["responseHex"])
-                        artifacts.immutable_save(directory, "answer-http", {
-                            "body": json.loads(raw), "http_status": timing["status"],
-                            "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
-                            "elapsed_ms": timing["responseElapsedMs"],
-                        })
-                    else:
+                    if not live_build:
                         sink.finalize(observed)
-                    artifacts.immutable_save(directory, "history-after", after)
                     trace = client.get(route + "/turns/" + turn_id + "/context-trace").raise_for_status()
                     artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
             finally:
@@ -312,6 +315,22 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         artifacts.immutable_save(output, "jev-replay", replayed)
         if detail:
             artifacts.immutable_save(output, "jev-transport-intervals", wire_intervals)
+
+
+def build_browser_terminal(raw, status, content_type):
+    """Read the same terminal result or error consumed by the Build browser."""
+    if content_type.split(";", 1)[0].strip().lower() != "text/event-stream":
+        return json.loads(raw), status
+    for frame in raw.decode("utf-8").replace("\r\n", "\n").split("\n\n"):
+        data = "\n".join(line[5:].lstrip() for line in frame.splitlines() if line.startswith("data:"))
+        if not data:
+            continue
+        event = json.loads(data)
+        if event.get("kind") == "result" and isinstance(event.get("response"), dict):
+            return event["response"], status
+        if event.get("kind") == "error" and type(event.get("status")) is int:
+            return {"detail": event.get("detail")}, event["status"]
+    raise ValueError("Build event stream has no terminal result or error")
 
 
 def validate_build_browser_request(request, *, world, work, question, selection_text,
