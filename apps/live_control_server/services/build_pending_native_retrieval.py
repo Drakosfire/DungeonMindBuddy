@@ -169,20 +169,49 @@ def _read_selected_objects(adapter, query, selection):
                 authorize_current_access=adapter.pending_build_access)
 
 
-def _statblock_catalog(adapter):
+def _followup_statblock(adapter, authority):
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    from .statblock_saved_revision import published_statblock_reference
+
+    turn = adapter.fence.turn
+    if turn.sequence <= 1:
+        return ()
+    previous = adapter.service.list_turns(
+        turn.world_id, turn.conversation_id, limit=1, before_sequence=turn.sequence,
+    )
+    if len(previous) != 1 or previous[0].status != "completed":
+        return ()
+    prior = previous[0]
+    work = getattr(prior.graph_context_receipt, "work_context", None)
+    if (getattr(work, "surface_id", None) != "build"
+            or work.source_basis != turn.graph_context_receipt.work_context.source_basis
+            or prior.graph_context_execution is None):
+        return ()
+    reads = [event for event in prior.graph_context_execution.events if type(event) is BuildSavedStatblockReadV1]
+    if len(reads) != 1 or reads[0].world_id != turn.world_id:
+        return ()
+    read = reads[0]
+    reference = published_statblock_reference(turn.world_id, authority, read.draft_id, read.locator)
+    if reference is None:
+        return ()
+    return ((reference.label, read.draft_id, read.locator),)
+
+
+def _statblock_catalog(adapter, authority):
     from apps.live_control_server.routes.statblock_storage import statblock_data_root
     from .statblock_saved_revision import iter_saved_mechanics
 
     principal = getattr(adapter, "native_principal", None)
-    if (getattr(principal, "role", None) != "gm"
-            or not re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE)):
+    if getattr(principal, "role", None) != "gm":
         return {}
-    root = statblock_data_root(adapter.root)
+    if re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE):
+        root = statblock_data_root(adapter.root)
+        entries = iter_saved_mechanics(root, world_id=adapter.fence.turn.world_id)
+    else:
+        entries = _followup_statblock(adapter, authority)
     return {
         f"saved-statblock:{index}": (label, UUID(str(draft_id)), locator)
-        for index, (label, draft_id, locator) in enumerate(
-            iter_saved_mechanics(root, world_id=adapter.fence.turn.world_id)
-        )
+        for index, (label, draft_id, locator) in enumerate(entries)
     }
 
 
@@ -232,14 +261,14 @@ async def run_pending_native_retrieval(adapter, harness, *, dialogue=(), rules=N
     from application_state.agent_conversation.plan_jev_rules_lookup import RULES_HANDLE, rules_candidate
     from .native_source_navigation import navigator
     receipt, execution = owner(adapter.fence.turn)
-    _, query = prepared_pending_source(receipt, execution)
+    authority, query = prepared_pending_source(receipt, execution)
     if getattr(adapter, 'native_query', None) != query:
         raise ValueError('Pending retrieval cannot substitute its prepared query')
     from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
     from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
 
     sources = navigator(adapter)
-    statblocks = _statblock_catalog(adapter)
+    statblocks = _statblock_catalog(adapter, authority)
     producing = None
     while True:
         _, execution = owner(adapter.fence.turn)

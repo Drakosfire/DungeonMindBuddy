@@ -190,3 +190,52 @@ def test_pending_statblock_acquisition_checks_selection_before_read(monkeypatch,
         with pytest.raises(ValueError, match="acknowledged selection|already read"):
             acquire()
         assert calls == []
+
+
+@pytest.mark.parametrize("drift", [None, "basis", "association", "role"])
+def test_pending_followup_offers_only_currently_associated_saved_revision(monkeypatch, drift):
+    from uuid import uuid4
+
+    from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+    from application_state.world_mechanics.types import MechanicsLocator
+    from apps.live_control_server.services import build_pending_native_retrieval, statblock_saved_revision
+
+    locator = MechanicsLocator(
+        provider="dungeonmind", statblock_id="sb_example", revision_id="rev_example",
+        contract="dungeonmind.dungeonbuddy-statblocks", contract_version="1.0.0",
+        definition_digest="sha256:" + "a" * 64,
+    )
+    draft_id, conversation = uuid4(), uuid4()
+    read = BuildSavedStatblockReadV1(
+        event_id=uuid4(), sequence=0, selection_event_id=uuid4(),
+        handle="saved-statblock:0", world_id="world", draft_id=draft_id, locator=locator,
+        definition={"identity": {"name": "Example"}},
+    )
+    basis = object()
+    turn = SimpleNamespace(sequence=2, world_id="world", conversation_id=conversation,
+        graph_context_receipt=SimpleNamespace(work_context=SimpleNamespace(source_basis=basis)))
+    prior = SimpleNamespace(status="completed",
+        graph_context_receipt=SimpleNamespace(work_context=SimpleNamespace(
+            surface_id="build", source_basis=object() if drift == "basis" else basis,
+        )), graph_context_execution=SimpleNamespace(events=[read]))
+
+    def list_turns(world_id, conversation_id, *, limit, before_sequence):
+        assert (world_id, conversation_id, limit, before_sequence) == ("world", conversation, 1, 2)
+        return [prior]
+
+    adapter = SimpleNamespace(
+        native_principal=SimpleNamespace(role="player" if drift == "role" else "gm"),
+        request=SimpleNamespace(message="Could it negotiate?"),
+        fence=SimpleNamespace(turn=turn), service=SimpleNamespace(list_turns=list_turns),
+    )
+    authority = object()
+
+    def reference(world_id, supplied_authority, supplied_draft, supplied_locator):
+        assert (world_id, supplied_authority, supplied_draft, supplied_locator) == (
+            "world", authority, draft_id, locator,
+        )
+        return None if drift == "association" else SimpleNamespace(label="Example")
+
+    monkeypatch.setattr(statblock_saved_revision, "published_statblock_reference", reference)
+    result = build_pending_native_retrieval._statblock_catalog(adapter, authority)
+    assert result == ({} if drift else {"saved-statblock:0": ("Example", draft_id, locator)})
