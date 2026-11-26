@@ -76,6 +76,10 @@ The first serving-integration focused run exposed one generator failure: the cur
 
 `dev-shepherd-naming` preserves the naming question, including its newline, as recorded in two search-observation items in the supplied trace; the record does not contain a separate top-level submitted request envelope. Its short prior dialogue, page and related-page inventory are explicitly reconstructed synthetic development context, not the original long conversation or an independently held-out case. The original captured record reports a completed turn and a roughly 241-second trace window, with 11 related-page retrieved observations, one native-search expansion, 16 full-document expansion observations, 24 section expansion observations and two assertion expansion observations. Expansion/retrieval stages may overlap and are not counts of distinct sources; even a `complete` captured record does not establish complete acquisition coverage or end-to-end latency. The separate signed-in 7.2-second fresh-chat smoke is not a controlled before/after comparison. The raw trace and host identifiers are not included in the model-facing fixture.
 
+## Semantic-review evidence binding
+
+The offline report can accept an optional hash-pinned external review of response quality and, for source-required cases, evidence support. It binds the review to the case, rubric, fixture set and exact captured request, answer, history, trace and fixture artifacts, using the same byte snapshot for hashing and parsing. It rejects missing bindings, changed artifacts, duplicate keys and unsupported judgments. Reviewer identity and independence remain unverified assertions; this does not establish a complete acquisition journal, capture environment or qualified cohort. Ten focused synthetic checks passed, including tampering and incomplete-report cases; no actual review, provider or database was used. The local serving integration must be updated before this evaluator increment can run.
+
 ## Outcome and lease
 
 Build an independently reviewable evaluation of unnecessary acquisition and

@@ -44,16 +44,70 @@ def response_latency(answer):
             "scope": "includes any context wrapper; excludes later history, trace and review"}
 
 
-def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fixture_set=None):
+def read_semantic_review(path, expected_sha256, *, case_id, rubric, fixture_sha256, artifact_hashes):
+    """Bind reviewer assertions to exact evidence; identity/independence are not verified."""
+    if (not isinstance(expected_sha256, str) or len(expected_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in expected_sha256)):
+        raise ValueError("A frozen semantic review digest is required")
+    raw = Path(path).read_bytes()
+    if sha256(raw).hexdigest() != expected_sha256:
+        raise ValueError("Semantic review differs from its frozen digest")
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("Semantic review contains duplicate keys")
+            result[key] = value
+        return result
+    review = json.loads(raw, object_pairs_hook=unique_object)
+    if not isinstance(review, dict) or set(review) != {"schema", "case_id", "rubric_sha256", "fixture_set_sha256", "reviewer", "artifacts", "judgments"}:
+        raise ValueError("Malformed semantic review")
+    if (review["schema"] != "dmb_negative_retrieval_semantic_review_v1"
+            or review["case_id"] != case_id or review["rubric_sha256"] != rubric_sha256(rubric)
+            or not isinstance(fixture_sha256, str) or review["fixture_set_sha256"] != fixture_sha256
+            or not isinstance(review["reviewer"], str) or not review["reviewer"].strip()):
+        raise ValueError("Semantic review case, rubric, fixture or reviewer differs")
+    required = {"request", "answer-http", "history-after", "context-trace", "fixture-sources", "fixture-pin"}
+    prior_histories = {name for name in ("history-before", "fresh-history") if name in artifact_hashes}
+    required |= prior_histories
+    pinned = review["artifacts"]
+    if (not isinstance(pinned, dict) or not prior_histories or not required <= set(pinned)
+            or any(name not in artifact_hashes or digest != artifact_hashes[name] for name, digest in pinned.items())):
+        raise ValueError("Semantic review does not bind the captured artifacts")
+    judgments = review["judgments"]
+    if not isinstance(judgments, dict) or set(judgments) != {"semantic_quality", "required_support"}:
+        raise ValueError("Semantic review judgments are malformed")
+    projected = {}
+    for name, judgment in judgments.items():
+        if judgment is None:
+            projected[name] = None
+        elif (not isinstance(judgment, dict) or set(judgment) != {"value", "rationale"}
+              or type(judgment["value"]) is not bool or not isinstance(judgment["rationale"], str)
+              or not judgment["rationale"].strip()):
+            raise ValueError("Semantic review judgment requires a boolean and rationale")
+        else:
+            projected[name] = judgment["value"]
+    if not rubric["required_reads"] and projected["required_support"] is not None:
+        raise ValueError("Source-support judgment requires a source-required case")
+    return {"sha256": expected_sha256, "reviewer": review["reviewer"],
+            "independence": "unverified", "judgments": projected}
+
+
+def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fixture_set=None,
+                review_path=None, expected_review_sha256=None):
     """Report only what the bound capture proves; never infer semantic grades."""
+    if (review_path is None) != (expected_review_sha256 is None):
+        raise ValueError("Semantic review requires both a path and frozen digest")
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
     paths = {name: directory / (name + ".json") for name in names}
     for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe"):
         paths[name] = directory / (name + ".json")
     present = {name: path for name, path in paths.items() if path.is_file()}
-    hashes = {name: sha256(path.read_bytes()).hexdigest() for name, path in present.items()}
-    rows = {name: json.loads(path.read_text()) for name, path in present.items()}
+    # Bind and parse the same immutable byte snapshot, not a second file read.
+    raw_artifacts = {name: path.read_bytes() for name, path in present.items()}
+    hashes = {name: sha256(raw).hexdigest() for name, raw in raw_artifacts.items()}
+    rows = {name: json.loads(raw) for name, raw in raw_artifacts.items()}
     native_probe = None
     if "native-graph-probe" in rows:
         value = rows["native-graph-probe"]
@@ -93,6 +147,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         terminal = {"status": terminal["status"], "error_type": terminal.get("error_type")}
     missing = [name for name in names if name not in present]
     if missing:
+        if review_path is not None:
+            raise ValueError("Semantic review cannot bind an incomplete capture")
         return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
                 "status": "unproven", "missing_artifacts": missing,
                 "artifact_sha256": hashes, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe,
@@ -159,7 +215,6 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     observed["graph_query_attempts"] = (sum(native_probe["counts"]["native_graph_query"].values())
                                           if native_turn else None)
     observed["graph_query_journal_complete"] = None
-    grade = assess(rubric, observed)
     # Use the history belonging to the request, not a previous active conversation.
     # A failed/missing binding is unqualified, even if a violation was observed.
     from .fixture_binding import verify_fixture
@@ -174,6 +229,14 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
     fixture_bound = True if primary_bound and related_bound and pin_bound else None
+    reviewed = None
+    if review_path is not None:
+        if fixture_bound is not True:
+            raise ValueError("Semantic review requires a verified fixture binding")
+        reviewed = read_semantic_review(review_path, expected_review_sha256, case_id=fixture["id"],
+            rubric=rubric, fixture_sha256=expected_fixture_sha256, artifact_hashes=hashes)
+        observed.update(reviewed["judgments"])
+    grade = assess(rubric, observed)
     return {**grade, "schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
             "status": "unproven",
             "observation_status": grade["status"], "primary_context_verified": primary_bound,
@@ -181,6 +244,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "fixture_pin_verified": pin_bound,
             "capture_environment_verified": None,
             "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe,
+            "semantic_review": reviewed,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,
             "http_status": observed["http_status"], "response_latency": response_latency(rows["answer-http"]),
@@ -192,4 +256,4 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "related_page_probe": probe["records"],
             "limits": ["Probe and trace are a partial acquisition journal.",
                        "Capture environment and prior citations are not independently verified here.",
-                       "Semantic, mutation, inline delivery, continuation and reopen evidence are not assessed here."]}
+                       "Semantic review independence is not verified; mutation, inline delivery, continuation and reopen evidence are not assessed here."]}

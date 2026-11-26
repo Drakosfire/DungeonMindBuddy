@@ -229,6 +229,23 @@ processing, including any context wrapper. This is not total browser delivery ti
 verified while the capture environment is unqualified. Missing timing stays
 unknown; invalid or non-finite values are rejected.
 
+An optional external semantic review can be attached to `report_case` with
+`review_path` and an independently frozen `expected_review_sha256`. The JSON
+must use schema `dmb_negative_retrieval_semantic_review_v1`, the exact `case_id`,
+`rubric_sha256` and `fixture_set_sha256`, a nonblank `reviewer`, an `artifacts`
+map of retained artifact names to their SHA-256 values, and `judgments` containing
+exactly `semantic_quality` and `required_support`. Each judgment is either null
+or an object with a boolean `value` and a nonblank `rationale`; source support
+must be null unless the rubric requires a source. The artifact map must include
+`request`, `answer-http`, `history-after`, `context-trace`, `fixture-sources`,
+`fixture-pin`, and every retained `history-before`/`fresh-history` artifact.
+The report verifies the review bytes, rubric, fixture and artifact hashes, and
+requires a verified fixture binding before attaching the judgments. Review
+contents stay host-side. The reviewer identity and independence remain
+**unverified**; a matching hash proves only binding, not correctness or
+independence. These assertions do not establish acquisition completeness,
+environment qualification, mutation safety, UI delivery or a passing cohort.
+
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
 the private rubric without calling a model. Supply the frozen mapping as

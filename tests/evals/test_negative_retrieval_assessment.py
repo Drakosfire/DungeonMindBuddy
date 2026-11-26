@@ -528,6 +528,110 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     assert original_discover is not fail_discovery
 
 
+def test_semantic_review_requires_frozen_exact_evidence_and_never_certifies_independence(tmp_path):
+    import copy
+    import json
+    from evals.negative_retrieval.assessment import rubric_sha256
+    from evals.negative_retrieval.report import read_semantic_review
+    artifacts = {name: sha256(name.encode()).hexdigest() for name in (
+        "request", "answer-http", "history-before", "history-after", "context-trace", "fixture-sources", "fixture-pin")}
+    rubric = {"max_catalog_discoveries": 1, "required_reads": ["ledger"], "allowed_reads": ["ledger"], "outcomes": ["answer"]}
+    review = {"schema": "dmb_negative_retrieval_semantic_review_v1", "case_id": "case1", "rubric_sha256": rubric_sha256(rubric),
+        "fixture_set_sha256": "f" * 64, "reviewer": "independent reviewer asserted", "artifacts": artifacts,
+        "judgments": {"semantic_quality": {"value": True, "rationale": "The answer addresses the question."},
+                      "required_support": {"value": False, "rationale": "The cited passage does not support the toll."}}}
+    path = tmp_path / "review.json"
+    def check(value, *, expected=None, hashes=artifacts):
+        raw = json.dumps(value).encode()
+        path.write_bytes(raw)
+        return read_semantic_review(path, expected or sha256(raw).hexdigest(), case_id="case1", rubric=rubric,
+                                    fixture_sha256="f" * 64, artifact_hashes=hashes)
+    result = check(review)
+    duplicate = json.dumps(review).replace('"case_id": "case1"', '"case_id": "case1", "case_id": "case1"')
+    path.write_text(duplicate)
+    with pytest.raises(ValueError, match="duplicate keys"):
+        read_semantic_review(path, sha256(path.read_bytes()).hexdigest(), case_id="case1", rubric=rubric,
+                             fixture_sha256="f" * 64, artifact_hashes=artifacts)
+    assert result["independence"] == "unverified"
+    assert result["judgments"] == {"semantic_quality": True, "required_support": False}
+    with pytest.raises(ValueError, match="frozen digest"):
+        check(review, expected="0" * 64)
+    with pytest.raises(ValueError, match="captured artifacts"):
+        check(review, hashes=artifacts | {"answer-http": "0" * 64})
+    with pytest.raises(ValueError, match="captured artifacts"):
+        check(review, hashes=artifacts | {"fresh-history": "1" * 64})
+    for mutation in (lambda x: x.update(case_id="other"),
+                     lambda x: x.update(rubric_sha256="0" * 64),
+                     lambda x: x["artifacts"].pop("history-before"),
+                     lambda x: x["judgments"].update(semantic_quality={"value": True, "rationale": " "}),
+                     lambda x: x["judgments"].update(required_support=True),
+                     lambda x: x.update(extra="unreviewed")):
+        altered = copy.deepcopy(review)
+        mutation(altered)
+        with pytest.raises(ValueError): check(altered)
+    no_required = {**rubric, "required_reads": [], "allowed_reads": []}
+    invalid = copy.deepcopy(review)
+    invalid["rubric_sha256"] = rubric_sha256(no_required)
+    path.write_text(json.dumps(invalid))
+    with pytest.raises(ValueError, match="source-required"):
+        read_semantic_review(path, sha256(path.read_bytes()).hexdigest(), case_id="case1", rubric=no_required,
+                             fixture_sha256="f" * 64, artifact_hashes=artifacts)
+
+
+def test_offline_report_binds_semantic_review_but_keeps_partial_capture_unproven(tmp_path, monkeypatch):
+    import json
+    from evals.negative_retrieval import report as module, fixture_binding, fixture_sources
+    from evals.negative_retrieval.assessment import rubric_sha256
+    fixture = {"id": "case1", "request": "What is the toll?"}
+    rubric = {"max_catalog_discoveries": 1, "required_reads": ["ledger"], "allowed_reads": ["ledger"], "outcomes": ["answer"]}
+    probe = {"schema": "dmb_negative_retrieval_related_page_probe_v1", "coverage": "partial", "case_id": "case1",
+             "status": "observed", "window": "turn_post_v1", "records": []}
+    data = {"request": {"message": fixture["request"]}, "answer-http": {"body": {}, "http_status": 200},
+            "history-before": {}, "history-after": {}, "context-trace": {"body": {}},
+            "related-page-probe": probe, "fixture-sources": {"before": []}, "fixture-pin": {}}
+    for name, value in data.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps(value))
+    monkeypatch.setattr(module, "verify_fixture_pin", lambda *a: True)
+    monkeypatch.setattr(fixture_sources, "verify_related_record", lambda *a: True)
+    monkeypatch.setattr(fixture_sources, "related_trace_labels", lambda *a: {})
+    monkeypatch.setattr(fixture_binding, "verify_fixture", lambda *a: True)
+    monkeypatch.setattr(module, "observe", lambda *a, **k: {"reads": [], "observed_acquisitions": [],
+        "outcome": "answer", "completed_turn": True, "native_activity": {"counts_by_policy": {}},
+        "http_status": 200, "terminal_status": "completed", "trace_capture_status": "complete", "decision_observations": {}})
+    hashes = {name: sha256((tmp_path / f"{name}.json").read_bytes()).hexdigest() for name in data}
+    review = {"schema": "dmb_negative_retrieval_semantic_review_v1", "case_id": "case1", "rubric_sha256": rubric_sha256(rubric),
+        "fixture_set_sha256": "f" * 64, "reviewer": "reviewer", "artifacts": hashes,
+        "judgments": {"semantic_quality": {"value": True, "rationale": "Answers the question."},
+                      "required_support": {"value": False, "rationale": "Claim is unsupported."}}}
+    path = tmp_path / "review.json"
+    raw = json.dumps(review).encode(); path.write_bytes(raw)
+    result = module.report_case(tmp_path, fixture, rubric, expected_fixture_sha256="f" * 64, fixture_set={"case1": fixture},
+                                review_path=path, expected_review_sha256=sha256(raw).hexdigest())
+    assert result["semantic_review"]["independence"] == "unverified"
+    # The same bytes must be used for both hashing and parsing.
+    with monkeypatch.context() as single_read:
+        from pathlib import Path
+        def no_text_read(*args, **kwargs): raise AssertionError("artifact read twice through text API")
+        single_read.setattr(Path, "read_text", no_text_read)
+        again = module.report_case(tmp_path, fixture, rubric, expected_fixture_sha256="f" * 64, fixture_set={"case1": fixture},
+                                   review_path=path, expected_review_sha256=sha256(raw).hexdigest())
+        assert again["semantic_review"] == result["semantic_review"]
+    assert result["checks"]["semantic_quality"] is True and result["checks"]["required_support"] is False
+    assert result["status"] == "unproven" and result["capture_environment_verified"] is None
+    with pytest.raises(ValueError, match="path and frozen digest"):
+        module.report_case(tmp_path, fixture, rubric, review_path=path)
+    with monkeypatch.context() as invalid:
+        def unbound(*args): raise ValueError("invalid fixture pin")
+        invalid.setattr(module, "verify_fixture_pin", unbound)
+        with pytest.raises(ValueError, match="verified fixture binding"):
+            module.report_case(tmp_path, fixture, rubric, expected_fixture_sha256="f" * 64, fixture_set={"case1": fixture},
+                               review_path=path, expected_review_sha256=sha256(raw).hexdigest())
+    (tmp_path / "answer-http.json").write_text(json.dumps({"body": {"changed": True}, "http_status": 200}))
+    with pytest.raises(ValueError, match="captured artifacts"):
+        module.report_case(tmp_path, fixture, rubric, expected_fixture_sha256="f" * 64, fixture_set={"case1": fixture},
+                           review_path=path, expected_review_sha256=sha256(raw).hexdigest())
+
+
 def test_offline_report_keeps_missing_and_positive_retrieval_evidence_honest(tmp_path):
     import json
     from evals.negative_retrieval.report import report_case
