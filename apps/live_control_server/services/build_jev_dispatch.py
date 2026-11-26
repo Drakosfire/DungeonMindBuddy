@@ -225,10 +225,13 @@ def continuation_binding(adapter) -> dict:
     prior = adapter.last_provider_attempt_id
     outcomes = [e.outcome for e in execution.events
                 if isinstance(e, ledger.ProviderOutcomeEventV1) and e.provider_attempt_id == prior]
+    controller = execution.policy.provider_roles.controller
     if not (author_admission and not attempts and prior is None) and (prior is None or attempts[-1].provider_attempt_id != prior
-            or attempts[-1].provider != PROVIDER or attempts[-1].model != MODEL
+            or (attempts[-1].provider, attempts[-1].model, attempts[-1].api_mode) != controller.identity()
             or outcomes[-1:] != ["response_received"]):
         raise ValueError("Continuation requires the last acknowledged controller attempt")
+    if controller.model != MODEL:
+        raise ValueError("The retained turn uses a prior controller identity and cannot continue on the current route")
     return dict(context_receipt_sha256=receipt.context_receipt_sha256,
                 initial_envelope_sha256=attempts[0].envelope_sha256 if attempts else None,
                 execution_policy_sha256=execution.execution_policy_sha256,
