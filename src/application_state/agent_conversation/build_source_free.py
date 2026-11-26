@@ -447,14 +447,19 @@ def pending_semantic_context(receipt, execution, initial_request_json):
             'role': 'untrusted_saved_page_title_for_navigation_not_evidence'}}
 
 
-def _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages):
+def _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, pages, *, current_variant=False):
     if not pages:
         raise ValueError('An absent or empty App catalog does not need a page-selection call')
     state = pending_semantic_context(receipt, execution, initial_request_json)
+    current_id = str(receipt.work_context.source_basis.document_id)
+    current_offer = current_variant and any(str(page.document_id) == current_id for page in pages)
     state['saved_pages'] = [{'choice': f'page{i + 1}', 'title': page.title,
-        'role': 'untrusted_saved_page_title_for_navigation_not_evidence'} for i, page in enumerate(pages)]
+        'role': ('untrusted_current_saved_page_title_for_navigation_not_evidence'
+                 if current_offer and str(page.document_id) == current_id
+                 else 'untrusted_saved_page_title_for_navigation_not_evidence')} for i, page in enumerate(pages)]
     from .build_related_pages import question_text
-    questions = {f'page{i + 1}': {'type': 'choice', 'instructions': question_text(page, semantic=True),
+    questions = {f'page{i + 1}': {'type': 'choice', 'instructions': question_text(page, semantic=True,
+                    current_offer=current_offer, is_current=str(page.document_id) == current_id),
                                  'criteria': {'read': None, 'skip': None}}
                  for i, page in enumerate(pages)}
     return {'model': execution.policy.provider_roles.controller.model, 'state': state, 'questions': questions}
@@ -474,10 +479,13 @@ def validate_pending_app_page_selection_request(receipt, execution, authorizatio
         raise ValueError('App page selection authorization differs from its captured catalog')
     _join_pending_source(receipt, execution)
     expected = _compile_pending_app_page_selection_input(receipt, execution, initial_request_json, catalogs[0].pages)
-    if strict_json(prepared_request_json) != expected:
+    current_expected = _compile_pending_app_page_selection_input(receipt, execution, initial_request_json,
+        catalogs[0].pages, current_variant=True)
+    actual = strict_json(prepared_request_json)
+    if actual not in (expected, current_expected):
         raise ValueError('Prepared App page selection changed its frozen dialogue, catalog or choices')
     validate_prepared(authorization, execution, prepared_request_json, host_phase='navigate')
-    return expected
+    return actual
 
 
 def validate_pending_app_page_selection_result(receipt, execution, selection, proof, trace):
@@ -518,9 +526,15 @@ def validate_pending_app_page_selection_result(receipt, execution, selection, pr
     if len(captured) != 1 or captured[0].get('text') != response_raw:
         raise ValueError('Pending App choices require their exact captured controller response')
     catalog, = [event for event in execution.events if type(event) is BuildAppPageCatalogObservedV1]
+    current_id = str(receipt.work_context.source_basis.document_id)
+    current_expected = _compile_pending_app_page_selection_input(receipt, execution,
+        proof['initial_request_json'], catalog.pages, current_variant=True)
+    current_offer = (request == current_expected
+                     and any(str(page.document_id) == current_id for page in catalog.pages))
     selected = sorted([page.document_id for index, page in enumerate(catalog.pages)
         if should_read_page(page, request['questions'][f'page{index + 1}'],
-                            response.answers[f'page{index + 1}'], semantic=True)], key=str)
+                            response.answers[f'page{index + 1}'], semantic=True,
+                            current_offer=current_offer, is_current=str(page.document_id) == current_id)], key=str)
     if selected != selection.document_ids:
         raise ValueError('Pending App choices differ from the actual read/skip votes')
     return tuple(selected)
