@@ -50,6 +50,13 @@ it('validates lifecycle receipt operation and exact resulting active pointer',as
  response({...receipt,command_kind:'restore'});expect((await changeConversationLifecycle({...command,expected_active_conversation_id:null},'restore')).active_conversation_id).toBeNull();
 });
 
+it('validates that permanent deletion preserves the current conversation pointer',async()=>{
+ const command={world_id:'world',conversation_id:cid,command_id:tid,expected_pointer_revision:4,expected_active_conversation_id:tid};
+ const receipt={world_id:'world',conversation_id:cid,command_id:tid,command_kind:'delete',active_conversation_id:tid,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};
+ response(receipt);expect(await changeConversationLifecycle(command,'delete')).toEqual(receipt);
+ response({...receipt,active_conversation_id:null});await expect(changeConversationLifecycle(command,'delete')).rejects.toThrow('lifecycle');
+});
+
 it('accepts exact saved-message previews but never full-detail metadata in that contract',async()=>{
  const preview={schema:'dmb_conversation_messages_v1',world_id:'world',conversation_id:cid,messages:[{turn_id:tid,sequence:2,status:'completed',user_text:'Original question',assistant_text:'Saved answer'}],next_before_sequence:2};
  response(preview);expect((await readConversationMessages('world',cid)).messages[0].assistant_text).toBe('Saved answer');
