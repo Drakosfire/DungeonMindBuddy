@@ -2774,9 +2774,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it("prepends a requested Play history page without moving the reader or duplicating turns", async () => {
-    const latest={...history([turn("play",2,"Middle answer"),turn("play",3,"Latest answer")]),next_before_sequence:2};
-    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world,options)=>options?.beforeSequence
-      ? history([turn("play",1,"Oldest answer"),turn("play",2,"Middle answer")]) : latest);
+    const messages = vi.mocked(readActiveConversationMessages), prior = messages.getMockImplementation();
+    messages.mockImplementation(async (world,before) => {
+      const page = before === undefined ? [turn("play",2,"Middle answer"),turn("play",3,"Latest answer")] : [turn("play",1,"Oldest answer")];
+      return {schema:'dmb_active_conversation_messages_v4',world_id:world,conversation_state:'active',
+        conversation_id:'11111111-1111-4111-8111-111111111111',active_conversation_id:'11111111-1111-4111-8111-111111111111',pointer_revision:1,
+        messages:page.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,
+          citation_preview:null,reply_object:null,authored_references:null,revision:1,idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance})),
+        next_before_sequence:before === undefined ? 2 : null};
+    });
+    try {
     render(<Harness initial="play"/>);
     fireEvent.click(await screen.findByRole("button",{name:"Open",exact:true}));
     await screen.findByText("Latest answer");
@@ -2793,7 +2800,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(viewport.scrollTop).toBe(40+viewport.scrollHeight-before);
     expect(screen.getAllByText("Middle answer")).toHaveLength(1);
     expect(screen.queryByRole("button",{name:"Load earlier messages"})).toBeNull();
-    expect(getWorldAgentConversationHistory).toHaveBeenCalledWith(WORLD,expect.objectContaining({limit:50,beforeSequence:2}));
+    expect(messages).toHaveBeenCalledWith(WORLD,2,expect.any(AbortSignal));
+    expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+    } finally {
+      messages.mockReset();
+      if (prior) messages.mockImplementation(prior);
+    }
   });
 
   it("uses the compact dock, loaded exchanges and conversation options in Play", async () => {
