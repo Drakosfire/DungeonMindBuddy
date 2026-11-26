@@ -659,6 +659,19 @@ def test_image_move_projection_binds_one_existing_occurrence_and_retains_order()
     selected = capture.model_copy(update={"author_selected_block_id":"first-map"})
     decision = BuildImageMoveDecision.from_saved(selected, "Could you move this image right one slot?", markdown, before)
     assert decision.selected == "image1" and decision.resolve(choices).placement == placement
+    from generationengine.types import ChoiceDecisionAnswer, DecisionResult, InferenceObservation
+    from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
+    questions = decision.questions()
+    request = {'state': {'user_question': decision.question, 'interaction': {OPENING_STATE_KEY: decision.semantic_state()}},
+        'questions': {q.name: {'type': 'choice', 'instructions': q.question, 'criteria': dict.fromkeys(q.options)} for q in questions}}
+    for model in ('jev-1.14.0', 'typesafe-ai/jev-1.14.0'):
+        response = DecisionResult(answers={q.name: ChoiceDecisionAnswer(selected=choices[q.name]) for q in questions},
+            observation=InferenceObservation(provider='typesafe', resolved_model=model, response_model=model,
+                latency_ms=1, retry_count=0, state='completed', provider_attempt_count=1))
+        assert decision.opening_answers(request, response, allow_retained=True, expected_model=model) == choices
+        with pytest.raises(ValueError, match='provider/model'):
+            decision.opening_answers(request, response, allow_retained=True,
+                expected_model=('jev-1.14.0' if model.startswith('typesafe-ai/') else 'typesafe-ai/jev-1.14.0'))
     assert decision.resolve(choices | {"image_move_affirmation": "description_or_discussion"}).placement is None
     assert decision.resolve({name: value for name, value in choices.items() if name != "image_move_affirmation"}).placement == placement
     discussion = choices | {"image_move_intent": "other"}
