@@ -284,6 +284,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
+                        "DMB_BENCHMARK_LIVE_BUILD": "1" if live_build else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
@@ -348,7 +349,7 @@ def build_browser_terminal(raw, status, content_type, turn_id):
     """Read the same terminal result or error consumed by the Build browser."""
     if content_type.split(";", 1)[0].strip().lower() != "text/event-stream":
         return json.loads(raw), status
-    for frame in raw.decode("utf-8").replace("\r\n", "\n").split("\n\n"):
+    for frame in raw.decode("utf-8").replace("\r\n", "\n").split("\n\n")[:-1]:
         data = "\n".join(line[5:].lstrip() for line in frame.splitlines() if line.startswith("data:"))
         if not data:
             continue

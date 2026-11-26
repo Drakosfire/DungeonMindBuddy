@@ -88,6 +88,10 @@ async function run() {
       throw error;
     }
     const delivered = await response;
+    if (process.env.DMB_BENCHMARK_LIVE_BUILD === "1") {
+      // Keep the page alive while its ordinary client consumes the terminal event.
+      await delivered.finished();
+    }
     const after = await calibrate();
     const browserMarks = await page.evaluate(() => {
       const click = performance.getEntriesByName("benchmark-browser-send").at(-1)?.startTime;
