@@ -323,7 +323,7 @@ async def run_pending_native_retrieval(adapter, harness, *, dialogue=(), rules=N
         reviewed = [*examined, *sources.examined()]
         for handle, (label, _, _) in statblocks.items():
             if handle in acquired_statblocks:
-                reviewed.append(RetrievalCandidate(handle=handle, label=label, kind="Opened saved statblock"))
+                reviewed.append(RetrievalCandidate(handle=handle, label=label, kind="Saved statblock: acquired exact mechanics in this turn"))
             else:
                 candidates.append(RetrievalCandidate(
                     handle=handle, label=label, kind="Saved statblock; open its exact stored mechanics revision",
