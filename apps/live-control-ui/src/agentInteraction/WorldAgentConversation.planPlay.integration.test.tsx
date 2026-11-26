@@ -1492,11 +1492,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const prior = turn("plan",1,text);
     const basis = context.receipt.plan_basis;
     const row = {...prior,provenance:{...prior.provenance,primary_work:{...prior.provenance.primary_work,revision:String(basis.object_revision),object_revision:basis.object_revision,revision_n:basis.revision_n,work_revision_id:basis.work_revision_id,content_sha256:basis.content_sha256}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([{...row,plan_context:context}]),schema:"dmb_agent_conversation_history_v2"} as WorldAgentConversationHistoryResponse);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([{...row,plan_context:context}]),schema:"dmb_agent_conversation_history_v3",turns:[{...row,plan_context:context,idempotency_key:'11111111-1111-4111-8111-000000000001'}]} as WorldAgentConversationHistoryResponse);
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", {name:"Open"}));
+    fireEvent.click(await screen.findByText('Trace', {selector:'summary'}));
     if (foreign) {
-      await screen.findByText("The World conversation response did not match the selected World or contained an invalid Graph-context receipt. Refresh history before continuing.");
+      await screen.findByText("Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.");
       expect(screen.queryByRole("link", {name:"Closing reflections"})).not.toBeInTheDocument();
     } else {
       expect(await screen.findByRole("link", {name:"Closing reflections"})).toHaveAttribute("href", url);
