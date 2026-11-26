@@ -1,6 +1,7 @@
 """Offline report on retained ordinary Build artifacts; no provider calls."""
 from hashlib import sha256
 import json
+import math
 from pathlib import Path
 
 from .assessment import REPORT_SCHEMA, assess, rubric_sha256
@@ -26,6 +27,17 @@ def verify_fixture_pin(fixture, record, expected_fixture_sha256, fixture_set):
             or record.get("case_sha256") != fixture_sha256({fixture["id"]: fixture})):
         raise ValueError("Fixture pin does not bind this case to the frozen set")
     return True
+
+
+def response_latency(answer):
+    """Report the ordinary capture's dispatch-to-response clock, if retained."""
+    if "elapsed_ms" not in answer:
+        return None
+    value = answer["elapsed_ms"]
+    if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+        raise ValueError("Invalid response latency")
+    return {"elapsed_ms": value, "basis": "ordinary capture dispatch to HTTP response",
+            "scope": "response only; excludes later history, trace and review"}
 
 
 def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fixture_set=None):
@@ -137,7 +149,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,
-            "http_status": observed["http_status"], "terminal_status": observed["terminal_status"],
+            "http_status": observed["http_status"], "response_latency": response_latency(rows["answer-http"]),
+            "terminal_status": observed["terminal_status"],
             "trace_capture_status": observed["trace_capture_status"],
             "trace_acquisitions": observed["observed_acquisitions"],
             "decision_observations": observed["decision_observations"],

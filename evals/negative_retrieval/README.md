@@ -158,6 +158,12 @@ establish live-model or shared-Core qualification. A separately verified
 binding and prompt-boundary audit are required for a real capture; do not write
 to the shared read-only Core to supply one.
 
+When the ordinary `answer-http` artifact includes its monotonic
+`elapsed_ms`, the report exposes dispatch-to-HTTP-response timing with that
+basis. This is not total browser delivery time and is not independently
+verified while the capture environment is unqualified. Missing timing stays
+unknown; invalid or non-finite values are rejected.
+
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
 the private rubric without calling a model. Supply the frozen mapping as

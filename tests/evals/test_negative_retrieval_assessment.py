@@ -581,9 +581,12 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     artifacts = {"request": request, "history-after": envelope(history), "context-trace": envelope(trace),
                  "answer-http": envelope({"turn_id": "turn", "client_thread_id": "thread",
                                           "knowledge_context": turn["knowledge_context"]}), "related-page-probe": probe}
+    artifacts["answer-http"]["elapsed_ms"] = 1234.5
     for name, value in artifacts.items():
         (tmp_path / f"{name}.json").write_text(json.dumps(value))
     result = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+    assert result["response_latency"]["elapsed_ms"] == 1234.5
+    assert "dispatch to HTTP response" in result["response_latency"]["basis"]
     assert result["status"] == "unproven"
     assert result["observation_status"] == "fail"
     assert result["fixture_context_verified"] is None
@@ -1271,3 +1274,12 @@ def test_real_corpus_discovery_records_nested_body_open_without_source_data():
     assert {row["owner"] for row in records} >= {"native_corpus_discovery", "native_corpus_body_open"}
     assert all(set(row) == {"owner", "state"} for row in records)
     assert source_fixture.BODY not in str(records)
+
+
+@pytest.mark.parametrize("value", [-1, True, float("nan"), float("inf"), "123"])
+def test_response_latency_rejects_invalid_values(value):
+    from evals.negative_retrieval.report import response_latency
+
+    with pytest.raises(ValueError, match="Invalid response latency"):
+        response_latency({"elapsed_ms": value})
+    assert response_latency({}) is None
