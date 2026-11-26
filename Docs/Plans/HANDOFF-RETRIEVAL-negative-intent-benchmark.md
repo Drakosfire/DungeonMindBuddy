@@ -26,6 +26,26 @@ native completion write lease; historical native-completion handoffs #4381,
 #4166 and #4190 have merged. Recheck leases and the serving parent before edit
 and release. Neither slice alone completes the overarching goal.
 
+## Creative limitation predecessor delivered
+
+The independent creative-completion slice merged as PR #4839, serving merge
+`a5bda8bdf311d28066c4f80aec7a88cd7c2581b1`, and was published by Actions run
+`45770183259` and deployed by run `45770534723`. Staged and live receipts named
+image `sha256:54854f9d8e7a6b304a7bf52a7470011fecc8c101504a65ef7d4e56ecf9c2e398`;
+the registry digest was `sha256:fe513c333958eab3f75a62604a5722ad5f338830635f52b9b161a2cd96545509`.
+Readiness and signed-out authentication checks passed, and a post-smoke host
+inspection showed that image healthy on the merged revision.
+
+In the signed-in synthetic World, the same fresh naming prompt produced ten
+names without the earlier partial-retrieval caveat; its trace window was 7.7 s.
+A separate fresh saved-page question answered correctly, preserved the proposed
+status, and its citation opened the supporting passage. These are release smokes,
+not a complete acquisition journal, a controlled benchmark, an end-to-end latency
+measurement or proof that over-retrieval is solved. The remaining benchmark,
+held-out controls and unnecessary acquisition investigation stay active. The
+merged runtime handoff still says ACTIVE; this checkpoint records its completion
+until that predecessor document can be settled by an appropriate successor.
+
 ## Outcome and lease
 
 Build an independently reviewable evaluation of unnecessary acquisition and
