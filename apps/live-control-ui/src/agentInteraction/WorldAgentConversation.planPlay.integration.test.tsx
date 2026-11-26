@@ -1857,9 +1857,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
       provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
         primary_work: { resolution: "resolved" as const, kind: "build", object_id: "source-one", revision: "2",
           content_sha256: SHA, object_revision: null, work_revision_id: null, revision_n: null } } };
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([historical]));
+    const saved = history([historical]);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...saved, schema:'dmb_agent_conversation_history_v3',
+      turns:saved.turns.map(row=>({...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}))});
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
     await screen.findByText(lifecycle === "failed"
       ? "Buddy couldn’t finish this reply. Your saved source was not changed."
       : "This reply stopped before it finished. Your saved source was not changed.");
@@ -3225,8 +3228,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
           byte_start:0,byte_end:18,block_sha256:'b'.repeat(64),entry_identity:String(i+1).repeat(64),source_ordinal:i,
           entry_kind:i?'closing_reflections' as const:'scene_note' as const,element_id:i?null:'scene:gate',checkpoint_content_sha256:base.receipt.play_basis.content_sha256}))}]};
     const row={...turn('play',1,text),play_context:base,provenance:nativePlayProvenanceFixture(base)};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     render(<Harness initial="play"/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
     expect(await screen.findByLabelText('Saved session summary')).toHaveTextContent(text);
     expect(screen.getByRole('link',{name:'1'})).toHaveAttribute('title','Saved rehearsal · Scene notes');
     expect(screen.getByRole('link',{name:'2'})).toHaveAttribute('title','Saved rehearsal · Closing reflections');
@@ -3242,11 +3246,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
         {kind:'authored_quote',text,source_kind:'play',source_handle:entry.source_id,source_name:'Saved Play scene',
           object_id:entry.locator.run_id,revision:String(entry.locator.run_revision),body_sha256:entry.text_sha256,owner_sha256:entry.payload_sha256}]};
     const row={...turn('play',1,text),play_context:base,provenance:nativePlayProvenanceFixture(base)};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     render(<Harness initial={initial}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
+    await screen.findByText('Saved Play scene · quoted excerpt');
     expect((await screen.findByText(text)).closest('blockquote')).not.toBeNull();
-    expect(screen.getByText('Saved Play scene · quoted excerpt')).toBeInTheDocument();
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
   });
 
