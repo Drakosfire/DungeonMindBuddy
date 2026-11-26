@@ -1,6 +1,7 @@
 """Reader-first current-page scope; this slice never emits the new choice."""
 from types import SimpleNamespace
 from hashlib import sha256
+import asyncio
 import json
 
 import pytest
@@ -107,6 +108,20 @@ def test_pending_selection_validates_the_actual_future_request_and_vote():
     with pytest.raises(ValueError):
         semantic.validate_selection_records(prefix, event, proof | {'request_json': proof['request_json'] + ' '}, trace,
             user_text=policy.action.intent.message, turn_id=work['turn_id'], attempt=1)
+
+
+def test_reader_refuses_to_resume_future_scope_before_any_app_or_native_acquisition():
+    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    receipt, policy = pending_execution_pair(with_source=True)
+    execution = pending_execution(receipt, policy, pending_work_prefix(policy, scope='current_saved_page'))
+    # No discovery, source preparation, access or read owners exist here: a
+    # guard after any attempted acquisition would raise a different exception.
+    adapter = SimpleNamespace(_broker_receipt=lambda: receipt, _broker_execution=lambda: execution)
+    with pytest.raises(ValueError, match='requires its producer'):
+        asyncio.run(acquire_pending_app_pages(adapter, object()))
+    with pytest.raises(ValueError, match='requires its producer'):
+        prepare_pending_native_source(adapter)
 
 
 def test_source_backed_presentation_requires_actual_supplied_material():

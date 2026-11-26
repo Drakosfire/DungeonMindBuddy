@@ -16,8 +16,17 @@ producer must use a locked exact-revision saved read, fall back safely for
 different, additional or ambiguous sources, and prove zero catalog discoveries;
 this reader change alone does not accomplish that behavior.
 
+Independent review found that an older runtime could resume the future scope by
+performing a broad catalog or native lookup. The reader slice therefore also
+owns a fail-closed runtime guard: unfinished future-scope work may not initiate
+either acquisition in this reader. This is a safe interruption, not proof that
+an interrupted future turn can complete after rollback. A successor producer
+must replace the guard with the exact current-page path and prove that path.
+
 Write lease: this handoff, `build_intentional_response.py`,
-`build_source_free.py`, `native_build_work_view.py`, and a new focused test file
+`build_source_free.py`, `native_build_work_view.py`,
+`apps/live_control_server/services/build_pending_app_pages.py`,
+`apps/live_control_server/services/build_pending_source.py`, and a new focused test file
 `tests/test_build_current_scope_reader.py`. Avoid the `test_build_source_free_protocol.py`
 path shared with #4884. Verify old and new exact request/vote validation, reject
 tampered scope and guidance, preserve unavailable-action barriers, require actual
