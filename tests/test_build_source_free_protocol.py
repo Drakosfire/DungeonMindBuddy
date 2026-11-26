@@ -3298,6 +3298,37 @@ def test_missing_page_target_real_writer_completion(monkeypatch, outcome):
         assert len(calls) == 1 and state.retained_reads == 0 and state.materialized == 0
 
 
+@pytest.mark.parametrize('explicit_limitation,bad_citation', [(False, False), (True, False), (False, True)])
+def test_missing_target_creative_warning_follows_actual_writer_output(monkeypatch, explicit_limitation, bad_citation):
+    import asyncio
+    import httpx
+    from apps.live_control_server.services import build_jev_dispatch
+    from generationengine import GenerationEngineError
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea', 'text': 'Names: Rowan and Tamsin.'}],
+            'limitations': ['partial_retrieval'] if explicit_limitation else []}
+        if bad_citation:
+            candidate['answer_segments'].append({'kind': 'source_passage_claim', 'text': 'Unsupported.', 'passage_handles': ['unbound']})
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_target_creative', 'object': 'response', 'created_at': 1,
+            'model': body['model'], 'status': 'completed', 'output': [{'type': 'message', 'id': 'msg_target_creative',
+                'role': 'assistant', 'status': 'completed', 'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    with pending_writer_completion_case(monkeypatch, source_free_work='write_current_page', source_scope='anchored', native_json=True) as (state, adapter, rules, writer, prepared):
+        if bad_citation:
+            with pytest.raises(GenerationEngineError):
+                asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert state.completions == 0
+        else:
+            completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            warning = 'This answer uses partial retrieval and does not establish corpus completeness.'
+            assert completed.status == 'completed' and state.completions == 1
+            assert (warning in completed.assistant_text) is explicit_limitation
+        assert state.retained_reads == 0 and state.materialized == 0
+
+
 def test_missing_page_target_harness_skips_native_retrieval(monkeypatch):
     from types import SimpleNamespace
     from apps.live_control_server.services import (build_jev_dispatch, build_jev_writer_selection,
@@ -5628,7 +5659,8 @@ def test_pending_empty_source_answer_does_not_lose_explicit_gap(monkeypatch):
                    for segment in completed.completion.answer_segments)
 
 
-def test_pending_preexisting_creative_warning_replays_unchanged(monkeypatch):
+@pytest.mark.parametrize('missing_target', [False, True])
+def test_pending_preexisting_creative_warning_replays_unchanged(monkeypatch, missing_target):
     """A completion accepted under the previous projection stays readable and replayable."""
     import asyncio
     import httpx
@@ -5650,7 +5682,9 @@ def test_pending_preexisting_creative_warning_replays_unchanged(monkeypatch):
                 'type': 'message', 'id': 'msg_legacy', 'role': 'assistant', 'status': 'completed',
                 'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
 
-    with pending_writer_completion_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+    options = ({'source_free_work': 'write_current_page', 'source_scope': 'anchored', 'native_json': True}
+               if missing_target else {})
+    with pending_writer_completion_case(monkeypatch, **options) as (state, adapter, rules, writer, prepared):
         original = native_completion.project_surface_limitations
         def legacy_projection(*args, **kwargs):
             kwargs['host_partial'] = True

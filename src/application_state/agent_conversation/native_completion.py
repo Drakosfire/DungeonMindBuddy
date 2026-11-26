@@ -559,19 +559,24 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     local_authored = local_authored or (execution.policy.action.surface_id=='play'
         and any(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1)) for s in segments)
         and all(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1,t.PlanWorldGraphProposalSegmentV1)) for s in segments))
-    # A pending Build discussion explicitly anchored in the supplied context
-    # can answer with creative proposals without preparing native sources. The
-    # absence of an unneeded source is not a partial-retrieval result. Keep the
-    # original partial frame and any writer-supplied limitations intact.
+    # An anchored pending Build discussion or source-free missing-target reply
+    # can offer creative proposals without preparing native sources. The absence
+    # of an unneeded source is not a partial-retrieval result. Keep the original
+    # partial frame and any writer-supplied limitations intact.
     from .native_context import BuildPendingContextReceiptV1
     creative_only_anchored = False
     if (type(receipt) is BuildPendingContextReceiptV1 and action.surface_id == 'build'
             and collaboration is None and segments
             and all(isinstance(segment, t.PlanWorldGraphProposalSegmentV1) for segment in segments)):
-        from .build_source_free import effective_pending_source, pending_retained_work
+        from .build_source_free import effective_pending_source, pending_retained_work, pending_source_free_terminal
         work = pending_retained_work(execution)
         creative_only_anchored = (work is not None and work.requested_work == 'discuss'
                                   and effective_pending_source(receipt, execution) is None)
+        if not creative_only_anchored:
+            terminal = pending_source_free_terminal(execution)
+            work_rows = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
+            creative_only_anchored = (terminal == {'status': 'ready', 'reason': 'pending_source_free_write_current_page'}
+                and len(work_rows) == 1 and work_rows[0].resolution.get('barrier') == 'current_page_target_absent')
     has_cited_answer = bool(body_cites or statement_cites or assertion_cites or saved_cites
                             or any(isinstance(s, StatblockPdfClaim) for s in segments)
                             or (evidence.typed_source_answer
