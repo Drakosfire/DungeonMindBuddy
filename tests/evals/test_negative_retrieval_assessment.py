@@ -1258,6 +1258,42 @@ def test_capture_requires_pinned_cohort_and_never_requests_a_clone(tmp_path, mon
         assert calls == [(MANIFEST_PIN, "serving" if signature == "serving" else False)]
 
 
+def test_serving_capture_reaches_readonly_core_guard_without_inventory(tmp_path, monkeypatch, verified_capture_owner):
+    import inspect
+    import psycopg
+    from evals.buddy_benchmark import workflow, cohort_capture, artifacts
+    from evals.negative_retrieval.capture import capture
+    if "clone_app" in inspect.signature(workflow.capture).parameters:
+        pytest.skip("Serving-lineage capture signature is not present")
+    entries = {"app": {"host": "127.0.0.1", "port": 1234, "database": "synthetic_app", "oid": "1", "system_identifier": "2"},
+               "native": {"host": "127.0.0.1", "port": 1234, "database": "synthetic_core", "oid": "3", "system_identifier": "4"}}
+    spec = {"conversation_mode": "build_sequence", "pins": {"synthetic": True}, "runtime": {},
+            "request_template": {}, "world": "synthetic", "isolation": entries}
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: (spec, tmp_path))
+    monkeypatch.setattr(workflow, "verify_runtime", lambda *a: None)
+    monkeypatch.setattr(workflow, "validate_template", lambda *a, **k: None)
+    monkeypatch.delenv("DMB_AGENT_GRAPH_LOCAL_PROFILE", raising=False)
+    monkeypatch.setenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", "postgresql://user@127.0.0.1:1234/synthetic_app")
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "postgresql://user@127.0.0.1:1234/synthetic_core")
+    class FakeConnection:
+        def __init__(self, values): self.values = values
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def execute(self, sql): return self
+        def fetchone(self): return self.values
+    def fake_connect(dsn, **kwargs):
+        assert kwargs == {"options": "-c default_transaction_read_only=on"}
+        row = entries["app"] if dsn.endswith("synthetic_app") else entries["native"]
+        return FakeConnection((row["database"], row["oid"], row["system_identifier"]))
+    monkeypatch.setattr(psycopg, "connect", fake_connect)
+    def forbidden(*args, **kwargs): pytest.fail("Full Core inventory must not run")
+    monkeypatch.setattr(artifacts, "row_inventory", forbidden)
+    def readonly_guard(dsn): raise RuntimeError("synthetic readonly guard reached")
+    monkeypatch.setattr(cohort_capture, "require_read_only_core", readonly_guard)
+    with pytest.raises(RuntimeError, match="synthetic readonly guard reached"):
+        capture(_test_manifest(tmp_path), tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN)
+
+
 def test_controller_votes_are_projected_as_unvalidated_not_reads():
     import json
     from evals.negative_retrieval.trace_observation import controller_observations, observed_acquisitions
