@@ -1249,6 +1249,7 @@ def retained_action_report(ledger, base):
         row = {key: case.get(key) for key in (
             "id", "action", "tier", "specification", "run_status", "unrun_reason",
             "review_note", "qualification_required", "fixture_limitation",
+            "expected_actions_observed", "required_retrieval_missed", "exact_reopen",
             "unnecessary_retrieval", "unnecessary_jev_source_opens",
             "zero_new_retrieval_disposition")}
         row["reviewed_outcome"] = case.get("outcome", "unrun")
@@ -1258,8 +1259,10 @@ def retained_action_report(ledger, base):
                 answer = json.loads(read_pin(variant["answer"], base))
                 trace = json.loads(read_pin(variant["trace"], base))["body"]
                 directory = (base / variant["answer"]["path"]).parent
-                request = json.loads((directory / "request.json").read_text())
-                history = _wrapped(directory / "history-after.json")["body"]
+                request_path = directory / "request.json"
+                history_path = directory / "history-after.json"
+                request = json.loads(request_path.read_bytes())
+                history = _wrapped(history_path)["body"]
                 turns = _request_turns(history, request, trace["world_id"])
                 if [t["turn_id"] for t in turns] != [trace["turn_id"]]:
                     raise ValueError("Request and history do not identify this durable trace")
@@ -1281,6 +1284,13 @@ def retained_action_report(ledger, base):
                 row["turns"].append({
                     "id": variant.get("case_id", case_id), "turn_id": turn_id,
                     "answer": variant["answer"], "trace": variant["trace"],
+                    "correlation_sidecars": {
+                        "status": "observed_not_pinned_by_ledger",
+                        "request_sha256": sha256(request_path.read_bytes()).hexdigest(),
+                        "history_sha256": sha256(history_path.read_bytes()).hexdigest(),
+                    },
+                    "reviewed_source_open_count": variant.get("recorded_source_open_count"),
+                    "discovery_measurement": variant.get("host_graph_discovery_measurement"),
                     "http_status": answer["http_status"], "http_elapsed_ms": answer["elapsed_ms"],
                     "ledger_elapsed_ms": variant.get("latency_ms"), "operation": operation,
                     "attempts": [{
