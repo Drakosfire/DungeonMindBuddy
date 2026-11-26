@@ -310,9 +310,24 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "provider_calls": 0, "selection_text": manifest["browser_capture"]["selection_text"],
                         })
                         return
-                    after = workflow.response_envelope(
-                        client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
+                    def read_history():
+                        return workflow.response_envelope(
+                            client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
+
+                    after = read_history()
+                    turns = workflow._request_turns(after["body"], browser_request, world)
+                    if live_build:
+                        deadline = monotonic_ns() + 60_000_000_000
+                        while monotonic_ns() < deadline and (not turns or (
+                                len(turns) == 1 and turns[0]["lifecycle_status"] in {"accepted", "running"})):
+                            sleep(0.5)
+                            after = read_history()
+                            turns = workflow._request_turns(after["body"], browser_request, world)
                     artifacts.immutable_save(directory, "history-after", after)
+                    if live_build and len(turns) == 1:
+                        durable_id = turns[0]["turn_id"]
+                        trace = client.get(route + "/turns/" + durable_id + "/context-trace")
+                        artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
                     if live_build:
                         wire_response = json.loads((directory / "build-wire-response.json").read_bytes())
                         wire_bytes = bytes.fromhex(wire_response["raw_body_hex"])
@@ -324,7 +339,6 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
                             "elapsed_ms": wire_response["elapsed_ms"],
                         })
-                    turns = workflow._request_turns(after["body"], browser_request, world)
                     if len(turns) != 1:
                         raise ValueError("Browser request has no unique retained Turn")
                     from application_state.agent_conversation import AgentConversationService
@@ -334,8 +348,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         raise ValueError("Ordinary browser turn did not consume its entire Jev tape")
                     if not live_build:
                         sink.finalize(observed)
-                    trace = client.get(route + "/turns/" + turn_id + "/context-trace").raise_for_status()
-                    artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
+                    if not live_build:
+                        trace = client.get(route + "/turns/" + turn_id + "/context-trace").raise_for_status()
+                        artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
             finally:
                 server.should_exit = True
                 # Keep the exact-wire and writer guards until the application
