@@ -403,10 +403,13 @@ revision-source repository code, including aliases bound before wrappers were
 installed. A recognized, fixture-bound completed turn can use an observed entry
 as an unmapped attempt, not proof of a returned source. Unknown source/code or
 interpreter fingerprints, unscoped activity and incomplete windows do not grant
-that inference. This diagnostic does not cover prebound batch aliases or all
-acquisition owners; no-entry remains unknown.
+that inference. This diagnostic does not cover unknown batch implementations or all
+acquisition owners; no-entry remains unknown. For the separately pinned App
+batch code, the window also observes the line after its empty-input return,
+including prebound aliases. That entry is an attempt, not evidence that the
+query returned a body. A failure before that line remains unknown.
 
-An observed App source-body read by revision and a nonempty batch are also unmapped read attempts; empty concrete batches do not query. Old artifacts without that hook and unobserved or pre-imported aliases remain unknown. A returned batch is not source-specific proof of a required read.
+An observed App source-body read by revision and a nonempty batch are also unmapped read attempts; empty concrete batches do not query. Old artifacts without that hook and unobserved aliases remain unknown. A returned batch is not source-specific proof of a required read.
 An observed selected Graph, authored Graph, or authored corpus read attempt is scored as an unmapped
 acquisition, which proves a violation for a case allowing no reads; it cannot
 establish which required source was read. Query preparation alone is not scored
