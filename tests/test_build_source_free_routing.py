@@ -850,7 +850,7 @@ def test_unavailable_terminal_requires_acknowledged_valid_barrier(monkeypatch):
         assert pending_source_free_terminal(execution) is None
 
 
-@pytest.mark.parametrize('scope', ['source_lookup', 'uncertain'])
+@pytest.mark.parametrize('scope', ['source_lookup'])
 def test_unavailable_terminal_does_not_skip_required_or_uncertain_source(monkeypatch, scope):
     from tests import test_build_source_free_protocol as owner
     from application_state.agent_conversation import types as t
@@ -864,3 +864,26 @@ def test_unavailable_terminal_does_not_skip_required_or_uncertain_source(monkeyp
         index = next(i for i, row in enumerate(events) if type(row) is t.BuildRequestedWorkResolutionV1)
         events[index] = events[index].model_copy(update={'resolution': resolution_for(execution.policy, 'other_creation', source_scope=scope)})
         assert pending_source_free_terminal(execution.model_copy(update={'events': events})) is None
+
+
+def test_unavailable_uncertain_action_completes_capability_reply_without_acquisition(monkeypatch):
+    import asyncio
+    import json
+    import httpx
+    from tests import test_build_source_free_protocol as owner
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [{'kind': 'discussion', 'text': 'I cannot schedule reminders here.'}], 'limitations': []}
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_uncertain', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_uncertain', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    with owner.pending_writer_completion_case(monkeypatch, source_free_work='other_creation', source_scope='uncertain') as (state, adapter, rules, writer, prepared):
+        completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert completed.status == 'completed' and state.completions == 1
+        assert 'cannot schedule' in completed.assistant_text
+        assert state.retained_reads == 0 and state.materialized == 0

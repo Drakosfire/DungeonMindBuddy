@@ -577,7 +577,7 @@ def pending_source_free_terminal(execution):
     validate_resolution_metadata(work, execution.policy)
     if (work.requested_work in UNAVAILABLE
             and (work.resolution.get('barrier') != 'requested_executor_not_offered'
-                 or work.resolution.get('source_scope') != 'anchored')):
+                 or work.resolution.get('source_scope') not in ('anchored', 'uncertain'))):
         return None
     if (work.requested_work == 'write_current_page'
             and (work.resolution.get('source_scope') != 'anchored'
