@@ -118,7 +118,7 @@ export function isSurfaceNativeCompletion(
         ||s.scope.managed_world_id!==nativeWorkWorld(work)||s.scope.scope_mode!=='world'||s.scope.campaign_id!==null
         ||!text(s.scope.native_world_id)||!text(s.scope.revision_id)
         ||typeof s.scope.binding_version!=='number'||!Number.isInteger(s.scope.binding_version)||s.scope.binding_version<1
-        ||!text(s.assertion_id)||typeof s.evidence_ref_id!=='string'||!/^pdf-region:.+$/.test(s.evidence_ref_id))return false;
+        ||!text(s.assertion_id)||typeof s.evidence_ref_id!=='string'||!/^(?:pdf-region:.+|ev:[0-9a-f]{64})$/.test(s.evidence_ref_id))return false;
       pdf=true;
     }
     else if(work.surface_id==='build'&&s.kind==='discussion') {if(!exact(s,['kind','text']))return false;discussion=true;}
