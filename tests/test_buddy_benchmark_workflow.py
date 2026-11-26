@@ -1838,7 +1838,7 @@ def test_native_citation_reopen_verifies_exact_binding_and_records_failures(tmp_
     citation = {"excerpt_sha256": sha256(content.encode()).hexdigest(), "source_artifact_id": "pinned"}
     opened = {
         "schema": "dmb_agent_native_body_excerpt_read_v2", "world_id": "fixture",
-        "turn_id": turn_id, "citation": citation, "content": content,
+        "turn_id": turn_id, "citation": citation, "content": content, "display_label": None,
     }
 
     def respond(request):
@@ -1853,15 +1853,17 @@ def test_native_citation_reopen_verifies_exact_binding_and_records_failures(tmp_
             body["content"] = content.strip()
         elif index == 2:
             body["citation"] = dict(citation, source_artifact_id="different")
+        elif index == 5:
+            body.pop("display_label")
         return httpx.Response(200, json=body)
 
     with httpx.Client(base_url="http://test", transport=httpx.MockTransport(respond)) as client:
         w.retain_citation_readbacks(client, tmp_path, root.removesuffix("/turns"), "fixture", turn_id,
-            {"plan_context": {"completion": {"native_body_citations": [citation] * 5}}})
+            {"plan_context": {"completion": {"native_body_citations": [citation] * 6}}})
     result = json.loads((tmp_path / "native-citation-reopen.json").read_text())
     rows = result["citations"]
-    assert [r["http_status"] for r in rows] == [200, 200, 200, 404, None]
-    assert [r["binding_matches"] for r in rows] == [True, True, False, None, None]
-    assert [r["exact_reopen"] for r in rows] == [True, False, False, False, False]
+    assert [r["http_status"] for r in rows] == [200, 200, 200, 404, None, 200]
+    assert [r["binding_matches"] for r in rows] == [True, True, False, None, None, False]
+    assert [r["exact_reopen"] for r in rows] == [True, False, False, False, False, False]
     assert rows[0]["observed_excerpt_sha256"] == citation["excerpt_sha256"]
     assert rows[4]["transport_error"] == "ReadTimeout"

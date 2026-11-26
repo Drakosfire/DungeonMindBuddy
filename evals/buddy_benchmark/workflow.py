@@ -450,7 +450,11 @@ def reopen_native_body_citations(client, turn_route, world, turn_id, completion)
                 if isinstance(content, str):
                     observed_digest = sha256(content.encode()).hexdigest()
                 binding_matches = (
-                    body.get("schema") == "dmb_agent_native_body_excerpt_read_v2"
+                    set(body) == {"schema", "world_id", "turn_id", "citation_index", "citation", "content", "display_label"}
+                    and body["schema"] == "dmb_agent_native_body_excerpt_read_v2"
+                    and isinstance(content, str) and bool(content)
+                    and (body["display_label"] is None or
+                         isinstance(body["display_label"], str) and bool(body["display_label"].strip()))
                     and body.get("world_id") == world
                     and body.get("turn_id") == turn_id
                     and type(body.get("citation_index")) is int
