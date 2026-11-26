@@ -710,7 +710,7 @@ def test_build_query_settlement_requires_exact_opening_response(failure):
     validate_context_binding(context, record)
     assert effective_native_query(context, record) == pending
     from application_state.agent_conversation.native_writer import model_frame
-    with pytest.raises(ValueError, match="requires the settled Build Graph query"):
+    with pytest.raises(ValueError, match="requires its Build query or conversation evidence admission"):
         model_frame(context, record)
     if failure == "early":
         prefix.pop()

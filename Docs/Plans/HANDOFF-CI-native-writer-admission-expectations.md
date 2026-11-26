@@ -1,0 +1,3 @@
+# CI: native writer admission expectations
+
+ACTIVE under the user's release-repair instruction. Parallel-independent of #4826 (Plan writer fixture), #4825 (Plan provider fence), the native-storage trigger test lane, and the Plan/Play conversation lane. This slice owns only `tests/test_surface_native_execution.py` and this handoff. It updates the pending-query error text assertion to the current native writer wording while retaining all six parameter cases and their subsequent positive and negative settlement checks. No production writer behavior changes. Verify the full owning test file, clean exact-head hosted gate, independent cumulative review, and the integrated query-and-answer backend contract.
