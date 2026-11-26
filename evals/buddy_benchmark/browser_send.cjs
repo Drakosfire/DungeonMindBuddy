@@ -27,6 +27,12 @@ async function run() {
     const page = await context.newPage();
     const apiFailures = [];
     const turnNetworkFailures = [];
+    let turnPosts = 0;
+    page.on("request", request => {
+      if (request.method() === "POST" && new URL(request.url()).pathname === "/api/live/agent/turn") {
+        turnPosts += 1;
+      }
+    });
     page.on("requestfailed", request => {
       if (new URL(request.url()).pathname === "/api/live/agent/turn") {
         turnNetworkFailures.push(request.failure()?.errorText ?? "unknown");
@@ -63,7 +69,7 @@ async function run() {
       await composer.locator("xpath=self::*[not(@disabled)]").waitFor({ timeout: 15000 });
       const restored = await composer.inputValue() === draft;
       writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-        draft_restore: { restored }, apiFailures, turnNetworkFailures,
+        draft_restore: { restored, attemptedTurnPosts: turnPosts }, apiFailures, turnNetworkFailures,
       }, null, 2));
       return;
     }

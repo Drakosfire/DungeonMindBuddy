@@ -373,10 +373,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         artifacts.immutable_save(directory, "history-before", fresh)
                         artifacts.immutable_save(directory, "history-after", after)
                         artifacts.immutable_save(directory, "committed-page-after", page_after)
+                        draft = observation.get("draft_restore", {})
                         artifacts.immutable_save(directory, "fixture-result", {
-                            "status": "incomplete" if driver_failed else "observed",
-                            "draft_restored": observation.get("draft_restore", {}).get("restored"),
-                            "attempted_turn_posts": turn_posts,
+                            "status": "incomplete" if driver_failed or not draft else "observed",
+                            "draft_restored": draft.get("restored"),
+                            "browser_turn_posts": draft.get("attemptedTurnPosts"),
+                            "server_turn_posts": turn_posts,
                             "conversation_unchanged": after == fresh,
                             "committed_page_unchanged": page_after["body"] == page_before["body"],
                             "provider_calls": 0,
