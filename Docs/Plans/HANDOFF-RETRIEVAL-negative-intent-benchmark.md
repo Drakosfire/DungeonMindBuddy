@@ -88,6 +88,22 @@ by other workstreams. No additional database was created or modified for this
 workstream. Recheck capacity before allocating its one reusable clone; do not
 clean up another owner's databases.
 
+## Focused serving-owner diagnostic
+
+On source export `6595a93e9b4c360a578bf9125876b1cccd6857be`, three selected
+provider-free `test_build_source_free_protocol.py` tests produced seven passes
+and four failures, with synthetic App state, in-memory Core and mock transport;
+no benchmark database or live provider was used. The anchored/no-acquisition
+variants and retained-query reopening check passed. Four App-navigation cases
+failed before dispatch because their synthetic frozen policy expects
+`jev-1.14.0`, while the serving dispatch prepares `typesafe-ai/jev-1.14.0`.
+A one-case diagnostic in the disposable export, changing the test's dispatch
+model alias to match its fixture, passed. This identifies a fixture mismatch; it
+does not prove the production policy has the mismatch or qualify a product
+turn. The unmodified export failure was `Prepared App page selection changed its
+frozen dialogue, catalog or choices`, wrapped as a dispatch authorization error.
+GenerationEngine was the revision pinned by the serving `pyproject.toml`.
+
 ## Shepherd naming regression checkpoint
 
 The user reported a creative naming request that took 241 seconds and read 11 related pages, 16 full documents, 24 sections, two assertions and one source search before producing a name-list preview. Its trace is private and remains outside the repository. The controller repeatedly selected `finish_with_gaps` while including candidates; the serving selector makes included candidates take precedence over the global finish fallback. This is evidence of an over-retrieval path, not proof that every selected source was irrelevant or that a specific change will fix it.
