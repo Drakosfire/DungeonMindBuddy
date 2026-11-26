@@ -1,0 +1,9 @@
+# PLAN: duplicate selection through current review
+
+ACTIVE. The user authorized resolving inherited diagnostic failures. Parallel-independent of #4819 and #4821: this test-only slice owns the duplicate-selection case in `WorldPlanAgentReviewedEdit.integration.test.tsx` and this brief. No behavioral or file dependency on either lane. Use the shared frontend verification lock.
+
+Replace its removed initial legacy proposal UI with the native Plan suggestion path. Select the second of two identical passages, retain its exact captured positions, remount and reopen the saved suggestion, then explicitly save and reopen the Plan; only the second passage may change. Preserve saved clarification continuation separately: `WorldPlanAgentConversation.worldHistory.test.tsx` test “shows a durable sourced edit clarification without Apply and sends a short linked reply to proposal review” exercises the saved action continuation; `tests/test_world_plan_edit_proposal.py::test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal` contains the exact selection-anchor continuation witness, but currently fails with `plan_consultation_unavailable` before the assertion in isolated PostgreSQL; it is not passing evidence. This slice does not claim that initial legacy endpoint remains the current UI.
+
+Verify the exact mounted case, the existing saved-clarification and backend anchor owners as practical, full-file diagnostic, exact-head hosted check and independent review. Keep remaining four Option interaction failures open for their own current UI/boundary adaptation.
+
+Owner-boundary check: the saved-clarification mounted frontend test passed. The separate backend clarification test failed before continuation with `plan_consultation_unavailable`; preserve this inherited red result for follow-up and do not claim end-to-end clarification qualification.

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,6 +18,7 @@ interface AskPluginSlotValue {
   setMenuHost: (element: HTMLElement | null) => void;
   hostElement: HTMLElement | null;
   setHostElement: (element: HTMLElement | null) => void;
+  clearHostElement: (expected: HTMLElement) => void;
   askPluginPresent: boolean;
   setAskPluginPresent: (present: boolean) => void;
 }
@@ -34,15 +36,19 @@ export function AskPluginSlotProvider({ children }: { children: ReactNode }) {
     setHostElementState(element);
   }, []);
 
+  const clearHostElement = useCallback((expected: HTMLElement) => {
+    setHostElementState(current => current === expected ? null : current);
+  }, []);
+
   const value = useMemo(
     () => ({
       layoutOwner, setLayoutOwner, launcherHost, setLauncherHost,
       menuHost, setMenuHost, hostElement,
-      setHostElement,
+      setHostElement, clearHostElement,
       askPluginPresent,
       setAskPluginPresent,
     }),
-    [askPluginPresent, menuHost, hostElement, setHostElement, layoutOwner, launcherHost],
+    [askPluginPresent, menuHost, hostElement, setHostElement, clearHostElement, layoutOwner, launcherHost],
   );
 
   return (
@@ -70,4 +76,19 @@ export function useRegisterAskPluginPresence(present: boolean): void {
     slot.setAskPluginPresent(true);
     return () => slot.setAskPluginPresent(false);
   }, [present, slot]);
+}
+
+/** A departing host can release only the element it previously registered. */
+export function useOwnedAskHostRef() {
+  const {setHostElement, clearHostElement} = useAskPluginSlot();
+  const owned = useRef<HTMLElement | null>(null);
+  return useCallback((element: HTMLElement | null) => {
+    if (element) {
+      owned.current = element;
+      setHostElement(element);
+    } else if (owned.current) {
+      clearHostElement(owned.current);
+      owned.current = null;
+    }
+  }, [setHostElement, clearHostElement]);
 }

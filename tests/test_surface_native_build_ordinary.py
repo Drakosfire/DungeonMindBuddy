@@ -96,6 +96,21 @@ def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypa
                 message=message, image_move=disposition)
 
 
+@pytest.mark.parametrize('role', [None, 'player'])
+def test_image_move_refuses_missing_or_non_gm_principal(lane, tmp_path, monkeypatch, role):
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    def lower_principal(adapter):
+        assert adapter.native_query_context is not None
+        principal = None if role is None else NativeGraphPrincipal(subject='player', role='player', auth_method='local_session')
+        adapter.native_query_context = replace(adapter.native_query_context, principal=principal)
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Move the Harbour map to the empty slot on its right.", image_move="ready",
+        after_image_selection=lower_principal, expect_image_forbidden=True)
+
+
 def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_path, monkeypatch):
     _fresh_case(
         lane, tmp_path, monkeypatch, "discussion_source_tie", False, False, False,
@@ -179,7 +194,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True,expect_image_forbidden=False,after_image_selection=None):
     if failure == 'retry_controller_bad_request':
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         observe = native_corpus_source.observe_build_source_pointer
@@ -239,7 +254,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         if saved_statblock in {"associated", "by-name"}:
             from apps.live_control_server.integrations.dungeonmind import native_registry_source
             from apps.live_control_server.services import native_graph_inspection, native_pdf_evidence
-            monkeypatch.setattr(native_registry_source, "read_repository", lambda: lane.repo)
+            monkeypatch.setattr(native_registry_source, "read_repository", lambda **_: lane.repo)
             monkeypatch.setattr(native_pdf_evidence, "reviewed_pdf_regions", lambda *args, **kwargs: ("crop",))
             monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support",
                                 lambda ref, *_, **__: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
@@ -459,6 +474,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                       "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
             "identities": identities,
         })
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from apps.live_control_server.services import plan_source_turn
+    monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **_: lane.repo)
+    monkeypatch.setattr(plan_source_turn, 'turn_source_repository', lambda **_: lane.repo)
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
@@ -1042,6 +1061,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return self._plan
         monkeypatch.setattr(WriterSelectionDriver,'stage',substituted_stage)
     class Harness(actual_harness):
+        async def _decide(self, adapter, driver):
+            await super()._decide(adapter, driver)
+            if after_image_selection is not None:
+                after_image_selection(adapter)
+
         def _capture_failure(self, adapter, exc):
             import traceback
             traceback.print_exception(exc)
@@ -1377,6 +1401,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
+        if expect_image_forbidden:
+            assert response.status_code == 403, response.text
+            assert response.json()['detail']['code'] == 'build_image_move_forbidden'
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
         if image_move == "other_discussion":
             assert response.status_code == 200, response.text
             context = response.json()["knowledge_context"]
@@ -1939,7 +1968,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         )
         assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
-        return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
+        return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions, writer=writer)
     if (requested_work(message) if callable(requested_work) else requested_work) in {
             "review_lore_page", "review_lore_page_from_conversation", "review_blank_lore_page"}:
         assert context["completion"]["collaboration"]["kind"] == "lore_page"
@@ -3499,11 +3528,13 @@ def test_followup_rejects_inadmissible_fresh_pdf_support(lane, tmp_path, monkeyp
 
     monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support", invalid)
     head = lane.repo.get_head(case.world)
+    writer_calls = len(case.writer.calls)
     response = workflow.capture_case(case.client, case.world, template,
         {"question": "Could it negotiate?"}, tmp_path / "followup", build_thread_id=thread,
         expected_conversation_id=str(case.turn.conversation_id))
     assert response.status_code == 503, response.text
     assert calls
+    assert len(case.writer.calls) == writer_calls
     assert lane.repo.get_head(case.world) == head
 
 
@@ -4331,3 +4362,16 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
     else:
         assert second.response.status_code == 200, second.response.text
         assert json.loads(second.writer.calls[0].content)['text']['format']['name'] == 'lore_page_response'
+
+
+@pytest.mark.parametrize("component,value", [
+    ("managed_world_id", "foreign-managed"),
+    ("native_world_id", "foreign-native"),
+    ("binding_version", 999),
+    ("revision_id", "rev:unadmitted"),
+])
+def test_eager_followup_rejects_inadmissible_pdf_support(lane, tmp_path, monkeypatch, component, value):
+    """Exercise the still-supported eager read owner with an actual foreign support record."""
+    from apps.live_control_server.services import agent_turn_service
+    monkeypatch.setattr(agent_turn_service, "_pending_build_startup_eligible", lambda *args, **kwargs: False)
+    test_followup_rejects_inadmissible_fresh_pdf_support(lane, tmp_path, monkeypatch, component, value)

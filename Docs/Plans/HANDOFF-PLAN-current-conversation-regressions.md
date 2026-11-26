@@ -1,0 +1,5 @@
+# PLAN: reviewed-step retry in lightweight history
+
+ACTIVE under the user's release-repair instruction. Serial successor to merged #4819 and #4828; parallel-independent of #4826 (writer fixture), #4825 (provider fence), #4830 (storage test), #4831 (writer test), and #4823 (production overlay). This slice owns only the reviewed-step retry test in `apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx` and this brief. The distinct stale Plan/Play proposal test remains a serial successor in the same file.
+
+The current lightweight message list does not hydrate exact eligibility until the user invokes Retry. Prove the exact saved-turn read refuses a reviewed-step retry before reading a retry input or dispatching a request. This replaces the old pre-hydration no-button presentation expectation with the current lazy-read safety boundary; it does not authorize retry or claim the button is hidden. Verify the affected mounted suite, clean exact-head hosted verification, independent cumulative review, and later integrated full discovery. The separately observed Build recap race is outside this lease.
