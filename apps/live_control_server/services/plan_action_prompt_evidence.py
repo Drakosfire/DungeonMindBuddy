@@ -20,7 +20,7 @@ def capture_prompt(*, store, action, view, authorization):
             or sha256(view["payloadJson"].encode("utf-8")).hexdigest() != authorization.envelope_sha256
             or len(view["payloadJson"].encode("utf-8")) != view["payloadUtf8Bytes"]):
         raise PromptEvidenceError("action_prompt_authorization_mismatch")
-    evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"])
+    evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"], owner=(action.basis.world_id, consultation.receipt.origin_conversation_id))
     reference = ActionPromptReferenceV1(
         world_id=action.basis.world_id, action_id=action.action_id,
         dispatch_fence=action.fence, authorization_event_id=authorization.event_id,

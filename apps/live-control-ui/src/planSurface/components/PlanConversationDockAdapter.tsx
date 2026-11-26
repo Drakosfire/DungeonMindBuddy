@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ConversationDock } from "../../ui/ConversationDock";
-import { useAskPluginSlotOptional } from "../../agentInteraction/AskPluginSlot";
+import { useAskPluginSlotOptional, useOwnedAskHostRef } from "../../agentInteraction/AskPluginSlot";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import "./PlanConversationDockAdapter.css";
 import "../../agentInteraction/WorldConversationPresentation.css";
@@ -29,7 +29,8 @@ export const PlanConversationDockAdapter = DocumentConversationDock;
 function MountedPlanDock({reader,contextLabel,children,slot,surface="plan"}:AdapterProps & {slot:NonNullable<ReturnType<typeof useAskPluginSlotOptional>>}) {
   const {paneState,setPaneOpen}=useAgentInteraction();
   const management = useRef<HTMLDetailsElement>(null);
-  const {setLayoutOwner,setHostElement,setLauncherHost}=slot;
+  const {setLayoutOwner,setLauncherHost}=slot;
+  const setHostElement=useOwnedAskHostRef();
   const [hosts,setHosts]=useState<PlanConversationPresentationHosts>({header:null,newConversation:null,context:null,messages:null,composer:null});
   const bind=useCallback((key:keyof PlanConversationPresentationHosts,node:HTMLElement|null)=>{
     setHosts(current=>current[key]===node?current:{...current,[key]:node});

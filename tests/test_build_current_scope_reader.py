@@ -82,6 +82,10 @@ def test_pending_selection_validates_the_actual_future_request_and_vote():
     from tests.test_surface_native_build_decision import sdk_case
     _, original, event, proof, trace, work = sdk_case()
     _, policy = pending_execution_pair()
+    provider_roles = policy.provider_roles.model_copy(
+        update={'controller': original.policy.provider_roles.controller},
+    )
+    policy = policy.model_copy(update={'provider_roles': provider_roles})
     request = json.loads(proof['request_json'])
     response = json.loads(proof['response_json'])
     decision = request['state']['decision']

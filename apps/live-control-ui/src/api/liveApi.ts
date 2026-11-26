@@ -1798,7 +1798,12 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   const hostedCatalogRead = target.hostedGraphRequest && hostedGraphSubject !== null
     && path === "/api/live/world-containers" && (init?.method ?? "GET").toUpperCase() === "GET";
   if (!localCatalogRead && !hostedCatalogRead && !isShareableRead(path, init)) {
-    if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
+    const method = (init?.method ?? "GET").toUpperCase();
+    // Inspection uses POST for a scoped read, not a Graph mutation. Do not
+    // invalidate the citation owner that initiated the exact-source read.
+    if (["GET", "HEAD"].includes(method) || (method === "POST" && path === "/api/live/native-graph-inspection/read")) {
+      return authenticatedApiFetchOnce(path, init);
+    }
     startReadWave();
     try {
       return await authenticatedApiFetchOnce(path, init);
