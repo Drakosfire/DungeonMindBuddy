@@ -939,16 +939,16 @@ def list_conversations(
 
 
 def conversation_has_live_reply(
-    conn: psycopg.Connection, *, world_id: str, conversation_id: UUID, active: bool,
+    conn: psycopg.Connection, *, world_id: str, conversation_id: UUID,
 ) -> bool:
     return conn.execute(
         """SELECT EXISTS(
             SELECT 1 FROM agent.turn
             WHERE world_id=%s AND conversation_id=%s
-              AND ((%s AND status='accepted')
+              AND (status='accepted'
                 OR (status='running' AND claim_expires_at>clock_timestamp()))
         )""",
-        (world_id, conversation_id, active),
+        (world_id, conversation_id),
     ).fetchone()[0]
 
 

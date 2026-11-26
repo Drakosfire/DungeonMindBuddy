@@ -996,7 +996,7 @@ class AgentConversationService:
             if (target.status == "active") != (pointer.active_conversation_id == target.conversation_id):
                 raise ApplicationStateIntegrityError("conversation status differs from its World pointer")
             if not restore and repo.conversation_has_live_reply(
-                conn, world_id=world_id, conversation_id=target.conversation_id, active=target.status == "active",
+                conn, world_id=world_id, conversation_id=target.conversation_id,
             ):
                 raise ApplicationStateConflictError("This conversation has a reply in progress.")
             if authorize_write is not None:
