@@ -559,7 +559,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     local_authored = local_authored or (execution.policy.action.surface_id=='play'
         and any(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1)) for s in segments)
         and all(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1,t.PlanWorldGraphProposalSegmentV1)) for s in segments))
-    # An anchored pending Build discussion or source-free missing-target reply
+    # An anchored pending Build discussion/chat draft or source-free missing-target reply
     # can offer creative proposals without preparing native sources. The absence
     # of an unneeded source is not a partial-retrieval result. Keep the original
     # partial frame and any writer-supplied limitations intact.
@@ -570,7 +570,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             and all(isinstance(segment, t.PlanWorldGraphProposalSegmentV1) for segment in segments)):
         from .build_source_free import effective_pending_source, pending_retained_work, pending_source_free_terminal
         work = pending_retained_work(execution)
-        creative_only_anchored = (work is not None and work.requested_work == 'discuss'
+        creative_only_anchored = (work is not None and work.requested_work in {'discuss', 'draft_in_conversation'}
                                   and effective_pending_source(receipt, execution) is None)
         if not creative_only_anchored:
             terminal = pending_source_free_terminal(execution)
