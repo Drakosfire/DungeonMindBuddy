@@ -685,6 +685,10 @@ class PlanJevWriter:
                 'Do not return requested_detail_gaps or reproduce phrases from any user question. '
                 + ('For page work, explain essential missing context with the specific needs_context question.'
                    if self.lore_outcome else 'A limitation may stand alone when the supplied evidence cannot support a useful fact.'))
+            if self.work_frame.get('response_contract', {}).get('barrier') == 'requested_executor_not_offered':
+                self.instructions += ('\nAn unavailable action is a capability limitation, not missing factual evidence. '
+                    'Explain the unavailable action separately. Use missing_requested_details only when the '
+                    'supplied evidence actually lacks a factual detail the current request asks for.')
         if retained_dialogue is not None:
             self.instructions += (
                     '\nThe supplied dialogue is chronological. Preserve later corrections and '

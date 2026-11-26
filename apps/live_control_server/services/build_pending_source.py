@@ -141,9 +141,12 @@ def prepare_pending_native_source(adapter):
     execution = adapter._broker_execution()
     work_rows = [event for event in execution.events if type(event) is ledger.BuildRequestedWorkResolutionV1]
     if any(event.resolution.get('source_scope') == 'current_saved_page' for event in work_rows):
-        # A recognized future scope is not permission for this reader to search
-        # native sources, including on interrupted-turn recovery.
-        raise ValueError('Current-page-only acquisition requires its producer')
+        # An exclusive current-page request never permits native source lookup.
+        # Only an acknowledged sufficient App read can proceed to writing.
+        from application_state.agent_conversation.build_pending_app_coverage import pending_app_writer_terminal
+        if pending_app_writer_terminal(execution) is not None:
+            return False
+        raise ValueError('The requested current saved page is unavailable or insufficient')
     stored = effective_pending_source(adapter._broker_receipt(), execution)
     if stored is None:
         if any(type(event) is ledger.BuildPriorBodyEvidenceAdmittedV3 for event in execution.events):

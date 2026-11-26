@@ -39,6 +39,27 @@ def _discover_pending_pages(adapter):
     return pages
 
 
+def _lookup_current_saved_page(adapter):
+    """Read only the frozen current page's metadata, never a World inventory."""
+    from application_state.content.pages import get_page
+    from application_state.errors import ApplicationStateNotFoundError
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    basis = adapter._broker_receipt().work_context.source_basis
+    try:
+        state = get_page(str(basis.document_id), world_id=basis.world_id)
+    except ApplicationStateNotFoundError:
+        return []
+    page, meta = state.page, state.metadata
+    if (str(page.work_object_id) != str(basis.document_id) or page.world_id != basis.world_id
+            or page.object_revision != basis.registry_revision or page.status != 'active'
+            or page.current_revision_id is None or meta.visibility_state != basis.visibility
+            or not meta.document_class or meta.authority_state not in {'draft', 'reviewed', 'canonical'}):
+        return []  # Never substitute a newer, reclassified, or unrelated record.
+    return [PagePointer(world_id=basis.world_id, document_id=page.work_object_id,
+        registry_revision=page.object_revision, title=page.title,
+        visibility=meta.visibility_state).model_dump(mode='json')]
+
+
 def _initial_request(adapter):
     """Read the original captured request; never reconstruct today's history."""
     from .agent_prompt_evidence import read_prompt
@@ -64,10 +85,7 @@ async def acquire_pending_app_pages(adapter, harness):
     if len(work) != 1:
         raise ValueError('Pending App navigation requires one admitted work decision')
     work, = work
-    if work.resolution.get('source_scope') == 'current_saved_page':
-        # This reader recognizes future records but cannot produce this scope.
-        # In particular it must not resume them by enumerating the World catalog.
-        raise ValueError('Current-page-only acquisition requires its producer')
+    direct = work.resolution.get('source_scope') == 'current_saved_page'
     if not pending_work_requests_evidence(work, execution.policy):
         return
     if not callable(adapter.pending_build_access) or adapter.fence is None:
@@ -77,9 +95,11 @@ async def acquire_pending_app_pages(adapter, harness):
     if catalog is None:
         pending_source_work(execution)
         _commit(adapter, 'observe_pending_build_app_catalog', event_id=uuid4(),
-            discover_pages=lambda turn: _discover_pending_pages(adapter),
+            discover_pages=lambda turn: (_lookup_current_saved_page(adapter) if direct else _discover_pending_pages(adapter)),
             authorize_current_access=adapter.pending_build_access)
         catalog = effective_pending_app_catalog(receipt, adapter._broker_execution())
+    if direct and any(str(page.document_id) != str(receipt.work_context.source_basis.document_id) for page in catalog):
+        raise ValueError('Current-page-only acquisition cannot use another page')
     if not catalog:
         return
     selections = [event for event in adapter._broker_execution().events if type(event) is RelatedPagesSelection]
