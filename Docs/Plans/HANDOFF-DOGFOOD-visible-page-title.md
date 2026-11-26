@@ -4,4 +4,4 @@ Status: ACTIVE. User reported that the page title is not visible or editable in 
 
 Verification: the existing dirty-rename → save → hard-reopen case passed through the new visible title control. Build shell and rename owner tests passed (43, one Chromium-dependent layout test skipped); React act warnings were emitted. Local `tsc -b` passed. Independent review required. The separate Jev 400 diagnostic and prompt/response issues are not resolved by this change.
 
-Review found that the new control must also disable during a page switch or creation. The controller's existing transition state is now passed to it, matching the established Source actions control. A focused delayed-switch case is queued behind the shared local verification lock; do not treat that case as passed until its result is recorded.
+Review found that the new control must also disable during a page switch or creation. The controller's existing transition state is now passed to it, matching the established Source actions control. The focused delayed-switch and dirty-rename/reopen cases passed together, and the final local `tsc -b` passed.
