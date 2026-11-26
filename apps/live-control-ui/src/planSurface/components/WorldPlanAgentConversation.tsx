@@ -7078,7 +7078,8 @@ export function WorldPlanAgentConversation({
       if(!latestRef.current.mounted||latestRef.current.verifiedWorldId!==owner)return;
       historyGenerationRef.current++;historySnapshotRef.current=null;setHistory(null);
       setContinuationOfActionId(null);setConversationActions([]);setSourcePassage(null);
-      setHistoryRefreshNonce(v=>v+1);setLibraryOpen(false);
+      setHistoryRefreshNonce(v=>v+1);
+      if(operation==='reopen')setLibraryOpen(false);
       setConversationNotice(null);
     }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===owner){setHistoryRefreshNonce(v=>v+1);setConversationNotice('Checking which conversation is current. Your unsent message was kept.');}throw reason;}
     finally{conversationSwitchRef.current=false;if(latestRef.current.mounted)setConversationSwitching(false);}
