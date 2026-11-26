@@ -131,9 +131,20 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
         if live_build and path == "/__benchmark/build-response-retained" and method == "GET":
-            return await JSONResponse({
-                "retained": (directory / "build-wire-response.json").is_file(),
-            })(scope, receive, send)
+            wire_path = directory / "build-wire-response.json"
+            result = {"retained": wire_path.is_file()}
+            if confirm_save and result["retained"] and browser_request is not None:
+                wire = json.loads(wire_path.read_bytes())
+                try:
+                    body, status = build_browser_terminal(bytes.fromhex(wire["raw_body_hex"]),
+                        wire["status"], wire["content_type"], browser_request["turn_id"])
+                except BuildStreamWithoutTerminal:
+                    pass
+                else:
+                    if status == 200 and body.get("turn_id") == browser_request["turn_id"]:
+                        completion = (body.get("knowledge_context") or {}).get("completion") or {}
+                        result["action_id"] = completion.get("action_id")
+            return await JSONResponse(result)(scope, receive, send)
         if path == "/__benchmark/clock" and method == "GET":
             return await PlainTextResponse(str(monotonic_ns() / 1e6))(scope, receive, send)
         if not path.startswith(("/api/", "/health/")) and method == "GET":
