@@ -1840,7 +1840,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}},
       retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
-    vi.mocked(readDiscussionRetryInput).mockRejectedValue(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
+    vi.mocked(readDiscussionRetryInput).mockRejectedValueOnce(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     const view=render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
