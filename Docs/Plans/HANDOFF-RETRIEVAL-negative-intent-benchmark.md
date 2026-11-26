@@ -112,6 +112,22 @@ serving revision `6595a93e9b4c360a578bf9125876b1cccd6857be`; the app check did
 not independently verify host identity. Neither smoke establishes a regression
 fix or deployment of this benchmark PR.
 
+## Creative-only limitation diagnosis
+
+The saved naming smoke's raw writer output contained a proposal and an empty
+limitations array; the validated reply added `partial_retrieval`. Its writer
+input recorded both source access and native statements as `not_prepared` and
+`input_status` as `partial`. In serving source `6595a93e`, the pending native
+frame treats an absent prepared source as partial, while native completion adds
+that limitation unless its local-authored exception applies. That exception
+requires an authored claim or collaboration alongside any proposal, so a
+proposal-only creative answer does not qualify. This source path and the saved
+trace explain the observed caveat; they do not prove a complete acquisition
+journal or justify suppressing limitations for source-grounded or mixed factual
+answers. The private naming rubric now explicitly treats this unnecessary caveat
+as a response-quality failure. A runtime correction belongs in the subsequent
+serial implementation slice with creative, mixed and required-source controls.
+
 ## Required-read attempt correction
 
 A materialization probe records entered and raised calls as acquisition attempts.
