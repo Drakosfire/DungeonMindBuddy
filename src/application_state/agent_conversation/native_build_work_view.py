@@ -32,7 +32,7 @@ def source_backed_discussion(host, execution):
         return False
     choices = [event for event in execution.events if isinstance(event, BuildRequestedWorkResolutionV1)]
     return (len(choices) == 1 and choices[0].requested_work == 'discuss'
-            and choices[0].resolution.get('source_scope') == 'source_lookup'
+            and choices[0].resolution.get('source_scope') in {'source_lookup', 'current_saved_page'}
             and not variant_sources(host)
             and bool(host['artifact_under_edit']['sections']
                      or host.get('related_authored_pages', {}).get('pages')))

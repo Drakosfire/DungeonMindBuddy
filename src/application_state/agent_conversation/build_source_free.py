@@ -336,7 +336,7 @@ def pending_source_work(execution):
 
 def pending_work_requests_evidence(work, policy):
     """Keep an unavailable executor barred while allowing an explicit factual lookup."""
-    if (work.resolution.get('source_scope') not in {'source_lookup', 'uncertain'}
+    if (work.resolution.get('source_scope') not in {'source_lookup', 'uncertain', 'current_saved_page'}
             or work.requested_work in {'review_blank_lore_page', 'clarify_request', 'clarify_creation'}):
         return False
     barrier = work.resolution.get('barrier')
@@ -344,7 +344,7 @@ def pending_work_requests_evidence(work, policy):
         return True
     from .build_intentional_response import UNAVAILABLE, validate_resolution_metadata
     if (barrier != 'requested_executor_not_offered' or work.requested_work not in UNAVAILABLE
-            or work.resolution.get('source_scope') != 'source_lookup'):
+            or work.resolution.get('source_scope') not in {'source_lookup', 'current_saved_page'}):
         return False
     validate_resolution_metadata(work, policy)
     return True
