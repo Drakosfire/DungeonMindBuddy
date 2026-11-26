@@ -760,3 +760,107 @@ def test_chat_draft_with_unresolved_source_need_is_not_anchored(monkeypatch, sco
         changed = owner.pending_execution(state.turn.graph_context_receipt, execution.policy,
             [revised if e.event_id == work.event_id else e for e in execution.events])
         assert pending_retained_work(changed) is None
+
+@pytest.mark.parametrize('label', ['change_mechanics', 'build_encounter', 'place_map_coordinates',
+                                    'save_page', 'publish_relationships', 'other_creation'])
+def test_unavailable_action_completes_capability_reply_without_acquisition(monkeypatch, label):
+    """An unavailable executor is not a reason to acquire World sources."""
+    import asyncio
+    import json
+    import httpx
+    from tests import test_build_source_free_protocol as owner
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [{'kind': 'discussion', 'text': 'I cannot perform that action here.'}], 'limitations': []}
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_unavailable', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_unavailable', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    with owner.pending_writer_completion_case(monkeypatch, source_free_work=label, source_scope='anchored') as (state, adapter, rules, writer, prepared):
+        completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert completed.status == 'completed' and state.completions == 1
+        assert 'cannot perform' in completed.assistant_text
+        assert state.retained_reads == 0 and state.materialized == 0
+
+
+def test_unavailable_action_harness_skips_native_retrieval(monkeypatch):
+    from types import SimpleNamespace
+    from tests import test_build_source_free_protocol as owner
+    from application_state.agent_conversation import types as t
+    from apps.live_control_server.services import (build_jev_dispatch, build_jev_writer_selection,
+        build_pending_native_retrieval, plan_jev_rules_runtime, plan_jev_writer)
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    with owner.pending_writer_runtime_case(monkeypatch, source_free_work='other_creation', source_scope='anchored') as (state, adapter, selector, turns):
+        work = next(row for row in state.turn.graph_context_execution.events if type(row) is t.BuildRequestedWorkResolutionV1)
+        def forbidden(*args, **kwargs):
+            raise AssertionError('An unavailable executor must not open native retrieval')
+        monkeypatch.setattr(build_pending_native_retrieval, 'run_pending_native_retrieval', forbidden)
+        class Rules:
+            def __init__(self, *args): pass
+            def restore_pending(self): pass
+        monkeypatch.setattr(plan_jev_rules_runtime, 'PlanRulesRuntime', Rules)
+        class Selection:
+            catalog = ()
+            def __init__(self, actual_adapter, driver, terminal):
+                assert terminal == {'status': 'ready', 'reason': 'pending_source_free_other_creation'}
+            def settle_empty(self): pass
+        monkeypatch.setattr(build_jev_writer_selection, 'WriterSelectionDriver', Selection)
+        result = object()
+        class Writer:
+            call = None
+            output_limit_exceeded = False
+            failure_stage = 'capture'
+            def __init__(self, *args, **kwargs): pass
+            async def run(self, **kwargs): return result
+        monkeypatch.setattr(plan_jev_writer, 'PlanJevWriter', Writer)
+        adapter.build_frozen_history = ()
+        adapter.stop = lambda: None
+        harness = BuildJevHarness()
+        harness.calls, harness.rules_capability, harness.writer_transport = [], None, None
+        assert harness._native_completion(adapter, SimpleNamespace(operation=work.operation, selection=work)) is result
+        assert state.retained_reads == 0 and state.materialized == 0
+
+
+def test_unavailable_terminal_requires_acknowledged_valid_barrier(monkeypatch):
+    from tests import test_build_source_free_protocol as owner
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_source_free import pending_source_free_terminal
+    from apps.live_control_server.services import build_jev_dispatch
+    from application_state.agent_conversation import native_execution
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    with owner.pending_writer_runtime_case(monkeypatch, source_free_work='other_creation', source_scope='anchored') as (state, adapter, selector, turns):
+        execution = state.turn.graph_context_execution
+        events = list(execution.events)
+        work_index = next(i for i, row in enumerate(events) if type(row) is t.BuildRequestedWorkResolutionV1)
+        work = events[work_index]
+        events[work_index] = work.model_copy(update={'resolution': work.resolution | {'barrier': None}})
+        with pytest.raises(ValueError):
+            pending_source_free_terminal(execution.model_copy(update={'events': events}))
+        events = list(execution.events)
+        outcome_index = max(i for i, row in enumerate(events) if type(row) is t.ProviderOutcomeEventV1 and row.provider_attempt_id == work.controller_attempt_id)
+        events[outcome_index] = events[outcome_index].model_copy(update={'outcome': 'failed'})
+        assert pending_source_free_terminal(execution.model_copy(update={'events': events})) is None
+
+        monkeypatch.setattr(native_execution, 'native_read_event_ids', lambda events: ['prior-read'])
+        assert pending_source_free_terminal(execution) is None
+
+
+@pytest.mark.parametrize('scope', ['source_lookup', 'uncertain'])
+def test_unavailable_terminal_does_not_skip_required_or_uncertain_source(monkeypatch, scope):
+    from tests import test_build_source_free_protocol as owner
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_source_free import pending_source_free_terminal
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    with owner.pending_writer_runtime_case(monkeypatch, source_free_work='other_creation', source_scope='anchored') as (state, adapter, selector, turns):
+        execution = state.turn.graph_context_execution
+        events = list(execution.events)
+        index = next(i for i, row in enumerate(events) if type(row) is t.BuildRequestedWorkResolutionV1)
+        events[index] = events[index].model_copy(update={'resolution': resolution_for(execution.policy, 'other_creation', source_scope=scope)})
+        assert pending_source_free_terminal(execution.model_copy(update={'events': events})) is None
