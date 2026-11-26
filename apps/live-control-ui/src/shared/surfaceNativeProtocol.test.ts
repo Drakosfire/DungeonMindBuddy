@@ -372,6 +372,21 @@ it('permits only unfinished history without a pending completion',()=>{
   expect(isBuildPendingReceipt(pendingBuild.receipt,buildWork)).toBe(true);
 });
 
+it('accepts an inert pending proposal only for its completed receipt without citation membership',()=>{
+  const completion = {
+    schema: 'dmb_build_authoring_completion_v1', context_receipt_sha256: pendingBuild.receipt.context_receipt_sha256,
+    answer_basis: 'prepared_page_proposal', answer_context_status: 'proposal_ready', citation_map: null,
+    answer_segments: [{kind: 'connective', text: 'A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.'}],
+    action_id: '00000000-0000-4000-8000-000000000001', provider_attempt_id: '00000000-0000-4000-8000-000000000002',
+    reservation_sha256: 'a'.repeat(64), proposal_result_sha256: 'b'.repeat(64), envelope_sha256: 'c'.repeat(64),
+  };
+  const response = {...pendingBuild, completion};
+  expect(isBuildPendingContext(response,buildWork,()=>true)).toBe(true);
+  expect(isBuildPendingContext({...response,execution:null},buildWork,()=>true)).toBe(false);
+  expect(isBuildPendingContext({...response,deferred_build_citations:{}},buildWork,()=>true)).toBe(false);
+  expect(isBuildPendingContext({...response,completion:{...completion,context_receipt_sha256:'0'.repeat(64)}},buildWork,()=>true)).toBe(false);
+});
+
 it.each(['valid','missing','root','producer','assertion','extra','revision','native-world'])(
   'binds pending Graph citations to the settled membership and captured scope: %s', mutation=>{
     const original=authoredContext(), r=original.receipt, answer=original.completion;

@@ -882,7 +882,8 @@ class AgentBuildPendingContextResponseV1(BaseModel):
                 (isinstance(self.completion, SurfaceNativeCompletionV1) and self.completion.surface_id != 'build')
                 or self.completion.context_receipt_sha256 != self.receipt.context_receipt_sha256
                 or self.execution is None or self.execution.claimability != 'completed'
-                or self.execution.authorization_state != 'response_received'):
+                or self.execution.authorization_state != 'response_received'
+                or (isinstance(self.completion, BuildAuthoringCompletionV1) and self.deferred_build_citations is not None)):
             raise ValueError('Pending Build completion differs from its exact receipt')
         return self
 
