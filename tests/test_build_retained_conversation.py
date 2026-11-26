@@ -129,7 +129,11 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     from tests.test_surface_native_build_ordinary import _fresh_case
     from application_state.agent_conversation.native_corpus import acquired_body_reads
     from application_state.agent_conversation.service import AgentConversationService
-    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    from application_state.agent_conversation.native_execution import (
+        NativeBuildQuerySettledV1,
+        NativeBuildSourceSettledV1,
+    )
 
     synthesis = ('Recap everything we discussed, including the earlier saved notes. Do not search again.' if discussion
                  else ('Create the Glass Regent page from the context we discussed. Do not search again.'
@@ -138,6 +142,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         native_body='irrelevant',
         requested_work=lambda message: ('discuss' if discussion else 'review_lore_page_from_conversation') if message == synthesis else 'discuss',
         source_need=lambda message: 'anchored' if message == synthesis else 'source_lookup',
+        source_free_reply=lambda message: message.startswith('Author constraint '),
         lore_legacy_menu=legacy)
     original = case.turn
     # The initial explicit source selection supplied the early read. Follow-ups
@@ -154,7 +159,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     assert any(isinstance(event, t.ValidatedBuildSectionReadV1)
                for event in original.graph_context_execution.events)
     # These are ordinary terminal turns, not synthetic database inserts or a
-    # preconstructed writer request. They remain outside the final six-row view.
+    # preconstructed writer request. The earliest evidence must survive them.
     for index in range(turn_count - 1):
         response = case.client.post('/api/live/agent/turn', json=case.request | {
             'turn_id': str(uuid4()), 'message': f'Author constraint {index}: retain the blue lantern as a proposal.'})
@@ -176,7 +181,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         expected_revision=current.loaded_revision, expected_content_sha256=current.content_sha256)
     from application_state.errors import (ApplicationStateConflictError,
         ApplicationStateNotFoundError, ApplicationStateValidationError)
-    original_admit = AgentConversationService.admit_build_prior_body_evidence
+    original_admit = AgentConversationService.admit_pending_build_prior_body_evidence
     from time import perf_counter
     admission_times = []
     from application_state.agent_conversation import repository
@@ -202,9 +207,9 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         result = original_admit(owner, world, conversation, turn_id, **values)
         admission_times.append((perf_counter() - started) * 1000)
         return result
-    monkeypatch.setattr(AgentConversationService, 'admit_build_prior_body_evidence', checked_admit)
+    monkeypatch.setattr(AgentConversationService, 'admit_pending_build_prior_body_evidence', checked_admit)
 
-    original_authorize = AgentConversationService.authorize_native_writer
+    original_authorize = AgentConversationService.authorize_pending_build_writer
     writers = []
     if discussion:
         from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
@@ -283,7 +288,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
                 assert owner.inspect_turn(world_id=world, turn_id=turn_id) == prior
                 tampered.append(mutation)
         return original_authorize(owner, world, conversation, turn_id, **values)
-    monkeypatch.setattr(AgentConversationService, 'authorize_native_writer', checked_authorize)
+    monkeypatch.setattr(AgentConversationService, 'authorize_pending_build_writer', checked_authorize)
     if discussion:
         from apps.live_control_server.services import native_graph_reads, build_related_pages
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
@@ -301,13 +306,14 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
     turn = max(owner.list_turns(case.world, original.conversation_id), key=lambda row: row.sequence)
     value = retained.admission(turn.graph_context_execution)
     assert value is not None
-    assert type(value) is (t.BuildPriorBodyEvidenceAdmittedV3 if discussion else t.BuildPriorBodyEvidenceAdmittedV2)
+    assert isinstance(turn.graph_context_receipt, BuildPendingContextReceiptV1)
+    assert type(value) is t.BuildPriorBodyEvidenceAdmittedV3
     if discussion:
         raw = turn.graph_context_execution.model_dump(mode='python', by_alias=True)
         for event in raw['events']:
             if event['kind'] == value.kind:
                 event['kind'] = 'build_prior_body_evidence_admitted_v2'
-        with pytest.raises(ValueError, match='unique producing Build work decision'):
+        with pytest.raises(ValueError, match=r"Input tag 'build_prior_body_evidence_admitted_v2'.*does not match"):
             type(turn.graph_context_execution).model_validate(raw)
     assert len(fenced) == 2
     assert tampered == (['omit', 'change', 'omit_tail', 'change_tail', 'extra_tail', 'move_tail', 'change_request', 'extra_frame', 'frame_order', 'history_order', 'history_role', 'frame_role']
@@ -315,12 +321,13 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
                         + (['discussion_only_format'] if discussion else []))
     assert len(value.history) == turn_count
     assert value.history[0].turn_id == original.turn_id
-    assert original.turn_id not in {pin.turn_id for pin in turn.graph_context_receipt.assembled_input.included_history}
+    assert original.turn_id in {pin.turn_id for pin in turn.graph_context_receipt.assembled_input.included_history}
     assert value.authored_context and value.native_context
     assert any(row.source_basis.document_id == case.page.document_id for row in value.authored_context)
     assert turn.graph_context_receipt.work_context.source_basis.document_id == replacement.document_id
     assert not acquired_body_reads(turn.graph_context_execution)
-    assert not any(isinstance(event, NativeBuildQuerySettledV1) for event in turn.graph_context_execution.events)
+    assert not any(isinstance(event, (NativeBuildQuerySettledV1, NativeBuildSourceSettledV1))
+                   for event in turn.graph_context_execution.events)
     assert len(case.writer.calls) == before + 1
     request = json.loads(case.writer.calls[-1].content)
     assert request['reasoning']['effort'] == ('low' if discussion else 'none')
