@@ -1640,11 +1640,12 @@ def _shared_plan_authoring_case(
                         confidence=1,
                         probabilities={o: float(o == choice) for o in q["criteria"]},
                     )
+                assert body["model"] in {"jev-1.14.0", "typesafe-ai/jev-1.14.0"}
                 return httpx2.Response(
                     200,
                     request=request,
                     json=dict(
-                        model="jev-1.14.0",
+                        model=body["model"],
                         answers=answers,
                         usage=dict(input_tokens=31, output_tokens=7),
                     ),

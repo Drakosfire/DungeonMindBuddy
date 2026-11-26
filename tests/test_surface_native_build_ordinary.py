@@ -254,7 +254,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         if saved_statblock in {"associated", "by-name"}:
             from apps.live_control_server.integrations.dungeonmind import native_registry_source
             from apps.live_control_server.services import native_graph_inspection, native_pdf_evidence
-            monkeypatch.setattr(native_registry_source, "read_repository", lambda: lane.repo)
+            monkeypatch.setattr(native_registry_source, "read_repository", lambda **_: lane.repo)
             monkeypatch.setattr(native_pdf_evidence, "reviewed_pdf_regions", lambda *args, **kwargs: ("crop",))
             monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support",
                                 lambda ref, *_, **__: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
@@ -474,6 +474,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                       "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
             "identities": identities,
         })
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from apps.live_control_server.services import plan_source_turn
+    monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **_: lane.repo)
+    monkeypatch.setattr(plan_source_turn, 'turn_source_repository', lambda **_: lane.repo)
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
