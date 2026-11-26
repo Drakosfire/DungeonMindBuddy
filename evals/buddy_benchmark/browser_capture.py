@@ -352,6 +352,18 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             turns = workflow._request_turns(after["body"], browser_request, world)
                     artifacts.immutable_save(directory, "history-after", after)
                     if live_build:
+                        if confirm_save:
+                            timing = json.loads((output / "browser-timing.json").read_bytes())
+                            confirmation = timing.get("confirmation") or {}
+                            action_id = confirmation.get("action_id")
+                            if action_id is not None:
+                                action_id = str(UUID(action_id))
+                                review_route = ("/api/live/agent/worlds/" + world +
+                                                "/build-proposals/" + action_id + "/review")
+                                review_after = client.get(review_route)
+                                artifacts.immutable_save(directory, "proposal-review-after",
+                                                         workflow.response_envelope(review_after))
+                            artifacts.immutable_save(directory, "confirmation", confirmation)
                         page_after = workflow.response_envelope(
                             client.get(page_route, params={"view": "committed"}).raise_for_status())
                         artifacts.immutable_save(directory, "committed-page-after", page_after)
