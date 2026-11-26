@@ -1,11 +1,30 @@
 # RETRIEVAL: negative intent benchmark
 
 Status: ACTIVE — user authorized the benchmark goal in this conversation. This
-brief assigns the first serial, eval-only slice to `codex/negative-retrieval-benchmark`,
+brief assigns the eval-only slice to `codex/negative-retrieval-benchmark`,
 based on `origin/main` c3a2ae6032b0f16fc19d21be14759a0a8607782b (rebased from 42a524ade after checking the shared native-writer change). Checkout:
 `/home/drakosfire/Projects/.codex/dogfood-ci-one-app/DungeonMindBuddy`. This
 workstream currently owns no disposable App clone. The shared Core snapshot is
 read-only; no model, provider, or production state was used for the owner audit below.
+
+## Bounded parallel runtime slice
+
+The signed-in creative smoke identified a separable completion defect: the host
+adds a partial-retrieval caveat to an anchored proposal-only answer despite no
+native source being prepared. This is independently useful to fix while the
+benchmark awaits a shared App slot. The benchmark branch keeps its eval-only
+lease. A parallel-independent runtime slice will use a separate checkout and
+branch based on the current serving source `6595a93e9b4c360a578bf9125876b1cccd6857be`,
+with its own pinned handoff, `native_completion.py`, and focused completion tests.
+It does not depend on the unmerged benchmark code and must not write benchmark
+files or use its database. Its protections must retain factual/mixed limitations,
+explicit model limitations and citation/source validation. It needs independent
+review, exact-source focused checks, and a refreshed serving identity before an
+Actions overlay publication or deployment. The active open retrieval lanes #4580
+and #4550 and Build lanes #4758 and #4696 do not have an identified overlapping
+native completion write lease; historical native-completion handoffs #4381,
+#4166 and #4190 have merged. Recheck leases and the serving parent before edit
+and release. Neither slice alone completes the overarching goal.
 
 ## Outcome and lease
 
