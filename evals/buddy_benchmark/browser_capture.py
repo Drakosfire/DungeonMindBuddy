@@ -302,6 +302,11 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
                         "DMB_BENCHMARK_CHROMIUM": os.environ["DMB_BENCHMARK_CHROMIUM"],
                     }
+                    if live_build:
+                        page_route = "/api/live/workspace-documents/" + work["object_id"] + "/snapshot"
+                        page_before = workflow.response_envelope(
+                            client.get(page_route, params={"view": "committed"}).raise_for_status())
+                        artifacts.immutable_save(directory, "committed-page-before", page_before)
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env, timeout=100)
@@ -331,6 +336,16 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             after = read_history()
                             turns = workflow._request_turns(after["body"], browser_request, world)
                     artifacts.immutable_save(directory, "history-after", after)
+                    if live_build:
+                        page_after = workflow.response_envelope(
+                            client.get(page_route, params={"view": "committed"}).raise_for_status())
+                        artifacts.immutable_save(directory, "committed-page-after", page_after)
+                        artifacts.immutable_save(directory, "committed-page-comparison", {
+                            "document_id": work["object_id"],
+                            "before_sha256": page_before["raw_body_sha256"],
+                            "after_sha256": page_after["raw_body_sha256"],
+                            "unchanged": page_before["body"] == page_after["body"],
+                        })
                     if live_build and len(turns) == 1:
                         durable_id = turns[0]["turn_id"]
                         trace = client.get(route + "/turns/" + durable_id + "/context-trace")
