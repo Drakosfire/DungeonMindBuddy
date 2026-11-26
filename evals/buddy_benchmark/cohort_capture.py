@@ -181,19 +181,22 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                     upgrade_to_head()
                 jobs = [((manifest, member, shared_dsn, digest), ids)
                         for (manifest, member, _, digest), ids in jobs]
-            futures = [
+            submissions = (
                 (job[1], ids, executor.submit(_capture_member, *job, context_only=context_only, **(
                     {"shared_app": shared_app} if shared_app is not None else {}
                 ), **(
                     {"browser_case": next(iter(ids)), "detailed_trace": detailed_trace} if browser else {}
                 )))
                 for job, ids in jobs
-            ]
+            )
+            futures = list(submissions) if context_only else submissions
             outcomes = {}
             for member, ids, future in futures:
                 error = future.exception()
                 if error is not None and (context_only or not isinstance(error, BuildSequenceStopped)):
                     outcomes[member.name] = {"status": "failed", "error_type": type(error).__name__}
+                    if not context_only:
+                        break
                     continue
                 try:
                     rows = json.loads((member / "report.json").read_text())["cases"]
@@ -206,12 +209,18 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                                     for row in rows}
                 except (OSError, ValueError, KeyError, TypeError, AttributeError):
                     outcomes[member.name] = {"status": "failed", "error_type": "InvalidMemberReport"}
+                    if not context_only:
+                        break
                     continue
                 observed_statuses = {"captured"} if context_only else {"pass", "fail"}
                 captured = len(rows) == len(statuses) and statuses.keys() == ids and all(
                     value in observed_statuses for value in statuses.values())
                 outcomes[member.name] = {"status": "completed" if captured else "failed",
                                          "case_statuses": statuses}
+                if not context_only and not captured:
+                    break
+            for job, _ in jobs:
+                outcomes.setdefault(job[1].name, {"status": "not_started"})
             immutable_save(output, "members", outcomes)
     finally:
         _endpoint(core_dsn, native)
