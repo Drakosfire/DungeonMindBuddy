@@ -65,3 +65,13 @@ def test_live_plan_cli_requires_selected_case_and_clone():
         workflow.main(args + ["--case", "PLAN-CARDS-1"])
     with pytest.raises(SystemExit):
         workflow.main(args + ["--clone-app"])
+
+
+
+@pytest.mark.parametrize("option", ["context_only", "writer_transport", "detailed_trace"])
+def test_live_plan_rejects_replay_options_before_loading_manifest(option, tmp_path):
+    from evals.buddy_benchmark import workflow
+
+    with pytest.raises(ValueError, match="response mode"):
+        workflow.capture(tmp_path / "missing.json", tmp_path / "output", live_plan=True,
+                         browser_case="PLAN-CARDS-1", clone_app=True, **{option: True})

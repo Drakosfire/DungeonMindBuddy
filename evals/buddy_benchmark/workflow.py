@@ -104,9 +104,9 @@ def validate_template(template, world, *, context_only=False, build_sequence=Fal
         raise ValueError("Context capture requires the explicit shared native Plan route")
 
 
-def _request_turns(history, request, world):
+def _request_turns(history, request, world, *, browser_plan=False):
     turns = [turn for turn in history["turns"] if turn["user_text"] == request["message"]]
-    if request["surface"].get("surface_id") == "build":
+    if browser_plan or request["surface"].get("surface_id") == "build":
         key = str(uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{request['turn_id']}"))
         turns = [turn for turn in turns if turn.get("idempotency_key") == key]
     return turns
@@ -136,18 +136,26 @@ def report_case(case, base):
     saved_citation_path = directory / "saved-citation-reopen.json"
     if not context_only and saved_citation_path.is_file():
         paths["saved-citation-reopen"] = saved_citation_path
-    wire_path = directory / "build-wire-response.json"
-    if not context_only and wire_path.is_file():
-        paths["build-wire-response"] = wire_path
-        if not paths["answer-http"].is_file():
-            del paths["answer-http"]
+    for surface in ("build", "plan"):
+        wire_name = surface + "-wire-response"
+        wire_path = directory / (wire_name + ".json")
+        if not context_only and wire_path.is_file():
+            paths[wire_name] = wire_path
+            if "answer-http" in paths and not paths["answer-http"].is_file():
+                del paths["answer-http"]
     missing = [name for name, path in paths.items() if not path.exists()]
     if missing:
+        failure_status = None
+        if not context_only and (directory / "plan-wire-response.json").is_file() and paths.get("answer-http", directory / "answer-http.json").is_file():
+            status = _wrapped(directory / "answer-http.json")["http_status"]
+            if status >= 400:
+                failure_status = status
         if case.get("assessment") is not None:
             raise ValueError("Reviewed capture evidence is missing")
         return {"case_id": case["id"], "question": case["question"],
         "capture_status": "incomplete" if (directory / "dispatch.json").exists() else "not_started", "missing_artifacts": missing,
-            "delivery": {"status": "not_requested" if context_only else "unknown"},
+            "delivery": ({"status": "fail", "http_status": failure_status} if failure_status is not None
+                         else {"status": "not_requested" if context_only else "unknown"}),
             "operation": {"provider_attempts": None, "billed_cost_usd": None},
             "boundaries": {name: {"status": "unknown"} for name in (
                 "ingestion_publication", "retrieval", "composition", "citations")}}
@@ -169,7 +177,8 @@ def report_case(case, base):
             "operation": {"provider_attempts": None, "billed_cost_usd": None},
             "boundaries": {name: {"status": "unknown"} for name in (
                 "ingestion_publication", "retrieval", "composition", "citations")}}
-    turns = _request_turns(history["body"], request, history["body"]["world_id"])
+    turns = _request_turns(history["body"], request, history["body"]["world_id"],
+                           browser_plan="plan-wire-response" in paths)
     if len(turns) != 1:
         raise ValueError("Ambiguous retained question/turn correlation")
     turn = turns[0]
@@ -232,13 +241,17 @@ def report_case(case, base):
                 if p.get("provider_attempt_id") == str(authorization.provider_attempt_id)
                 and p["payload_sha256"] == authorization.envelope_sha256]) != 1:
             raise ValueError("Context capture has no unique admitted prompt witness")
-    wire = documents.get("build-wire-response")
-    if wire is not None:
-        if request["surface"]["surface_id"] != "build":
-            raise ValueError("Build wire capture requires a Build request")
+    wire = None
+    for surface in ("build", "plan"):
+        candidate = documents.get(surface + "-wire-response")
+        if candidate is None:
+            continue
+        if request["surface"]["surface_id"] != surface:
+            raise ValueError("Browser wire capture belongs to another surface")
+        wire = candidate
         raw_wire = bytes.fromhex(wire["raw_body_hex"])
         if sha256(raw_wire).hexdigest() != wire["raw_body_sha256"]:
-            raise ValueError("Build wire response bytes differ from their recorded hash")
+            raise ValueError("Browser wire response bytes differ from their recorded hash")
     answer_body = answer["body"] if isinstance(answer["body"], dict) else {}
     delivery_status = "unknown"
     response_completion = (answer_body.get("knowledge_context") or {}).get("completion") or {}
@@ -246,6 +259,14 @@ def report_case(case, base):
     collaboration = response_completion.get("collaboration")
     structured_delivery = (isinstance(collaboration, dict) and bool(collaboration.get("kind"))
                            and collaboration == durable_completion.get("collaboration"))
+    plan_proposal = answer_body.get("plan_proposal")
+    if isinstance(plan_proposal, dict) and plan_proposal == turn.get("plan_proposal"):
+        from application_state.agent_conversation.plan_authoring import PlanAuthoredProposalV1
+
+        proposal = PlanAuthoredProposalV1.model_validate(plan_proposal)
+        structured_delivery |= (request["surface"]["surface_id"] == "plan"
+                                and str(proposal.origin.turn_id) == turn["turn_id"]
+                                and str(proposal.origin.conversation_id) == conversation)
     prose_delivery = (bool(turn.get("assistant_text"))
                       and answer_body.get("answer", {}).get("text") == turn["assistant_text"])
     delivered = (answer["http_status"] == 200 and turn["lifecycle_status"] == "completed"
@@ -541,8 +562,9 @@ class BuildSequenceStopped(ValueError):
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
             browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None, build_fixture=False, live_build=False, live_plan=False):
     """Explicit live entry point; never invoked by offline reporting."""
-    if live_plan and (not clone_app or browser_case is None or build_fixture or live_build):
-        raise ValueError("Live Plan browser capture requires its own App clone and selected case")
+    if live_plan and (not clone_app or browser_case is None or build_fixture or live_build
+                      or context_only or writer_transport or detailed_trace):
+        raise ValueError("Live Plan browser capture requires its own App clone and selected case in response mode")
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
     options = dict(context_only=context_only, writer_transport=writer_transport,
                    detailed_trace=detailed_trace, browser_case=browser_case,
@@ -591,7 +613,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     browser = None
     if browser_case is not None:
         plan_replay = (context_only and writer_transport and not build_sequence
-                       and template["surface"]["surface_id"] == "plan" and not build_fixture)
+                       and template["surface"]["surface_id"] == "plan" and not build_fixture and not live_plan)
         build_preflight = (build_fixture and not context_only and not writer_transport and build_sequence
                            and template["surface"]["surface_id"] == "build")
         plan_placement = (live_plan and not context_only and not writer_transport and not build_sequence

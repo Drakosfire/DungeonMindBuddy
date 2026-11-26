@@ -342,8 +342,15 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         artifacts.immutable_save(directory, "committed-page-before", page_before)
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
-                    run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env, timeout=100)
-                    if run.returncode or browser_request is None:
+                    try:
+                        run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env, timeout=100)
+                        driver_status = {"return_code": run.returncode}
+                    except subprocess.TimeoutExpired:
+                        driver_status = {"timed_out": True}
+                    driver_failed = driver_status != {"return_code": 0}
+                    if driver_failed:
+                        artifacts.immutable_save(directory, "browser-driver-failure", driver_status)
+                    if browser_request is None or (driver_failed and not live):
                         raise ValueError("Ordinary browser Send did not capture the expected request")
                     artifacts.immutable_save(directory, "request", browser_request)
                     if build_fixture and not live_build:
@@ -360,14 +367,14 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
 
                     after = read_history()
-                    turns = workflow._request_turns(after["body"], browser_request, world)
+                    turns = workflow._request_turns(after["body"], browser_request, world, browser_plan=live_plan)
                     if live:
                         deadline = monotonic_ns() + 60_000_000_000
                         while monotonic_ns() < deadline and (not turns or (
                                 len(turns) == 1 and turns[0]["lifecycle_status"] in {"accepted", "running"})):
                             sleep(0.5)
                             after = read_history()
-                            turns = workflow._request_turns(after["body"], browser_request, world)
+                            turns = workflow._request_turns(after["body"], browser_request, world, browser_plan=live_plan)
                     artifacts.immutable_save(directory, "history-after", after)
                     if live:
                         if confirm_save:
@@ -402,7 +409,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         trace = client.get(route + "/turns/" + durable_id + "/context-trace")
                         artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
                     if live:
-                        wire_response = json.loads((directory / (wire_name + ".json")).read_bytes())
+                        wire_path = directory / (wire_name + ".json")
+                        if not wire_path.is_file():
+                            raise ValueError("Ordinary browser transport has no retained response")
+                        wire_response = json.loads(wire_path.read_bytes())
                         wire_bytes = bytes.fromhex(wire_response["raw_body_hex"])
                         try:
                             body, status = build_browser_terminal(
@@ -419,6 +429,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
                             "elapsed_ms": wire_response["elapsed_ms"],
                         })
+                    if live_plan and not turns and status >= 400:
+                        return
                     if len(turns) != 1:
                         raise ValueError("Browser request has no unique retained Turn")
                     from application_state.agent_conversation import AgentConversationService
