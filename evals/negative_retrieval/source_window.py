@@ -7,12 +7,34 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from threading import Lock
 from unittest.mock import patch
+from pathlib import Path
+import hashlib
+import marshal
 import sys
+import types
 
 _scope = ContextVar("negative_retrieval_source_window", default=None)
 _serial = Lock()
 _poisoned = False
 _KINDS = ("metadata", "text", "text_batch")
+# Exact pinned Core 6beb506 and CPython 3.13.12 source/code pair. Unknown
+# implementations remain diagnostic; this is not process attestation.
+KNOWN_TEXT_OWNERS = {
+    "normalizer": "marshal-code-v1", "implementation": "cpython", "version": [3, 13, 12],
+    "cache_tag": "cpython-313", "optimize": 0,
+    "native": {"source_sha256": "1c1016f0d32d43cf4326906383f1ecd2c09b58961623e035914d875d381cb777",
+               "code_sha256": "1cc30f75a24b57da0f63f01c684ab49bd1f0cce7d3dea5f452e6d9ade4b8ffd5"},
+    "operator": {"source_sha256": "4a961f9cf54f8109350515a11f295f69ec26724a9c5d0ad77967689d2a71a1ef",
+                 "code_sha256": "fc07987dd704feca63f54d0eb592bf8eb3c981e81c3f7e84d97eb536e0715e07"},
+}
+
+
+def known_scoped_text_attempt(value):
+    """Recognize one lower-bound attempt, never a completed source read."""
+    return (value is not None and value.get("schema") == "dmb_negative_retrieval_source_window_v2"
+            and value.get("owner_provenance") == KNOWN_TEXT_OWNERS
+            and value.get("status") == "observed" and value.get("dispatch_uncertain") is False
+            and value["scoped"]["text"] > 0)
 
 
 class SourceWindowCleanupError(RuntimeError):
@@ -23,8 +45,10 @@ def validate_artifact(value, case_id):
     """Validate a partial diagnostic without converting attempts into grades."""
     expected = {"schema", "case_id", "window", "dispatch_uncertain", "coverage", "status",
                 "scoped", "unscoped", "pending_at_close", "late", "monitor_error"}
+    if isinstance(value, dict) and value.get("schema") == "dmb_negative_retrieval_source_window_v2":
+        expected.add("owner_provenance")
     if (not isinstance(value, dict) or set(value) != expected
-            or value["schema"] != "dmb_negative_retrieval_source_window_v1"
+            or value["schema"] not in {"dmb_negative_retrieval_source_window_v1", "dmb_negative_retrieval_source_window_v2"}
             or value["case_id"] != case_id or value["window"] != "turn_post_v1"
             or value["coverage"] != "partial"
             or value["status"] not in {"observed", "uncertain", "not_started", "unavailable", "setup_failed"}
@@ -46,10 +70,60 @@ def validate_artifact(value, case_id):
         raise ValueError("Unstarted source window has activity")
     if value["status"] == "setup_failed" and not value["monitor_error"]:
         raise ValueError("Source window setup failure is missing its error flag")
+    if value["schema"] == "dmb_negative_retrieval_source_window_v2":
+        provenance = value["owner_provenance"]
+        if provenance is not None:
+            if (not isinstance(provenance, dict)
+                    or set(provenance) != {"normalizer", "implementation", "version", "cache_tag", "optimize", "native", "operator"}
+                    or provenance["normalizer"] != "marshal-code-v1"
+                    or not isinstance(provenance["implementation"], str)
+                    or not isinstance(provenance["cache_tag"], str)
+                    or not isinstance(provenance["version"], list) or len(provenance["version"]) != 3
+                    or any(type(n) is not int or n < 0 for n in provenance["version"])
+                    or type(provenance["optimize"]) is not int or provenance["optimize"] < 0):
+                raise ValueError("Invalid source window owner provenance")
+            for name in ("native", "operator"):
+                row = provenance[name]
+                if (not isinstance(row, dict) or set(row) != {"source_sha256", "code_sha256"}
+                        or any(not isinstance(v, str) or len(v) != 64
+                               or any(c not in "0123456789abcdef" for c in v) for v in row.values())):
+                    raise ValueError("Invalid source window owner provenance")
     return value
 
 
+def _normalize_code(code):
+    """Remove host paths recursively while retaining all other code fields."""
+    return code.replace(co_filename="<owner>", co_consts=tuple(
+        _normalize_code(item) if isinstance(item, types.CodeType) else item for item in code.co_consts))
+
+
+def _owner_provenance(native_module, operator_module, package_root, native_code, operator_code):
+    """Fingerprint registered code and its expected package files, host-side only."""
+    try:
+        result = {"normalizer": "marshal-code-v1", "implementation": sys.implementation.name,
+                  "version": list(sys.version_info[:3]), "cache_tag": sys.implementation.cache_tag,
+                  "optimize": sys.flags.optimize}
+        root = Path(package_root).resolve(strict=True)
+        for label, module, code, filename in (
+            ("native", native_module, native_code, "vnext_sources.py"),
+            ("operator", operator_module, operator_code, "vnext_operator_sources.py"),
+        ):
+            expected = (root / "infrastructure" / "postgres" / filename).resolve(strict=True)
+            origin = Path(module.__spec__.origin).resolve(strict=True)
+            actual = Path(code.co_filename).resolve(strict=True)
+            if origin != expected or actual != expected or Path(module.__file__).resolve(strict=True) != expected:
+                return None
+            result[label] = {"source_sha256": hashlib.sha256(expected.read_bytes()).hexdigest(),
+                             "code_sha256": hashlib.sha256(marshal.dumps(_normalize_code(code))).hexdigest()}
+        return result
+    except (OSError, AttributeError, TypeError, ValueError):
+        # Provenance is optional; inability to bind it cannot imply a read.
+        return None
+
+
 def _default_owners():
+    import dungeonmind
+    from dungeonmind.infrastructure.postgres import vnext_sources, vnext_operator_sources
     from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
     from dungeonmind.infrastructure.postgres.vnext_operator_sources import _PostgresOperatorSourceView
     from apps.live_control_server.services.build_jev_harness import _BUILD_GRAPH_PREPARATION
@@ -60,7 +134,14 @@ def _default_owners():
         _PostgresOperatorSourceView.get_native_metadata_snapshot.__code__: "metadata",
         _PostgresOperatorSourceView.get_native_text_source.__code__: "text",
     }
-    return owners, _BUILD_GRAPH_PREPARATION
+    try:
+        provenance = _owner_provenance(vnext_sources, vnext_operator_sources,
+            Path(dungeonmind.__file__).resolve(strict=True).parent,
+            _PostgresNativeTextSourceView.get_native_text_source.__code__,
+            _PostgresOperatorSourceView.get_native_text_source.__code__)
+    except (OSError, AttributeError, TypeError, ValueError):
+        provenance = None
+    return owners, _BUILD_GRAPH_PREPARATION, provenance
 
 
 @contextmanager
@@ -82,7 +163,8 @@ def observe_source_window(*, owners=None, executor=None):
     state = {"coverage": "partial", "status": "not_started",
              "scoped": {key: 0 for key in _KINDS},
              "unscoped": {key: 0 for key in _KINDS}, "pending": 0,
-             "pending_at_close": 0, "late": 0, "monitor_error": False}
+             "pending_at_close": 0, "late": 0, "monitor_error": False,
+             "owner_provenance": None}
     guard = Lock()
     token = object()
     claimed = None
@@ -93,7 +175,10 @@ def observe_source_window(*, owners=None, executor=None):
     try:
         if owners is None:
             try:
-                owners, executor = _default_owners()
+                defaults = _default_owners()
+                owners, executor = defaults[:2]
+                if len(defaults) == 3:
+                    state["owner_provenance"] = defaults[2]
             except (ImportError, AttributeError):
                 state["status"] = "unavailable"
                 yield state
