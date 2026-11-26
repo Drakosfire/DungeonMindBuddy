@@ -645,7 +645,7 @@ BuildPendingPrefixEventV1 = Annotated[
     t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
     | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
-    | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1
+    | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1 | BuildSavedStatblockReadV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
     | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1
@@ -678,6 +678,7 @@ class BuildPendingExecutionV1(Strict):
         validate_native_action_events(self)
         from .build_source_free import validate_pending_work_records
         validate_pending_work_records(self)
+        source_settlement = None
         settled = False
         app_catalog_observed = False
         work_selected = False
@@ -784,7 +785,22 @@ class BuildPendingExecutionV1(Strict):
                 if (isinstance(event.native_query, NativeGraphQueryV4)
                         and event.native_query.question != self.policy.action.intent.message):
                     raise ValueError("Settled query changed the pending author request")
+                source_settlement = event
                 settled = True
+            elif type(event) is BuildSavedStatblockReadV1:
+                if source_settlement is None:
+                    raise ValueError("Pending statblock acquisition requires settled source authority")
+                validate_saved_statblock_read(event, self)
+                if event.pdf_support is not None:
+                    pin = event.pdf_support.scope
+                    authority = source_settlement.source_authority
+                    if (pin.managed_world_id, pin.native_world_id, pin.binding_version, pin.revision_id) != (
+                        authority.managed_world_id, authority.native_world_id,
+                        authority.binding_version, authority.revision_id,
+                    ):
+                        raise ValueError("Pending statblock passage differs from its settled Graph pin")
+                    if any(not item.evidence_ref_id.startswith("ev:") for item in event.pdf_support.support):
+                        raise ValueError("Pending statblock acquisition requires stored passage evidence")
             elif type(event) in (NativeRetrievalSelectedV1,
                     t.NativeDirectSourceAuthorizedV1, t.NativeDirectSourceObservedV1,
                     t.NativeBodySearchAuthorizedV1, t.NativeBodySearchObservedV1,
