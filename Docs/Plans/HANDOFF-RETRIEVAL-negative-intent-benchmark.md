@@ -66,6 +66,33 @@ held-out case or qualified benchmark result is claimed. Exact runtime/dependency
 and provider qualifications, source-required control, actual captures and
 accepted cleanup remain outstanding.
 
+## Current-source development observations
+
+The 60-exchange frozen context-reuse case completed through the ordinary local
+capture: the answer recalled the earliest toll and collector. Its response
+cycle through the HTTP envelope was 5.21 s. A fresh capture of the supplied
+Shepherd question, in reconstructed short context, returned ten usable names
+in 5.11 s; an independent reviewer noted that the possible founder role could
+be qualified more explicitly. In each case the partial turn-window probes and
+trace observed no acquisition events. They do not prove complete zero retrieval.
+Neither duration is browser latency or a controlled comparison to the original
+trace. An earlier gated long-chat attempt sent one controller request but its
+writer timed out before transport while awaiting manual inspection; retain it as
+a failure, not a speed result.
+
+A separate source-required App-page control answered the qualified toll and
+bound a stored citation to the exact synthetic ledger. Its probe observed one
+catalog discovery and one materialization. A fresh replay using identical
+previously audited inputs completed its local response cycle in 4.96 s; this
+is one App-source sample, not a native Core lookup, browser citation-open test,
+or latency distribution. All provider requests were individually audited or
+byte-identical to a previously audited request. The synthetic result reviews
+are hash-bound to retained capture artifacts. Their reviewer identity and
+independence, capture environment and acquisition completeness are not proved
+by the assessor, so every case remains unproven rather than a benchmark pass.
+The exact sources of eight older setup diagnostics were unavailable; the current
+capture worker sources and retained artifacts are preserved privately.
+
 ## Current serving and capture checkpoint
 
 PR #4840 merged as `cd9812a0b6a78be896dc80718404572aaa862943` and deployed in Actions run `45776045258`; it repairs an anchored missing-page-target failure that attempted native retrieval without an admitted source settlement. PR #4841 merged as `5f5fcfba7fcf03a7389d0d5ba9aea0490f8826d9` and deployed in run `45777194145`, correcting the host-added partial-retrieval warning for the validated source-free proposal-only case. Both releases passed staged/live identity and public health/auth checks. The latest signed-in fresh Shepherd naming replay returned ten names without the warning, with a 7.2 s visible trace window. The controller still classified the naming request as current-page writing; the UI trace is not a complete acquisition journal and the fresh conversation does not reproduce the original long chat. These are smoke observations, not a benchmark pass or an end-to-end latency measurement.
