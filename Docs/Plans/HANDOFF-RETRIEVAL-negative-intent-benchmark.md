@@ -64,6 +64,10 @@ The serving revision's ordinary capture function has no `clone_app` keyword, unl
 
 Current pending Build source observation also permits a missing native binding for genuinely source-free work, whereas the earlier binding failure above was on predecessor source. This can make a negative App-only case feasible with a fresh synthetic World; it does not supply the native authority required for a native-source control, and has not yet been demonstrated through the ordinary capture. Do not manufacture a binding or write the read-only Core.
 
+## Long-chat development support
+
+The evaluator now admits up to 98 prior synthetic exchanges and requests 100-turn history pages before and after the measured turn, rejecting a remaining cursor or altered prefix. It chooses the existing complete pending-Build dialogue owner; older lineages with only the six-turn reader reject long seeds before creating a conversation. A synthetic 60-exchange development fixture asks for facts from the first exchange and has a private zero-acquisition rubric. Thirteen focused synthetic checks passed, including a fake-owner 60-exchange round trip, truncation, race, source-free grading and existing fixture generation. No real database, provider, ordinary long-chat turn or independent held-out case was used. The serving integration candidate must be rebuilt for this increment.
+
 ## Outcome and lease
 
 Build an independently reviewable evaluation of unnecessary acquisition and

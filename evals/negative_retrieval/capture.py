@@ -95,7 +95,8 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     verify_preflight_snapshot(fixture, template, world, kwargs.get("build_editor_snapshot"))
                     conversation = kwargs.get("expected_conversation_id")
                     if conversation is not None or fixture["history"]:
-                        response = client.get("/api/live/agent/worlds/" + world + "/conversation")
+                        response = client.get("/api/live/agent/worlds/" + world + "/conversation",
+                                              params={"limit": 100})
                         if response.status_code != 200:
                             raise ValueError("Preflight history read failed")
                         history = response.json()
@@ -117,6 +118,13 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                                 return getattr(self.wrapped, name)
 
                             def get(self, route, *args, **options):
+                                history_route = "/api/live/agent/worlds/" + world + "/conversation"
+                                if route == history_route:
+                                    params = options.get("params", {})
+                                    if (not isinstance(params, dict) or "before_sequence" in params
+                                            or params.get("limit", 100) != 100):
+                                        raise ValueError("Runner history query cannot prove a complete prefix")
+                                    options["params"] = {**params, "limit": 100}
                                 response = self.wrapped.get(route, *args, **options)
                                 if self.pending:
                                     if (route != "/api/live/agent/worlds/" + world + "/conversation"

@@ -187,8 +187,16 @@ the conversation owner after checking the exact App-clone lease, a fresh
 the persisted page owner. The caller must provision the synthetic World and
 page before calling it.
 It refuses an existing conversation and does not reset or retry a partial seed.
-The owner-bound predecessor-source diagnostic round-tripped the development
-placement dialogue with Build provenance; it did not exercise full capture.
+Long fixtures can contain up to 98 complete prior exchanges. The wrapper asks
+for up to 100 history turns before and after the measured turn and rejects a
+remaining pagination cursor or any changed/missing prior turn. The seeder uses
+the complete pending-Build dialogue owner for long histories and refuses older
+lineages before creating a conversation if only the six-turn reader exists.
+The 60-exchange development case tests reuse of facts from its first exchange;
+it is synthetic development material, not an independent held-out case or
+proof of live long-chat behavior. The owner-bound predecessor-source diagnostic
+round-tripped the short placement dialogue with Build provenance; it did not
+exercise full capture or the new long seeder.
 
 `provision_fixture.provision_fixture` creates a uniquely named synthetic World
 and its primary and related pages after verifying the workstream App lease. It

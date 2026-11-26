@@ -989,8 +989,8 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch, verifi
         def json(self):
             return history
     class Client:
-        def get(self, route):
-            assert route == "/api/live/agent/worlds/w/conversation"
+        def get(self, route, *, params):
+            assert route == "/api/live/agent/worlds/w/conversation" and params == {"limit": 100}
             return Response()
     monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: (
         {"conversation_mode": "build_sequence", "cases": [case]}, tmp_path))
@@ -1017,7 +1017,8 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch, verifi
     assert dispatched == ["c"]
     history["turns"][0]["assistant_text"] = "A star."
     calls = []
-    def changed_get(self, route):
+    def changed_get(self, route, *, params):
+        assert params == {"limit": 100}
         calls.append(route)
         if len(calls) == 2:
             history["turns"][0]["assistant_text"] = "Changed after preflight."
@@ -1027,6 +1028,116 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch, verifi
         module.capture(_test_manifest(tmp_path), tmp_path / "race", fixtures=fixture_set,
                        expected_manifest_sha256=MANIFEST_PIN, expected_fixture_sha256=fixture_pin)
     assert len(calls) == 2 and dispatched == ["c"]
+
+
+def test_long_seeded_history_uses_full_before_and_after_pages(tmp_path, monkeypatch, verified_capture_owner):
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+    history_rows = [{"turn_id": f"t{i}", "sequence": i, "lifecycle_status": "completed",
+                     "user_text": f"question {i}", "assistant_text": f"answer {i}"} for i in range(1, 61)]
+    dialogue = [item for row in history_rows for item in ({"role": "user", "content": row["user_text"]},
+                                                        {"role": "assistant", "content": row["assistant_text"]})]
+    fixture = {"request": "Continue.", "history": dialogue, "page": "# Page", "related_pages": []}
+    case = {"id": "long", "question": fixture["request"]}
+    history = {"world_id": "w", "conversation_id": "c", "active_conversation_id": "c",
+               "next_before_sequence": None, "turns": history_rows}
+    queries = []
+    class Response:
+        status_code = 200
+        def json(self): return history
+    class Client:
+        def get(self, route, *, params):
+            queries.append((route, dict(params)))
+            return Response()
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: ({"conversation_mode": "build_sequence", "cases": [case]}, tmp_path))
+    monkeypatch.setattr(module, "verify_preflight_snapshot", lambda *a: True)
+    monkeypatch.setattr(module, "inspect_related_pages", lambda *a: [])
+    def ordinary_case(client, world, template, current, directory, **kwargs):
+        client.get("/api/live/agent/worlds/w/conversation")
+        client.get("/api/live/agent/worlds/w/conversation", params={"include_turn_correlation": "true"})
+        return "done"
+    monkeypatch.setattr(workflow, "capture_case", ordinary_case)
+    def ordinary_capture(manifest, output, *, cohort_manifest_sha256, clone_app=False):
+        return workflow.capture_case(Client(), "w", {"primary_work": {"object_id": "page"}}, case, output)
+    monkeypatch.setattr(workflow, "capture", ordinary_capture)
+    fixture_set = {"long": fixture}
+    assert module.capture(_test_manifest(tmp_path), tmp_path / "ok", fixtures=fixture_set,
+        expected_manifest_sha256=MANIFEST_PIN, expected_fixture_sha256=module.fixture_sha256(fixture_set)) == "done"
+    assert [params for _, params in queries] == [{"limit": 100}, {"limit": 100},
+        {"include_turn_correlation": "true", "limit": 100}]
+    history["next_before_sequence"] = 11
+    with pytest.raises(ValueError, match="incomplete"):
+        module.capture(_test_manifest(tmp_path), tmp_path / "truncated", fixtures=fixture_set,
+            expected_manifest_sha256=MANIFEST_PIN, expected_fixture_sha256=module.fixture_sha256(fixture_set))
+
+
+def test_seeder_accepts_long_bounded_dialogue_but_rejects_oversized_before_ownership(monkeypatch):
+    from evals.negative_retrieval import seed_dialogue as module
+    from uuid import uuid4
+    monkeypatch.setattr(module, "verify_preflight_snapshot", lambda *a: True)
+    def reached_owner(): raise RuntimeError("owner guard reached")
+    monkeypatch.setattr(module, "checked_owned_dsn", reached_owner)
+    def dialogue(turns):
+        return [item for i in range(turns) for item in ({"role": "user", "content": f"question {i}"},
+                                                       {"role": "assistant", "content": f"answer {i}"})]
+    world = "negative-seed-" + uuid4().hex
+    with pytest.raises(RuntimeError, match="owner guard reached"):
+        module.seed_dialogue({"history": dialogue(60)}, world=world, template={}, snapshot={})
+    with pytest.raises(ValueError, match="complete nonblank dialogue pairs"):
+        module.seed_dialogue({"history": dialogue(99)}, world=world, template={}, snapshot={})
+
+
+def test_seeder_roundtrips_sixty_exchanges_through_complete_owner(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state import agent_conversation
+    from apps.live_control_server.services import workspace_document_registry
+    from evals.negative_retrieval import seed_dialogue as module
+    world = "negative-seed-" + uuid4().hex
+    page_id = str(uuid4())
+    page = "# Synthetic"
+    digest = sha256(page.encode()).hexdigest()
+    template = {"primary_work": {"object_id": page_id, "expected_revision": 1, "expected_content_sha256": digest}}
+    saved = SimpleNamespace(record=SimpleNamespace(world_id=world, kind="worldbuilding_source", status="active", revision=1),
+        loaded_revision=1, markdown=page, committed_markdown=page, content_sha256=digest, committed_content_sha256=digest)
+    monkeypatch.setattr(module, "verify_preflight_snapshot", lambda *a: True)
+    monkeypatch.setattr(module, "checked_owned_dsn", lambda: "synthetic")
+    monkeypatch.setattr(workspace_document_registry, "get_workspace_document_snapshot", lambda *a: saved)
+    class Service:
+        def __init__(self): self.rows, self.pending = [], None
+        def get_world_pointer(self, world_id): return SimpleNamespace(revision=0, active_conversation_id=None)
+        def new_conversation(self, command): return SimpleNamespace(conversation_id=uuid4())
+        def get_conversation(self, world_id, conversation_id): return SimpleNamespace(revision=len(self.rows) + 1)
+        def accept_turn(self, submission):
+            self.pending = submission.user_text
+            return SimpleNamespace(turn_id=uuid4(), revision=1)
+        def begin_turn(self, *args, **kwargs): return SimpleNamespace(revision=2)
+        def complete_turn(self, result): self.rows.append({"user": self.pending, "assistant": result.assistant_text})
+        def list_pending_build_dialogue(self, *args): return self.rows
+        def list_build_dialogue(self, *args): pytest.fail("legacy six-turn reader used")
+    service = Service()
+    monkeypatch.setattr(agent_conversation, "AgentConversationService", lambda: service)
+    history = [item for i in range(60) for item in ({"role": "user", "content": f"question {i}"},
+                                                   {"role": "assistant", "content": f"answer {i}"})]
+    result = module.seed_dialogue({"page": page, "history": history}, world=world, template=template, snapshot={})
+    assert result is not None and len(service.rows) == 60
+    assert service.rows[0] == {"user": "question 0", "assistant": "answer 0"}
+    assert service.rows[-1] == {"user": "question 59", "assistant": "answer 59"}
+
+
+def test_seeder_chooses_complete_dialogue_owner_before_long_seed():
+    from types import SimpleNamespace
+    from evals.negative_retrieval.seed_dialogue import _dialogue_reader
+    full = lambda *args: "complete"
+    recent = lambda *args: "recent"
+    current = SimpleNamespace(list_pending_build_dialogue=full, list_build_dialogue=recent)
+    assert _dialogue_reader(current, turns=60) is full
+    old = SimpleNamespace(list_build_dialogue=recent)
+    assert _dialogue_reader(old, turns=6) is recent
+    with pytest.raises(ValueError, match="Complete Build dialogue owner"):
+        _dialogue_reader(old, turns=7)
+    with pytest.raises(ValueError, match="Complete Build dialogue owner"):
+        _dialogue_reader(SimpleNamespace(), turns=0)
 
 
 def test_fixture_source_record_rejects_world_and_content_mismatches():
@@ -1407,6 +1518,27 @@ def test_owned_http_fixture_rejects_foreign_or_stale_clone_and_worker():
     bad["database"]["database"] = "operator_database"
     with pytest.raises(ValueError):
         validate(bad)
+
+
+def test_long_context_development_case_requires_early_dialogue_without_search():
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / "evals/negative_retrieval/fixtures"
+    public = json.loads((root / "development.json").read_text())
+    private = json.loads((root / "development-private.json").read_text())
+    case = next(row for row in public["cases"] if row["id"] == "dev-long-context-reuse")
+    rubric = private["cases"][case["id"]]
+    assert len(case["history"]) == 120
+    assert all(row["role"] == ("user" if i % 2 == 0 else "assistant") for i, row in enumerate(case["history"]))
+    assert "blue glass bead" in case["history"][0]["content"] and "Mara Vale" in case["history"][0]["content"]
+    assert "blue glass bead" not in case["request"] and "Mara Vale" not in case["request"]
+    assert all("blue glass bead" not in row["body"] and "Mara Vale" not in row["body"] for row in case["related_pages"])
+    assert rubric["max_catalog_discoveries"] == rubric["max_graph_query_attempts"] == 0
+    assert rubric["required_reads"] == rubric["allowed_reads"] == [] and rubric["outcomes"] == ["answer"]
+    assert assess(rubric, observation(outcome="answer", graph_query_attempts=1,
+                                      graph_query_journal_complete=False))["checks"]["graph_query_budget"] is False
+    assert assess(rubric, observation(outcome="answer", graph_query_attempts=0,
+                                      graph_query_journal_complete=False))["status"] == "unproven"
 
 
 def test_creative_naming_rubric_requires_proven_no_acquisition_and_quality():

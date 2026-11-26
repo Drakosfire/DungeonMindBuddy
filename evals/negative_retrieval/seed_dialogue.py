@@ -5,6 +5,17 @@ from .fixture_binding import verify_preflight_snapshot
 from .owned_db_fixture import checked_owned_dsn
 
 
+def _dialogue_reader(service, *, turns):
+    """Use the complete pending owner; never partially seed an old lineage."""
+    reader = getattr(service, "list_pending_build_dialogue", None)
+    if callable(reader):
+        return reader
+    reader = getattr(service, "list_build_dialogue", None)
+    if turns > 6 or not callable(reader):
+        raise ValueError("Complete Build dialogue owner is required for a long seed")
+    return reader
+
+
 def seed_dialogue(fixture, *, world, template, snapshot):
     """Create a fresh synthetic conversation using the conversation owner.
 
@@ -28,7 +39,10 @@ def seed_dialogue(fixture, *, world, template, snapshot):
     except (ValueError, AttributeError):
         raise ValueError("A uniquely named synthetic World is required") from None
     history = fixture.get("history")
-    if (not isinstance(history, list) or len(history) > 12 or len(history) % 2
+    # The ordinary history endpoint can return at most 100 turns and reports
+    # a cursor at exactly 100. Leave room for the measured turn and require a
+    # complete unpaginated before/after view: at most 98 prior exchanges.
+    if (not isinstance(history, list) or len(history) > 196 or len(history) % 2
             or any(not isinstance(row, dict) or set(row) != {"role", "content"}
                    or row["role"] != ("user" if i % 2 == 0 else "assistant")
                    or not isinstance(row["content"], str) or not row["content"].strip()
@@ -50,6 +64,7 @@ def seed_dialogue(fixture, *, world, template, snapshot):
             or ("visibility" in snapshot and saved.record.visibility_state != snapshot["visibility"])):
         raise ValueError("Persisted synthetic page differs from the frozen snapshot")
     service = AgentConversationService()
+    read_dialogue = _dialogue_reader(service, turns=len(history) // 2)
     pointer = service.get_world_pointer(world)
     if pointer.revision != 0 or pointer.active_conversation_id is not None:
         raise ValueError("Synthetic World already has conversation state")
@@ -80,7 +95,7 @@ def seed_dialogue(fixture, *, world, template, snapshot):
                                      expected_revision=accepted.revision)
         service.complete_turn(TurnResult(world_id=world, conversation_id=conversation.conversation_id,
             turn_id=accepted.turn_id, expected_revision=running.revision, assistant_text=assistant))
-    dialogue = service.list_build_dialogue(world, conversation.conversation_id)
+    dialogue = read_dialogue(world, conversation.conversation_id)
     if [(row["user"], row["assistant"]) for row in dialogue] != [
             (history[i]["content"], history[i + 1]["content"]) for i in range(0, len(history), 2)]:
         raise ValueError("Seeded dialogue did not round-trip through the Build owner")
