@@ -121,6 +121,8 @@ async function run() {
       try {
         const checkpoint = await page.evaluate(async () =>
           (await fetch("/__benchmark/build-response-retained")).json());
+        confirmation.checkpoint = { retained: checkpoint.retained === true,
+          has_action: Boolean(checkpoint.action_id), has_correlation: Boolean(checkpoint.idempotency_key) };
         let action = checkpoint.action_id;
         const world = process.env.DMB_BENCHMARK_WORLD;
         if (!action && checkpoint.idempotency_key) {
@@ -133,9 +135,14 @@ async function run() {
             if (history.active_conversation_id !== checkpoint.conversation_id) return false;
             const turns = history.turns.filter(turn => turn.idempotency_key === checkpoint.idempotency_key);
             if (turns.length !== 1 || ["accepted", "running"].includes(turns[0].lifecycle_status)) return false;
-            return { action_id: turns[0].knowledge_context?.completion?.action_id ?? null };
+            const turn = turns[0];
+            const actionId = turn.knowledge_context?.completion?.action_id;
+            if (turn.lifecycle_status === "completed" && !actionId) return false;
+            return { action_id: actionId ?? null, lifecycle: turn.lifecycle_status };
           }, { world, checkpoint }, { timeout: 40000, polling: 500 });
-          ({ action_id: action } = await durable.jsonValue());
+          const recovered = await durable.jsonValue();
+          confirmation.recovered_lifecycle = recovered.lifecycle;
+          action = recovered.action_id;
           if (action) await page.reload();
         }
         if (!action || !/^[a-f0-9-]{36}$/i.test(action)) throw new Error("Turn has no bound proposal to confirm");
