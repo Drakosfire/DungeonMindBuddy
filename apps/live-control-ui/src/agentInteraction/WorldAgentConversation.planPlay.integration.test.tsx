@@ -3210,7 +3210,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const composer = await screen.findByLabelText('Message DungeonBuddy');
     fireEvent.change(composer, { target: { value: 'Keep this unsent draft' } });
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText('Rules references', { selector: 'summary' }));
+    fireEvent.click(screen.getByText('Trace', {selector:'summary'}));
+    fireEvent.click(await screen.findByText('Rules references', { selector: 'summary' }));
     fireEvent.click(await screen.findByRole('button', { name: /Inspect Rules source/ }));
     expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(capsule.support.excerpt_text);
     expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
@@ -3265,8 +3266,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
       conversation_id: '11111111-1111-4111-8111-111111111111', active_conversation_id: '11111111-1111-4111-8111-111111111111', turns: [row] });
     render(<Harness initial='play' />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
-    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText(/history.*(invalid|match|verified)|could not.*history|history.*unavailable/i)).toBeInTheDocument());
+    await screen.findByText(row.user_text);
+    fireEvent.click(screen.getByText('Trace', {selector:'summary'}));
+    await screen.findByText('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.');
     expect(screen.queryByText('Rules references')).not.toBeInTheDocument();
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
   });
@@ -3358,7 +3360,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const composer = await screen.findByLabelText('Message DungeonBuddy');
     fireEvent.change(composer, { target: { value: 'Keep this surface draft' } });
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText('Rules references', { selector: 'summary' }));
+    fireEvent.click(screen.getByText('Trace', {selector:'summary'}));
+    fireEvent.click(await screen.findByText('Rules references', { selector: 'summary' }));
     fireEvent.click(await screen.findByRole('button', { name: /Inspect Rules source/ }));
     expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(f.capsule.support.excerpt_text);
     expect(screen.getByLabelText('Message DungeonBuddy')).toBe(composer);
