@@ -34,10 +34,14 @@ def response_latency(answer):
     if "elapsed_ms" not in answer:
         return None
     value = answer["elapsed_ms"]
-    if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+    try:
+        valid = type(value) in (int, float) and math.isfinite(value) and value >= 0
+    except OverflowError:
+        valid = False
+    if not valid:
         raise ValueError("Invalid response latency")
-    return {"elapsed_ms": value, "basis": "ordinary capture dispatch to HTTP response",
-            "scope": "response only; excludes later history, trace and review"}
+    return {"elapsed_ms": value, "basis": "ordinary capture request cycle through response envelope processing",
+            "scope": "includes any context wrapper; excludes later history, trace and review"}
 
 
 def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fixture_set=None):

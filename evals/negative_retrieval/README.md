@@ -159,8 +159,8 @@ binding and prompt-boundary audit are required for a real capture; do not write
 to the shared read-only Core to supply one.
 
 When the ordinary `answer-http` artifact includes its monotonic
-`elapsed_ms`, the report exposes dispatch-to-HTTP-response timing with that
-basis. This is not total browser delivery time and is not independently
+`elapsed_ms`, the report exposes the request cycle through response-envelope
+processing, including any context wrapper. This is not total browser delivery time and is not independently
 verified while the capture environment is unqualified. Missing timing stays
 unknown; invalid or non-finite values are rejected.
 
