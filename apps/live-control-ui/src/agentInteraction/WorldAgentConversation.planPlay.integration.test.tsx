@@ -3363,7 +3363,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     if (mode === 'ordinary' || mode === 'mixed' || mode === 'unclaimed') {
       await waitFor(() => expect(window.localStorage.getItem(key)).toBeNull());
       if (mode !== 'unclaimed') await screen.findByText(/Original Play answer/);
-      if (mode === 'mixed' || mode === 'unclaimed') await screen.findByText('Rules references', { selector: 'summary' });
+      if (mode === 'mixed' || mode === 'unclaimed') {
+        fireEvent.click(await screen.findByText('Trace', {selector:'summary'}));
+        await screen.findByText('Rules references', { selector: 'summary' });
+      }
     } else {
       await screen.findByText(/reply did not match.*(Run edition|accepted answer)/);
       expect(window.localStorage.getItem(key)).not.toBeNull();
