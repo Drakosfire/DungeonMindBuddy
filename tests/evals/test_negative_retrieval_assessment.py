@@ -593,13 +593,41 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     assert result["response_latency"]["elapsed_ms"] == 1234.5
     assert "request cycle through response envelope processing" in result["response_latency"]["basis"]
     assert result["status"] == "unproven"
-    assert result["observation_status"] == "fail"
+    assert result["observation_status"] == "unproven"  # Matching native window is absent.
     assert result["fixture_context_verified"] is None
     assert result["primary_context_verified"] is None
-    assert result["checks"]["catalog_budget"] is False
+    assert result["checks"]["catalog_budget"] is None
     assert result["checks"]["inline_questions"] is None
     assert len(result["artifact_sha256"]) == len(artifacts)
     native_path = tmp_path / "native-graph-probe.json"
+    native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
+        "coverage": "partial", "case_id": "case1", "status": "observed",
+        "window": "turn_post_v1", "records": []}))
+    matched = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+    assert matched["checks"]["catalog_budget"] is False
+    mismatched = json.loads(native_path.read_text())
+    mismatched["status"] = "not_started"
+    native_path.write_text(json.dumps(mismatched))
+    assert report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)["checks"]["catalog_budget"] is None
+    probe.pop("status")
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    mismatched["status"] = "observed"
+    native_path.write_text(json.dumps(mismatched))
+    assert report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)["checks"]["catalog_budget"] is None
+    probe["status"] = "observed"
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    mismatched["window"] = "unrecognized"
+    native_path.write_text(json.dumps(mismatched))
+    with pytest.raises(ValueError, match="Native Graph probe"):
+        report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+    probe["window"] = "unrecognized"
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    mismatched["window"] = "turn_post_v1"
+    native_path.write_text(json.dumps(mismatched))
+    with pytest.raises(ValueError, match="related-page probe status"):
+        report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+    probe["window"] = "turn_post_v1"
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
     for owner, state, expected in (
         ("native_graph_selected_read", "returned", False),
         ("native_graph_authored_reference_read", "raised", False),
