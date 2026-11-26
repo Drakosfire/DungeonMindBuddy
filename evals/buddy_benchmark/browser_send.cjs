@@ -96,16 +96,18 @@ async function run() {
       new URL(result.url()).pathname === "/api/live/agent/turn" && result.request().method() === "POST",
     { timeout: 60000 });
     response.catch(() => {});
+    let delivered;
     try {
       await send.click({ timeout: 12000 });
+      delivered = await response;
     } catch (error) {
       const alerts = await page.getByRole("alert").allTextContents();
       writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
         alerts, apiFailures, composerHasQuestion: await composer.inputValue() === process.env.DMB_BENCHMARK_QUESTION,
+        planTarget: build ? undefined : await page.getByLabel("Actual Plan change target").allTextContents(),
       }, null, 2));
       throw error;
     }
-    const delivered = await response;
     if (delivered.headers()["x-benchmark-placement-rejected"] === "1") {
       throw new Error("Plan placement failed benchmark preflight; rejected request retained");
     }
