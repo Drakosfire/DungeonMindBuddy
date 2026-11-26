@@ -88,6 +88,30 @@ by other workstreams. No additional database was created or modified for this
 workstream. Recheck capacity before allocating its one reusable clone; do not
 clean up another owner's databases.
 
+## Signed-in serving smoke: naming and required page
+
+In the existing synthetic Dogfood Glass Ferryman World, a fresh Build conversation
+on Conversation scratch asked the synthetic Lantern Keeper naming question. Buddy
+returned ten names as a proposed idea without a page proposal. The trace showed
+an unvalidated `anchored` source-need choice and no Graph crawler replay; its
+last recorded timeline event was at 7.7 seconds. The reply also displayed a
+partial-retrieval/corpus-completeness limitation despite the creative request.
+The visible trace is not a complete discovery or materialization journal, so it
+does not prove no acquisition occurred. Timeline timestamps are not browser
+first-visible or end-to-end latency.
+
+In a separate fresh conversation on the same scratch page, a question explicitly
+requested the saved Glass Ferryman Crossing Guide and a citation. Buddy answered
+that the proposed fare was a truthful memory rather than coins, kept it marked as
+a proposal, and the citation opened the saved revision containing that passage.
+Its final recorded timeline event was at 12.6 seconds. These are two live app
+smokes, not a qualified cohort or an independently held-out comparison; no
+controlled database fixture or complete acquisition capture was used. The most
+recent Actions deployment at the time was run `45755995214`, which reported
+serving revision `6595a93e9b4c360a578bf9125876b1cccd6857be`; the app check did
+not independently verify host identity. Neither smoke establishes a regression
+fix or deployment of this benchmark PR.
+
 ## Required-read attempt correction
 
 A materialization probe records entered and raised calls as acquisition attempts.
