@@ -170,6 +170,7 @@ def test_native_read_activity_is_an_unmapped_attempt_not_a_complete_journal():
     trace = {"schema": "dmb_turn_context_trace_v1", "observations": events}
     result = observed_acquisitions(trace)
     assert [row["label"] for row in result["observed"]] == [UNKNOWN] * len(policies)
+    assert [row["kind"] for row in result["observed"]].count("native_search_activity") == 1
     assert result["journal_complete"] is None
     assert assess(CASE, observation(reads=[row["label"] for row in result["observed"]], journal_complete=False))["checks"]["unexpected_retrieval"] is False
     events[0]["item_ids"] = []
@@ -677,6 +678,30 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     assert observed["checks"]["catalog_budget"] is None  # partial cannot prove completeness
     assert observed["checks"]["unexpected_retrieval"] is False
     assert observed["status"] == "unproven"
+    # A search event is discovery, not proof of a body read. Trace and owner
+    # probe may witness the same search, so they form a lower bound, not a sum.
+    attempt["observations"] = [
+        {"sequence": 0, "kind": "context_decision", "action": "expanded",
+         "policy_version": "native_source_search_progress_v2", "item_ids": ["private"]},
+        {"sequence": 1, "kind": "context_decision", "action": "retrieved",
+         "policy_version": "native_source_search_progress_v2", "item_ids": ["private"]},
+    ]
+    (tmp_path / "context-trace.json").write_text(json.dumps(envelope(trace)))
+    native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
+        "coverage": "partial", "case_id": "case1", "status": "observed", "window": "turn_post_v1",
+        "records": [{"owner": "native_corpus_discovery", "state": "returned"}]}))
+    one_catalog_no_reads = {**CASE, "max_catalog_discoveries": 1}
+    search_only = report_case(tmp_path, {"id": "case1", "request": request["message"]}, one_catalog_no_reads)
+    assert search_only["checks"]["catalog_budget"] is None  # one, not two; still partial
+    assert search_only["checks"]["unexpected_retrieval"] is None
+    no_catalog = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+    assert no_catalog["checks"]["catalog_budget"] is False
+    attempt["observations"] = []
+    (tmp_path / "context-trace.json").write_text(json.dumps(envelope(trace)))
+    native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
+        "coverage": "partial", "case_id": "case1", "status": "observed", "window": "turn_post_v1",
+        "records": [{"owner": "native_corpus_discovery", "state": "returned"},
+                    {"owner": "native_corpus_body_open", "state": "returned"}]}))
     # Old probes wrapped setup and history as well as the turn. Their records
     # remain visible but cannot be attributed to this turn.
     probe.pop("window")

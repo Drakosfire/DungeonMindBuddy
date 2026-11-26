@@ -107,7 +107,8 @@ def observe(request, history_envelope, trace_envelope, answer_envelope, *, relat
                             and (answer.get("knowledge_context") or {}).get("completion") == completion)
         except (ValueError, TypeError):
             pass
-    return {"reads": [row["label"] for row in projected["observed"]],
+    return {"reads": [row["label"] for row in projected["observed"]
+                      if row["kind"] != "native_search_activity"],
             "observed_acquisitions": projected["observed"], "journal_complete": None,
             "outcome": "clarification" if typed_questions else "proposal" if typed_proposal else "answer" if typed_answer else None,
             "completed_turn": completed, "http_status": answer_envelope["http_status"],

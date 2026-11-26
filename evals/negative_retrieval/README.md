@@ -40,6 +40,12 @@ UI evidence, and failed observations. The existing capture-context workflow
 intentionally stops before writer dispatch and therefore cannot alone establish
 clarification delivery or continuation.
 
+Native source-search activity is reported as discovery, not automatically as
+a body read. A search may itself open bodies; the independent body-open probe
+records those attempts when covered. A trace and owner probe can witness the
+same search, so the report uses a conservative lower bound rather than adding
+the two counts. Missing body-open coverage remains unknown.
+
 `native_activity_counts` reports native acquisition stage observations by fixed
 policy and action (`expanded`, `retrieved`, `retained`) separately. It does not
 pair events, count distinct sources, include arbitrary labels or establish

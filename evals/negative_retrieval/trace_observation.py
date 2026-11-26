@@ -39,7 +39,10 @@ def observed_acquisitions(trace, *, related_labels=None, source_labels=None):
             items = event.get("item_ids")
             if not isinstance(items, list) or not items or any(not isinstance(x, str) or not x for x in items):
                 raise ValueError("Native read activity has no valid target")
-            observed.append({"sequence": sequence, "kind": "native_read_attempt", "label": UNKNOWN})
+            operation = "native_search_activity" if event["policy_version"] in {
+                "native_source_search_progress_v1", "native_source_search_progress_v2"
+            } else "native_read_attempt"
+            observed.append({"sequence": sequence, "kind": operation, "label": UNKNOWN})
         elif (kind == "context_decision" and event.get("action") == "retrieved"
               and event.get("policy_version") == RELATED_POLICY):
             items = event.get("item_ids")

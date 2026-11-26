@@ -138,11 +138,19 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
                       "native_corpus_body_open"):
             counts = native_probe["counts"][owner]
             observed["reads"].extend([UNKNOWN] * sum(counts.values()))
-    observed["catalog_discoveries"] = (catalog_discovery_count(probe.get("records")) if related_turn else None)
-    if native_turn:
-        native_discovery = sum(native_probe["counts"]["native_corpus_discovery"].values())
-        if native_discovery:
-            observed["catalog_discoveries"] = (observed["catalog_discoveries"] or 0) + native_discovery
+    related_discovery = catalog_discovery_count(probe.get("records")) if related_turn else 0
+    native_discovery = (sum(native_probe["counts"]["native_corpus_discovery"].values()) if native_turn else 0)
+    stage_counts = observed["native_activity"]["counts_by_policy"]
+    search_starts = sum(stage_counts.get(f"native_source_search_progress_v{v}", {}).get("expanded", 0)
+                        for v in (1, 2))
+    search_outcomes = sum(sum(stage_counts.get(f"native_source_search_progress_v{v}", {}).get(action, 0)
+                              for action in ("retrieved", "retained")) for v in (1, 2))
+    # The trace and owner probe may witness the same corpus search. Take a
+    # conservative lower bound, not their sum; related-page discovery is a
+    # separate owner. Stage counts still do not establish complete coverage.
+    search_lower_bound = max(native_discovery, search_starts, search_outcomes)
+    observed["catalog_discoveries"] = (related_discovery + search_lower_bound
+        if related_turn or native_turn or search_lower_bound else None)
     observed["catalog_journal_complete"] = None
     observed["graph_query_attempts"] = (sum(native_probe["counts"]["native_graph_query"].values())
                                           if native_turn else None)

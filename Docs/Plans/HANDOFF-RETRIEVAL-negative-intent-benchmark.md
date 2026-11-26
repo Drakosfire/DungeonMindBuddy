@@ -112,6 +112,16 @@ cannot prove zero. The negative cohort summary includes the separate budget
 when a rubric specifies it. Required-source cases without that constraint keep
 their original expectations. Full owner coverage remains unproven.
 
+## Search versus body reads
+
+Native source-search trace stages are discovery activity, not standalone proof
+that a body was opened. Actual search can itself open bodies, which the partial
+owner probe now records where covered. The report uses the larger of the
+search-stage and corpus-owner counts as a conservative lower bound, rather than
+adding potentially duplicate witnesses. It adds separately observed related
+catalog calls. Missing owners and incomplete journals remain unknown; do not
+infer that an observed search was content-free.
+
 ## Diagnostic checkpoint
 
 The question observer now validates the containing recognized Build completion,
