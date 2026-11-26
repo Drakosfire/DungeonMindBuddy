@@ -2101,12 +2101,19 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const row={...base,assistant_text:null,lifecycle_status:'failed' as const,
       knowledge_context:{...context,completion:null,source_open_targets:[],evidence_anchor_statuses:[],related_recap_context_statuses:[],execution:null},provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',supporting_work:[support('dmb_build_source_visibility_v1','internal','1'),support('dmb_build_graph_binding_v1',authority.native_world_id,String(authority.binding_version)),support('world_graph_revision',authority.native_world_id,authority.graph_revision)],
         primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one',revision:'2',content_sha256:SHA,object_revision:null}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    const id='22222222-2222-4222-8222-000000000001', cid=history().conversation_id!;
+    const reviewed={...row,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',
+      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,
+        predecessor_id:null,successor_id:null,ordinal:0,eligible:false,reason:'reviewed_step' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[reviewed]});
     render(<Harness initial='build'/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
-    await screen.findByText(/Use “Try step again” in the saved reviewed plan/);
-    expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));
+    expect(await screen.findByText(/This saved attempt cannot be retried safely/)).toBeVisible();
+    expect(vi.mocked(getWorldAgentConversationHistory).mock.calls.some(([, options]) =>
+      options?.limit === 1 && options.beforeSequence === reviewed.sequence + 1 && options.includeTurnCorrelation)).toBe(true);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    expect(readDiscussionRetryInput).not.toHaveBeenCalled();
   });
 
   it('retires a reserved plan continuation across a source round trip',async()=>{
