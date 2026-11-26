@@ -85,8 +85,20 @@ Shepherd development case offered three. `dev-shepherd-catalog-20` keeps the
 same exact question and reconstructed page/history, with 20 synthetic related
 pages and the same zero-acquisition rubric. This approximates catalog size, not
 the original World or its contents. It is not an independent held-out case.
-A focused fixture and scoring check is required before capture; a replay,
-complete acquisition coverage and current-serving qualification remain open.
+Three focused fixture/scoring checks passed and an independent review verified
+the count, privacy and rubric. Two ordinary local captures reused the owned
+clone with this frozen fixture and the separately pinned newer Graph probe.
+Both completed with ten usable names; each bound the prior exchange and all
+20 synthetic pages before/after and observed no acquisition in the partial
+POST-window probes or trace. This is not proof of complete zero retrieval.
+The first 48.21 s envelope included manual provider-gate waits and is not a
+speed measure. A fresh replay using only the exact previously audited request
+bytes took 3.56 s through the local response envelope, one sample rather than
+browser latency. Hash-bound semantic reviews and conservative reports are
+retained privately; both report unproven because acquisition coverage and
+capture environment remain incomplete. Runtime was based on serving parent
+`5f5fcfba`, with external fixture/probe pins; current production has moved.
+An independent held-out case and complete acquisition coverage remain open.
 
 ## Current-source development observations
 
