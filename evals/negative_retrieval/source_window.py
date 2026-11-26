@@ -29,8 +29,10 @@ KNOWN_TEXT_OWNERS = {
 }
 
 
+# The exact pinned code reaches this line once while constructing the
+# nonempty batch SQL. Earlier failures remain unobserved and therefore unknown.
 KNOWN_BATCH_CODE = "3e0f4f1602289759aa4cea23303e55f180bad8a8427400dec83248c1abb28a6e"
-KNOWN_BATCH_LINE = 1358
+KNOWN_BATCH_LINE = 1360
 
 
 def known_scoped_text_attempt(value):

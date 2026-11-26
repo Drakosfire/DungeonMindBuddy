@@ -2574,7 +2574,10 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     from evals.negative_retrieval import source_window
     from evals.negative_retrieval.capture import capture
     class NoDatabase:
-        def transaction(self): raise RuntimeError('synthetic sentinel')
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
     view = _PostgresNativeTextSourceView(NoDatabase(), 'synthetic', 1)
     def acquire():
         with pytest.raises(RuntimeError, match='synthetic sentinel'):
@@ -2877,7 +2880,10 @@ def test_source_window_batch_real_owner_skips_empty_and_records_attempt():
     from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
     from evals.negative_retrieval.source_window import observe_source_window, KNOWN_BATCH_CODE, KNOWN_TEXT_OWNERS
     class NoDatabase:
-        def transaction(self): raise RuntimeError('synthetic sentinel')
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
     view=_PostgresNativeTextSourceView(NoDatabase(),'synthetic',1)
     with observe_source_window() as state:
         assert view.get_native_text_sources([])==()
@@ -2905,7 +2911,10 @@ def test_source_window_batch_unscoped_thread_marks_window_uncertain():
     from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
     from evals.negative_retrieval.source_window import observe_source_window
     class NoDatabase:
-        def transaction(self): raise RuntimeError('synthetic sentinel')
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
     view=_PostgresNativeTextSourceView(NoDatabase(),'synthetic',1)
     def call():
         with pytest.raises(RuntimeError,match='synthetic sentinel'):
@@ -2915,3 +2924,31 @@ def test_source_window_batch_unscoped_thread_marks_window_uncertain():
             other.submit(call).result()
     assert state['status']=='uncertain'
     assert state['unscoped']['text_batch']==1 and state['batch_read']['unscoped']==1
+
+
+def test_source_window_batch_successful_transaction_counts_once():
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.negative_retrieval.source_window import observe_source_window, KNOWN_BATCH_CODE
+    class EmptyDatabase:
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args, **kwargs): return self
+        def fetchall(self): return []
+    view=_PostgresNativeTextSourceView(EmptyDatabase(),'synthetic',1)
+    with observe_source_window() as state:
+        assert view.get_native_text_sources([('synthetic','synthetic','synthetic')])==(None,)
+    assert state['status']=='observed' and state['scoped']['text_batch']==1
+    assert state['batch_read']=={'scoped':1,'unscoped':0,'code_sha256':KNOWN_BATCH_CODE}
+
+
+def test_source_window_batch_failure_before_sql_stays_unknown():
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.negative_retrieval.source_window import observe_source_window
+    class NoDatabase:
+        def transaction(self): raise RuntimeError('before SQL')
+    view=_PostgresNativeTextSourceView(NoDatabase(),'synthetic',1)
+    with observe_source_window() as state:
+        with pytest.raises(RuntimeError,match='before SQL'):
+            view.get_native_text_sources([('synthetic','synthetic','synthetic')])
+    assert state['scoped']['text_batch']==1 and state['batch_read']['scoped']==0

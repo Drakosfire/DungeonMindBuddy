@@ -7,14 +7,14 @@ based on fetched main `670389d29ba170936cc59bd4a984dc86ea8017c9`. Branch
 `/home/drakosfire/Projects/.codex/retrieval-batch-observation/DungeonMindBuddy`.
 
 Outcome: recognize a scoped execution of the pinned Core batch owner's
-nonempty read path as one provisional unmapped read attempt in a bound,
+nonempty SQL-construction path as one provisional unmapped read attempt in a bound,
 successful POST window. Empty, malformed, unknown-owner, unscoped, late,
 failed-dispatch and incomplete captures must not create that attribution. The
 attempt cannot count as a returned body or satisfy required evidence. Older
 artifacts remain readable and diagnostic, and missing observations cannot prove
 absence. Do not inspect or retain arguments, source identifiers or body text.
 
-The pinned owner's nonempty path has a stable transaction-entry line. Bind the
+The pinned owner's nonempty path has a stable SQL-construction line. Bind the
 actual registered code, source and locked interpreter to a versioned host-only
 provenance record; unknown changes stay unscored. Keep callbacks observational,
 clean up all monitor hooks even on failure, and poison the process if cleanup

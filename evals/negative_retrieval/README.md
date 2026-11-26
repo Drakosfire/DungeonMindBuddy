@@ -87,8 +87,8 @@ source and interpreter metadata. For the pinned recognized implementation, a
 scoped single-text entry in a completed, fixture-bound POST with matching
 observed capture windows counts as one provisional unknown read attempt against
 a negative budget. A v3 artifact can also record the pinned batch owner reaching
-its nonempty transaction path, without inspecting arguments; empty batches do
-not count. It does not prove a completed read or satisfy required
+its nonempty SQL-construction path, without inspecting arguments; empty batches
+and failures before that point do not count. It does not prove a completed read or satisfy required
 evidence. Legacy artifacts, unknown implementations, incomplete or uncertain
 windows remain diagnostic only. Overall capture remains partial and unproven;
 no empty window proves zero retrieval or a complete journal.
