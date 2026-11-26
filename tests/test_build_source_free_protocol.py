@@ -1947,7 +1947,7 @@ def test_pending_startup_observes_metadata_between_live_access_checks(monkeypatc
         'principal': principal, 'revision_id': request.graph_request.revision_pin}
 
 
-@pytest.mark.parametrize('reason', ['references', 'reviewed', 'selected_knowledge', 'graph_selection', 'retry', 'no_owner', 'not_gm', 'reference_image'])
+@pytest.mark.parametrize('reason', ['references', 'reviewed', 'selected_knowledge', 'graph_selection', 'retry', 'no_owner', 'not_gm', 'reference_image', 'image_move'])
 def test_pending_startup_keeps_explicit_or_unowned_requests_on_their_original_path(monkeypatch, reason):
     from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
@@ -1968,6 +1968,8 @@ def test_pending_startup_keeps_explicit_or_unowned_requests_on_their_original_pa
     elif reason == 'reference_image':
         from types import SimpleNamespace
         request.build_write_capability = SimpleNamespace(reference_image_id=uuid4())
+    elif reason == 'image_move':
+        request.build_image_move_capture = object()
     result = _prepare_pending_build_startup(request, world_id=kwargs['submitted_intent'].world_id,
         principal=principal, durable_turn=None, authorize_world=None if reason == 'no_owner' else lambda world: None)
     assert result == (None, None, None)
@@ -1984,6 +1986,23 @@ def test_retained_pending_startup_reuses_original_observations_without_reopening
     observed, conversation, access = _prepare_pending_build_startup(request, world_id=principal.managed_world_id,
         principal=principal, durable_turn=SimpleNamespace(graph_context_receipt=receipt), authorize_world=lambda world: None)
     assert observed == receipt.source_observation and conversation == receipt.conversation_observation and callable(access)
+
+
+def test_retained_pending_startup_with_image_capture_fails_closed_before_observation(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup, AgentTurnServiceError
+    from apps.live_control_server.services.plan_source_turn import freeze_build
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    kwargs, request, principal = pending_startup_case()
+    receipt, _, _ = freeze_build(**kwargs)
+    request.build_image_move_capture = object()
+    monkeypatch.setattr(native_corpus_source, 'observe_build_source_pointer', lambda **fields: pytest.fail('Retained source was refreshed'))
+    with pytest.raises(AgentTurnServiceError) as error:
+        _prepare_pending_build_startup(request, world_id=principal.managed_world_id, principal=principal,
+            durable_turn=SimpleNamespace(graph_context_receipt=receipt), authorize_world=lambda world: None)
+    assert error.value.code == 'turn_receipt_unverifiable'
+    assert error.value.status_code == 409
+    assert error.value.provider_dispatched is False
 
 
 @pytest.mark.parametrize('deny_after_metadata', [False, True])
@@ -4729,7 +4748,7 @@ def test_pending_native_materialization_checks_live_owner_and_never_reopens_repl
         assert len(state.source_prepares) == len(state.query_searches) == 1 and not state.query_reopens
 
 
-@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context', 'loop_selection', 'loop_selection_history', 'loop_selection_access', 'loop_selection_unknown', 'loop_selection_main', 'loop_selection_main_object'])
+@pytest.mark.parametrize('mode', ['complete', 'later_head', 'binding_changed', 'principal_lost', 'app_access_lost', 'section', 'section_binding_changed', 'section_access_lost', 'navigation_direct', 'navigation_denied', 'section_navigation', 'section_navigation_epoch', 'section_capture_scope', 'section_capture_epoch', 'loop_direct', 'section_loop', 'loop_invalid', 'loop_forged_statblock', 'loop_objects', 'loop_objects_context', 'loop_selection', 'loop_selection_history', 'loop_selection_access', 'loop_selection_unknown', 'loop_selection_main', 'loop_selection_main_object'])
 def test_pending_guarded_direct_read_uses_public_core_with_original_real_authority(monkeypatch, mode):
     from types import SimpleNamespace
     from application_state.agent_conversation import native_corpus as bodies
@@ -4741,6 +4760,29 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
     from dungeonmind.application.vnext import list_admitted_native_text_sources
     from tests.test_native_corpus_source_access import lane, admit, BODY
     from tests.test_surface_native_execution import controller, outcomes, choice
+    if mode in {'loop_invalid', 'loop_direct', 'loop_forged_statblock'}:
+        # Fresh current-model fixture; legacy fixtures remain bound to their original model.
+        from application_state.agent_conversation.jev_retrieval_contract import MODEL
+        original_pair = pending_execution_pair
+        def current_pair(**kwargs):
+            receipt, policy = original_pair(**kwargs)
+            values = receipt.model_dump(mode='json', by_alias=True)
+            values.pop('context_receipt_sha256')
+            values['assembled_input']['provider_model_name'] = MODEL
+            receipt = seal_pending_receipt(values)
+            roles = policy.provider_roles
+            roles = roles.model_copy(update={'controller': roles.controller.model_copy(update={'model': MODEL})})
+            return receipt, type(policy).model_validate(policy.model_copy(update={'provider_roles': roles}))
+        monkeypatch.setattr(__import__(__name__, fromlist=['pending_execution_pair']), 'pending_execution_pair', current_pair)
+    if mode in {'loop_invalid', 'loop_forged_statblock'}:
+        from apps.live_control_server.services import statblock_saved_revision, native_graph_inspection
+        from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+        def unexpected_statblock_io(*args, **kwargs):
+            pytest.fail('Unoffered selection attempted statblock or PDF I/O')
+        monkeypatch.setattr(statblock_saved_revision, 'iter_saved_mechanics', unexpected_statblock_io)
+        monkeypatch.setattr(statblock_saved_revision, 'open_version', unexpected_statblock_io)
+        monkeypatch.setattr(native_graph_inspection, 'statblock_pdf_support', unexpected_statblock_io)
+        monkeypatch.setattr(PlanJevDriver, '_read_saved_statblock', unexpected_statblock_io)
     memory = lane.__wrapped__()
     writer_mode = mode.startswith('loop_selection')
     state = pending_page_dispatch_harness(monkeypatch)[0] if writer_mode else settlement_harness(monkeypatch, with_source=True)[0]
@@ -4836,7 +4878,7 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
             state.turn = t.Turn.model_validate_json(state.turn.model_copy(update={'graph_context_execution':
                 execution.model_copy(update={'events': [*execution.events, auth, *outcomes(auth, auth.sequence + 1), selected]})
             }).model_dump_json(by_alias=True))
-        if writer_mode or mode in {'loop_direct', 'section_loop', 'loop_invalid', 'loop_objects', 'loop_objects_context'}:
+        if writer_mode or mode in {'loop_direct', 'section_loop', 'loop_invalid', 'loop_forged_statblock', 'loop_objects', 'loop_objects_context'}:
             import asyncio
             import httpx2
             from generationengine import GenerationEngineError
@@ -4860,6 +4902,8 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                               else 'Source lexical navigation' if mode == 'section_loop' and step == 0
                               else 'Exact source section' if mode == 'section_loop' and step == 1 else None)
                     offered = body['state'].get('candidates', [])
+                    if mode in {'loop_invalid', 'loop_forged_statblock'}:
+                        assert all('statblock' not in row['kind'].lower() for row in offered)
                     pick = next((i for i, row in enumerate(offered) if wanted and row['kind'].startswith(wanted)), None)
                     if wanted: assert pick is not None
                     answers = {}
@@ -4970,8 +5014,25 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     assert all(len(body['state'].get('dialogue_reference', body['state'].get('conversation', {}).get('history', []))) in {60, 120}
                         for body in calls)
                     return
+                if mode == 'loop_forged_statblock':
+                    from application_state.errors import ApplicationStateValidationError
+                    original_selection = state.service.record_pending_native_selection
+                    forged_rejections = []
+                    def forged_selection(*args, **kwargs):
+                        kwargs['selection'] = kwargs['selection'].model_copy(update={'selected_handles': ['saved-statblock:0']})
+                        with pytest.raises(ApplicationStateValidationError, match='Native selection differs from its typed result'):
+                            original_selection(*args, **kwargs)
+                        forged_rejections.append(True)
+                        raise ValueError('Forged statblock selection rejected')
+                    monkeypatch.setattr(state.service, 'record_pending_native_selection', forged_selection)
                 def run(): return asyncio.run(run_pending_native_retrieval(runtime_adapter, harness, dialogue=dialogue))
-                if mode == 'loop_invalid':
+                if mode == 'loop_forged_statblock':
+                    with pytest.raises(ValueError, match='Forged statblock selection rejected'): run()
+                    assert forged_rejections == [True] and len(calls) == 1 and not opens
+                    from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+                    assert not any(isinstance(event, NativeRetrievalSelectedV1)
+                                   for event in state.turn.graph_context_execution.events)
+                elif mode == 'loop_invalid':
                     with pytest.raises(GenerationEngineError): run()
                     with pytest.raises(ValueError, match='cannot be resent'): run()
                     assert len(calls) == 1 and not opens

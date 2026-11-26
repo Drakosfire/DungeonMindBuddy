@@ -147,26 +147,45 @@ export async function readConversationMessages(world:string,id:string,before?:nu
 
 /** Display/correlation metadata only; never a verified execution or action grant. */
 export interface ActiveConversationMessages {
-  schema: 'dmb_active_conversation_messages_v4'; world_id: string; conversation_state: 'active' | 'absent';
+  schema: 'dmb_active_conversation_messages_v4' | 'dmb_active_conversation_messages_v5'; world_id: string; conversation_state: 'active' | 'absent';
   conversation_id: string | null; active_conversation_id: string | null; pointer_revision: number;
-  messages: (ConversationMessage & { author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview; conversation_draft_available?: true; variant_draft_reviewed?: true; variant_approval_requested?: true; saved_statblocks?: {name: string; world_id: string; draft_id: string; revision_id: string; pdf_sources?: SavedStatblockPdfSources | null}[] })[];
+  messages: (ConversationMessage & { retry_lineage?: {root_id:string; predecessor_id:string|null; successor_id:string|null; ordinal:number}; author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview; conversation_draft_available?: true; variant_draft_reviewed?: true; variant_approval_requested?: true; saved_statblocks?: {name: string; world_id: string; draft_id: string; revision_id: string; pdf_sources?: SavedStatblockPdfSources | null}[] })[];
   next_before_sequence: number | null;
 }
 export async function readActiveConversationMessages(world: string, before?: number, signal?: AbortSignal): Promise<ActiveConversationMessages> {
-  const q = new URLSearchParams({ limit: '50' }); if (before !== undefined) q.set('before_sequence', String(before));
-  const v = await read(path(world) + '/active/messages?' + q, { signal });
+  const q = new URLSearchParams({ limit: '50', retry_lineage: 'true' }); if (before !== undefined) q.set('before_sequence', String(before));
+  let v: any, fallback = false;
+  try { v = await read(path(world) + '/active/messages?' + q, { signal }); }
+  catch (error) {
+    // A browser can keep this bundle after a rollback to the v4-only server.
+    // Only its exact unsupported-selector response permits a display-only retry.
+    if (!(error instanceof LiveApiError) || error.status !== 422 || error.message !== 'Unexpected or repeated conversation selector' || signal?.aborted) throw error;
+    q.delete('retry_lineage'); fallback = true;
+    v = await read(path(world) + '/active/messages?' + q, { signal });
+  }
+  if (fallback && v?.schema !== 'dmb_active_conversation_messages_v4') throw new Error('Fallback message projection differs from the previous server.');
   if (!exactObject(v, ['schema', 'world_id', 'conversation_state', 'conversation_id', 'active_conversation_id', 'pointer_revision', 'messages', 'next_before_sequence'])
-    || v.schema !== 'dmb_active_conversation_messages_v4' || v.world_id !== world || !['active', 'absent'].includes(v.conversation_state)
+    || !['dmb_active_conversation_messages_v4','dmb_active_conversation_messages_v5'].includes(v.schema) || v.world_id !== world || !['active', 'absent'].includes(v.conversation_state)
     || !Number.isSafeInteger(v.pointer_revision) || v.pointer_revision < 0 || !Array.isArray(v.messages) || v.messages.length > 50
     || (v.conversation_state === 'active' ? !uuid(v.conversation_id) || v.active_conversation_id !== v.conversation_id
       : v.conversation_id !== null || v.active_conversation_id !== null || v.messages.length !== 0 || v.next_before_sequence !== null)) throw new Error('Active message page has a different owner.');
   let last = 0; for (const t of v.messages) {
-if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object', ...(Object.hasOwn(t ?? {}, 'saved_statblocks') ? ['saved_statblocks'] : []), ...(Object.hasOwn(t ?? {}, 'conversation_draft_available') ? ['conversation_draft_available'] : []), ...(Object.hasOwn(t ?? {}, 'variant_draft_reviewed') ? ['variant_draft_reviewed'] : []), ...(Object.hasOwn(t ?? {}, 'variant_approval_requested') ? ['variant_approval_requested'] : []), ...(Object.hasOwn(t ?? {}, 'author_interaction') ? ['author_interaction'] : [])])
+if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object', ...(Object.hasOwn(t ?? {}, 'saved_statblocks') ? ['saved_statblocks'] : []), ...(Object.hasOwn(t ?? {}, 'conversation_draft_available') ? ['conversation_draft_available'] : []), ...(Object.hasOwn(t ?? {}, 'variant_draft_reviewed') ? ['variant_draft_reviewed'] : []), ...(Object.hasOwn(t ?? {}, 'variant_approval_requested') ? ['variant_approval_requested'] : []), ...(Object.hasOwn(t ?? {}, 'author_interaction') ? ['author_interaction'] : []), ...(Object.hasOwn(t ?? {}, 'retry_lineage') ? ['retry_lineage'] : [])])
       || !uuid(t.turn_id) || !uuid(t.idempotency_key) || !Number.isSafeInteger(t.revision) || t.revision < 1 || !Number.isSafeInteger(t.sequence) || t.sequence <= last
       || before !== undefined && t.sequence >= before || !['accepted', 'running', 'completed', 'failed', 'interrupted'].includes(t.status)
       || ('author_interaction' in t && (t.author_interaction !== 'select_passage' || t.status !== 'interrupted'
         || t.provenance?.surface_id !== 'build' || t.provenance?.primary_work?.kind !== 'build'))
       || typeof t.user_text !== 'string' || !(t.assistant_text === null || typeof t.assistant_text === 'string') || t.provenance?.world_id !== world) throw new Error('Active message metadata is invalid.');
+    if ('retry_lineage' in t) {
+      const r=t.retry_lineage;
+      if (v.schema!=='dmb_active_conversation_messages_v5' || t.provenance?.surface_id!=='build' || t.provenance?.primary_work?.kind!=='build'
+        || !exactObject(r,['root_id','predecessor_id','successor_id','ordinal']) || !uuid(r.root_id)
+        || !(r.predecessor_id===null || uuid(r.predecessor_id)) || !(r.successor_id===null || uuid(r.successor_id))
+        || !Number.isSafeInteger(r.ordinal) || r.ordinal<0 || r.predecessor_id===t.turn_id || r.successor_id===t.turn_id
+        || (r.ordinal===0 ? r.predecessor_id!==null || r.root_id!==t.turn_id : r.predecessor_id===null || r.root_id===t.turn_id)
+        || (r.ordinal===1 && r.predecessor_id!==r.root_id) || (r.ordinal>1 && r.predecessor_id===r.root_id)
+        || (r.ordinal===0 && r.successor_id===null)) throw new Error('Saved retry lineage is invalid.');
+    }
     validateReplyObject(t.reply_object,world,v.conversation_id,t);
     if(t.reply_object&&(t.reply_object.source.surface_id!==t.provenance.surface_id||t.reply_object.source.document_id!==t.provenance.primary_work?.object_id))throw new Error('Saved review differs from its actual surface.');
     if(t.authored_references!==null&&!isAuthoredReferences(t.authored_references,world))throw new Error('Saved references have a different owner.');
@@ -196,6 +215,20 @@ if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_te
     t.citation_preview=t.status==='completed'?readSavedCitationPreview(t.citation_preview,world,t.provenance.surface_id,t.assistant_text):null;
     last = t.sequence;
 }
+  const byId=new Map<string,typeof v.messages[number]>(v.messages.map((row:typeof v.messages[number])=>[row.turn_id,row]));
+  if (byId.size!==v.messages.length) throw new Error('Saved message identities are duplicated.');
+  for (const row of v.messages) {
+    const r=row.retry_lineage;
+    if (!r) continue;
+    const predecessor=r.predecessor_id ? byId.get(r.predecessor_id) : null;
+    const successor=r.successor_id ? byId.get(r.successor_id) : null;
+    if (predecessor && (!predecessor.retry_lineage || predecessor.retry_lineage.root_id!==r.root_id
+      || predecessor.retry_lineage.successor_id!==row.turn_id || predecessor.retry_lineage.ordinal+1!==r.ordinal
+      || predecessor.sequence>=row.sequence)) throw new Error('Saved retry lineage does not match its predecessor.');
+    if (successor && (!successor.retry_lineage || successor.retry_lineage.root_id!==r.root_id
+      || successor.retry_lineage.predecessor_id!==row.turn_id || successor.retry_lineage.ordinal!==r.ordinal+1
+      || successor.sequence<=row.sequence)) throw new Error('Saved retry lineage does not match its successor.');
+  }
   if (!(v.next_before_sequence === null || v.messages.length > 0 && v.next_before_sequence === v.messages[0].sequence)) throw new Error('Active message cursor differs from its page.');
   return v;
 }
