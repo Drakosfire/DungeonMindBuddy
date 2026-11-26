@@ -185,10 +185,18 @@ def _join_pending_source(receipt, execution):
         if type(event) is BuildAppPageCatalogObservedV1:
             if event.pending_context_receipt_sha256 != receipt.context_receipt_sha256:
                 raise ValueError("Pending App catalog differs from its captured receipt")
+            basis = work.source_basis
             if any(page.world_id != policy.action.intent.world_id
-                   or str(page.document_id) == str(work.source_basis.document_id)
+                   or (str(page.document_id) == str(basis.document_id)
+                       and (page.registry_revision != basis.registry_revision
+                            or page.visibility != basis.visibility))
                    for page in event.pages):
-                raise ValueError("Pending App catalog contains a foreign World or current page")
+                raise ValueError("Pending App catalog contains a foreign World or mismatched current page")
+        if type(event) is t.RelatedPageRead and str(event.page.document_id) == str(work.source_basis.document_id):
+            basis = work.source_basis
+            if (event.page.world_id != basis.world_id or event.page.registry_revision != basis.registry_revision
+                    or event.page.visibility != basis.visibility or event.page.content_sha256 != basis.content_sha256):
+                raise ValueError("Pending saved current page differs from its frozen source basis")
     settlements = [event for event in execution.events if type(event) is NativeBuildSourceSettledV1]
     if not settlements:
         return None
