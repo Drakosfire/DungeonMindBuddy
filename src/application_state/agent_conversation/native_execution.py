@@ -776,10 +776,7 @@ class BuildPendingExecutionV1(Strict):
                         if type(e) is t.BuildRequestedWorkResolutionV1]
                 if (settled or len(work) != 1
                         or event.pending_context_receipt_sha256 != self.context_receipt_sha256
-                        or event.work_event_id != work[0].event_id
-                        or work[0].resolution.get("barrier") is not None
-                        or work[0].resolution.get("source_scope") not in {"source_lookup", "uncertain"}
-                        or work[0].requested_work in {"review_blank_lore_page", "clarify_request", "clarify_creation"}):
+                        or event.work_event_id != work[0].event_id):
                     raise ValueError("Source settlement requires its unique evidence-seeking work decision")
                 if (isinstance(event.native_query, NativeGraphQueryV4)
                         and event.native_query.question != self.policy.action.intent.message):

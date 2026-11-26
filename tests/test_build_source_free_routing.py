@@ -889,62 +889,6 @@ def test_unavailable_uncertain_action_completes_capability_reply_without_acquisi
         assert state.retained_reads == 0 and state.materialized == 0
 
 
-@pytest.mark.parametrize("bad_citation", [False, True])
-def test_mixed_unavailable_action_and_source_reaches_supported_writer(monkeypatch, bad_citation):
-    """The unavailable executor must not suppress an explicitly requested source."""
-    import asyncio
-    import json
-    from contextlib import contextmanager
-    import httpx
-    from tests import test_build_source_free_protocol as owner
-    from application_state.agent_conversation import types as t
-    from application_state.agent_conversation.build_intentional_response import resolution_for, operation_id_for, digest
-    from apps.live_control_server.services import build_jev_dispatch
-    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
-    original = owner.pending_app_runtime_case
-    @contextmanager
-    def mixed_runtime(monkeypatch, **kwargs):
-        with original(monkeypatch, **kwargs) as (state, adapter):
-            execution = state.turn.graph_context_execution
-            events = list(execution.events)
-            index = next(i for i, row in enumerate(events) if type(row) is t.BuildRequestedWorkResolutionV1)
-            work = events[index]
-            resolution = resolution_for(execution.policy, 'other_creation', source_scope='source_lookup')
-            events[index] = work.model_copy(update={'requested_work': 'other_creation', 'resolution': resolution,
-                'intent_family': resolution['intent_family'], 'operation': resolution['operation'],
-                'broker_operation_id': operation_id_for(state.turn.turn_id, state.turn.attempt, work.machine_request_id, 'other_creation'),
-                'arguments_sha256': digest({})})
-            execution = owner.pending_execution(state.turn.graph_context_receipt, execution.policy, events)
-            state.turn = t.Turn.model_validate(state.turn.model_copy(update={'graph_context_execution': execution}))
-            adapter.turn = state.turn
-            adapter.fence.renewer.update_turn(state.turn)
-            yield state, adapter
-    monkeypatch.setattr(owner, 'pending_app_runtime_case', mixed_runtime)
-    def respond(request):
-        body = json.loads(request.content)
-        candidate = {'answer_segments': [
-            {'kind': 'related_page_claim', 'text': 'The cult password is “Remember the rain”.', 'read_id': 'unbound' if bad_citation else 'source0'},
-            {'kind': 'discussion', 'text': 'I cannot schedule a reminder here.'}], 'limitations': []}
-        if 'collaboration' in body['text']['format']['schema']['properties']:
-            candidate['collaboration'] = None
-        return httpx.Response(200, request=request, json={'id': 'resp_mixed', 'object': 'response',
-            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
-                'type': 'message', 'id': 'msg_mixed', 'role': 'assistant', 'status': 'completed',
-                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
-    with owner.pending_writer_completion_case(monkeypatch, app_pages=True) as (state, adapter, rules, writer, prepared):
-        if bad_citation:
-            from generationengine import GenerationEngineError
-            with pytest.raises(GenerationEngineError):
-                asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
-            assert state.completions == 0
-        else:
-            completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
-            assert completed.status == 'completed' and state.completions == 1
-            assert 'Remember the rain' in completed.assistant_text and 'cannot schedule' in completed.assistant_text
-            assert any(type(row) is t.RelatedPageRead for row in completed.graph_context_execution.events)
-            assert completed.completion.collaboration is None
-
-
 def test_mixed_unavailable_source_requires_exact_barrier_and_source_scope(monkeypatch):
     from tests import test_build_source_free_protocol as owner
     from application_state.agent_conversation import types as t
@@ -965,3 +909,46 @@ def test_mixed_unavailable_source_requires_exact_barrier_and_source_scope(monkey
             pending_work_requests_evidence(forged, execution.policy)
         wrong_barrier = requested.model_copy(update={'resolution': requested.resolution | {'barrier': 'current_page_target_absent'}})
         assert not pending_work_requests_evidence(wrong_barrier, execution.policy)
+
+
+def _mixed_source_events(policy, events):
+    from application_state.agent_conversation.build_intentional_response import resolution_for, operation_id_for, digest
+    from tests.test_surface_native_execution import BUILD_TURN_ID
+    work = events[-1]
+    resolution = resolution_for(policy, 'other_creation', source_scope='source_lookup')
+    return [*events[:-1], work.model_copy(update={'requested_work': 'other_creation', 'resolution': resolution,
+        'intent_family': resolution['intent_family'], 'operation': resolution['operation'],
+        'broker_operation_id': operation_id_for(BUILD_TURN_ID, 1, work.machine_request_id, 'other_creation'),
+        'arguments_sha256': digest({})})]
+
+
+def test_reader_accepts_mixed_app_catalog_and_native_settlement():
+    from tests.test_build_source_free_protocol import pending_catalog_case
+    from application_state.agent_conversation.build_source_free import effective_pending_app_catalog, effective_pending_source
+    receipt, policy, events, catalog = pending_catalog_case(with_source=True)
+    events = _mixed_source_events(policy, events)
+    execution = pending_execution(receipt, policy, [*events, catalog])
+    assert effective_pending_app_catalog(receipt, execution) == catalog.pages
+    settled = pending_settlement(receipt, policy, events[-1]).model_copy(update={'sequence': 5})
+    execution = pending_execution(receipt, policy, [*events, catalog, settled])
+    assert effective_pending_source(receipt, execution) == (settled.source_authority, settled.native_query)
+    restored = type(execution).model_validate_json(execution.model_dump_json(by_alias=True))
+    assert restored == execution
+
+
+def test_reader_only_does_not_enable_mixed_app_acquisition(monkeypatch):
+    import asyncio
+    from tests import test_build_source_free_protocol as owner
+    from apps.live_control_server.services.build_pending_app_pages import acquire_pending_app_pages
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    with owner.pending_app_runtime_case(monkeypatch) as (state, adapter):
+        execution = state.turn.graph_context_execution
+        events = list(execution.events)
+        work_index = next(i for i, row in enumerate(events) if type(row).__name__ == 'BuildRequestedWorkResolutionV1')
+        events[:work_index+1] = _mixed_source_events(execution.policy, events[:work_index+1])
+        updated = pending_execution(state.turn.graph_context_receipt, execution.policy, events)
+        state.turn = state.turn.model_copy(update={'graph_context_execution': updated})
+        adapter.turn = state.turn
+        adapter.fence.renewer.update_turn(state.turn)
+        asyncio.run(acquire_pending_app_pages(adapter, object()))
+        assert prepare_pending_native_source(adapter) is False

@@ -9,7 +9,7 @@ from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.build_related_pages import RelatedPagesSelection, RelatedPageRead, should_read_page
 from application_state.agent_conversation.build_source_free import (
     BuildAppPageCatalogObservedV1, effective_pending_app_catalog,
-    pending_app_page_selection_input, pending_source_work, pending_work_requests_evidence,
+    pending_app_page_selection_input, pending_source_work,
 )
 from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
 from application_state.agent_conversation.native_execution import BuildAppPageSelectionAuthorizedV1
@@ -48,7 +48,9 @@ async def acquire_pending_app_pages(adapter, harness):
     if len(work) != 1:
         raise ValueError('Pending App navigation requires one admitted work decision')
     work, = work
-    if not pending_work_requests_evidence(work, execution.policy):
+    if (work.resolution.get('barrier') is not None
+            or work.resolution.get('source_scope') not in {'source_lookup', 'uncertain'}
+            or work.requested_work in {'review_blank_lore_page', 'clarify_request', 'clarify_creation'}):
         return
     if not callable(adapter.pending_build_access) or adapter.fence is None:
         raise ValueError('Pending App navigation requires its live claim and App access owner')
