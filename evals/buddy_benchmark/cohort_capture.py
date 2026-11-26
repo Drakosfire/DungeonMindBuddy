@@ -104,7 +104,7 @@ def protected_work_revisions(dsn, object_ids):
             "WHERE work_object_id = ANY(%s::uuid[])",
             (object_ids,),
         ).fetchall()
-    return {str(object_id): str(revision_id) for object_id, revision_id in rows}
+    return {str(row["work_object_id"]): str(row["current_revision_id"]) for row in rows}
 
 
 def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False, clone_app=False,
