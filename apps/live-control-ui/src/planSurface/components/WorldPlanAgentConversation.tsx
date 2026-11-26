@@ -7033,13 +7033,15 @@ export function WorldPlanAgentConversation({
       </BuddyTurnInspection>
     );
   };
+  const displayLineageRows = new Map(messagePage?.messages.map(row => [row.turn_id, row]) ?? []);
+  const displayLineageTurns = new Map(messageHistory?.turns.map(row => [row.turn_id, row]) ?? []);
   const displayedConversation = [
     ...groupConversationAttempts(conversationDisplay.events,
       event => event.kind === "world" ? event.turn : null,
       new Set(buildCompose.items.map(item=>item.afterSequence)), event => {
         if (event.kind !== 'world' || !messagePage || !history || !messageHistory || !sameHistoryPointer(messageHistory, history)) return null;
-        const row = messagePage.messages.find(item => item.turn_id === event.turn.turn_id);
-        if (!row?.retry_lineage || !messageHistory.turns.some(item => sameSavedMessage(item, event.turn))) return null;
+        const row = displayLineageRows.get(event.turn.turn_id), expected = displayLineageTurns.get(event.turn.turn_id);
+        if (!row?.retry_lineage || !expected || !sameSavedMessage(expected, event.turn)) return null;
         return {...row.retry_lineage, world_id: messagePage.world_id, conversation_id: messagePage.conversation_id!};
       })
       .map(({item:event,previous,historical}, index) => ({
