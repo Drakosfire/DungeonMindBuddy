@@ -96,11 +96,16 @@ def test_live_build_terminal_handles_stream_delivery_and_error():
 
     media = "text/event-stream; charset=utf-8"
     assert build_browser_terminal(
-        b'data: {"kind":"progress"}\r\n\r\ndata: {"kind":"result","response":{"answer":"ok"}}\r\n\r\n',
-        200, media,
+        b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"turn-1","kind":"progress"}\r\n\r\ndata: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"turn-1","kind":"result","response":{"answer":"ok"}}\r\n\r\n',
+        200, media, "turn-1",
     ) == ({"answer": "ok"}, 200)
     assert build_browser_terminal(
-        b'data: {"kind":"error","status":409,"detail":"stale"}\n\n', 200, media,
+        b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"turn-1","kind":"error","status":409,"detail":"stale"}\n\n', 200, media, "turn-1",
     ) == ({"detail": "stale"}, 409)
     with pytest.raises(ValueError, match="no terminal"):
-        build_browser_terminal(b'data: {"kind":"progress"}\n\n', 200, media)
+        build_browser_terminal(b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"turn-1","kind":"progress"}\n\n', 200, media, "turn-1")
+    with pytest.raises(ValueError, match="another request"):
+        build_browser_terminal(
+            b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"other","kind":"error","status":409}\n\n',
+            200, media, "turn-1",
+        )

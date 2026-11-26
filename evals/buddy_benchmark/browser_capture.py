@@ -190,7 +190,29 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     return await receive()
                 raw, body = body, None
                 return {"type": "http.request", "body": raw, "more_body": False}
-            return await application(scope, deliver_body, send)
+            if not live_build:
+                return await application(scope, deliver_body, send)
+            response_bytes = bytearray()
+            transport_status = None
+            content_type = ""
+
+            async def retain_build_response(frame):
+                nonlocal transport_status, content_type
+                if frame["type"] == "http.response.start":
+                    transport_status = frame["status"]
+                    content_type = dict(frame.get("headers", [])).get(b"content-type", b"").decode("latin-1")
+                elif frame["type"] == "http.response.body":
+                    response_bytes.extend(frame.get("body", b""))
+                    if not frame.get("more_body"):
+                        artifacts.immutable_save(directory, "build-wire-response", {
+                            "status": transport_status, "content_type": content_type,
+                            "raw_body_hex": response_bytes.hex(),
+                            "raw_body_sha256": sha256(response_bytes).hexdigest(),
+                            "elapsed_ms": (monotonic_ns() - tick) / 1e6,
+                        })
+                await send(frame)
+
+            return await application(scope, deliver_body, retain_build_response)
         return await application(scope, receive, send)
 
     async def serve(scope, receive, send):
@@ -256,7 +278,6 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
-                        "DMB_BENCHMARK_LIVE_BUILD": "1" if live_build else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
@@ -281,15 +302,15 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
                     artifacts.immutable_save(directory, "history-after", after)
                     if live_build:
-                        timing = json.loads((output / "browser-timing.json").read_bytes())
-                        wire_bytes = bytes.fromhex(timing["responseHex"])
+                        wire_response = json.loads((directory / "build-wire-response.json").read_bytes())
+                        wire_bytes = bytes.fromhex(wire_response["raw_body_hex"])
                         body, status = build_browser_terminal(
-                            wire_bytes, timing["status"], timing["responseContentType"])
+                            wire_bytes, wire_response["status"], wire_response["content_type"], browser_request["turn_id"])
                         raw = json.dumps(body).encode("utf-8")
                         artifacts.immutable_save(directory, "answer-http", {
-                            "body": body, "http_status": status, "transport_status": timing["status"],
+                            "body": body, "http_status": status, "transport_status": wire_response["status"],
                             "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
-                            "elapsed_ms": timing["responseElapsedMs"],
+                            "elapsed_ms": wire_response["elapsed_ms"],
                         })
                     turns = workflow._request_turns(after["body"], browser_request, world)
                     if len(turns) != 1:
@@ -317,7 +338,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             artifacts.immutable_save(output, "jev-transport-intervals", wire_intervals)
 
 
-def build_browser_terminal(raw, status, content_type):
+def build_browser_terminal(raw, status, content_type, turn_id):
     """Read the same terminal result or error consumed by the Build browser."""
     if content_type.split(";", 1)[0].strip().lower() != "text/event-stream":
         return json.loads(raw), status
@@ -326,6 +347,8 @@ def build_browser_terminal(raw, status, content_type):
         if not data:
             continue
         event = json.loads(data)
+        if event.get("schema") != "dmb_build_turn_stream_v1" or event.get("client_turn_id") != turn_id:
+            raise ValueError("Build event stream belongs to another request")
         if event.get("kind") == "result" and isinstance(event.get("response"), dict):
             return event["response"], status
         if event.get("kind") == "error" and type(event.get("status")) is int:

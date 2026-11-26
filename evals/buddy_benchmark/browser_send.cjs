@@ -88,8 +88,6 @@ async function run() {
       throw error;
     }
     const delivered = await response;
-    const responseHex = process.env.DMB_BENCHMARK_LIVE_BUILD === "1" ? (await delivered.body()).toString("hex") : undefined;
-    const responseElapsedMs = delivered.request().timing().responseEnd;
     const after = await calibrate();
     const browserMarks = await page.evaluate(() => {
       const click = performance.getEntriesByName("benchmark-browser-send").at(-1)?.startTime;
@@ -107,7 +105,7 @@ async function run() {
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
       before, after, browserMarks, status: delivered.status(), chromiumVersion: browser.version(),
       playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
-      request: delivered.request().postDataJSON(), responseHex, responseElapsedMs, responseContentType: delivered.headers()["content-type"],
+      request: delivered.request().postDataJSON(),
     }, null, 2));
   } finally {
     await browser.close();
