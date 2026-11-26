@@ -1588,7 +1588,7 @@ def clone_recovery_fixture(tmp_path, monkeypatch):
         receipt.write_bytes(raw)
         return {"ledger": str(receipt), "ledger_sha256": hashlib.sha256(raw).hexdigest(),
                 "lock": str(lock), "lock_device": lock.stat().st_dev, "lock_inode": lock.stat().st_ino,
-                "owner": "benchmark", "clone": dict(clone)}
+                "owner": "benchmark", "clone": dict(clone), "current_port": template["port"]}
     control = {"ids": {template["database"]: ("10", "20"), clone["database"]: ("11", "20")},
                "sessions": 0, "statements": []}
     class Cursor:
@@ -1728,3 +1728,25 @@ def test_duplicate_receipt_fields_and_symlinks_are_refused(clone_recovery_fixtur
     with pytest.raises(OSError):
         with invoke_clone_recovery(template, pin): pass
     assert not any('DROP DATABASE' in s for s in control['statements'])
+
+
+def test_recovery_allows_explicit_new_port_but_keeps_old_receipt_binding(clone_recovery_fixture):
+    template, clone, state, save, control, receipt, lock = clone_recovery_fixture
+    pin = save()
+    pin['current_port'] = 15432
+    moved_template = {**template, 'port': 15432}
+    with owner.disposable_benchmark_database('host=127.0.0.1 port=15432 dbname=postgres', moved_template, recovery=pin) as resumed:
+        assert resumed == {**clone, 'port': 15432}
+        current = json.loads(receipt.read_text())
+        current.update(pid=os.getpid(), stage='accept', database=resumed)
+        receipt.write_text(json.dumps(current))
+    assert clone['database'] not in control['ids']
+
+
+def test_recovery_rejects_unpinned_new_port(clone_recovery_fixture):
+    template, clone, state, save, control, receipt, lock = clone_recovery_fixture
+    pin = save()
+    pin['current_port'] = 15432
+    with pytest.raises(ValueError, match='recovery identity'):
+        with invoke_clone_recovery(template, pin): pass
+    assert not control['statements']

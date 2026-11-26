@@ -272,6 +272,8 @@ clone for the entire resumed context. A caller must maintain a fresh owner and
 worker receipt under that lock and explicitly record acceptance or abandonment
 before cleanup. Exceptions or missing acceptance retain the clone. Receipt and
 lock pins, old process/worker closure, database identity and live connections
-are checked; ambiguous or still-running old workers are refused. This is not a
+are checked; an explicitly pinned current loopback port may differ after a
+container restart, but the template and clone database identities must still
+match the original cluster. Ambiguous or still-running old workers are refused. This is not a
 cross-host lock or a replacement for worker supervision. Inspect the retained
 ledger and exact clone before any recovery attempt.

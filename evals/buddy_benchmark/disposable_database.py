@@ -102,12 +102,15 @@ def _recover_benchmark_database(admin_dsn, template, recovery):
     keep this context open for all work and close all workers before exit.
     """
     if not isinstance(recovery, dict) or set(recovery) != {
-        "ledger", "ledger_sha256", "lock", "lock_device", "lock_inode", "owner", "clone"
+        "ledger", "ledger_sha256", "lock", "lock_device", "lock_inode", "owner", "clone", "current_port"
     }:
         raise ValueError("Recovery requires the exact owner receipt, digest, lock and clone")
     expected = recovery["clone"]
     if (not isinstance(expected, dict) or set(expected) != {"host", "port", "database", "oid", "system_identifier"}
-            or expected["host"] != template["host"] or expected["port"] != template["port"]
+            or expected["host"] != template["host"]
+            or type(expected["port"]) is not int or not 1 <= expected["port"] <= 65535
+            or type(recovery["current_port"]) is not int or recovery["current_port"] != template["port"]
+            or not 1 <= recovery["current_port"] <= 65535
             or expected["system_identifier"] != template["system_identifier"]
             or expected["database"] == template["database"] or expected["oid"] == template["oid"]
             or type(recovery["lock_device"]) is not int or type(recovery["lock_inode"]) is not int
@@ -195,8 +198,9 @@ def _recover_benchmark_database(admin_dsn, template, recovery):
         finally:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)
+        resumed = {**expected, "port": recovery["current_port"]}
         try:
-            yield dict(expected)
+            yield resumed
         except BaseException:
             # A failed or interrupted run retains its database for inspection.
             raise
@@ -204,7 +208,7 @@ def _recover_benchmark_database(admin_dsn, template, recovery):
             verify_lock()
             current = parse_receipt(read_receipt())
             if (not isinstance(current, dict) or current.get("owner") != recovery["owner"]
-                    or current.get("database") != expected or current.get("pid") != os.getpid()
+                    or current.get("database") != resumed or current.get("pid") != os.getpid()
                     or current.get("cleanup_complete") is not False
                     or current.get("stage") not in {"accept", "abandon"}):
                 raise RuntimeError("Explicit current-owner acceptance or abandonment is required; clone retained")

@@ -14,6 +14,9 @@ clone under `disposable_benchmark_database`, not create a second clone. Require
 an independently pinned original receipt and lock identity; acquire the original
 cooperative lock, validate the owner/worker and exact local database identities,
 require no App connections, and make the old receipt unusable before yielding.
+A restarted evaluator may have a different explicitly pinned loopback port;
+the original receipt stays bound to the original port, while both template
+and clone OID/cluster identities must match at the new endpoint.
 A new owner must maintain its own receipt and workers throughout the context.
 On exception or absent explicit accept/abandon, retain the clone. Before teardown,
 recheck the current owner, worker groups, lock, clone and connection closure.
