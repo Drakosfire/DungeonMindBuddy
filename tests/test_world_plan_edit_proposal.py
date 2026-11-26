@@ -1153,7 +1153,7 @@ def test_sourced_action_result_binds_producing_read_and_never_trusts_model_open_
         )
 
 
-@pytest.mark.parametrize("prompt_capture", [False, True, "failure", "append_failure"])
+@pytest.mark.parametrize("prompt_capture", [False, True, "failure", "append_failure", "lifecycle_only"])
 def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_result(
     application_state_dsn,
     monkeypatch,
@@ -1185,7 +1185,7 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
         lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
     )
-    monkeypatch.setenv("DMB_AGENT_PROMPT_CAPTURE", "1" if prompt_capture else "0")
+    monkeypatch.setenv("DMB_AGENT_PROMPT_CAPTURE", "1" if prompt_capture and prompt_capture != "lifecycle_only" else "0")
     monkeypatch.setattr("apps.live_control_server.services.agent_prompt_evidence.artifact_data_root", lambda: tmp_path)
     if prompt_capture == "failure":
         def refuse(*args, **kwargs):
@@ -1311,6 +1311,15 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
     assert adapter.record_lifecycle({"transition": "response_received"}) is True
     frozen = adapter.stop()
     assert frozen.consultation is not None
+    if prompt_capture == "lifecycle_only":
+        events = frozen.consultation.execution.events
+        assert [event.kind for event in events] == [
+            "provider_attempt_authorized_v3", "provider_outcome", "provider_outcome",
+        ]
+        assert [event.outcome for event in events[1:]] == ["sdk_entered", "response_received"]
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT count(*) FROM agent.turn").fetchone()[0] == 0
+        return
     assert (
         frozen.consultation.receipt.assembled_input.assembled_input_sha256
         == view["payloadSha256"]
