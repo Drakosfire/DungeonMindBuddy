@@ -1416,3 +1416,42 @@ def test_capture_rejects_async_post_without_claiming_a_completed_window(tmp_path
         evidence = json.loads((tmp_path / "case1" / (name + ".json")).read_text())
         assert evidence["status"] == ("not_started" if kind == "async_method" else "dispatch_uncertain")
         assert evidence["records"] == []
+
+
+def test_probe_window_wraps_real_sync_testclient_turn_post(tmp_path, monkeypatch):
+    import json
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.services import build_related_pages
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+
+    monkeypatch.setattr(build_related_pages, "discover", lambda _: [])
+    app = FastAPI()
+
+    @app.get("/history")
+    def history():
+        build_related_pages.discover(None)
+        return {"history": []}
+
+    @app.post("/api/live/agent/turn")
+    def turn():
+        build_related_pages.discover(None)
+        return {"status": "completed"}
+
+    def run_case(client, world, template, case, directory, **kwargs):
+        assert client.get("/history").status_code == 200
+        assert client.post("/api/live/agent/turn", json={}).json() == {"status": "completed"}
+        assert client.get("/history").status_code == 200
+
+    monkeypatch.setattr(workflow, "capture_case", run_case)
+    def run_capture(manifest, output, **kwargs):
+        with TestClient(app) as client:
+            return workflow.capture_case(client, "world", {}, {"id": "case1"}, output)
+    monkeypatch.setattr(workflow, "capture", run_capture)
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
+                        ({"conversation_mode": "build_sequence"}, tmp_path))
+    capture(_test_manifest(tmp_path), tmp_path / "case1", expected_manifest_sha256=MANIFEST_PIN)
+    evidence = json.loads((tmp_path / "case1" / "related-page-probe.json").read_text())
+    assert evidence["status"] == "observed"
+    assert evidence["records"] == [{"owner": "related_catalog_discovery", "state": "returned"}]

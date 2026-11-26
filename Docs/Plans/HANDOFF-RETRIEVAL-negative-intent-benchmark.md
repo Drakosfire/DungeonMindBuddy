@@ -95,7 +95,10 @@ Async client methods are rejected before dispatch; an unexpected awaitable
 response is rejected and marked `dispatch_uncertain`. Legacy records without
 this status remain broad-window evidence. This is still partial: asynchronous activity
 after the response, subprocesses, stale aliases and other owners can escape;
-no zero-acquisition pass follows from an empty POST window.
+no zero-acquisition pass follows from an empty POST window. A real synchronous
+FastAPI TestClient with synthetic routes now exercises pre-POST, POST and
+post-POST observations across the client/server thread boundary. This does not
+exercise the Buddy turn route, provider or its full set of acquisition owners.
 
 ## Diagnostic checkpoint
 
