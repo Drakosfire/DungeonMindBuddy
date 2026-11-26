@@ -2099,7 +2099,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each(['discuss','prepare_insertion'] as const)('continues %s with its exact capture capability and newer composer text',async(kind)=>{
     const base=turn('plan',1,'1. Discuss the shop owner.\n2. Prepare the shop description.');
     const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
     const p={schema:'dmb_reviewed_work_plan_v3' as const,objective:'Discuss the chosen owner.',root_references:[],world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
       steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind,references:[]}],dispatches:[],execution:[]};
@@ -2113,6 +2113,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     render(<Harness initial='build' buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer unsent author note'}});
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
     fireEvent.click(await screen.findByRole('button',{name:'Review plan'}));
     await screen.findByLabelText('Saved step 1');
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
@@ -2158,7 +2159,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it('retires a reserved plan continuation across a source round trip',async()=>{
     const base=turn('plan',1,'1. Discuss the shop owner.\n2. Prepare the shop description.');
     const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
     const p={schema:'dmb_reviewed_work_plan_v2' as const,objective:'Discuss the shop owner.',world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
       steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const}],dispatches:[],execution:[]};
@@ -2169,6 +2170,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const view=render(<Harness initial='build'/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer unsent author note'}});
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
     fireEvent.click(await screen.findByRole('button',{name:'Review plan'}));
     await screen.findByLabelText('Saved step 1');
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
