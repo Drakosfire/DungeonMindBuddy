@@ -5610,3 +5610,53 @@ def test_uncertain_pending_work_does_not_qualify_as_anchored_conversation():
     work, = [event for event in execution.events if type(event) is t.BuildRequestedWorkResolutionV1]
     assert work.requested_work == 'discuss' and work.resolution['source_scope'] == 'uncertain'
     assert pending_retained_work(execution) is None
+
+
+def test_old_projection_rejected_atomically_by_new_acceptance_owner(monkeypatch):
+    """A precomputed old projection cannot partially commit under the new owner."""
+    import asyncio
+    from copy import deepcopy
+    import httpx
+    from application_state.errors import ApplicationStateValidationError
+    from application_state.agent_conversation import native_completion
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
+                     'text': 'Possible names include Aven and Maelin.'}], 'limitations': []}
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_cross_release', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_cross_release', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+
+    with pending_writer_completion_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        original_project = native_completion.project_surface_limitations
+        old_projection = {'enabled': True}
+        def project(*args, **kwargs):
+            if old_projection['enabled']:
+                kwargs['host_partial'] = True
+            return original_project(*args, **kwargs)
+        monkeypatch.setattr(native_completion, 'project_surface_limitations', project)
+        original_accept = state.service.complete_pending_native_base_turn
+        verified = []
+        def accept(result, **kwargs):
+            assert 'This answer uses partial retrieval' in result.assistant_text
+            old_projection['enabled'] = False
+            before_turn = deepcopy(state.turn.model_dump(mode='json', by_alias=True))
+            before_rules = deepcopy(state.rules_payload)
+            before_revision, before_persisted = state.rules_revision, state.persisted
+            try:
+                return original_accept(result, **kwargs)
+            finally:
+                assert state.turn.model_dump(mode='json', by_alias=True) == before_turn
+                assert state.rules_payload == before_rules and state.rules_revision == before_revision
+                assert state.persisted == before_persisted and state.completions == 0
+                verified.append(True)
+        monkeypatch.setattr(state.service, 'complete_pending_native_base_turn', accept)
+        with pytest.raises(ApplicationStateValidationError, match='Native result differs from its actual captured output'):
+            asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert verified == [True]

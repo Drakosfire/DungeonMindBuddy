@@ -54,3 +54,13 @@ anchored; it does not exercise an entire uncertain turn. Exact-output
 reconstruction compatibility, in-flight cross-release acceptance and independently
 reviewed real-source boundaries remain required before release. Recheck live serving parent and produce exact-head
 review and post-deployment app evidence before claiming delivery.
+
+A focused synthetic cross-release control now constructs the old warning-bearing
+result and submits it to the new pending acceptance owner. It fails closed on
+exact output equality before changing the mocked Turn or Rules ledger; an
+already accepted old reply separately replays unchanged. This is in-memory
+boundary evidence, not proof of real PostgreSQL rollback or deployment drain.
+`verify_completion` reconstructs the new projection for old proof bytes, but no
+production caller was found in `src/` or `apps/`; its independent contract and
+any real in-flight cross-release behavior remain release-review concerns. No
+broad dual-projection acceptance was introduced.
