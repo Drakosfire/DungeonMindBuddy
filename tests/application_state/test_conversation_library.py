@@ -492,3 +492,54 @@ def test_transcript_without_build_turns_uses_one_transaction(
     assert empty["turns"] == []
     assert empty["next_before_sequence"] is None
     assert len(transactions) == 2
+
+
+def test_lightweight_retry_lineage_is_scoped_and_display_only(application_state_dsn):
+    from application_state.agent_conversation.types import TurnFailure, TurnSubmission
+    from tests.application_state.test_agent_conversation_service import _ref, _submitted_intent
+
+    service = AgentConversationService()
+    world = "world-one"
+    cid = new(service, world)
+    provenance = _provenance(world).model_copy(update={
+        "surface_id": "build", "primary_work": _ref("build", "source-one", "2"),
+        "supporting_work": [],
+    })
+    def admit():
+        return service.accept_turn(TurnSubmission(
+            world_id=world, conversation_id=cid, idempotency_key=uuid4(),
+            expected_conversation_revision=service.get_conversation(world, cid).revision,
+            user_text="Question", provenance=provenance,
+            submitted_intent_v1=_submitted_intent(world, "Question", surface_id="build"),
+        ))
+    parent = admit()
+    running = service.begin_turn(world, cid, parent.turn_id, expected_revision=parent.revision)
+    parent = service.fail_turn(TurnFailure(world_id=world, conversation_id=cid,
+        turn_id=parent.turn_id, expected_revision=running.revision,
+        failure_code="synthetic_before_dispatch"), interrupted=True)
+    child = admit()
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("""INSERT INTO agent.turn_retry
+            (predecessor_id, successor_id, root_id, world_id, conversation_id, predecessor_revision, ordinal)
+            VALUES (%s,%s,%s,%s,%s,%s,1)""",
+            (parent.turn_id, child.turn_id, parent.turn_id, world, cid, parent.revision))
+
+    old = library.read_active_messages(world)
+    assert old["schema"] == "dmb_active_conversation_messages_v4"
+    assert all("retry_lineage" not in row for row in old["messages"])
+    page = library.read_active_messages(world, retry_lineage=True)
+    assert page["schema"] == "dmb_active_conversation_messages_v5"
+    rows = {row["turn_id"]: row for row in page["messages"]}
+    assert rows[str(parent.turn_id)]["retry_lineage"] == {
+        "root_id": str(parent.turn_id), "predecessor_id": None,
+        "successor_id": str(child.turn_id), "ordinal": 0,
+    }
+    assert rows[str(child.turn_id)]["retry_lineage"] == {
+        "root_id": str(parent.turn_id), "predecessor_id": str(parent.turn_id),
+        "successor_id": None, "ordinal": 1,
+    }
+    assert "eligible" not in rows[str(parent.turn_id)]["retry_lineage"]
+    older = library.read_active_messages(world, limit=1,
+        before_sequence=rows[str(child.turn_id)]["sequence"], retry_lineage=True)
+    assert older["messages"][0]["retry_lineage"]["successor_id"] == str(child.turn_id)
+    assert library.read_active_messages("another-world", retry_lineage=True)["messages"] == []

@@ -1165,11 +1165,14 @@ def test_existing_schema_upgrade_with_restricted_migration_role(application_stat
             assert not admin.execute("SELECT has_database_privilege(%s, current_database(), 'CREATE')", (role,)).fetchone()[0]
             admin.execute(sql.SQL('GRANT USAGE ON SCHEMA application_state TO {}').format(sql.Identifier(role)))
             admin.execute(sql.SQL('GRANT SELECT, INSERT, UPDATE, DELETE ON application_state.schema_migrations TO {}').format(sql.Identifier(role)))
-            admin.execute("UPDATE application_state.schema_migrations SET version_num = '20261122_0198'")
+            # The fixture already contains all schema changes through 0211.
+            # Re-run the later reader-only fences under the restricted role.
+            admin.execute("UPDATE application_state.schema_migrations SET version_num = '20261125_0211'")
             parsed = urlsplit(application_state_dsn)
             endpoint = f'{role}:synthetic-only@{parsed.hostname}:{parsed.port}'
             monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, urlunsplit(parsed._replace(netloc=endpoint)))
             assert cli.upgrade_to_head() == (expected_head, expected_head)
+            assert admin.execute('SELECT version_num FROM application_state.schema_migrations').fetchall() == [(expected_head,)]
         finally:
             admin.execute(sql.SQL('DROP OWNED BY {}').format(sql.Identifier(role)))
             admin.execute(sql.SQL('DROP ROLE {}').format(sql.Identifier(role)))

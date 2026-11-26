@@ -96,6 +96,21 @@ def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypa
                 message=message, image_move=disposition)
 
 
+@pytest.mark.parametrize('role', [None, 'player'])
+def test_image_move_refuses_missing_or_non_gm_principal(lane, tmp_path, monkeypatch, role):
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    def lower_principal(adapter):
+        assert adapter.native_query_context is not None
+        principal = None if role is None else NativeGraphPrincipal(subject='player', role='player', auth_method='local_session')
+        adapter.native_query_context = replace(adapter.native_query_context, principal=principal)
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Move the Harbour map to the empty slot on its right.", image_move="ready",
+        after_image_selection=lower_principal, expect_image_forbidden=True)
+
+
 def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_path, monkeypatch):
     _fresh_case(
         lane, tmp_path, monkeypatch, "discussion_source_tie", False, False, False,
@@ -179,7 +194,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True,expect_image_forbidden=False,after_image_selection=None):
     if failure == 'retry_controller_bad_request':
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         observe = native_corpus_source.observe_build_source_pointer
@@ -1042,6 +1057,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return self._plan
         monkeypatch.setattr(WriterSelectionDriver,'stage',substituted_stage)
     class Harness(actual_harness):
+        async def _decide(self, adapter, driver):
+            await super()._decide(adapter, driver)
+            if after_image_selection is not None:
+                after_image_selection(adapter)
+
         def _capture_failure(self, adapter, exc):
             import traceback
             traceback.print_exception(exc)
@@ -1377,6 +1397,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
+        if expect_image_forbidden:
+            assert response.status_code == 403, response.text
+            assert response.json()['detail']['code'] == 'build_image_move_forbidden'
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
         if image_move == "other_discussion":
             assert response.status_code == 200, response.text
             context = response.json()["knowledge_context"]
