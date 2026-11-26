@@ -755,7 +755,7 @@ def test_fixture_binding_checks_owner_receipt_page_and_complete_dialogue(monkeyp
              "turns": [{"turn_id": "old", "sequence": 1, "lifecycle_status": "completed", "user_text": "Idea?", "assistant_text": "A star."}]}
     turn = {"turn_id": "new", "sequence": 2, "idempotency_key": str(uuid5(NAMESPACE_URL, "dmb-agent-turn:world:turn")), "user_text": "Use that.",
             "provenance": {"world_id": "world", "surface_id": "build", "surface_instance_id": "page"},
-            "knowledge_context": {"synthetic": True}}
+            "knowledge_context": {"schema": "dmb_agent_surface_native_context_response_v1", "synthetic": True}}
     after = {"world_id": "world", "conversation_id": "chat", "active_conversation_id": "chat", "pointer_revision": 2,
              "next_before_sequence": None, "turns": [copy.deepcopy(prior["turns"][0]), turn]}
     fixture = {"request": "Use that.", "page": page,
@@ -1726,3 +1726,86 @@ def test_pending_page_probe_witnesses_admitted_app_acquisition(monkeypatch, choi
         assert len([event for event in state.turn.graph_context_execution.events
                     if type(event) is RelatedPageRead]) == (choice == "read")
         assert all(row["state"] == "returned" for row in records)
+
+
+def test_pending_fixture_binding_uses_real_receipt_and_conversation_pointer():
+    """Current serving's typed pending receipt must match page, World and chat."""
+    from importlib.util import find_spec
+    if find_spec('application_state.agent_conversation.build_source_free') is None:
+        pytest.skip('Pending Build is absent from this source lineage')
+    import copy
+    import hashlib
+    import json
+    from uuid import NAMESPACE_URL, uuid4, uuid5
+    from apps.live_control_server.models.agent_turn import AgentBuildPendingContextResponseV1
+    from application_state.agent_conversation.types import canonical_sha256
+    from tests.test_build_source_free_protocol import pending_submission
+    from tests.test_build_source_free_routing import seal_pending_receipt
+    from tests.test_surface_native_context import provenance_for
+    from evals.negative_retrieval.fixture_binding import verify_fixture
+
+    def envelope(body):
+        raw = json.dumps(body).encode()
+        return {'http_status': 200, 'body': body, 'raw_body_hex': raw.hex(),
+                'raw_body_sha256': hashlib.sha256(raw).hexdigest()}
+
+    submission = pending_submission()
+    original = submission.graph_context_receipt
+    text = '# Synthetic page\nA fictional detail.'
+    digest = hashlib.sha256(text.encode()).hexdigest()
+    basis = original.work_context.source_basis.model_copy(update={'content_sha256': digest})
+    work = original.work_context.model_copy(update={'source_basis': basis})
+    provenance = provenance_for(work).model_copy(update={'surface_instance_id': basis.document_id})
+    values = original.model_dump(mode='json', by_alias=True)
+    values.pop('context_receipt_sha256')
+    values['work_context'] = work.model_dump(mode='json', by_alias=True)
+    values['provenance_sha256'] = canonical_sha256(provenance)
+    receipt = seal_pending_receipt(values)
+    context = AgentBuildPendingContextResponseV1(receipt=receipt, completion=None,
+        execution=None, delivery_replay=False).model_dump(mode='json', by_alias=True)
+    world, conversation = basis.world_id, str(receipt.conversation_observation.conversation_id)
+    pointer = receipt.conversation_observation.pointer_revision
+    snap = {'world_id': world, 'document_id': basis.document_id, 'registry_revision': basis.registry_revision,
+            'visibility': basis.visibility, 'content_sha256': digest, 'draft_sha256': digest, 'draft_markdown': text}
+    request = {'turn_id': str(uuid4()), 'message': 'Use the idea.', 'owner_scope': {'world_id': world},
+               'surface': {'surface_id': 'build', 'instance_id': basis.document_id},
+               'primary_work': {'object_id': basis.document_id, 'expected_revision': basis.registry_revision,
+                                'expected_content_sha256': digest},
+               'build_draft_context': {'conversation_id': conversation, 'expected_pointer_revision': pointer,
+                                       'snapshot': snap}}
+    fixture = {'page': text, 'history': [], 'request': request['message']}
+    prior = {'world_id': world, 'conversation_id': conversation, 'active_conversation_id': conversation,
+             'pointer_revision': pointer, 'next_before_sequence': None, 'turns': []}
+    turn = {'turn_id': str(uuid4()), 'sequence': 1,
+            'idempotency_key': str(uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{request['turn_id']}")),
+            'user_text': request['message'], 'lifecycle_status': 'completed',
+            'provenance': provenance.model_dump(mode='json', by_alias=True), 'knowledge_context': context}
+    after = {**prior, 'turns': [turn]}
+    assert verify_fixture(fixture, request, envelope(prior), envelope(after)) is True
+
+    wrong = copy.deepcopy(values)
+    wrong['conversation_observation']['pointer_revision'] = pointer + 1
+    wrong_context = context | {'receipt': seal_pending_receipt(wrong).model_dump(mode='json', by_alias=True)}
+    with pytest.raises(ValueError, match='conversation pointer'):
+        verify_fixture(fixture, request, envelope(prior), envelope({**after, 'turns': [turn | {'knowledge_context': wrong_context}]}))
+    wrong_chat = copy.deepcopy(values)
+    wrong_chat['conversation_observation']['conversation_id'] = str(uuid4())
+    wrong_chat_context = context | {'receipt': seal_pending_receipt(wrong_chat).model_dump(mode='json', by_alias=True)}
+    with pytest.raises(ValueError, match='conversation pointer'):
+        verify_fixture(fixture, request, envelope(prior), envelope({**after, 'turns': [turn | {'knowledge_context': wrong_chat_context}]}))
+    wrong_work = work.model_copy(update={'source_basis': basis.model_copy(update={'content_sha256': '0' * 64})})
+    wrong_provenance = provenance_for(wrong_work).model_copy(update={'surface_instance_id': basis.document_id})
+    wrong_page = copy.deepcopy(values)
+    wrong_page['work_context'] = wrong_work.model_dump(mode='json', by_alias=True)
+    wrong_page['provenance_sha256'] = canonical_sha256(wrong_provenance)
+    wrong_page_context = context | {'receipt': seal_pending_receipt(wrong_page).model_dump(mode='json', by_alias=True)}
+    wrong_turn = turn | {'knowledge_context': wrong_page_context,
+                         'provenance': wrong_provenance.model_dump(mode='json', by_alias=True)}
+    with pytest.raises(ValueError, match='source receipt'):
+        verify_fixture(fixture, request, envelope(prior), envelope({**after, 'turns': [wrong_turn]}))
+    damaged = copy.deepcopy(context)
+    damaged['receipt']['work_context']['source_basis']['content_sha256'] = '0' * 64
+    with pytest.raises(ValueError):
+        verify_fixture(fixture, request, envelope(prior), envelope({**after, 'turns': [turn | {'knowledge_context': damaged}]}))
+    with pytest.raises(ValueError, match='Unsupported'):
+        verify_fixture(fixture, request, envelope(prior), envelope({**after, 'turns': [turn | {'knowledge_context': {'schema': 'other'}}]}))

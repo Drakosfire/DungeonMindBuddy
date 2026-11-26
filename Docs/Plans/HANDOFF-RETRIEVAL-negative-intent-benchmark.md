@@ -168,6 +168,22 @@ answers. The private naming rubric now explicitly treats this unnecessary caveat
 as a response-quality failure. A runtime correction belongs in the subsequent
 serial implementation slice with creative, mixed and required-source controls.
 
+## Pending Build fixture binding
+
+The former verifier accepted only `dmb_agent_surface_native_context_response_v1`,
+so an otherwise valid current pending-Build capture could not bind its primary
+fixture. The verifier now also validates the product's typed pending response,
+joins its receipt to turn provenance, and requires its captured conversation ID
+and pointer revision to match the pre/post history and request. It retains the
+exact page/World checks and rejects unknown schemas. An actual typed synthetic
+pending receipt on source tree `c3e536501d5035444ce27e1e824162b7932d4f6d`
+(the deployed merge and reviewed parent share this tree) passed, while resealed
+wrong-chat, wrong-pointer and wrong-page receipts and a corrupted digest were
+rejected. Legacy tests passed on the predecessor branch. The synthetic response
+and source-tree export do not prove an ordinary turn, native source authority,
+complete acquisition, environment qualification or an independently held-out
+result. Evidence: `Projects/.codex/buddy-check.pending-binding-evidence.txt`.
+
 ## Required-read attempt correction
 
 A materialization probe records entered and raised calls as acquisition attempts.

@@ -221,8 +221,12 @@ other required boundaries are not yet independently verified.
 clean page against the captured request, then validates the current turn's
 native context receipt and joins it to the turn provenance through the product
 owner. It rejects pagination, changed history, intervening turns, and page or
-receipt mismatches. This proves primary context only; related-page inventory,
-prior citations, and the capture environment still need independent binding.
+receipt mismatches. It accepts either the older native context response or the
+current typed pending-Build response; the latter must also match the captured
+conversation ID and pointer revision. Unknown response schemas fail closed.
+A pending observation is not native source authority. This proves primary
+context only; related-page inventory, prior citations, and the capture
+environment still need independent binding.
 An existing ordinary captured turn passed this verifier read-only; its fixture
 was constructed from that same capture and is an adapter smoke, not a frozen
 benchmark or model-quality result.

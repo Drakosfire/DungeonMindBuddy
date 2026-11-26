@@ -80,7 +80,25 @@ def verify_fixture(fixture, request, prior_envelope, after_envelope):
             or turn["provenance"]["surface_id"] != "build"
             or turn["provenance"]["surface_instance_id"] != work["object_id"]):
         raise ValueError("Captured turn belongs to a different page")
-    context = AgentSurfaceNativeContextResponseV1.model_validate(turn["knowledge_context"])
+    payload = turn["knowledge_context"]
+    if not isinstance(payload, dict):
+        raise ValueError("Captured native context is missing")
+    schema = payload.get("schema")
+    if schema == "dmb_agent_surface_native_context_response_v1":
+        context = AgentSurfaceNativeContextResponseV1.model_validate(payload)
+    elif schema == "dmb_agent_build_pending_context_response_v1":
+        # Imported only on lineages that contain the pending Build owner.
+        from apps.live_control_server.models import agent_turn
+        pending_type = getattr(agent_turn, "AgentBuildPendingContextResponseV1", None)
+        if pending_type is None:
+            raise ValueError("Pending Build response is unavailable on this source lineage")
+        context = pending_type.model_validate(payload)
+        observed = context.receipt.conversation_observation
+        if (str(observed.conversation_id) != draft["conversation_id"]
+                or observed.pointer_revision != draft["expected_pointer_revision"]):
+            raise ValueError("Pending receipt belongs to another conversation pointer")
+    else:
+        raise ValueError("Unsupported captured native context schema")
     validate_work_context(context.receipt, TurnProvenance.model_validate(turn["provenance"]))
     basis = context.receipt.work_context.source_basis
     if (context.receipt.work_context.surface_id != "build"
