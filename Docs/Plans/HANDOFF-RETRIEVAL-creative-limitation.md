@@ -45,6 +45,11 @@ alias aligned locally; they do not prove live behavior or benchmark rates.
 An additional pre-existing mixed-review test did not run: its autouse fixture
 required a retained CI App owner and failed before database access. No new clone
 was created. The fixture error is not a product failure or passing evidence.
-Uncertain/empty and independently reviewed mixed/real-source boundaries remain
-required before release. Recheck live serving parent and produce exact-head
+Additional focused synthetic cases passed for an empty answer retaining its
+missing-detail and partial limitations, a valid mixed saved-page claim/proposal
+retaining its exact source binding and explicit limitation, and stored-row plus
+ordinary replay of a reply accepted under the old warning behavior. The test
+constructs that historical reply with the prior host projection. Exact-output
+reconstruction compatibility, uncertain scope, in-flight cross-release acceptance
+and independently reviewed real-source boundaries remain required before release. Recheck live serving parent and produce exact-head
 review and post-deployment app evidence before claiming delivery.

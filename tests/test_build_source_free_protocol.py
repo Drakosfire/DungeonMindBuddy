@@ -5494,3 +5494,107 @@ def test_pending_anchored_creative_proposal_only_preserves_explicit_limitations(
         from application_state.agent_conversation import repository
         row, references = stored_row(completed)
         assert repository._turn_from_row(None, row, references=references) == completed
+
+
+def test_pending_empty_source_answer_does_not_lose_explicit_gap(monkeypatch):
+    import asyncio
+    import httpx
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [], 'limitations': ['missing_requested_details']}
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_gap', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_gap', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+
+    with pending_writer_completion_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert completed.status == 'completed'
+        assert any(getattr(segment, 'code', None) == 'missing_requested_details'
+                   for segment in completed.completion.answer_segments)
+        assert any(getattr(segment, 'code', None) == 'partial_retrieval'
+                   for segment in completed.completion.answer_segments)
+
+
+def test_pending_preexisting_creative_warning_replays_unchanged(monkeypatch):
+    """A completion accepted under the previous projection stays readable and replayable."""
+    import asyncio
+    import httpx
+    from apps.live_control_server.services import build_jev_dispatch
+    from application_state.agent_conversation import native_completion, repository
+    from tests.test_surface_native_turn_records import stored_row
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.services.agent_turn_service import _completed_turn_replay
+
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
+                     'text': 'Possible names include Aven and Maelin.'}], 'limitations': []}
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_legacy', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_legacy', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+
+    with pending_writer_completion_case(monkeypatch) as (state, adapter, rules, writer, prepared):
+        original = native_completion.project_surface_limitations
+        def legacy_projection(*args, **kwargs):
+            kwargs['host_partial'] = True
+            return original(*args, **kwargs)
+        with monkeypatch.context() as legacy:
+            legacy.setattr(native_completion, 'project_surface_limitations', legacy_projection)
+            completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert 'This answer uses partial retrieval' in completed.assistant_text
+        row, references = stored_row(completed)
+        restored = repository._turn_from_row(None, row, references=references)
+        assert restored == completed
+        intent = restored.graph_context_execution.policy.action.intent
+        request = AgentTurnRequest.model_validate({'schema': 'dmb_agent_turn_request_v1',
+            'client_thread_id': intent.client_thread_id, 'turn_id': adapter.request.turn_id,
+            'surface': {'surface_id': 'build', 'instance_id': intent.surface_instance_id},
+            'owner_scope': {'kind': 'world', 'world_id': restored.world_id},
+            'primary_work': intent.primary_work.model_dump(mode='python'),
+            'client_work_state': intent.client_work_state, 'graph_request': intent.graph_request.model_dump(mode='python'),
+            'graph_selection': None, 'message': intent.message})
+        replay = _completed_turn_replay(request, owner={'kind': 'world', 'id': restored.world_id}, turn=restored)
+        assert replay.answer.text == completed.assistant_text
+
+
+def test_pending_mixed_saved_page_and_proposal_keep_exact_citation(monkeypatch):
+    import asyncio
+    import httpx
+    from apps.live_control_server.services import build_jev_dispatch
+    from application_state.agent_conversation.build_related_pages import RelatedPageRead
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [
+            {'kind': 'related_page_claim', 'text': 'Ethel dreamed of Maelthor.', 'read_id': 'source0'},
+            {'kind': 'proposal', 'label': 'invented_idea', 'text': 'Perhaps the dream recurs at dusk.'}],
+            'limitations': ['partial_retrieval']}
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_mixed', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_mixed', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+
+    with pending_writer_completion_case(monkeypatch, app_pages=True) as (state, adapter, rules, writer, prepared):
+        completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        page, = [event for event in completed.graph_context_execution.events if type(event) is RelatedPageRead]
+        claim = completed.completion.answer_segments[0]
+        assert claim.kind == 'related_page_claim' and claim.read_id == page.read_id and claim.page == page.page
+        assert any(getattr(segment, 'code', None) == 'partial_retrieval'
+                   for segment in completed.completion.answer_segments)
+        from tests.test_surface_native_turn_records import stored_row
+        from application_state.agent_conversation import repository
+        row, references = stored_row(completed)
+        assert repository._turn_from_row(None, row, references=references) == completed
