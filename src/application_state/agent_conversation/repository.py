@@ -952,6 +952,25 @@ def conversation_has_live_reply(
     ).fetchone()[0]
 
 
+
+def world_has_pending_build_insertion(conn: psycopg.Connection, *, world_id: str) -> bool:
+    # Only a preparation still bound to the current pointer can be confirmed.
+    # The caller holds the same World lock used by Prepare and Confirm.
+    return conn.execute(
+        """SELECT EXISTS (
+            SELECT 1 FROM agent.world_state AS world
+            JOIN agent.build_proposal AS proposal
+              ON proposal.world_id=world.world_id
+             AND proposal.conversation_id=world.active_conversation_id
+            JOIN agent.build_proposal_review AS review
+              ON review.world_id=proposal.world_id AND review.action_id=proposal.action_id
+            WHERE world.world_id=%s AND review.payload->>'state'='applying'
+              AND proposal.payload #>> '{reservation,expected_pointer_revision}'=world.pointer_revision::text
+        )""",
+        (world_id,),
+    ).fetchone()[0]
+
+
 def update_conversation_state(
     conn: psycopg.Connection,
     *,

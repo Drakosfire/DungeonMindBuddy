@@ -1001,6 +1001,8 @@ class AgentConversationService:
                 conn, world_id=world_id, conversation_id=target.conversation_id,
             ):
                 raise ApplicationStateConflictError("This conversation has a reply in progress.")
+            if repo.world_has_pending_build_insertion(conn, world_id=world_id):
+                raise ApplicationStateConflictError("Finish the current Build insertion before changing conversation history.")
             if authorize_write is not None:
                 authorize_write()
             changed = repo.update_conversation_state(
@@ -1049,6 +1051,8 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             if target.status != "trashed" or pointer.active_conversation_id == target.conversation_id:
                 raise ApplicationStateConflictError("Move the conversation to Trash before deleting it.")
+            if repo.world_has_pending_build_insertion(conn, world_id=world_id):
+                raise ApplicationStateConflictError("Finish the current Build insertion before changing conversation history.")
             if authorize_write is not None:
                 authorize_write()
             try:

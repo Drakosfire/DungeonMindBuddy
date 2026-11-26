@@ -109,6 +109,7 @@ def upgrade() -> None:
         DECLARE
             turns uuid[];
             actions uuid[];
+            build_actions uuid[];
         BEGIN
             SELECT ARRAY(SELECT turn_id FROM agent.turn
                 WHERE world_id = OLD.world_id AND conversation_id = OLD.conversation_id
@@ -118,6 +119,12 @@ def upgrade() -> None:
                     authoring_origin->>'conversation_id' = OLD.conversation_id::text
                     OR consultation #>> '{{receipt,origin_conversation_id}}' = OLD.conversation_id::text
                 ) ORDER BY action_id FOR UPDATE) INTO actions;
+            SELECT ARRAY(SELECT action_id FROM agent.build_proposal
+                WHERE world_id = OLD.world_id AND conversation_id = OLD.conversation_id
+                ORDER BY action_id FOR UPDATE) INTO build_actions;
+            PERFORM action_id FROM agent.build_proposal_review
+                WHERE world_id = OLD.world_id AND action_id = ANY(build_actions)
+                ORDER BY action_id FOR UPDATE;
 
             IF EXISTS (SELECT 1 FROM agent.turn WHERE turn_id = ANY(turns)
                          AND (status = 'accepted' OR
@@ -128,6 +135,13 @@ def upgrade() -> None:
                          AND conversation_id = OLD.conversation_id
                          AND payload->>'state' IN ('reserved', 'authorized', 'sdk_entered', 'response_received')
                          AND (payload->>'claim_expires_at')::timestamptz > clock_timestamp())
+               OR EXISTS (SELECT 1 FROM agent.build_proposal_review AS review
+                         JOIN agent.build_proposal AS proposal USING (world_id, action_id)
+                         JOIN agent.world_state AS world USING (world_id)
+                         WHERE review.world_id = OLD.world_id AND review.action_id = ANY(build_actions)
+                           AND review.payload->>'state' = 'applying'
+                           AND world.active_conversation_id = proposal.conversation_id
+                           AND proposal.payload #>> '{{reservation,expected_pointer_revision}}' = world.pointer_revision::text)
                OR EXISTS (SELECT 1 FROM agent.conversation_variant_save WHERE turn_id = ANY(turns)
                          AND receipt IS NULL)
                OR EXISTS (SELECT 1 FROM agent.conversation_variant_portrait AS portrait
@@ -173,10 +187,7 @@ def upgrade() -> None:
             {turn_deletes}
 
             DELETE FROM agent.build_proposal_review
-                WHERE world_id = OLD.world_id AND action_id IN (
-                    SELECT action_id FROM agent.build_proposal
-                    WHERE world_id = OLD.world_id AND conversation_id = OLD.conversation_id
-                );
+                WHERE world_id = OLD.world_id AND action_id = ANY(build_actions);
             DELETE FROM plan_action.action WHERE action_id = ANY(actions);
             {conversation_deletes}
             RETURN OLD;
