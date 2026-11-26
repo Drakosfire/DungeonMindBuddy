@@ -1,4 +1,18 @@
 import {useRef,useState} from 'react';
+import type {TurnRetryContext} from '../api/conversationRetryApi';
+
+export function retryUnavailableMessage(context: TurnRetryContext | null | undefined): string {
+  switch (context?.reason) {
+    case 'not_terminal': return 'This request has not finished. Check its status before retrying. Nothing was sent.';
+    case 'unknown_outcome': return 'Buddy cannot confirm the earlier request’s outcome. Check its details before trying again. Nothing was sent.';
+    case 'existing_result': return 'This request already has a result. Inspect it before continuing. Nothing was sent.';
+    case 'reviewed_step': return 'This request belongs to a reviewed plan step. Continue from that plan. Nothing was sent.';
+    case 'retried': return 'This request already has a later attempt. Open the later attempt to continue. Nothing was sent.';
+    case 'inactive': return 'This conversation is no longer active. Open it as the active conversation before continuing. Nothing was sent.';
+    case 'unverified': return 'Buddy cannot verify the earlier request’s state. Inspect its details before continuing. Nothing was sent.';
+    default: return 'Buddy cannot verify whether this saved request can be retried. Refresh the conversation and inspect its details. Nothing was sent.';
+  }
+}
 
 /** Explicitly send a terminal question through the current sender, not its old request. */
 export function ConversationRecovery({question,blocked,onRetry,label}: {

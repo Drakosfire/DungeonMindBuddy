@@ -1835,9 +1835,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it('retains an exact pending Build retry across remount without losing newer composer text',async()=>{
-    const base=turn('plan',1,''),terminal={...base,lifecycle_status:'interrupted' as const,
-      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    const base=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
+    const terminal={...base,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',lifecycle_status:'interrupted' as const,
+      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}},
+      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
+    vi.mocked(readDiscussionRetryInput).mockRejectedValueOnce(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     const view=render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
@@ -3670,7 +3673,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       await act(async()=>resolveOriginal(original));
     }else{
       await waitFor(()=>expect(screen.getByRole('button',{name:'Retry question'})).toHaveAttribute('aria-busy','false'));
-      const message=failure==='details-failure'?'Exact attempt unavailable':failure==='retained-failure'?'Original draft unavailable':'This saved attempt cannot be retried safely. Inspect its result or continue from its reviewed plan. Nothing was sent.';
+      const message=failure==='details-failure'?'Exact attempt unavailable':failure==='retained-failure'?'Original draft unavailable':'Buddy cannot confirm the earlier request’s outcome. Check its details before trying again. Nothing was sent.';
       expect(screen.getByText(message)).toHaveAttribute('role','alert');expect(input).toHaveValue('Keep this newer note');
     }
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();expect(bridge.captureContext).not.toHaveBeenCalled();
