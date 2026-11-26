@@ -1257,7 +1257,7 @@ it("rejects a conversation switch during deferred native Save without changing t
 
 async function currentSceneBodyRoundTrip(
   source: string, sceneId: string, replacement: string, originalBody: string,
-  verifySaved: (markdown: string) => void, changeViewDuringSave = false,
+  verifySaved: (markdown: string) => void, changeViewDuringSave: boolean | "round-trip" | "scene" = false,
 ) {
   setupWorldApi();
   const current = setupPlanAuthoringIntegration(planRecord(), source, replacement);
@@ -1311,7 +1311,13 @@ async function currentSceneBodyRoundTrip(
       current.commands.mockImplementation(async (...args) => {
         const review = await dispatch(...args);
         if (args[2].operation === "prepare") {
-          fireEvent.click(within(screen.getByRole("group", {name: "Plan view"})).getByRole("button", {name: "Document", exact: true}));
+          if (changeViewDuringSave === "scene") {
+            fireEvent.click(screen.getByRole("button", {name: "Show scene: Second scene"}));
+          } else {
+            const views = screen.getByRole("group", {name: "Plan view"});
+            fireEvent.click(within(views).getByRole("button", {name: "Document", exact: true}));
+            if (changeViewDuringSave === "round-trip") fireEvent.click(within(views).getByRole("button", {name: "Cards", exact: true}));
+          }
         }
         return review;
       });
@@ -1321,6 +1327,8 @@ async function currentSceneBodyRoundTrip(
       await waitFor(() => expect(screen.queryAllByRole("alert").map(element => element.textContent).join(" | ")).toMatch(/differs from its sealed copy|changed/));
       expect(current.commands.mock.calls.some(call => call[2].operation === "prepare")).toBe(true);
       expect(current.commands.mock.calls.filter(call => call[2].operation === "confirm")).toHaveLength(0);
+      expect(current.readReview()?.state).toBe("applying");
+      expect(editor.getJSON()).toEqual(before);
       expect(current.readSaved().markdown).toBe(source);
       expect(current.post).toHaveBeenCalledTimes(1);
       return;
@@ -1388,6 +1396,21 @@ it("refuses a Cards view change after preparation before confirming a Scene Save
     "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n\nOne reviewed cue.",
     "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n",
     () => {}, true);
+});
+
+it("refuses a Cards-to-Document-to-Cards round trip during Scene Save preparation", async () => {
+  await currentSceneBodyRoundTrip(protectedScenePlanMarkdown, "scene:dogfood-smoke",
+    "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n\nOne reviewed cue.",
+    "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n",
+    () => {}, "round-trip");
+});
+
+it("refuses changing Scenes during Scene Save preparation", async () => {
+  const source = protectedScenePlanMarkdown + "\n<!-- dmb-playable-element:v2 kind=scene id=scene:second -->\n### Second scene\n\nSecond scene body.\n";
+  await currentSceneBodyRoundTrip(source, "scene:dogfood-smoke",
+    "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n\nOne reviewed cue.",
+    "A clearly synthetic scene used only to verify the local Plan-to-Play path. No campaign canon.\n",
+    () => {}, "scene");
 });
 
 it("drops a delayed card-body proposal after a new Option target is selected", async () => {
