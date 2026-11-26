@@ -2048,12 +2048,14 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const ref=(kind:string,object_id:string,revision:string)=>({resolution:'resolved' as const,kind,object_id,revision,content_sha256:null,object_revision:null,work_revision_id:null,revision_n:null});
     const row={...base,knowledge_context:knowledge,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',
       primary_work:{...ref('build','source-one','2'),content_sha256:SHA},supporting_work:[ref('dmb_build_source_visibility_v1','internal','1'),ref('dmb_build_graph_binding_v1',a.native_world_id,String(a.binding_version)),ref('world_graph_revision',a.native_world_id,a.graph_revision)]}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     vi.mocked(getAgentRelatedPage).mockResolvedValue({schema:'dmb_agent_related_page_read_v1',world_id:WORLD,turn_id:row.turn_id,read_id:readId,page,markdown:body});
     render(<Harness initial='build'/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findAllByText(base.assistant_text!);
     expect(getAgentRelatedPage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
+    await waitFor(()=>expect(document.querySelector('.world-plan-agent-conversation__message--assistant > .source-citation-evidence')).not.toBeNull());
     const ordinary=document.querySelector('.world-plan-agent-conversation__message--assistant > .source-citation-evidence')!;
     const marker=ordinary.querySelector('button')!;expect(marker.textContent).toBe('1');
     expect(marker.getAttribute('aria-label')).toBe('Read Households · saved revision 9');
@@ -2670,10 +2672,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     row.provenance.supporting_work = [{ resolution: "resolved", kind: "dmb_play_runbook_v1",
       object_id: "00000000-0000-4000-8000-000000000071", revision: "9", content_sha256: SHA,
       object_revision: 9, work_revision_id: WORK_REVISION, revision_n: 2 }];
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await screen.findByText("A useful arrival cue");
+    fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
+    await waitFor(()=>expect(document.querySelector('.world-plan-agent-conversation__evidence-trail')).not.toBeNull());
     const trail = document.querySelector<HTMLDetailsElement>(".world-plan-agent-conversation__evidence-trail")!;
     fireEvent.click(trail.querySelector("summary")!);
     expect(within(trail).getByRole("region", { name: "Authored Play context" })).toBeInTheDocument();
