@@ -62,9 +62,10 @@ changed. The owner continues to hold the same clone for serial cases and retries
 The frozen 60-exchange development fixture was provisioned and its complete
 synthetic dialogue round-tripped through the current conversation owner. This
 is fixture setup only: no model, ordinary turn, complete acquisition journal,
-held-out case or qualified benchmark result is claimed. Exact runtime/dependency
-and provider qualifications, source-required control, actual captures and
-accepted cleanup remain outstanding.
+held-out case or qualified benchmark result was claimed at that setup checkpoint.
+The subsequent captures below add an App-source control; native Core control,
+complete acquisition coverage, independent held-out qualification and accepted
+cleanup remain outstanding.
 
 ## Current-source development observations
 
