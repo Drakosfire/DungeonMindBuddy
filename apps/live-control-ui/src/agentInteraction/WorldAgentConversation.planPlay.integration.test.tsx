@@ -2389,19 +2389,22 @@ describe("one App-level World conversation host across Plan and Play", () => {
     if (scenario === "newer_pending") await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Seed newer pending request" })); });
     current = { ...current, turns: rows,
       ...(scenario === "wrong_conversation" ? { conversation_id: "other-conversation", active_conversation_id: "other-conversation", pointer_revision: 2 } : {}) };
+    const readsBeforeRefresh = vi.mocked(getWorldAgentConversationHistory).mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Refresh shared history fixture" }));
+    await waitFor(()=>expect(vi.mocked(getWorldAgentConversationHistory).mock.calls.length).toBeGreaterThan(readsBeforeRefresh));
     if (scenario !== "failed" && scenario !== "interrupted") {
-      if (scenario === "wrong_basis") await screen.findByText(/World conversation response did not match/);
-      else await screen.findAllByText("This reply stopped before it finished. Your Plan was not changed.");
+      expect(await screen.findByText('Resolve the saved request in Conversation options before sending another.')).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "New conversation" })).toBeDisabled();
       expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
       expect(localStorage.getItem(key)).not.toBeNull();
+      if (['wrong_key','wrong_basis','wrong_conversation','duplicate'].includes(scenario)) expect(localStorage.getItem(key)).toBe(envelope);
       return;
     }
     await waitFor(() => expect(screen.getByRole("button", { name: "New conversation" })).toBeEnabled());
     expect(composer).toHaveValue("What about Sara?");
     await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
-    expect(screen.getAllByText(request.message)).toHaveLength(1);
+    expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>node.textContent===request.message && !node.closest('details:not([open])'))).toHaveLength(1);
+    expect(screen.queryByRole('article',{name:'Submitted message'})).not.toBeInTheDocument();
     expect(localStorage.getItem(key)).toBe(envelope);
     expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
     expect(postWorldAgentNewConversation).not.toHaveBeenCalled();
