@@ -4,8 +4,9 @@ Status: ACTIVE — user authorized the benchmark goal in this conversation. This
 brief assigns the eval-only slice to `codex/negative-retrieval-benchmark`,
 based on `origin/main` c3a2ae6032b0f16fc19d21be14759a0a8607782b (rebased from 42a524ade after checking the shared native-writer change). Checkout:
 `/home/drakosfire/Projects/.codex/dogfood-ci-one-app/DungeonMindBuddy`. This
-workstream currently owns no disposable App clone. The shared Core snapshot is
-read-only; no model, provider, or production state was used for the owner audit below.
+workstream owns one recovered disposable App clone held by a live supervisor.
+The shared Core snapshot is read-only; no model, provider, or production state
+was used for the owner audit below.
 
 ## Bounded parallel runtime slice
 
@@ -45,6 +46,25 @@ measurement or proof that over-retrieval is solved. The remaining benchmark,
 held-out controls and unnecessary acquisition investigation stay active. The
 merged runtime handoff still says ACTIVE; this checkpoint records its completion
 until that predecessor document can be settled by an appropriate successor.
+
+## Interrupted clone recovered
+
+The reviewed disposable-owner recovery slice merged as PR #4842. The original
+workstream clone was adopted under its existing lock, with its prior owner and
+worker closure, receipt and database identities checked. A provider-free worker
+verified the current owner/source/clone and the existing read-only Core login.
+The old disposable fixture schema belonged to a different migration lineage;
+a direct upgrade failed and its evidence is retained. The authorized fixture
+reset removed the old synthetic fixture data in that clone and rebuilt its
+schema at the current serving-integration head. No Core data or other clone was
+changed. The owner continues to hold the same clone for serial cases and retries.
+
+The frozen 60-exchange development fixture was provisioned and its complete
+synthetic dialogue round-tripped through the current conversation owner. This
+is fixture setup only: no model, ordinary turn, complete acquisition journal,
+held-out case or qualified benchmark result is claimed. Exact runtime/dependency
+and provider qualifications, source-required control, actual captures and
+accepted cleanup remain outstanding.
 
 ## Current serving and capture checkpoint
 
