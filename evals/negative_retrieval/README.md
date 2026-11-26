@@ -162,8 +162,9 @@ per-capture App cloning and selects the existing pinned cohort
 path, which enforces a dedicated read-only Core login and avoids full Core
 inventory scans. Before delegating, capture requires the live workstream owner
 ledger and checks the App clone's endpoint, OID and cluster identity. Run from
-the intended checkout: the Git source check uses the process working directory.
-This one-time cooperative check is not a lock or continuous ownership proof. The
+the evaluator checkout: the guard rejects a different working directory and
+runs the Git source check in that checkout. This one-time cooperative check is
+not a lock or continuous ownership proof. The
 executor must provide the already owned clone and prove capacity, reset and
 teardown separately. The wrapper creates or drops no database; the clone owner
 must hold `disposable_benchmark_database` across the workstream. The wrapper

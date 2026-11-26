@@ -1851,3 +1851,11 @@ def test_capture_checks_owned_app_before_delegating(tmp_path, monkeypatch):
     monkeypatch.setattr(workflow, "capture", lambda *a, **k: calls.append("runner") or "ok")
     assert module.capture(_test_manifest(tmp_path), tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN) == "ok"
     assert calls == ["owner", "runner"]
+
+
+def test_owned_app_guard_rejects_a_different_working_checkout(tmp_path, monkeypatch):
+    from evals.negative_retrieval.owned_db_fixture import checked_owned_dsn
+
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="evaluator checkout"):
+        checked_owned_dsn()

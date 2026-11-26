@@ -57,10 +57,13 @@ def checked_owned_dsn():
     from psycopg.conninfo import conninfo_to_dict
     from application_state.config import APPLICATION_STATE_DSN_ENV
 
+    root = Path(__file__).resolve().parents[2]
+    if Path.cwd().resolve() != root:
+        raise ValueError("Owned App checks require the evaluator checkout as the working directory")
     ledger_path = Path(os.environ["DMB_NEGATIVE_RETRIEVAL_OWNER_LEDGER"]).resolve(strict=True)
     ledger = json.loads(ledger_path.read_text())
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    status = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    status = subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True)
     clone = validate_lease(ledger, head=head, git_status=status, pgid=os.getpgrp(),
                            owner_start_ticks=_start_ticks(ledger["pid"]))
     dsn = os.environ[APPLICATION_STATE_DSN_ENV]
