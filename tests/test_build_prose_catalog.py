@@ -216,7 +216,8 @@ def test_nonplacement_judgment_has_no_target(captured_page, work, relation, scop
 
 
 @pytest.mark.parametrize("version", [1, 2])
-def test_opening_must_match_retained_catalog_and_requested_work(captured_page, version):
+@pytest.mark.parametrize("model", ["jev-1.14.0", "typesafe-ai/jev-1.14.0"])
+def test_opening_must_match_retained_catalog_and_requested_work(captured_page, version, model):
     catalog = freeze_build_prose_catalog(*captured_page)
     question, title = "Insert a line after the moon in East", "Gate"
     state, choices = build_boundary_opening(question, title, catalog, version=version)
@@ -237,22 +238,22 @@ def test_opening_must_match_retained_catalog_and_requested_work(captured_page, v
     response = DecisionResult(
         answers={name: ChoiceDecisionAnswer(selected=label) for name, label in labels.items()},
         observation=InferenceObservation(
-            provider="typesafe", resolved_model="jev-1.14.0", response_model="jev-1.14.0",
+            provider="typesafe", resolved_model=model, response_model=model,
             latency_ms=100, retry_count=0, state="completed", provider_attempt_count=1,
         ),
     )
     outcome = resolve_build_boundary_opening(
-        catalog, request, response, question=question, title=title, requested_work="write_current_page",
+        catalog, request, response, question=question, title=title, requested_work="write_current_page", expected_model=model,
     )
     assert outcome.target.alias == "passage2:insert_after"
     outcome = resolve_build_boundary_opening(
-        catalog, request, response, question=question, title=title, requested_work="discuss",
+        catalog, request, response, question=question, title=title, requested_work="discuss", expected_model=model,
     )
     assert outcome.target is None
     if version == 2:
         response.answers["paragraph_destination"] = ChoiceDecisionAnswer(selected="different_page")
         outcome = resolve_build_boundary_opening(
-            catalog, request, response, question=question, title=title, requested_work="write_current_page",
+            catalog, request, response, question=question, title=title, requested_work="write_current_page", expected_model=model,
         )
         assert outcome.disposition == "different_destination"
         assert outcome.target is None
@@ -382,7 +383,12 @@ def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
     response = graph_response().model_copy(update={"answers": {
         question.name: ChoiceDecisionAnswer(selected="place_existing_reference"),
     }})
-    assert resolve_graph_reference_opening(request, response) == "place_existing_reference"
+    assert resolve_graph_reference_opening(request, response, expected_model='jev-1.14.0') == "place_existing_reference"
+    current = response.model_copy(update={"observation": response.observation.model_copy(update={
+        "resolved_model": "typesafe-ai/jev-1.14.0", "response_model": "typesafe-ai/jev-1.14.0"})})
+    assert resolve_graph_reference_opening(request, current, expected_model='typesafe-ai/jev-1.14.0') == "place_existing_reference"
+    with pytest.raises(ValueError, match="provider/model"):
+        resolve_graph_reference_opening(request, current, expected_model='jev-1.14.0')
     with pytest.raises(ValueError, match="exact admitted offer"):
         resolve_graph_reference_opening({"questions": {}}, response)
     with pytest.raises(ValueError, match="exact admitted offer"):
@@ -390,7 +396,7 @@ def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
     with pytest.raises(ValueError, match="unoffered answer"):
         resolve_graph_reference_opening(request, response.model_copy(update={"answers": {
             question.name: ChoiceDecisionAnswer(selected="write_current_page"),
-        }}))
+        }}), expected_model='jev-1.14.0')
     assert resolve_graph_reference_opening({"questions": {}}, graph_response()) is None
 
 

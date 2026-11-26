@@ -4468,8 +4468,8 @@ class AgentConversationService:
             if responses != [response_json]:
                 raise ApplicationStateValidationError("Graph nomination lacks the actual captured response")
             try:
-                decision.require_wire_request(strict_json(request_json))
-                nomination = decision.resolve(DecisionResult.model_validate(strict_json(response_json)))
+                decision.require_wire_request(strict_json(request_json), expected_model=authorization.model)
+                nomination = decision.resolve(DecisionResult.model_validate(strict_json(response_json)), expected_model=authorization.model)
                 placement = nomination.placement
                 completion = t.BuildGraphReferenceCompletionV1(
                     context_receipt_sha256=execution.context_receipt_sha256,
@@ -4556,7 +4556,7 @@ class AgentConversationService:
                 decision = BuildImageMoveDecision.from_saved(capture, turn.user_text, saved.revision.markdown, saved.presentation)
                 answers = decision.opening_answers(
                     strict_json(request_json), DecisionResult.model_validate(strict_json(response_json)),
-                    allow_retained=True,
+                    allow_retained=True, expected_model=execution.policy.provider_roles.controller.model,
                 )
                 if admitted_image_move_choice(answers, turn.user_text) != opening.typed_image_move:
                     raise ValueError("The image move choice differs from its admitted response")

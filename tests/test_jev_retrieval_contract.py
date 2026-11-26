@@ -236,6 +236,12 @@ def test_dialogue_is_reference_text_and_is_bound_to_exact_decision_wire():
         q.name: {"type": "choice", "instructions": q.question,
                  "criteria": {option: None for option in q.options}} for q in prepared.questions}}
     validate_wire_body(req, json.dumps(body).encode())
+    old_body = {**body, 'model': 'jev-1.14.0'}
+    validate_wire_body(req, json.dumps(old_body).encode(), expected_model='jev-1.14.0')
+    with pytest.raises(ValueError, match='changed'):
+        validate_wire_body(req, json.dumps(old_body).encode(), expected_model=MODEL)
+    with pytest.raises(ValueError, match='changed'):
+        validate_wire_body(req, json.dumps(body).encode(), expected_model='jev-1.14.0')
     body["state"]["dialogue_reference"][0]["content"] = "Changed after capture"
     with pytest.raises(ValueError, match="changed"):
         validate_wire_body(req, json.dumps(body).encode())

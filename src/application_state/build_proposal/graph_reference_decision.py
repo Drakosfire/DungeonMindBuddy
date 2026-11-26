@@ -36,7 +36,7 @@ GRAPH_REFERENCE_OPENING = _RETAINED_GRAPH_REFERENCE_OPENING.model_copy(update={"
 )})
 
 
-def resolve_graph_reference_opening(request, result) -> Literal["place_existing_reference", "other_work"] | None:
+def resolve_graph_reference_opening(request, result, *, expected_model=None) -> Literal["place_existing_reference", "other_work"] | None:
     """Read a typed opening answer from the actual request and response; older turns omit it."""
     question = GRAPH_REFERENCE_OPENING
     offered = request["questions"].get(question.name)
@@ -47,7 +47,7 @@ def resolve_graph_reference_opening(request, result) -> Literal["place_existing_
     if offered not in expected or set(result.answers) != set(request["questions"]):
         raise ValueError("Graph reference opening differs from the exact admitted offer")
     projected = result.model_copy(update={"answers": {question.name: result.answers[question.name]}})
-    selected = validated_choice_answers(projected, {question.name})[question.name]
+    selected = validated_choice_answers(projected, {question.name}, **({'expected_model': expected_model} if expected_model else {}))[question.name]
     if selected == "place_existing_reference":
         return "place_existing_reference"
     if selected == "other_work":
@@ -371,13 +371,13 @@ class BuildGraphReferenceDecision:
             ),
         })
 
-    def require_wire_request(self, body) -> None:
+    def require_wire_request(self, body, *, expected_model=None) -> None:
         request = self.request()
         questions = {
             q.name: {"type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options)}
             for q in request.questions
         }
-        if body != {"model": request.model, "state": request.state, "questions": questions}:
+        if body != {"model": expected_model or request.model, "state": request.state, "questions": questions}:
             raise ValueError("The Graph nomination request differs from the exact admitted offers")
 
     def host_inventory_sha256(self) -> str:
@@ -390,10 +390,10 @@ class BuildGraphReferenceDecision:
                                 if self.author_selected is not None else None),
         })
 
-    def resolve(self, result) -> BuildGraphReferenceNomination:
+    def resolve(self, result, *, expected_model=None) -> BuildGraphReferenceNomination:
         request = self.request()
         offered = {question.name: question.options for question in request.questions}
-        answers = validated_choice_answers(result, set(offered))
+        answers = validated_choice_answers(result, set(offered), **({'expected_model': expected_model} if expected_model else {}))
         if any(answers[name] not in options for name, options in offered.items()):
             raise ValueError("Graph nomination contains an unoffered answer")
         intent = answers["reference_intent"]
@@ -406,7 +406,7 @@ class BuildGraphReferenceDecision:
         boundary_response = result.model_copy(update={"answers": {
             question.name: result.answers[question.name] for question in boundary_request.questions
         }})
-        judgment = decode_build_boundary_decision(boundary_request, boundary_response)
+        judgment = decode_build_boundary_decision(boundary_request, boundary_response, expected_model=expected_model)
         placement = resolve_build_boundary(self.catalog, judgment)
         if placement.disposition in {"different_destination", "discuss"}:
             return BuildGraphReferenceNomination(disposition=(

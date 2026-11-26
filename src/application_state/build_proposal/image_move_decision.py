@@ -369,7 +369,7 @@ class BuildImageMoveDecision:
                     and (not allow_retained or image_questions != exact_offer(False)))):
             raise ValueError("Image movement differs from the exact admitted opening offer")
 
-    def opening_answers(self, request: dict, response: DecisionResult, *, allow_retained: bool = False) -> dict[str, str]:
+    def opening_answers(self, request: dict, response: DecisionResult, *, allow_retained: bool = False, expected_model=None) -> dict[str, str]:
         self.require_opening_offer(request, allow_retained=allow_retained)
         if set(request["questions"]) != set(response.answers):
             raise ValueError("Image movement requires the complete opening response")
@@ -378,7 +378,7 @@ class BuildImageMoveDecision:
             include_contextual_identity=CONTEXTUAL_IDENTITY in request["questions"],
         )}
         projected = response.model_copy(update={"answers": {name: response.answers[name] for name in options}})
-        answers = validated_choice_answers(projected, set(options))
+        answers = validated_choice_answers(projected, set(options), **({'expected_model': expected_model} if expected_model else {}))
         if any(answer not in options[name] for name, answer in answers.items()):
             raise ValueError("Image move decision has an unoffered answer")
         return answers

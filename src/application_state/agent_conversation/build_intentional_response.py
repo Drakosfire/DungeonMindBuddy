@@ -938,7 +938,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
                 raise ValueError("Image move contextual identity differs from the exact admitted offer")
             names.add(CONTEXTUAL_IDENTITY)
         projected = response.model_copy(update={"answers": image_answers})
-        choices = validated_choice_answers(projected, names)
+        choices = validated_choice_answers(projected, names, expected_model=policy.provider_roles.controller.model)
         if affirmation.name in names and choices[affirmation.name] not in affirmation.options:
             raise ValueError("The image move affirmation is outside its offered choices")
         if contextual is not None and choices[CONTEXTUAL_IDENTITY] not in contextual.options:
@@ -951,7 +951,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
                     and admitted_image_move_choice(choices, user_text) == retained
                 ))):
             raise ValueError("Image move choice differs from its actual native selection")
-    graph_reference = resolve_graph_reference_opening(request, response)
+    graph_reference = resolve_graph_reference_opening(request, response, expected_model=policy.provider_roles.controller.model)
     if graph_reference != event.typed_graph_reference or (graph_reference is not None and (
         not semantic_input or capability is None
         or catalog_for_build_capability(policy.action.write_capability) is None
@@ -1593,7 +1593,7 @@ def paragraph_placement_for(policy, request, response, question, requested_work)
         raise ValueError("Build opening must describe the captured paragraph target")
     return resolve_build_boundary_opening(catalog, request, response, question=question,
                                           title=interaction["current_page_title"], requested_work=requested_work,
-                                          caret=capability.basis.caret)
+                                          caret=capability.basis.caret, expected_model=policy.provider_roles.controller.model)
 
 
 def semantic_request_id(state, *, world_id, client_thread_id, idempotency_key):

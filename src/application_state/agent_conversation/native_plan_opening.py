@@ -468,14 +468,14 @@ def _prepare_author_scope_review(request):
         questions=(question,), max_transport_retries=0), bindings
 
 
-def validate_author_scope_wire(request: NativePlanAuthorScopeInputV1, payload: bytes) -> None:
+def validate_author_scope_wire(request: NativePlanAuthorScopeInputV1, payload: bytes, *, expected_model=None) -> None:
     from .plan_authoring import strict_json
 
     expected = prepare_author_scope_decision(request)
     questions = {q.name: {'type': 'choice', 'instructions': q.question,
         'criteria': {option: q.option_descriptions[option] for option in q.options}}
         for q in expected.questions}
-    if strict_json(payload.decode('utf-8')) != {'model': expected.model, 'state': expected.state, 'questions': questions}:
+    if strict_json(payload.decode('utf-8')) != {'model': expected_model or expected.model, 'state': expected.state, 'questions': questions}:
         raise ValueError('Author scope wire differs from its reconstructed local choices')
 
 
@@ -511,11 +511,11 @@ def validate_author_scope_parent(context, execution, parent, authorization):
         author_scope_recheck=True, review_event_ids=review_ids, author_question=parent.question)
 
 
-def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
+def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result, *, expected_model=None):
     from .jev_retrieval_contract import validated_choice_answers
     if getattr(request, 'scope_review', None) is not None:
         _, bindings = _prepare_author_scope_review(request)
-        alias = validated_choice_answers(result, {'adjudicated_scope'})['adjudicated_scope']
+        alias = validated_choice_answers(result, {'adjudicated_scope'}, **({'expected_model': expected_model} if expected_model else {}))['adjudicated_scope']
         if alias == 'unresolved':
             return NativePlanAuthorScopeObservationV1(relation='unresolved', selected_alias=alias,
                 scope=UnresolvedLocation(reason='The author scope interpretations could not be reconciled'))
@@ -527,7 +527,7 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
     expected = {'location_relation', 'existing_scope'}
     if request.assess_page_edit:
         expected.add('page_edit_intent')
-    answers = validated_choice_answers(result, expected)
+    answers = validated_choice_answers(result, expected, **({'expected_model': expected_model} if expected_model else {}))
     relation = answers['location_relation']
     if relation not in _author_relation_options(request):
         raise ValueError('Author scope result names an unoffered placement relation')
@@ -681,13 +681,13 @@ def _composed_opening_fields(request, answers):
            "implicit_caret_version": request.implicit_caret_version, "author_column": author_column}
 
 
-def composed_opening_fields(request, result):
+def composed_opening_fields(request, result, *, expected_model=None):
     from .jev_retrieval_contract import validated_choice_answers
-    answers = validated_choice_answers(result, {q.name for q in prepare_opening_decision(request).questions})
+    answers = validated_choice_answers(result, {q.name for q in prepare_opening_decision(request).questions}, **({'expected_model': expected_model} if expected_model else {}))
     return _composed_opening_fields(request, answers)
 
 
-def decode_opening_decision(request, result):
+def decode_opening_decision(request, result, *, expected_model=None):
     from .jev_retrieval_contract import validated_choice_answers, _selection_from_choices, _validate_selection_choices
     from .plan_authoring import requested_work_choice
     from .plan_placement import work_choice
@@ -701,7 +701,7 @@ def decode_opening_decision(request, result):
         if type(request) is NativePlanOpeningInputV2:
             from .plan_contextual_targets import target_answer_keys
             expected.update(target_answer_keys(request))
-    answers = validated_choice_answers(result, expected)
+    answers = validated_choice_answers(result, expected, **({'expected_model': expected_model} if expected_model else {}))
     if composed:
         selected_work = answers["confirmed_work"]
         actual_work = _composed_opening_fields(request, answers)["requested_work"]
