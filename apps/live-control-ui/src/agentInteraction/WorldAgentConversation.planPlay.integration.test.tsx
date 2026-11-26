@@ -47,7 +47,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getNativeGraphCatalog, createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getCommittedPageSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { getNativeGraphCatalog, createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getCommittedPageSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorkspacePageInventory, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -80,6 +80,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getWorkspaceDocumentSnapshot: vi.fn(),
   getCommittedPageSnapshot: vi.fn(),
   listWorkspaceDocuments: vi.fn(),
+  listWorkspacePageInventory: vi.fn(),
   listWorldContainers: vi.fn(),
   getWorldAgentConversationHistory: vi.fn(),
   getHistoricalRulesPassage: vi.fn(),
@@ -2290,16 +2291,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
   it("explains empty Build, enables only the selected saved source, and clears its context on return to empty", async () => {
     const source = buildSourceSnapshot();
-    vi.mocked(listWorkspaceDocuments).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v1",
-      records: [source.record],
+    vi.mocked(listWorkspacePageInventory).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1", records: [source.record],
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
     });
     vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(source);
     vi.mocked(getCommittedPageSnapshot).mockResolvedValue(source);
     window.history.pushState({}, "", `/build?world=${WORLD}`);
 
     render(<RealBuildPageHarness />);
-    const sourceSelector = await screen.findByRole("combobox", { name: "Worldbuilding source" });
+    const sourceSelector = await screen.findByRole("button", { name: "Open document" });
     await waitFor(() => expect(sourceSelector).toBeEnabled());
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
 
@@ -2310,13 +2311,15 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Choose a source" }));
     expect(sourceSelector).toHaveFocus();
-    fireEvent.click(screen.getByRole("button", { name: "Open source actions" }));
-    expect(screen.getByText("Source actions", { selector: "summary" }).parentElement).toHaveAttribute("open");
+    expect(screen.queryByRole("button", { name: "Open source actions" })).not.toBeInTheDocument();
     fireEvent.submit(emptyComposer.closest("form")!);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
     expect(createWorkspaceDocument).not.toHaveBeenCalled();
 
-    fireEvent.change(sourceSelector, { target: { value: BUILD_SOURCE_ID } });
+    fireEvent.click(sourceSelector);
+    const picker = await screen.findByRole("dialog", { name: "Open document" });
+    fireEvent.click(within(picker).getByRole("button", { name: "Pages", exact: true }));
+    fireEvent.click(await within(picker).findByRole("button", { name: source.record.title, exact: true }));
     await screen.findByTestId("build-markdown-editor");
     openConversationOptions();
     fireEvent.click(screen.getByRole("button", { name: "Show context" }));
