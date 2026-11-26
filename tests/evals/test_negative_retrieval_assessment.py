@@ -2586,7 +2586,9 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
         async def turn():
             await asyncio.get_running_loop().run_in_executor(build, acquire)
             return {'ok': True}
-        monkeypatch.setattr(source_window, '_default_owners', lambda: ({view.get_native_text_source.__func__.__code__: 'text'}, build))
+        owners, _, provenance = source_window._default_owners()
+        assert view.get_native_text_source.__func__.__code__ in owners and provenance is not None
+        monkeypatch.setattr(source_window, '_default_owners', lambda: (owners, build, provenance))
         monkeypatch.setattr(workflow, 'capture_case', lambda client, *args, **kwargs: client.post('/api/live/agent/turn'))
         monkeypatch.setattr(workflow, 'load_manifest', lambda *args, **kwargs: ({'conversation_mode': 'build_sequence'}, tmp_path))
         with TestClient(app) as client:
@@ -2597,6 +2599,7 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     row = json.loads((tmp_path/'case1'/'source-window-probe.json').read_text())
     assert row['status'] == 'observed' and row['scoped']['text'] == 1
     assert row['pending_at_close'] == 0 and row['coverage'] == 'partial'
+    assert row['schema'] == 'dmb_negative_retrieval_source_window_v2' and row['owner_provenance'] == provenance
 
 
 def test_source_window_report_exposes_only_valid_partial_diagnostics(tmp_path):
@@ -2650,3 +2653,199 @@ def test_source_window_poisoned_when_cleanup_cannot_remove_hook(monkeypatch):
         with pytest.raises(source_window.SourceWindowCleanupError, match='fresh process'):
             with source_window.observe_source_window(owners={source.__code__: 'text'}, executor=build):
                 pytest.fail('poisoned observer must not dispatch')
+
+
+def test_source_window_provenance_normalizes_only_paths_and_detects_code_changes():
+    import hashlib
+    import marshal
+    import types
+    from evals.negative_retrieval.source_window import _normalize_code
+    def outer():
+        return lambda: 1
+    code = outer.__code__
+    def relocate(c):
+        return c.replace(co_filename='/another/location.py', co_consts=tuple(
+            relocate(x) if isinstance(x, types.CodeType) else x for x in c.co_consts))
+    def digest(c): return hashlib.sha256(marshal.dumps(_normalize_code(c))).hexdigest()
+    assert digest(code) == digest(relocate(code))
+    nested = next(x for x in code.co_consts if isinstance(x, types.CodeType))
+    altered = nested.replace(co_consts=tuple(2 if x == 1 else x for x in nested.co_consts))
+    modified = code.replace(co_consts=tuple(altered if x is nested else x for x in code.co_consts))
+    assert digest(code) != digest(modified)
+
+
+def test_source_window_provenance_uses_actual_expected_owner_files(tmp_path):
+    import sys
+    from types import SimpleNamespace
+    from pathlib import Path
+    from evals.negative_retrieval.source_window import _default_owners, _owner_provenance, KNOWN_TEXT_OWNERS
+    owners, executor, proof = _default_owners()
+    assert proof is not None and len([v for v in owners.values() if v == 'text']) == 2
+    if sys.version_info[:3] == (3, 13, 12):
+        assert proof == KNOWN_TEXT_OWNERS
+    # The normalizer binds code as well as the file: changing code while
+    # keeping the same source filename produces a different, unknown proof.
+    import dungeonmind
+    from dungeonmind.infrastructure.postgres import vnext_sources, vnext_operator_sources
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView as Native
+    from dungeonmind.infrastructure.postgres.vnext_operator_sources import _PostgresOperatorSourceView as Operator
+    original = Native.get_native_text_source.__code__
+    def different(): return 'synthetic'
+    changed = different.__code__.replace(co_filename=original.co_filename)
+    result = _owner_provenance(vnext_sources, vnext_operator_sources, Path(dungeonmind.__file__).resolve().parent,
+                               changed, Operator.get_native_text_source.__code__)
+    assert result is not None and result != KNOWN_TEXT_OWNERS
+    wrong = SimpleNamespace(__file__=str(tmp_path/'outside.py'), __spec__=SimpleNamespace(origin=str(tmp_path/'outside.py')))
+    assert _owner_provenance(wrong, vnext_operator_sources, Path(dungeonmind.__file__).resolve().parent,
+                             original, Operator.get_native_text_source.__code__) is None
+
+
+def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path, monkeypatch):
+    import copy
+    import hashlib
+    import json
+    from uuid import NAMESPACE_URL, uuid5
+    from evals.negative_retrieval import report, fixture_binding, fixture_sources
+    from evals.negative_retrieval.source_window import KNOWN_TEXT_OWNERS
+    def envelope(body, status=200):
+        raw=json.dumps(body).encode()
+        return {'http_status':status,'body':body,'raw_body_hex':raw.hex(),'raw_body_sha256':hashlib.sha256(raw).hexdigest()}
+    request={'turn_id':'turn','client_thread_id':'thread','message':'Use that idea.',
+             'owner_scope':{'world_id':'world'},'surface':{'surface_id':'build','instance_id':'page'}}
+    turn={'turn_id':'saved','idempotency_key':str(uuid5(NAMESPACE_URL,'dmb-agent-turn:world:turn')),
+          'user_text':request['message'],'lifecycle_status':'completed','provenance':{
+              'world_id':'world','surface_id':'build','surface_instance_id':'page'},
+          'knowledge_context':{'completion':question_completion('Where?')}}
+    history={'world_id':'world','conversation_id':'conversation','turns':[turn]}
+    trace={'world_id':'world','turn_id':'saved','attempts':[{'schema':'dmb_turn_context_trace_v1',
+           'world_id':'world','conversation_id':'conversation','turn_id':'saved',
+           'terminal_status':'completed','capture_status':'complete','observations':[]}]}
+    artifacts={'request':request,'history-before':envelope(history),'history-after':envelope(history),
+               'context-trace':envelope(trace),'terminal':{'status':'observed','error_type':None},
+               'answer-http':envelope({'turn_id':'turn','client_thread_id':'thread',
+               'knowledge_context':turn['knowledge_context']}),'fixture-sources':{'before':[]},'fixture-pin':{},
+               'related-page-probe':{'schema':'dmb_negative_retrieval_related_page_probe_v1','coverage':'partial',
+               'case_id':'case1','status':'observed','window':'turn_post_v1','records':[]},
+               'native-graph-probe':{'schema':'dmb_negative_retrieval_native_graph_probe_v1','coverage':'partial',
+               'case_id':'case1','status':'observed','window':'turn_post_v1','records':[]}}
+    for name,value in artifacts.items():(tmp_path/(name+'.json')).write_text(json.dumps(value))
+    monkeypatch.setattr(report,'verify_fixture_pin',lambda *a: True)
+    monkeypatch.setattr(fixture_sources,'verify_related_record',lambda *a: True)
+    monkeypatch.setattr(fixture_sources,'related_trace_labels',lambda *a: {})
+    monkeypatch.setattr(fixture_binding,'verify_fixture',lambda *a: True)
+    row={'schema':'dmb_negative_retrieval_source_window_v2','case_id':'case1','window':'turn_post_v1',
+         'coverage':'partial','status':'observed','dispatch_uncertain':False,'scoped':{'metadata':0,'text':1,'text_batch':0},
+         'unscoped':{'metadata':0,'text':0,'text_batch':0},'pending_at_close':0,'late':0,'monitor_error':False,
+         'owner_provenance':copy.deepcopy(KNOWN_TEXT_OWNERS)}
+    path=tmp_path/'source-window-probe.json';fixture={'id':'case1','request':request['message']}
+    def assess_row(value, rubric=CASE):
+        path.write_text(json.dumps(value))
+        return report.report_case(tmp_path,fixture,rubric)
+    got=assess_row(row)
+    assert got['fixture_context_verified'] is True and got['checks']['unexpected_retrieval'] is False
+    assert got['status']=='unproven' and got['capture_environment_verified'] is None
+    positive={**CASE,'required_reads':['ledger'],'allowed_reads':['ledger']}
+    got=assess_row(row,positive)
+    assert got['checks']['required_evidence'] is None and got['checks']['unexpected_retrieval'] is None
+    for change in ('legacy','unknown_provenance','different_code','different_source','different_python','uncertain','pending','dispatch','zero','metadata','batch'):
+        value=copy.deepcopy(row)
+        if change=='legacy':value['schema']='dmb_negative_retrieval_source_window_v1';value.pop('owner_provenance')
+        elif change=='unknown_provenance':value['owner_provenance']=None
+        elif change=='different_code':value['owner_provenance']['native']['code_sha256']='0'*64
+        elif change=='different_source':value['owner_provenance']['operator']['source_sha256']='0'*64
+        elif change=='different_python':value['owner_provenance']['version']=[3,13,18]
+        elif change=='uncertain':value['status']='uncertain';value['unscoped']['text']=1
+        elif change=='pending':value['status']='uncertain';value['pending_at_close']=1
+        elif change=='dispatch':value['dispatch_uncertain']=True
+        elif change=='zero':value['scoped']['text']=0
+        elif change=='metadata':value['scoped']['text']=0;value['scoped']['metadata']=1
+        elif change=='batch':value['scoped']['text']=0;value['scoped']['text_batch']=1
+        assert assess_row(value)['checks']['unexpected_retrieval'] is None, change
+    # Contradictory, missing or uncertain capture windows cannot attribute an
+    # otherwise recognized event to this turn.
+    for name, field, value in (('native-graph-probe','window',None),
+                               ('native-graph-probe','status','dispatch_uncertain'),
+                               ('related-page-probe','status','not_started'),
+                               ('terminal','status','outcome_unknown'),
+                               ('terminal','error_type','RuntimeError')):
+        changed=copy.deepcopy(artifacts[name]);changed[field]=value
+        (tmp_path/(name+'.json')).write_text(json.dumps(changed))
+        assert assess_row(row)['checks']['unexpected_retrieval'] is None, (name, field, value)
+        (tmp_path/(name+'.json')).write_text(json.dumps(artifacts[name]))
+    for name in ('native-graph-probe','related-page-probe','terminal'):
+        (tmp_path/(name+'.json')).unlink()
+        result=assess_row(row)
+        assert result['status']=='unproven' and ('checks' not in result or result['checks']['unexpected_retrieval'] is None), name
+        (tmp_path/(name+'.json')).write_text(json.dumps(artifacts[name]))
+    artifacts['answer-http']=envelope({'turn_id':'turn','client_thread_id':'thread'},status=503)
+    (tmp_path/'answer-http.json').write_text(json.dumps(artifacts['answer-http']))
+    assert assess_row(row)['checks']['unexpected_retrieval'] is None
+    artifacts['answer-http']=envelope({'turn_id':'turn','client_thread_id':'thread','knowledge_context':turn['knowledge_context']})
+    (tmp_path/'answer-http.json').write_text(json.dumps(artifacts['answer-http']))
+    monkeypatch.setattr(fixture_binding,'verify_fixture',lambda *a: (_ for _ in ()).throw(ValueError('unbound')))
+    assert assess_row(row)['checks']['unexpected_retrieval'] is None
+    monkeypatch.setattr(fixture_binding,'verify_fixture',lambda *a: True)
+    # Another owner may witness the same read; preserve one unmapped lower
+    # bound, not a fabricated count of distinct reads.
+    artifacts['native-graph-probe']['records']=[{'owner':'native_graph_body_open','state':'returned'}]
+    (tmp_path/'native-graph-probe.json').write_text(json.dumps(artifacts['native-graph-probe']))
+    original_assess=report.assess; seen=[]
+    def recording_assess(case, observed):
+        seen.append(list(observed['reads']))
+        return original_assess(case,observed)
+    monkeypatch.setattr(report,'assess',recording_assess)
+    assert assess_row(row)['checks']['unexpected_retrieval'] is False
+    from evals.negative_retrieval.trace_observation import UNKNOWN
+    assert seen[-1].count(UNKNOWN)==1
+    trace['attempts'][0]['turn_id']='foreign'
+    (tmp_path/'context-trace.json').write_text(json.dumps(envelope(trace)))
+    with pytest.raises(ValueError,match='another turn'):
+        assess_row(row)
+
+
+def test_source_window_provenance_detects_file_change_with_same_loaded_code(tmp_path):
+    from types import SimpleNamespace
+    from evals.negative_retrieval.source_window import _owner_provenance, KNOWN_TEXT_OWNERS
+    root=tmp_path/'dungeonmind';directory=root/'infrastructure'/'postgres';directory.mkdir(parents=True)
+    native=directory/'vnext_sources.py';operator=directory/'vnext_operator_sources.py'
+    source='def source_view():\n    return 1\n'
+    native.write_text(source);operator.write_text(source)
+    def loaded(path):
+        namespace={};exec(compile(source,str(path),'exec'),namespace);return namespace['source_view'].__code__
+    native_code,operator_code=loaded(native),loaded(operator)
+    def module(path):return SimpleNamespace(__file__=str(path),__spec__=SimpleNamespace(origin=str(path)))
+    before=_owner_provenance(module(native),module(operator),root,native_code,operator_code)
+    assert before is not None and before != KNOWN_TEXT_OWNERS
+    native.write_text('def source_view():\n    return 2\n')
+    after=_owner_provenance(module(native),module(operator),root,native_code,operator_code)
+    assert after is not None and after['native']['source_sha256'] != before['native']['source_sha256']
+    assert after['native']['code_sha256'] == before['native']['code_sha256']
+
+
+def test_source_window_provenance_v2_rejects_extra_private_fields():
+    import copy
+    from evals.negative_retrieval.source_window import validate_artifact, KNOWN_TEXT_OWNERS
+    row={'schema':'dmb_negative_retrieval_source_window_v2','case_id':'case1','window':'turn_post_v1',
+         'coverage':'partial','status':'observed','dispatch_uncertain':False,
+         'scoped':{'metadata':0,'text':1,'text_batch':0},'unscoped':{'metadata':0,'text':0,'text_batch':0},
+         'pending_at_close':0,'late':0,'monitor_error':False,'owner_provenance':copy.deepcopy(KNOWN_TEXT_OWNERS)}
+    assert validate_artifact(row,'case1') == row
+    for field,value in (('source_path','private'),('code_sha256','bad')):
+        changed=copy.deepcopy(row);changed['owner_provenance']['native'][field]=value
+        with pytest.raises(ValueError,match='source window'):
+            validate_artifact(changed,'case1')
+
+
+def test_source_window_default_provenance_is_bound_to_registered_core_owner():
+    import sys
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from evals.negative_retrieval.source_window import observe_source_window, KNOWN_TEXT_OWNERS
+    class NoDatabase:
+        def transaction(self): raise RuntimeError('synthetic sentinel')
+    view=_PostgresNativeTextSourceView(NoDatabase(),'synthetic',1)
+    with observe_source_window() as state:
+        with pytest.raises(RuntimeError,match='synthetic sentinel'):
+            view.get_native_text_source(source_artifact_id='synthetic',source_revision_id='synthetic',span_id='synthetic')
+    assert state['status']=='observed' and state['scoped']['text']==1
+    assert state['owner_provenance'] is not None and state['coverage']=='partial'
+    if sys.version_info[:3]==(3,13,12):assert state['owner_provenance']==KNOWN_TEXT_OWNERS

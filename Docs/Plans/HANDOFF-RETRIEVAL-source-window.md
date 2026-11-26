@@ -1,6 +1,8 @@
 # RETRIEVAL: source observation window
 
-Status: ACTIVE. The user authorized continuing the over-retrieval goal and
+Status: MERGED — #4859 merged as `a2adc933bfb4d17cc22965dc77b78d6536ad566c`.
+The overall goal remains ACTIVE in `HANDOFF-RETRIEVAL-observed-read.md`;
+the original assignment below is historical. The user authorized continuing
 assigned this lane. This is a serial evaluator-only successor to merged #4584
 (`ed0e2fe195c9e56250229a036deac82d8b79ab2f`), based on that fetched main
 revision in branch `codex/retrieval-source-window`. Checkout:

@@ -235,6 +235,15 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
     fixture_bound = True if primary_bound and related_bound and pin_bound else None
+    # A recognized single-text owner entry proves at least one attempted read,
+    # never a returned body. Require a bound, completed POST; old/unknown
+    # implementations and all uncertain windows remain diagnostic only.
+    from .source_window import known_scoped_text_attempt
+    if (fixture_bound is True and observed["completed_turn"] is True
+            and turn_window and native_probe["status"] == "observed"
+            and terminal is not None and terminal["status"] == "observed" and terminal["error_type"] is None
+            and known_scoped_text_attempt(source_window) and UNKNOWN not in observed["reads"]):
+        observed["reads"].append(UNKNOWN)
     reviewed = None
     if review_path is not None:
         if fixture_bound is not True:
