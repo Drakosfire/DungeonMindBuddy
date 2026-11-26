@@ -2609,7 +2609,7 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     row = json.loads((tmp_path/'case1'/'source-window-probe.json').read_text())
     assert row['status'] == 'observed' and row['scoped']['text'] == 1
     assert row['pending_at_close'] == 0 and row['coverage'] == 'partial'
-    assert row['schema'] == 'dmb_negative_retrieval_source_window_v3' and row['owner_provenance'] == provenance
+    assert row['schema'] == 'dmb_negative_retrieval_source_window_v4' and row['owner_provenance'] == provenance
     assert row['scoped']['text_batch']==2 and row['batch_read']['scoped']==1
 
 
@@ -2717,7 +2717,7 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     import json
     from uuid import NAMESPACE_URL, uuid5
     from evals.negative_retrieval import report, fixture_binding, fixture_sources
-    from evals.negative_retrieval.source_window import KNOWN_TEXT_OWNERS
+    from evals.negative_retrieval.source_window import KNOWN_TEXT_OWNERS, KNOWN_APP_OWNERS
     def envelope(body, status=200):
         raw=json.dumps(body).encode()
         return {'http_status':status,'body':body,'raw_body_hex':raw.hex(),'raw_body_sha256':hashlib.sha256(raw).hexdigest()}
@@ -2766,6 +2766,31 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     assert got['checks']['unexpected_retrieval'] is False and got['status']=='unproven'
     got=assess_row(batch,positive)
     assert got['checks']['required_evidence'] is None and got['checks']['unexpected_retrieval'] is None
+    app=copy.deepcopy(batch);app['schema']='dmb_negative_retrieval_source_window_v4'
+    app['scoped']['text_batch']=0;app['batch_read']['scoped']=0
+    app['app_source']={'scoped':{'app_single':1,'app_revision':0},
+                       'unscoped':{'app_single':0,'app_revision':0},
+                       'owner_provenance':copy.deepcopy(KNOWN_APP_OWNERS)}
+    assert assess_row(app)['checks']['unexpected_retrieval'] is False
+    assert assess_row(app,positive)['checks']['required_evidence'] is None
+    malformed_app=copy.deepcopy(app);malformed_app['app_source']['private_argument']='must not retain'
+    with pytest.raises(ValueError, match='App source window'):
+        assess_row(malformed_app)
+    malformed_app=copy.deepcopy(app);malformed_app['app_source']['scoped']['app_single']=True
+    with pytest.raises(ValueError, match='App source window'):
+        assess_row(malformed_app)
+    unknown=copy.deepcopy(app);unknown['app_source']['owner_provenance']['app_single']='0'*64
+    assert assess_row(unknown)['checks']['unexpected_retrieval'] is None
+    inactive=copy.deepcopy(app);inactive['app_source']['scoped']['app_single']=0
+    assert assess_row(inactive)['checks']['unexpected_retrieval'] is None
+    uncertain=copy.deepcopy(app);uncertain['status']='uncertain'
+    assert assess_row(uncertain)['checks']['unexpected_retrieval'] is None
+    unscoped=copy.deepcopy(app);unscoped['app_source']['unscoped']['app_single']=1
+    with pytest.raises(ValueError, match='unresolved work'):
+        assess_row(unscoped)
+    unstarted=copy.deepcopy(app);unstarted['status']='not_started'
+    with pytest.raises(ValueError, match='Unstarted source window'):
+        assess_row(unstarted)
     for field,value in (('scoped',0),('code_sha256','0'*64),('code_sha256',None)):
         value_row=copy.deepcopy(batch);value_row['batch_read'][field]=value
         if field=='code_sha256' and value is None:value_row['batch_read']['scoped']=0
@@ -2825,6 +2850,8 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     monkeypatch.setattr(report,'assess',recording_assess)
     assert assess_row(row)['checks']['unexpected_retrieval'] is False
     from evals.negative_retrieval.trace_observation import UNKNOWN
+    assert seen[-1].count(UNKNOWN)==1
+    assert assess_row(app)['checks']['unexpected_retrieval'] is False
     assert seen[-1].count(UNKNOWN)==1
     trace['attempts'][0]['turn_id']='foreign'
     (tmp_path/'context-trace.json').write_text(json.dumps(envelope(trace)))
@@ -3025,3 +3052,48 @@ def test_app_source_revision_probe_wraps_real_repository_query_boundary():
     assert records == [{'owner': 'app_source_body_read_revision', 'state': 'returned'}]
     assert summarize_records([])['app_source_body_read_revision'] is None
     assert repository.get_source_markdown_by_revision_id is original
+
+
+def test_source_window_observes_prebound_app_aliases_under_outer_probe():
+    from uuid import uuid4
+    from application_state.source import repository
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
+    from evals.negative_retrieval.source_window import observe_source_window, KNOWN_APP_OWNERS
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def execute(self, query, params): pass
+        def fetchone(self): return None
+    class Connection:
+        def cursor(self, **kwargs): return Cursor()
+    # These references are intentionally captured before the wrapper is installed.
+    single = repository.get_source_markdown
+    revision = repository.get_source_markdown_by_revision_id
+    with observe_native_graph_owners() as records:
+        with observe_source_window() as state:
+            assert single(Connection(), source_artifact_id='private', content_sha256='private') is None
+            assert revision(Connection(), uuid4()) is None
+        assert records == []
+    assert state['status'] == 'observed'
+    assert state['app_source']['scoped'] == {'app_single': 1, 'app_revision': 1}
+    assert state['app_source']['unscoped'] == {'app_single': 0, 'app_revision': 0}
+    assert state['app_source']['owner_provenance'] == KNOWN_APP_OWNERS
+    assert repository.get_source_markdown is single
+    assert repository.get_source_markdown_by_revision_id is revision
+
+
+def test_source_window_scopes_app_alias_in_executor_and_marks_foreign_thread_uncertain():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Thread
+    from evals.negative_retrieval.source_window import observe_source_window
+    def app_source(): return 'private'
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        with observe_source_window(owners={app_source.__code__: 'app_single'}, executor=executor) as state:
+            assert executor.submit(app_source).result() == 'private'
+            foreign = Thread(target=app_source)
+            foreign.start()
+            foreign.join()
+    assert state['app_source']['scoped']['app_single'] == 1
+    assert state['app_source']['unscoped']['app_single'] == 1
+    assert state['status'] == 'uncertain'
+    assert state['app_source']['owner_provenance'] is None

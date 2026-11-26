@@ -398,6 +398,14 @@ ordinary capture writes a separate partial probe artifact; the offline report
 summarizes it without upgrading acquisition coverage or a cohort rate. Other
 owners and other previously captured call aliases can bypass these wrappers, so zero
 records do not prove that Graph or source acquisition did not happen.
+The scoped source window also records entries to the pinned App single-source and
+revision-source repository code, including aliases bound before wrappers were
+installed. A recognized, fixture-bound completed turn can use an observed entry
+as an unmapped attempt, not proof of a returned source. Unknown source/code or
+interpreter fingerprints, unscoped activity and incomplete windows do not grant
+that inference. This diagnostic does not cover prebound batch aliases or all
+acquisition owners; no-entry remains unknown.
+
 An observed App source-body read by revision and a nonempty batch are also unmapped read attempts; empty concrete batches do not query. Old artifacts without that hook and unobserved or pre-imported aliases remain unknown. A returned batch is not source-specific proof of a required read.
 An observed selected Graph, authored Graph, or authored corpus read attempt is scored as an unmapped
 acquisition, which proves a violation for a case allowing no reads; it cannot
