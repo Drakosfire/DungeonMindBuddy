@@ -147,9 +147,8 @@ def prepare_pending_native_source(adapter):
         if len(work) != 1:
             raise ValueError('Pending preparation requires one admitted work decision')
         work, = work
-        if (work.resolution.get('barrier') is not None
-                or work.resolution.get('source_scope') not in {'source_lookup', 'uncertain'}
-                or work.requested_work in {'review_blank_lore_page', 'clarify_request', 'clarify_creation'}):
+        from application_state.agent_conversation.build_source_free import pending_work_requests_evidence
+        if not pending_work_requests_evidence(work, execution.policy):
             return False
         from application_state.agent_conversation.build_related_pages import RelatedPageRead
         if any(type(event) is RelatedPageRead for event in execution.events):
