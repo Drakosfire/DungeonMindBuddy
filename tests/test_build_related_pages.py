@@ -550,6 +550,11 @@ def test_discovery_is_world_scoped_metadata_only(tmp_path, monkeypatch):
         )
     )
     assert len(result) == 1 and result[0]["document_id"] == str(one)
+    with_current = owner.discover(SimpleNamespace(
+        owner_scope=SimpleNamespace(world_id="one"),
+        primary_work=SimpleNamespace(object_id=str(primary)),
+    ), include_current=True)
+    assert {row["document_id"] for row in with_current} == {str(one), str(primary)}
     assert set(result[0]) == {
         "world_id",
         "document_id",

@@ -58,7 +58,7 @@ async def acquire_pending_app_pages(adapter, harness):
         pending_source_work(execution)
         from .build_related_pages import discover
         _commit(adapter, 'observe_pending_build_app_catalog', event_id=uuid4(),
-            discover_pages=lambda turn: discover(adapter.request),
+            discover_pages=lambda turn: discover(adapter.request, include_current=True),
             authorize_current_access=adapter.pending_build_access)
         catalog = effective_pending_app_catalog(receipt, adapter._broker_execution())
     if not catalog:

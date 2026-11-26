@@ -2166,12 +2166,12 @@ def test_pending_app_runtime_real_sdk_admits_actual_choice_and_reads_only_select
             return dict(pointer.model_dump(mode='json'), content_sha256=sha256(text.encode()).hexdigest(), markdown=text)
         monkeypatch.setattr(build_related_pages, 'materialize', materialize)
         discoveries = []
-        def discover(request):
-            assert request is adapter.request
+        def discover(request, *, include_current=False):
+            assert request is adapter.request and include_current is True
             discoveries.append(request)
             return [] if catalog_state == 'empty' else [page.model_dump(mode='json')]
         if catalog_state == 'retained':
-            monkeypatch.setattr(build_related_pages, 'discover', lambda request: pytest.fail('Retained catalog rediscovered'))
+            monkeypatch.setattr(build_related_pages, 'discover', lambda request, **kwargs: pytest.fail('Retained catalog rediscovered'))
         else:
             execution = state.turn.graph_context_execution
             execution = type(execution).model_validate_json(execution.model_copy(update={
@@ -2226,7 +2226,7 @@ def test_pending_app_runtime_denied_or_unknown_dispatch_cannot_read_or_resend(mo
                     key: {'type': 'choice', 'choice': 'read', 'confidence': 1,
                         'probabilities': {'read': 1.0, 'skip': 0.0}} for key in body['questions']}})
         monkeypatch.setattr(build_related_pages, 'materialize', lambda page: pytest.fail('Unresolved choice read a page'))
-        monkeypatch.setattr(build_related_pages, 'discover', lambda request: pytest.fail('Retained catalog rediscovered'))
+        monkeypatch.setattr(build_related_pages, 'discover', lambda request, **kwargs: pytest.fail('Retained catalog rediscovered'))
         harness = BuildJevHarness(decision_transport=Transport())
         harness.adapter, harness.calls, harness.timings, harness._inflight = adapter, [], [], {}
         with pytest.raises(GenerationEngineError):
@@ -5915,3 +5915,63 @@ def test_pending_selection_reader_verifies_new_current_page_votes():
     assert validate_pending_app_page_selection_result(receipt, execution, selected, proof, trace) == (pointer.document_id,)
     with pytest.raises(ValueError, match='actual read/skip votes'):
         validate_pending_app_page_selection_result(receipt, execution, selected.model_copy(update={'document_ids': []}), proof, trace)
+
+
+def test_pending_current_saved_page_reaches_writer_with_bound_citation(monkeypatch):
+    import asyncio
+    import httpx
+    from contextlib import contextmanager
+    from hashlib import sha256
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    text = 'Ethel dreamed of Maelthor. The cult password is “Remember the rain”.'
+    original = pending_app_runtime_case
+
+    @contextmanager
+    def with_current_page(monkeypatch, **kwargs):
+        with original(monkeypatch, **kwargs) as (state, adapter):
+            receipt = state.turn.graph_context_receipt
+            execution = state.turn.graph_context_execution
+            data = receipt.model_dump(mode='json', by_alias=True)
+            data.pop('context_receipt_sha256')
+            digest = sha256(text.encode()).hexdigest()
+            provenance = state.turn.provenance.model_copy(update={'primary_work':
+                state.turn.provenance.primary_work.model_copy(update={'content_sha256': digest})})
+            data['work_context']['source_basis']['content_sha256'] = digest
+            data['provenance_sha256'] = t.canonical_sha256(provenance)
+            receipt = seal_pending_receipt(data)
+            basis = receipt.work_context.source_basis
+            intent = execution.policy.action.intent
+            intent = intent.model_copy(update={'primary_work': intent.primary_work.model_copy(update={
+                'expected_content_sha256': basis.content_sha256})})
+            policy = execution.policy.model_copy(update={'action': execution.policy.action.model_copy(update={'intent': intent})})
+            pointer = PagePointer(world_id=basis.world_id, document_id=UUID(basis.document_id),
+                registry_revision=basis.registry_revision, title='Current saved page', visibility=basis.visibility)
+            events = list(execution.events)
+            events[-1] = events[-1].model_copy(update={'pending_context_receipt_sha256': receipt.context_receipt_sha256,
+                'pages': (pointer,)})
+            execution = pending_execution(receipt, policy, events)
+            state.turn = t.Turn.model_validate(state.turn.model_copy(update={
+                'graph_context_receipt': receipt, 'graph_context_execution': execution, 'provenance': provenance,
+                'submitted_intent_fingerprint_v2': t.submitted_turn_intent_fingerprint_v2(intent)}))
+            adapter.turn = state.turn
+            adapter.fence.renewer.update_turn(state.turn)
+            adapter.context_capture.bound_context_receipt_sha256 = receipt.context_receipt_sha256
+            yield state, adapter
+
+    monkeypatch.setattr(__import__(__name__, fromlist=['pending_app_runtime_case']), 'pending_app_runtime_case', with_current_page)
+    def respond(request):
+        body = json.loads(request.content)
+        assert 'including the current page when offered' in json.dumps(body)
+        candidate = {'answer_segments': [{'kind': 'related_page_claim', 'text': text, 'read_id': 'source0'}], 'limitations': []}
+        return httpx.Response(200, request=request, json={'id': 'resp_current', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_current', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    with pending_writer_completion_case(monkeypatch, app_pages=True) as (state, adapter, rules, writer, prepared):
+        completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        read = next(row for row in completed.graph_context_execution.events if type(row) is t.RelatedPageRead)
+        assert str(read.page.document_id) == completed.graph_context_receipt.work_context.source_basis.document_id
+        assert completed.completion.answer_segments[0].read_id == read.read_id
+        assert completed.status == 'completed' and state.completions == 1
