@@ -182,6 +182,23 @@ citation reopening.
 For authoring actions, conversation-only boundaries, and Build and Ingest
 workflows, see the [Buddy actions and authoring benchmark](plan-authoring-benchmark.md).
 
+For a live Plan placement case, use the saved Plan editor with a pinned
+selection and the normal provider configuration.
+
+```bash
+python -m evals.buddy_benchmark.workflow capture \
+  --manifest MANIFEST.json --output CAPTURE_DIRECTORY \
+  --case PLAN-CARDS-1 --live-plan --clone-app
+```
+
+Pin the Plan revision and content digest, browser bundle inventory, and exact
+`browser_capture.selection_text`. The driver selects a unique matching passage
+in the mounted editor. The harness checks the browser's placement catalogue,
+selection, Plan revision, and conversation pointer before forwarding the turn.
+It retains the ordinary response, history, and committed Plan readback. A
+rejected placement is retained separately as fixture evidence. Keep scoring
+Gold local. This mode stops at review, before applying a proposal.
+
 For an ordinary Plan browser replay, select a case in the context capture
 command as well as choosing the writer sink.
 
