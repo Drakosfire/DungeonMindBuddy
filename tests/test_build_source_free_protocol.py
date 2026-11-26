@@ -5447,3 +5447,50 @@ def test_retained_saved_page_duplicate_snapshot_is_refused(monkeypatch):
         changed = value.model_copy(update={'authored_context': (*value.authored_context, saved)})
         execution = execution.model_copy(update={'events': tuple(changed if e is value else e for e in execution.events)})
         with pytest.raises(ValueError, match='repeats'):retained_saved_page_references(execution)
+
+
+@pytest.mark.parametrize('app_pages,explicit_limitation,warning_expected,bad_citation', [
+    (False, False, False, False), (False, True, True, False),
+    (True, False, True, False), (False, False, False, True)])
+def test_pending_anchored_creative_proposal_only_preserves_explicit_limitations(
+        monkeypatch, app_pages, explicit_limitation, warning_expected, bad_citation):
+    """Only anchored creative suggestions omit the host retrieval warning."""
+    import asyncio
+    import httpx
+    from apps.live_control_server.services import build_jev_dispatch
+    # The synthetic retained fixture predates the namespaced serving model.
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+
+    def respond(request):
+        body = json.loads(request.content)
+        candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
+                     'text': 'Possible names include Aven and Maelin.'}],
+                     'limitations': ['partial_retrieval'] if explicit_limitation else []}
+        if bad_citation:
+            candidate['answer_segments'].append({'kind': 'source_passage_claim',
+                'text': 'An unsupported fact.', 'passage_handles': ['unbound-source']})
+        if 'collaboration' in body['text']['format']['schema']['properties']:
+            candidate['collaboration'] = None
+        return httpx.Response(200, request=request, json={'id': 'resp_creative', 'object': 'response',
+            'created_at': 1, 'model': body['model'], 'status': 'completed', 'output': [{
+                'type': 'message', 'id': 'msg_creative', 'role': 'assistant', 'status': 'completed',
+                'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+
+    with pending_writer_completion_case(monkeypatch, app_pages=app_pages) as (state, adapter, rules, writer, prepared):
+        work, = [event for event in state.turn.graph_context_execution.events
+                 if type(event) is t.BuildRequestedWorkResolutionV1]
+        assert work.resolution['source_scope'] == ('source_lookup' if app_pages else 'anchored')
+        if bad_citation:
+            from generationengine import GenerationEngineError
+            with pytest.raises(GenerationEngineError):
+                asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert state.completions == 0
+            return
+        completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+        assert completed.status == 'completed' and state.materialized == 0
+        warning = 'This answer uses partial retrieval and does not establish corpus completeness.'
+        assert (warning in completed.assistant_text) is warning_expected
+        from tests.test_surface_native_turn_records import stored_row
+        from application_state.agent_conversation import repository
+        row, references = stored_row(completed)
+        assert repository._turn_from_row(None, row, references=references) == completed
