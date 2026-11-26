@@ -499,6 +499,25 @@ describe("BuildSurfacePage", () => {
     expect(liveApi.getCommittedPageSnapshot).not.toHaveBeenCalled();
   });
 
+  it("disables the visible title rename while another page is opening", async () => {
+    const otherId = "22222222-2222-4222-8222-222222222222";
+    const original = buildLongmontSnapshot(DOC_ID, "Original page");
+    let release!: (value: typeof original) => void;
+    const pending = new Promise<typeof original>(resolve => { release = resolve; });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async id => id === otherId ? pending : original);
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}`);
+    renderBuildPage();
+    await waitFor(() => expect(screen.getByTestId("build-page-title-rename-open")).toBeEnabled());
+    await act(async () => {
+      window.history.pushState({}, "", `/build?documentId=${otherId}`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await waitFor(() => expect(screen.getByTestId("build-page-title-rename-open")).toBeDisabled());
+    expect(liveApi.updateWorkspaceDocumentMetadata).not.toHaveBeenCalled();
+    await act(async () => { release(buildLongmontSnapshot(otherId, "Next page")); });
+    await waitFor(() => expect(within(screen.getByTestId("build-page-title")).getByRole("heading")).toHaveTextContent("Next page"));
+  });
+
   it("follows browser back/forward documentId changes", async () => {
     const otherId = "22222222-2222-4222-8222-222222222222";
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) => ({

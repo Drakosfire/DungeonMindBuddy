@@ -52,6 +52,7 @@ function BuildPresentableSourceView({
   composeBridge,
   onEditorTools,
   refreshDocuments,
+  pageTransitionBusy,
 }: {
   composeBridge: BuildComposeBridge;
   session: MarkdownCanvasSessionValue;
@@ -59,6 +60,7 @@ function BuildPresentableSourceView({
   navigationTarget: BuildSourceNavigationTarget;
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
   refreshDocuments?: () => unknown;
+  pageTransitionBusy?: boolean;
 }) {
   useBuildAutosave(session);
   const [mediaOpen, setMediaOpen] = useState(false);
@@ -119,7 +121,7 @@ function BuildPresentableSourceView({
       <h1>{session.record!.title}</h1>
       {!guestBuildActive() && <BuildDocumentRenameControl pageTitle currentTitle={session.record!.title}
         renaming={session.activeCommand?.id === DOCUMENT_METADATA_UPDATE_COMMAND_ID}
-        disabled={!session.lookupAdmission("editable").ok || Boolean(session.activeCommand && session.activeCommand.id !== DOCUMENT_METADATA_UPDATE_COMMAND_ID)}
+        disabled={pageTransitionBusy || !session.lookupAdmission("editable").ok || Boolean(session.activeCommand && session.activeCommand.id !== DOCUMENT_METADATA_UPDATE_COMMAND_ID)}
         onRename={async title => { const result=await session.updateDocumentMetadata({title}); if(result.ok) refreshDocuments?.(); return result; }}/>}
     </header>
     {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
@@ -299,7 +301,7 @@ export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loadin
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
  * Saved evidence remains separate from the directly editable working document.
  */
-export function BuildSurfaceShell({ onEditorTools, onReviewTarget, selectDocument, refreshDocuments }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void; onReviewTarget?: (target: HTMLDivElement | null) => void; selectDocument?: (id: string) => Promise<boolean>; refreshDocuments?: () => unknown }) {
+export function BuildSurfaceShell({ onEditorTools, onReviewTarget, selectDocument, refreshDocuments, pageTransitionBusy }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void; onReviewTarget?: (target: HTMLDivElement | null) => void; selectDocument?: (id: string) => Promise<boolean>; refreshDocuments?: () => unknown; pageTransitionBusy?: boolean }) {
   const session = useMarkdownCanvasSession();
   const { rehydrateScope, publishSurfaceContext, surfaceInteractionPublication } = useAgentInteraction();
   const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
@@ -592,6 +594,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget, selectDocumen
           composeBridge={composeBridge}
           onEditorTools={onEditorTools}
           refreshDocuments={refreshDocuments}
+          pageTransitionBusy={pageTransitionBusy}
         />
       )}
       <div className="build-run-review-host" ref={onReviewTarget} />
