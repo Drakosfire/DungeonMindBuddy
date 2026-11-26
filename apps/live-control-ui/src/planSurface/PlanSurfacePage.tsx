@@ -679,6 +679,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       ? {saved: serverPresentationRef.current, draft: presentationRef.current} : undefined,
     canEdit: Boolean(
       !sourceEditingRef.current
+      && (activeAuthoringViewRef.current === null || activeAuthoringViewRef.current === planViewEpochRef.current)
       && composing === composedMode
       && documentIdRef.current
       && serverDigestRef.current
@@ -693,6 +694,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       && getLiveFidelityWarnings(editorRef.current?.getJSON()).length === 0
     ),
   });
+  // A view/Scene change may arrive while a saved application is being prepared.
+  const planViewEpochRef = useRef(0);
+  const activeAuthoringViewRef = useRef<number | null>(null);
+  const preparedAuthoringViews = useRef(new WeakMap<object, number>());
   const authoringMoveCaptureRef=useRef<NonNullable<WorldPlanEditBridge['captureAuthoringAt']>>(async()=>{throw new Error('Plan placement owner unavailable');});
   const authoringSaveRef=useRef<NonNullable<WorldPlanEditBridge['saveAuthoring']>>(async()=>{throw new Error('Plan Save owner unavailable');});
   const authoringReconcileRef=useRef<NonNullable<WorldPlanEditBridge['reconcileAuthoring']>>(async()=>{throw new Error('Plan recovery owner unavailable');});
@@ -716,8 +721,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     restoreAuthoring:(capture,identity)=>restorePlanAuthoringTarget(capture,
       worldEditStateGetterRef.current(undefined, capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1'),
       ()=>worldEditStateGetterRef.current(undefined, capture.schema === 'dmb_plan_authoring_slot_boundary_capture_v1'),identity),
-    prepareAuthoring:(target,markdown,action,expected,binding)=>preparePlanAuthoringApplication(
-      target,markdown,action,()=>worldEditStateGetterRef.current(undefined, Boolean(target.slotCapture)),expected,binding),
+    prepareAuthoring:async (target,markdown,action,expected,binding)=>{
+      const viewEpoch = planViewEpochRef.current;
+      const prepared = await preparePlanAuthoringApplication(
+        target,markdown,action,()=>worldEditStateGetterRef.current(undefined, Boolean(target.slotCapture)),expected,binding);
+      if (viewEpoch !== planViewEpochRef.current) throw new Error('The Plan view changed while preparing this suggestion.');
+      preparedAuthoringViews.current.set(prepared, viewEpoch);
+      return prepared;
+    },
     saveAuthoring:(...args)=>authoringSaveRef.current(...args),
     acknowledgeAuthoring:application=>authoringAckRef.current(application),
     reconcileAuthoring:(...args)=>authoringReconcileRef.current(...args),
@@ -1668,6 +1679,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     if(!selectedViewIsCurrent(epoch,exactId))throw new Error('The page changed before applying. Its recovery hold is retained.');
     authoringHoldRef.current=hold;setAutoSavePaused(true);
     try {
+      const preparedView = preparedAuthoringViews.current.get(prepared);
+      if (preparedView === undefined || preparedView !== planViewEpochRef.current)
+        throw new Error('The Plan view changed before applying. Its recovery hold is retained.');
+      activeAuthoringViewRef.current = preparedView;
       if (target.slotCapture && prepared.composed) {
         let copies = reviewedComposedCopies.current.get(target.editor);
         if (!copies) {
@@ -1695,7 +1710,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     } catch(reason){
       if(selectedViewIsCurrent(epoch,exactId)){setAutoSavePaused(true);setError(reason instanceof Error?reason.message:'Suggestion Save is uncertain.');}
       throw reason;
-    } finally {savingRef.current=false;if(selectedViewIsCurrent(epoch,exactId))setSaving(false);}
+    } finally {activeAuthoringViewRef.current=null;savingRef.current=false;if(selectedViewIsCurrent(epoch,exactId))setSaving(false);}
   };
 
   const refreshSavedPlans = async () => {
@@ -1933,6 +1948,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     [composing, cardEditingExtensions],
   );
   const selectPlanView = (view: "cards" | "document") => {
+    if (view !== (cardsViewActive ? "cards" : "document")) planViewEpochRef.current += 1;
     const url = new URL(window.location.href);
     if (view === "cards") {
       url.searchParams.set("view", "cards");
@@ -2128,6 +2144,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
 
   const navigatePlanScene = (sceneId: string | null) => {
     if (!isCurrentEditTarget(true) || (sceneId !== null && !navigationScenes.some(scene => scene.id === sceneId))) return;
+    if (sceneId !== navigationSceneId) planViewEpochRef.current += 1;
     setSceneNavigation({ identity: navigationIdentity, sceneId });
     if (documentId) writePlanScenePosition(worldId, documentId, sceneId);
     setSceneNavigationNotice(null);
