@@ -650,7 +650,9 @@ def test_current_intent_projection_preserves_frozen_v2_wire_and_location_choices
     raw = frozen["wire_json"].encode()
     assert sha256(raw).hexdigest() == frozen["wire_sha256"]
     old = PlanRequestedWorkInputV2.model_validate(frozen["parent"])
-    validate_requested_work_wire(old, raw)
+    validate_requested_work_wire(old, raw, expected_model='jev-1.14.0')
+    with pytest.raises(ValueError, match='wire differs'):
+        validate_requested_work_wire(old, raw, expected_model='typesafe-ai/jev-1.14.0')
     current = PlanRequestedWorkInputV3.model_validate(frozen["parent"] | {"schema": "dmb_plan_requested_work_input_v3"})
     projected = prepare_requested_work_decision(current)
     wire = json.loads(raw)
@@ -658,10 +660,10 @@ def test_current_intent_projection_preserves_frozen_v2_wire_and_location_choices
     assert projected.questions[0].options == tuple(wire["questions"]["requested_work"]["criteria"])
     wire["state"] = projected.state
     current_raw = json.dumps(wire).encode()
-    validate_requested_work_wire(current, current_raw)
+    validate_requested_work_wire(current, current_raw, expected_model='jev-1.14.0')
     for parent, substituted in ((old, current_raw), (current, raw)):
         with pytest.raises(ValueError, match="wire differs"):
-            validate_requested_work_wire(parent, substituted)
+            validate_requested_work_wire(parent, substituted, expected_model='jev-1.14.0')
     with pytest.raises(ValueError, match="requires the V3"):
         validate_prepared_requested_work(old, None)
 
