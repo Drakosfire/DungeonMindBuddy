@@ -31,8 +31,9 @@ for an interrupted turn; neither observation invents a successful clarification.
 A case allowing a movable proposal does not require an inline question for that
 proposal.
 
-The development set includes the exact Shepherd naming question from the supplied
-trace with a short reconstructed conversation, page and synthetic related pages.
+The development set includes the Shepherd naming question as recorded in two
+search-observation items in the supplied trace, including its newline, with a
+short reconstructed conversation, page and synthetic related pages.
 It exercises the reported request but is not an exact replay of the original
 long conversation or original source inventory. The separate 60-exchange case
 exercises early-context reuse.

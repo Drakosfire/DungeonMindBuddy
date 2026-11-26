@@ -1544,7 +1544,7 @@ def test_shepherd_trace_question_is_a_negative_development_case():
     case = next(row for row in public["cases"] if row["id"] == "dev-shepherd-naming")
     expected = ("The Shepherd is part of the group of humans that came from Mirathorn to settle BogBlossom. "
         "I like the idea that this person was who found the collapsed swamp Wizard Tower, which suggests they worked for the Wizard Tower Salvage company, maybe even helped found it. "
-        "Then disappeared as they were polluted by Maelthor. Give me a list of 10 name options, I'm indifferent to gender.")
+        "Then disappeared as they were polluted by Maelthor. \nGive me a list of 10 name options, I'm indifferent to gender.")
     assert case["request"] == expected
     assert [row["role"] for row in case["history"]] == ["user", "assistant"]
     rubric = private["cases"][case["id"]]
