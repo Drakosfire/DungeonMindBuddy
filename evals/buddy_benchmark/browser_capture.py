@@ -346,8 +346,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         if fresh["turns"]:
                             raise ValueError("Browser fixture conversation was not empty")
                     else:
-                        require_plan_history(fresh, pinned_history)
                         artifacts.immutable_save(directory, "history-before", fresh)
+                        require_plan_history(fresh, pinned_history)
                     runtime = output / "runtime-artifacts"
                     env = {
                         "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(scratch),
@@ -617,7 +617,9 @@ def require_plan_history(history, expected):
          "assistant_text_sha256": digest(turn["assistant_text"])}
         for turn in history["turns"] if turn["lifecycle_status"] == "completed"
     ]
+    observed.sort(key=lambda turn: turn["sequence"])
     if (history["active_conversation_id"] != expected["conversation_id"]
+            or history.get("next_before_sequence") is not None
             or not observed or len(observed) != len(history["turns"])
             or observed != expected["prior_turns"]):
         raise ValueError("Active conversation differs from the pinned Plan history")

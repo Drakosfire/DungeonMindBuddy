@@ -100,7 +100,7 @@ def test_plan_fixture_requires_active_committed_revision(status):
 
 
 
-@pytest.mark.parametrize("mismatch", [None, "conversation", "message", "extra", "status"])
+@pytest.mark.parametrize("mismatch", [None, "conversation", "message", "extra", "status", "paginated"])
 def test_pinned_plan_history_requires_exact_completed_prefix(mismatch):
     from evals.buddy_benchmark.browser_capture import require_plan_history
 
@@ -112,6 +112,11 @@ def test_pinned_plan_history_requires_exact_completed_prefix(mismatch):
         "user_text_sha256": text_digest(turn["user_text"]),
         "assistant_text_sha256": text_digest(turn["assistant_text"]),
     }]}
+    second = {**turn, "turn_id": "turn-2", "sequence": 2}
+    history["turns"].insert(0, second)
+    pin["prior_turns"].append({**pin["prior_turns"][0], "turn_id": "turn-2", "sequence": 2})
+    if mismatch == "paginated":
+        history["next_before_sequence"] = 1
     if mismatch == "conversation":
         history["active_conversation_id"] = "other-conversation"
     if mismatch == "message":
