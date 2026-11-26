@@ -1,6 +1,8 @@
 """Retry ownership, atomic acceptance and immutable lineage at real PostgreSQL."""
 
 from concurrent.futures import ThreadPoolExecutor
+import json
+from threading import Barrier
 from uuid import uuid4
 import psycopg
 import pytest
@@ -15,7 +17,6 @@ from application_state.agent_conversation.types import (
 )
 from application_state.errors import (
     ApplicationStateConflictError,
-    ApplicationStateNotFoundError,
 )
 from tests.test_build_turn_retry import failed_case as _failed_case
 
@@ -25,25 +26,78 @@ def failed_case(tmp_path, monkeypatch, application_state_dsn):
     return _failed_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
 
 
+def with_intent(submission, intent, *, capability=None, user_text=None):
+    from application_state.agent_conversation.native_execution import (
+        SurfaceNativeExecutionV1,
+    )
+    from application_state.agent_conversation.types import canonical_sha256
+
+    previous_execution = submission.graph_context_execution
+    action = previous_execution.policy.action
+    capability = capability or action.write_capability
+    action = action.model_copy(
+        update={"intent": intent, "write_capability": capability}
+    )
+    policy = previous_execution.policy.model_copy(update={"action": action})
+    wire = {
+        "schema": previous_execution.schema_,
+        "context_receipt_sha256": submission.graph_context_receipt.context_receipt_sha256,
+        "policy": policy.model_dump(mode="json", by_alias=True),
+    }
+    execution = SurfaceNativeExecutionV1.model_validate_json(
+        json.dumps(
+            {**wire, "execution_policy_sha256": canonical_sha256(wire), "events": []}
+        )
+    )
+    return submission.model_copy(
+        update={
+            "submitted_intent_v2": intent,
+            "graph_context_execution": execution,
+            "user_text": submission.user_text if user_text is None else user_text,
+        }
+    )
+
+
 def successor(parent, submission):
     service = AgentConversationService()
+    from application_state.agent_conversation.types import canonical_sha256
+
+    capability = (
+        submission.graph_context_execution.policy.action.write_capability.model_copy(
+            update={"idempotency_key": uuid4()}
+        )
+    )
     intent = submission.submitted_intent_v2.model_copy(
         update={
             "retry_of": RetryTurnReference(
                 turn_id=parent.turn_id, revision=parent.revision
             ),
-            "build_write_capability_sha256": "c" * 64,
+            "build_write_capability_sha256": canonical_sha256(
+                capability.model_dump(mode="json")
+            ),
         }
     )
-    return submission.model_copy(
+    candidate = with_intent(submission, intent, capability=capability).model_copy(
         update={
             "idempotency_key": uuid4(),
             "expected_conversation_revision": service.get_conversation(
                 parent.world_id, parent.conversation_id
             ).revision,
-            "submitted_intent_v2": intent,
         }
     )
+    assert candidate.submitted_intent_v1 is None
+    assert (
+        candidate.submitted_intent_v2
+        == candidate.graph_context_execution.policy.action.intent
+    )
+    assert candidate.submitted_intent_v2.world_id == candidate.world_id
+    assert candidate.submitted_intent_v2.message == candidate.user_text
+    assert not candidate.graph_context_execution.events
+    assert (
+        candidate.submitted_intent_v2.surface_instance_id
+        == candidate.provenance.surface_instance_id
+    )
+    return candidate
 
 
 def test_concurrent_successors_have_one_winner_and_edge_is_immutable(
@@ -52,8 +106,10 @@ def test_concurrent_successors_have_one_winner_and_edge_is_immutable(
     *_, parent, submission, _harness, _writer = failed_case
     one = successor(parent, submission)
     two = one.model_copy(update={"idempotency_key": uuid4()})
+    start = Barrier(2)
 
     def accept(value):
+        start.wait(timeout=5)
         try:
             return AgentConversationService().accept_turn(value)
         except ApplicationStateConflictError:
@@ -66,16 +122,15 @@ def test_concurrent_successors_have_one_winner_and_edge_is_immutable(
     winner = winners[0]
     receipt = one if results[0] else two
     assert AgentConversationService().accept_turn(receipt) == winner
-    changed = receipt.model_copy(
-        update={
-            "submitted_intent_v2": receipt.submitted_intent_v2.model_copy(
-                update={
-                    "retry_of": RetryTurnReference(
-                        turn_id=uuid4(), revision=parent.revision
-                    )
-                }
-            )
-        }
+    changed = with_intent(
+        receipt,
+        receipt.submitted_intent_v2.model_copy(
+            update={
+                "retry_of": RetryTurnReference(
+                    turn_id=uuid4(), revision=parent.revision
+                )
+            }
+        ),
     )
     with pytest.raises(ApplicationStateConflictError):
         AgentConversationService().accept_turn(changed)
@@ -163,49 +218,93 @@ def test_bad_parent_is_rejected_before_acceptance(
     *_, parent, submission, _harness, _writer = failed_case
     value = successor(parent, submission)
     if change == "revision":
-        value = value.model_copy(
-            update={
-                "submitted_intent_v2": value.submitted_intent_v2.model_copy(
-                    update={
-                        "retry_of": RetryTurnReference(
-                            turn_id=parent.turn_id, revision=parent.revision + 1
-                        )
-                    }
-                )
-            }
+        value = with_intent(
+            value,
+            value.submitted_intent_v2.model_copy(
+                update={
+                    "retry_of": RetryTurnReference(
+                        turn_id=parent.turn_id, revision=parent.revision + 1
+                    )
+                }
+            ),
         )
     elif change == "foreign":
-        value = value.model_copy(
+        value = with_intent(
+            value,
+            value.submitted_intent_v2.model_copy(
+                update={
+                    "retry_of": RetryTurnReference(
+                        turn_id=uuid4(), revision=parent.revision
+                    )
+                }
+            ),
+        )
+    elif change == "message":
+        value = with_intent(
+            value,
+            value.submitted_intent_v2.model_copy(
+                update={"message": "Different question"}
+            ),
+            user_text="Different question",
+        )
+    elif change == "page":
+        # Build a self-consistent other-page admission so rejection occurs at
+        # the retry parent boundary rather than at native receipt validation.
+        from application_state.agent_conversation.native_context import (
+            SurfaceNativeContextReceiptV1,
+        )
+        from application_state.agent_conversation.types import canonical_sha256
+
+        foreign = "foreign-page"
+        provenance = value.provenance.model_copy(
             update={
-                "submitted_intent_v2": value.submitted_intent_v2.model_copy(
-                    update={
-                        "retry_of": RetryTurnReference(
-                            turn_id=uuid4(), revision=parent.revision
-                        )
-                    }
+                "primary_work": value.provenance.primary_work.model_copy(
+                    update={"object_id": foreign}
                 )
             }
         )
-    elif change == "message":
-        value = value.model_copy(
+        context = value.graph_context_receipt
+        work = context.work_context.model_copy(
             update={
-                "user_text": "Different question",
-                "submitted_intent_v2": value.submitted_intent_v2.model_copy(
-                    update={"message": "Different question"}
+                "source_basis": context.work_context.source_basis.model_copy(
+                    update={"document_id": foreign}
+                )
+            }
+        )
+        provisional = context.model_copy(
+            update={
+                "work_context": work,
+                "provenance_sha256": canonical_sha256(provenance),
+            }
+        )
+        wire = provisional.model_dump(
+            mode="json", by_alias=True, exclude={"context_receipt_sha256"}
+        )
+        receipt = SurfaceNativeContextReceiptV1.model_validate_json(
+            json.dumps({**wire, "context_receipt_sha256": canonical_sha256(wire)})
+        )
+        capability = value.graph_context_execution.policy.action.write_capability
+        capability = capability.model_copy(
+            update={
+                "basis": capability.basis.model_copy(update={"document_id": foreign})
+            }
+        )
+        intent = value.submitted_intent_v2.model_copy(
+            update={
+                "primary_work": value.submitted_intent_v2.primary_work.model_copy(
+                    update={"object_id": foreign}
+                ),
+                "build_write_capability_sha256": canonical_sha256(
+                    capability.model_dump(mode="json")
                 ),
             }
         )
-    elif change == "page":
-        value = value.model_copy(
-            update={
-                "provenance": value.provenance.model_copy(
-                    update={
-                        "primary_work": value.provenance.primary_work.model_copy(
-                            update={"object_id": "foreign-page"}
-                        )
-                    }
-                )
-            }
+        value = with_intent(
+            value.model_copy(
+                update={"provenance": provenance, "graph_context_receipt": receipt}
+            ),
+            intent,
+            capability=capability,
         )
     else:
         # Preserve a valid immutable event sequence except the final known outcome.
@@ -221,9 +320,14 @@ def test_bad_parent_is_rejected_before_acceptance(
                 "UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s",
                 (Jsonb(data), parent.turn_id),
             )
-    with pytest.raises(
-        (ApplicationStateConflictError, ApplicationStateNotFoundError, ValueError)
-    ):
+    reason = {
+        "revision": "failed attempt changed",
+        "foreign": "predecessor is unavailable",
+        "message": "same question and Build page",
+        "page": "same question and Build page",
+        "unknown": "unknown_outcome",
+    }[change]
+    with pytest.raises(retry.RetryUnavailableError, match=reason):
         AgentConversationService().accept_turn(value)
     assert (
         len(
@@ -251,7 +355,7 @@ def test_existing_or_unresolved_object_blocks_retry(
 ):
     *_, parent, submission, _harness, _writer = failed_case
     from psycopg.types.json import Jsonb
-    from apps.live_control_server.services.build_document_proposal import _result
+    from application_state.build_proposal.types import normalize_proposal_output
 
     with psycopg.connect(application_state_dsn) as conn:
         action, payload = conn.execute(
@@ -263,9 +367,9 @@ def test_existing_or_unresolved_object_blocks_retry(
         else:
             payload["state"] = state
             if state == "proposed":
-                payload["proposal"] = _result(payload["raw_response"]).model_dump(
-                    mode="json"
-                )
+                payload["proposal"] = normalize_proposal_output(
+                    payload["raw_response"]
+                ).model_dump(mode="json")
                 payload["failure_code"] = None
         conn.execute(
             "UPDATE agent.build_proposal SET payload=%s WHERE action_id=%s",

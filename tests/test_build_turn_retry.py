@@ -1,7 +1,9 @@
 """Real APP/host/SDK retry admission with disposable state and synthetic transports."""
 
 from dataclasses import replace
+import json
 from uuid import uuid4
+import httpx2
 import pytest
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import retry
@@ -10,7 +12,10 @@ from application_state.agent_conversation.build_draft_context import (
     BuildDraftContextRequestV1,
 )
 from apps.live_control_server.models.agent_turn import AgentTurnRequest
-from apps.live_control_server.services import build_document_proposal as proposals
+from application_state.build_proposal.service import BuildProposalService
+from application_state.agent_conversation.rules_authority_policy import rules_capability
+from apps.live_control_server.routes.agent import _plan_context_resolver
+from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
 from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
 from apps.live_control_server.services.build_jev_harness import BuildJevHarness
 from tests.test_agent_build_jev_ordinary_harness import (
@@ -21,6 +26,79 @@ from tests.test_agent_build_jev_ordinary_harness import (
 )
 from tests.test_agent_build_governed_graph import execute
 from tests.test_build_jev_estimated_continuations import counter
+
+
+class CurrentDecisionWire(DecisionWire):
+    """Deterministic, current-shape controller response for the ordinary host."""
+
+    async def handle_async_request(self, request):
+        body = json.loads(request.content)
+        self.calls.append(request)
+        answers = {}
+        for key, question in body["questions"].items():
+            if question["type"] == "noul":
+                answers[key] = {"type": "noul", "noul": 0.99}
+                continue
+            labels = question["criteria"]
+            preferred = {
+                "requested_work": "write_current_page",
+                "source_need": "anchored",
+                "operation": "propose_build_insertion",
+                "sufficiency": "sufficient",
+                "next": "none",
+                "support": "none",
+            }.get(key, "not_useful")
+            selected = next(
+                (
+                    x
+                    for x in (
+                        preferred,
+                        "finish_retrieval",
+                        "none",
+                        "exclude",
+                        "not_useful",
+                        "direct_support",
+                    )
+                    if x in labels
+                ),
+                next(iter(labels)),
+            )
+            answers[key] = {
+                "type": "choice",
+                "choice": selected,
+                "confidence": 1,
+                "probabilities": {x: float(x == selected) for x in labels},
+            }
+        return httpx2.Response(
+            200,
+            request=request,
+            json={
+                "model": body["model"],
+                "usage": {"input_tokens": 23, "output_tokens": 4},
+                "answers": answers,
+            },
+        )
+
+
+def execute_current(case, tmp_path, runtime):
+    principal = NativeGraphPrincipal("retry-fixture", "gm", "local_operator")
+    return execute(
+        case,
+        tmp_path,
+        runtime,
+        native_principal=principal,
+        native_graph_query_resolver=lambda turn, owner, work, receipt, context: (
+            _plan_context_resolver(
+                turn,
+                owner,
+                work,
+                receipt,
+                native_query_mode=True,
+                native_source_context=context,
+                native_principal=principal,
+            )
+        ),
+    )
 
 
 @pytest.fixture
@@ -63,31 +141,46 @@ def failed_case(tmp_path, monkeypatch, application_state_dsn):
     submissions = []
     accept = AgentConversationService.accept_turn
 
-    def retain(self, submission):
+    def retain(self, submission, **kwargs):
         submissions.append(submission)
-        return accept(self, submission)
+        return accept(self, submission, **kwargs)
 
     monkeypatch.setattr(AgentConversationService, "accept_turn", retain)
-    original = proposals._result
+    original = BuildProposalService.advance
 
-    def fail(raw):
-        original(raw)
-        raise proposals.BuildComposeError("controlled_retry_test")
+    def fail_before_proposal(
+        self, world_id, action_id, *, expected_revision, state, **fields
+    ):
+        if state == "proposed":
+            raise ValueError("controlled retry fixture failure before proposal")
+        return original(
+            self,
+            world_id,
+            action_id,
+            expected_revision=expected_revision,
+            state=state,
+            **fields,
+        )
 
-    monkeypatch.setattr(proposals, "_result", fail)
-    decisions, writer = DecisionWire(operation="propose_build_insertion"), WriterWire()
+    monkeypatch.setattr(BuildProposalService, "advance", fail_before_proposal)
+    decisions, writer = (
+        CurrentDecisionWire(operation="propose_build_insertion"),
+        WriterWire(),
+    )
 
     def harness():
         return BuildJevHarness(
             world_context=True,
             named_citations=True,
+            related_pages=True,
             decision_transport=decisions,
             writer_transport=writer,
             accounting=counter(),
+            rules_capability=rules_capability(graph=True),
         )
 
     with pytest.raises(AgentTurnServiceError) as caught:
-        execute((source, request, bootstrap), tmp_path, harness())
+        execute_current((source, request, bootstrap), tmp_path, harness())
     service = AgentConversationService()
     parent = service.list_turns("elderwyld", cap.conversation_id)[0]
     assert parent.status == "interrupted" and len(writer.calls) == 1, repr(
@@ -96,7 +189,7 @@ def failed_case(tmp_path, monkeypatch, application_state_dsn):
     assert retry.read_context(
         parent.world_id, parent.conversation_id, [parent.turn_id]
     )["turns"][0]["context"]["eligible"]
-    monkeypatch.setattr(proposals, "_result", original)
+    monkeypatch.setattr(BuildProposalService, "advance", original)
     return source, request, bootstrap, parent, submissions[0], harness, writer
 
 
@@ -113,7 +206,7 @@ def test_real_host_retry_has_one_edge_and_exact_delivery_replay(failed_case, tmp
             "retry_of": {"turn_id": str(parent.turn_id), "revision": parent.revision},
         }
     )
-    response = execute((source, request, bootstrap), tmp_path, harness())
+    response = execute_current((source, request, bootstrap), tmp_path, harness())
     service = AgentConversationService()
     turns = service.list_turns(parent.world_id, parent.conversation_id)
     assert [t.status for t in turns] == ["interrupted", "completed"]
@@ -126,7 +219,7 @@ def test_real_host_retry_has_one_edge_and_exact_delivery_replay(failed_case, tmp
         and contexts[1]["context"]["ordinal"] == 1
     )
     assert not any(x["context"]["eligible"] for x in contexts)
-    replay = execute((source, request, bootstrap), tmp_path, harness())
+    replay = execute_current((source, request, bootstrap), tmp_path, harness())
     assert (
         replay.knowledge_context.completion == response.knowledge_context.completion
         and len(writer.calls) == 2
@@ -152,7 +245,7 @@ def test_ineligible_predecessor_reaches_no_provider(failed_case, tmp_path):
     )
     controller_calls = len(harness().decision_transport.calls)
     with pytest.raises(AgentTurnServiceError) as failure:
-        execute((source, request, bootstrap), tmp_path, harness())
+        execute_current((source, request, bootstrap), tmp_path, harness())
     assert failure.value.code == "build_retry_unavailable"
     assert failure.value.provider_dispatched is False
     assert len(harness().decision_transport.calls) == controller_calls
@@ -162,11 +255,14 @@ def test_ineligible_predecessor_reaches_no_provider(failed_case, tmp_path):
 def test_writing_failure_cannot_be_downgraded_to_retained_discussion(failed_case):
     _, _, _, parent, _, _, _ = failed_case
     with pytest.raises(retry.RetryUnavailableError, match="authoring target"):
-        retry.read_discussion_retry_input(parent.world_id, parent.conversation_id, parent.turn_id, parent.revision)
+        retry.read_discussion_retry_input(
+            parent.world_id, parent.conversation_id, parent.turn_id, parent.revision
+        )
 
 
 def test_unresolved_selection_requires_fresh_authoring_not_inferred_discussion():
     from types import SimpleNamespace
-    unresolved=SimpleNamespace(graph_context_execution=SimpleNamespace(events=[]))
-    with pytest.raises(retry.AuthoringRetryRequiredError,match='authoring target'):
+
+    unresolved = SimpleNamespace(graph_context_execution=SimpleNamespace(events=[]))
+    with pytest.raises(retry.AuthoringRetryRequiredError, match="authoring target"):
         retry.retained_discussion_capture(unresolved)
