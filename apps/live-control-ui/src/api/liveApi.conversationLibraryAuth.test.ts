@@ -60,7 +60,8 @@ it('shares the guarded active message read and never authorizes a near-miss rout
  expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);
 });
 
-it('resumes a saved conversation over hosted same-origin transport', async () => {
+it.each(['resume', 'trash', 'restore'] as const)(
+  'allows only the exact hosted same-origin conversation %s command', async (operation) => {
   vi.stubGlobal('window', { location: { href: 'https://buddy.example/build' }, dispatchEvent: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() });
   const { live, library } = await modules();
   live.setNativeGraphAccessToken('synthetic-local-token');
@@ -71,17 +72,30 @@ it('resumes a saved conversation over hosted same-origin transport', async () =>
   };
   const receipt = {
     world_id: command.world_id, conversation_id: id, command_id: command.command_id,
-    command_kind: 'reopen', active_conversation_id: id, pointer_revision: 9,
+    command_kind: operation === 'resume' ? 'reopen' : operation,
+    active_conversation_id: operation === 'resume' ? id : null, pointer_revision: 9,
     recorded_at: '2026-11-05T12:00:00Z',
   };
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json(receipt));
-  const path = '/api/live/agent/worlds/world-one/conversations/' + id + '/resume';
-  await expect(library.resumeConversation(command)).resolves.toEqual(receipt);
+  const path = '/api/live/agent/worlds/world-one/conversations/' + id + '/' + operation;
+  const result = operation === 'resume'
+    ? library.resumeConversation(command)
+    : library.changeConversationLifecycle(command, operation);
+  await expect(result).resolves.toEqual(receipt);
   expect(fetch.mock.calls[0][0]).toBe(path);
   expect(fetch.mock.calls[0][1]).toMatchObject({ method: 'POST', credentials: 'same-origin', redirect: 'error' });
   expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false);
   await expect(live.authenticatedApiFetch(path, {
     method: 'POST', body: JSON.stringify({ ...command, world_id: 'foreign' }),
+  })).rejects.toThrow(/exact same-origin HTTPS route/);
+  await expect(live.authenticatedApiFetch(path, {
+    method: 'POST', body: JSON.stringify({ ...command, conversation_id: command.command_id }),
+  })).rejects.toThrow(/exact same-origin HTTPS route/);
+  await expect(live.authenticatedApiFetch(path + '?extra=1', {
+    method: 'POST', body: JSON.stringify(command),
+  })).rejects.toThrow(/exact same-origin HTTPS route/);
+  await expect(live.authenticatedApiFetch(path, {
+    method: 'PUT', body: JSON.stringify(command),
   })).rejects.toThrow(/exact same-origin HTTPS route/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
