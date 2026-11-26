@@ -696,6 +696,15 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     assert search_only["checks"]["unexpected_retrieval"] is None
     no_catalog = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
     assert no_catalog["checks"]["catalog_budget"] is False
+    # Mixed or repeated outcome stages are not proven distinct operations.
+    attempt["observations"].append({"sequence": 2, "kind": "context_decision", "action": "retained",
+        "policy_version": "native_source_search_progress_v2", "item_ids": ["private"]})
+    attempt["observations"].append({"sequence": 3, "kind": "context_decision", "action": "expanded",
+        "policy_version": "native_source_search_progress_v2", "item_ids": ["private"]})
+    (tmp_path / "context-trace.json").write_text(json.dumps(envelope(trace)))
+    mixed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, one_catalog_no_reads)
+    assert mixed["checks"]["catalog_budget"] is None
+    assert mixed["checks"]["unexpected_retrieval"] is None
     attempt["observations"] = []
     (tmp_path / "context-trace.json").write_text(json.dumps(envelope(trace)))
     native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",

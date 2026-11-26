@@ -43,8 +43,9 @@ clarification delivery or continuation.
 Native source-search activity is reported as discovery, not automatically as
 a body read. A search may itself open bodies; the independent body-open probe
 records those attempts when covered. A trace and owner probe can witness the
-same search, so the report uses a conservative lower bound rather than adding
-the two counts. Missing body-open coverage remains unknown.
+same search, so any number of unpaired trace events proves at least one search;
+the report takes the larger of that bound and the count of observed owner calls.
+Missing body-open coverage remains unknown.
 
 `native_activity_counts` reports native acquisition stage observations by fixed
 policy and action (`expanded`, `retrieved`, `retained`) separately. It does not

@@ -116,9 +116,9 @@ their original expectations. Full owner coverage remains unproven.
 
 Native source-search trace stages are discovery activity, not standalone proof
 that a body was opened. Actual search can itself open bodies, which the partial
-owner probe now records where covered. The report uses the larger of the
-search-stage and corpus-owner counts as a conservative lower bound, rather than
-adding potentially duplicate witnesses. It adds separately observed related
+owner probe now records where covered. Unpaired trace stages prove at least one
+search, not distinct operations. The report uses the larger of that bound and
+the count of corpus-owner calls, rather than adding duplicate witnesses. It adds separately observed related
 catalog calls. Missing owners and incomplete journals remain unknown; do not
 infer that an observed search was content-free.
 
