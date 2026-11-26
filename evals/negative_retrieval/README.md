@@ -47,6 +47,13 @@ same search, so any number of unpaired trace events proves at least one search;
 the report takes the larger of that bound and the count of observed owner calls.
 Missing body-open coverage remains unknown.
 
+The pending Build source-preparation and Graph-binding entry points are recorded
+separately as `native_source_preparation` and `native_graph_binding` attempt and
+outcome counts. These are not body reads or a source-search count, and a zero
+count remains unknown without complete ordinary-turn owner coverage. A callback
+captured before instrumentation, a background worker, or another owner can
+still evade these process-local hooks.
+
 `native_activity_counts` reports native acquisition stage observations by fixed
 policy and action (`expanded`, `retrieved`, `retained`) separately. It does not
 pair events, count distinct sources, include arbitrary labels or establish

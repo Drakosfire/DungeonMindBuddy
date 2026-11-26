@@ -46,6 +46,14 @@ held-out controls and unnecessary acquisition investigation stay active. The
 merged runtime handoff still says ACTIVE; this checkpoint records its completion
 until that predecessor document can be settled by an appropriate successor.
 
+## Current serving and capture checkpoint
+
+PR #4840 merged as `cd9812a0b6a78be896dc80718404572aaa862943` and deployed in Actions run `45776045258`; it repairs an anchored missing-page-target failure that attempted native retrieval without an admitted source settlement. PR #4841 merged as `5f5fcfba7fcf03a7389d0d5ba9aea0490f8826d9` and deployed in run `45777194145`, correcting the host-added partial-retrieval warning for the validated source-free proposal-only case. Both releases passed staged/live identity and public health/auth checks. The latest signed-in fresh Shepherd naming replay returned ten names without the warning, with a 7.2 s visible trace window. The controller still classified the naming request as current-page writing; the UI trace is not a complete acquisition journal and the fresh conversation does not reproduce the original long chat. These are smoke observations, not a benchmark pass or an end-to-end latency measurement.
+
+All three shared disposable App slots remained in use on the latest check; this workstream did not create or remove a database. The evaluator probe now separately records pending source-preparation and Graph-binding attempts; if neither is observed its count is unknown, including in older artifacts that predate the hooks. Its in-process POST-window coverage is still partial: pre-captured callbacks, other owners and background operations can escape it. Counts and timing from the old benchmark source do not establish current serving behavior. Re-read current lab instructions and recheck slots before a run. A single workstream-owned App clone and the shared read-only Core remain the authorized benchmark setup.
+
+Focused evaluator checks: 8 passed, 2 skipped because the benchmark checkout lacks the pending Build lineage. Separately, the new probe wrapped synthetic source-preparation and Graph-binding owner calls in a product checkout whose tree matched deployed merge `5f5fcfba7fcf03a7389d0d5ba9aea0490f8826d9`; it recorded a returned preparation and a raised binding separately. No database or provider was used. This is an owner-hook witness, not an ordinary turn, complete acquisition coverage, or proof that actual callback binding will always be observed.
+
 ## Outcome and lease
 
 Build an independently reviewable evaluation of unnecessary acquisition and

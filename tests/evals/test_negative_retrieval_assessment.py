@@ -417,11 +417,43 @@ def test_native_graph_probe_records_direct_calls_and_restores_after_error(monkey
     assert native_graph_reads.prepare_query is query
     assert native_graph_reads.read_selected is fail
     assert summarize_records(records)["native_graph_query"]["returned"] == 1
+    assert summarize_records(records)["native_source_preparation"] is None
+    assert summarize_records(records)["native_graph_binding"] is None
     for malformed in ([{"owner": "native_graph_query", "state": []}],
                       [{"owner": "native_graph_query", "state": "returned", "text": "private"}],
                       [{"owner": "unknown", "state": "returned"}]):
         with pytest.raises(ValueError, match="Malformed"):
             summarize_records(malformed)
+
+
+def test_pending_build_preparation_and_binding_are_separate_observed_owners(monkeypatch):
+    from apps.live_control_server.services import native_graph_reads, plan_source_turn
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners, summarize_records
+
+    def prepare(*args, **kwargs):
+        return "prepared"
+    def binding(*args, **kwargs):
+        raise ValueError("synthetic failure")
+    monkeypatch.setattr(plan_source_turn, "prepare", prepare)
+    monkeypatch.setattr(native_graph_reads, "pending_build_query", binding)
+    # A callback captured before instrumentation is an acknowledged blind spot.
+    already_bound = plan_source_turn.prepare
+    with observe_native_graph_owners() as records:
+        assert already_bound("private") == "prepared"
+        # The production Build route imports these owners while handling a turn.
+        from apps.live_control_server.services.plan_source_turn import prepare as captured_during_turn
+        from apps.live_control_server.services.native_graph_reads import pending_build_query
+        assert captured_during_turn("private") == "prepared"
+        with pytest.raises(ValueError, match="synthetic failure"):
+            pending_build_query("private")
+    assert records == [{"owner": "native_source_preparation", "state": "returned"},
+                       {"owner": "native_graph_binding", "state": "raised"}]
+    counts = summarize_records(records)
+    assert counts["native_source_preparation"]["returned"] == 1
+    assert counts["native_graph_binding"]["raised"] == 1
+    assert counts["native_corpus_discovery"]["returned"] == 0
+    assert plan_source_turn.prepare is prepare
+    assert native_graph_reads.pending_build_query is binding
 
 
 def test_native_graph_probe_observes_preimported_authored_reader(monkeypatch):
@@ -531,11 +563,15 @@ def test_partial_capture_retains_probe_failure_without_claiming_a_rate(tmp_path)
     (tmp_path / "terminal.json").write_text(json.dumps({"status": "outcome_unknown", "error_type": "RuntimeError"}))
     (tmp_path / "native-graph-probe.json").write_text(json.dumps({
         "schema": "dmb_negative_retrieval_native_graph_probe_v1", "coverage": "partial", "case_id": "case1",
-        "status": "observed", "records": [{"owner": "native_graph_query", "state": "raised"}]}))
+        "status": "observed", "records": [{"owner": "native_graph_query", "state": "raised"},
+            {"owner": "native_source_preparation", "state": "returned"},
+            {"owner": "native_graph_binding", "state": "raised"}]}))
     report = report_case(tmp_path, fixture, CASE)
     assert report["case_id"] == "case1" and report["rubric_sha256"] == rubric_sha256(CASE)
     assert report["status"] == "unproven" and "answer-http" in report["missing_artifacts"]
     assert report["partial_native_graph_probe"]["counts"]["native_graph_query"]["raised"] == 1
+    assert report["partial_native_graph_probe"]["counts"]["native_source_preparation"]["returned"] == 1
+    assert report["partial_native_graph_probe"]["counts"]["native_graph_binding"]["raised"] == 1
     assert report["partial_probe"] == {"status": None, "window": None, "catalog_discoveries": 1, "materialization_attempts": 1,
                                        "raised_discoveries": 0, "raised_materializations": 1}
     assert report["capture_terminal"] == {"status": "outcome_unknown", "error_type": "RuntimeError"}

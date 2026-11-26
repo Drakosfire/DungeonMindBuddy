@@ -13,10 +13,12 @@ from unittest.mock import patch
 _lock = Lock()
 _OWNERS = {
     "prepare_query": "native_graph_query",
+    "pending_build_query": "native_graph_binding",
     "read_selected": "native_graph_selected_read",
     "read_authored_reference": "native_graph_authored_reference_read",
     "reopen_context": "native_graph_context_reopen",
 }
+_PREPARATION_OWNERS = {"prepare": "native_source_preparation"}
 _CORPUS_OWNERS = {
     "read_authored_source": "native_corpus_authored_source_read",
     "capture_native_sources": "native_corpus_discovery",
@@ -31,14 +33,20 @@ def summarize_records(records):
     if not isinstance(records, list) or any(
         not isinstance(row, dict) or set(row) != {"owner", "state"}
         or not isinstance(row["owner"], str) or not isinstance(row["state"], str)
-        or row["owner"] not in (*_OWNERS.values(), *_CORPUS_OWNERS.values())
+        or row["owner"] not in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values())
         or row["state"] not in {"entered", "returned", "raised"}
         for row in records
     ):
         raise ValueError("Malformed native Graph probe evidence")
-    return {owner: {state: sum(row["owner"] == owner and row["state"] == state for row in records)
-                    for state in ("entered", "returned", "raised")}
-            for owner in (*_OWNERS.values(), *_CORPUS_OWNERS.values())}
+    counts = {owner: {state: sum(row["owner"] == owner and row["state"] == state for row in records)
+                      for state in ("entered", "returned", "raised")}
+              for owner in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values())}
+    # Old v1 artifacts predate these hooks. Without an observed call, their
+    # records cannot distinguish an inactive owner from absent instrumentation.
+    for owner in ("native_source_preparation", "native_graph_binding"):
+        if not any(counts[owner].values()):
+            counts[owner] = None
+    return counts
 
 
 @contextmanager
@@ -49,7 +57,7 @@ def observe_native_graph_owners():
     records = []
     record_lock = Lock()
     try:
-        from apps.live_control_server.services import native_graph_reads
+        from apps.live_control_server.services import native_graph_reads, plan_source_turn
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
 
         def watch(owner, function):
@@ -77,6 +85,8 @@ def observe_native_graph_owners():
             original_source = native_corpus_source.read_authored_source
             for name, owner in _OWNERS.items():
                 stack.enter_context(patch.object(native_graph_reads, name, watch(owner, getattr(native_graph_reads, name))))
+            for name, owner in _PREPARATION_OWNERS.items():
+                stack.enter_context(patch.object(plan_source_turn, name, watch(owner, getattr(plan_source_turn, name))))
             # This module imports the reader at module load; preserve its alias
             # when already loaded and avoid replacing a separately patched owner.
             if authored is not None and authored_reader is original_reader:
