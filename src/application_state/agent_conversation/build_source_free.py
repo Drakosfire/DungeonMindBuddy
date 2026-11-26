@@ -563,15 +563,22 @@ def pending_source_free_terminal(execution):
     from . import types as t
     from .native_execution import (BuildPendingExecutionV1, NativeBuildSourceSettledV1,
         BuildAppPageCatalogObservedV1, native_read_event_ids)
-    from .build_intentional_response import validate_resolution_metadata
+    from .build_intentional_response import UNAVAILABLE, validate_resolution_metadata
     if type(execution) is not BuildPendingExecutionV1:
         return None
     work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
-    if len(work) != 1 or work[0].requested_work not in {
-            'clarify_request', 'clarify_creation', 'review_blank_lore_page', 'write_current_page'}:
+    if len(work) != 1:
         return None
     work = work[0]
+    if work.requested_work not in {
+            'clarify_request', 'clarify_creation', 'review_blank_lore_page', 'write_current_page',
+            *UNAVAILABLE}:
+        return None
     validate_resolution_metadata(work, execution.policy)
+    if (work.requested_work in UNAVAILABLE
+            and (work.resolution.get('barrier') != 'requested_executor_not_offered'
+                 or work.resolution.get('source_scope') != 'anchored')):
+        return None
     if (work.requested_work == 'write_current_page'
             and (work.resolution.get('source_scope') != 'anchored'
                  or work.resolution.get('barrier') not in (None, 'current_page_target_absent'))):
