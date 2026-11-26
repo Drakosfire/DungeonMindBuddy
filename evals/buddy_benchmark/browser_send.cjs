@@ -94,12 +94,15 @@ async function run() {
       throw error;
     }
     const delivered = await response;
+    let buildCheckpoint;
     if (process.env.DMB_BENCHMARK_LIVE_BUILD === "1") {
       // Keep the page alive while its ordinary client consumes the terminal event.
-      await page.waitForFunction(async () => {
-        const response = await fetch("/__benchmark/build-response-retained");
-        return (await response.json()).retained === true;
+      const retained = await page.waitForFunction(async () => {
+        const response = await fetch("/__benchmark/build-response-retained", { cache: "no-store" });
+        const checkpoint = await response.json();
+        return checkpoint.retained === true ? checkpoint : false;
       }, undefined, { timeout: 75000, polling: 250 });
+      buildCheckpoint = await retained.jsonValue();
     }
     const after = await calibrate();
     const browserMarks = await page.evaluate(() => {
@@ -119,8 +122,7 @@ async function run() {
     if (process.env.DMB_BENCHMARK_CONFIRM_SAVE === "1") {
       confirmation = { attempted: false };
       try {
-        const checkpoint = await page.evaluate(async () =>
-          (await fetch("/__benchmark/build-response-retained")).json());
+        const checkpoint = buildCheckpoint;
         confirmation.checkpoint = { retained: checkpoint.retained === true,
           has_action: Boolean(checkpoint.action_id), has_correlation: Boolean(checkpoint.idempotency_key) };
         let action = checkpoint.action_id;
@@ -129,7 +131,7 @@ async function run() {
           const durable = await page.waitForFunction(async ({ world, checkpoint }) => {
             const path = "/api/live/agent/worlds/" + encodeURIComponent(world)
               + "/conversation?include_turn_correlation=true";
-            const response = await fetch(path);
+            const response = await fetch(path, { cache: "no-store" });
             if (!response.ok) return false;
             const history = await response.json();
             if (history.active_conversation_id !== checkpoint.conversation_id) return false;
@@ -153,7 +155,7 @@ async function run() {
         await review.waitFor({ timeout: 15000 });
         const beforeSave = await page.evaluate(async ({ id, reviewPath }) => {
           async function read(path) {
-            const response = await fetch(path);
+            const response = await fetch(path, { cache: "no-store" });
             return { status: response.status, body: await response.json() };
           }
           return { page: await read("/api/live/workspace-documents/" + encodeURIComponent(id) + "/snapshot?view=committed"),

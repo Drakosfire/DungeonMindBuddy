@@ -147,7 +147,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if status == 200 and body.get("turn_id") == browser_request["turn_id"]:
                         completion = (body.get("knowledge_context") or {}).get("completion") or {}
                         result["action_id"] = completion.get("action_id")
-            return await JSONResponse(result)(scope, receive, send)
+            return await JSONResponse(result, headers={"Cache-Control": "no-store"})(scope, receive, send)
         if path == "/__benchmark/clock" and method == "GET":
             return await PlainTextResponse(str(monotonic_ns() / 1e6))(scope, receive, send)
         if not path.startswith(("/api/", "/health/")) and method == "GET":
