@@ -53,7 +53,7 @@ surface evidence.
 
 ## Unavailable Build executor control
 
-Ask for an action whose captured executor is explicitly unavailable, with no other information request. The acknowledged Build work must complete with a truthful capability explanation, no invented successful action, no source acquisition and no page or Graph mutation. Measure real reads and mutations at their owners; missing capture is unknown. Also run a supported source-required request to confirm that required acquisition still occurs. Score a creative request misclassified as unavailable as a fulfillment failure.
+Ask for an action whose captured executor is explicitly unavailable, with no other information request. Cover both anchored and uncertain source-need decisions. The acknowledged Build work must complete with a truthful capability explanation, no invented successful action, no source acquisition and no page or Graph mutation. Measure real reads and mutations at their owners; missing capture is unknown. Also run a supported source-required request to confirm that required acquisition still occurs. Score a creative request misclassified as unavailable as a fulfillment failure.
 
 ## Build and Ingest workflow cohort
 
