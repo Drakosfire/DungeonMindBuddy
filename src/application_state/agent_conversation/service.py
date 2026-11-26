@@ -928,7 +928,9 @@ class AgentConversationService:
                 recorded_at=now,
             )
 
-    def set_conversation_trash(self, command: ConversationTrashCommand, *, restore: bool) -> ConversationCommandReceipt:
+    def set_conversation_trash(
+        self, command: ConversationTrashCommand, *, restore: bool, authorize_write=None,
+    ) -> ConversationCommandReceipt:
         """Reversible lifecycle using the existing World command/pointer owner."""
         command = ConversationTrashCommand.model_validate_json(command.model_dump_json())
         world_id = _world_id(command.world_id)
@@ -940,6 +942,8 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("command ID is retired")
             replay = _receipt_replay(conn, command, command_kind=kind)
             if replay is not None:
+                if authorize_write is not None:
+                    authorize_write()
                 return replay
             _expect_pointer(command, pointer)
             target = repo.lock_conversation(conn, world_id, command.conversation_id)
@@ -949,6 +953,8 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("conversation lifecycle changed; refresh before retrying")
             if (target.status == "active") != (pointer.active_conversation_id == target.conversation_id):
                 raise ApplicationStateIntegrityError("conversation status differs from its World pointer")
+            if authorize_write is not None:
+                authorize_write()
             changed = repo.update_conversation_state(
                 conn, world_id=world_id, conversation_id=target.conversation_id,
                 expected_revision=target.revision, status="archived" if restore else "trashed",

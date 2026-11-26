@@ -253,4 +253,16 @@ def set_trash(world_id: str, conversation_id: UUID, body: ConversationTrashComma
     world = scope(request, world_id, ())
     if body.world_id != world or body.conversation_id != conversation_id:
         raise HTTPException(422, detail="Lifecycle command differs from this World or conversation")
-    return call(_conversation_service(request).set_conversation_trash, body, restore=request.url.path.endswith("/restore"))
+    from apps.live_control_server.services import hosted_auth
+
+    service = _conversation_service(request)
+    restore = request.url.path.endswith("/restore")
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return call(service.set_conversation_trash, body, restore=restore)
+
+    def recheck_owner():
+        require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
+
+    result = call(service.set_conversation_trash, body, restore=restore, authorize_write=recheck_owner)
+    recheck_owner()
+    return result

@@ -14,6 +14,8 @@ const message=(error:unknown)=>error instanceof Error?error.message:'The convers
 export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecycle,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;onLifecycle?:(command:ResumeConversationCommand,operation:ConversationLifecycleOperation)=>Promise<void>;continueDisabledReason?:string|null}){
  const [renaming,setRenaming]=useState(false);
  const actionMenu=useRef<HTMLDetailsElement>(null);
+ const filterControl=useRef<HTMLSelectElement>(null);
+ const [lifecycleNotice,setLifecycleNotice]=useState('');
  const [fullDetails,setFullDetails]=useState(false);
  const [continuing,setContinuing]=useState(false);
  const pendingOperation=useRef<'reopen'|ConversationLifecycleOperation|null>(null);
@@ -67,7 +69,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   }catch(reason){if(alive(owner)&&epoch===listEpoch.current)setListError(message(reason));}
   finally{if(listRequest.current===request)listRequest.current=null;if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
  }
- useEffect(()=>{detailEpoch.current++;setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();detailRequest.current?.abort();};},[worldId,filter]);
+ useEffect(()=>{detailEpoch.current++;setLifecycleNotice('');setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();detailRequest.current?.abort();};},[worldId,filter]);
  async function olderTurns(){
   if(!selected||before===null||loading)return;
   const owner=scope.current,epoch=detailEpoch.current,id=selected,cursor=before;setLoading(true);setError('');
@@ -115,27 +117,46 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   const owner=scope.current,id=detail.conversation_id;
   if(pendingResume.current&&(pendingResume.current.conversation_id!==id||pendingOperation.current!==operation)){setError('Refresh the current conversation before switching to another.');return;}
   const command=pendingResume.current??{world_id:worldId,conversation_id:id,command_id:crypto.randomUUID(),expected_pointer_revision:pointer.revision,expected_active_conversation_id:pointer.activeId};
-  pendingResume.current=command;pendingOperation.current=operation;continueInFlight.current=true;setContinuing(true);setError('');
-  try{if(operation==='reopen')await onContinue!(command);else await onLifecycle!(command,operation);if(alive(owner)){pendingResume.current=null;pendingOperation.current=null;void loadList();}}
+  pendingResume.current=command;pendingOperation.current=operation;continueInFlight.current=true;setContinuing(true);setError('');setLifecycleNotice('');
+  try{
+   if(operation==='reopen')await onContinue!(command);else await onLifecycle!(command,operation);
+   if(!alive(owner))return;
+   pendingResume.current=null;pendingOperation.current=null;
+   if(operation!=='reopen'){
+    detailEpoch.current++;detailRequest.current?.abort();
+    setSelected(null);setDetail(null);setTurns([]);setBefore(null);setLoading(false);setRenaming(false);
+    setItems(old=>old.filter(item=>item.conversation_id!==id));
+    setLifecycleNotice(operation==='trash'?'Conversation moved to Trash.':'Conversation restored to history.');
+   }
+   void loadList();
+  }
   catch(reason){if(alive(owner)){
-   if(reason instanceof LiveApiError&&reason.status===409){pendingResume.current=null;pendingOperation.current=null;setError('The switch was rejected because the conversation changed. Refresh conversations, then choose Continue again.');}
-   else setError(message(reason)+' Refresh conversations to check the current selection, or retry this same switch.');
+   if(reason instanceof LiveApiError&&[401,403,404,409,422].includes(reason.status)){
+    pendingResume.current=null;pendingOperation.current=null;
+    setError(reason.status===409
+     ? 'The conversation changed. Refresh conversations before trying again.'
+     : message(reason));
+   }else setError(message(reason)+' Refresh conversations to check the result, or retry this same action.');
   }}
   finally{if(alive(owner)){continueInFlight.current=false;setContinuing(false);}}
  }
+ useEffect(()=>{
+  if(lifecycleNotice&&!continuing)filterControl.current?.focus();
+ },[lifecycleNotice,continuing]);
  const ownDetail=detail?.world_id===worldId?detail:null;
  return createPortal(<dialog ref={dialog} className="conversation-library" aria-label="Conversations" onKeyDown={event=>{
   if(event.key==='Escape'&&actionMenu.current?.open){event.preventDefault();event.stopPropagation();actionMenu.current.open=false;actionMenu.current.querySelector('summary')?.focus();}
  }} onCancel={event=>{event.preventDefault();onClose();}}>
   <header className="conversation-library__shell-header"><h2>Conversations</h2><button type="button" className="conversation-library__close" aria-label="Close conversations" onClick={onClose}>×</button></header>
   <div className="conversation-library__panes"><nav aria-label="Saved conversations">
-   <div className="conversation-library__list-tools"><label>Show<select value={filter} onChange={event=>setFilter(event.target.value as 'all'|'archived'|'trashed')}><option value="all">All conversations</option><option value="archived">Archived conversations</option><option value="trashed">Trash</option></select></label>
+   <div className="conversation-library__list-tools"><label>Show<select ref={filterControl} disabled={continuing} value={filter} onChange={event=>setFilter(event.target.value as 'all'|'archived'|'trashed')}><option value="all">All conversations</option><option value="archived">Archived conversations</option><option value="trashed">Trash</option></select></label>
     <button type="button" className="conversation-library__refresh" aria-label="Refresh conversations" title="Refresh conversations" disabled={listing||continuing} onClick={()=>void loadList()}>↻</button></div>
+   {lifecycleNotice&&<p role="status">{lifecycleNotice}</p>}
    {listError&&<p role="alert">{listError}<button type="button" onClick={()=>void loadList()}>Retry list</button></p>}
-   <div className="conversation-library__list"><ul>{(listOwner===worldId?items:[]).map(item=><li key={item.conversation_id}><button type="button" aria-pressed={selected===item.conversation_id} title={item.title} onClick={()=>void select(item.conversation_id)}>
+   <div className="conversation-library__list"><ul>{(listOwner===worldId?items:[]).map(item=><li key={item.conversation_id}><button type="button" disabled={continuing} aria-pressed={selected===item.conversation_id} title={item.title} onClick={()=>void select(item.conversation_id)}>
     <strong>{item.title}</strong><span><span className={item.status==='active'?'conversation-library__current':undefined}>{item.status==='active'?'Current':item.status==='trashed'?'Trash':'Archived'}</span> · {item.turn_count} {item.turn_count===1?'turn':'turns'} · {new Date(item.updated_at).toLocaleDateString()}</span></button></li>)}</ul>
    {listing&&<p role="status">Loading conversations…</p>}{!listing&&!items.length&&!listError&&<p>No conversations yet.</p>}
-   {next&&<button type="button" className="conversation-library__more" disabled={listing} onClick={()=>void loadList(true)}>More conversations</button>}</div>
+   {next&&<button type="button" className="conversation-library__more" disabled={listing||continuing} onClick={()=>void loadList(true)}>More conversations</button>}</div>
   </nav><section className="conversation-library__reader" aria-label="Selected conversation">
    {ownDetail&&<header className="conversation-library__conversation-header">
     <div className="conversation-library__heading"><h3 title={ownDetail.title}>{ownDetail.title}</h3><p>{ownDetail.status==='active'?'Current conversation':ownDetail.status==='trashed'?'In Trash':'Archived conversation'} · Read-only transcript</p></div>
