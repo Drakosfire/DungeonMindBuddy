@@ -215,7 +215,11 @@ async function run() {
             if (request.method() !== "POST" || !exactPath(new URL(request.url()))) return;
             const command = request.postDataJSON();
             if (command?.operation === "confirm") {
-              confirmPosts.push({apply_id: command.apply_id, expected_revision: command.expected_revision});
+              confirmPosts.push({
+                apply_id: command.apply_id,
+                expected_revision: command.expected_revision,
+                started_at_ms: request.timing().startTime,
+              });
             }
           });
           let held;
@@ -280,8 +284,16 @@ async function run() {
             const check = page.getByRole("region", { name: "Check suggestion insertion", exact: true })
               .getByRole("button", { name: "Check insertion", exact: true });
             await check.waitFor({ timeout: 10000 });
-            confirmation.retry_exercised = true;
+            await check.evaluate(button => button.addEventListener("click", () => {
+              performance.mark("benchmark-check-insertion");
+            }, { capture: true, once: true }));
+            if (confirmPosts.length !== 0) throw new Error("Confirmation arrived before Check insertion");
             await check.click();
+            confirmation.check_clicked_at_ms = await page.evaluate(() => {
+              const click = performance.getEntriesByName("benchmark-check-insertion").at(-1);
+              return click ? performance.timeOrigin + click.startTime : null;
+            });
+            confirmation.retry_exercised = confirmation.check_clicked_at_ms !== null;
             try {
               await pollBrowserRead(async () => {
                 const observation = await readOwners();
@@ -302,7 +314,10 @@ async function run() {
               && after.page.body.record?.world_id === world
               && after.page.body.record?.revision === savedPage.record.revision
               && after.page.body.committed_content_sha256 === savedPage.committed_content_sha256
-              && confirmPosts.length === 1 && confirmPosts[0].apply_id === pending.apply.apply_id;
+              && confirmation.retry_exercised && confirmPosts.length === 1
+              && confirmPosts[0].started_at_ms >= confirmation.check_clicked_at_ms
+              && confirmPosts[0].apply_id === pending.apply.apply_id
+              && confirmPosts[0].expected_revision === pending.revision;
           } else {
             const saved = held.body.review ?? held.body;
             if (held.status !== 200 || saved.state !== "applied" || saved.action_id !== action

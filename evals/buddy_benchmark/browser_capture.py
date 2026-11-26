@@ -362,7 +362,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
-                        run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env, timeout=100)
+                        run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env,
+                                             timeout=140 if lose_confirm_ack else 100)
                         driver_status = {"return_code": run.returncode}
                     except subprocess.TimeoutExpired:
                         driver_status = {"timed_out": True}
