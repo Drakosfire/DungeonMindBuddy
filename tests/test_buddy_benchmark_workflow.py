@@ -1368,7 +1368,9 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             "isolation": {"native": native, "app": app},
             **({"browser_capture": {}} if browser else {}),
         }))
+    protected = "00000000-0000-4000-8000-000000000001"
     manifest = put(tmp_path / "cohort.json", {
+        "protected_work_objects": [protected],
         "schema": "dmb_context_capture_cohort_v1", "members": members,
     })
     monkeypatch.setenv(cohort.APP_DSN, "postgresql://127.0.0.1:53421/app")
@@ -1377,6 +1379,11 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
     monkeypatch.setattr(cohort, "require_read_only_core", lambda *_: None)
 
     events = []
+    def fixture_revisions(dsn, object_ids):
+        assert dsn.endswith("/benchmark_run_owned")
+        assert object_ids == [protected]
+        return {protected: "changed" if changed and "case1" in events else "initial"}
+    monkeypatch.setattr(cohort, "protected_work_revisions", fixture_revisions)
     from contextlib import contextmanager
     from application_state import cli
     from evals.buddy_benchmark import disposable_database
@@ -1460,7 +1467,11 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
         cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
                                   detailed_trace=browser, clone_app=clone_app, context_only=context_only)
     if clone_app:
-        expected_cases = ["case1"] if missing_capture and not context_only else ["case1", "case2"]
+        expected_cases = ["case1"] if (missing_capture or changed) and not context_only else ["case1", "case2"]
+        if changed and not context_only:
+            outcomes = json.loads((out / "members.json").read_text())
+            assert outcomes["case1"]["status"] == "fixture_changed"
+            assert outcomes["case2"]["status"] == "not_started"
         assert events == ["scan", "clone", "upgrade", *expected_cases, "workers closed", "drop", "scan"]
         assert json.loads((out / "owned-app.json").read_text())["database"] == owned_app
     else:

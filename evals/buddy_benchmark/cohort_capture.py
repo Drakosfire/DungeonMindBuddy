@@ -96,6 +96,17 @@ def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
             detailed_trace=detailed_trace, cohort_app=shared_app)
 
 
+def protected_work_revisions(dsn, object_ids):
+    """Read only the fixture pages that later members depend on."""
+    with readonly(dsn) as conn:
+        rows = conn.execute(
+            "SELECT work_object_id, current_revision_id FROM content.work_object "
+            "WHERE work_object_id = ANY(%s::uuid[])",
+            (object_ids,),
+        ).fetchall()
+    return {str(object_id): str(revision_id) for object_id, revision_id in rows}
+
+
 def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False, clone_app=False,
                    context_only=True):
     """Capture independent member manifests, then prove Core parity once."""
@@ -121,6 +132,15 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
     expected_inventory = None
     cases = set()
     app_identities = set()
+    protected_objects = config.get("protected_work_objects", [])
+    if not context_only:
+        from uuid import UUID
+
+        if not isinstance(protected_objects, list) or not protected_objects:
+            raise ValueError("Response cohorts require protected fixture work objects")
+        protected_objects = [str(UUID(value)) for value in protected_objects]
+        if len(protected_objects) != len(set(protected_objects)):
+            raise ValueError("Duplicate protected fixture work object")
     app_template = None
     jobs = []
     output = Path(output).resolve()
@@ -181,6 +201,11 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                     upgrade_to_head()
                 jobs = [((manifest, member, shared_dsn, digest), ids)
                         for (manifest, member, _, digest), ids in jobs]
+            if not context_only:
+                fixture_before = protected_work_revisions(shared_dsn, protected_objects)
+                if fixture_before.keys() != set(protected_objects):
+                    raise ValueError("Protected fixture work object is missing")
+                immutable_save(output, "protected-work-before", fixture_before)
             submissions = (
                 (job[1], ids, executor.submit(_capture_member, *job, context_only=context_only, **(
                     {"shared_app": shared_app} if shared_app is not None else {}
@@ -217,8 +242,14 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                     value in observed_statuses for value in statuses.values())
                 outcomes[member.name] = {"status": "completed" if captured else "failed",
                                          "case_statuses": statuses}
-                if not context_only and not captured:
-                    break
+                if not context_only:
+                    fixture_after = protected_work_revisions(shared_dsn, protected_objects)
+                    immutable_save(member, "protected-work-after", fixture_after)
+                    if fixture_after != fixture_before:
+                        outcomes[member.name]["status"] = "fixture_changed"
+                        break
+                    if not captured:
+                        break
             for job, _ in jobs:
                 outcomes.setdefault(job[1].name, {"status": "not_started"})
             immutable_save(output, "members", outcomes)
