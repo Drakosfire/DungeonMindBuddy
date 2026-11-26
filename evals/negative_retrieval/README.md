@@ -398,6 +398,7 @@ ordinary capture writes a separate partial probe artifact; the offline report
 summarizes it without upgrading acquisition coverage or a cohort rate. Other
 owners and other previously captured call aliases can bypass these wrappers, so zero
 records do not prove that Graph or source acquisition did not happen.
+An observed App source-body read by revision and a nonempty batch are also unmapped read attempts; empty concrete batches do not query. Old artifacts without that hook and unobserved or pre-imported aliases remain unknown. A returned batch is not source-specific proof of a required read.
 An observed selected Graph, authored Graph, or authored corpus read attempt is scored as an unmapped
 acquisition, which proves a violation for a case allowing no reads; it cannot
 establish which required source was read. Query preparation alone is not scored

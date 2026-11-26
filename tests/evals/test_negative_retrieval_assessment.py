@@ -839,6 +839,10 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         ("native_graph_body_open_batch", "raised", False),
         ("app_source_body_read", "returned", False),
         ("app_source_body_read", "raised", False),
+        ("app_source_body_read_batch", "returned", False),
+        ("app_source_body_read_batch", "raised", False),
+        ("app_source_body_read_revision", "returned", False),
+        ("app_source_body_read_revision", "raised", False),
         ("native_graph_selected_read", "entered", False),
         ("native_graph_query", "returned", None),
     ):
@@ -2098,7 +2102,7 @@ def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
         assert negative["checks"]["unexpected_retrieval"] is False
     related["records"] = []
     (tmp_path / "related-page-probe.json").write_text(json.dumps(related))
-    for owner in ("app_source_body_read", "native_graph_body_open", "native_graph_body_open_batch"):
+    for owner in ("app_source_body_read", "app_source_body_read_batch", "app_source_body_read_revision", "native_graph_body_open", "native_graph_body_open_batch"):
         for state in ("returned", "raised"):
             native["records"] = [{"owner": owner, "state": state}]
             (tmp_path / "native-graph-probe.json").write_text(json.dumps(native))
@@ -2952,3 +2956,72 @@ def test_source_window_batch_failure_before_sql_stays_unknown():
         with pytest.raises(RuntimeError,match='before SQL'):
             view.get_native_text_sources([('synthetic','synthetic','synthetic')])
     assert state['scoped']['text_batch']==1 and state['batch_read']['scoped']==0
+
+
+def test_app_source_batch_probe_records_nonempty_attempts_and_restores_owner(monkeypatch):
+    from application_state.source import repository
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners, summarize_records
+    calls = []
+    def read(conn, *, bindings):
+        calls.append(bindings)
+        if bindings == [('raise', 'digest')]:
+            raise ValueError('private detail')
+        return ['private source'] if bindings else []
+    monkeypatch.setattr(repository, 'get_source_markdown_batch', read)
+    with observe_native_graph_owners() as records:
+        assert repository.get_source_markdown_batch(None, bindings=[]) == []
+        assert repository.get_source_markdown_batch(None, bindings=[('source', 'digest')]) == ['private source']
+        with pytest.raises(ValueError):
+            repository.get_source_markdown_batch(None, bindings=[('raise', 'digest')])
+    assert records == [{'owner': 'app_source_body_read_batch', 'state': 'returned'},
+                       {'owner': 'app_source_body_read_batch', 'state': 'raised'}]
+    assert summarize_records(records)['app_source_body_read_batch'] == {'entered': 0, 'returned': 1, 'raised': 1}
+    assert summarize_records([])['app_source_body_read_batch'] is None
+    assert repository.get_source_markdown_batch is read
+    assert len(calls) == 3
+
+
+def test_app_source_batch_probe_wraps_real_repository_query_boundary():
+    from application_state.source import repository
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
+    class Cursor:
+        def __init__(self): self.executed = 0
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def execute(self, query, params): self.executed += 1
+        def fetchall(self): return []
+    class Connection:
+        def __init__(self): self.cur = Cursor()
+        def cursor(self, **kwargs): return self.cur
+    conn = Connection()
+    original = repository.get_source_markdown_batch
+    with observe_native_graph_owners() as records:
+        assert repository.get_source_markdown_batch(conn, bindings=[]) == []
+        assert conn.cur.executed == 0 and records == []
+        assert repository.get_source_markdown_batch(conn, bindings=[('source', 'digest')]) == []
+        assert conn.cur.executed == 1
+    assert records == [{'owner': 'app_source_body_read_batch', 'state': 'returned'}]
+    assert repository.get_source_markdown_batch is original
+
+
+def test_app_source_revision_probe_wraps_real_repository_query_boundary():
+    from uuid import uuid4
+    from application_state.source import repository
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners, summarize_records
+    class Cursor:
+        def __init__(self): self.executed = 0
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def execute(self, query, params): self.executed += 1
+        def fetchone(self): return None
+    class Connection:
+        def __init__(self): self.cur = Cursor()
+        def cursor(self, **kwargs): return self.cur
+    conn = Connection()
+    original = repository.get_source_markdown_by_revision_id
+    with observe_native_graph_owners() as records:
+        assert repository.get_source_markdown_by_revision_id(conn, uuid4()) is None
+        assert conn.cur.executed == 1
+    assert records == [{'owner': 'app_source_body_read_revision', 'state': 'returned'}]
+    assert summarize_records([])['app_source_body_read_revision'] is None
+    assert repository.get_source_markdown_by_revision_id is original

@@ -21,7 +21,9 @@ _OWNERS = {
 _GRAPH_BODY_OWNERS = {"open_admitted_native_text": "native_graph_body_open",
                       "open_admitted_native_text_batch": "native_graph_body_open_batch"}
 _PREPARATION_OWNERS = {"prepare": "native_source_preparation"}
-_APP_SOURCE_OWNERS = {"get_source_markdown": "app_source_body_read"}
+_APP_SOURCE_OWNERS = {"get_source_markdown": "app_source_body_read",
+                      "get_source_markdown_batch": "app_source_body_read_batch",
+                      "get_source_markdown_by_revision_id": "app_source_body_read_revision"}
 _CORPUS_OWNERS = {
     "read_authored_source": "native_corpus_authored_source_read",
     "capture_native_sources": "native_corpus_discovery",
@@ -47,7 +49,8 @@ def summarize_records(records):
     # Old v1 artifacts predate these hooks. Without an observed call, their
     # records cannot distinguish an inactive owner from absent instrumentation.
     for owner in ("native_source_preparation", "native_graph_binding", "app_source_body_read",
-                  "native_graph_body_open", "native_graph_body_open_batch"):
+                  "native_graph_body_open", "native_graph_body_open_batch", "app_source_body_read_batch",
+                  "app_source_body_read_revision"):
         if not any(counts[owner].values()):
             counts[owner] = None
     return counts
@@ -73,6 +76,10 @@ def observe_native_graph_owners():
                 if owner == "native_graph_body_open_batch":
                     ids = args[1] if len(args) > 1 else kwargs.get("evidence_ref_ids")
                     if isinstance(ids, (list, tuple)) and not ids:
+                        return function(*args, **kwargs)
+                if owner == "app_source_body_read_batch":
+                    bindings = kwargs.get("bindings")
+                    if isinstance(bindings, (list, tuple)) and not bindings:
                         return function(*args, **kwargs)
                 row = {"owner": owner, "state": "entered"}
                 with record_lock:
