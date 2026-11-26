@@ -182,6 +182,13 @@ citation reopening.
 For authoring actions, conversation-only boundaries, and Build and Ingest
 workflows, see the [Buddy actions and authoring benchmark](plan-authoring-benchmark.md).
 
+For an unsent draft recovery control, use `capture --build-fixture --case
+RECOVERY-1 --clone-app` and set `browser_capture.unsent_draft` to `true`.
+The browser fills the composer and reloads it without clicking Send. The
+harness records whether the exact draft returns, any attempted turn POST,
+the conversation and committed page before and after, and zero provider calls.
+Use a fresh isolated browser and omit provider credentials.
+
 For a live Plan placement case, use the saved Plan editor with a pinned
 selection and the normal provider configuration.
 

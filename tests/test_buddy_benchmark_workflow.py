@@ -1347,6 +1347,22 @@ def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
     with pytest.raises(ValueError, match="bundle differs"):
         browser_inputs(manifest, tmp_path)
 
+
+def test_unsent_draft_browser_requires_provider_free_build_fixture(tmp_path):
+    from evals.buddy_benchmark.browser_capture import browser_inputs
+
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    index = bundle / "index.html"
+    index.write_text("Pinned UI")
+    inventory = tmp_path / "bundle.json"
+    inventory.write_text(json.dumps({"index.html": sha256(index.read_bytes()).hexdigest()}))
+    manifest = {"browser_capture": {"bundle": bundle.name, "unsent_draft": True,
+        "bundle_inventory": {"path": inventory.name, "sha256": sha256(inventory.read_bytes()).hexdigest()}}}
+    assert browser_inputs(manifest, tmp_path, build_fixture=True)[1] == []
+    with pytest.raises(ValueError, match="Unsent draft requires a Build browser fixture"):
+        browser_inputs(manifest, tmp_path, live_plan=True)
+
 @pytest.mark.parametrize("browser, clone_app, context_only, sequence_stopped",
                          [(False, False, True, False), (True, False, True, False),
                           (True, True, True, False), (False, True, False, False),
