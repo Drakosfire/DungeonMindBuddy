@@ -90,7 +90,8 @@ def test_statblock_support_reads_only_the_exact_stored_passage(monkeypatch, has_
     ids = ["pdf-region:reviewed"]
     if has_stored_passage:
         ids.append(region_text_id)
-    access = object()
+    source_view = SimpleNamespace(epoch=1)
+    access = SimpleNamespace(source_view=source_view)
     reference = SimpleNamespace(
         managed_world_id="world", native_world_id="native", binding_version=1,
         graph_revision="rev:graph", node_id="creature",
@@ -99,6 +100,7 @@ def test_statblock_support_reads_only_the_exact_stored_passage(monkeypatch, has_
     monkeypatch.setattr(inspection, "_response", lambda bound, pin, **payload: payload)
     monkeypatch.setattr(inspection, "_repository", lambda: SimpleNamespace(
         get_native_pdf_source=lambda *args: pytest.fail("Retrieval tried to load a PDF"),
+        open_native_source_view=lambda *_: source_view,
     ))
     monkeypatch.setattr(inspection, "EntityReadService", lambda: SimpleNamespace(
         get_complete_entity=lambda *args: SimpleNamespace(
