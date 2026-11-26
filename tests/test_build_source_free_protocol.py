@@ -2632,7 +2632,7 @@ def test_pending_retained_capture_refuses_foreign_history_and_conflicting_duplic
 
 
 @_pending_test_contextmanager
-def pending_writer_runtime_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
+def pending_writer_runtime_case(monkeypatch, *, source_free_work=None, source_scope='source_lookup', lore_page=False, app_pages=False):
     from types import SimpleNamespace
     from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
     from apps.live_control_server.services.build_jev_writer_selection import WriterSelectionDriver
@@ -2647,7 +2647,7 @@ def pending_writer_runtime_case(monkeypatch, *, source_free_work=None, lore_page
             from application_state.agent_conversation.build_intentional_response import resolution_for, operation_id_for, digest
             execution = state.turn.graph_context_execution
             work = execution.events[-1]
-            resolution = resolution_for(execution.policy, source_free_work, source_scope='source_lookup')
+            resolution = resolution_for(execution.policy, source_free_work, source_scope=source_scope)
             work = work.model_copy(update={'requested_work': source_free_work,
                 'resolution': resolution, 'intent_family': resolution['intent_family'],
                 'operation': resolution['operation'],
@@ -2821,12 +2821,12 @@ def test_pending_writer_selection_requires_strict_positive_claim_integers_before
 
 
 @_pending_test_contextmanager
-def pending_rules_runtime_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
+def pending_rules_runtime_case(monkeypatch, *, source_free_work=None, source_scope='source_lookup', lore_page=False, app_pages=False):
     from types import SimpleNamespace
     from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
     from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
     from application_state.agent_conversation.rules_authority_policy import rules_capability
-    with pending_writer_runtime_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, selector, turns):
+    with pending_writer_runtime_case(monkeypatch, source_free_work=source_free_work, source_scope=source_scope, lore_page=lore_page, app_pages=app_pages) as (state, adapter, selector, turns):
         request_id = str(uuid4())
         adapter.request = SimpleNamespace(turn_id=request_id, surface=SimpleNamespace(surface_id='build'))
         adapter.world_id, adapter.expected_conversation_id = state.turn.world_id, None
@@ -2878,7 +2878,7 @@ def test_pending_rules_runtime_refuses_stale_or_crossed_parent_before_ledger_cre
 
 
 @_pending_test_contextmanager
-def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False, native_json=False):
+def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, source_scope='source_lookup', lore_page=False, app_pages=False, native_json=False):
     import asyncio
     import httpx
     from datetime import UTC, datetime
@@ -2895,7 +2895,7 @@ def pending_writer_dispatch_case(monkeypatch, *, source_free_work=None, lore_pag
     from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
     from application_state.agent_conversation.native_writer import output_request_fields
     from tests.test_build_jev_estimated_continuations import counter
-    with pending_rules_runtime_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules):
+    with pending_rules_runtime_case(monkeypatch, source_free_work=source_free_work, source_scope=source_scope, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules):
         adapter.budget = {'estimator': state.turn.graph_context_execution.policy.provider_input_accounting.estimator,
             'apiMode': 'typesafe_decision'}
         adapter.trace, adapter.failure = None, None
@@ -3108,9 +3108,9 @@ def test_pending_writer_actual_serialized_request_omits_host_bindings_and_preser
 
 
 @_pending_test_contextmanager
-def pending_writer_completion_case(monkeypatch, *, source_free_work=None, lore_page=False, app_pages=False):
+def pending_writer_completion_case(monkeypatch, *, source_free_work=None, source_scope='source_lookup', lore_page=False, app_pages=False, native_json=False):
     from application_state.agent_conversation import repository
-    with pending_writer_dispatch_case(monkeypatch, source_free_work=source_free_work, lore_page=lore_page, app_pages=app_pages) as (state, adapter, rules, writer, prepared):
+    with pending_writer_dispatch_case(monkeypatch, source_free_work=source_free_work, source_scope=source_scope, lore_page=lore_page, app_pages=app_pages, native_json=native_json) as (state, adapter, rules, writer, prepared):
         configure_pending_completion_storage(monkeypatch,state)
         yield state, adapter, rules, writer, prepared
 
@@ -3230,13 +3230,120 @@ def test_pending_writer_unbound_source_reference_cannot_become_an_accepted_reply
         assert state.turn.completion is None and state.turn.assistant_text is None
 
 
+def test_anchored_missing_page_target_is_source_free_at_writer_boundary(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services import build_jev_dispatch
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.build_source_free import pending_source_free_terminal
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+    from application_state.agent_conversation.writer_evidence_selection import native_terminal
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    with pending_writer_runtime_case(monkeypatch, source_free_work='write_current_page', source_scope='anchored') as (state, adapter, selector, turns):
+        execution = state.turn.graph_context_execution
+        work = next(row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1)
+        assert work.resolution['barrier'] == 'current_page_target_absent'
+        assert work.operation == 'answer_from_sources'
+        terminal = {'status': 'ready', 'reason': 'pending_source_free_write_current_page'}
+        assert pending_source_free_terminal(execution) == terminal
+        assert native_terminal(state.turn) == terminal
+        assert selector.settle_empty().terminal_disposition == terminal
+        rules = SimpleNamespace(frame=lambda: PlanRulesEvidenceFrameV1(
+            schema='dmb_plan_rules_evidence_v1', ruleset='synthetic', lookups=(), supports=()), authoring=None)
+        writer = PlanJevWriter(adapter, {}, rules)
+        assert writer.shared and writer.messages
+        assert 'current_page_target_absent' in json.dumps(writer.provider_work)
+        needed = work.model_copy(update={'resolution': resolution_for(execution.policy, 'write_current_page', source_scope='source_lookup')})
+        assert pending_source_free_terminal(execution.model_copy(update={'events': tuple(
+            needed if row.event_id == work.event_id else row for row in execution.events)})) is None
+        forged = work.model_copy(update={'resolution': work.resolution | {'barrier': 'invented'}})
+        with pytest.raises(ValueError, match='frozen response contract'):
+            pending_source_free_terminal(execution.model_copy(update={'events': tuple(
+                forged if row.event_id == work.event_id else row for row in execution.events)}))
+        changed = list(execution.events)
+        changed[2] = changed[2].model_copy(update={'outcome': 'outcome_unknown'})
+        assert pending_source_free_terminal(execution.model_copy(update={'events': tuple(changed)})) is None
+        assert state.retained_reads == 0 and state.materialized == 0
+
+
+@pytest.mark.parametrize('outcome', ['discussion', 'unbound_citation', 'page_collaboration'])
+def test_missing_page_target_real_writer_completion(monkeypatch, outcome):
+    import asyncio
+    import httpx
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services import build_jev_dispatch
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    calls = []
+    def respond(request):
+        calls.append(json.loads(request.content))
+        candidate = {'answer_segments': [{'kind': 'discussion', 'text': 'Choose a page target to insert the requested writing.'}], 'limitations': []}
+        if outcome == 'unbound_citation':
+            candidate['answer_segments'] = [{'kind': 'source_passage_claim', 'text': 'Unsupported fact.', 'passage_handles': ['unbound']}]
+        if 'collaboration' in calls[-1]['text']['format']['schema']['properties']:
+            candidate['collaboration'] = ({'kind': 'lore_page', 'destination': {'request': 'current_author_request', 'title': 'Invented page'}, 'open_questions': []}
+                if outcome == 'page_collaboration' else None)
+        elif outcome == 'page_collaboration':
+            candidate['collaboration'] = {'kind': 'lore_page', 'destination': {'request': 'current_author_request', 'title': 'Invented page'}, 'open_questions': []}
+        return httpx.Response(200, request=request, json={'id': 'resp_barrier', 'object': 'response', 'created_at': 1,
+            'model': calls[-1]['model'], 'status': 'completed', 'output': [{'type': 'message', 'id': 'msg_barrier',
+                'role': 'assistant', 'status': 'completed', 'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
+    with pending_writer_completion_case(monkeypatch, source_free_work='write_current_page', source_scope='anchored', native_json=True) as (state, adapter, rules, writer, prepared):
+        if outcome == 'discussion':
+            completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert completed.status == 'completed' and state.completions == 1
+        else:
+            with pytest.raises(GenerationEngineError):
+                asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
+            assert state.completions == 0
+        assert len(calls) == 1 and state.retained_reads == 0 and state.materialized == 0
+
+
+def test_missing_page_target_harness_skips_native_retrieval(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services import (build_jev_dispatch, build_jev_writer_selection,
+        build_pending_native_retrieval, plan_jev_rules_runtime, plan_jev_writer)
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    with pending_writer_runtime_case(monkeypatch, source_free_work='write_current_page', source_scope='anchored') as (state, adapter, selector, turns):
+        work = next(row for row in state.turn.graph_context_execution.events if type(row) is t.BuildRequestedWorkResolutionV1)
+        def forbidden(*args, **kwargs):
+            raise AssertionError('A missing page target must not open native retrieval')
+        monkeypatch.setattr(build_pending_native_retrieval, 'run_pending_native_retrieval', forbidden)
+        class Rules:
+            def __init__(self, *args): pass
+            def restore_pending(self): pass
+        monkeypatch.setattr(plan_jev_rules_runtime, 'PlanRulesRuntime', Rules)
+        class Selection:
+            catalog = ()
+            def __init__(self, actual_adapter, driver, terminal):
+                assert terminal == {'status': 'ready', 'reason': 'pending_source_free_write_current_page'}
+            def settle_empty(self): pass
+        monkeypatch.setattr(build_jev_writer_selection, 'WriterSelectionDriver', Selection)
+        result = object()
+        class Writer:
+            call = None
+            output_limit_exceeded = False
+            failure_stage = 'capture'
+            def __init__(self, *args, **kwargs): pass
+            async def run(self, **kwargs): return result
+        monkeypatch.setattr(plan_jev_writer, 'PlanJevWriter', Writer)
+        adapter.build_frozen_history = ()
+        adapter.stop = lambda: None
+        harness = BuildJevHarness()
+        harness.calls, harness.rules_capability, harness.writer_transport = [], None, None
+        assert harness._native_completion(adapter, SimpleNamespace(operation=work.operation, selection=work)) is result
+        assert state.retained_reads == 0 and state.materialized == 0
+
+
 @pytest.mark.parametrize('label', ['clarify_request', 'clarify_creation', 'review_blank_lore_page'])
 def test_pending_source_free_terminal_settles_writer_without_retained_or_source_acquisition(monkeypatch, label):
     from types import SimpleNamespace
+    from apps.live_control_server.services import build_jev_dispatch
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
     from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
     from application_state.agent_conversation.writer_evidence_selection import native_terminal
     from application_state.agent_conversation.build_source_free import pending_source_free_terminal
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
     with pending_writer_runtime_case(monkeypatch, source_free_work=label) as (state, adapter, selector, turns):
         terminal = {'status': 'ready', 'reason': 'pending_source_free_' + label}
         assert native_terminal(state.turn) == terminal

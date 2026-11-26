@@ -573,7 +573,8 @@ def pending_source_free_terminal(execution):
     work = work[0]
     validate_resolution_metadata(work, execution.policy)
     if (work.requested_work == 'write_current_page'
-            and (work.resolution.get('source_scope') != 'anchored' or work.resolution.get('barrier') is not None)):
+            and (work.resolution.get('source_scope') != 'anchored'
+                 or work.resolution.get('barrier') not in (None, 'current_page_target_absent'))):
         return None
     controllers = [row for row in execution.events[:work.sequence]
         if isinstance(row, t.ProviderAttemptAuthorizedEventV3)]
