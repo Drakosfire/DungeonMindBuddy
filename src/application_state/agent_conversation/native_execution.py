@@ -239,13 +239,17 @@ class SurfaceNativeExecutionPolicyV1(Strict):
         if not isinstance(roles,t.GraphControllerWriterRolesV1):
             raise ValueError('Native surfaces require their actual controller/writer roles')
         if isinstance(action,NativePlayActionV1):
-            if roles.controller.identity() != ('typesafe','jev-1.14.0','decision'):
+            from .build_decision_context import JEV_CONTROLLER_MODELS
+            if (roles.controller.provider != 'typesafe' or roles.controller.model not in JEV_CONTROLLER_MODELS
+                    or roles.controller.api_mode != 'decision'):
                 raise ValueError('Play requires its exact native retrieval controller')
             if any(value is not None for value in (self.max_provider_attempts,
                     self.max_total_provider_input_tokens,self.max_total_provider_output_tokens)):
                 raise ValueError('Native Play uses provider-owned request allowances')
         if isinstance(action, NativeBuildActionV1):
-            if (roles.controller.identity() != ("typesafe", "jev-1.14.0", "typesafe_decision")
+            from .build_decision_context import JEV_CONTROLLER_MODELS
+            if (roles.controller.provider != "typesafe" or roles.controller.model not in JEV_CONTROLLER_MODELS
+                    or roles.controller.api_mode != "typesafe_decision"
                     or self.controller_continuation_accounting is None or self.writer_context_budget is None
                     or roles.writer.identity() != self.writer_context_budget.identity()):
                 raise ValueError("Native Build role/accounting differs from its actual owner contracts")
@@ -256,8 +260,11 @@ class SurfaceNativeExecutionPolicyV1(Strict):
                     raise ValueError('Native writer accounting differs from its prepared controller counter')
         elif self.controller_continuation_accounting is not None or self.writer_context_budget is not None:
             raise ValueError("Build role accounting cannot authorize another action family")
-        if isinstance(action, NativePlanActionV1) and roles.controller.identity() != ("typesafe", "jev-1.14.0", "decision"):
-            raise ValueError("Plan requires its exact decision controller")
+        if isinstance(action, NativePlanActionV1):
+            from .build_decision_context import JEV_CONTROLLER_MODELS
+            if (roles.controller.provider != 'typesafe' or roles.controller.model not in JEV_CONTROLLER_MODELS
+                    or roles.controller.api_mode != 'decision'):
+                raise ValueError("Plan requires its exact decision controller")
         return self
 
 
@@ -276,13 +283,16 @@ class BuildPendingExecutionPolicyV1(Strict):
 
     @model_validator(mode="after")
     def fresh_observed_build(self):
+        from .build_decision_context import JEV_CONTROLLER_MODELS
         action = self.action
         if (action.intent.reviewed_step is not None
                 or getattr(action.intent, "authored_references", None) is not None):
             raise ValueError("Pending Build policy requires fresh work without authored references")
         if action.related_page_catalog is not None:
             raise ValueError("Pending Build policy cannot capture an acquired related-page catalog")
-        if (self.provider_roles.controller.identity() != ("typesafe", "jev-1.14.0", "typesafe_decision")
+        if (self.provider_roles.controller.provider != "typesafe"
+                or self.provider_roles.controller.model not in JEV_CONTROLLER_MODELS
+                or self.provider_roles.controller.api_mode != "typesafe_decision"
                 or self.provider_roles.writer.identity() != self.writer_context_budget.identity()):
             raise ValueError("Pending Build roles differ from their frozen role/accounting owners")
         if isinstance(self.writer_context_budget, NativeWriterEstimatedBudgetV1):

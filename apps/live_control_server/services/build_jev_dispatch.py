@@ -11,7 +11,7 @@ from .build_jev_accounting import ExperimentalAccounting
 from .build_initial_packet_codec import canonical
 
 PROVIDER = "typesafe"
-MODEL = "jev-1.14.0"
+MODEL = "typesafe-ai/jev-1.14.0"
 API_MODE = "typesafe_decision"
 SERIALIZER = "typesafe-sdk-json-v1"
 ENDPOINT = "https://ai-gateway.vercel.sh/typesafe/v1/systemone"

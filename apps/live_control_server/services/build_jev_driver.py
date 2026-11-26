@@ -1278,8 +1278,8 @@ class BuildJevDriver:
                 from generationengine.types import DecisionResult
                 if (not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response) != answers
                         or actual_response.observation.provider != "typesafe"
-                        or actual_response.observation.resolved_model != "jev-1.14.0"
-                        or actual_response.observation.response_model != "jev-1.14.0"):
+                        or actual_response.observation.resolved_model != a._broker_execution().policy.provider_roles.controller.model
+                        or actual_response.observation.response_model != a._broker_execution().policy.provider_roles.controller.model):
                     raise ValueError("Rules query choice requires the actual matching typed SDK response")
                 a.context_capture.controller_decision_response(canonical(actual_response.model_dump(mode="json")),
                     producing_provider_attempt_id=a.last_provider_attempt_id)

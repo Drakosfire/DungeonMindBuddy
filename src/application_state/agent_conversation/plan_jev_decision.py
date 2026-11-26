@@ -101,7 +101,8 @@ def verify_input(turn, auth, proof):
 def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha256):
     """Exact SDK input proof only; the locked Turn owner grants dispatch."""
     from . import types as t
-    from .jev_retrieval_contract import RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1, validate_wire_body, MODEL, PROVIDER
+    from .jev_retrieval_contract import RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1, validate_wire_body, PROVIDER
+    from .build_decision_context import JEV_CONTROLLER_MODELS
     native_action = _native_plan_action(execution)
     if native_action is not None:
         from .native_reads import validate_execution_binding
@@ -202,7 +203,8 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
             or request.scope_sha256 != scope_sha256
             or not pins_match
             or sha256(raw.encode()).hexdigest() != auth.envelope_sha256
-            or (auth.provider, auth.model, auth.api_mode) != (PROVIDER, MODEL, "decision")
+            or auth.provider != PROVIDER or auth.model not in JEV_CONTROLLER_MODELS or auth.api_mode != "decision"
+            or (auth.provider, auth.model, auth.api_mode) != execution.policy.provider_roles.controller.identity()
             or auth.serializer_version != "typesafe-sdk-json-v1"
             or auth.included_assertion_ids or auth.included_relationship_ids
             or auth.included_evidence_ref_ids or auth.included_graph_event_ids
@@ -210,11 +212,11 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
         raise ValueError("Plan Jev prepared request differs from its actual owner/authorization")
     if author_scope:
         from .native_plan_opening import validate_author_scope_wire
-        validate_author_scope_wire(request, raw.encode())
+        validate_author_scope_wire(request, raw.encode(), expected_model=auth.model)
     elif semantic:
-        validate_requested_work_wire(request, raw.encode())
+        validate_requested_work_wire(request, raw.encode(), expected_model=auth.model)
     else:
-        validate_wire_body(request, raw.encode())
+        validate_wire_body(request, raw.encode(), expected_model=auth.model)
     return request
 
 
@@ -274,7 +276,7 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             or (not author_scope and semantic != isinstance(auth, t.PlanRequestedWorkAuthorizedV1))):
         raise ValueError('Plan decision kind differs from its actual producer')
     if author_scope:
-        if event.scope_observation != decode_author_scope_decision(request, result):
+        if event.scope_observation != decode_author_scope_decision(request, result, expected_model=auth.model):
             raise ValueError('Author scope observation differs from its exact SDK result')
     elif semantic:
         from .plan_authoring import decode_requested_work_decision
@@ -295,7 +297,7 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             }[type(request)]
             if type(event) is not expected_type:
                 raise ValueError('Combined opening result requires its exact atomic selection')
-            selected, batch = decode_opening_decision(request, result)
+            selected, batch = decode_opening_decision(request, result, expected_model=auth.model)
             if (event.operation != (batch.operation if batch is not None else None)
                     or tuple(event.selected_handles) != (batch.selected_handles if batch is not None else ())
                     or event.post_read_plan != (batch.post_read_plan if batch is not None else None)):
@@ -303,7 +305,7 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
         else:
             if type(event) in NATIVE_PLAN_OPENING_SELECTION_TYPES:
                 raise ValueError('Historical work-only SDK cannot produce an opening batch')
-            selected = decode_requested_work_decision(request, result)
+            selected = decode_requested_work_decision(request, result, expected_model=auth.model)
         if isinstance(event, t.PlanRequestedWorkSelectedV2):
             from .plan_placement import PlanRequestedWorkInputV2, work_choice
             if not isinstance(request, PlanRequestedWorkInputV2):
@@ -312,7 +314,7 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             if isinstance(request, PlanRequestedWorkInputV8) != (type(event) in NATIVE_PLAN_WORK_SELECTION_TYPES):
                 raise ValueError('Plan selected work differs from its exact decision codec')
             if type(request) is NativePlanOpeningInputV3:
-                fields = composed_opening_fields(request, result) | {
+                fields = composed_opening_fields(request, result, expected_model=auth.model) | {
                     "author_scope_binding": request.author_scope_binding,
                     "author_operation": request.plan_requested_operation,
                     "scope_document_title": request.page_title,
@@ -331,7 +333,7 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
                 or event.requested_work != selected or event.target_capture_sha256 != request.target_capture_sha256):
             raise ValueError('Plan destination differs from its exact typed result or capture')
     else:
-        selected = decode_selection(request, result)
+        selected = decode_selection(request, result, expected_model=auth.model)
         if native_action is not None or isinstance(receipt, t.PlanSourceContextReceiptV1):
             pins = _source_pins(receipt)
             validate_source_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,

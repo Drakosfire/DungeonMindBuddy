@@ -622,13 +622,13 @@ def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
     )
 
 
-def decode_requested_work_decision(request: PlanRequestedWorkInputV1, result):
+def decode_requested_work_decision(request: PlanRequestedWorkInputV1, result, *, expected_model=None):
     from .native_plan_opening import NATIVE_PLAN_OPENING_INPUT_TYPES, decode_opening_decision
     if type(request) in NATIVE_PLAN_OPENING_INPUT_TYPES:
-        return decode_opening_decision(request, result)[0]
+        return decode_opening_decision(request, result, expected_model=expected_model)[0]
     from .jev_retrieval_contract import validated_choice_answers
     try:
-        choices = validated_choice_answers(result, {'requested_work'})
+        choices = validated_choice_answers(result, {'requested_work'}, **({'expected_model': expected_model} if expected_model else {}))
     except ValueError as exc:
         raise ValueError('Plan requested work result differs from the admitted decision') from exc
     return requested_work_choice(request, choices['requested_work'])
@@ -641,7 +641,7 @@ def requested_work_choice(request, selected):
     return selected
 
 
-def validate_requested_work_wire(request: PlanRequestedWorkInputV1, raw: bytes) -> None:
+def validate_requested_work_wire(request: PlanRequestedWorkInputV1, raw: bytes, *, expected_model=None) -> None:
     """Verify the exact offered work/conditional navigation wire at APP authorization."""
     from .jev_retrieval_contract import MODEL
 
@@ -655,7 +655,7 @@ def validate_requested_work_wire(request: PlanRequestedWorkInputV1, raw: bytes) 
         }
         for q in expected.questions
     }
-    if body != {"model": MODEL, "state": expected.state, "questions": questions}:
+    if body != {"model": expected_model or MODEL, "state": expected.state, "questions": questions}:
         raise ValueError(
             "Plan requested-work wire differs from its offered semantic choices"
         )

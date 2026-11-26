@@ -588,7 +588,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
                     probabilities=(selection_probabilities if name=='requested_work' and selection_probabilities is not None else {key: float(key == chosen) for key in choices}))
-            return httpx2.Response(200, request=req, json=dict(model='jev-1.14.0', answers=answers,
+            assert body['model'] == 'typesafe-ai/jev-1.14.0'
+            return httpx2.Response(200, request=req, json=dict(model='typesafe-ai/jev-1.14.0', answers=answers,
                 usage=dict(input_tokens=37, output_tokens=9)))
 
     class Writer(httpx.AsyncBaseTransport):

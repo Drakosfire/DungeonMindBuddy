@@ -142,7 +142,7 @@ def validate_coverage_result(receipt, execution, decision, proof, trace):
     if not isinstance(raw, str) or sha256(raw.encode()).hexdigest() != decision.controller_response_sha256:
         raise ValueError('App coverage response differs from its acknowledged bytes')
     response = DecisionResult.model_validate(strict_json(raw))
-    validated_choice_answers(response, {'source_requirement'})
+    validated_choice_answers(response, {'source_requirement'}, expected_model=auth.model)
     vote = response.answers['source_requirement'].model_dump(mode='json')
     if _selected_choice(vote, request['questions']['source_requirement']['criteria']) != decision.verdict:
         raise ValueError('App coverage verdict differs from its actual decision')
