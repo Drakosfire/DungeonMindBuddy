@@ -153,6 +153,18 @@ function history(turns: WorldAgentConversationHistoryResponseV1["turns"] = []): 
     conversation_state: "active", conversation_id: "11111111-1111-4111-8111-111111111111", active_conversation_id: "11111111-1111-4111-8111-111111111111",
     pointer_revision: 1, turns, next_before_sequence: null };
 }
+function setupExactBuildRetry(terminal: WorldAgentConversationHistoryResponseV1['turns'][number], mode: 'retained' | 'authoring') {
+  const saved = history([terminal]);
+  vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...saved,schema:'dmb_agent_conversation_history_v3',
+    turns:saved.turns.map(row=>({...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}))});
+  if (mode === 'authoring') {
+    vi.mocked(readDiscussionRetryInput).mockRejectedValue(new LiveApiError('A fresh authoring target is required.',409,{code:'build_authoring_retry_required'}));
+  } else {
+    vi.mocked(readDiscussionRetryInput).mockResolvedValue({schema:'dmb_build_retained_discussion_retry_input_v1',world_id:WORLD,
+      conversation_id:saved.conversation_id!,turn_id:saved.turns[0].turn_id,revision:4,pointer_revision:1,surface_instance_id:'build-instance',
+      message:terminal.user_text,client_work_state:'saved_dirty',snapshot:draftSnapshot(),snapshot_sha256:SHA,authored_references:null});
+  }
+}
 function turn(surface: "plan" | "play", sequence: number, answer: string) {
   return {
     turn_id: `turn-${sequence}`, sequence, lifecycle_status: "completed" as const,
@@ -1865,7 +1877,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it('clears a refused Build retry without overwriting newer writing or dispatching again',async()=>{
     const base=turn('plan',1,''),terminal={...base,lifecycle_status:'interrupted' as const,
       provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'retained');
     let reject!:(reason:Error)=>void;vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise((_resolve,failed)=>{reject=failed;}));
     render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
@@ -1880,7 +1892,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it('retains an exact pending Build retry across remount without losing newer composer text',async()=>{
     const base=turn('plan',1,''),terminal={...base,lifecycle_status:'interrupted' as const,
       provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'retained');
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     const view=render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
@@ -1917,7 +1929,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each([false,true])("shows an exact Build retry placement failure while preserving its draft: %s",async otherDraft=>{
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'authoring');
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>{throw new Error('Choose a page caret for this retry');}),insert:vi.fn()};
     render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const retry=await screen.findByRole('button',{name:'Retry question'});await waitFor(()=>expect(retry).toBeEnabled());
@@ -1928,7 +1940,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it('continues Build retry capture independently of newer conversation typing',async()=>{
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'authoring');
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
@@ -1943,7 +1955,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it('reports a same-page revision change during retry preparation instead of silently returning',async()=>{
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'authoring');
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -1966,7 +1978,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each(['page','world'] as const)('retires retry preparation after foreign %s navigation without posting or showing an old error',async change=>{
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'authoring');
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
