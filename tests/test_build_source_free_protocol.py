@@ -4741,7 +4741,8 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
     from dungeonmind.application.vnext import list_admitted_native_text_sources
     from tests.test_native_corpus_source_access import lane, admit, BODY
     from tests.test_surface_native_execution import controller, outcomes, choice
-    if mode == 'loop_selection_statblock':
+    if mode.startswith('loop_') or mode == 'section_loop':
+        # These fixtures dispatch the installed controller rather than replaying a legacy request.
         from application_state.agent_conversation.jev_retrieval_contract import MODEL
 
         original_pair = pending_execution_pair
