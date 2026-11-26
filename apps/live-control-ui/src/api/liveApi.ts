@@ -1055,11 +1055,11 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
   if (/^\/api\/live\/agent\/worlds\/[^/?#]+\/conversation\/turns\/[0-9a-f-]+\/(?:related-pages|saved-sections\/\d+)\/[0-9a-f-]+$/.test(path)) {
     return method === "GET" && init?.body == null;
   }
-  const conversationResume = /^\/api\/live\/agent\/worlds\/([a-z0-9][a-z0-9_-]{0,62})\/conversations\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/resume$/.exec(path);
-  if (conversationResume) {
+  const conversationLifecycle = /^\/api\/live\/agent\/worlds\/([a-z0-9][a-z0-9_-]{0,62})\/conversations\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\/(?:resume|trash|restore)$/.exec(path);
+  if (conversationLifecycle) {
     const body = requestBodyRecord(init?.body);
-    return method === "POST" && body?.world_id === conversationResume[1]
-      && body.conversation_id === conversationResume[2];
+    return method === "POST" && body?.world_id === conversationLifecycle[1]
+      && body.conversation_id === conversationLifecycle[2];
   }
   const conversation = /^\/api\/live\/agent\/worlds\/[^/?]+\/(conversation(?:\/new|\/commands\/[0-9a-f-]+)?|conversations(?:\/active\/messages|\/[0-9a-f-]+\/(?:messages|turns|retry-context))?)(?:\?([^#]*))?$/.exec(path);
   if (conversation) {
