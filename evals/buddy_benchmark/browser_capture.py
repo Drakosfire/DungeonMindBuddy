@@ -56,7 +56,7 @@ def browser_scratch_directory(output):
     return scratch.resolve()
 
 
-def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail, build_fixture=False):
+def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail, build_fixture=False, live_build=False):
     from apps.live_control_server.hosted_worker import with_startup_gc
     from apps.live_control_server.services import plan_jev_dispatch
     import httpx2
@@ -65,7 +65,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
-    if any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
+    if live_build and (not build_fixture or detail):
+        raise ValueError("Live browser delivery requires the Build fixture")
+    if not live_build and any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
         raise ValueError("Provider-free browser capture requires a credential-free worker process")
     scratch = browser_scratch_directory(output)
     bundle, wire, settled = inputs
@@ -173,9 +175,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 except (ValueError, KeyError):
                     return await JSONResponse({"error": "Build fixture request did not match"}, 409)(scope, receive, send)
                 browser_request = parsed
-                # This preflight never forwards the request to the application or a provider.
-                return await JSONResponse({"code": "benchmark_build_fixture_captured"}, 409)(scope, receive, send)
-            if (browser_request is not None or parsed.get("message") != case["question"]
+                if not live_build:
+                    return await JSONResponse({"code": "benchmark_build_fixture_captured"}, 409)(scope, receive, send)
+            elif (browser_request is not None or parsed.get("message") != case["question"]
                     or parsed.get("surface", {}).get("surface_id") != "plan"
                     or parsed.get("owner_scope") != template["owner_scope"]
                     or parsed.get("primary_work") != work):
@@ -210,16 +212,19 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     sock_host = f"127.0.0.1:{sock.getsockname()[1]}"
     origin = "http://" + sock_host
     local_env = dict(owned_env, DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN=origin,
-                     DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host,
-                     TYPESAFE_JEV_API_KEY="retained-jev-replay",
-                     OPENAI_API_KEY="local-writer-transport-sink")
+                     DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host)
+    if not live_build:
+        local_env.update(TYPESAFE_JEV_API_KEY="retained-jev-replay",
+                         OPENAI_API_KEY="local-writer-transport-sink")
     server = uvicorn.Server(uvicorn.Config(with_startup_gc(serve), log_level="warning",
                                            access_log=False, timeout_graceful_shutdown=10))
     route = "/api/live/agent/worlds/" + world + "/conversation"
+    from contextlib import nullcontext
+    jev_guard = (nullcontext() if live_build else
+                 patch.object(plan_jev_dispatch._ObservedJevTransport, "handle_async_request", replay))
+    writer_guard = nullcontext() if live_build else sink.install()
     try:
-        with (patch.dict(os.environ, local_env),
-              patch.object(plan_jev_dispatch._ObservedJevTransport, "handle_async_request", replay),
-              sink.install()):
+        with patch.dict(os.environ, local_env), jev_guard, writer_guard:
             thread = Thread(target=copy_context().run, args=(server.run,),
                             kwargs={"sockets": [sock]}, daemon=True)
             thread.start()
@@ -251,6 +256,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
+                        "DMB_BENCHMARK_LIVE_BUILD": "1" if live_build else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
@@ -262,7 +268,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if run.returncode or browser_request is None:
                         raise ValueError("Ordinary Plan browser Send did not capture the expected request")
                     artifacts.immutable_save(directory, "request", browser_request)
-                    if build_fixture:
+                    if build_fixture and not live_build:
                         after = client.get(route).raise_for_status().json()
                         if after["turns"] or after["active_conversation_id"] != fresh["active_conversation_id"]:
                             raise ValueError("Build fixture preflight unexpectedly created a turn")
@@ -281,7 +287,16 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turn_id))
                     if len(replayed) != len(wire):
                         raise ValueError("Ordinary browser turn did not consume its entire Jev tape")
-                    sink.finalize(observed)
+                    if live_build:
+                        timing = json.loads((output / "browser-timing.json").read_bytes())
+                        raw = bytes.fromhex(timing["responseHex"])
+                        artifacts.immutable_save(directory, "answer-http", {
+                            "body": json.loads(raw), "http_status": timing["status"],
+                            "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
+                            "elapsed_ms": timing["responseElapsedMs"],
+                        })
+                    else:
+                        sink.finalize(observed)
                     artifacts.immutable_save(directory, "history-after", after)
                     trace = client.get(route + "/turns/" + turn_id + "/context-trace").raise_for_status()
                     artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))

@@ -80,11 +80,12 @@ def test_build_preflight_cli_requires_owned_clone_and_case():
                        "--build-fixture", "--case", "PAGE-EDIT-1", "--clone-app"])
 
 
-def test_build_preflight_cli_selects_existing_capture_owner(monkeypatch):
+@pytest.mark.parametrize("live", [False, True])
+def test_build_preflight_cli_selects_existing_capture_owner(monkeypatch, live):
     from evals.buddy_benchmark import workflow
     calls = []
     monkeypatch.setattr(workflow, "capture", lambda *args, **kwargs: calls.append((args, kwargs)))
     workflow.main(["capture", "--manifest", "fixture.json", "--output", "capture",
-                   "--build-fixture", "--case", "PAGE-EDIT-1", "--clone-app"])
+                   "--build-fixture", "--case", "PAGE-EDIT-1", "--clone-app", *(["--live-build"] if live else [])])
     assert calls == [(("fixture.json", "capture"), {"clone_app": True,
-        "browser_case": "PAGE-EDIT-1", "build_fixture": True})]
+        "browser_case": "PAGE-EDIT-1", "build_fixture": True, "live_build": live})]
