@@ -88,6 +88,20 @@ by other workstreams. No additional database was created or modified for this
 workstream. Recheck capacity before allocating its one reusable clone; do not
 clean up another owner's databases.
 
+## Pending App-page probe witness
+
+`tests/evals/test_negative_retrieval_pending_page_probe.py` exercises the
+serving lineage's actual pending App-page acquisition owner using its synthetic
+in-memory App fixture and mock SDK transport. On exported serving source
+`6595a93e9b4c360a578bf9125876b1cccd6857be`, both read and skip cases passed:
+the probe recorded one catalog discovery in each and a materialization only
+for the read, matching the admitted read event. The synthetic test overrides
+the stale fixture model alias; it does not validate production provider routing.
+The test skips when this predecessor branch lacks the pending route and fails
+normally on missing dependencies when the route exists. The result does not
+exercise the ordinary HTTP turn, native acquisition, live provider or an
+exhaustive journal. Evidence: `Projects/.codex/buddy-check.pending-probe-evidence.txt`.
+
 ## Focused serving-owner diagnostic
 
 On source export `6595a93e9b4c360a578bf9125876b1cccd6857be`, three selected
