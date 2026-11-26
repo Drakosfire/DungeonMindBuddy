@@ -54,6 +54,10 @@ All three shared disposable App slots remained in use on the latest check; this 
 
 Focused evaluator checks: 8 passed, 2 skipped because the benchmark checkout lacks the pending Build lineage. Separately, the new probe wrapped synthetic source-preparation and Graph-binding owner calls in a product checkout whose tree matched deployed merge `5f5fcfba7fcf03a7389d0d5ba9aea0490f8826d9`; it recorded a returned preparation and a raised binding separately. No database or provider was used. This is an owner-hook witness, not an ordinary turn, complete acquisition coverage, or proof that actual callback binding will always be observed.
 
+## Local serving integration candidate
+
+A clean, local-only integration candidate `98e65f0c6bf2d5092c514cfa0cadad27022fd233` in `/home/drakosfire/Projects/.codex/dogfood-lore-review/DungeonMindBuddy` has first parent deployed serving merge `5f5fcfba7fcf03a7389d0d5ba9aea0490f8826d9`. Its only changes are the 23 benchmark-owned paths copied byte-for-byte from benchmark head `d4ab0f8badde8ecb4807496e9dfa70e31b81cb3b`; the shared CI classification was intentionally not copied. The exact committed candidate passed 10 focused probe and evaluator checks, including both pending-Build cases previously skipped on the older draft lineage; no database or live provider was used. This is a local evaluation integration, not a release PR or a production revision. Recreate/requalify it if serving or evaluator code, fixtures, or runtime inputs change; handoff-only updates do not change its benchmark bytes. The benchmark's in-process POST hooks remain partial and the ordinary JSON capture is not a signed-in browser streaming check. No qualified cohort, independent held-out result or complete negative-retrieval journal is claimed.
+
 ## Outcome and lease
 
 Build an independently reviewable evaluation of unnecessary acquisition and
