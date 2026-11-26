@@ -5649,8 +5649,9 @@ describe("World Plan conversation consumer", () => {
     await waitForConversationReady(false);
     expect(loadTrace).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("Trace"));
-    await screen.findByText("How Buddy built this reply");
-    expect(screen.getByText("trace-model")).toBeInTheDocument();
+    await screen.findByRole("tab", { name: "Execution timeline" });
+    fireEvent.click(screen.getByRole("tab", { name: "Execution timeline" }));
+    await screen.findByText("trace-model");
     expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
     expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace", expect.any(AbortSignal));
     openLatestTurnDetails();

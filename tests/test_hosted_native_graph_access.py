@@ -7220,3 +7220,46 @@ def test_production_registry_includes_worldbuilding_recovery_routes():
     from apps.live_control_server.services import hosted_native_graph_access as access
     assert HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/graph-preview/build-worldbuilding-launches")] is access.resolve_hosted_build_extraction
     assert HOSTED_WORLD_SCOPE_RESOLVERS[("GET", "/api/live/graph-preview/build-worldbuilding-launches/{request_id}")] is access.resolve_hosted_build_recap_recovery
+
+
+def test_hosted_image_move_capture_preserves_exact_world_authentication(hosted, monkeypatch):
+    """The normal hosted turn route authorizes before invoking its executor."""
+    from hashlib import sha256
+    from unittest.mock import Mock
+    from apps.live_control_server.routes import agent
+    from application_state.build_proposal.image_move_capture import BuildImageMoveCapture
+
+    execute = Mock()
+    execute.return_value.model_dump.return_value = {"status": "completed"}
+    monkeypatch.setattr(agent, "execute_agent_turn", execute)
+    monkeypatch.setattr(agent, "_conversation_service", lambda request: None)
+    editor = '{}'
+    digest = 'a' * 64
+    capture = BuildImageMoveCapture(
+        basis=dict(world_id='managed', document_id='build', registry_revision=1,
+            content_sha256=digest, draft_sha256=digest, editor_sha256=sha256(editor.encode()).hexdigest(),
+            visibility='internal', draft_generation=0, selection_generation=0, caret=1),
+        editor_json=editor, conversation_id=uuid4(), expected_pointer_revision=1,
+    )
+    body = {
+        'schema': 'dmb_agent_turn_request_v1', 'client_thread_id': 'thread', 'turn_id': 'turn',
+        'surface': {'surface_id': 'build', 'instance_id': 'build'},
+        'owner_scope': {'kind': 'world', 'world_id': 'managed'},
+        'primary_work': {'kind': 'build', 'object_id': 'build', 'expected_revision': 1,
+            'expected_content_sha256': digest},
+        'client_work_state': 'saved_clean',
+        'graph_request': {'mode': 'world', 'world_id': 'managed', 'campaign_id': None,
+            'revision_pin': None, 'focus': {'kind': 'none', 'session_id': None, 'campaign_id': None}},
+        'graph_selection': None, 'message': 'Move the image to the next slot.',
+        'build_image_move_capture': capture.model_dump(mode='json'),
+    }
+    path = '/api/live/agent/turn'
+    assert hosted.client.request('POST', path, session=None, json=body).status_code == 401
+    assert hosted.client.request('POST', path, session='other-session', json=body).status_code == 403
+    execute.assert_not_called()
+    response = hosted.client.request('POST', path, session='owner-session', json=body)
+    assert response.status_code == 200, response.text
+    assert execute.call_count == 1
+    principal = execute.call_args.kwargs['native_principal']
+    assert principal.managed_world_id == 'managed' and principal.role == 'gm'
+    assert execute.call_args.args[0].build_image_move_capture == capture

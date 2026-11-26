@@ -312,7 +312,7 @@ _VARIANT_APPROVAL_PREVIEW_SELECT = """(
 ) AS variant_approval_requested"""
 
 
-def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
+def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False, retry_lineage=False):
     """Bounded message display; never load execution or a full context receipt."""
     from . import repository as repo
     from .authored_reference_preview import SELECT as reference_select, project as reference_preview
@@ -341,6 +341,17 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
     ).fetchall()
     page = list(reversed(rows[:limit]))
     references = repo._turn_reference_page(conn, page) if metadata else {}
+    lineage = {}
+    if retry_lineage and page:
+        lineage = {row["id"]: row for row in conn.execute(
+            """SELECT page.id, i.root_id, i.predecessor_id, i.ordinal, o.successor_id
+            FROM unnest(%s::uuid[]) AS page(id)
+            LEFT JOIN agent.turn_retry i ON i.successor_id=page.id
+                AND i.world_id=%s AND i.conversation_id=%s
+            LEFT JOIN agent.turn_retry o ON o.predecessor_id=page.id
+                AND o.world_id=%s AND o.conversation_id=%s""",
+            ([row["turn_id"] for row in page], world, conversation, world, conversation),
+        ).fetchall()}
     messages = []
     for row in page:
         message = {
@@ -348,6 +359,14 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             for key in ("sequence", "status", "user_text", "assistant_text")
         }
         message["turn_id"] = str(row["turn_id"])
+        edge = lineage.get(row["turn_id"])
+        if edge and (edge["root_id"] is not None or edge["successor_id"] is not None):
+            message["retry_lineage"] = {
+                "root_id": str(edge["root_id"] or row["turn_id"]),
+                "predecessor_id": str(edge["predecessor_id"]) if edge["predecessor_id"] else None,
+                "successor_id": str(edge["successor_id"]) if edge["successor_id"] else None,
+                "ordinal": edge["ordinal"] if edge["ordinal"] is not None else 0,
+            }
         if metadata:
             from .saved_citation_preview import project
             from .retry import author_interaction
@@ -413,7 +432,8 @@ def read_messages(
 
 
 def read_active_messages(
-    world: str, *, limit: int = 50, before_sequence: int | None = None
+    world: str, *, limit: int = 50, before_sequence: int | None = None,
+    retry_lineage: bool = False,
 ):
     """Pointer and message metadata share one APP snapshot, never a replay authority."""
     from . import repository as repo
@@ -434,12 +454,12 @@ def read_active_messages(
                 "Active conversation pointer has no matching owner"
             )
         messages, cursor = (
-            _message_page(conn, world, ident, limit, before_sequence, metadata=True)
+            _message_page(conn, world, ident, limit, before_sequence, metadata=True, retry_lineage=retry_lineage)
             if ident
             else ([], None)
         )
     return {
-        "schema": "dmb_active_conversation_messages_v4",
+        "schema": "dmb_active_conversation_messages_v5" if retry_lineage else "dmb_active_conversation_messages_v4",
         "world_id": world,
         "conversation_state": "active" if ident else "absent",
         "conversation_id": str(ident) if ident else None,

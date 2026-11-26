@@ -97,14 +97,13 @@ def active_messages(
     background_tasks: BackgroundTasks,
     limit: int = Query(50, ge=1, le=100),
     before_sequence: int | None = Query(None, gt=0),
+    retry_lineage: bool = Query(False),
 ):
-    world = scope(request, world_id, {"limit", "before_sequence"})
-    page = call(
-        library.read_active_messages,
-        world,
-        limit=limit,
-        before_sequence=before_sequence,
-    )
+    world = scope(request, world_id, {"limit", "before_sequence", "retry_lineage"})
+    options = {"limit": limit, "before_sequence": before_sequence}
+    if retry_lineage:
+        options["retry_lineage"] = True
+    page = call(library.read_active_messages, world, **options)
 
     if before_sequence is None and limit >= 6 and page.get("active_conversation_id"):
         rows = page["messages"][-6:]

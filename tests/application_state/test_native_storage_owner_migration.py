@@ -352,11 +352,12 @@ def test_current_native_storage_function_is_one_non_strict_invoker_owner(applica
     owner = import_module(MIGRATION)
     old = import_module('application_state.migrations.versions.20261101_0103_shared_native_turns')
     graph = import_module('application_state.migrations.versions.20261122_0181_build_graph_reference_dispatch_fence')
+    image = import_module('application_state.migrations.versions.20261122_0184_build_image_move_native_fence')
     with psycopg.connect(application_state_dsn) as conn:
         props = conn.execute('SELECT proisstrict,provolatile,proparallel,prosecdef,proconfig,'
             'pg_get_functiondef(oid) FROM pg_proc WHERE oid=to_regprocedure(%s)', (owner._SIGNATURE,)).fetchone()
         assert props[:5] == (False, 'i', 's', False, ['search_path=pg_catalog'])
-        assert props[5].count(graph.extend_native_storage_shape(old._NATIVE)) == 1
+        assert props[5].count(image.extend_native_storage_shape(graph.extend_native_storage_shape(old._NATIVE))) == 1
         assert props[5].count("|| '{}'::jsonb") == 2
         assert _definition(conn).count(owner._FUNCTION + '(') == 1
         assert conn.execute("SELECT to_regclass('pg_temp.dmb_native_json_owner_shape')").fetchone() == (None,)
@@ -432,25 +433,49 @@ def test_upgrade_conserves_populated_rows_and_old_reader_fails(storage_predecess
                 dict(conn.execute("SELECT conname,pg_get_expr(conbin,conrelid) FROM pg_constraint "
                     "WHERE conrelid='agent.turn'::regclass AND conname<>'agent_turn_lifecycle_check'").fetchall()))
     before = snapshot()
-    command.upgrade(cli.alembic_config(), 'head')
-    after = snapshot()
-    assert after[:2] == before[:2]
+    # Inspect the exact predecessor of the pending-Build wrapper separately:
+    # earlier migrations add only the independently tested lore completion.
+    command.upgrade(cli.alembic_config(), '20261124_0210')
+    intermediate = snapshot()
+    assert intermediate[:2] == before[:2]
     completion_check = "agent_turn_graph_completion_check"
-    assert {name: expr for name, expr in after[2].items() if name != completion_check} == {
+    assert {name: expr for name, expr in intermediate[2].items() if name != completion_check} == {
         name: expr for name, expr in before[2].items() if name != completion_check
     }
-    # The later local lore-review migration admits only a separate graphless
-    # completion. Retain the original Graph predicate verbatim modulo layout.
     old_graph_predicate = " ".join(before[2][completion_check].split())
-    new_completion_predicate = " ".join(after[2][completion_check].split())
+    new_completion_predicate = " ".join(intermediate[2][completion_check].split())
     assert new_completion_predicate.startswith("(")
     assert new_completion_predicate[1:].lstrip().startswith(old_graph_predicate + " OR ")
     assert new_completion_predicate.count("dmb_lore_save_review_reference_v1") == 1
+
+    command.upgrade(cli.alembic_config(), 'head')
+    after = snapshot()
+    assert after[:2] == before[:2]
+    wrapped = {'agent_turn_graph_context_receipt_check',
+        'agent_turn_graph_context_execution_check', completion_check}
+    assert {name: expr for name, expr in after[2].items() if name not in wrapped} == {
+        name: expr for name, expr in intermediate[2].items() if name not in wrapped
+    }
+    # Reconstruct PostgreSQL's deparsed 0211 wrapper for every original
+    # predicate, including its crossed-family rejection, rather than ignoring it.
+    with psycopg.connect(storage_predecessor) as conn:
+        conn.execute('CREATE TEMP TABLE expected_pending_wrap (LIKE agent.turn) ON COMMIT DROP')
+        for index, name in enumerate(sorted(wrapped)):
+            predicate = ("COALESCE((graph_context_receipt->>'schema'='dmb_build_pending_context_receipt_v1' "
+                "AND graph_context_execution->>'schema'='dmb_build_pending_execution_v1'),FALSE)")
+            expression = ("CASE WHEN graph_context_receipt->>'schema'='dmb_build_pending_context_receipt_v1' "
+                "OR graph_context_execution->>'schema'='dmb_build_pending_execution_v1' "
+                f"THEN ({predicate}) ELSE ({intermediate[2][name]}) END")
+            constraint = f'expected_{index}'
+            conn.execute(sql.SQL('ALTER TABLE expected_pending_wrap ADD CONSTRAINT {} CHECK (').format(sql.Identifier(constraint)) + sql.SQL(expression) + sql.SQL(')'))
+            expected = conn.execute("SELECT pg_get_expr(conbin,conrelid) FROM pg_constraint "
+                "WHERE conrelid='pg_temp.expected_pending_wrap'::regclass AND conname=%s", (constraint,)).fetchone()[0]
+            assert after[2][name] == expected, name
     with monkeypatch.context() as patch:
         patch.setattr(cli, '_alembic_head', lambda: '20261108_0141')
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_at_head(dsn=storage_predecessor)
-    with pytest.raises(RuntimeError, match=r'forward (migration|recovery)'):
+    with pytest.raises(RuntimeError, match=r'forward (migration|recovery|reader)'):
         command.downgrade(cli.alembic_config(), '20261108_0141')
     assert snapshot() == after
 
