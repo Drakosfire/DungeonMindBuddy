@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {expect,it,vi} from 'vitest';
-import {ConversationReplyDetails, TraceEvidence} from './ConversationReplyDetails';
+import {ConversationReplyDetails, TraceEvidence, TraceDiagnostics} from './ConversationReplyDetails';
 
 it('keeps one disclosure open through delayed hydration and does not repeat a read',async()=>{
   let finish!:()=>void;
@@ -104,4 +104,14 @@ it('confines saved suggestion review to Evidence when switching Trace tabs', () 
   }
   fireEvent.click(screen.getByRole('tab', {name: 'Evidence'}));
   expect(suggestion).toBeVisible();
+});
+
+
+it('shows saved turn information only in Diagnostics',()=>{
+ render(<ConversationReplyDetails id="reply" open onOpenChange={()=>{}} loaded load={async()=>{}}>
+  <TraceDiagnostics><p>Turn 6 · completed</p></TraceDiagnostics>
+ </ConversationReplyDetails>);
+ expect(screen.getByText('Turn 6 · completed')).not.toBeVisible();
+ fireEvent.click(screen.getByRole('tab',{name:'Diagnostics'}));
+ expect(screen.getByText('Turn 6 · completed')).toBeVisible();
 });
