@@ -490,7 +490,7 @@ def test_upgrade_conserves_populated_rows_and_old_reader_fails(storage_predecess
         patch.setattr(cli, '_alembic_head', lambda: '20261108_0141')
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_at_head(dsn=storage_predecessor)
-    with pytest.raises(RuntimeError, match=r'forward (migration|recovery)'):
+    with pytest.raises(RuntimeError, match='Stored statblock conversations require a compatible forward reader'):
         command.downgrade(cli.alembic_config(), '20261108_0141')
     assert snapshot() == after
 
