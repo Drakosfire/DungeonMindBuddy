@@ -441,8 +441,8 @@ describe("NativeGraphDemo", () => {
 
     await user.click(mara);
     expect(screen.getByRole("heading", { name: "Mara" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Connections in this loaded snapshot" })).toBeInTheDocument();
-    expect(screen.getByText("stays_at → Lantern Inn")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lantern Inn" }).closest("li")).toHaveTextContent("stays at");
     svgWidth = 500;
     act(() => notifySvgResize([{ contentRect: { width: 500, height: 360 } } as ResizeObserverEntry], {} as ResizeObserver));
     expect(scene.getAttribute("transform")).toBe(beforeSelection);
@@ -461,12 +461,12 @@ describe("NativeGraphDemo", () => {
     expect(screen.queryByRole("button", { name: "Exit focus" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Close details" }));
     await waitFor(() => expect(mara).toHaveFocus());
-    expect(screen.queryByRole("heading", { name: "Connections in this loaded snapshot" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Connections" })).not.toBeInTheDocument();
     await user.click(mara);
-    expect(screen.getByRole("heading", { name: "Connections in this loaded snapshot" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(mara).toHaveFocus());
-    expect(screen.queryByRole("heading", { name: "Connections in this loaded snapshot" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Connections" })).not.toBeInTheDocument();
   });
 
   it("shows managed inspection from the exact loaded snapshot through the shared details view", async () => {
@@ -567,7 +567,7 @@ describe("NativeGraphDemo", () => {
     fireEvent.keyDown(screen.getByRole("group", { name: /world graph/i }), { key: "+" });
     const cameraBeforeSecondFocus = scene.getAttribute("transform");
     await user.click(screen.getByRole("button", { name: /Mara, npc/i }));
-    expect(screen.getByRole("heading", { name: "Connections in this loaded snapshot" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Focus" }));
     await user.click(screen.getByRole("button", { name: "Exit focus" }));
     await waitFor(() => expect(scene.getAttribute("transform")).toBe(cameraBeforeSecondFocus));

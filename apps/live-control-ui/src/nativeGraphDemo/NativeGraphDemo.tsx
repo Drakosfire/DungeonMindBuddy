@@ -1866,18 +1866,24 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       setSelectedNodeId(previous);
       requestCameraFocus(previous);
     } : undefined}
+    guestContent={mode === "playground" ? renderGuestNodeDetails?.(selectedNode.id, (nodeId) => {
+      if (pendingOperation || !nodesById.has(nodeId)) return;
+      focusInspectorRef.current = true;
+      handleCanvasSelectionChange(nodeId as LocalObjectId);
+      requestCameraFocus(nodeId);
+    }) : undefined}
     onExplore={(nodeId) => {
       if (pendingOperation || !nodesById.has(nodeId)) return;
       focusInspectorRef.current = true;
       handleCanvasSelectionChange(nodeId as LocalObjectId);
       requestCameraFocus(nodeId);
     }}
-  />{renderGuestNodeDetails?.(selectedNode.id, (nodeId) => {
+  />{mode === "guest" ? renderGuestNodeDetails?.(selectedNode.id, (nodeId) => {
     if (pendingOperation || !nodesById.has(nodeId)) return;
     focusInspectorRef.current = true;
     handleCanvasSelectionChange(nodeId as LocalObjectId);
     requestCameraFocus(nodeId);
-  })}</> : null;
+  }) : null}</> : null;
 
 
   return (

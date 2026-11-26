@@ -1,6 +1,6 @@
 import { NodeDossier } from "../graphLens/NodeDossier";
 import { GraphNodeViewer } from "../graphLens/GraphNodeViewer";
-import { useRef, useEffect, type Ref } from "react";
+import { useRef, useEffect, type ReactNode, type Ref } from "react";
 import { type NativeGraphEntity } from "../api/nativeGraphInspection";
 import { projectNativeObject } from "../graphLens/nativeObjectProjection";
 import { compactNodeLabel } from "./graphNodeExplorerModel";
@@ -9,11 +9,11 @@ import type { NativeGraphNode, NativeGraphEdge } from "./nativeGraphDemoApi";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
 
 /** Single owner of graph explorer chrome, identity, loading and evidence presentation. */
-export function NativeGraphNodeExplorer({ node, revision, detail, labels, entityOnly = false, sourceReads = false, partial = false, navigationDisabled = false, onExplore, onFocus, onClose, onExitFocus, onBack, previousLabel, headingRef, mode = "managed", status = "ready", error, connections = [] }: {
+export function NativeGraphNodeExplorer({ node, revision, detail, labels, entityOnly = false, sourceReads = false, partial = false, navigationDisabled = false, onExplore, onFocus, onClose, onExitFocus, onBack, previousLabel, headingRef, mode = "managed", status = "ready", error, connections = [], guestContent }: {
   node: NativeGraphNode; revision: string; detail: NativeGraphEntity | null; labels: ReadonlyMap<string, string>;
   entityOnly?: boolean; sourceReads?: boolean; partial?: boolean; navigationDisabled?: boolean; onExplore: (entityId: string) => void;
   onFocus: () => void; onClose: () => void; onExitFocus?: () => void; onBack?: () => void; previousLabel?: string;
-  headingRef?: Ref<HTMLHeadingElement>; mode?: "managed" | "playground"; status?: "idle" | "loading" | "ready" | "unavailable" | "error"; error?: string | null; connections?: readonly NativeGraphEdge[];
+  headingRef?: Ref<HTMLHeadingElement>; mode?: "managed" | "playground"; status?: "idle" | "loading" | "ready" | "unavailable" | "error"; error?: string | null; connections?: readonly NativeGraphEdge[]; guestContent?: ReactNode;
 }) {
   const presentation = nativeGraphPresentation(node);
   const menuRef = useRef<HTMLDetailsElement>(null);
@@ -48,20 +48,22 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
         </details>
         <button type="button" onClick={onClose} aria-label="Close details" title="Close details"><span aria-hidden="true">×</span></button>
       </nav>}>
+    {guestContent}
     {mode === "managed" ? status === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
       : status === "ready" && detail && !detail.entity.found ? <p>This object is unavailable in the selected revision.</p>
       : status === "ready" && detail && model ? <NodeDossier nodeLabel={compactNodeLabel(node)} model={model} detail={detail} entityId={node.id} showStatblocks={!entityOnly && presentation.displayKind !== "event"} labels={labels} entityOnly={entityOnly} sourceReads={sourceReads} navigationDisabled={navigationDisabled} onExplore={onExplore} />
         : <p role={status === "error" ? "alert" : "status"}>{error ?? "Select this object to inspect its loaded World revision."}</p>
       : <section className="native-demo-object-details__connections" aria-labelledby="native-demo-selected-connections-title">
-        <h3 id="native-demo-selected-connections-title">Connections in this loaded snapshot</h3>
+        <h3 id="native-demo-selected-connections-title">Connections</h3>
         {connections.length ? <ul>{connections.map((edge) => {
           const outgoing = edge.source_id === node.id;
           const otherId = outgoing ? edge.target_id : edge.source_id;
           const otherName = labels.get(otherId) ?? "Unknown object in this snapshot";
-          return <li key={edge.id}>{outgoing ? `${edge.predicate} → ${otherName}` : `${otherName} → ${edge.predicate} → ${compactNodeLabel(node)}`}</li>;
+          const relationship = edge.predicate.replace(/^.*:/, "").replace(/_/g, " ");
+          const target = <button type="button" className="graph-node-explorer__link" disabled={navigationDisabled || !labels.has(otherId)} onClick={() => onExplore(otherId)}>{otherName}</button>;
+          return <li key={edge.id}>{outgoing ? <>{relationship} · {target}</> : <>{target} · {relationship} · {compactNodeLabel(node)}</>}</li>;
         })}</ul> : <p>No listed connections for this object in this loaded snapshot.</p>}
         {partial ? <p role="status">This graph read is partial, so additional connections may not be listed.</p> : null}
-        <details><summary>Snapshot revision</summary><code>{revision}</code></details>
       </section>}
   </GraphNodeViewer>;
 }

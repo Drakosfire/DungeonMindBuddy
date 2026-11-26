@@ -1,0 +1,5 @@
+# GRAPH: Guest node story panel
+
+Status: ACTIVE under Alan's request to make the Graph explorer more useful and presentable. One serial PR, branch `codex/guest-graph-node-story`, based on serving source `8f870a89816394da843fa0d13bb581f54f94ab96` in `/tmp/sizzek-release-reanchor-20261125`. Outcome: show existing directly supporting excerpts in the selected guest node, retain detailed evidence, and allow navigation along loaded connections. Preserve the current graph and session ownership; no new story facts or source data are inferred.
+
+Write lease: this handoff; `apps/live-control-ui/src/BuddyApp.tsx`, `graphLens/GraphNodeViewer.css`, `nativeGraphDemo/{GraphNodeExplorer.tsx,GraphNodeExplorer.test.tsx,NativeGraphDemo.tsx,NativeGraphDemo.test.tsx}` and `App.guestEntry.test.tsx`. Existing public-release evidence placement stays unchanged. Verify signed-out source loading, duplicate excerpts, source unavailability, connection direction and navigation, and existing graph focus; visually inspect the node against the public Sizzek excerpts. Review exact head before merge. Release only against the verified current serving parent through GitHub Actions when authorized.

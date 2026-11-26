@@ -106,7 +106,11 @@ function nativeIndexFetch(graph = guestGraph, authStatus: "local_operator" | "si
       : response(200, { status: authStatus });
     if (path === "/api/live/index-graph/session") return response(200, { csrf_token: "guest-csrf" });
     if (path === "/api/live/index-graph/graph") return response(200, graph);
-    if (path.startsWith("/api/live/index-graph/nodes/") && path.endsWith("/sources")) return response(200, { sources: [{ text: "Lina lives near the quay.", role: "support", claim: "Lina · lives near · Amber Quay", qualification: "asserted · established · time unknown" }] });
+    if (path.startsWith("/api/live/index-graph/nodes/") && path.endsWith("/sources")) return response(200, { sources: [
+      { text: "Lina lives near the quay.", role: "support", claim: "Lina · lives near · Amber Quay", qualification: "asserted · established · time unknown" },
+      { text: "Lina lives near the quay.", role: "support", claim: "Lina · name · Lina", qualification: "asserted" },
+      { text: "Background, not direct support.", role: "context", claim: "Context", qualification: "context" },
+    ] });
     return response(404, { error: "Not found.", code: "not_found" });
   });
 }
@@ -573,8 +577,26 @@ describe("canonical local guest entry", () => {
     expect(screen.getByRole("button", { name: "Reset guest World" })).toBeInTheDocument();
     expectOnlyScopedIndexCalls(fetchMock);
     fireEvent.click(screen.getByRole("button", { name: "Lina, person" }));
-    expect(await screen.findByText(/Source evidence: Lina/)).toBeInTheDocument();
-    expect(screen.getByText("Lina lives near the quay.")).toBeInTheDocument();
+    expect(await screen.findAllByText(/Source evidence: Lina/)).toHaveLength(2);
+    const storyExcerpts = screen.getAllByText("Lina lives near the quay.").filter(item => !item.closest("blockquote"));
+    expect(storyExcerpts).toHaveLength(1);
+    expect(storyExcerpts[0]).toBeVisible();
+    expect(storyExcerpts[0].closest(".native-demo-object-details")).toContainElement(screen.getByRole("heading", { name: "Lina" }));
+    expect(screen.getByText("Background, not direct support.")).not.toBeVisible();
+    expect(screen.getByText("View sources (3)").closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: "Amber Quay" }));
+    expect(await screen.findByRole("heading", { name: "Amber Quay" })).toBeInTheDocument();
+  });
+
+  it("keeps the guest node usable when source excerpts are unavailable", async () => {
+    vi.stubEnv("VITE_HOSTED_GUEST_GRAPH", "1");
+    const fallback = nativeIndexFetch(guestGraph, "signed_out");
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => String(input).endsWith("/sources")
+      ? Promise.resolve(response(503, { error: "Unavailable" })) : fallback(input)));
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Lina, person" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sources are unavailable.");
+    expect(screen.getByRole("button", { name: "Amber Quay" })).toBeEnabled();
   });
 
   it("offers the Sizzek Graph from Buddy Home when signed out", async () => {
