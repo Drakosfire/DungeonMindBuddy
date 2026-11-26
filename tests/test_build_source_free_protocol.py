@@ -5846,3 +5846,72 @@ def test_pending_reader_accepts_current_saved_page_only_at_frozen_basis():
     with pytest.raises(ValueError, match='saved current page differs from its frozen source basis'):
         effective_pending_source(bad_receipt, pending_execution(bad_receipt, bad_policy,
             [*events[:4], bad_catalog, *events[5:8], selection, read]))
+
+
+def test_pending_selection_reader_accepts_old_and_current_page_wire_without_producing_new():
+    from hashlib import sha256
+    from application_state.agent_conversation.build_decision_context import identity
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from application_state.agent_conversation.build_source_free import (
+        _compile_pending_app_page_selection_input, pending_app_page_selection_input,
+        validate_pending_app_page_selection_request,
+    )
+    receipt, execution, auth, initial, _, _ = pending_page_input_case()
+    basis = receipt.work_context.source_basis
+    pointer = PagePointer(world_id=basis.world_id, document_id=UUID(basis.document_id),
+        registry_revision=basis.registry_revision, title='Current draft', visibility=basis.visibility)
+    events = list(execution.events)
+    events[-1] = events[-1].model_copy(update={'pages': (pointer,)})
+    execution = pending_execution(receipt, execution.policy, events)
+    old = _compile_pending_app_page_selection_input(receipt, execution, initial, (pointer,))
+    current = _compile_pending_app_page_selection_input(receipt, execution, initial, (pointer,), current_variant=True)
+    assert old != current and pending_app_page_selection_input(receipt, execution, initial) == old
+    for value in (old, current):
+        raw = json.dumps(value)
+        envelope = sha256(raw.encode()).hexdigest()
+        adapted = auth.model_copy(update={'envelope_sha256': envelope,
+            'dispatch_identity_sha256': identity(envelope_sha256=envelope, provider=auth.provider,
+                model=auth.model, api_mode=auth.api_mode, context_mode=auth.context_mode)})
+        assert validate_pending_app_page_selection_request(receipt, execution, adapted, raw, initial) == value
+        tampered = json.loads(raw)
+        tampered['state']['saved_pages'][0]['title'] = 'Forged title'
+        with pytest.raises(ValueError, match='changed its frozen dialogue'):
+            validate_pending_app_page_selection_request(receipt, execution, adapted, json.dumps(tampered), initial)
+
+
+def test_pending_selection_reader_verifies_new_current_page_votes():
+    from hashlib import sha256
+    from generationengine.types import DecisionResult, ChoiceDecisionAnswer, InferenceObservation
+    from application_state.agent_conversation.build_decision_context import identity
+    from application_state.agent_conversation.build_related_pages import PagePointer, RelatedPagesSelection
+    from application_state.agent_conversation.build_source_free import (
+        _compile_pending_app_page_selection_input, validate_pending_app_page_selection_result,
+    )
+    from tests.test_surface_native_execution import outcomes
+    receipt, before, auth, initial, _, _ = pending_page_input_case()
+    basis = receipt.work_context.source_basis
+    pointer = PagePointer(world_id=basis.world_id, document_id=UUID(basis.document_id),
+        registry_revision=basis.registry_revision, title='Current draft', visibility=basis.visibility)
+    events = list(before.events)
+    events[-1] = events[-1].model_copy(update={'pages': (pointer,)})
+    before = pending_execution(receipt, before.policy, events)
+    request = json.dumps(_compile_pending_app_page_selection_input(receipt, before, initial, (pointer,), current_variant=True))
+    digest = sha256(request.encode()).hexdigest()
+    auth = auth.model_copy(update={'envelope_sha256': digest,
+        'dispatch_identity_sha256': identity(envelope_sha256=digest, provider=auth.provider,
+            model=auth.model, api_mode=auth.api_mode, context_mode=auth.context_mode)})
+    execution = pending_execution(receipt, before.policy, [*before.events, auth, *outcomes(auth, 6)])
+    response = DecisionResult(answers={'page1': ChoiceDecisionAnswer(selected='read', probabilities={'read': .9, 'skip': .1})},
+        observation=InferenceObservation(provider='typesafe', resolved_model='jev-1.14.0', response_model='jev-1.14.0',
+            latency_ms=1, retry_count=0, state='completed', provider_attempt_count=1))
+    raw = response.model_dump_json(by_alias=True)
+    capture, store, _ = pending_response_collector(components=(receipt, execution))
+    capture.controller_decision_response(raw, producing_provider_attempt_id=auth.provider_attempt_id)
+    selected = RelatedPagesSelection(event_id=uuid4(), sequence=8, controller_attempt_id=auth.provider_attempt_id,
+        controller_envelope_sha256=auth.envelope_sha256, controller_response_sha256=sha256(raw.encode()).hexdigest(),
+        document_ids=[pointer.document_id])
+    proof = {'request_json': request, 'response_json': raw, 'initial_request_json': initial}
+    trace = store.trace.model_dump(mode='json', by_alias=True)
+    assert validate_pending_app_page_selection_result(receipt, execution, selected, proof, trace) == (pointer.document_id,)
+    with pytest.raises(ValueError, match='actual read/skip votes'):
+        validate_pending_app_page_selection_result(receipt, execution, selected.model_copy(update={'document_ids': []}), proof, trace)

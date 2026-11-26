@@ -88,9 +88,13 @@ def question_name(index):
     return f"related_page_{index}"
 
 
-def question_text(page, *, semantic=False):
+def question_text(page, *, semantic=False, current_offer=False, is_current=False):
     label = page.title if semantic else f"{page.title} (revision {page.registry_revision})"
-    return f"Read this exact saved authored page to serve the current request: {label}? Read requested existing pages before choosing people or shops. Skip unrelated pages. A title is navigation, not evidence."
+    text = f"Read this exact saved authored page to serve the current request: {label}? Read requested existing pages before choosing people or shops. Skip unrelated pages. A title is navigation, not evidence."
+    if current_offer:
+        text += (" This is the open page's saved revision. Read it when the request asks what the current saved page says."
+                 if is_current else " This is a different page. Skip it when the request is limited to the current page unless it is independently needed.")
+    return text
 
 
 def catalog(policy):
@@ -426,7 +430,7 @@ def validate_events(execution):
             read_ids.add(event.read_id)
 
 
-def should_read_page(page, question, answer, *, semantic=False):
+def should_read_page(page, question, answer, *, semantic=False, current_offer=False, is_current=False):
     """Resolve only optional eligible-page acquisition, preserving raw votes.
 
     A tie requests a read, not authoring action or factual authority. Exact
@@ -436,7 +440,7 @@ def should_read_page(page, question, answer, *, semantic=False):
 
     probs = answer.probabilities
     if (
-        question.get("instructions") != question_text(page, semantic=semantic)
+        question.get("instructions") != question_text(page, semantic=semantic, current_offer=current_offer, is_current=is_current)
         or set(question.get("criteria", {})) != {"read", "skip"}
         or answer.selected not in {"read", "skip"}
         or set(probs) != {"read", "skip"}
