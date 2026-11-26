@@ -470,6 +470,10 @@ def verify_capture_environment(expected):
         raise ValueError("Runtime qualification changed; no question dispatched")
 
 
+class BuildSequenceStopped(ValueError):
+    """An observed failed turn prevented dependent turns from dispatching."""
+
+
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
             browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None):
     """Explicit live entry point; never invoked by offline reporting."""
@@ -635,7 +639,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
                     expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot)
                 if build_sequence:
                     if response.status_code != 200:
-                        raise ValueError("Build turn failed; later turns not dispatched")
+                        raise BuildSequenceStopped("Build turn failed; later turns not dispatched")
                     conversation_id = _wrapped(directory / "history-after.json")["body"]["active_conversation_id"]
     finally:
         if not cohort_member:
@@ -1374,7 +1378,7 @@ def action_report(manifest_path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context",
-        "capture-context-cohort", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
+        "capture-context-cohort", "capture-cohort", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--workers", type=int, default=2)
@@ -1397,8 +1401,8 @@ def main(argv=None):
         parser.error("--detailed-trace requires capture-context or a browser cohort")
     if args.writer_transport and args.mode != "capture-context":
         parser.error("--writer-transport requires capture-context")
-    if args.clone_app and args.mode not in {"capture", "capture-context", "capture-context-cohort"}:
-        parser.error("--clone-app requires capture, capture-context or capture-context-cohort")
+    if args.clone_app and args.mode not in {"capture", "capture-context", "capture-context-cohort", "capture-cohort"}:
+        parser.error("--clone-app requires a capture command")
     if args.mode != "report" and (args.oracle or args.citation_readback):
         parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "trace-report":
@@ -1427,10 +1431,11 @@ def main(argv=None):
             options["clone_app"] = True
         capture(args.manifest, args.output, context_only=True, writer_transport=args.writer_transport,
                 detailed_trace=args.detailed_trace, **options)
-    elif args.mode == "capture-context-cohort":
+    elif args.mode in {"capture-context-cohort", "capture-cohort"}:
         from .cohort_capture import capture_cohort
         capture_cohort(args.manifest, args.output, workers=args.workers,
-                       browser=browser_cohort, detailed_trace=args.detailed_trace, clone_app=args.clone_app)
+                       browser=browser_cohort, detailed_trace=args.detailed_trace, clone_app=args.clone_app,
+                       context_only=args.mode == "capture-context-cohort")
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     elif args.mode == "context-tasting":
