@@ -269,7 +269,7 @@ def verify_input(turn, auth, proof):
         validate_prepared(auth, execution, proof["request_json"],
             host_phase="navigate" if isinstance(parent, NativeBuildRetrievalDecisionInputV3) else None)
     validate_wire_body(
-        parent, proof["request_json"].encode(), controller_accounting=accounting
+        parent, proof["request_json"].encode(), controller_accounting=accounting, expected_model=auth.model
     )
     return parent
 
@@ -359,7 +359,7 @@ def verify_selection(turn, event, proof, trace):
             "Native selection differs from its exact protected SDK response"
         )
     result = DecisionResult.model_validate(strict_json(raw))
-    selected = decode_selection(parent, result)
+    selected = decode_selection(parent, result, expected_model=auth.model)
     if (type(event) is NativeRetrievalSelectedV2
             and event.exhausted_continuation_offer != exhausts_continuation_offer(parent, selected)):
         raise ValueError("Native selection differs from the accepted bounded continuation offer")

@@ -180,6 +180,11 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
 
 
 def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
+    if failure == 'retry_controller_bad_request':
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+        observe = native_corpus_source.observe_build_source_pointer
+        monkeypatch.setattr(native_corpus_source, 'observe_build_source_pointer',
+            lambda **kwargs: observe(repository=lane.repo, **kwargs))
     if lore_legacy_menu:
         from application_state.agent_conversation import build_intentional_response as intent
         work, guidance = intent._PRE_LORE_OUTCOME_WORK, intent._PRE_LORE_OUTCOME_GUIDANCE
@@ -493,6 +498,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             self.deny_routing=False
         async def handle_async_request(self, req):
             self.calls.append(req)
+            if failure == 'retry_controller_bad_request' and len(self.calls) == 1:
+                return httpx2.Response(400, request=req, json={'error': {'message': 'Synthetic rejected decision request'}})
             if before_provider is not None:
                 before_provider(writer.adapter, 'typesafe')
             body = json.loads(req.content)
@@ -581,7 +588,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
                     probabilities=(selection_probabilities if name=='requested_work' and selection_probabilities is not None else {key: float(key == chosen) for key in choices}))
-            return httpx2.Response(200, request=req, json=dict(model='jev-1.14.0', answers=answers,
+            assert body['model'] == 'typesafe-ai/jev-1.14.0'
+            return httpx2.Response(200, request=req, json=dict(model='typesafe-ai/jev-1.14.0', answers=answers,
                 usage=dict(input_tokens=37, output_tokens=9)))
 
     class Writer(httpx.AsyncBaseTransport):
@@ -1059,7 +1067,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             expected_content_sha256=source.content_sha256), client_work_state='saved_clean',
         graph_request=dict(mode='world', world_id=world, campaign_id=None, revision_pin=None,
             focus=dict(kind='none', session_id=None, campaign_id=None)), graph_selection=None,
-        build_authored_references=None if saved_statblock == 'by-name' or failure == 'deferred_graph_citation' else selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
+        build_authored_references=None if saved_statblock == 'by-name' or failure in {'deferred_graph_citation', 'retry_controller_bad_request'} else selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
     if image_move:
         from application_state.build_proposal.image_move_decision import BuildImageMoveCapture
         from tests.application_state.test_agent_conversation_postgres import _new
@@ -1122,18 +1130,32 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return BuildImageService().get(uuid5(cap.idempotency_key,'image'),writer.adapter.build_image_owner)
         from application_state.build_proposal.service import BuildProposalService
         return BuildProposalService().get(world,cap.idempotency_key)
-    if failure=='retry_authoring_selection':
+    if failure in {'retry_authoring_selection', 'retry_controller_bad_request'}:
         from copy import deepcopy
         from apps.live_control_server.services.build_jev_driver import BuildJevDriver
         original_accept=BuildJevDriver.accept_decision
         def fail_selection(self,*args,**kwargs):
             raise ValueError('synthetic failure before authoring resolution')
-        monkeypatch.setattr(BuildJevDriver,'accept_decision',fail_selection)
+        if failure == 'retry_authoring_selection':
+            monkeypatch.setattr(BuildJevDriver,'accept_decision',fail_selection)
         refused=client.post('/api/live/agent/turn',json=body)
         assert refused.status_code==503 and not writer.calls,refused.text
         monkeypatch.setattr(BuildJevDriver,'accept_decision',original_accept)
         service=AgentConversationService();failed=service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
         assert failed.status=='interrupted'
+        if failure == 'retry_controller_bad_request':
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            from application_state.agent_conversation.native_execution import BuildPendingExecutionV1
+            assert type(failed.graph_context_receipt) is BuildPendingContextReceiptV1
+            assert type(failed.graph_context_execution) is BuildPendingExecutionV1
+            from application_state.agent_conversation.retry import _settled
+            from application_state.agent_conversation.service import _ready_dsn
+            import psycopg
+            execution = failed.graph_context_execution
+            unknown = execution.model_copy(update={'events': [e for e in execution.events
+                if not (isinstance(e, t.ProviderOutcomeEventV1) and e.outcome == 'response_received')]})
+            with psycopg.connect(_ready_dsn()) as conn:
+                assert _settled(conn, failed.model_copy(update={'graph_context_execution': unknown})) == 'unknown_outcome'
         assert not any(isinstance(e,t.BuildRequestedWorkResolutionV1) for e in failed.graph_context_execution.events)
         prefix=f'/api/live/agent/worlds/{world}/conversations/{failed.conversation_id}'
         eligibility=client.get(prefix+'/retry-context',params={'turn_ids':str(failed.turn_id)})
@@ -1162,6 +1184,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             replay=client.post('/api/live/agent/turn',json=retry)
             assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True
             assert len(writer.calls)==1
+            if failure == 'retry_controller_bad_request':
+                successor = service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
+                from application_state.agent_conversation.types import BuildDraftContextCapturedV1, ProviderAttemptAuthorizedEventV5
+                allowed = (BuildDraftContextCapturedV1, ProviderAttemptAuthorizedEventV5, t.ProviderOutcomeEventV1)
+                later_event = next(e for e in successor.graph_context_execution.events if type(e) not in allowed)
+                later = execution.model_copy(update={'events': [*execution.events, later_event]})
+                with psycopg.connect(_ready_dsn()) as conn:
+                    assert _settled(conn, failed.model_copy(update={'graph_context_execution': later})) == 'unverified'
         assert service.inspect_turn(world_id=world,turn_id=failed.turn_id)==failed
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
@@ -2619,6 +2649,11 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
 @pytest.mark.parametrize('mutation',[None,'capability','question','reference','revision'])
 def test_native_unresolved_authoring_retry_requires_fresh_capture_and_preserves_failure(lane,tmp_path,monkeypatch,mutation):
     _fresh_case(lane,tmp_path,monkeypatch,'retry_authoring_selection',True,False,True,retry_mutation=mutation)
+
+
+@pytest.mark.parametrize('mutation', [None, 'capability', 'question', 'revision'])
+def test_native_controller_bad_request_can_recover_with_fresh_authoring_capture(lane,tmp_path,monkeypatch,mutation):
+    _fresh_case(lane,tmp_path,monkeypatch,'retry_controller_bad_request',True,False,True,retry_mutation=mutation)
 
 
 @pytest.mark.parametrize("mode", [True, "associated", "by-name"])

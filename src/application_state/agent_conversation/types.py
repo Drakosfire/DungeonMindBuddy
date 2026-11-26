@@ -3201,7 +3201,10 @@ class PlanJevRetrievalPolicyV1(ControllerWriterGraphExecutionPolicyV3):
 
     @model_validator(mode="after")
     def exact_decision_controller(self):
-        if self.provider_roles.controller.identity() != ("typesafe", "jev-1.14.0", "decision"):
+        from .build_decision_context import JEV_CONTROLLER_MODELS
+        if (self.provider_roles.controller.provider != "typesafe"
+                or self.provider_roles.controller.model not in JEV_CONTROLLER_MODELS
+                or self.provider_roles.controller.api_mode != "decision"):
             raise ValueError("Plan retrieval requires the exact Jev decision controller")
         return self
 

@@ -488,7 +488,7 @@ def validate_pending_app_page_selection_result(receipt, execution, selection, pr
     if not isinstance(response_raw, str) or sha256(response_raw.encode()).hexdigest() != selection.controller_response_sha256:
         raise ValueError('Pending App choices differ from their producing response')
     response = DecisionResult.model_validate(strict_json(response_raw))
-    validated_choice_answers(response, set(request['questions']))
+    validated_choice_answers(response, set(request['questions']), expected_model=authorization.model)
     item_id = f'unvalidated-controller-decision:{authorization.provider_attempt_id}:{receipt.context_receipt_sha256}'
     captured = [material for observation in (trace or {}).get('observations', [])
                 if observation.get('kind') == 'context_snapshot'

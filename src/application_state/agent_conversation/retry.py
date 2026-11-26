@@ -92,10 +92,33 @@ def _references(execution):
 def _settled(conn, turn, *, lock=False):
     if turn.status not in {"failed", "interrupted"} or turn.completion is not None:
         return "not_terminal"
-    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
     shared=(type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1
         and _native_action(turn.graph_context_execution) is not None)
-    if (not isinstance(turn.graph_context_receipt,BuildGraphContextReceiptV1) and not shared
+    execution = turn.graph_context_execution
+    pending = (type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+        and type(execution) is BuildPendingExecutionV1
+        and execution.context_receipt_sha256 == turn.graph_context_receipt.context_receipt_sha256
+        and _native_action(execution) is not None)
+    if pending:
+        # Only the initial decision, before any selected work or side effect, is
+        # covered here. Later pending executions must remain independently proven.
+        from .types import BuildDraftContextCapturedV1, ProviderAttemptAuthorizedEventV5
+        from .build_draft_context import context_record, validate_record
+        allowed = (BuildDraftContextCapturedV1, ProviderAttemptAuthorizedEventV5, ProviderOutcomeEventV1)
+        pending = all(type(event) in allowed for event in execution.events)
+        authorizations = [event for event in execution.events if type(event) is ProviderAttemptAuthorizedEventV5]
+        pending = pending and bool(authorizations) and all(
+            event.context_phase == 'select'
+            and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.controller.identity()
+            for event in authorizations)
+        if pending:
+            try:
+                validate_record(context_record(execution).record, turn)
+            except (ValueError, AttributeError):
+                pending = False
+    if (not isinstance(turn.graph_context_receipt,BuildGraphContextReceiptV1) and not shared and not pending
             or turn.graph_context_execution is None):
         return 'unverified'
     if conn.execute(

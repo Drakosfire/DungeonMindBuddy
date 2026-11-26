@@ -16,6 +16,31 @@ from tests.test_build_jev_estimated_continuations import counter
 from tests.test_agent_build_jev_ordinary_harness import build_case as _build_case
 
 
+def test_retained_controller_cannot_continue_under_a_different_gateway_identity():
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from apps.live_control_server.services.build_jev_dispatch import MODEL, continuation_binding
+    prior = uuid4()
+    def adapter(model):
+        role = SimpleNamespace(model=model, identity=lambda: ('typesafe', model, 'typesafe_decision'))
+        policy = ledger.BuildContinuationActionControllerWriterPolicyV1.model_construct(
+            provider_roles=SimpleNamespace(controller=role))
+        auth = ledger.ProviderAttemptAuthorizedEventV3.model_construct(
+            provider_attempt_id=prior, provider='typesafe', model=model,
+            api_mode='typesafe_decision', envelope_sha256='a'*64)
+        outcome = ledger.ProviderOutcomeEventV1.model_construct(provider_attempt_id=prior, outcome='response_received')
+        receipt = SimpleNamespace(context_receipt_sha256='b'*64,
+            assembled_input=SimpleNamespace(assembler_version='ordinary', assembled_input_sha256='a'*64))
+        execution = SimpleNamespace(policy=policy, context_receipt_sha256='b'*64,
+            execution_policy_sha256='c'*64, events=[auth, outcome])
+        turn = SimpleNamespace(graph_context_receipt=receipt, turn_id=uuid4(), attempt=1)
+        return SimpleNamespace(fence=SimpleNamespace(turn=turn), last_provider_attempt_id=prior,
+            _broker_execution=lambda: execution)
+    assert continuation_binding(adapter(MODEL))['prior_provider_attempt_id'] == str(prior)
+    with pytest.raises(ValueError, match='prior controller identity'):
+        continuation_binding(adapter('jev-1.14.0'))
+
+
 @pytest.fixture
 def build_case(tmp_path, monkeypatch, application_state_dsn):
     return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
