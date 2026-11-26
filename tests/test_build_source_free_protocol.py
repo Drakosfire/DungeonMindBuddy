@@ -480,7 +480,8 @@ def test_pending_app_catalog_cannot_cross_its_work_receipt_or_world(change):
     receipt, policy, events, catalog = pending_catalog_case()
     if change in {'world', 'current_page'}:
         values = ({'world_id': 'another-world'} if change == 'world' else
-                  {'document_id': UUID(receipt.work_context.source_basis.document_id)})
+                  {'document_id': UUID(receipt.work_context.source_basis.document_id),
+                   'registry_revision': receipt.work_context.source_basis.registry_revision + 1})
         catalog = catalog.model_copy(update={'pages': (catalog.pages[0].model_copy(update=values),)})
     elif change == 'receipt':
         catalog = catalog.model_copy(update={'pending_context_receipt_sha256': 'a' * 64})
@@ -492,7 +493,7 @@ def test_pending_app_catalog_cannot_cross_its_work_receipt_or_world(change):
     else:
         events = []
         catalog = catalog.model_copy(update={'sequence': 0})
-    expected = {'world': 'foreign World or current page', 'current_page': 'foreign World or current page',
+    expected = {'world': 'foreign World or mismatched current page', 'current_page': 'foreign World or mismatched current page',
         'receipt': 'differs from its evidence-seeking work', 'work': 'differs from its evidence-seeking work',
         'twice': 'may be observed once', 'before_work': 'must be unique'}
     with pytest.raises(ValueError, match=expected[change]):
@@ -5801,3 +5802,47 @@ def test_old_projection_rejected_atomically_by_new_acceptance_owner(monkeypatch)
         with pytest.raises(ApplicationStateValidationError, match='Native result differs from its actual captured output'):
             asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
         assert verified == [True]
+
+
+def test_pending_reader_accepts_current_saved_page_only_at_frozen_basis():
+    from application_state.agent_conversation.build_source_free import effective_pending_app_catalog, effective_pending_source
+    from application_state.agent_conversation.build_related_pages import PagePointer, PageReference
+    from hashlib import sha256
+    receipt, policy, events = pending_page_phase_case()
+    markdown = events[-1].markdown
+    data = receipt.model_dump(mode='json', by_alias=True)
+    data.pop('context_receipt_sha256')
+    data['work_context']['source_basis']['content_sha256'] = sha256(markdown.encode()).hexdigest()
+    receipt = seal_pending_receipt(data)
+    basis = receipt.work_context.source_basis
+    intent = policy.action.intent
+    intent = intent.model_copy(update={'primary_work': intent.primary_work.model_copy(update={'expected_content_sha256': basis.content_sha256})})
+    policy = policy.model_copy(update={'action': policy.action.model_copy(update={'intent': intent})})
+    pointer = PagePointer(world_id=basis.world_id, document_id=UUID(basis.document_id),
+        registry_revision=basis.registry_revision, title='Current saved page', visibility=basis.visibility)
+    catalog = events[4].model_copy(update={'pending_context_receipt_sha256': receipt.context_receipt_sha256, 'pages': (pointer,)})
+    selection = events[8].model_copy(update={'document_ids': [pointer.document_id]})
+    page = PageReference(**pointer.model_dump(), content_sha256=basis.content_sha256)
+    read = events[9].model_copy(update={'page': page})
+    rows = [*events[:4], catalog, *events[5:8], selection, read]
+    execution = pending_execution(receipt, policy, rows)
+    assert effective_pending_app_catalog(receipt, execution) == (pointer,)
+    assert effective_pending_source(receipt, execution) is None
+    assert type(execution).model_validate_json(execution.model_dump_json(by_alias=True)) == execution
+    for changed in ({'registry_revision': basis.registry_revision + 1},
+                    {'visibility': 'player_safe' if basis.visibility == 'internal' else 'internal'},
+                    {'world_id': 'another-world'}):
+        bad = pointer.model_copy(update=changed)
+        bad_catalog = catalog.model_copy(update={'pages': (bad,)})
+        with pytest.raises(ValueError, match='foreign World or mismatched current page'):
+            effective_pending_app_catalog(receipt, pending_execution(receipt, policy, [*events[:4], bad_catalog]))
+    changed_basis = receipt.model_dump(mode='json', by_alias=True)
+    changed_basis.pop('context_receipt_sha256')
+    changed_basis['work_context']['source_basis']['content_sha256'] = 'a' * 64
+    bad_receipt = seal_pending_receipt(changed_basis)
+    bad_intent = intent.model_copy(update={'primary_work': intent.primary_work.model_copy(update={'expected_content_sha256': 'a' * 64})})
+    bad_policy = policy.model_copy(update={'action': policy.action.model_copy(update={'intent': bad_intent})})
+    bad_catalog = catalog.model_copy(update={'pending_context_receipt_sha256': bad_receipt.context_receipt_sha256})
+    with pytest.raises(ValueError, match='saved current page differs from its frozen source basis'):
+        effective_pending_source(bad_receipt, pending_execution(bad_receipt, bad_policy,
+            [*events[:4], bad_catalog, *events[5:8], selection, read]))
