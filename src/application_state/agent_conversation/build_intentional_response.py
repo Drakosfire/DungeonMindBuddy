@@ -643,10 +643,23 @@ def _resolver_digest(work_options):
     })
 
 
+# Reader compatibility for the mixed-action producer. This is recognized for
+# historical validation but is not the active menu until that producer ships.
+FUTURE_MIXED_ACTION_GUIDANCE = GUIDANCE + """
+When the current request combines a concrete action with a question or source
+lookup, classify the requested action in its actual work category rather than
+losing it under discuss. For an action with no offered executor, such as setting
+a recurring reminder, choose other_creation; separately choose whether the
+factual part needs source lookup. Preserve the factual question and explain the
+unavailable action without claiming that it happened. Do not treat creative
+ideas or prose requested in chat as external actions.
+"""
 MENU_DIGEST = digest(question(guidance=GUIDANCE))
+FUTURE_MIXED_ACTION_MENU_DIGEST = digest(question(guidance=FUTURE_MIXED_ACTION_GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
 _MENU_CONTRACTS = MappingProxyType({
     MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST, frozenset({"lore_outcomes"})),
+    FUTURE_MIXED_ACTION_MENU_DIGEST: (FUTURE_MIXED_ACTION_GUIDANCE, WORK, RESOLVER_DIGEST, frozenset({"lore_outcomes"})),
     digest(question(guidance=_PRE_CREATIVE_CHAT_GUIDANCE, work_options=WORK)):
         (_PRE_CREATIVE_CHAT_GUIDANCE, WORK, _resolver_digest(WORK), frozenset({"lore_outcomes"})),
     digest(question(guidance=_PRE_LORE_OUTCOME_GUIDANCE, work_options=_PRE_LORE_OUTCOME_WORK)):
