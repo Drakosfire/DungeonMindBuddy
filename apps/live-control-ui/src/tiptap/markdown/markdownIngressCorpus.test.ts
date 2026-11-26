@@ -336,8 +336,6 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     blockedOnMain: true,
     note: "tightened (PR #535 cycle 1): parses as a thematicBreak; only the canonical --- spelling is admitted",
   },
-  { name: "setext heading (level 1)", markdown: "Heading\n===", blockedOnMain: true },
-  { name: "setext heading (level 2)", markdown: "Heading\n-------", blockedOnMain: true },
   { name: "hard break (trailing spaces)", markdown: "Line one  \nLine two", blockedOnMain: false },
   { name: "hard break (backslash)", markdown: "Line one\\\nLine two", blockedOnMain: false },
   { name: "raw HTML block", markdown: "<div>unsafe</div>", blockedOnMain: true },
@@ -375,6 +373,8 @@ function rootPlainBlockquoteSignature(document: unknown): unknown[] {
 }
 
 const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
+  { name: "setext heading (level 1)", markdown: "Heading\n===" },
+  { name: "setext heading (level 2)", markdown: "Heading\n-------" },
   { name: "web inline link", markdown: "[Rules](https://example.com/rules)" },
   { name: "web link inside heading", markdown: "# See [Rules](https://example.com)" },
   { name: "web link inside root quote", markdown: "> Read [the plan](https://example.com)." },

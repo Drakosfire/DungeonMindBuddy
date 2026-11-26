@@ -9,7 +9,7 @@ import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
-import { ConversationReplyDetails, TraceEvidence } from './ConversationReplyDetails';
+import { ConversationReplyDetails, TraceEvidence, TraceDiagnostics } from './ConversationReplyDetails';
 import {isBuildPendingReceipt,isBuildPendingContext,isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion,graphReferenceReply,imageMoveReply} from '../../shared/surfaceNativeProtocol';
 import { BuildGraphReferenceReview } from '../../buildSurface/BuildGraphReferenceReview';
 import { BuildImageMoveReview } from '../../buildSurface/BuildImageMoveReview';
@@ -140,15 +140,7 @@ import "../../agentInteraction/WorldConversationPresentation.css";
 const BUILD_SOURCE_REQUIRED_DESCRIPTION_ID = "world-plan-agent-build-source-required";
 
 function focusBuildSourceSelector(): void {
-  document.querySelector<HTMLSelectElement>("[data-testid='build-document-select']")?.focus({ preventScroll: false });
-}
-
-function openBuildSourceActions(): void {
-  const actions = document.querySelector<HTMLDetailsElement>("details.build-source-actions");
-  const summary = actions?.querySelector<HTMLElement>("summary");
-  if (!actions || !summary) return;
-  if (!actions.open) summary.click();
-  summary.focus({ preventScroll: true });
+  document.querySelector<HTMLButtonElement>("[data-testid='build-document-select']")?.focus({ preventScroll: false });
 }
 
 function buildSourceRequiredMessage(): string {
@@ -1938,7 +1930,7 @@ function messagePresentation(page: ActiveConversationMessages): WorldAgentConver
     schema: 'dmb_agent_conversation_history_v3', world_id: page.world_id, conversation_state: page.conversation_state,
     conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
     next_before_sequence: page.next_before_sequence, turns: page.messages.map(message => {
-      const { status, revision, citation_preview, authored_references, reply_object, author_interaction, saved_statblocks: _savedStatblocks, ...row } = message;
+      const { status, revision, citation_preview, authored_references, reply_object, author_interaction, retry_lineage: _retryLineage, saved_statblocks: _savedStatblocks, ...row } = message;
       // Saved statblock links remain on the source message for display. They are not execution history fields.
       return { ...row, ...(authored_references ? {authored_references} : {}), lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 };
     })
@@ -6742,6 +6734,12 @@ export function WorldPlanAgentConversation({
       {!guestBuildActive() && verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open} replyDetails
         worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>}
       <TraceEvidence>{content}</TraceEvidence>
+      <TraceEvidence>{turn.lifecycle_status !== 'completed' && renderGraphContextHistory(turn)}</TraceEvidence>
+      <TraceDiagnostics><details>
+        <summary>Saved turn information</summary>
+        <p className="world-plan-agent-conversation__context">Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}</p>
+        {turn.lifecycle_status === 'completed' && renderGraphContextHistory(turn)}
+      </details></TraceDiagnostics>
     </ConversationReplyDetails>;
   };
   const renderConversationEvent = (event: WorldConversationDisplayEvent,
@@ -6849,7 +6847,10 @@ export function WorldPlanAgentConversation({
             && (selectPassage ? passagePrompt(() => retrySavedMessage(turn, true))
               : <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedMessage(turn)}/>)}
         </div>}
-        <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready',
+        <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, previousAttempts.length ? <details>
+          <summary>Previous attempts · {previousAttempts.length}</summary>
+          {openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] && previousAttempts.map(attempt => renderConversationEvent(attempt, [], true))}
+        </details> : undefined, savedMessage?.citation_preview?.status === 'ready',
             savedMessage?.reply_object?.kind==='page_object'
               &&((!isReadOnly&&scopeMatches&&savedMessage.reply_object.object_kind==='connected_page')
                 ||(scopedLoreReview&&savedMessage.reply_object.object_kind==='lore_page'))&&history?.active_conversation_id===history?.conversation_id
@@ -7080,25 +7081,28 @@ export function WorldPlanAgentConversation({
             </details> : null}
             {pendingRetryTurnId === turn.turn_id && !historicalAttempt && (uncertainPlayNoticeRef.current || uncertainPlanNoticeRef.current)
               ? <p>{uncertainPlayNoticeRef.current?.message ?? uncertainPlanNoticeRef.current?.message}</p> : null}
-            <p className="world-plan-agent-conversation__context">
-              Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
-            </p>
             {deliveryDiagnostic ? <p className="world-plan-agent-conversation__context">Delivery · {deliveryDiagnostic}</p> : null}
             {targetReceipt ? (
               <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
             ) : null}
             {renderSourceActions(turn)}
-            {renderGraphContextHistory(turn)}
           </>)}
         </div>
       </article>
       </BuddyTurnInspection>
     );
   };
+  const displayLineageRows = new Map(messagePage?.messages.map(row => [row.turn_id, row]) ?? []);
+  const displayLineageTurns = new Map(messageHistory?.turns.map(row => [row.turn_id, row]) ?? []);
   const displayedConversation = [
     ...groupConversationAttempts(conversationDisplay.events,
       event => event.kind === "world" ? event.turn : null,
-      new Set(buildCompose.items.map(item=>item.afterSequence)))
+      new Set(buildCompose.items.map(item=>item.afterSequence)), event => {
+        if (event.kind !== 'world' || !messagePage || !history || !messageHistory || !sameHistoryPointer(messageHistory, history)) return null;
+        const row = displayLineageRows.get(event.turn.turn_id), expected = displayLineageTurns.get(event.turn.turn_id);
+        if (!row?.retry_lineage || !expected || !sameSavedMessage(expected, event.turn)) return null;
+        return {...row.retry_lineage, world_id: messagePage.world_id, conversation_id: messagePage.conversation_id!};
+      })
       .map(({item:event,previous,historical}, index) => ({
         order: event.kind === "world" ? event.turn.sequence : event.position.afterSequence + .25,
         ordinal: index, element: historical
@@ -7788,7 +7792,6 @@ export function WorldPlanAgentConversation({
               {buildSourceRequiredMessage()}
             </p>
             <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={focusBuildSourceSelector}>Choose a source</button>
-            <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={openBuildSourceActions}>Open source actions</button>
           </> : null}
           {(isBuild||!isReadOnly) && !useWorldGraphForAsk ? <p role="note">Discussion only. Page proposals are available with World facts enabled.</p> : null}
           <p id="world-plan-agent-composer-hint" className="sr-only">
