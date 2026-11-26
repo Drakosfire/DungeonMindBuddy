@@ -60,7 +60,7 @@ it('shares the guarded active message read and never authorizes a near-miss rout
  expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);
 });
 
-it.each(['resume', 'trash', 'restore'] as const)(
+it.each(['resume', 'archive', 'trash', 'restore'] as const)(
   'allows only the exact hosted same-origin conversation %s command', async (operation) => {
   vi.stubGlobal('window', { location: { href: 'https://buddy.example/build' }, dispatchEvent: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() });
   const { live, library } = await modules();

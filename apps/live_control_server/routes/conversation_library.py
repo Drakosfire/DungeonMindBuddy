@@ -15,7 +15,7 @@ from application_state.agent_conversation.retry import AuthoringRetryRequiredErr
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
 from apps.live_control_server.routes.agent import _verified_world_id, _conversation_service
-from application_state.agent_conversation.types import ReopenCommand, ConversationCommandReceipt, ConversationTrashCommand
+from application_state.agent_conversation.types import ArchiveCommand, ReopenCommand, ConversationCommandReceipt, ConversationTrashCommand
 
 router = APIRouter(
     prefix="/api/live/agent/worlds/{world_id}/conversations",
@@ -45,9 +45,9 @@ def call(function, *args, **kwargs):
 def list_conversations(
     world_id: str,
     request: Request,
-    status: str = Query("all", pattern="^(all|archived|trashed)$"),
+    status: str = Query("all", pattern="^(all|recent|archived|explicitly_archived|trashed)$"),
     limit: int = Query(25, ge=1, le=50),
-    before: UUID | None = None,
+    before: str | None = Query(None, max_length=100),
 ):
     world = scope(request, world_id, {"status", "limit", "before"})
     return call(library.list_library, world, status=status, limit=limit, before=before)
@@ -242,6 +242,25 @@ def resume(world_id: str, conversation_id: UUID, body: ReopenCommand, request: R
         require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
 
     result = call(service.reopen_conversation, body, authorize_write=recheck_owner)
+    recheck_owner()
+    return result
+
+
+@router.post("/{conversation_id}/archive", response_model=ConversationCommandReceipt)
+def archive(world_id: str, conversation_id: UUID, body: ArchiveCommand, request: Request):
+    world = scope(request, world_id, ())
+    if body.world_id != world or body.conversation_id != conversation_id:
+        raise HTTPException(422, detail="Archive command differs from this World or conversation")
+    from apps.live_control_server.services import hosted_auth
+
+    service = _conversation_service(request)
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return call(service.archive_conversation, body)
+
+    def recheck_owner():
+        require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
+
+    result = call(service.archive_conversation, body, authorize_write=recheck_owner)
     recheck_owner()
     return result
 
