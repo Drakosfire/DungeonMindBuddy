@@ -4,7 +4,7 @@ import psycopg
 import pytest
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import library
-from application_state.agent_conversation.types import ConversationTrashCommand, DraftSave, ReopenCommand
+from application_state.agent_conversation.types import ConversationTrashCommand, DraftSave, ReopenCommand, TurnFailure
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from tests.application_state.test_conversation_library import new, archive
 from tests.application_state.test_agent_conversation_service import _provenance
@@ -41,7 +41,14 @@ def test_trash_active_restore_archived_and_preserve_draft(application_state_dsn)
 
 def test_archived_trash_keeps_turns_and_current_pointer(application_state_dsn):
     service = AgentConversationService()
-    cid = archive(service, count=2)
+    cid = archive(service, count=2, keep_active=True)
+    for turn in service.list_turns("world-one", cid):
+        running = service.begin_turn("world-one", cid, turn.turn_id, expected_revision=turn.revision)
+        service.fail_turn(TurnFailure(
+            world_id="world-one", conversation_id=cid, turn_id=turn.turn_id,
+            expected_revision=running.revision, failure_code="synthetic_before_dispatch",
+        ), interrupted=True)
+    new(service)
     pointer = service.get_world_pointer("world-one")
     with psycopg.connect(application_state_dsn) as conn:
         before = conn.execute("SELECT to_jsonb(t) FROM agent.turn t WHERE conversation_id=%s ORDER BY sequence", (cid,)).fetchall()
@@ -54,6 +61,18 @@ def test_archived_trash_keeps_turns_and_current_pointer(application_state_dsn):
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute("SELECT to_jsonb(t) FROM agent.turn t WHERE conversation_id=%s ORDER BY sequence", (cid,)).fetchall() == before
     assert service.get_active_conversation("world-one").conversation_id == pointer.active_conversation_id
+
+
+@pytest.mark.parametrize("switched", [False, True])
+def test_trash_does_not_hide_a_reply_accepted_in_another_tab(application_state_dsn, switched):
+    service = AgentConversationService()
+    cid = archive(service, count=1, keep_active=not switched)
+    before = service.get_world_pointer("world-one")
+    with pytest.raises(ApplicationStateConflictError, match="reply in progress"):
+        service.set_conversation_trash(command(service, cid), restore=False)
+    assert service.get_world_pointer("world-one") == before
+    assert service.get_conversation("world-one", cid).status == ("archived" if switched else "active")
+    assert library.list_library("world-one", status="trashed")["items"] == []
 
 
 def test_lifecycle_scope_conflict_and_uncertain_replay(application_state_dsn):

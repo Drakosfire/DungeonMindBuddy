@@ -266,3 +266,8 @@ Buddy recognizes deliberate Archive from a saved Archive command. Older chats
 whose only evidence is the old archived execution status appear in Recent.
 Trashed chats stay in Trash. Restore returns a chat to its previous library
 view without making it current.
+
+Use **Select conversations** to check several chats in the current view. The
+selection stays checked as you load more conversations. Moving or restoring
+the selection reports the result for each chat. If a result is unconfirmed,
+retry that same action to check the saved result before attempting the rest.
