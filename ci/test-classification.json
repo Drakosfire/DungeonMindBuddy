@@ -307,6 +307,7 @@
       "apps/live-control-ui/src/planSurface/components/RetrievalFreshnessPanel.test.tsx",
       "apps/live-control-ui/src/planSurface/components/SavedCitationAnswer.test.tsx",
       "apps/live-control-ui/src/planSurface/components/SourceCitation.test.tsx",
+      "apps/live-control-ui/src/planSurface/components/SavedStatblockPdfEvidence.test.tsx",
       "apps/live-control-ui/src/planSurface/components/SourceCitationEvidence.test.tsx",
       "apps/live-control-ui/src/planSurface/components/SourceCitedAnswer.test.tsx",
       "apps/live-control-ui/src/planSurface/components/SurfaceEvidenceAnswer.test.tsx",
