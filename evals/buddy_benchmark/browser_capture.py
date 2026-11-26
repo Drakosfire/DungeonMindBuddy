@@ -71,6 +71,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     live = live_build or live_plan
     wire_name = "plan-wire-response" if live_plan else "build-wire-response"
     confirm_save = manifest["browser_capture"].get("confirm_save", False)
+    lose_confirm_ack = manifest["browser_capture"].get("lose_confirm_ack", False)
+    if type(lose_confirm_ack) is not bool or (lose_confirm_ack and (not live_build or confirm_save is not True)):
+        raise ValueError("Lost acknowledgement requires live Build confirmation")
+
     unsent_draft = manifest["browser_capture"].get("unsent_draft", False)
     if unsent_draft and (live or confirm_save or not build_fixture):
         raise ValueError("Unsent draft requires provider-free Build capture")
@@ -339,6 +343,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_LIVE_BROWSER": "1" if live else "0",
                         "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
+                        "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture or live_plan else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
@@ -357,7 +362,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
-                        run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env, timeout=100)
+                        run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env,
+                                             timeout=140 if lose_confirm_ack else 100)
                         driver_status = {"return_code": run.returncode}
                     except subprocess.TimeoutExpired:
                         driver_status = {"timed_out": True}

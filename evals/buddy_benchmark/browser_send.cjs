@@ -207,21 +207,175 @@ async function run() {
         }
         const text = await review.getByRole("textbox", { name: "Suggestion text" }).innerText();
         if (text.trim() !== exactReview.markdown.trim()) throw new Error("Visible suggestion differs from the bound proposal");
-        const confirmed = page.waitForResponse(result => {
-          const request = result.request();
-          return request.method() === "POST" && new URL(result.url()).pathname === reviewPath
-            && request.postDataJSON()?.operation === "confirm";
-        }, { timeout: 20000 });
-        confirmed.catch(() => {});
-        confirmation.attempted = true;
-        await review.getByRole("button", { name: "Save", exact: true }).click();
-        const receipt = await confirmed;
-        confirmation.request = receipt.request().postDataJSON();
-        confirmation.status = receipt.status();
-        confirmation.body = await receipt.json();
-        const saved = confirmation.body.review ?? confirmation.body;
-        confirmation.verified = receipt.ok() && saved.state === "applied" && saved.action_id === action
-          && saved.world_id === world && saved.apply?.apply_id === confirmation.request.apply_id;
+        if (process.env.DMB_BENCHMARK_LOSE_CONFIRM_ACK === "1") {
+          const exactPath = url => url.origin === origin && url.pathname === reviewPath && !url.search;
+          const confirmPosts = [];
+          const confirmRequests = [];
+          confirmation.confirm_posts = confirmPosts;
+          page.on("request", request => {
+            if (request.method() !== "POST" || !exactPath(new URL(request.url()))) return;
+            const command = request.postDataJSON();
+            if (command?.operation === "confirm") {
+              confirmRequests.push(request);
+              confirmPosts.push({apply_id: command.apply_id, expected_revision: command.expected_revision});
+            }
+          });
+          let held;
+          let intercepting = false;
+          const intercept = async route => {
+            const request = route.request();
+            if (intercepting || request.method() !== "POST" || request.postDataJSON()?.operation !== "confirm") {
+              return route.fallback();
+            }
+            // This fixture withholds only the response to the real owner command.
+            // Receipt and Save still run through the application exactly once.
+            intercepting = true;
+            const response = await route.fetch({
+              headers: { ...request.headers(), authorization: "Bearer " + process.env.DMB_BENCHMARK_BROWSER_TOKEN },
+              maxRedirects: 0,
+              maxRetries: 0,
+            });
+            const receipt = { status: response.status(), body: await response.json(), request: request.postDataJSON() };
+            await route.abort("failed");
+            held = receipt;
+            confirmation.withheld = receipt;
+          };
+          const readOwners = () => page.evaluate(async ({ id, reviewPath }) => {
+            const snapshotPath = "/api/live/workspace-documents/" + encodeURIComponent(id) + "/snapshot?view=committed";
+            const [pageResponse, reviewResponse] = await Promise.all(
+              [snapshotPath, reviewPath].map(path => fetch(path, { cache: "no-store" })));
+            return {
+              page: { status: pageResponse.status, body: await pageResponse.json() },
+              review: { status: reviewResponse.status, body: await reviewResponse.json() },
+            };
+          }, { id: documentId, reviewPath });
+          await page.route(exactPath, intercept);
+          let waitFailure;
+          try {
+            confirmation.attempted = true;
+            await review.getByRole("button", { name: "Save", exact: true }).click();
+            try {
+              await pollBrowserRead(() => held || false, 20000, 200, "confirmation response to withhold");
+            } catch (error) {
+              waitFailure = error;
+            }
+          } finally {
+            await page.unroute(exactPath, intercept);
+          }
+          if (!held) {
+            if (intercepting || confirmPosts.length !== 0) throw waitFailure;
+            const committed = await readOwners();
+            const pending = committed.review.body.review ?? committed.review.body;
+            const savedPage = committed.page.body;
+            if (committed.page.status !== 200 || committed.review.status !== 200
+                || pending.state !== "applying" || pending.world_id !== world || pending.action_id !== action
+                || pending.reservation_sha256 !== exactReview.reservation_sha256 || !pending.apply?.apply_id
+                || savedPage.record?.document_id !== documentId || savedPage.record?.world_id !== world
+                || savedPage.record.revision !== beforeSave.page.body.record.revision + 1
+                || !/^[a-f0-9]{64}$/.test(savedPage.committed_content_sha256 ?? "")) {
+              throw waitFailure;
+            }
+            confirmation.pending_after_save = committed;
+            confirmation.fault_injected = false;
+            await page.reload();
+            await openComposer();
+            const check = page.getByRole("region", { name: "Check suggestion insertion", exact: true })
+              .getByRole("button", { name: "Check insertion", exact: true });
+            await check.waitFor({ timeout: 10000 });
+            await check.evaluate(button => button.addEventListener("click", () => {
+              performance.mark("benchmark-check-insertion");
+            }, { capture: true, once: true }));
+            if (confirmPosts.length !== 0) throw new Error("Confirmation arrived before Check insertion");
+            await check.click();
+            confirmation.check_clicked_at_ms = await page.evaluate(() => {
+              const click = performance.getEntriesByName("benchmark-check-insertion").at(-1);
+              return click ? performance.timeOrigin + click.startTime : null;
+            });
+            confirmation.retry_exercised = confirmation.check_clicked_at_ms !== null;
+            try {
+              await pollBrowserRead(async () => {
+                const observation = await readOwners();
+                const receipt = observation.review.body.review ?? observation.review.body;
+                return observation.review.status === 200 && receipt.state === "applied" ? observation : false;
+              }, 12000, 500, "applied recovery receipt");
+              await pollBrowserRead(() => {
+                if (confirmRequests.length !== 1) return false;
+                const startedAt = confirmRequests[0].timing().startTime;
+                if (!Number.isFinite(startedAt) || startedAt <= 0) return false;
+                confirmPosts[0].started_at_ms = startedAt;
+                return true;
+              }, 3000, 100, "recovered confirmation timing");
+            } finally {
+              confirmation.afterReopen = await readOwners();
+              confirmation.alerts = await page.getByRole("alert").allTextContents();
+            }
+            const after = confirmation.afterReopen;
+            const receipt = after.review.body.review ?? after.review.body;
+            confirmation.recovery_verified = after.page.status === 200 && after.review.status === 200
+              && receipt.state === "applied" && receipt.world_id === world && receipt.action_id === action
+              && receipt.reservation_sha256 === pending.reservation_sha256
+              && receipt.apply?.apply_id === pending.apply.apply_id
+              && after.page.body.record?.document_id === documentId
+              && after.page.body.record?.world_id === world
+              && after.page.body.record?.revision === savedPage.record.revision
+              && after.page.body.committed_content_sha256 === savedPage.committed_content_sha256
+              && confirmation.retry_exercised && confirmPosts.length === 1
+              && confirmPosts[0].started_at_ms >= confirmation.check_clicked_at_ms
+              && confirmPosts[0].apply_id === pending.apply.apply_id
+              && confirmPosts[0].expected_revision === pending.revision;
+          } else {
+            const saved = held.body.review ?? held.body;
+            if (held.status !== 200 || saved.state !== "applied" || saved.action_id !== action
+                || saved.world_id !== world || saved.apply?.apply_id !== held.request.apply_id) {
+              throw new Error("The withheld response was not a committed confirmation");
+            }
+            confirmation.afterSave = await readOwners();
+            await page.reload();
+            await openComposer();
+            confirmation.afterReopen = await readOwners();
+            const before = confirmation.afterSave;
+            const after = confirmation.afterReopen;
+            const receiptMatches = observation => {
+              const observed = observation.body.review ?? observation.body;
+              return observation.status === 200 && observed.state === "applied"
+                && observed.action_id === action && observed.world_id === world
+                && observed.reservation_sha256 === exactReview.reservation_sha256
+                && observed.revision === saved.revision
+                && observed.apply?.apply_id === held.request.apply_id;
+            };
+            const pageMatches = observation => observation.status === 200
+              && observation.body.record?.document_id === documentId
+              && observation.body.record?.world_id === world
+              && /^[a-f0-9]{64}$/.test(observation.body.committed_content_sha256 ?? "");
+            const savedRevision = before.page.body.record?.revision;
+            confirmation.verified = confirmPosts.length === 1
+              && confirmPosts[0].apply_id === held.request.apply_id
+              && confirmPosts[0].expected_revision === held.request.expected_revision
+              && [beforeSave.page, before.page, after.page].every(pageMatches)
+              && receiptMatches(before.review) && receiptMatches(after.review)
+              && Number.isInteger(savedRevision)
+              && savedRevision === beforeSave.page.body.record.revision + 1
+              && savedRevision === after.page.body.record.revision
+              && before.page.body.committed_content_sha256 === after.page.body.committed_content_sha256;
+            confirmation.retry_exercised = false;
+          }
+        } else {
+          const confirmed = page.waitForResponse(result => {
+            const request = result.request();
+            return request.method() === "POST" && new URL(result.url()).pathname === reviewPath
+              && request.postDataJSON()?.operation === "confirm";
+          }, { timeout: 20000 });
+          confirmed.catch(() => {});
+          confirmation.attempted = true;
+          await review.getByRole("button", { name: "Save", exact: true }).click();
+          const receipt = await confirmed;
+          confirmation.request = receipt.request().postDataJSON();
+          confirmation.status = receipt.status();
+          confirmation.body = await receipt.json();
+          const saved = confirmation.body.review ?? confirmation.body;
+          confirmation.verified = receipt.ok() && saved.state === "applied" && saved.action_id === action
+            && saved.world_id === world && saved.apply?.apply_id === confirmation.request.apply_id;
+        }
       } catch (error) {
         confirmation.error = String(error);
       }
