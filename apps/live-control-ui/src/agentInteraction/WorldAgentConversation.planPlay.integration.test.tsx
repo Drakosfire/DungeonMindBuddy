@@ -2559,16 +2559,21 @@ describe("one App-level World conversation host across Plan and Play", () => {
       if (mode === 'other-scene') r.play_target.scene_id = 'scene:other';
       return nativePlayContextFixture(r, "Recovered Play answer");
     }
-    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => ({ ...history(), schema: "dmb_agent_conversation_history_v2", turns: [
-      turn("plan", 1, "Original Plan answer"),
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world, options) => {
+      const key = submitted ? await expectedHistoryCorrelationKey(WORLD, playTurnId) : null;
+      const turns = [
+      {...turn("plan", 1, "Original Plan answer"),idempotency_key:'11111111-1111-4111-8111-000000000001'},
       ...(phase === "initial" ? [] : [{ ...turn("play", 2, "Recovered Play answer"),
-        turn_id: playTurnId, user_text: "What happens next?", assistant_text: phase === "pending" || mode === 'failed' || mode === 'interrupted' ? null : "Recovered Play answer",
+        turn_id: playTurnId, idempotency_key:key!, user_text: "What happens next?", assistant_text: phase === "pending" || mode === 'failed' || mode === 'interrupted' ? null : "Recovered Play answer",
         lifecycle_status: phase === "pending" ? "running" as const : mode === 'failed' || mode === 'interrupted' ? mode : "completed" as const,
         ...(submitted ? { play_context: { ...contextForHistory(), delivery_replay: true,
           ...(phase === "pending" || mode === 'failed' || mode === 'interrupted' ? { completion: null,
             execution: { schema: 'dmb_agent_plan_world_graph_execution_projection_v1' as const,
               claimability: 'safe_to_reclaim_without_dispatch' as const, authorization_state: 'none' as const, automatic_redispatch: false as const } } : {}) }, provenance: nativePlayProvenanceFixture(contextForHistory()) } : {}) }]),
-    ] }));
+      ];
+      return {...history(),schema:'dmb_agent_conversation_history_v3',turns:options?.beforeSequence === undefined
+        ? turns : turns.filter(row=>row.sequence===options.beforeSequence!-1)};
+    });
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (request) => {
       submitted = request;
       playTurnId = request.turn_id;
@@ -2581,7 +2586,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(composer).toBeEnabled());
     fireEvent.change(composer, { target: { value: "What happens next?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    await waitFor(() => expect(screen.getByText(/Connection lost after submit/)).toBeInTheDocument());
+    await waitFor(() => expect(localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).not.toBeNull());
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    const pendingBytes = localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD);
     view.unmount();
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
@@ -2606,7 +2613,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     } else {
       await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
       expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
-      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).not.toBeNull();
+      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBe(pendingBytes);
     }
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
