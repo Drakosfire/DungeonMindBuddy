@@ -1180,3 +1180,24 @@ def test_owned_http_fixture_rejects_foreign_or_stale_clone_and_worker():
     bad["database"]["database"] = "operator_database"
     with pytest.raises(ValueError):
         validate(bad)
+
+
+def test_creative_naming_rubric_requires_proven_no_acquisition_and_quality():
+    import json
+    from pathlib import Path
+
+    from evals.negative_retrieval.trace_observation import UNKNOWN
+
+    fixtures = Path(__file__).resolve().parents[2] / 'evals/negative_retrieval/fixtures'
+    public = json.loads((fixtures / 'development.json').read_text())
+    private = json.loads((fixtures / 'development-private.json').read_text())
+    case = next(row for row in public['cases'] if row['id'] == 'dev-creative-names')
+    rubric = private['cases'][case['id']]
+    assert case['history'] == [] and len(case['related_pages']) >= 3
+    assert rubric['outcomes'] == ['answer'] and not rubric['allowed_reads']
+    assert assess(rubric, observation(outcome='answer'))['status'] == 'pass'
+    assert assess(rubric, observation(outcome='answer', catalog_discoveries=1))['status'] == 'fail'
+    assert assess(rubric, observation(outcome='answer', reads=[UNKNOWN], journal_complete=False))['status'] == 'fail'
+    assert assess(rubric, observation(outcome='answer', journal_complete=False))['status'] == 'unproven'
+    assert assess(rubric, observation(outcome='answer', semantic_quality=None))['status'] == 'unproven'
+    assert assess(rubric, observation(outcome='proposal', movable_proposal=True))['status'] == 'fail'

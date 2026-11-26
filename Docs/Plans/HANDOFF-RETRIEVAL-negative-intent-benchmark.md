@@ -61,6 +61,12 @@ At qualification use repository-mandated exact-SHA boundary checks. The final
 goal additionally requires held-out cases, user-facing inline continuation and
 reopen, and deployed smoke evidence; this brief does not claim those achieved.
 
+## Shepherd naming regression checkpoint
+
+The user reported a creative naming request that took 241 seconds and read 11 related pages, 16 full documents, 24 sections, two assertions and one source search before producing a name-list preview. Its trace is private and remains outside the repository. The controller repeatedly selected `finish_with_gaps` while including candidates; the serving selector makes included candidates take precedence over the global finish fallback. This is evidence of an over-retrieval path, not proof that every selected source was irrelevant or that a specific change will fix it.
+
+`dev-creative-names` is a synthetic development analogue with a supplied speculative premise, a request for ten names and several plausibly related distractor pages. Its private rubric expects an answer, no premature page mutation, zero catalog discoveries and zero reads, with semantic quality judged separately. It is a development case, not a replay of the private trace or an independent holdout. Its shape must not be shown as a benchmark key or grading rule to the product model. Existing `dev-research` remains a positive required-ledger-read control. Before claiming a live pass, instrument all discovery and materialization owners, verify the capture journal is complete, bind the fixture and runtime, and run independently held-out cases; a partial trace only proves a lower bound.
+
 ## Diagnostic checkpoint
 
 The question observer now validates the containing recognized Build completion,

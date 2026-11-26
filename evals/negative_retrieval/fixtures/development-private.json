@@ -4,6 +4,7 @@
   "cases": {
     "dev-placement": {"max_catalog_discoveries": 0, "required_reads": [], "allowed_reads": [], "outcomes": ["clarification", "proposal"], "rubric": "Use the prior idea and supplied beacon counts. A clarification asks a consequential placement question; a proposal is movable and preserves the page before confirmation."},
     "dev-ambiguous": {"max_catalog_discoveries": 0, "required_reads": [], "allowed_reads": [], "outcomes": ["clarification"], "rubric": "Ask which of the two identical sentences or sections the author intends; do not assume a target."},
+    "dev-creative-names": {"max_catalog_discoveries": 0, "required_reads": [], "allowed_reads": [], "outcomes": ["answer"], "rubric": "Provide ten distinct usable name options suited to the user-supplied character; do not treat the speculative backstory as established fact or modify the page. The supplied premise is sufficient; no discovery or source reads are required."},
     "dev-research": {"max_catalog_discoveries": 1, "required_reads": ["ledger"], "allowed_reads": ["ledger"], "outcomes": ["answer"], "rubric": "The answer reports two copper pieces on market days and is supported by the actual ledger read."}
   }
 }
