@@ -1,0 +1,5 @@
+# CI: native storage trigger coverage
+
+ACTIVE under the user's instruction to repair release qualification. Parallel-independent of #4826 (writer prompt fixture), #4825 (Plan action fence), #4823 (serving overlay), and the Plan conversation regression lane: this slice owns only `tests/application_state/test_native_storage_owner_migration.py` and this handoff. No shared database or runtime; use a disposable isolated database. The preceding 0195/0196 migrations moved the relevant checks to ALWAYS triggers. PostgreSQL LIKE INCLUDING CONSTRAINTS does not copy triggers; do not infer production behavior from the old temporary-table test.
+
+Preserve all corruption variants and before/after migration assertions. Verify rejection at the real table and exact trigger constraint identity, compare current effective saved predicates and function extensions, and preserve populated-row conservation and old-reader rejection. Do not alter production validators or weaken tests. Run affected tests on an exact commit, the owning backend contract, clean hosted verification if required, and independent cumulative review before merge.

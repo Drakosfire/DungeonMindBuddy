@@ -258,8 +258,12 @@ JSON_NULL = object()
 
 
 def _definition(conn):
-    return conn.execute("SELECT pg_get_expr(conbin,conrelid) FROM pg_constraint "
-        "WHERE conrelid='agent.turn'::regclass AND conname='agent_turn_lifecycle_check'").fetchone()[0]
+    row = conn.execute("SELECT pg_get_expr(conbin,conrelid) FROM pg_constraint "
+        "WHERE conrelid='agent.turn'::regclass AND conname='agent_turn_lifecycle_check'").fetchone()
+    if row:
+        return row[0]
+    saved = conn.execute("SELECT obj_description(to_regprocedure('agent.validate_turn_graph_write()'), 'pg_proc')").fetchone()[0]
+    return json.loads(saved)['lifecycle']
 
 
 @pytest.fixture
@@ -362,11 +366,12 @@ def test_current_native_storage_function_is_one_non_strict_invoker_owner(applica
     owner = import_module(MIGRATION)
     old = import_module('application_state.migrations.versions.20261101_0103_shared_native_turns')
     graph = import_module('application_state.migrations.versions.20261122_0181_build_graph_reference_dispatch_fence')
+    image = import_module('application_state.migrations.versions.20261122_0184_build_image_move_native_fence')
     with psycopg.connect(application_state_dsn) as conn:
         props = conn.execute('SELECT proisstrict,provolatile,proparallel,prosecdef,proconfig,'
             'pg_get_functiondef(oid) FROM pg_proc WHERE oid=to_regprocedure(%s)', (owner._SIGNATURE,)).fetchone()
         assert props[:5] == (False, 'i', 's', False, ['search_path=pg_catalog'])
-        assert props[5].count(graph.extend_native_storage_shape(old._NATIVE)) == 1
+        assert props[5].count(image.extend_native_storage_shape(graph.extend_native_storage_shape(old._NATIVE))) == 1
         assert props[5].count("|| '{}'::jsonb") == 2
         assert _definition(conn).count(owner._FUNCTION + '(') == 1
         assert conn.execute("SELECT to_regclass('pg_temp.dmb_native_json_owner_shape')").fetchone() == (None,)
@@ -400,7 +405,7 @@ def test_original_and_current_whole_lifecycle_have_identical_values_and_errors(
 
 
 @pytest.mark.parametrize('surface', ['build', 'plan', 'play'])
-def test_actual_current_checks_reject_corruption_even_with_null_arguments(application_state_dsn, surface):
+def test_actual_current_checks_reject_corruption_even_with_null_arguments(application_state_dsn, surface, monkeypatch):
     base, _ = stored_row(retained(submission(surface)))
     # Opaque DB-only bindings are outside the native storage-shape predicate.
     base['request_fingerprint'] = base['idempotency_fingerprint'] = 'f' * 64
@@ -408,11 +413,33 @@ def test_actual_current_checks_reject_corruption_even_with_null_arguments(applic
         ('submitted_intent_fingerprint_v2', None), ('graph_context_execution', 42)]
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute('CREATE TEMP TABLE native_json_check_probe (LIKE agent.turn INCLUDING CONSTRAINTS) ON COMMIT DROP')
+        triggers = conn.execute("SELECT tgname,pg_get_triggerdef(oid),tgenabled FROM pg_trigger "
+            "WHERE tgrelid='agent.turn'::regclass AND tgname LIKE 'turn_graph_validate_%' ORDER BY tgname").fetchall()
+        assert len(triggers) == 2 and all(enabled == 'A' for _, _, enabled in triggers)
+        for _, definition, _ in triggers:
+            assert ' ON agent.turn ' in definition
+            conn.execute(definition.replace(' ON agent.turn ', ' ON native_json_check_probe ', 1))
         columns = conn.execute("SELECT attname,format_type(atttypid,atttypmod) FROM pg_attribute "
             "WHERE attrelid='agent.turn'::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum").fetchall()
         query = sql.SQL('INSERT INTO native_json_check_probe ({}) VALUES ({})').format(
             sql.SQL(',').join(sql.Identifier(name) for name, _ in columns),
             sql.SQL(',').join(sql.Placeholder() for _ in columns))
+        from tests.application_state.test_surface_native_turns import accept
+        if surface == 'play':
+            # The synthetic Play receipt has no real Run; this test owns only
+            # database turn-shape enforcement, not Run admission.
+            from application_state.agent_conversation import play_graph_persistence
+            monkeypatch.setattr(play_graph_persistence, 'lock_and_validate_native_play_basis', lambda *args: None)
+        _, _, accepted = accept(surface)
+        original = conn.execute('SELECT to_jsonb(t) FROM agent.turn t WHERE turn_id=%s', (accepted.turn_id,)).fetchone()[0]
+        for column, value in mutations[1:]:
+            with pytest.raises(psycopg.errors.CheckViolation) as error:
+                with conn.transaction(force_rollback=True):
+                    conn.execute(sql.SQL('UPDATE agent.turn SET {} = %s WHERE turn_id = %s').format(sql.Identifier(column)),
+                        (Jsonb(value) if column == 'graph_context_execution' and value is not None else value, accepted.turn_id))
+            assert error.value.diag.constraint_name in {'agent_turn_lifecycle_check', 'agent_turn_graph_context_receipt_check',
+                'agent_turn_graph_context_execution_check', 'agent_turn_graph_completion_check'}
+            assert conn.execute('SELECT to_jsonb(t) FROM agent.turn t WHERE turn_id=%s', (accepted.turn_id,)).fetchone()[0] == original
         for mutation in mutations:
             row = deepcopy(base)
             if mutation:
@@ -437,10 +464,13 @@ def test_upgrade_conserves_populated_rows_and_old_reader_fails(storage_predecess
         accept('plan')
     def snapshot():
         with psycopg.connect(storage_predecessor) as conn:
+            checks = dict(conn.execute("SELECT conname,pg_get_expr(conbin,conrelid) FROM pg_constraint "
+                "WHERE conrelid='agent.turn'::regclass AND conname<>'agent_turn_lifecycle_check'").fetchall())
+            saved = conn.execute("SELECT obj_description(to_regprocedure('agent.validate_turn_graph_write()'), 'pg_proc')").fetchone()[0]
+            if saved:
+                checks.update(json.loads(saved)['graph'])
             return (conn.execute('SELECT turn_id,to_jsonb(t) FROM agent.turn t ORDER BY turn_id').fetchall(),
-                conn.execute('SELECT to_jsonb(r) FROM agent.turn_reference r ORDER BY turn_id,reference_role,ordinal').fetchall(),
-                dict(conn.execute("SELECT conname,pg_get_expr(conbin,conrelid) FROM pg_constraint "
-                    "WHERE conrelid='agent.turn'::regclass AND conname<>'agent_turn_lifecycle_check'").fetchall()))
+                conn.execute('SELECT to_jsonb(r) FROM agent.turn_reference r ORDER BY turn_id,reference_role,ordinal').fetchall(), checks)
     before = snapshot()
     command.upgrade(cli.alembic_config(), 'head')
     after = snapshot()
