@@ -207,6 +207,18 @@
   gap: 0.35rem;
 }
 
+.build-surface-shell .build-page-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.build-page-title h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .build-surface-editor,
 .build-surface-editor.tiptap-spike-editor {
   min-height: 18rem;

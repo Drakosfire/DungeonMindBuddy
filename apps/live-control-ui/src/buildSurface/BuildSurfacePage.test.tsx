@@ -1353,9 +1353,10 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expectBuildSaveState("unsaved");
     });
-    expect(screen.getByTestId("build-document-rename-open")).not.toBeDisabled();
+    expect(within(screen.getByTestId("build-page-title")).getByRole("heading", { name: "Ironveil Property", level: 1 })).toBeVisible();
+    expect(screen.getByTestId("build-page-title-rename-open")).not.toBeDisabled();
 
-    await user.click(screen.getByTestId("build-document-rename-open"));
+    await user.click(screen.getByTestId("build-page-title-rename-open"));
     const titleInput = screen.getByTestId("build-document-rename-title");
     await user.clear(titleInput);
     await user.type(titleInput, "Ironveil Manufactory Grounds");
@@ -1373,6 +1374,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
     });
+    expect(within(screen.getByTestId("build-page-title")).getByRole("heading", { name: "Ironveil Manufactory Grounds", level: 1 })).toBeVisible();
     // Stale list still held — selector must already show Canvas title.
     fireEvent.click(screen.getByTestId("build-document-select"));
     expect(
