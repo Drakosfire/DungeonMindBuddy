@@ -63,7 +63,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
                 or value.get("status") not in {"observed", "not_started", "dispatch_uncertain"}
                 or (value.get("status") == "not_started" and value.get("records") != [])):
             raise ValueError("Native Graph probe is malformed or belongs to another case")
-        native_probe = {"status": value["status"], "counts": summarize_records(value.get("records"))}
+        native_probe = {"status": value["status"], "window": value.get("window"),
+                        "counts": summarize_records(value.get("records"))}
     probe = rows.get("related-page-probe")
     partial_probe = None
     if "related-page-probe" in rows:
@@ -74,7 +75,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         status = probe.get("status")  # Legacy captures did not record the dispatch window.
         if status not in (None, "observed", "not_started", "dispatch_uncertain") or (status == "not_started" and records != []):
             raise ValueError("Invalid related-page probe status")
-        partial_probe = {"status": status, "catalog_discoveries": catalog_discovery_count(records),
+        partial_probe = {"status": status, "window": probe.get("window"),
+                         "catalog_discoveries": catalog_discovery_count(records),
                          "materialization_attempts": len(acquisition_labels(records)),
                          "raised_discoveries": sum(row["state"] == "raised" and row["owner"] == "related_catalog_discovery"
                                                    for row in records),
@@ -117,23 +119,31 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             binding_error = type(exc).__name__
     observed = observe(rows["request"], rows["history-after"], rows["context-trace"], rows["answer-http"],
                        related_labels=related_labels)
-    observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document)
-    # The native probe cannot identify a source. A selected or authored read
-    # attempt nevertheless proves acquisition for a source-free case; it must
-    # not be silently omitted from the assessment. Query preparation alone is
-    # not evidence that a source was read.
-    if native_probe is not None:
+    # Only current POST-window probes can attribute observed activity to this
+    # turn. Older broad-window records remain visible as diagnostics but can
+    # include history/setup work; they cannot establish a turn violation.
+    related_turn = (partial_probe is not None and partial_probe["window"] == "turn_post_v1"
+                    and partial_probe["status"] in {"observed", "dispatch_uncertain"})
+    native_turn = (native_probe is not None and native_probe["window"] == "turn_post_v1"
+                   and native_probe["status"] in {"observed", "dispatch_uncertain"})
+    if related_turn and native_turn and partial_probe["status"] != native_probe["status"]:
+        related_turn = native_turn = False
+    if related_turn:
+        observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document)
+    if native_turn:
         for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
                       "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read",
                       "native_corpus_body_open"):
             counts = native_probe["counts"][owner]
             observed["reads"].extend([UNKNOWN] * sum(counts.values()))
-    observed["catalog_discoveries"] = catalog_discovery_count(probe.get("records"))
-    if native_probe is not None:
-        observed["catalog_discoveries"] += sum(native_probe["counts"]["native_corpus_discovery"].values())
+    observed["catalog_discoveries"] = (catalog_discovery_count(probe.get("records")) if related_turn else None)
+    if native_turn:
+        native_discovery = sum(native_probe["counts"]["native_corpus_discovery"].values())
+        if native_discovery:
+            observed["catalog_discoveries"] = (observed["catalog_discoveries"] or 0) + native_discovery
     observed["catalog_journal_complete"] = None
-    observed["graph_query_attempts"] = (None if native_probe is None or native_probe["status"] == "not_started"
-        else sum(native_probe["counts"]["native_graph_query"].values()))
+    observed["graph_query_attempts"] = (sum(native_probe["counts"]["native_graph_query"].values())
+                                          if native_turn else None)
     observed["graph_query_journal_complete"] = None
     grade = assess(rubric, observed)
     # Use the history belonging to the request, not a previous active conversation.

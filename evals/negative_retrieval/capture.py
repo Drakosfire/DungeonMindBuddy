@@ -175,12 +175,12 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                 try:
                     immutable_save(Path(directory), "related-page-probe", {
                         "schema": "dmb_negative_retrieval_related_page_probe_v1",
-                        "coverage": "partial", "case_id": case["id"],
+                        "coverage": "partial", "window": "turn_post_v1", "case_id": case["id"],
                         "status": "dispatch_uncertain" if dispatch_uncertain else "observed" if post_entered else "not_started", "records": records,
                     })
                     immutable_save(Path(directory), "native-graph-probe", {
                         "schema": "dmb_negative_retrieval_native_graph_probe_v1",
-                        "coverage": "partial", "case_id": case["id"],
+                        "coverage": "partial", "window": "turn_post_v1", "case_id": case["id"],
                         "status": "dispatch_uncertain" if dispatch_uncertain else "observed" if post_entered else "not_started",
                         "records": native_records if native_records is not None else [],
                     })

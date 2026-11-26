@@ -92,8 +92,9 @@ around the turn POST, forbids a second dispatch in one capture and records
 restores hooks before the runner continues. Detached snapshots prevent late
 alias calls and background completions from changing recorded POST-window rows.
 Async client methods are rejected before dispatch; an unexpected awaitable
-response is rejected and marked `dispatch_uncertain`. Legacy records without
-this status remain broad-window evidence. This is still partial: asynchronous activity
+response is rejected and marked `dispatch_uncertain`. Both probe artifacts
+carry a `turn_post_v1` window marker; legacy records without it remain
+broad-window diagnostics and cannot prove a turn-specific violation. This is still partial: asynchronous activity
 after the response, subprocesses, stale aliases and other owners can escape;
 no zero-acquisition pass follows from an empty POST window. A real synchronous
 FastAPI TestClient with synthetic routes now exercises pre-POST, POST and

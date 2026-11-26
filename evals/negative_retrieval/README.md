@@ -125,8 +125,9 @@ late background completions cannot alter them. Async clients are unsupported:
 an async method is rejected before dispatch, and an unexpected awaitable
 response is marked `dispatch_uncertain`. Hooks are removed when the POST exits.
 Work that occurs after the response, outside this process, through stale aliases or other owners remains
-unobserved. Legacy probe records without a status wrapped the broader capture
-and cannot be assumed to have the narrower timing boundary. The wrapper
+unobserved. Legacy probe records without the `turn_post_v1` window marker wrapped the
+broader capture. Their counts remain diagnostic, but the report does not
+attribute them to the tested turn or use them to establish budget violations. The wrapper
 is a process-global diagnostic: use an isolated serial process and the existing
 owned database procedure. The caller must pass the independently frozen
 `expected_manifest_sha256`; a missing or mismatched digest is rejected before

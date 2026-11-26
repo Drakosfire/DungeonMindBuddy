@@ -528,7 +528,7 @@ def test_partial_capture_retains_probe_failure_without_claiming_a_rate(tmp_path)
     assert report["case_id"] == "case1" and report["rubric_sha256"] == rubric_sha256(CASE)
     assert report["status"] == "unproven" and "answer-http" in report["missing_artifacts"]
     assert report["partial_native_graph_probe"]["counts"]["native_graph_query"]["raised"] == 1
-    assert report["partial_probe"] == {"status": None, "catalog_discoveries": 1, "materialization_attempts": 1,
+    assert report["partial_probe"] == {"status": None, "window": None, "catalog_discoveries": 1, "materialization_attempts": 1,
                                        "raised_discoveries": 0, "raised_materializations": 1}
     assert report["capture_terminal"] == {"status": "outcome_unknown", "error_type": "RuntimeError"}
     assert summarize({"case1": CASE}, {"case1": report})["unnecessary_retrieval"]["unknown"] == 1
@@ -582,7 +582,7 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
                "turn_id": "saved", "terminal_status": "completed", "capture_status": "complete", "observations": []}
     trace = {"world_id": "world", "turn_id": "saved", "attempts": [attempt]}
     probe = {"schema": "dmb_negative_retrieval_related_page_probe_v1", "coverage": "partial", "case_id": "case1",
-             "records": [{"owner": "related_catalog_discovery", "state": "returned"}]}
+             "status": "observed", "window": "turn_post_v1", "records": [{"owner": "related_catalog_discovery", "state": "returned"}]}
     artifacts = {"request": request, "history-after": envelope(history), "context-trace": envelope(trace),
                  "answer-http": envelope({"turn_id": "turn", "client_thread_id": "thread",
                                           "knowledge_context": turn["knowledge_context"]}), "related-page-probe": probe}
@@ -611,7 +611,7 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         ("native_graph_query", "returned", None),
     ):
         native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
-            "coverage": "partial", "case_id": "case1", "status": "observed",
+            "coverage": "partial", "case_id": "case1", "status": "observed", "window": "turn_post_v1",
             "records": [{"owner": owner, "state": state}]}))
         observed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
         assert observed["checks"]["unexpected_retrieval"] is expected
@@ -622,19 +622,26 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         "coverage": "partial", "case_id": "case1", "status": "observed",
         "records": [{"owner": "native_graph_query", "state": "returned"}]}))
     no_queries = {**CASE, "max_graph_query_attempts": 0}
+    legacy = report_case(tmp_path, {"id": "case1", "request": request["message"]}, no_queries)
+    assert legacy["checks"]["graph_query_budget"] is None  # Old probes wrapped setup too.
+    probe.update(status="observed", window="turn_post_v1")
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    native = json.loads(native_path.read_text())
+    native["window"] = "turn_post_v1"
+    native_path.write_text(json.dumps(native))
     graph_only = report_case(tmp_path, {"id": "case1", "request": request["message"]}, no_queries)
     assert graph_only["checks"]["graph_query_budget"] is False
     assert graph_only["checks"]["unexpected_retrieval"] is None
     assert graph_only["status"] == "unproven"
     native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
-        "coverage": "partial", "case_id": "case1", "status": "observed",
+        "coverage": "partial", "case_id": "case1", "status": "observed", "window": "turn_post_v1",
         "records": [{"owner": "native_corpus_discovery", "state": "returned"}]}))
     observed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
     assert observed["checks"]["catalog_budget"] is False
     assert observed["checks"]["unexpected_retrieval"] is None
     assert observed["status"] == "unproven"
     native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
-        "coverage": "partial", "case_id": "case1", "status": "observed",
+        "coverage": "partial", "case_id": "case1", "status": "observed", "window": "turn_post_v1",
         "records": [{"owner": "native_corpus_discovery", "state": "returned"},
                     {"owner": "native_corpus_body_open", "state": "returned"}]}))
     one_catalog_no_reads = {**CASE, "max_catalog_discoveries": 1}
@@ -642,6 +649,20 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
     assert observed["checks"]["catalog_budget"] is None  # partial cannot prove completeness
     assert observed["checks"]["unexpected_retrieval"] is False
     assert observed["status"] == "unproven"
+    # Old probes wrapped setup and history as well as the turn. Their records
+    # remain visible but cannot be attributed to this turn.
+    probe.pop("window")
+    probe["records"] = [{"owner": "related_catalog_discovery", "state": "returned"},
+                        {"owner": "related_page_materialization", "state": "returned"}]
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    legacy_native = json.loads(native_path.read_text())
+    legacy_native.pop("window")
+    native_path.write_text(json.dumps(legacy_native))
+    legacy = report_case(tmp_path, {"id": "case1", "request": request["message"]}, no_queries)
+    assert legacy["checks"]["catalog_budget"] is None
+    assert legacy["checks"]["unexpected_retrieval"] is None
+    assert legacy["checks"]["graph_query_budget"] is None
+    assert legacy["partial_probe"]["materialization_attempts"] == 1
 
 
 def test_fixture_binding_checks_owner_receipt_page_and_complete_dialogue(monkeypatch):
