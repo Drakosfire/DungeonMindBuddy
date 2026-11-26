@@ -120,8 +120,9 @@ input recorded both source access and native statements as `not_prepared` and
 `input_status` as `partial`. In serving source `6595a93e`, the pending native
 frame treats an absent prepared source as partial, while native completion adds
 that limitation unless its local-authored exception applies. That exception
-requires an authored claim or collaboration alongside any proposal, so a
-proposal-only creative answer does not qualify. This source path and the saved
+requires an eligible authored or discussion segment, or collaboration, and
+only allowed local/proposal segment types. A proposal-only creative answer
+does not qualify. This source path and the saved
 trace explain the observed caveat; they do not prove a complete acquisition
 journal or justify suppressing limitations for source-grounded or mixed factual
 answers. The private naming rubric now explicitly treats this unnecessary caveat
