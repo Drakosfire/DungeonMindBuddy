@@ -3,6 +3,7 @@ import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 import {ConversationLibrary} from './ConversationLibrary';
 import {LiveApiError} from '../api/liveApi';
 import * as api from '../api/conversationLibraryApi';
+import {runBulkConversationLifecycle,type BulkConversationPlan} from './conversationBulkLifecycle';
 vi.mock('../api/conversationLibraryApi',()=>({listConversations:vi.fn(),readConversationName:vi.fn(),readConversationTurns:vi.fn(),readConversationMessages:vi.fn(),renameConversation:vi.fn()}));
 vi.mock('../planSurface/components/BuddyContextTraceLoader',()=>({BuddyContextTraceLoader:()=> <p>Explicit trace</p>}));
 const current='11111111-1111-4111-8111-111111111111',old='22222222-2222-4222-8222-222222222222';
@@ -143,6 +144,79 @@ it('keeps switched chats in Recent and moves only explicitly archived chats into
  fireEvent.change(screen.getByLabelText('Show'),{target:{value:'explicitly_archived'}});
  await screen.findByText('Archived conversation · Read-only transcript');
  expect(screen.getByRole('button',{name:'Continue conversation',exact:true})).toBeVisible();
+});
+
+it('keeps multi-select across pages, reports partial outcomes, and clears the scope on filter change',async()=>{
+ let settled=false;
+ vi.mocked(api.listConversations).mockImplementation(async(world,status,before)=>({
+  schema:'dmb_conversation_library_v1',world_id:world,status,
+  items:status!=='recent'?[]:before?[meta(old,world)]:settled?[meta(old,world)]:[meta(current,world)],
+  next_before:status==='recent'&&!before&&!settled?current:null,
+ }));
+ const onBulkLifecycle=vi.fn(async(plan:BulkConversationPlan)=>{
+  settled=true;
+  return {applied:[plan.targets[0]],failed:[{target:plan.targets[1],reason:'This conversation has a reply in progress.'}],stopped:[],retry:null};
+ });
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onBulkLifecycle={onBulkLifecycle}/>);
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByRole('button',{name:'Select conversations'}));
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select Current piece'}));
+ fireEvent.click(screen.getByRole('button',{name:'More conversations'}));
+ fireEvent.click(await screen.findByRole('checkbox',{name:'Select Archived piece'}));
+ expect(screen.getByText('2 selected in Recent')).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Move selected to Trash'}));
+ await screen.findByText('1 moved to Trash. 1 failed. 0 skipped.');
+ expect(onBulkLifecycle).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+  worldId:'world-one',operation:'trash',pointer:{revision:8,activeId:current},
+  targets:[expect.objectContaining({conversationId:current}),expect.objectContaining({conversationId:old})],
+ }),expect.any(Function));
+ expect(screen.queryByRole('checkbox',{name:'Select Current piece'})).not.toBeInTheDocument();
+ expect(screen.getByRole('checkbox',{name:'Select Archived piece'})).toBeChecked();
+ fireEvent.click(screen.getByText('Results by conversation',{exact:true}));
+ expect(screen.getByText('Archived piece: This conversation has a reply in progress.')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'trashed'}});
+ expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Select conversations'})).toBeVisible();
+});
+
+const batch:BulkConversationPlan={
+ worldId:'world-one',operation:'trash',pointer:{revision:8,activeId:current},
+ targets:[
+  {conversationId:current,title:'Current piece',commandId:'command-one'},
+  {conversationId:old,title:'Old piece',commandId:'command-two'},
+ ],
+};
+it('replays only an unconfirmed command with its original ID and expected pointer',async()=>{
+ const change=vi.fn()
+  .mockResolvedValueOnce({pointer_revision:9,active_conversation_id:null})
+  .mockRejectedValueOnce(new Error('Connection interrupted'))
+  .mockResolvedValueOnce({pointer_revision:10,active_conversation_id:null});
+ const first=await runBulkConversationLifecycle(batch,()=>true,change);
+ expect(first.applied).toEqual([batch.targets[0]]);
+ expect(first.stopped).toEqual([batch.targets[1]]);
+ const retried=await runBulkConversationLifecycle(first.retry!,()=>true,change);
+ expect(retried.applied).toEqual([batch.targets[1]]);
+ expect(change.mock.calls[1]).toEqual(change.mock.calls[2]);
+ expect(change.mock.calls[2][0]).toMatchObject({world_id:'world-one',command_id:'command-two',expected_pointer_revision:9,expected_active_conversation_id:null});
+});
+
+it('stops bulk writes on a stale pointer or departed World and skips a missing target safely',async()=>{
+ const change=vi.fn().mockRejectedValueOnce(new LiveApiError('Different pointer',409));
+ const stale=await runBulkConversationLifecycle(batch,()=>true,change);
+ expect(stale.failed.map(f=>f.target)).toEqual([batch.targets[0]]);
+ expect(stale.stopped).toEqual([batch.targets[1]]);
+ expect(change).toHaveBeenCalledTimes(1);
+ change.mockClear().mockRejectedValueOnce(new LiveApiError('Missing',404)).mockResolvedValueOnce({pointer_revision:9,active_conversation_id:current});
+ const partial=await runBulkConversationLifecycle({...batch,operation:'restore'},()=>true,change);
+ expect(partial.failed.map(f=>f.target)).toEqual([batch.targets[0]]);
+ expect(partial.applied).toEqual([batch.targets[1]]);
+ expect(change.mock.calls[0][1]).toBe('restore');
+ expect(change.mock.calls[1][0].expected_pointer_revision).toBe(8);
+ change.mockClear().mockResolvedValueOnce({pointer_revision:9,active_conversation_id:null});
+ let actions=0;
+ const departed=await runBulkConversationLifecycle(batch,()=>actions++===0,change);
+ expect(departed.stopped).toEqual([batch.targets[1]]);
+ expect(change).toHaveBeenCalledTimes(1);
 });
 
 it('retries uncertain Trash using the same command and does not substitute Restore',async()=>{
