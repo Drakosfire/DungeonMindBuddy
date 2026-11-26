@@ -215,8 +215,20 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                         raise
                     failure.add_note(f"Probe or fixture retention failed: {type(exc).__name__}")
 
+        # The deployed serving lineage's capture predates the optional clone
+        # keyword; it already runs against the caller-owned App database. Both
+        # supported signatures must accept the pinned cohort path, which owns
+        # the read-only Core guard and avoids the standalone inventory scan.
+        parameters = inspect.signature(workflow.capture).parameters
+        cohort = parameters.get("cohort_manifest_sha256")
+        if cohort is None or cohort.kind not in (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+            raise ValueError("Ordinary capture does not explicitly support the pinned cohort path")
+        options = {"cohort_manifest_sha256": expected_manifest_sha256}
+        if "clone_app" in parameters:
+            if parameters["clone_app"].kind not in (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+                raise ValueError("Ordinary capture clone option is not explicitly controllable")
+            options["clone_app"] = False
         with patch.object(workflow, "capture_case", observed_case):
-            return workflow.capture(manifest, output, clone_app=False,
-                                    cohort_manifest_sha256=expected_manifest_sha256)
+            return workflow.capture(manifest, output, **options)
     finally:
         _lock.release()

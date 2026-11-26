@@ -167,7 +167,9 @@ checks the actual prior dialogue after capture. The wrapper does not seed the co
 and concurrent history changes must invalidate the binding. The wrapper refuses
 per-capture App cloning and selects the existing pinned cohort
 path, which enforces a dedicated read-only Core login and avoids full Core
-inventory scans. Before delegating, capture requires the live workstream owner
+inventory scans. It accepts the serving capture signature without `clone_app`
+(the caller already owns the clone), and passes `clone_app=False` when that
+explicit option exists. A runner without an explicit cohort pin is rejected. Before delegating, capture requires the live workstream owner
 ledger and checks the App clone's endpoint, OID and cluster identity. Run from
 the evaluator checkout: the guard rejects a different working directory and
 runs the Git source check in that checkout. This one-time cooperative check is

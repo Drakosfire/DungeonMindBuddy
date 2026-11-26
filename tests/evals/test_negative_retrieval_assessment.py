@@ -510,8 +510,8 @@ def test_capture_wrapper_retains_probe_on_failure_and_restores_owner(tmp_path, m
     monkeypatch.setattr(native_graph_reads, "prepare_query", lambda *_: None)
     monkeypatch.setattr(workflow, "capture_case", fail_case)
     original_case = workflow.capture_case
-    def ordinary_capture(manifest, output, **kwargs):
-        assert kwargs["clone_app"] is False and len(kwargs["cohort_manifest_sha256"]) == 64
+    def ordinary_capture(manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs):
+        assert clone_app is False and len(cohort_manifest_sha256) == 64
         return workflow.capture_case(Client(), "world", {}, {"id": "case1"}, output)
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     monkeypatch.setattr(workflow, "load_manifest", lambda *args, **kwargs: ({"conversation_mode": "build_sequence"}, tmp_path))
@@ -947,7 +947,7 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
         client.post("/api/live/agent/turn")
         return "done"
     monkeypatch.setattr(workflow, "capture_case", ordinary_case)
-    def ordinary_capture(manifest, output, **kwargs):
+    def ordinary_capture(manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs):
         return workflow.capture_case(Client(), "w", {"primary_work": {"object_id": "page"}}, case, output)
     monkeypatch.setattr(workflow, "capture", ordinary_capture)
     out = tmp_path / "success"
@@ -1002,7 +1002,7 @@ def test_capture_reuses_only_exact_seeded_dialogue(tmp_path, monkeypatch, verifi
         dispatched.append(kwargs["expected_conversation_id"])
         return "done"
     monkeypatch.setattr(workflow, "capture_case", ordinary_case)
-    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs: workflow.capture_case(
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs: workflow.capture_case(
         Client(), "w", {"primary_work": {"object_id": "page"}}, case, output,
         expected_conversation_id=None))
     fixture_set = {"seeded": fixture}
@@ -1070,7 +1070,7 @@ def test_postflight_failure_is_retained_and_stops_capture(tmp_path, monkeypatch,
         return result
     monkeypatch.setattr(module, "inspect_related_pages", inspect)
     monkeypatch.setattr(workflow, "capture_case", lambda *a, **kw: "completed")
-    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kw:
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, *, cohort_manifest_sha256, clone_app=False, **kw:
                         workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output))
     with pytest.raises(ValueError, match="source changed"):
         module.capture(_test_manifest(tmp_path), tmp_path / "case", fixtures={"case1": fixture},
@@ -1160,7 +1160,7 @@ def test_capture_uses_frozen_fixture_snapshot_if_caller_mutates_input(tmp_path, 
     monkeypatch.setattr(module, "verify_preflight_snapshot", lambda fixture, *a: observed.append(fixture["page"]))
     monkeypatch.setattr(module, "inspect_related_pages", lambda *a: [])
     monkeypatch.setattr(workflow, "capture_case", lambda *a, **k: "done")
-    def dispatch(manifest, output, **kwargs):
+    def dispatch(manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs):
         fixtures["case"]["page"] = "# Changed after pin"
         return workflow.capture_case(None, "w", {"primary_work": {"object_id": "page"}}, case, output)
     monkeypatch.setattr(workflow, "capture", dispatch)
@@ -1232,6 +1232,30 @@ def test_capture_delegates_to_read_only_core_cohort_path(tmp_path, monkeypatch, 
     assert capture(manifest_path, tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN) == "captured"
     assert len(calls) == 1 and calls[0]["cohort_member"] is True
     assert calls[0]["context_only"] is False and calls[0]["writer_transport"] is False
+
+
+@pytest.mark.parametrize("signature", ["serving", "modern", "unsupported"])
+def test_capture_requires_pinned_cohort_and_never_requests_a_clone(tmp_path, monkeypatch, verified_capture_owner, signature):
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval.capture import capture
+    calls = []
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: ({"conversation_mode": "build_sequence"}, tmp_path))
+    def serving(manifest, output, *, cohort_manifest_sha256):
+        calls.append((cohort_manifest_sha256, "serving"))
+        return "ok"
+    def modern(manifest, output, *, cohort_manifest_sha256, clone_app=True):
+        calls.append((cohort_manifest_sha256, clone_app))
+        return "ok"
+    def unsupported(manifest, output, **kwargs):
+        calls.append("unsafe")
+    monkeypatch.setattr(workflow, "capture", {"serving": serving, "modern": modern, "unsupported": unsupported}[signature])
+    if signature == "unsupported":
+        with pytest.raises(ValueError, match="explicitly support the pinned cohort"):
+            capture(_test_manifest(tmp_path), tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN)
+        assert calls == [] and not (tmp_path / "out").exists()
+    else:
+        assert capture(_test_manifest(tmp_path), tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN) == "ok"
+        assert calls == [(MANIFEST_PIN, "serving" if signature == "serving" else False)]
 
 
 def test_controller_votes_are_projected_as_unvalidated_not_reads():
@@ -1460,7 +1484,7 @@ def test_capture_probe_excludes_setup_and_history_activity(tmp_path, monkeypatch
         return "complete"
 
     monkeypatch.setattr(workflow, "capture_case", case)
-    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs:
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs:
                         workflow.capture_case(Client(), "world", {}, {"id": "case1"}, output))
     monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
                         ({"conversation_mode": "build_sequence"}, tmp_path))
@@ -1480,7 +1504,7 @@ def test_capture_probe_marks_predispatch_failure_not_started(tmp_path, monkeypat
         raise RuntimeError("history unavailable")
 
     monkeypatch.setattr(workflow, "capture_case", fail_before_dispatch)
-    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs:
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs:
                         workflow.capture_case(None, "world", {}, {"id": "case1"}, output))
     monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
                         ({"conversation_mode": "build_sequence"}, tmp_path))
@@ -1524,7 +1548,7 @@ def test_probe_freezes_rows_before_late_alias_and_background_completion(tmp_path
         client.post("/api/live/agent/turn")
         client.get("/history-after")
     monkeypatch.setattr(workflow, "capture_case", case)
-    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs:
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs:
                         workflow.capture_case(Client(), "world", {}, {"id": "case1"}, output))
     monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
                         ({"conversation_mode": "build_sequence"}, tmp_path))
@@ -1549,7 +1573,7 @@ def test_capture_rejects_async_post_without_claiming_a_completed_window(tmp_path
             return later()
     client = AsyncClient() if kind == "async_method" else AwaitableClient()
     monkeypatch.setattr(workflow, "capture_case", lambda client, *a, **k: client.post("/api/live/agent/turn"))
-    monkeypatch.setattr(workflow, "capture", lambda manifest, output, **kwargs:
+    monkeypatch.setattr(workflow, "capture", lambda manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs:
                         workflow.capture_case(client, "world", {}, {"id": "case1"}, output))
     monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
                         ({"conversation_mode": "build_sequence"}, tmp_path))
@@ -1588,7 +1612,7 @@ def test_probe_window_wraps_real_sync_testclient_turn_post(tmp_path, monkeypatch
         assert client.get("/history").status_code == 200
 
     monkeypatch.setattr(workflow, "capture_case", run_case)
-    def run_capture(manifest, output, **kwargs):
+    def run_capture(manifest, output, *, cohort_manifest_sha256, clone_app=False, **kwargs):
         with TestClient(app) as client:
             return workflow.capture_case(client, "world", {}, {"id": "case1"}, output)
     monkeypatch.setattr(workflow, "capture", run_capture)
@@ -1884,7 +1908,7 @@ def test_capture_checks_owned_app_before_delegating(tmp_path, monkeypatch):
     monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k:
                         ({"conversation_mode": "build_sequence"}, tmp_path))
     monkeypatch.setattr(module, "checked_owned_dsn", lambda: calls.append("owner"))
-    monkeypatch.setattr(workflow, "capture", lambda *a, **k: calls.append("runner") or "ok")
+    monkeypatch.setattr(workflow, "capture", lambda *a, cohort_manifest_sha256, clone_app=False, **k: calls.append("runner") or "ok")
     assert module.capture(_test_manifest(tmp_path), tmp_path / "out", expected_manifest_sha256=MANIFEST_PIN) == "ok"
     assert calls == ["owner", "runner"]
 
