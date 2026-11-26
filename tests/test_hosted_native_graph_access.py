@@ -564,7 +564,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume")],
             **{
                 key: HOSTED_WORLD_SCOPE_RESOLVERS[key]
-                for operation in ("trash", "restore")
+                for operation in ("archive", "trash", "restore")
                 for key in [("POST", f"/api/live/agent/worlds/{{world_id}}/conversations/{{conversation_id}}/{operation}")]
             },
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
@@ -3649,7 +3649,7 @@ def test_hosted_resume_switches_to_archived_conversation(hosted, application_sta
     assert hosted.client.request("GET", base).json()["conversation_id"] == original["conversation_id"]
 
 
-@pytest.mark.parametrize("operation", ["trash", "restore"])
+@pytest.mark.parametrize("operation", ["archive", "trash", "restore"])
 def test_hosted_conversation_lifecycle_authorizes_exact_owner(hosted, monkeypatch, operation):
     from datetime import datetime, timezone
     from apps.live_control_server.routes import conversation_library
@@ -3664,16 +3664,17 @@ def test_hosted_conversation_lifecycle_authorizes_exact_owner(hosted, monkeypatc
     calls = []
     owner_record = hosted.records["managed"]
 
-    def change(body, *, restore, authorize_write):
+    def change(body, *, authorize_write, restore=None):
         calls.append(body.command_id)
         authorize_write()
         return ConversationCommandReceipt(
             world_id=body.world_id, conversation_id=body.conversation_id,
-            command_id=body.command_id, command_kind="restore" if restore else "trash",
+            command_id=body.command_id, command_kind="archive" if restore is None else ("restore" if restore else "trash"),
             active_conversation_id=None, pointer_revision=5, recorded_at=datetime.now(timezone.utc),
         )
 
-    service = SimpleNamespace(set_conversation_trash=change)
+    method = "archive_conversation" if operation == "archive" else "set_conversation_trash"
+    service = SimpleNamespace(**{method: change})
     monkeypatch.setattr(conversation_library, "_conversation_service", lambda request: service)
     path = f"/api/live/agent/worlds/managed/conversations/{conversation_id}/{operation}"
     assert hosted.client.request("POST", path, session=None, json=command).status_code == 401
@@ -3687,10 +3688,10 @@ def test_hosted_conversation_lifecycle_authorizes_exact_owner(hosted, monkeypatc
         hosted.records["managed"] = owner_record.model_copy(update={"owner_subject": OTHER_OWNER})
         return change(*args, **kwargs)
 
-    service.set_conversation_trash = transfer_then_change
+    setattr(service, method, transfer_then_change)
     assert hosted.client.request("POST", path, json=command).status_code == 403
     hosted.records["managed"] = owner_record
-    service.set_conversation_trash = change
+    setattr(service, method, change)
     result = hosted.client.request("POST", path, json=command)
     assert result.status_code == 200, result.text
     assert result.headers["cache-control"] == "no-store"

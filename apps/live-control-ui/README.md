@@ -254,3 +254,15 @@ DMB_STATBLOCK_CONTRACT_SERVER_ROOT=/absolute/path/to/pinned/DungeonMindServer \
 
 The two fixture tests run from the Buddy checkout. Set the override to also run
 the generated-client and OpenAPI comparison against Server.
+
+## Conversation history
+
+Recent lists the current chat and saved chats by latest activity. Starting or
+switching chats leaves the previous chat in Recent. Use **Archive conversation**
+to move a chat to Archived, then **Continue conversation** when you want to
+resume it and return it to Recent.
+
+Buddy recognizes deliberate Archive from a saved Archive command. Older chats
+whose only evidence is the old archived execution status appear in Recent.
+Trashed chats stay in Trash. Restore returns a chat to its previous library
+view without making it current.

@@ -39,19 +39,30 @@ class ConversationSummary(BaseModel):
     title: str
     name_revision: int
     status: Literal["active", "archived", "trashed"]
+    library_archived: bool
     turn_count: int
     created_at: datetime
     updated_at: datetime
 
 
-_SELECT = """SELECT c.conversation_id,c.world_id,c.status,c.created_at,c.updated_at,
+# Starting or switching a chat changes its execution status without writing an
+# Archive receipt. Only explicit Archive/Reopen choices affect the library.
+_SELECT = """WITH library_choices AS (
+    SELECT DISTINCT ON (conversation_id) conversation_id, command_kind
+    FROM agent.command_receipt
+    WHERE world_id=%s AND command_kind IN ('archive', 'reopen')
+    ORDER BY conversation_id, result_pointer_revision DESC
+)
+    SELECT c.conversation_id,c.world_id,c.status,c.created_at,c.updated_at,
+    COALESCE(l.command_kind='archive', false) AS library_archived,
     c.next_turn_sequence-1 AS turn_count,COALESCE(n.revision,0) AS name_revision,
     COALESCE(n.title,(SELECT left(regexp_replace(t.user_text,'[[:space:]]+',' ','g'),160)
         FROM agent.turn t
         WHERE t.world_id=c.world_id AND t.conversation_id=c.conversation_id
         ORDER BY sequence LIMIT 1),'') AS title
     FROM agent.conversation c
-    LEFT JOIN agent.conversation_name n USING(conversation_id,world_id)"""
+    LEFT JOIN agent.conversation_name n USING(conversation_id,world_id)
+    LEFT JOIN library_choices l ON l.conversation_id=c.conversation_id"""
 
 
 def _summary(row):
@@ -62,7 +73,7 @@ def _summary(row):
 
 def _one(conn, world, conversation):
     row = conn.execute(
-        _SELECT + " WHERE c.world_id=%s AND c.conversation_id=%s", (world, conversation)
+        _SELECT + " WHERE c.world_id=%s AND c.conversation_id=%s", (world, world, conversation)
     ).fetchone()
     if row is None:
         raise ApplicationStateNotFoundError("Conversation not found in this World")
@@ -76,49 +87,72 @@ def get_name(world: str, conversation: UUID):
 
 
 def list_library(
-    world: str, *, status: str = "all", limit: int = 25, before: UUID | None = None
+    world: str, *, status: str = "all", limit: int = 25, before: str | UUID | None = None
 ):
-    if status not in {"all", "archived", "trashed"} or not 1 <= limit <= 50:
+    if status not in {"all", "recent", "archived", "explicitly_archived", "trashed"} or not 1 <= limit <= 50:
         raise ApplicationStateValidationError(
             "Invalid conversation library page selector"
         )
     with unit_of_work(_ready_dsn()) as conn:
         conn.row_factory = dict_row
-        params = [world]
+        params = [world, world]
         clauses = ["c.world_id=%s"]
-        if status == "all":
-            clauses.append("c.status<>'trashed'")
+        order_column = "updated_at" if status == "recent" else "created_at"
+        if status == "trashed":
+            clauses.append("c.status='trashed'")
         else:
-            clauses.append("c.status=%s")
-            params.append(status)
+            clauses.append("c.status<>'trashed'")
+            if status == "recent":
+                clauses.append("l.command_kind IS DISTINCT FROM 'archive'")
+            elif status == "explicitly_archived":
+                clauses.append("l.command_kind='archive'")
+            elif status == "archived":
+                clauses.append("c.status='archived'")
         if before is not None:
-            cursor = conn.execute(
-                "SELECT created_at FROM agent.conversation WHERE world_id=%s AND conversation_id=%s",
-                (world, before),
-            ).fetchone()
-            if cursor is None:
-                raise ApplicationStateNotFoundError(
-                    "Conversation cursor not found in this World"
-                )
-            clauses.append("(c.created_at,c.conversation_id)<(%s,%s)")
-            params.extend([cursor["created_at"], before])
+            if status == "recent":
+                try:
+                    activity, cursor_id = str(before).split("|", 1)
+                    cursor_id = UUID(cursor_id)
+                    cursor_time = datetime.fromisoformat(activity)
+                    if cursor_time.tzinfo is None:
+                        raise ValueError
+                except ValueError as exc:
+                    raise ApplicationStateValidationError("Invalid Recent conversation cursor") from exc
+            else:
+                try:
+                    cursor_id = UUID(str(before))
+                except ValueError as exc:
+                    raise ApplicationStateValidationError("Invalid conversation cursor") from exc
+                cursor = conn.execute(
+                    "SELECT created_at FROM agent.conversation WHERE world_id=%s AND conversation_id=%s",
+                    (world, cursor_id),
+                ).fetchone()
+                if cursor is None:
+                    raise ApplicationStateNotFoundError("Conversation cursor not found in this World")
+                cursor_time = cursor["created_at"]
+            clauses.append(f"(c.{order_column},c.conversation_id)<(%s,%s)")
+            params.extend([cursor_time, cursor_id])
         params.append(limit + 1)
         rows = conn.execute(
             _SELECT
             + " WHERE "
             + " AND ".join(clauses)
-            + " ORDER BY c.created_at DESC,c.conversation_id DESC LIMIT %s",
+            + f" ORDER BY c.{order_column} DESC,c.conversation_id DESC LIMIT %s",
             params,
         ).fetchall()
         items = [_summary(r) for r in rows[:limit]]
+        next_before = None
+        if len(rows) > limit:
+            last = items[-1]
+            next_before = str(last.conversation_id)
+            if status == "recent":
+                next_before = f"{last.updated_at.isoformat()}|{next_before}"
         return {
             "schema": "dmb_conversation_library_v1",
             "world_id": world,
             "status": status,
             "items": [r.model_dump(mode="json") for r in items],
-            "next_before": str(items[-1].conversation_id)
-            if len(rows) > limit
-            else None,
+            "next_before": next_before,
         }
 
 

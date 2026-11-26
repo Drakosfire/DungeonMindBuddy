@@ -7,8 +7,9 @@ import type {AuthoredReferenceInput} from './types';
 import {isAuthoredReferences} from '../agentInteraction/authoredGraphReferences';
 import {decodeRetryContext,type TurnRetryContext} from './conversationRetryApi';
 import {authenticatedApiFetch,LiveApiError} from './liveApi';
-export interface ConversationSummary{conversation_id:string;world_id:string;title:string;name_revision:number;status:'active'|'archived'|'trashed';turn_count:number;created_at:string;updated_at:string}
-export interface LibraryPage{schema:'dmb_conversation_library_v1';world_id:string;status:'all'|'archived'|'trashed';items:ConversationSummary[];next_before:string|null}
+export interface ConversationSummary{conversation_id:string;world_id:string;title:string;name_revision:number;status:'active'|'archived'|'trashed';library_archived?:boolean;turn_count:number;created_at:string;updated_at:string}
+export type ConversationLibraryFilter='all'|'recent'|'archived'|'explicitly_archived'|'trashed';
+export interface LibraryPage{schema:'dmb_conversation_library_v1';world_id:string;status:ConversationLibraryFilter;items:ConversationSummary[];next_before:string|null}
 export interface LibraryObjectSource{world_id:string;conversation_id:string;turn_id:string;document_id:string;surface_id:'build'|'plan'}
 export type LibraryReplyObject=({kind:'questions';questions:{text:string}[]}|{kind:'page_object';object_kind:'plan'|'connected_page'|'relationship'|'lore_page'}
  |{kind:'build_graph_reference'|'build_image_move';placement_sha256:string})&{source:LibraryObjectSource};
@@ -24,14 +25,26 @@ async function read(url:string,init?:RequestInit){
 function summary(value:any,world:string):ConversationSummary{
  if(!value||!uuid(value.conversation_id)||value.world_id!==world||typeof value.title!=='string'||!value.title.trim()||value.title.length>320
   ||!Number.isInteger(value.name_revision)||value.name_revision<0||!['active','archived','trashed'].includes(value.status)
+  ||('library_archived' in value&&typeof value.library_archived!=='boolean')
   ||!Number.isInteger(value.turn_count)||value.turn_count<0||!Number.isFinite(Date.parse(value.created_at))||!Number.isFinite(Date.parse(value.updated_at)))throw new Error('Conversation name has a different owner or invalid metadata.');
  return value;
 }
-export async function listConversations(world:string,status:'all'|'archived'|'trashed',before?:string,signal?:AbortSignal){
+export async function listConversations(world:string,status:ConversationLibraryFilter,before?:string,signal?:AbortSignal){
  const q=new URLSearchParams({status,limit:'25'});if(before)q.set('before',before);
  const value=await read(path(world)+'?'+q,{signal});
- if(value.schema!=='dmb_conversation_library_v1'||value.world_id!==world||value.status!==status||!Array.isArray(value.items)||value.items.length>25||!(value.next_before===null||uuid(value.next_before)))throw new Error('Conversation list differs from this World.');
- value.items.forEach((item:any)=>summary(item,world));return value as LibraryPage;
+ if(value.schema!=='dmb_conversation_library_v1'||value.world_id!==world||value.status!==status||!Array.isArray(value.items)||value.items.length>25)throw new Error('Conversation list differs from this World.');
+ value.items.forEach((item:any)=>summary(item,world));
+ const cursor=value.next_before;
+ if(cursor!==null){
+  if(status==='recent'){
+   const last=value.items.at(-1);
+   const [activity,id,extra]=typeof cursor==='string'?cursor.split('|'):[];
+   if(extra!==undefined||!uuid(id)||id!==last?.conversation_id||!Number.isFinite(Date.parse(activity))||Date.parse(activity)!==Date.parse(last.updated_at)){
+    throw new Error('Recent conversation cursor differs from its page.');
+   }
+  }else if(!uuid(cursor))throw new Error('Conversation cursor is invalid.');
+ }
+ return value as LibraryPage;
 }
 export async function readConversationName(world:string,id:string,signal?:AbortSignal){const value=summary(await read(path(world)+'/'+encodeURIComponent(id)+'/name',{signal}),world);if(value.conversation_id!==id)throw new Error('Conversation name differs from the selection.');return value;}
 export async function renameConversation(world:string,id:string,title:string,expected_revision:number){
@@ -122,10 +135,10 @@ export async function resumeConversation(command:ResumeConversationCommand){
  return value;
 }
 
-export type ConversationLifecycleOperation='trash'|'restore';
+export type ConversationLifecycleOperation='archive'|'trash'|'restore';
 export async function changeConversationLifecycle(command:ResumeConversationCommand,operation:ConversationLifecycleOperation){
  const value=await read(path(command.world_id)+'/'+encodeURIComponent(command.conversation_id)+'/'+operation,{method:'POST',body:JSON.stringify(command)});
- const active=operation==='trash'&&command.expected_active_conversation_id===command.conversation_id?null:command.expected_active_conversation_id;
+ const active=operation!=='restore'&&command.expected_active_conversation_id===command.conversation_id?null:command.expected_active_conversation_id;
  if(!exactObject(value,['world_id','command_id','command_kind','conversation_id','active_conversation_id','pointer_revision','recorded_at'])
   ||value.world_id!==command.world_id||value.command_id!==command.command_id||value.command_kind!==operation
   ||value.conversation_id!==command.conversation_id||value.active_conversation_id!==active

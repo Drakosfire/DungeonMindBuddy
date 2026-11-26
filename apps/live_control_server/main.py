@@ -288,6 +288,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/prompts"): resolve_hosted_conversation_world,
     ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/archive"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/trash"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/restore"): resolve_hosted_conversation_world,
     ("GET", "/api/live/media/images/capabilities"): resolve_hosted_image_world,
