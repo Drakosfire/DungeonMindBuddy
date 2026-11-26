@@ -115,8 +115,29 @@ async function run() {
         }));
       return { click, request, preflight };
     });
+    let confirmation;
+    if (process.env.DMB_BENCHMARK_CONFIRM_SAVE === "1") {
+      const review = page.getByRole("region", { name: "Suggestion review", exact: true });
+      await review.waitFor({ timeout: 15000 });
+      const beforeSave = await page.evaluate(async id => {
+        const response = await fetch("/api/live/workspace-documents/" + encodeURIComponent(id) + "/snapshot?view=committed");
+        return { status: response.status, body: await response.json() };
+      }, documentId);
+      if (beforeSave.status !== 200) throw new Error("Pre-confirmation committed page could not be read");
+      const expectedPath = /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals\/[^/]+\/review$/;
+      const confirmed = page.waitForResponse(result => {
+        const request = result.request();
+        return request.method() === "POST" && expectedPath.test(new URL(result.url()).pathname)
+          && request.postDataJSON()?.operation === "confirm";
+      }, { timeout: 20000 });
+      confirmed.catch(() => {});
+      await review.getByRole("button", { name: "Save", exact: true }).click();
+      const receipt = await confirmed;
+      confirmation = { beforeSave, request: receipt.request().postDataJSON(),
+        path: new URL(receipt.url()).pathname, status: receipt.status(), body: await receipt.json() };
+    }
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-      before, after, browserMarks, status: delivered.status(), chromiumVersion: browser.version(),
+      before, after, browserMarks, confirmation, status: delivered.status(), chromiumVersion: browser.version(),
       playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
       request: delivered.request().postDataJSON(), turnNetworkFailures,
     }, null, 2));

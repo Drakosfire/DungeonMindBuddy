@@ -65,6 +65,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
+    confirm_save = manifest["browser_capture"].get("confirm_save", False)
+    if type(confirm_save) is not bool or (confirm_save and not live_build):
+        raise ValueError("Build confirmation requires an explicit live fixture opt-in")
     if live_build and (not build_fixture or detail):
         raise ValueError("Live browser delivery requires the Build fixture")
     if not live_build and any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
@@ -297,6 +300,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
                         "DMB_BENCHMARK_LIVE_BUILD": "1" if live_build else "0",
+                        "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
