@@ -133,6 +133,11 @@ def report_case(case, base):
     paths = {name: directory / (name + ".json") for name in names}
     if context_only and (directory / "answer-http.json").exists():
         paths["answer-http"] = directory / "answer-http.json"
+    wire_path = directory / "build-wire-response.json"
+    if not context_only and wire_path.is_file():
+        paths["build-wire-response"] = wire_path
+        if not paths["answer-http"].is_file():
+            del paths["answer-http"]
     missing = [name for name, path in paths.items() if not path.exists()]
     if missing:
         if case.get("assessment") is not None:
@@ -224,10 +229,22 @@ def report_case(case, base):
                 if p.get("provider_attempt_id") == str(authorization.provider_attempt_id)
                 and p["payload_sha256"] == authorization.envelope_sha256]) != 1:
             raise ValueError("Context capture has no unique admitted prompt witness")
+    wire = documents.get("build-wire-response")
+    if wire is not None:
+        if request["surface"]["surface_id"] != "build":
+            raise ValueError("Build wire capture requires a Build request")
+        raw_wire = bytes.fromhex(wire["raw_body_hex"])
+        if sha256(raw_wire).hexdigest() != wire["raw_body_sha256"]:
+            raise ValueError("Build wire response bytes differ from their recorded hash")
     answer_body = answer["body"] if isinstance(answer["body"], dict) else {}
+    delivery_status = "unknown"
     delivered = (answer["http_status"] == 200 and turn["lifecycle_status"] == "completed"
         and bool(turn.get("assistant_text"))
         and answer_body.get("answer", {}).get("text") == turn["assistant_text"])
+    if "answer-http" in paths:
+        delivery_status = "pass" if delivered else "fail"
+    elif wire is not None and wire.get("client_disconnect_ms") is not None:
+        delivery_status = "disconnected"
     if answer["http_status"] == 200 and answer_body and (answer_body["turn_id"] != request["turn_id"]
         or answer_body["client_thread_id"] != request["client_thread_id"]):
         raise ValueError("HTTP response belongs to another client request")
@@ -298,7 +315,7 @@ def report_case(case, base):
         return sum(c[key] for c in calls.values()) if calls and all(c[key] is not None for c in calls.values()) else None
     return {"case_id": case["id"], "question": case["question"], "capture_status": "complete",
         "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
-        "delivery": {"status": "pass" if delivered else "fail", "http_status": answer["http_status"],
+        "delivery": {"status": delivery_status, "http_status": answer["http_status"],
             "lifecycle_status": turn["lifecycle_status"]},
         "operation": {"elapsed_ms": elapsed, "provider_attempts": len(calls),
             "input_tokens": total("input_tokens"), "output_tokens": total("output_tokens"),
@@ -475,12 +492,12 @@ class BuildSequenceStopped(ValueError):
 
 
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
-            browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None, build_fixture=False):
+            browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None, build_fixture=False, live_build=False):
     """Explicit live entry point; never invoked by offline reporting."""
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
     options = dict(context_only=context_only, writer_transport=writer_transport,
                    detailed_trace=detailed_trace, browser_case=browser_case,
-                   cohort_member=cohort_manifest_sha256 is not None, build_fixture=build_fixture)
+                   cohort_member=cohort_manifest_sha256 is not None, build_fixture=build_fixture, live_build=live_build)
     if cohort_app is not None:
         if cohort_manifest_sha256 is None or clone_app:
             raise ValueError("Shared App override requires a pinned cohort member")
@@ -510,7 +527,7 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
 
 
 def _capture(manifest, base, output, *, context_only, writer_transport, detailed_trace,
-             browser_case, cohort_member, build_fixture):
+             browser_case, cohort_member, build_fixture, live_build):
     if os.environ.get("DMB_AGENT_GRAPH_LOCAL_PROFILE"):
         raise ValueError("Capture cannot use a hidden local profile")
     if not manifest.get("pins"):
@@ -622,7 +639,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     try:
         if browser is not None:
             browser.browser_capture(application.create_app(), manifest, selected, output, token,
-                                    browser_inputs, owned_env, detail=detailed_trace, build_fixture=build_fixture)
+                                    browser_inputs, owned_env, detail=detailed_trace, build_fixture=build_fixture, live_build=live_build)
             return
         with TestClient(application.create_app(), client=("127.0.0.1", 43021),
             headers={"Authorization": "Bearer " + token}, raise_server_exceptions=False) as client:
@@ -648,7 +665,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
         if not cohort_member:
             native_after = row_inventory(native_dsn, readonly=readonly)
             immutable_save(output, "native-after", native_after)
-        if not build_fixture:
+        if not build_fixture or live_build:
             immutable_save(output, "report", report(output / "capture-manifest.json"))
         if not cohort_member and native_before != native_after:
             raise ValueError("Native authority changed during ordinary capture")
@@ -1386,6 +1403,7 @@ def main(argv=None):
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument("--live-build", action="store_true", help="Forward a validated Build editor request to ordinary Buddy")
     parser.add_argument("--build-fixture", action="store_true", help="Capture a Build editor selection before model dispatch")
     parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
     parser.add_argument("--citation-readback", help="Retained excerpt citation readback JSONL")
@@ -1422,6 +1440,8 @@ def main(argv=None):
         return
     if args.trace_input is not None:
         parser.error("--trace-input requires trace-report")
+    if args.live_build and not args.build_fixture:
+        parser.error("--live-build requires --build-fixture")
     if args.build_fixture and (args.mode != "capture" or args.case is None or not args.clone_app):
         parser.error("--build-fixture requires capture, --case and --clone-app")
     if args.case is not None and not (args.mode == "capture-context" and args.writer_transport or args.mode == "capture" and args.build_fixture):
@@ -1431,7 +1451,7 @@ def main(argv=None):
     elif args.mode == "action-report":
         immutable_save(Path(args.output), "action-report", action_report(args.manifest))
     elif args.mode == "capture":
-        options = {"browser_case": args.case, "build_fixture": True} if args.build_fixture else {}
+        options = {"browser_case": args.case, "build_fixture": True, "live_build": args.live_build} if args.build_fixture else {}
         capture(args.manifest, args.output, clone_app=args.clone_app, **options)
     elif args.mode == "capture-context":
         options = {"browser_case": args.case} if args.case is not None else {}

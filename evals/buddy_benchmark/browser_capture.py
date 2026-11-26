@@ -56,7 +56,7 @@ def browser_scratch_directory(output):
     return scratch.resolve()
 
 
-def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail, build_fixture=False):
+def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail, build_fixture=False, live_build=False):
     from apps.live_control_server.hosted_worker import with_startup_gc
     from apps.live_control_server.services import plan_jev_dispatch
     import httpx2
@@ -65,7 +65,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
-    if any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
+    if live_build and (not build_fixture or detail):
+        raise ValueError("Live browser delivery requires the Build fixture")
+    if not live_build and any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
         raise ValueError("Provider-free browser capture requires a credential-free worker process")
     scratch = browser_scratch_directory(output)
     bundle, wire, settled = inputs
@@ -125,6 +127,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
+        if live_build and path == "/__benchmark/build-response-retained" and method == "GET":
+            return await JSONResponse({
+                "retained": (directory / "build-wire-response.json").is_file(),
+            })(scope, receive, send)
         if path == "/__benchmark/clock" and method == "GET":
             return await PlainTextResponse(str(monotonic_ns() / 1e6))(scope, receive, send)
         if not path.startswith(("/api/", "/health/")) and method == "GET":
@@ -173,22 +179,58 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 except (ValueError, KeyError):
                     return await JSONResponse({"error": "Build fixture request did not match"}, 409)(scope, receive, send)
                 browser_request = parsed
-                # This preflight never forwards the request to the application or a provider.
-                return await JSONResponse({"code": "benchmark_build_fixture_captured"}, 409)(scope, receive, send)
-            if (browser_request is not None or parsed.get("message") != case["question"]
+                if not live_build:
+                    return await JSONResponse({"code": "benchmark_build_fixture_captured"}, 409)(scope, receive, send)
+            elif (browser_request is not None or parsed.get("message") != case["question"]
                     or parsed.get("surface", {}).get("surface_id") != "plan"
                     or parsed.get("owner_scope") != template["owner_scope"]
                     or parsed.get("primary_work") != work):
                 return await JSONResponse({"error": "Benchmark request did not match fixture"}, 409)(scope, receive, send)
             browser_request = parsed
             sink.request_started_monotonic_ns = tick
+            disconnect_ns = None
+
             async def deliver_body():
-                nonlocal body
+                nonlocal body, disconnect_ns
                 if body is None:
-                    return await receive()
+                    frame = await receive()
+                    if frame["type"] == "http.disconnect":
+                        disconnect_ns = monotonic_ns()
+                    return frame
                 raw, body = body, None
                 return {"type": "http.request", "body": raw, "more_body": False}
-            return await application(scope, deliver_body, send)
+            if not live_build:
+                return await application(scope, deliver_body, send)
+            artifacts.immutable_save(directory, "request", parsed)
+            response_bytes = bytearray()
+            transport_status = None
+            content_type = ""
+            transport_complete = False
+
+            async def retain_build_response(frame):
+                nonlocal transport_status, content_type, transport_complete
+                if frame["type"] == "http.response.start":
+                    transport_status = frame["status"]
+                    content_type = dict(frame.get("headers", [])).get(b"content-type", b"").decode("latin-1")
+                elif frame["type"] == "http.response.body":
+                    response_bytes.extend(frame.get("body", b""))
+                    transport_complete = not frame.get("more_body")
+                await send(frame)
+
+            try:
+                return await application(scope, deliver_body, retain_build_response)
+            finally:
+                if transport_status is not None:
+                    artifacts.immutable_save(directory, "build-wire-response", {
+                        "status": transport_status, "content_type": content_type,
+                        "transport_complete": transport_complete,
+                        "client_disconnect_ms": ((disconnect_ns - tick) / 1e6
+                                                 if disconnect_ns is not None else None),
+                        "raw_body_hex": response_bytes.hex(),
+                        "raw_body_sha256": sha256(response_bytes).hexdigest(),
+                        "elapsed_ms": (monotonic_ns() - tick) / 1e6,
+                    })
+
         return await application(scope, receive, send)
 
     async def serve(scope, receive, send):
@@ -210,16 +252,19 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     sock_host = f"127.0.0.1:{sock.getsockname()[1]}"
     origin = "http://" + sock_host
     local_env = dict(owned_env, DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN=origin,
-                     DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host,
-                     TYPESAFE_JEV_API_KEY="retained-jev-replay",
-                     OPENAI_API_KEY="local-writer-transport-sink")
+                     DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host)
+    if not live_build:
+        local_env.update(TYPESAFE_JEV_API_KEY="retained-jev-replay",
+                         OPENAI_API_KEY="local-writer-transport-sink")
     server = uvicorn.Server(uvicorn.Config(with_startup_gc(serve), log_level="warning",
                                            access_log=False, timeout_graceful_shutdown=10))
     route = "/api/live/agent/worlds/" + world + "/conversation"
+    from contextlib import nullcontext
+    jev_guard = (nullcontext() if live_build else
+                 patch.object(plan_jev_dispatch._ObservedJevTransport, "handle_async_request", replay))
+    writer_guard = nullcontext() if live_build else sink.install()
     try:
-        with (patch.dict(os.environ, local_env),
-              patch.object(plan_jev_dispatch._ObservedJevTransport, "handle_async_request", replay),
-              sink.install()):
+        with patch.dict(os.environ, local_env), jev_guard, writer_guard:
             thread = Thread(target=copy_context().run, args=(server.run,),
                             kwargs={"sockets": [sock]}, daemon=True)
             thread.start()
@@ -251,6 +296,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
+                        "DMB_BENCHMARK_LIVE_BUILD": "1" if live_build else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
@@ -262,7 +308,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if run.returncode or browser_request is None:
                         raise ValueError("Ordinary Plan browser Send did not capture the expected request")
                     artifacts.immutable_save(directory, "request", browser_request)
-                    if build_fixture:
+                    if build_fixture and not live_build:
                         after = client.get(route).raise_for_status().json()
                         if after["turns"] or after["active_conversation_id"] != fresh["active_conversation_id"]:
                             raise ValueError("Build fixture preflight unexpectedly created a turn")
@@ -271,9 +317,42 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "provider_calls": 0, "selection_text": manifest["browser_capture"]["selection_text"],
                         })
                         return
-                    after = workflow.response_envelope(
-                        client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
+                    def read_history():
+                        return workflow.response_envelope(
+                            client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
+
+                    after = read_history()
                     turns = workflow._request_turns(after["body"], browser_request, world)
+                    if live_build:
+                        deadline = monotonic_ns() + 60_000_000_000
+                        while monotonic_ns() < deadline and (not turns or (
+                                len(turns) == 1 and turns[0]["lifecycle_status"] in {"accepted", "running"})):
+                            sleep(0.5)
+                            after = read_history()
+                            turns = workflow._request_turns(after["body"], browser_request, world)
+                    artifacts.immutable_save(directory, "history-after", after)
+                    if live_build and len(turns) == 1:
+                        durable_id = turns[0]["turn_id"]
+                        trace = client.get(route + "/turns/" + durable_id + "/context-trace")
+                        artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
+                    if live_build:
+                        wire_response = json.loads((directory / "build-wire-response.json").read_bytes())
+                        wire_bytes = bytes.fromhex(wire_response["raw_body_hex"])
+                        try:
+                            body, status = build_browser_terminal(
+                                wire_bytes, wire_response["status"], wire_response["content_type"],
+                                browser_request["turn_id"])
+                        except BuildStreamWithoutTerminal:
+                            if (wire_response.get("client_disconnect_ms") is None or len(turns) != 1
+                                    or turns[0]["lifecycle_status"] in {"accepted", "running"}):
+                                raise
+                            return
+                        raw = json.dumps(body).encode("utf-8")
+                        artifacts.immutable_save(directory, "answer-http", {
+                            "body": body, "http_status": status, "transport_status": wire_response["status"],
+                            "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
+                            "elapsed_ms": wire_response["elapsed_ms"],
+                        })
                     if len(turns) != 1:
                         raise ValueError("Browser request has no unique retained Turn")
                     from application_state.agent_conversation import AgentConversationService
@@ -281,10 +360,11 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turn_id))
                     if len(replayed) != len(wire):
                         raise ValueError("Ordinary browser turn did not consume its entire Jev tape")
-                    sink.finalize(observed)
-                    artifacts.immutable_save(directory, "history-after", after)
-                    trace = client.get(route + "/turns/" + turn_id + "/context-trace").raise_for_status()
-                    artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
+                    if not live_build:
+                        sink.finalize(observed)
+                    if not live_build:
+                        trace = client.get(route + "/turns/" + turn_id + "/context-trace").raise_for_status()
+                        artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
             finally:
                 server.should_exit = True
                 # Keep the exact-wire and writer guards until the application
@@ -297,6 +377,28 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         artifacts.immutable_save(output, "jev-replay", replayed)
         if detail:
             artifacts.immutable_save(output, "jev-transport-intervals", wire_intervals)
+
+
+class BuildStreamWithoutTerminal(ValueError):
+    """A valid stream ended before a terminal event arrived."""
+
+
+def build_browser_terminal(raw, status, content_type, turn_id):
+    """Read the same terminal result or error consumed by the Build browser."""
+    if content_type.split(";", 1)[0].strip().lower() != "text/event-stream":
+        return json.loads(raw), status
+    for frame in raw.decode("utf-8").replace("\r\n", "\n").split("\n\n")[:-1]:
+        data = "\n".join(line[5:].lstrip() for line in frame.splitlines() if line.startswith("data:"))
+        if not data:
+            continue
+        event = json.loads(data)
+        if event.get("schema") != "dmb_build_turn_stream_v1" or event.get("client_turn_id") != turn_id:
+            raise ValueError("Build event stream belongs to another request")
+        if event.get("kind") == "result" and isinstance(event.get("response"), dict):
+            return event["response"], status
+        if event.get("kind") == "error" and type(event.get("status")) is int:
+            return {"detail": event.get("detail")}, event["status"]
+    raise BuildStreamWithoutTerminal("Build event stream has no terminal result or error")
 
 
 def validate_build_browser_request(request, *, world, work, question, selection_text,

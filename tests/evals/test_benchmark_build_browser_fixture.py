@@ -80,11 +80,32 @@ def test_build_preflight_cli_requires_owned_clone_and_case():
                        "--build-fixture", "--case", "PAGE-EDIT-1", "--clone-app"])
 
 
-def test_build_preflight_cli_selects_existing_capture_owner(monkeypatch):
+@pytest.mark.parametrize("live", [False, True])
+def test_build_preflight_cli_selects_existing_capture_owner(monkeypatch, live):
     from evals.buddy_benchmark import workflow
     calls = []
     monkeypatch.setattr(workflow, "capture", lambda *args, **kwargs: calls.append((args, kwargs)))
     workflow.main(["capture", "--manifest", "fixture.json", "--output", "capture",
-                   "--build-fixture", "--case", "PAGE-EDIT-1", "--clone-app"])
+                   "--build-fixture", "--case", "PAGE-EDIT-1", "--clone-app", *(["--live-build"] if live else [])])
     assert calls == [(("fixture.json", "capture"), {"clone_app": True,
-        "browser_case": "PAGE-EDIT-1", "build_fixture": True})]
+        "browser_case": "PAGE-EDIT-1", "build_fixture": True, "live_build": live})]
+
+
+def test_live_build_terminal_handles_stream_delivery_and_error():
+    from evals.buddy_benchmark.browser_capture import build_browser_terminal
+
+    media = "text/event-stream; charset=utf-8"
+    assert build_browser_terminal(
+        b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"turn-1","kind":"progress"}\r\n\r\ndata: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"turn-1","kind":"result","response":{"answer":"ok"}}\r\n\r\n',
+        200, media, "turn-1",
+    ) == ({"answer": "ok"}, 200)
+    assert build_browser_terminal(
+        b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"turn-1","kind":"error","status":409,"detail":"stale"}\n\n', 200, media, "turn-1",
+    ) == ({"detail": "stale"}, 409)
+    with pytest.raises(ValueError, match="no terminal"):
+        build_browser_terminal(b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"turn-1","kind":"progress"}\n\n', 200, media, "turn-1")
+    with pytest.raises(ValueError, match="another request"):
+        build_browser_terminal(
+            b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"other","kind":"error","status":409}\n\n',
+            200, media, "turn-1",
+        )

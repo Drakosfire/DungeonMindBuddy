@@ -15,6 +15,12 @@ async function run() {
     });
     const page = await context.newPage();
     const apiFailures = [];
+    const turnNetworkFailures = [];
+    page.on("requestfailed", request => {
+      if (new URL(request.url()).pathname === "/api/live/agent/turn") {
+        turnNetworkFailures.push(request.failure()?.errorText ?? "unknown");
+      }
+    });
     page.on("response", response => {
       const pathname = new URL(response.url()).pathname;
       if (pathname.startsWith("/api/") && response.status() >= 400) {
@@ -88,6 +94,13 @@ async function run() {
       throw error;
     }
     const delivered = await response;
+    if (process.env.DMB_BENCHMARK_LIVE_BUILD === "1") {
+      // Keep the page alive while its ordinary client consumes the terminal event.
+      await page.waitForFunction(async () => {
+        const response = await fetch("/__benchmark/build-response-retained");
+        return (await response.json()).retained === true;
+      }, undefined, { timeout: 75000, polling: 250 });
+    }
     const after = await calibrate();
     const browserMarks = await page.evaluate(() => {
       const click = performance.getEntriesByName("benchmark-browser-send").at(-1)?.startTime;
@@ -105,7 +118,7 @@ async function run() {
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
       before, after, browserMarks, status: delivered.status(), chromiumVersion: browser.version(),
       playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
-      request: delivered.request().postDataJSON(),
+      request: delivered.request().postDataJSON(), turnNetworkFailures,
     }, null, 2));
   } finally {
     await browser.close();
