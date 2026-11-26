@@ -50,11 +50,11 @@ async function run() {
     }
     await composer.waitFor({ timeout: 20000 });
     await composer.fill(process.env.DMB_BENCHMARK_QUESTION);
-    if (build) {
+    if (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1") {
       const selected = process.env.DMB_BENCHMARK_SELECTION;
-      if (!selected || !selected.trim()) throw new Error("Build fixture needs selected text");
-      const editor = page.locator(".build-surface-shell .ProseMirror[contenteditable=true]");
-      if (await editor.count() !== 1) throw new Error("Build fixture needs one editable editor");
+      if (!selected || !selected.trim()) throw new Error("Placement fixture needs selected text");
+      const editor = page.locator((build ? ".build-surface-shell" : ".world-plan-visual-editor") + " .ProseMirror[contenteditable=true]:visible");
+      if (await editor.count() !== 1) throw new Error("Placement fixture needs one editable editor");
       await editor.focus();
       await editor.evaluate((root, text) => {
         const matches = [];
@@ -72,7 +72,8 @@ async function run() {
         if (selection.toString() !== text) throw new Error("Browser selection did not match fixture");
       }, selected);
     }
-    const send = page.getByRole("button", { name: build ? /^(Send message|Propose edit)$/ : "Send message", exact: !build });
+    const live = process.env.DMB_BENCHMARK_LIVE_BROWSER === "1";
+    const send = page.getByRole("button", { name: build || live ? /^(Send message|Propose edit)$/ : /^Send message$/ });
     await send.waitFor({ state: "visible" });
     if (process.env.DMB_BENCHMARK_PANE_SETTLED === "1") {
       await page.waitForLoadState("networkidle", { timeout: 30000 });
@@ -95,21 +96,26 @@ async function run() {
       new URL(result.url()).pathname === "/api/live/agent/turn" && result.request().method() === "POST",
     { timeout: 60000 });
     response.catch(() => {});
+    let delivered;
     try {
       await send.click({ timeout: 12000 });
+      delivered = await response;
     } catch (error) {
       const alerts = await page.getByRole("alert").allTextContents();
       writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
         alerts, apiFailures, composerHasQuestion: await composer.inputValue() === process.env.DMB_BENCHMARK_QUESTION,
+        planTarget: build ? undefined : await page.getByLabel("Actual Plan change target").allTextContents(),
       }, null, 2));
       throw error;
     }
-    const delivered = await response;
+    if (delivered.headers()["x-benchmark-placement-rejected"] === "1") {
+      throw new Error("Plan placement failed benchmark preflight; rejected request retained");
+    }
     let buildCheckpoint;
-    if (process.env.DMB_BENCHMARK_LIVE_BUILD === "1") {
+    if (process.env.DMB_BENCHMARK_LIVE_BROWSER === "1") {
       // Keep the page alive while its ordinary client consumes the terminal event.
       buildCheckpoint = await pollBrowserRead(() => page.evaluate(async () => {
-        const response = await fetch("/__benchmark/build-response-retained", { cache: "no-store" });
+        const response = await fetch("/__benchmark/browser-response-retained", { cache: "no-store" });
         const checkpoint = await response.json();
         return checkpoint.retained === true ? checkpoint : false;
       }), 75000, 250, "retained Build response");

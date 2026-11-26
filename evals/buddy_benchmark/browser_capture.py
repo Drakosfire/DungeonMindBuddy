@@ -21,7 +21,7 @@ from evals.buddy_benchmark import artifacts, workflow
 from evals.buddy_benchmark.context_capture import ContextCapture
 
 
-def browser_inputs(manifest, base, *, build_fixture=False):
+def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
     """Load the exact browser bundle inventory and retained Jev tapes before dispatch."""
     spec = manifest["browser_capture"]
     bundle = (base / spec["bundle"]).resolve()
@@ -30,15 +30,15 @@ def browser_inputs(manifest, base, *, build_fixture=False):
               for path in bundle.rglob("*") if path.is_file()}
     if "index.html" not in actual or actual != expected or any(path.is_symlink() for path in bundle.rglob("*")):
         raise ValueError("Browser UI bundle differs from its pinned inventory")
-    wire = [] if build_fixture else json.loads(workflow.read_pin(spec["jev_wire"], base))
-    if not build_fixture and (not wire or any(
+    wire = [] if build_fixture or live_plan else json.loads(workflow.read_pin(spec["jev_wire"], base))
+    if not (build_fixture or live_plan) and (not wire or any(
         row["method"] != "POST" or row["response_status"] != 200
         or not bytes.fromhex(row["request_hex"]) or not bytes.fromhex(row["response_hex"])
         for row in wire
     )):
         raise ValueError("Browser benchmark requires a successful pinned Jev replay")
-    if build_fixture and (not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()):
-        raise ValueError("Build fixture requires exact selected text")
+    if (build_fixture or live_plan) and (not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()):
+        raise ValueError("Browser placement fixture requires exact selected text")
     settled = spec.get("settled_pane", False)
     if type(settled) is not bool:
         raise ValueError("Invalid browser cache condition")
@@ -56,7 +56,7 @@ def browser_scratch_directory(output):
     return scratch.resolve()
 
 
-def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail, build_fixture=False, live_build=False):
+def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail, build_fixture=False, live_build=False, live_plan=False):
     from apps.live_control_server.hosted_worker import with_startup_gc
     from apps.live_control_server.services import plan_jev_dispatch
     import httpx2
@@ -65,12 +65,14 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
+    live = live_build or live_plan
+    wire_name = "plan-wire-response" if live_plan else "build-wire-response"
     confirm_save = manifest["browser_capture"].get("confirm_save", False)
     if type(confirm_save) is not bool or (confirm_save and not live_build):
         raise ValueError("Build confirmation requires an explicit live fixture opt-in")
     if live_build and (not build_fixture or detail):
         raise ValueError("Live browser delivery requires the Build fixture")
-    if not live_build and any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
+    if not live and any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
         raise ValueError("Provider-free browser capture requires a credential-free worker process")
     scratch = browser_scratch_directory(output)
     bundle, wire, settled = inputs
@@ -130,8 +132,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
-        if live_build and path == "/__benchmark/build-response-retained" and method == "GET":
-            wire_path = directory / "build-wire-response.json"
+        if live and path == "/__benchmark/browser-response-retained" and method == "GET":
+            wire_path = directory / (wire_name + ".json")
             result = {"retained": wire_path.is_file()}
             if confirm_save and result["retained"] and browser_request is not None:
                 result["idempotency_key"] = str(uuid5(
@@ -196,8 +198,19 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 except (ValueError, KeyError):
                     return await JSONResponse({"error": "Build fixture request did not match"}, 409)(scope, receive, send)
                 browser_request = parsed
-                if not live_build:
+                if not live:
                     return await JSONResponse({"code": "benchmark_build_fixture_captured"}, 409)(scope, receive, send)
+            elif live_plan:
+                try:
+                    if browser_request is not None:
+                        raise ValueError("Only one Plan fixture request is allowed")
+                    validate_plan_browser_placement(parsed, world=world, work=work, question=case["question"],
+                        conversation_id=fresh["active_conversation_id"], pointer_revision=fresh["pointer_revision"],
+                        selection_text=manifest["browser_capture"]["selection_text"])
+                except (ValueError, KeyError):
+                    artifacts.immutable_save(directory, "rejected-browser-request", parsed)
+                    return await JSONResponse({"error": "Plan fixture request did not match"}, 409,
+                        headers={"X-Benchmark-Placement-Rejected": "1"})(scope, receive, send)
             elif (browser_request is not None or parsed.get("message") != case["question"]
                     or parsed.get("surface", {}).get("surface_id") != "plan"
                     or parsed.get("owner_scope") != template["owner_scope"]
@@ -216,7 +229,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     return frame
                 raw, body = body, None
                 return {"type": "http.request", "body": raw, "more_body": False}
-            if not live_build:
+            if not live:
                 return await application(scope, deliver_body, send)
             artifacts.immutable_save(directory, "request", parsed)
             response_bytes = bytearray()
@@ -238,7 +251,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 return await application(scope, deliver_body, retain_build_response)
             finally:
                 if transport_status is not None:
-                    artifacts.immutable_save(directory, "build-wire-response", {
+                    artifacts.immutable_save(directory, wire_name, {
                         "status": transport_status, "content_type": content_type,
                         "transport_complete": transport_complete,
                         "client_disconnect_ms": ((disconnect_ns - tick) / 1e6
@@ -270,16 +283,16 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     origin = "http://" + sock_host
     local_env = dict(owned_env, DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN=origin,
                      DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host)
-    if not live_build:
+    if not live:
         local_env.update(TYPESAFE_JEV_API_KEY="retained-jev-replay",
                          OPENAI_API_KEY="local-writer-transport-sink")
     server = uvicorn.Server(uvicorn.Config(with_startup_gc(serve), log_level="warning",
                                            access_log=False, timeout_graceful_shutdown=10))
     route = "/api/live/agent/worlds/" + world + "/conversation"
     from contextlib import nullcontext
-    jev_guard = (nullcontext() if live_build else
+    jev_guard = (nullcontext() if live else
                  patch.object(plan_jev_dispatch._ObservedJevTransport, "handle_async_request", replay))
-    writer_guard = nullcontext() if live_build else sink.install()
+    writer_guard = nullcontext() if live else sink.install()
     try:
         with patch.dict(os.environ, local_env), jev_guard, writer_guard:
             thread = Thread(target=copy_context().run, args=(server.run,),
@@ -313,23 +326,35 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
-                        "DMB_BENCHMARK_LIVE_BUILD": "1" if live_build else "0",
+                        "DMB_BENCHMARK_LIVE_BROWSER": "1" if live else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
-                        "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture else "",
+                        "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture or live_plan else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
                         "DMB_BENCHMARK_CHROMIUM": os.environ["DMB_BENCHMARK_CHROMIUM"],
                     }
-                    if live_build:
-                        page_route = "/api/live/workspace-documents/" + work["object_id"] + "/snapshot"
+                    if live:
+                        page_route = "/api/live/workspace-documents/" + work["object_id"]
+                        page_route += "/committed-revision" if live_plan else "/snapshot"
+                        page_params = {} if live_plan else {"view": "committed"}
                         page_before = workflow.response_envelope(
-                            client.get(page_route, params={"view": "committed"}).raise_for_status())
+                            client.get(page_route, params=page_params).raise_for_status())
                         artifacts.immutable_save(directory, "committed-page-before", page_before)
+                        if live_plan:
+                            require_plan_fixture_basis(page_before["body"], world, work,
+                                                       manifest["browser_capture"]["selection_text"])
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
-                    run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env, timeout=100)
-                    if run.returncode or browser_request is None:
-                        raise ValueError("Ordinary Plan browser Send did not capture the expected request")
+                    try:
+                        run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env, timeout=100)
+                        driver_status = {"return_code": run.returncode}
+                    except subprocess.TimeoutExpired:
+                        driver_status = {"timed_out": True}
+                    driver_failed = driver_status != {"return_code": 0}
+                    if driver_failed:
+                        artifacts.immutable_save(directory, "browser-driver-failure", driver_status)
+                    if browser_request is None or (driver_failed and not live):
+                        raise ValueError("Ordinary browser Send did not capture the expected request")
                     artifacts.immutable_save(directory, "request", browser_request)
                     if build_fixture and not live_build:
                         after = client.get(route).raise_for_status().json()
@@ -345,19 +370,20 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             client.get(route, params={"include_turn_correlation": "true"}).raise_for_status())
 
                     after = read_history()
-                    turns = workflow._request_turns(after["body"], browser_request, world)
-                    if live_build:
+                    turns = workflow._request_turns(after["body"], browser_request, world, browser_plan=live_plan)
+                    if live:
                         deadline = monotonic_ns() + 60_000_000_000
                         while monotonic_ns() < deadline and (not turns or (
                                 len(turns) == 1 and turns[0]["lifecycle_status"] in {"accepted", "running"})):
                             sleep(0.5)
                             after = read_history()
-                            turns = workflow._request_turns(after["body"], browser_request, world)
+                            turns = workflow._request_turns(after["body"], browser_request, world, browser_plan=live_plan)
                     artifacts.immutable_save(directory, "history-after", after)
-                    if live_build:
+                    if live:
                         if confirm_save:
-                            timing = json.loads((output / "browser-timing.json").read_bytes())
-                            confirmation = timing.get("confirmation") or {}
+                            timing_path = output / "browser-timing.json"
+                            timing = json.loads(timing_path.read_bytes()) if timing_path.is_file() else {}
+                            confirmation = timing.get("confirmation") or {"status": "unknown"}
                             action_id = confirmation.get("action_id")
                             if action_id is not None:
                                 action_id = str(UUID(action_id))
@@ -368,7 +394,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                                                          workflow.response_envelope(review_after))
                             artifacts.immutable_save(directory, "confirmation", confirmation)
                         page_after = workflow.response_envelope(
-                            client.get(page_route, params={"view": "committed"}).raise_for_status())
+                            client.get(page_route, params=page_params).raise_for_status())
                         artifacts.immutable_save(directory, "committed-page-after", page_after)
                         matched_turn = turns[0] if len(turns) == 1 else None
                         lifecycle = matched_turn["lifecycle_status"] if matched_turn is not None else None
@@ -382,12 +408,15 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "after_sha256": page_after["raw_body_sha256"],
                             "unchanged": page_before["body"] == page_after["body"],
                         })
-                    if live_build and len(turns) == 1:
+                    if live and len(turns) == 1:
                         durable_id = turns[0]["turn_id"]
                         trace = client.get(route + "/turns/" + durable_id + "/context-trace")
                         artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
-                    if live_build:
-                        wire_response = json.loads((directory / "build-wire-response.json").read_bytes())
+                    if live:
+                        wire_path = directory / (wire_name + ".json")
+                        if not wire_path.is_file():
+                            raise ValueError("Ordinary browser transport has no retained response")
+                        wire_response = json.loads(wire_path.read_bytes())
                         wire_bytes = bytes.fromhex(wire_response["raw_body_hex"])
                         try:
                             body, status = build_browser_terminal(
@@ -404,6 +433,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "raw_body_hex": raw.hex(), "raw_body_sha256": sha256(raw).hexdigest(),
                             "elapsed_ms": wire_response["elapsed_ms"],
                         })
+                    if live_plan and not turns and status >= 400:
+                        return
                     if len(turns) != 1:
                         raise ValueError("Browser request has no unique retained Turn")
                     from application_state.agent_conversation import AgentConversationService
@@ -411,9 +442,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turn_id))
                     if len(replayed) != len(wire):
                         raise ValueError("Ordinary browser turn did not consume its entire Jev tape")
-                    if not live_build:
+                    if not live:
                         sink.finalize(observed)
-                    if not live_build:
+                    if not live:
                         trace = client.get(route + "/turns/" + turn_id + "/context-trace").raise_for_status()
                         artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
             finally:
@@ -491,3 +522,47 @@ def validate_build_browser_request(request, *, world, work, question, selection_
             or basis.draft_generation != snapshot.draft_generation):
         raise ValueError("Build browser editor capability differs from its working snapshot")
     return parsed
+
+
+def validate_plan_browser_placement(request, *, world, work, question, conversation_id, pointer_revision, selection_text=None):
+    """Bind an observed Plan placement request to the pinned work and fresh conversation."""
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+
+    parsed = AgentTurnRequest.model_validate(request)
+    if (parsed.surface.surface_id != "plan" or parsed.owner_scope is None
+            or parsed.owner_scope.world_id != world or parsed.primary_work is None
+            or parsed.primary_work.model_dump(mode="json", exclude_none=True) != work
+            or parsed.message != question):
+        raise ValueError("Plan browser request differs from the pinned fixture")
+    capture = parsed.plan_authoring_capture
+    if capture is None or parsed.plan_placement_catalog is None:
+        raise ValueError("Plan browser request lacks a captured placement")
+    if (str(capture.conversation_id) != str(conversation_id)
+            or capture.expected_pointer_revision != pointer_revision):
+        raise ValueError("Plan browser placement differs from the current conversation")
+    if selection_text is not None:
+        witness = getattr(capture, "selection_witness_text", capture.selected_text)
+        if witness != selection_text:
+            raise ValueError("Plan browser selection differs from the pinned passage")
+    return parsed
+
+
+
+def require_plan_fixture_basis(committed, world, work, selection):
+    """Require the same active committed Plan basis that the ordinary composer uses."""
+    expected = {
+        "schema_version": "dmb_workspace_committed_revision_v2",
+        "scope_mode": "world",
+        "campaign_id": None,
+        "world_id": world,
+        "document_id": work["object_id"],
+        "kind": "plan",
+        "status": "active",
+        "object_revision": work["expected_revision"],
+        "revision_n": work["expected_revision_n"],
+        "content_sha256": work["expected_content_sha256"],
+    }
+    if any(key not in committed or committed[key] != value for key, value in expected.items()):
+        raise ValueError("Plan fixture is not the pinned active committed Plan")
+    if committed["markdown"].count(selection) != 1:
+        raise ValueError("Plan fixture selection is absent or ambiguous in the committed Plan")
