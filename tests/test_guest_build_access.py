@@ -1951,3 +1951,6 @@ def test_guest_proposal_storage_counts_toward_quota_and_is_cleaned(guests, monke
     with connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM agent.build_proposal WHERE world_id=%s', (world,)).fetchone()[0] == 0
         assert conn.execute('SELECT count(*) FROM agent.build_proposal_review WHERE world_id=%s', (world,)).fetchone()[0] == 0
+        assert conn.execute(
+            'SELECT count(*) FROM agent.conversation_identity WHERE world_id=%s', (world,),
+        ).fetchone()[0] == 0

@@ -82,6 +82,22 @@ backup output path or discard and recreate the disposable restore target
 before retrying. Restore replays in one transaction. A timeout may occur
 after the database commits but before the client reports success.
 
+## Conversation erasure and retained backups
+
+Permanent deletion removes the chat from live App state, including its messages,
+drafts, conversation-owned proposals, and traces. Private prompt and diagnostic
+files linked from the erased records are removed through a retryable queue.
+Independently committed World work remains available through its own surface.
+Historical import and command receipts retain identifiers and verification
+metadata for as long as the App state is retained.
+
+Pre-deletion recovery copies can still contain the old chat or its diagnostics.
+The operator retains and expires these copies under the deployment's backup
+policy. Buddy does not apply an automatic expiry to operator-managed backups.
+Before opening a recovered environment to users, account for erasures that
+occurred after the backup by reconciling later deletion receipts when available.
+An older backup alone cannot tell which conversations were subsequently erased.
+
 ## Routine backup
 
 Choose a fresh dump path in an existing directory on a filesystem that supports
