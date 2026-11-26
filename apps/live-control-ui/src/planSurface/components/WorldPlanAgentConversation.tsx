@@ -1930,7 +1930,7 @@ function messagePresentation(page: ActiveConversationMessages): WorldAgentConver
     schema: 'dmb_agent_conversation_history_v3', world_id: page.world_id, conversation_state: page.conversation_state,
     conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
     next_before_sequence: page.next_before_sequence, turns: page.messages.map(message => {
-      const { status, revision, citation_preview, authored_references, reply_object, author_interaction, saved_statblocks: _savedStatblocks, ...row } = message;
+      const { status, revision, citation_preview, authored_references, reply_object, author_interaction, retry_lineage: _retryLineage, saved_statblocks: _savedStatblocks, ...row } = message;
       // Saved statblock links remain on the source message for display. They are not execution history fields.
       return { ...row, ...(authored_references ? {authored_references} : {}), lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 };
     })
@@ -6845,7 +6845,10 @@ export function WorldPlanAgentConversation({
             && (selectPassage ? passagePrompt(() => retrySavedMessage(turn, true))
               : <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedMessage(turn)}/>)}
         </div>}
-        <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready',
+        <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, previousAttempts.length ? <details>
+          <summary>Previous attempts · {previousAttempts.length}</summary>
+          {openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] && previousAttempts.map(attempt => renderConversationEvent(attempt, [], true))}
+        </details> : undefined, savedMessage?.citation_preview?.status === 'ready',
             savedMessage?.reply_object?.kind==='page_object'
               &&((!isReadOnly&&scopeMatches&&savedMessage.reply_object.object_kind==='connected_page')
                 ||(scopedLoreReview&&savedMessage.reply_object.object_kind==='lore_page'))&&history?.active_conversation_id===history?.conversation_id
@@ -7087,10 +7090,17 @@ export function WorldPlanAgentConversation({
       </BuddyTurnInspection>
     );
   };
+  const displayLineageRows = new Map(messagePage?.messages.map(row => [row.turn_id, row]) ?? []);
+  const displayLineageTurns = new Map(messageHistory?.turns.map(row => [row.turn_id, row]) ?? []);
   const displayedConversation = [
     ...groupConversationAttempts(conversationDisplay.events,
       event => event.kind === "world" ? event.turn : null,
-      new Set(buildCompose.items.map(item=>item.afterSequence)))
+      new Set(buildCompose.items.map(item=>item.afterSequence)), event => {
+        if (event.kind !== 'world' || !messagePage || !history || !messageHistory || !sameHistoryPointer(messageHistory, history)) return null;
+        const row = displayLineageRows.get(event.turn.turn_id), expected = displayLineageTurns.get(event.turn.turn_id);
+        if (!row?.retry_lineage || !expected || !sameSavedMessage(expected, event.turn)) return null;
+        return {...row.retry_lineage, world_id: messagePage.world_id, conversation_id: messagePage.conversation_id!};
+      })
       .map(({item:event,previous,historical}, index) => ({
         order: event.kind === "world" ? event.turn.sequence : event.position.afterSequence + .25,
         ordinal: index, element: historical
