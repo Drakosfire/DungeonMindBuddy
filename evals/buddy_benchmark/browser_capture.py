@@ -338,8 +338,15 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if live_build:
                         wire_response = json.loads((directory / "build-wire-response.json").read_bytes())
                         wire_bytes = bytes.fromhex(wire_response["raw_body_hex"])
-                        body, status = build_browser_terminal(
-                            wire_bytes, wire_response["status"], wire_response["content_type"], browser_request["turn_id"])
+                        try:
+                            body, status = build_browser_terminal(
+                                wire_bytes, wire_response["status"], wire_response["content_type"],
+                                browser_request["turn_id"])
+                        except BuildStreamWithoutTerminal:
+                            if (wire_response.get("client_disconnect_ms") is None or len(turns) != 1
+                                    or turns[0]["lifecycle_status"] in {"accepted", "running"}):
+                                raise
+                            return
                         raw = json.dumps(body).encode("utf-8")
                         artifacts.immutable_save(directory, "answer-http", {
                             "body": body, "http_status": status, "transport_status": wire_response["status"],
@@ -372,6 +379,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             artifacts.immutable_save(output, "jev-transport-intervals", wire_intervals)
 
 
+class BuildStreamWithoutTerminal(ValueError):
+    """A valid stream ended before a terminal event arrived."""
+
+
 def build_browser_terminal(raw, status, content_type, turn_id):
     """Read the same terminal result or error consumed by the Build browser."""
     if content_type.split(";", 1)[0].strip().lower() != "text/event-stream":
@@ -387,7 +398,7 @@ def build_browser_terminal(raw, status, content_type, turn_id):
             return event["response"], status
         if event.get("kind") == "error" and type(event.get("status")) is int:
             return {"detail": event.get("detail")}, event["status"]
-    raise ValueError("Build event stream has no terminal result or error")
+    raise BuildStreamWithoutTerminal("Build event stream has no terminal result or error")
 
 
 def validate_build_browser_request(request, *, world, work, question, selection_text,
