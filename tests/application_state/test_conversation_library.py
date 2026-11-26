@@ -56,6 +56,65 @@ def archive(service, count=3, *, keep_active=False):
     return cid
 
 
+def test_recent_history_explicit_archive_and_stable_activity_cursor(application_state_dsn):
+    from application_state.agent_conversation.types import ArchiveCommand, ConversationTrashCommand, ReopenCommand
+
+    world = "world-one"
+    service = AgentConversationService()
+    first, second, current = (new(service) for _ in range(3))
+    foreign = new(service, "other-world")
+
+    def command(kind, conversation):
+        pointer = service.get_world_pointer(world)
+        return kind(
+            world_id=world, conversation_id=conversation, command_id=uuid4(),
+            expected_pointer_revision=pointer.revision,
+            expected_active_conversation_id=pointer.active_conversation_id,
+        )
+
+    def ids(status, **kwargs):
+        return [row["conversation_id"] for row in library.list_library(world, status=status, **kwargs)["items"]]
+
+    # Exercise activity ordering with distinct timestamps, independent of creation order.
+    with psycopg.connect(application_state_dsn) as conn:
+        for chat, day in [(first, 4), (second, 2), (current, 3), (foreign, 5)]:
+            conn.execute(
+                "UPDATE agent.conversation SET updated_at=%s::timestamptz WHERE conversation_id=%s",
+                (f"2026-11-{day:02d}T12:00:00Z", chat),
+            )
+    assert ids("recent") == [str(first), str(current), str(second)]
+    assert ids("explicitly_archived") == []
+    assert set(ids("archived")) == {str(first), str(second)}  # Legacy API selector.
+    assert not library.get_name(world, first).library_archived
+
+    page = library.list_library(world, status="recent", limit=2)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE agent.conversation SET updated_at=now() WHERE conversation_id=%s", (current,))
+    assert ids("recent", before=page["next_before"]) == [str(second)]
+
+    archive_command = command(ArchiveCommand, first)
+    archived = service.archive_conversation(archive_command)
+    assert archived.active_conversation_id == current
+    assert service.archive_conversation(archive_command) == archived
+    assert ids("explicitly_archived") == [str(first)]
+    assert str(first) not in ids("recent")
+    with pytest.raises(ApplicationStateNotFoundError):
+        service.archive_conversation(command(ArchiveCommand, foreign))
+
+    service.set_conversation_trash(command(ConversationTrashCommand, first), restore=False)
+    assert ids("explicitly_archived") == [] and ids("trashed") == [str(first)]
+    service.set_conversation_trash(command(ConversationTrashCommand, first), restore=True)
+    assert ids("explicitly_archived") == [str(first)]
+    service.reopen_conversation(command(ReopenCommand, first))
+    assert ids("explicitly_archived") == []
+    assert set(ids("recent")) == {str(first), str(second), str(current)}
+    assert service.get_world_pointer(world).active_conversation_id == first
+
+    service.archive_conversation(command(ArchiveCommand, first))
+    assert ids("explicitly_archived") == [str(first)]
+    assert service.get_world_pointer(world).active_conversation_id is None
+
+
 def test_names_are_independent_cas_and_exact_retry(application_state_dsn):
     service = AgentConversationService()
     cid = new(service)

@@ -103,7 +103,7 @@ it('moves to recoverable Trash explicitly and restores without continuing',async
  const onLifecycle=vi.fn(async(_command,operation)=>{status=operation==='trash'?'trashed':'archived';}),onContinue=vi.fn();
  vi.mocked(api.listConversations).mockImplementation(async(world,filter)=>({
   schema:'dmb_conversation_library_v1',world_id:world,status:filter,
-  items:(filter==='all'?status!=='trashed':filter===status)?[{...meta(current,world),status}]:[],next_before:null,
+  items:(filter==='recent'?status!=='trashed':filter===status)?[{...meta(current,world),status}]:[],next_before:null,
  }));
  const view=render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onContinue={onContinue} onLifecycle={onLifecycle}/>);
  await screen.findByText('Current question');fireEvent.click(screen.getByText('•••'));fireEvent.click(screen.getByRole('button',{name:'Move to Trash'}));await waitFor(()=>expect(onLifecycle).toHaveBeenCalledTimes(1));
@@ -117,11 +117,34 @@ it('moves to recoverable Trash explicitly and restores without continuing',async
  view.rerender(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:9,activeId:null}} onContinue={onContinue} onLifecycle={onLifecycle}/>);
  fireEvent.click(screen.getByRole('button',{name:'Restore conversation'}));await waitFor(()=>expect(onLifecycle).toHaveBeenCalledTimes(2));
  expect(onLifecycle.mock.calls[1]).toEqual([expect.objectContaining({expected_pointer_revision:9,expected_active_conversation_id:null}),'restore']);expect(onContinue).not.toHaveBeenCalled();
- await screen.findByText('Conversation restored to history.');
+ await screen.findByText('Conversation restored to Recent.');
  expect(screen.queryByRole('button',{name:/Current piece/})).not.toBeInTheDocument();
- fireEvent.change(screen.getByLabelText('Show'),{target:{value:'archived'}});
- await screen.findByText('Archived conversation · Read-only transcript');
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'recent'}});
+ await screen.findByText('Saved conversation · Read-only transcript');
 });
+it('keeps switched chats in Recent and moves only explicitly archived chats into Archived',async()=>{
+ let archived=false;
+ const onLifecycle=vi.fn(async()=>{archived=true;});
+ vi.mocked(api.listConversations).mockImplementation(async(world,status)=>({
+  schema:'dmb_conversation_library_v1',world_id:world,status,
+  items:status==='recent'?[meta(current,world),...(!archived?[meta(old,world)]:[])]
+   :status==='explicitly_archived'&&archived?[{...meta(old,world),library_archived:true}]:[],
+  next_before:null,
+ }));
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onContinue={vi.fn()} onLifecycle={onLifecycle}/>);
+ expect(screen.getByLabelText('Show')).toHaveValue('recent');
+ fireEvent.click(await screen.findByRole('button',{name:/Archived piece Saved/}));
+ await screen.findByText('Saved conversation · Read-only transcript');
+ fireEvent.click(screen.getByText('•••'));
+ fireEvent.click(screen.getByRole('button',{name:'Archive conversation'}));
+ await screen.findByText('Conversation archived.');
+ expect(onLifecycle).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({conversation_id:old,expected_active_conversation_id:current}),'archive');
+ expect(screen.queryByRole('button',{name:/Archived piece/})).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'explicitly_archived'}});
+ await screen.findByText('Archived conversation · Read-only transcript');
+ expect(screen.getByRole('button',{name:'Continue conversation',exact:true})).toBeVisible();
+});
+
 it('retries uncertain Trash using the same command and does not substitute Restore',async()=>{
  const onLifecycle=vi.fn().mockRejectedValueOnce(new Error('Connection lost')).mockResolvedValue(undefined);
  render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onLifecycle={onLifecycle}/>);
@@ -160,7 +183,7 @@ it('aborts a superseded list read on filter change and the active read on close'
   return new Promise(()=>{});
  });
  const {unmount}=render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
- fireEvent.change(screen.getByLabelText('Show'),{target:{value:'archived'}});
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'explicitly_archived'}});
  expect(requests.map(signal=>signal.aborted)).toEqual([true,false]);
  unmount();
  expect(requests.map(signal=>signal.aborted)).toEqual([true,true]);
