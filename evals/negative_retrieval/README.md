@@ -31,6 +31,12 @@ for an interrupted turn; neither observation invents a successful clarification.
 A case allowing a movable proposal does not require an inline question for that
 proposal.
 
+The development set includes the exact Shepherd naming question from the supplied
+trace with a short reconstructed conversation, page and synthetic related pages.
+It exercises the reported request but is not an exact replay of the original
+long conversation or original source inventory. The separate 60-exchange case
+exercises early-context reuse.
+
 The draft fixture files are development material: both splits were authored
 together and share structure, so `heldout-draft.json` is not independent held-out
 evidence. An independently authored held-out set, a product observation adapter,

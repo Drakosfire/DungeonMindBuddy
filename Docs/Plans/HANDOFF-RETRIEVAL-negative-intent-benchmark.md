@@ -72,6 +72,10 @@ The evaluator now admits up to 98 prior synthetic exchanges and requests 100-tur
 
 The first serving-integration focused run exposed one generator failure: the current owner test changed its optional-page body expression. The generator now accepts either of the two known exact anchors and rejects missing or ambiguous forms. It generated and compiled against the current serving fixture, but no generated witness has been dispatched on a database; this is not an ordinary turn or benchmark result.
 
+## Supplied Shepherd trace regression
+
+`dev-shepherd-naming` now preserves the actual naming question from the supplied trace. Its short prior dialogue, page and related-page inventory are explicitly reconstructed synthetic development context, not the original long conversation or an independently held-out case. The original captured record reports a completed turn and a roughly 241-second trace window, with 11 related-page retrieved observations, one native-search expansion, 16 full-document expansion observations, 24 section expansion observations and two assertion expansion observations. Expansion/retrieval stages may overlap and are not counts of distinct sources; even a `complete` captured record does not establish complete acquisition coverage or end-to-end latency. The separate signed-in 7.2-second fresh-chat smoke is not a controlled before/after comparison. The raw trace and host identifiers are not included in the model-facing fixture.
+
 ## Outcome and lease
 
 Build an independently reviewable evaluation of unnecessary acquisition and

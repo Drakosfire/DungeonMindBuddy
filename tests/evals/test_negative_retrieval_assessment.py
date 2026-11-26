@@ -1535,6 +1535,26 @@ def test_owned_http_fixture_rejects_foreign_or_stale_clone_and_worker():
         validate(bad)
 
 
+def test_shepherd_trace_question_is_a_negative_development_case():
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / "evals/negative_retrieval/fixtures"
+    public = json.loads((root / "development.json").read_text())
+    private = json.loads((root / "development-private.json").read_text())
+    case = next(row for row in public["cases"] if row["id"] == "dev-shepherd-naming")
+    expected = ("The Shepherd is part of the group of humans that came from Mirathorn to settle BogBlossom. "
+        "I like the idea that this person was who found the collapsed swamp Wizard Tower, which suggests they worked for the Wizard Tower Salvage company, maybe even helped found it. "
+        "Then disappeared as they were polluted by Maelthor. Give me a list of 10 name options, I'm indifferent to gender.")
+    assert case["request"] == expected
+    assert [row["role"] for row in case["history"]] == ["user", "assistant"]
+    rubric = private["cases"][case["id"]]
+    assert rubric["max_catalog_discoveries"] == rubric["max_graph_query_attempts"] == 0
+    assert rubric["required_reads"] == rubric["allowed_reads"] == [] and rubric["outcomes"] == ["answer"]
+    assert assess(rubric, observation(outcome="answer", graph_query_attempts=0,
+                                      graph_query_journal_complete=False))["status"] == "unproven"
+    assert assess(rubric, observation(outcome="answer", catalog_discoveries=1))["checks"]["catalog_budget"] is False
+
+
 def test_long_context_development_case_requires_early_dialogue_without_search():
     import json
     from pathlib import Path

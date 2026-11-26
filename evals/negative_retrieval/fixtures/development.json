@@ -144,6 +144,7 @@
           "body": "Several unnamed crews work on the river."
         }
       ]
-    }
+    },
+    {"id": "dev-shepherd-naming", "page": "# The Shepherd\nAn unfinished character concept connected to Maelthor.", "history": [{"role": "user", "content": "We need to work on the Shepherd’s name, background, origin, and encounter with Maelthor."}, {"role": "assistant", "content": "Those are open character-development questions; the origin and encounter are still proposals."}], "request": "The Shepherd is part of the group of humans that came from Mirathorn to settle BogBlossom. I like the idea that this person was who found the collapsed swamp Wizard Tower, which suggests they worked for the Wizard Tower Salvage company, maybe even helped found it. Then disappeared as they were polluted by Maelthor. Give me a list of 10 name options, I'm indifferent to gender.", "related_pages": [{"label": "town", "title": "BogBlossom", "body": "A fictional swamp settlement established by people from Mirathorn."}, {"label": "tower", "title": "Collapsed swamp tower", "body": "A fictional ruined tower with salvageable remains."}, {"label": "distractor", "title": "Market recipes", "body": "A fictional market sells honey cakes."}]}
   ]
 }
