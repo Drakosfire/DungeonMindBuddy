@@ -101,13 +101,17 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
     paths = {name: directory / (name + ".json") for name in names}
-    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe"):
+    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe", "source-window-probe"):
         paths[name] = directory / (name + ".json")
     present = {name: path for name, path in paths.items() if path.is_file()}
     # Bind and parse the same immutable byte snapshot, not a second file read.
     raw_artifacts = {name: path.read_bytes() for name, path in present.items()}
     hashes = {name: sha256(raw).hexdigest() for name, raw in raw_artifacts.items()}
     rows = {name: json.loads(raw) for name, raw in raw_artifacts.items()}
+    source_window = None
+    if "source-window-probe" in rows:
+        from .source_window import validate_artifact
+        source_window = validate_artifact(rows["source-window-probe"], fixture["id"])
     native_probe = None
     if "native-graph-probe" in rows:
         value = rows["native-graph-probe"]
@@ -151,7 +155,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             raise ValueError("Semantic review cannot bind an incomplete capture")
         return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
                 "status": "unproven", "missing_artifacts": missing,
-                "artifact_sha256": hashes, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe,
+                "artifact_sha256": hashes, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe, "partial_source_window": source_window,
                 "capture_terminal": terminal}
     if rows["request"].get("message") != fixture["request"]:
         raise ValueError("Capture request differs from the fixture")
@@ -245,7 +249,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "related_context_verified": related_bound, "fixture_context_verified": fixture_bound,
             "fixture_pin_verified": pin_bound,
             "capture_environment_verified": None,
-            "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe,
+            "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe, "partial_source_window": source_window,
             "semantic_review": reviewed,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,

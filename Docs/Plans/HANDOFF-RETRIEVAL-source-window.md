@@ -15,7 +15,7 @@ contracts, shared CI configuration and source data are outside this lease.
 
 Write set: this handoff; the predecessor
 `Docs/Plans/HANDOFF-RETRIEVAL-negative-intent-benchmark.md` for truthful merge
-settlement; `evals/negative_retrieval/source_window.py`, `capture.py`, and
+settlement; `evals/negative_retrieval/source_window.py`, `capture.py`, `report.py`, and
 `README.md`; and `tests/evals/test_negative_retrieval_assessment.py`. No other
 lane may edit these without transfer. #4857 changes the separate shared browser
 runner; #4580 and #4550 are runtime lanes, and no overlapping write was found.

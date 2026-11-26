@@ -71,6 +71,21 @@ they may overlap other observed owners. Absence is unknown for old artifacts
 and incomplete coverage. Batch reads, pre-captured aliases, other processes and
 other owners are not covered by this hook.
 
+An optional `source-window-probe` artifact records entry attempts at selected
+Core PostgreSQL source-view methods during the synchronous turn POST. A
+unique evaluator-only token follows the TestClient task and is explicitly
+carried into the known Build executor without copying product context.
+Unscoped calls, unfinished work or monitor errors make this window uncertain;
+unavailable instrumentation remains unknown. If process-wide hook cleanup
+fails, the evaluator refuses another observed capture in that process; use a
+fresh process. Entries include failed or
+empty operations, may overlap, and do not prove a source body was opened.
+Raw threads, other owners, subprocesses, late work and additional executor
+paths remain outside coverage. The artifact contains no arguments, IDs or
+bodies; the offline report exposes it as diagnostic data without changing
+grades. Missing legacy artifacts remain unknown. No empty window proves zero
+retrieval or a complete journal.
+
 The pending Build source-preparation and Graph-binding entry points are recorded
 separately as `native_source_preparation` and `native_graph_binding` attempt and
 outcome counts. These are not body reads or a source-search count, and a zero

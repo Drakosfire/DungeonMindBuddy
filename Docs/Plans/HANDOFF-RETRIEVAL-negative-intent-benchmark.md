@@ -1,6 +1,6 @@
 # RETRIEVAL: negative intent benchmark
 
-Status: ACTIVE — user authorized the benchmark goal in this conversation. This
+Status: MERGED FOUNDATION — #4584 merged as `ed0e2fe195c9e56250229a036deac82d8b79ab2f`. The overall goal remains ACTIVE in the serial successor `HANDOFF-RETRIEVAL-source-window.md`. The following assignment and checkpoint text is historical unless expressly updated. This
 brief assigns the eval-only slice to `codex/negative-retrieval-benchmark`.
 Its merge base with fetched `origin/main` 9b269c27fc68bec4b31a173212d715af769a99be
 is 082f874ca753aa9eaaec197d71e1e71162262fa7. Earlier assignment bases

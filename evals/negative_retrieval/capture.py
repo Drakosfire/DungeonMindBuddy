@@ -20,6 +20,7 @@ from .fixture_binding import verify_preflight_history, verify_preflight_snapshot
 from .fixture_sources import inspect_related_pages
 from .related_page_probe import observe_related_page_owners
 from .native_graph_probe import observe_native_graph_owners
+from .source_window import observe_source_window
 from .owned_db_fixture import checked_owned_dsn
 
 _lock = Lock()
@@ -144,6 +145,8 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     raise
             records = []
             native_records = None
+            source_window_state = None
+            source_window_setup_failed = False
             dispatch_started = False
             post_entered = False
             dispatch_uncertain = False
@@ -157,7 +160,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     return getattr(self.wrapped, name)
 
                 def post(self, route, *args, **options):
-                    nonlocal records, native_records, dispatch_started, post_entered, dispatch_uncertain
+                    nonlocal records, native_records, source_window_state, source_window_setup_failed, dispatch_started, post_entered, dispatch_uncertain
                     if route != "/api/live/agent/turn":
                         return self.wrapped.post(route, *args, **options)
                     if dispatch_started:
@@ -167,20 +170,31 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                         raise TypeError("Async clients are unsupported for serial capture")
                     with observe_related_page_owners() as records:
                         with observe_native_graph_owners() as native_records:
-                            post_entered = True
                             try:
-                                response = self.wrapped.post(route, *args, **options)
-                                if inspect.isawaitable(response):
-                                    dispatch_uncertain = True
-                                    if inspect.iscoroutine(response):
-                                        response.close()
-                                    raise TypeError("Awaitable response is unsupported for serial capture")
-                                return response
+                                with observe_source_window() as source_window_state:
+                                    post_entered = True
+                                    try:
+                                        response = self.wrapped.post(route, *args, **options)
+                                        if inspect.isawaitable(response):
+                                            dispatch_uncertain = True
+                                            if inspect.iscoroutine(response):
+                                                response.close()
+                                            raise TypeError("Awaitable response is unsupported for serial capture")
+                                        return response
+                                    finally:
+                                        # Detach existing owner rows before their hooks exit.
+                                        records = [dict(row) for row in records]
+                                        native_records = [dict(row) for row in native_records]
+                            except BaseException:
+                                if not post_entered:
+                                    source_window_setup_failed = True
+                                raise
                             finally:
-                                # Detached rows prevent late retained aliases or background
-                                # completions from altering this POST-window evidence.
-                                records = [dict(row) for row in records]
-                                native_records = [dict(row) for row in native_records]
+                                if source_window_state is not None:
+                                    source_window_state = {
+                                        key: dict(value) if isinstance(value, dict) else value
+                                        for key, value in source_window_state.items() if key != "pending"
+                                    }
 
             try:
                 return original(ObservedTurnClient(checked_client), world, template, case, directory, **kwargs)
@@ -197,6 +211,17 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                         "coverage": "partial", "window": "turn_post_v1", "case_id": case["id"],
                         "status": "dispatch_uncertain" if dispatch_uncertain else "observed" if post_entered else "not_started",
                         "records": native_records if native_records is not None else [],
+                    })
+                    immutable_save(Path(directory), "source-window-probe", {
+                        "schema": "dmb_negative_retrieval_source_window_v1", "case_id": case["id"],
+                        "window": "turn_post_v1", "dispatch_uncertain": dispatch_uncertain,
+                        **(source_window_state if source_window_state is not None else {
+                            "coverage": "partial", "status": "setup_failed" if source_window_setup_failed else "not_started",
+                            "scoped": {"metadata": 0, "text": 0, "text_batch": 0},
+                            "unscoped": {"metadata": 0, "text": 0, "text_batch": 0},
+                            "pending_at_close": 0, "late": 0,
+                            "monitor_error": source_window_setup_failed,
+                        }),
                     })
                     if fixture is not None:
                         immutable_save(Path(directory), "fixture-pin", {
