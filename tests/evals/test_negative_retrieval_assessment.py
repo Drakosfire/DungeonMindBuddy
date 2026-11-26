@@ -1200,4 +1200,6 @@ def test_creative_naming_rubric_requires_proven_no_acquisition_and_quality():
     assert assess(rubric, observation(outcome='answer', reads=[UNKNOWN], journal_complete=False))['status'] == 'fail'
     assert assess(rubric, observation(outcome='answer', journal_complete=False))['status'] == 'unproven'
     assert assess(rubric, observation(outcome='answer', semantic_quality=None))['status'] == 'unproven'
+    assert assess(rubric, observation(outcome='answer', semantic_quality=False))['status'] == 'fail'
+    assert assess(rubric, observation(outcome='answer', catalog_journal_complete=False))['status'] == 'unproven'
     assert assess(rubric, observation(outcome='proposal', movable_proposal=True))['status'] == 'fail'
