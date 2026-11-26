@@ -22,7 +22,8 @@ and must not be presented as product-complete.
 
 Write lease: this handoff, `apps/live_control_server/services/build_jev_driver.py`,
 `build_pending_app_pages.py`, `build_pending_source.py`, focused tests
-`tests/test_build_current_page_direct.py` and `tests/test_build_current_scope_reader.py`, and the affected action-catalog entry
+`tests/test_build_current_page_direct.py` and `tests/test_build_current_scope_reader.py`,
+`apps/live_control_server/services/plan_jev_writer.py`, and the affected action-catalog entry
 in `evals/plan-authoring-benchmark.md`. The existing negative development control
 and private budget are owned on main by #4890; do not relax or duplicate them.
 Validate the actual runtime path, exact metadata identity and no inventory scan,
@@ -33,3 +34,11 @@ on the existing clone with partial capture explicitly reported. Qualify the
 deployed reader against completed candidate records and interrupt recovery; an
 older reader's deliberate fail-closed interruption is not completion. Independently
 review exact head and use the authorized Actions release and signed-in app smoke.
+
+Case 221 selected and cited the exact current page with zero observed World
+catalog calls, but its writer also chose a generic missing-factual-details warning
+for the unsupported reminder despite answering the source question. Include the
+small mixed-action writer instruction needed to distinguish an executor limitation
+from a factual evidence gap. Preserve genuine missing-detail limitations; do not
+silently remove validated model output. Re-run the affected actual writer boundary
+and mixed/source controls on the final exact candidate.

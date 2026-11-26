@@ -20,6 +20,34 @@ def test_pending_opening_offers_the_reader_registered_scope():
     assert question.question == FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE
 
 
+def test_unavailable_action_writer_distinguishes_capability_from_factual_gaps(monkeypatch):
+    import json
+    from application_state.agent_conversation.native_writer import verify_input_records
+    from apps.live_control_server.services import build_jev_dispatch
+    from tests.test_build_source_free_protocol import pending_writer_dispatch_case
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    with pending_writer_dispatch_case(monkeypatch, source_free_work='other_creation',
+                                      source_scope='anchored', native_json=True) as (state, adapter, rules, writer, prepared):
+        instructions = json.loads(prepared.body)['instructions']
+        assert 'An unavailable action is a capability limitation, not missing factual evidence.' in instructions
+        assert 'only when the supplied evidence actually lacks a factual detail' in instructions
+        assert writer.authorize(prepared)
+        turn = state.turn
+        verify_input_records(turn.graph_context_receipt, turn.graph_context_execution, writer.authorization,
+            prepared.body.decode(), provenance=turn.provenance, idempotency_key=turn.idempotency_key,
+            work_proof=writer.proof, world_id=turn.world_id, conversation_id=turn.conversation_id,
+            turn_id=turn.turn_id, attempt=turn.attempt)
+
+
+def test_genuine_missing_factual_detail_remains_a_supported_limitation():
+    from application_state.agent_conversation.source_writer_output import project_surface_limitations
+    options = dict(user_question='What does the source say?', derive_missing=False,
+        host_partial=False, empty_answer=False, strict_gap_array=True, generic_codes_only=True)
+    assert not project_surface_limitations([], [], **options)
+    limitation, = project_surface_limitations(['missing_requested_details'], [], **options)
+    assert limitation.code == 'missing_requested_details'
+
+
 def _metadata_adapter():
     receipt, _, _, _ = pending_catalog_case()
     basis = receipt.work_context.source_basis
