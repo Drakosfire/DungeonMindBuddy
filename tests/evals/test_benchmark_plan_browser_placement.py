@@ -6,12 +6,13 @@ from application_state.agent_conversation.plan_authoring import PlanAuthoringCap
 from evals.buddy_benchmark.browser_capture import validate_plan_browser_placement
 
 
-@pytest.mark.parametrize("mismatch", [None, "missing_catalog", "wrong_revision", "wrong_pointer", "wrong_selection"])
+@pytest.mark.parametrize("mismatch", [None, "missing_catalog", "wrong_revision", "wrong_pointer", "wrong_selection", "wrong_caret", "document_start"])
 def test_plan_browser_placement_binding(mismatch):
     world, document, conversation = "elderwyld", str(uuid4()), str(uuid4())
     markdown = "A live draft."
     editor = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"A live draft."}]}]}'
-    selection = '{"type":"text","anchor":14,"head":14}'
+    caret = 1 if mismatch == "document_start" else 14
+    selection = '{"type":"text","anchor":%d,"head":%d}' % (caret, caret)
     capture = PlanAuthoringCaptureV1.model_validate({
         "idempotency_key": str(uuid4()), "conversation_id": conversation,
         "expected_pointer_revision": 1, "world_id": world, "document_id": document,
@@ -19,7 +20,7 @@ def test_plan_browser_placement_binding(mismatch):
         "draft_markdown": markdown, "draft_sha256": text_digest(markdown),
         "editor_json": editor, "editor_sha256": text_digest(editor),
         "selection_json": selection, "selection_sha256": text_digest(selection),
-        "from": 14, "to": 14, "draft_generation": 0, "selection_generation": 1,
+        "from": caret, "to": caret, "draft_generation": 0, "selection_generation": 1,
         "target_kind": "insert_at_caret", "selected_text": "",
     })
     work = {"kind": "plan", "object_id": document, "expected_revision": 3, "expected_revision_n": 3,
@@ -48,7 +49,8 @@ def test_plan_browser_placement_binding(mismatch):
     controls = dict(world=world, work=work, question=question, conversation_id=conversation,
                     pointer_revision=2 if mismatch == "wrong_pointer" else 1,
                     selection_text="A different passage." if mismatch == "wrong_selection" else None)
-    if mismatch:
+    controls["at_document_start"] = mismatch in {"wrong_caret", "document_start"}
+    if mismatch and mismatch != "document_start":
         with pytest.raises(ValueError):
             validate_plan_browser_placement(request, **controls)
     else:
@@ -95,3 +97,31 @@ def test_plan_fixture_requires_active_committed_revision(status):
     else:
         with pytest.raises(ValueError, match="pinned active committed Plan"):
             require_plan_fixture_basis(committed, "elderwyld", work, committed["markdown"])
+
+
+
+@pytest.mark.parametrize("mismatch", [None, "conversation", "message", "extra", "status"])
+def test_pinned_plan_history_requires_exact_completed_prefix(mismatch):
+    from evals.buddy_benchmark.browser_capture import require_plan_history
+
+    turn = {"turn_id": "turn-1", "sequence": 1, "lifecycle_status": "completed",
+            "user_text": "Earlier question", "assistant_text": "Earlier answer"}
+    history = {"active_conversation_id": "conversation-1", "turns": [turn]}
+    pin = {"conversation_id": "conversation-1", "prior_turns": [{
+        "turn_id": turn["turn_id"], "sequence": 1,
+        "user_text_sha256": text_digest(turn["user_text"]),
+        "assistant_text_sha256": text_digest(turn["assistant_text"]),
+    }]}
+    if mismatch == "conversation":
+        history["active_conversation_id"] = "other-conversation"
+    if mismatch == "message":
+        turn["assistant_text"] = "Revised answer"
+    if mismatch == "extra":
+        history["turns"].append({**turn, "sequence": 2})
+    if mismatch == "status":
+        turn["lifecycle_status"] = "interrupted"
+    if mismatch is None:
+        require_plan_history(history, pin)
+    else:
+        with pytest.raises(ValueError, match="pinned Plan history"):
+            require_plan_history(history, pin)

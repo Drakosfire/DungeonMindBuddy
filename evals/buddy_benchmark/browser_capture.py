@@ -40,12 +40,21 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
         for row in wire
     )):
         raise ValueError("Browser benchmark requires a successful pinned Jev replay")
-    if not unsent_draft and (build_fixture or live_plan) and (not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()):
+    history_pin = spec.get("plan_history")
+    if history_pin is not None and not live_plan:
+        raise ValueError("A pinned Plan history requires live Plan browser capture")
+    history = json.loads(workflow.read_pin(history_pin, base)) if history_pin is not None else None
+    caret = spec.get("at_document_start", False)
+    if type(caret) is not bool or (caret and (not live_plan or "selection_text" in spec)):
+        raise ValueError("Document-start caret requires live Plan without selected text")
+    if not unsent_draft and not caret and (build_fixture or live_plan) and (
+            not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()
+    ):
         raise ValueError("Browser placement fixture requires exact selected text")
     settled = spec.get("settled_pane", False)
     if type(settled) is not bool:
         raise ValueError("Invalid browser cache condition")
-    return bundle, wire, settled
+    return bundle, wire, settled, history
 
 
 def browser_scratch_directory(output):
@@ -86,7 +95,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     if not live and any(os.environ.get(key) for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY")):
         raise ValueError("Provider-free browser capture requires a credential-free worker process")
     scratch = browser_scratch_directory(output)
-    bundle, wire, settled = inputs
+    bundle, wire, settled, pinned_history = inputs
+    at_document_start = manifest["browser_capture"].get("at_document_start", False)
     template = manifest["request_template"]
     world = manifest["world"]
     work = template["primary_work"]
@@ -220,7 +230,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         raise ValueError("Only one Plan fixture request is allowed")
                     validate_plan_browser_placement(parsed, world=world, work=work, question=case["question"],
                         conversation_id=fresh["active_conversation_id"], pointer_revision=fresh["pointer_revision"],
-                        selection_text=manifest["browser_capture"]["selection_text"])
+                        selection_text=manifest["browser_capture"].get("selection_text", ""),
+                        at_document_start=at_document_start)
                 except (ValueError, KeyError):
                     artifacts.immutable_save(directory, "rejected-browser-request", parsed)
                     return await JSONResponse({"error": "Plan fixture request did not match"}, 409,
@@ -325,14 +336,18 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     workflow.verify_capture_environment(local_env)
                     if plan_jev_dispatch.request_budget() != manifest["provider_policy"]:
                         raise ValueError("Effective ordinary provider policy differs")
-                    history = client.get(route).raise_for_status().json()
-                    command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
-                        "expected_pointer_revision": history["pointer_revision"],
-                        "expected_active_conversation_id": history["active_conversation_id"]}
-                    client.post(route + "/new", json=command).raise_for_status()
                     fresh = client.get(route).raise_for_status().json()
-                    if fresh["turns"]:
-                        raise ValueError("Browser fixture conversation was not empty")
+                    if pinned_history is None:
+                        command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
+                            "expected_pointer_revision": fresh["pointer_revision"],
+                            "expected_active_conversation_id": fresh["active_conversation_id"]}
+                        client.post(route + "/new", json=command).raise_for_status()
+                        fresh = client.get(route).raise_for_status().json()
+                        if fresh["turns"]:
+                            raise ValueError("Browser fixture conversation was not empty")
+                    else:
+                        require_plan_history(fresh, pinned_history)
+                        artifacts.immutable_save(directory, "history-before", fresh)
                     runtime = output / "runtime-artifacts"
                     env = {
                         "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(scratch),
@@ -344,6 +359,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
+                        "DMB_BENCHMARK_DOCUMENT_START": "1" if at_document_start else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture or live_plan else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
@@ -358,7 +374,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         artifacts.immutable_save(directory, "committed-page-before", page_before)
                         if live_plan:
                             require_plan_fixture_basis(page_before["body"], world, work,
-                                                       manifest["browser_capture"]["selection_text"])
+                                                       manifest["browser_capture"].get("selection_text"))
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
@@ -563,7 +579,7 @@ def validate_build_browser_request(request, *, world, work, question, selection_
     return parsed
 
 
-def validate_plan_browser_placement(request, *, world, work, question, conversation_id, pointer_revision, selection_text=None):
+def validate_plan_browser_placement(request, *, world, work, question, conversation_id, pointer_revision, selection_text=None, at_document_start=False):
     """Bind an observed Plan placement request to the pinned work and fresh conversation."""
     from apps.live_control_server.models.agent_turn import AgentTurnRequest
 
@@ -583,8 +599,28 @@ def validate_plan_browser_placement(request, *, world, work, question, conversat
         witness = getattr(capture, "selection_witness_text", capture.selected_text)
         if witness != selection_text:
             raise ValueError("Plan browser selection differs from the pinned passage")
+    if at_document_start and ((capture.from_, capture.to) != (1, 1)
+                              or capture.draft_sha256 != work["expected_content_sha256"]):
+        raise ValueError("Plan fixture requires a document-start caret in the committed text")
     return parsed
 
+
+
+def require_plan_history(history, expected):
+    """Reject stale or extra turns before dispatch into a restored conversation."""
+    def digest(value):
+        return sha256(value.encode("utf-8")).hexdigest()
+
+    observed = [
+        {"turn_id": turn["turn_id"], "sequence": turn["sequence"],
+         "user_text_sha256": digest(turn["user_text"]),
+         "assistant_text_sha256": digest(turn["assistant_text"])}
+        for turn in history["turns"] if turn["lifecycle_status"] == "completed"
+    ]
+    if (history["active_conversation_id"] != expected["conversation_id"]
+            or not observed or len(observed) != len(history["turns"])
+            or observed != expected["prior_turns"]):
+        raise ValueError("Active conversation differs from the pinned Plan history")
 
 
 def require_plan_fixture_basis(committed, world, work, selection):
@@ -603,5 +639,5 @@ def require_plan_fixture_basis(committed, world, work, selection):
     }
     if any(key not in committed or committed[key] != value for key, value in expected.items()):
         raise ValueError("Plan fixture is not the pinned active committed Plan")
-    if committed["markdown"].count(selection) != 1:
+    if selection is not None and committed["markdown"].count(selection) != 1:
         raise ValueError("Plan fixture selection is absent or ambiguous in the committed Plan")
