@@ -68,6 +68,10 @@ Current pending Build source observation also permits a missing native binding f
 
 The evaluator now admits up to 98 prior synthetic exchanges and requests 100-turn history pages before and after the measured turn, rejecting a remaining cursor or altered prefix. It chooses the existing complete pending-Build dialogue owner; older lineages with only the six-turn reader reject long seeds before creating a conversation. A synthetic 60-exchange development fixture asks for facts from the first exchange and has a private zero-acquisition rubric. Thirteen focused synthetic checks passed, including a fake-owner 60-exchange round trip, truncation, race, source-free grading and existing fixture generation. No real database, provider, ordinary long-chat turn or independent held-out case was used. The serving integration candidate must be rebuilt for this increment.
 
+## Placement witness source compatibility
+
+The first serving-integration focused run exposed one generator failure: the current owner test changed its optional-page body expression. The generator now accepts either of the two known exact anchors and rejects missing or ambiguous forms. It generated and compiled against the current serving fixture, but no generated witness has been dispatched on a database; this is not an ordinary turn or benchmark result.
+
 ## Outcome and lease
 
 Build an independently reviewable evaluation of unnecessary acquisition and

@@ -864,6 +864,21 @@ def test_frozen_placement_generator_pins_input_and_owner_anchors(tmp_path):
     generate(source, output, fixture, expected_fixture_sha256=digest)
     content = output.read_text()
     compile(content, str(output), "exec")
+    old_anchor = 'save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")'
+    current_anchor = 'save_page(tmp_path, optional_page.document_id, "The local node is proposed to want freedom." if source_answer_output else "This unrelated lore should remain unread.")'
+    owner_source = source.read_text()
+    assert owner_source.count(old_anchor) + owner_source.count(current_anchor) == 1
+    original_anchor = old_anchor if old_anchor in owner_source else current_anchor
+    alternate_anchor = current_anchor if original_anchor == old_anchor else old_anchor
+    alternate_source = tmp_path / "alternate-owner.py"
+    alternate_source.write_text(owner_source.replace(original_anchor, alternate_anchor, 1))
+    alternate_output = tmp_path / "alternate-derived.py"
+    generate(alternate_source, alternate_output, fixture, expected_fixture_sha256=digest)
+    compile(alternate_output.read_text(), str(alternate_output), "exec")
+    ambiguous = tmp_path / "ambiguous-owner.py"
+    ambiguous.write_text(owner_source + "\n" + alternate_anchor + "\n")
+    with pytest.raises(ValueError, match="anchor"):
+        generate(ambiguous, tmp_path / "ambiguous-derived.py", fixture, expected_fixture_sha256=digest)
     assert "test_negative_retrieval_frozen_placement_http" in content
     assert "negative_retrieval_frozen_inventory_before: verified" in content
     assert "negative_retrieval_frozen_proposal_moved_unchanged_page: true" in content

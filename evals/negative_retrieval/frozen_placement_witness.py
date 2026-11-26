@@ -85,7 +85,13 @@ def generate(source, output, fixture_path, *, expected_fixture_sha256, related_p
 """)
     replace_once('title="Optional lore", kind="worldbuilding_source", source_domain="worldbuilding",',
                  'title=frozen_fixture["related_pages"][0]["title"], kind="worldbuilding_source", source_domain="worldbuilding",')
-    replace_once('save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")',
+    optional_body_anchors = (
+        'save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")',
+        'save_page(tmp_path, optional_page.document_id, "The local node is proposed to want freedom." if source_answer_output else "This unrelated lore should remain unread.")',
+    )
+    if sum(text.count(anchor) for anchor in optional_body_anchors) != 1:
+        raise ValueError("Build owner fixture anchor changed")
+    replace_once(next(anchor for anchor in optional_body_anchors if anchor in text),
                  'save_page(tmp_path, optional_page.document_id, frozen_fixture["related_pages"][0]["body"])')
     if related_page_vote == "skip":
         replace_once('else "read" if read_optional_page and name.startswith("related_page_")',
