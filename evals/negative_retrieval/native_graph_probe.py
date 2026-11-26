@@ -17,7 +17,12 @@ _OWNERS = {
     "read_authored_reference": "native_graph_authored_reference_read",
     "reopen_context": "native_graph_context_reopen",
 }
-_CORPUS_OWNER = "native_corpus_authored_source_read"
+_CORPUS_OWNERS = {
+    "read_authored_source": "native_corpus_authored_source_read",
+    "capture_native_sources": "native_corpus_discovery",
+    "read_native_corpus_member": "native_corpus_member_read",
+    "read_direct_native_source": "native_corpus_direct_read",
+}
 
 
 def summarize_records(records):
@@ -25,14 +30,14 @@ def summarize_records(records):
     if not isinstance(records, list) or any(
         not isinstance(row, dict) or set(row) != {"owner", "state"}
         or not isinstance(row["owner"], str) or not isinstance(row["state"], str)
-        or row["owner"] not in (*_OWNERS.values(), _CORPUS_OWNER)
+        or row["owner"] not in (*_OWNERS.values(), *_CORPUS_OWNERS.values())
         or row["state"] not in {"entered", "returned", "raised"}
         for row in records
     ):
         raise ValueError("Malformed native Graph probe evidence")
     return {owner: {state: sum(row["owner"] == owner and row["state"] == state for row in records)
                     for state in ("entered", "returned", "raised")}
-            for owner in (*_OWNERS.values(), _CORPUS_OWNER)}
+            for owner in (*_OWNERS.values(), *_CORPUS_OWNERS.values())}
 
 
 @contextmanager
@@ -75,7 +80,8 @@ def observe_native_graph_owners():
             # when already loaded and avoid replacing a separately patched owner.
             if authored is not None and authored_reader is original_reader:
                 stack.enter_context(patch.object(authored, "read_authored_reference", native_graph_reads.read_authored_reference))
-            stack.enter_context(patch.object(native_corpus_source, "read_authored_source", watch(_CORPUS_OWNER, original_source)))
+            for name, owner in _CORPUS_OWNERS.items():
+                stack.enter_context(patch.object(native_corpus_source, name, watch(owner, getattr(native_corpus_source, name))))
             if authored is not None and authored_source is original_source:
                 stack.enter_context(patch.object(authored, "read_authored_source", native_corpus_source.read_authored_source))
             yield records

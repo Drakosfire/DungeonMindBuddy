@@ -105,10 +105,12 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     # not evidence that a source was read.
     if native_probe is not None:
         for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
-                      "native_corpus_authored_source_read"):
+                      "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read"):
             counts = native_probe["counts"][owner]
             observed["reads"].extend([UNKNOWN] * sum(counts.values()))
     observed["catalog_discoveries"] = catalog_discovery_count(probe.get("records"))
+    if native_probe is not None:
+        observed["catalog_discoveries"] += sum(native_probe["counts"]["native_corpus_discovery"].values())
     observed["catalog_journal_complete"] = None
     grade = assess(rubric, observed)
     # Use the history belonging to the request, not a previous active conversation.

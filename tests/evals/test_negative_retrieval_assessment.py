@@ -596,6 +596,8 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         ("native_graph_selected_read", "returned", False),
         ("native_graph_authored_reference_read", "raised", False),
         ("native_corpus_authored_source_read", "returned", False),
+        ("native_corpus_member_read", "returned", False),
+        ("native_corpus_direct_read", "raised", False),
         ("native_graph_selected_read", "entered", False),
         ("native_graph_query", "returned", None),
     ):
@@ -605,6 +607,15 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         observed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
         assert observed["checks"]["unexpected_retrieval"] is expected
         assert observed["status"] == "unproven"
+    probe["records"] = []
+    (tmp_path / "related-page-probe.json").write_text(json.dumps(probe))
+    native_path.write_text(json.dumps({"schema": "dmb_negative_retrieval_native_graph_probe_v1",
+        "coverage": "partial", "case_id": "case1", "status": "observed",
+        "records": [{"owner": "native_corpus_discovery", "state": "returned"}]}))
+    observed = report_case(tmp_path, {"id": "case1", "request": request["message"]}, CASE)
+    assert observed["checks"]["catalog_budget"] is False
+    assert observed["checks"]["unexpected_retrieval"] is None
+    assert observed["status"] == "unproven"
 
 
 def test_fixture_binding_checks_owner_receipt_page_and_complete_dialogue(monkeypatch):
@@ -1203,3 +1214,32 @@ def test_creative_naming_rubric_requires_proven_no_acquisition_and_quality():
     assert assess(rubric, observation(outcome='answer', semantic_quality=False))['status'] == 'fail'
     assert assess(rubric, observation(outcome='answer', catalog_journal_complete=False))['status'] == 'unproven'
     assert assess(rubric, observation(outcome='proposal', movable_proposal=True))['status'] == 'fail'
+
+
+def test_native_corpus_probe_records_discovery_and_reads_without_input_leak(monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners, summarize_records
+
+    def succeeds(*args, **kwargs):
+        return "private result"
+
+    def fails(*args, **kwargs):
+        raise ValueError("private failure")
+
+    monkeypatch.setattr(native_corpus_source, "capture_native_sources", succeeds)
+    monkeypatch.setattr(native_corpus_source, "read_native_corpus_member", succeeds)
+    monkeypatch.setattr(native_corpus_source, "read_direct_native_source", fails)
+    with observe_native_graph_owners() as records:
+        assert native_corpus_source.capture_native_sources("private query") == "private result"
+        assert native_corpus_source.read_native_corpus_member("private body") == "private result"
+        with pytest.raises(ValueError, match="private failure"):
+            native_corpus_source.read_direct_native_source("private identity")
+    assert records == [
+        {"owner": "native_corpus_discovery", "state": "returned"},
+        {"owner": "native_corpus_member_read", "state": "returned"},
+        {"owner": "native_corpus_direct_read", "state": "raised"},
+    ]
+    assert summarize_records(records)["native_corpus_discovery"]["returned"] == 1
+    assert native_corpus_source.capture_native_sources is succeeds
+    assert native_corpus_source.read_direct_native_source is fails
+    assert "private" not in str(records)

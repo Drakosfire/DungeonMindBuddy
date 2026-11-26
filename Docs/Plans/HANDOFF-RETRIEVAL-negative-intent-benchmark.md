@@ -67,6 +67,20 @@ The user reported a creative naming request that took 241 seconds and read 11 re
 
 `dev-creative-names` is a synthetic development analogue with a supplied speculative premise, a request for ten names and several plausibly related distractor pages. Its private rubric expects an answer, no premature page mutation, zero catalog discoveries and zero reads, with semantic quality judged separately. It is a development case, not a replay of the private trace or an independent holdout. Its shape must not be shown as a benchmark key or grading rule to the product model. Existing `dev-research` remains a positive required-ledger-read control. Before claiming a live pass, instrument all discovery and materialization owners, verify the capture journal is complete, bind the fixture and runtime, and run independently held-out cases; a partial trace only proves a lower bound.
 
+## Native corpus owner observation
+
+The negative capture's partial native probe now records the actual corpus
+capture, member-read and direct-source-read owner calls in addition to the
+previous Graph and authored-reference owners. A corpus capture counts as a
+known discovery attempt; a member or direct read is an unmapped read attempt.
+Nested calls can count one underlying source more than once. The probe captures
+no arguments, source IDs, query or body, and does not prove absence of work by
+other owners or stale aliases. Offline reports still cannot qualify the capture
+environment or a zero-read rate. Coverage is a diagnostic improvement, not a
+complete acquisition journal. Focused tests exercise owner wrapping, errors,
+cleanup, privacy and report attribution; a real runtime-boundary witness is
+still needed before treating these owners as verified on an ordinary turn.
+
 ## Diagnostic checkpoint
 
 The question observer now validates the containing recognized Build completion,
