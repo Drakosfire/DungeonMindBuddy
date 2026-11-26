@@ -7089,7 +7089,6 @@ export function WorldPlanAgentConversation({
               <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
             ) : null}
             {renderSourceActions(turn)}
-            {renderGraphContextHistory(turn)}
           </>)}
         </div>
       </article>
