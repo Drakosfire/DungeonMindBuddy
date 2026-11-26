@@ -4411,4 +4411,4 @@ def test_eager_followup_rejects_inadmissible_pdf_support(lane, tmp_path, monkeyp
     """Exercise the still-supported eager read owner with an actual foreign support record."""
     from apps.live_control_server.services import agent_turn_service
     monkeypatch.setattr(agent_turn_service, "_pending_build_startup_eligible", lambda *args, **kwargs: False)
-    test_followup_rejects_inadmissible_fresh_pdf_support(lane, tmp_path, monkeypatch, component, value)
+    test_followup_rejects_inadmissible_fresh_stored_statblock_support(lane, tmp_path, monkeypatch, component, value)
