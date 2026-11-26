@@ -1606,3 +1606,64 @@ def test_negative_rate_includes_graph_query_budget_and_missing_graph_proof():
         assert (result["failures"], result["unknown"]) == expected
     del report["checks"]["graph_query_budget"]
     assert summarize(cases, {"one": report})["unnecessary_retrieval"]["unknown"] == 1
+
+
+def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
+    import hashlib
+    import json
+    from uuid import NAMESPACE_URL, uuid5
+    from evals.negative_retrieval.report import report_case
+
+    def envelope(body):
+        raw = json.dumps(body).encode()
+        return {"http_status": 200, "body": body, "raw_body_hex": raw.hex(),
+                "raw_body_sha256": hashlib.sha256(raw).hexdigest()}
+
+    request = {"turn_id": "turn", "client_thread_id": "thread", "message": "What does the ledger say?",
+               "owner_scope": {"world_id": "world"}, "surface": {"surface_id": "build", "instance_id": "page"},
+               "primary_work": {"object_id": "primary"}}
+    turn = {"turn_id": "saved", "idempotency_key": str(uuid5(NAMESPACE_URL, "dmb-agent-turn:world:turn")),
+            "user_text": request["message"], "lifecycle_status": "completed", "provenance": {
+                "world_id": "world", "surface_id": "build", "surface_instance_id": "page"},
+            "knowledge_context": {}}
+    history = {"world_id": "world", "conversation_id": "conversation", "turns": [turn]}
+    attempt = {"schema": "dmb_turn_context_trace_v1", "world_id": "world", "conversation_id": "conversation",
+               "turn_id": "saved", "terminal_status": "completed", "capture_status": "complete", "observations": []}
+    trace = {"world_id": "world", "turn_id": "saved", "attempts": [attempt]}
+    fixture = {"id": "case1", "request": request["message"],
+               "related_pages": [{"label": "ledger", "title": "Ledger", "body": "Two copper."}]}
+    inventory = [{"label": "ledger", "title": "Ledger", "world_id": "world", "document_id": "doc",
+                  "registry_revision": 1, "content_sha256": hashlib.sha256(b"Two copper.").hexdigest()}]
+    sources = {"schema": "dmb_negative_retrieval_fixture_sources_v1", "case_id": "case1",
+               "status": "stable", "before": inventory, "after": inventory}
+    related = {"schema": "dmb_negative_retrieval_related_page_probe_v1", "coverage": "partial", "case_id": "case1",
+               "status": "observed", "window": "turn_post_v1", "records": []}
+    native = {"schema": "dmb_negative_retrieval_native_graph_probe_v1", "coverage": "partial", "case_id": "case1",
+              "status": "observed", "window": "turn_post_v1", "records": []}
+    artifacts = {"request": request, "history-after": envelope(history), "context-trace": envelope(trace),
+                 "answer-http": envelope({"turn_id": "turn", "client_thread_id": "thread"}),
+                 "related-page-probe": related, "native-graph-probe": native, "fixture-sources": sources}
+    for name, value in artifacts.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps(value))
+    positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
+                "allowed_reads": ["ledger"], "outcomes": ["answer"]}
+    for state, expected in (("raised", None), ("entered", None), ("returned", True)):
+        related["records"] = [{"owner": "related_page_materialization", "state": state, "document_id": "doc"}]
+        (tmp_path / "related-page-probe.json").write_text(json.dumps(related))
+        result = report_case(tmp_path, fixture, positive)
+        assert result["related_context_verified"] is True
+        assert result["checks"]["required_evidence"] is expected
+        assert result["status"] == "unproven"
+        negative = report_case(tmp_path, fixture, CASE)
+        assert negative["checks"]["unexpected_retrieval"] is False
+
+
+def test_assessor_distinguishes_attempts_from_completed_required_reads():
+    positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
+                "allowed_reads": ["ledger"], "outcomes": ["answer"]}
+    partial = observation(outcome="answer", reads=["ledger"], completed_reads=[], journal_complete=False)
+    assert assess(positive, partial)["checks"]["required_evidence"] is None
+    assert assess(positive, {**partial, "journal_complete": True})["checks"]["required_evidence"] is False
+    assert assess(positive, {**partial, "completed_reads": ["ledger"]})["checks"]["required_evidence"] is True
+    with pytest.raises(ValueError, match="completed_reads"):
+        assess(positive, {**partial, "completed_reads": "ledger"})

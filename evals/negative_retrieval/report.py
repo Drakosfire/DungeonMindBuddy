@@ -130,8 +130,14 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         and partial_probe["status"] == native_probe["status"]
         and native_probe["status"] in {"observed", "dispatch_uncertain"})
     related_turn = native_turn = turn_window
+    # A read attempt can demonstrate unnecessary acquisition, but only a
+    # returned read or a completed trace observation can establish presence.
+    observed["completed_reads"] = [row["label"] for row in observed["observed_acquisitions"]
+        if row["kind"] in {"source_read", "related_page_read"}]
     if related_turn:
         observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document)
+        observed["completed_reads"] += acquisition_labels(probe.get("records"),
+            label_by_document=label_by_document, completed_only=True)
     if native_turn:
         for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
                       "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read",

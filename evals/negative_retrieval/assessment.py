@@ -39,6 +39,12 @@ def assess(case, observation):
     reads = observation.get("reads")
     if reads is not None and (not isinstance(reads, list) or any(not isinstance(x, str) for x in reads)):
         raise ValueError("reads must be a list of source labels or null")
+    # Legacy direct observations define reads as completed evidence. Capture
+    # reports supply this separately because attempted reads may have failed.
+    completed_reads = observation.get("completed_reads", reads)
+    if completed_reads is not None and (not isinstance(completed_reads, list)
+            or any(not isinstance(x, str) for x in completed_reads)):
+        raise ValueError("completed_reads must be a list of source labels or null")
     complete = observation.get("journal_complete")
     if complete is not None and type(complete) is not bool:
         raise ValueError("journal_complete must be boolean or null")
@@ -55,9 +61,10 @@ def assess(case, observation):
         unexpected.append(UNKNOWN)
     # Observed required reads prove presence even in a partial journal. Only a
     # complete, fully mapped journal can prove a required read was missed.
-    missing = (None if reads is None else [] if required <= set(reads)
-               else None if complete is not True or unknown_labels
-               else sorted(required - set(reads)))
+    unknown_completed = completed_reads is not None and UNKNOWN in completed_reads
+    missing = (None if completed_reads is None else [] if required <= set(completed_reads)
+               else None if complete is not True or unknown_completed
+               else sorted(required - set(completed_reads)))
     outcome = observation.get("outcome")
     checks = {
         "catalog_budget": (False if catalog_count is not None and catalog_count > catalog_budget

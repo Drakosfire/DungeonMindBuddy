@@ -88,6 +88,19 @@ by other workstreams. No additional database was created or modified for this
 workstream. Recheck capacity before allocating its one reusable clone; do not
 clean up another owner's databases.
 
+## Required-read attempt correction
+
+A materialization probe records entered and raised calls as acquisition attempts.
+Previously the report also credited a mapped failed attempt as a completed
+required read. The report now passes attempts and completed reads separately to
+the assessor: raised or unfinished attempts remain visible to the negative
+budget but cannot satisfy the positive required-read control. A returned owner
+call or a completed related-page/source-passage trace can witness a read;
+answer support and citation correctness remain independently unverified.
+Focused report and assessor checks cover raised, entered and returned calls,
+partial and complete journals, mapping and the no-read budget. This corrects
+scoring; it does not make the partial capture journal complete.
+
 ## Pending App-page probe witness
 
 `tests/evals/test_negative_retrieval_pending_page_probe.py` exercises the

@@ -51,11 +51,12 @@ def observe_related_page_owners():
         _lock.release()
 
 
-def acquisition_labels(records, *, label_by_document=None):
+def acquisition_labels(records, *, label_by_document=None, completed_only=False):
     """Project observed page-materialization attempts as unmapped reads.
 
     Document identity is host-side evidence, never model input. Materialization may be witnessed again
-    in the trace; the case-level violation remains the same. No absence claim
+    in the trace; the case-level violation remains the same. With completed_only,
+    only returned calls are included. No absence claim
     follows from this partial probe.
     """
     from .trace_observation import UNKNOWN
@@ -68,7 +69,8 @@ def acquisition_labels(records, *, label_by_document=None):
         raise ValueError("Malformed related-page probe evidence")
     labels = label_by_document or {}
     return [labels.get(row.get("document_id"), UNKNOWN) for row in records
-            if row["owner"] == "related_page_materialization"]
+            if row["owner"] == "related_page_materialization"
+            and (not completed_only or row["state"] == "returned")]
 
 
 def catalog_discovery_count(records):

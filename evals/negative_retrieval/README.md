@@ -101,7 +101,12 @@ restores the functions on exit, and records only host-side document identity
 for materialization (never the source body or model-facing metadata). `catalog_discovery_count` scores catalog attempts separately
 from `acquisition_labels`, which projects materialization attempts. Both are
 partial observations, including failed attempts; a count within budget does
-not establish absence of unobserved work. The probe is process-global while installed: do not run
+not establish absence of unobserved work. Required-read scoring separately
+uses completed observations: an entered or raised materialization is an attempt,
+not evidence that a required page was read. A returned call can establish the
+read occurred, but does not by itself prove the answer used or cited its contents.
+Direct assessor inputs without `completed_reads` retain the original contract:
+the caller's `reads` are independently observed completed reads. The probe is process-global while installed: do not run
 it against a shared service, concurrent evaluator, or live World. A focused
 synthetic test confirmed that the real Build budget path invokes catalog
 discovery before a controller decision; its registry was stubbed, so this is
