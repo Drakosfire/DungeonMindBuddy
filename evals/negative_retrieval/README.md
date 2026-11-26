@@ -241,8 +241,10 @@ must be null unless the rubric requires a source. The artifact map must include
 `fixture-pin`, and every retained `history-before`/`fresh-history` artifact.
 The report verifies the review bytes, rubric, fixture and artifact hashes, and
 requires a verified fixture binding before attaching the judgments. Review
-contents stay host-side. The reviewer identity and independence remain
-**unverified**; a matching hash proves only binding, not correctness or
+contents stay host-side. Each artifact is hashed and parsed from the same bytes,
+but the set is not read atomically; the reviewer must pin the exact set reviewed.
+Duplicate-key rejection applies to review JSON, not all capture artifacts.
+The reviewer identity and independence remain **unverified**; a matching hash proves only binding, not correctness or
 independence. These assertions do not establish acquisition completeness,
 environment qualification, mutation safety, UI delivery or a passing cohort.
 
