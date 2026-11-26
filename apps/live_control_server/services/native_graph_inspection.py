@@ -347,16 +347,16 @@ def statblock_pdf_support(reference, regions, principal, *, expected_source_epoc
         revision_id=reference.graph_revision,
     )
     bound, read, access, pin, _ = _pinned(scope, principal)
-    if expected_source_epoch is not None and access.source_view.epoch != expected_source_epoch:
+    opened_epoch = access.source_view.epoch
+    if expected_source_epoch is not None and opened_epoch != expected_source_epoch:
         raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
     entity = EntityReadService().get_complete_entity(read, reference.node_id)
     if not entity.found or entity.completeness.status != "complete":
         if expected_source_epoch is not None:
             raise InspectionUnavailable("statblock_pdf_review_incomplete")
         return _response(bound, pin, support=[])
-    reviewed_ids = {pdf_region_text_evidence_id(pin.native_world_id, region): region for region in regions}
+    reviewed_ids = {pdf_region_text_evidence_id(pin.native_world_id, region) for region in regions}
     support = {}
-    matched_regions = set()
     repository = _repository()
     for assertion in entity.assertions:
         if assertion.subject_entity_id != reference.node_id:
@@ -376,17 +376,15 @@ def statblock_pdf_support(reference, regions, principal, *, expected_source_epoc
             ].decode("utf-8")
             if not text.strip():
                 continue
-            matched_regions.add(ref_id)
             support[ref_id] = {
                 "assertion_id": assertion.assertion_id,
                 "evidence_ref_id": ref_id,
                 "text": text,
             }
-    if expected_source_epoch is not None:
-        if repository.open_native_source_view(pin.native_world_id).epoch != expected_source_epoch:
-            raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
-        if matched_regions != set(reviewed_ids):
-            raise InspectionUnavailable("statblock_pdf_review_incomplete")
+    if support and repository.open_native_source_view(pin.native_world_id).epoch != opened_epoch:
+        raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
+    if expected_source_epoch is not None and support.keys() != reviewed_ids:
+        raise InspectionUnavailable("statblock_pdf_review_incomplete")
     return _response(bound, pin, support=list(support.values()))
 
 

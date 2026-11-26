@@ -19,6 +19,9 @@ from application_state.agent_conversation.authored_graph_references import Autho
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
 
 
+STORED_STATBLOCK_EVIDENCE_ID = "ev:" + "a" * 64
+
+
 @pytest.mark.parametrize('failure,with_draft,saved,proposal',
     [(f,d,s,False) for f,d,s in ([(f,d,False) for f in (None,'revision','node','reference_world') for d in (False,True)]
         +[(None,d,True) for d in (False,True)]+[(f,False,True) for f in ('section_scope','selection_text')])]
@@ -231,10 +234,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             definition = _definition().model_dump(mode="json")
         monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics",
             lambda root, *, world_id: [("Meat Mind", draft_id, locator)] if world_id == world else [])
+        def reject_pdf_read(*args, **kwargs):
+            pytest.fail("Ordinary Build tried to read the original PDF")
+
+        monkeypatch.setattr(type(lane.repo), "get_native_pdf_source", reject_pdf_read, raising=False)
         pdf_support = {"scope": {"managed_world_id": world, "native_world_id": world,
                                  "binding_version": 1, "revision_id": lane.repo.get_head(world).head_revision_id,
                                  "scope_mode": "world", "campaign_id": None},
-                       "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture",
+                       "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": STORED_STATBLOCK_EVIDENCE_ID,
                                     "text": "Hit Points 41"}]}
         if saved_statblock in {"associated", "by-name"}:
             from apps.live_control_server.integrations.dungeonmind import native_registry_source
@@ -2724,7 +2731,7 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     if mode in {"associated", "by-name"}:
         assert "Hit Points 41" in response.json()["messages"][-1]["assistant_text"]
         assert sources["scope"]["managed_world_id"] == case.world
-        assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture"}]
+        assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": STORED_STATBLOCK_EVIDENCE_ID}]
     else:
         assert sources is None
 
@@ -3474,7 +3481,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     ("binding_version", 999),
     ("revision_id", "rev:unadmitted"),
 ])
-def test_followup_rejects_inadmissible_fresh_pdf_support(lane, tmp_path, monkeypatch, component, value):
+def test_followup_rejects_inadmissible_fresh_stored_statblock_support(lane, tmp_path, monkeypatch, component, value):
     from evals.buddy_benchmark import workflow
     from apps.live_control_server.services import native_graph_inspection
 

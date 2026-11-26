@@ -15,7 +15,9 @@ export function SavedStatblockPdfEvidence({sources}: {sources: SavedStatblockPdf
     load: async () => {
       const result = await inspectNativeGraph(sources.scope, {kind: 'source', ...source});
       if (result.schema !== 'dmb_native_graph_source_v1'
-        || !sameInspectionPin(result.scope, sources.scope)) {
+        || !sameInspectionPin(result.scope, sources.scope)
+        || !('evidence_ref_id' in result.source)
+        || result.source.evidence_ref_id !== source.evidence_ref_id) {
         throw new Error('Stored passage unavailable');
       }
       return {title: 'Reviewed statblock passage', content: result.source.text};
