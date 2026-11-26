@@ -127,6 +127,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
+        if live_build and path == "/__benchmark/build-response-retained" and method == "GET":
+            return await JSONResponse({
+                "retained": (directory / "build-wire-response.json").is_file(),
+            })(scope, receive, send)
         if path == "/__benchmark/clock" and method == "GET":
             return await PlainTextResponse(str(monotonic_ns() / 1e6))(scope, receive, send)
         if not path.startswith(("/api/", "/health/")) and method == "GET":
@@ -192,6 +196,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 return {"type": "http.request", "body": raw, "more_body": False}
             if not live_build:
                 return await application(scope, deliver_body, send)
+            artifacts.immutable_save(directory, "request", parsed)
             response_bytes = bytearray()
             transport_status = None
             content_type = ""

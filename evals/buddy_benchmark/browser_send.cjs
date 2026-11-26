@@ -90,7 +90,10 @@ async function run() {
     const delivered = await response;
     if (process.env.DMB_BENCHMARK_LIVE_BUILD === "1") {
       // Keep the page alive while its ordinary client consumes the terminal event.
-      await delivered.finished();
+      await page.waitForFunction(async () => {
+        const response = await fetch("/__benchmark/build-response-retained");
+        return (await response.json()).retained === true;
+      }, undefined, { timeout: 75000, polling: 250 });
     }
     const after = await calibrate();
     const browserMarks = await page.evaluate(() => {
