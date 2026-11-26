@@ -15,7 +15,10 @@ from application_state.agent_conversation.retry import AuthoringRetryRequiredErr
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
 from apps.live_control_server.routes.agent import _verified_world_id, _conversation_service
-from application_state.agent_conversation.types import ArchiveCommand, ReopenCommand, ConversationCommandReceipt, ConversationTrashCommand
+from application_state.agent_conversation.types import (
+    ArchiveCommand, ConversationCommandReceipt, ConversationDeleteCommand, ConversationTrashCommand, ReopenCommand,
+)
+from apps.live_control_server.services.conversation_erasure import finish_conversation_erasure
 
 router = APIRouter(
     prefix="/api/live/agent/worlds/{world_id}/conversations",
@@ -283,5 +286,21 @@ def set_trash(world_id: str, conversation_id: UUID, body: ConversationTrashComma
         require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
 
     result = call(service.set_conversation_trash, body, restore=restore, authorize_write=recheck_owner)
+    recheck_owner()
+    return result
+
+
+@router.post("/{conversation_id}/delete", response_model=ConversationCommandReceipt)
+def delete_conversation(world_id: str, conversation_id: UUID, body: ConversationDeleteCommand, request: Request):
+    world = scope(request, world_id, ())
+    if body.world_id != world or body.conversation_id != conversation_id:
+        raise HTTPException(422, detail="Delete command differs from this World or conversation")
+    service = _conversation_service(request)
+
+    def recheck_owner():
+        require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
+
+    result = call(service.delete_conversation, body, authorize_write=recheck_owner)
+    call(finish_conversation_erasure, conversation_id)
     recheck_owner()
     return result
