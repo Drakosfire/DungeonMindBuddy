@@ -149,3 +149,34 @@ it('accepts only bounded display lineage in the versioned active-message project
  response({...v,messages:[row,{...child,retry_lineage:{...child.retry_lineage,root_id:next}}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
  response({...v,messages:[row,{...child,turn_id:tid}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
 });
+
+it('opens the v4 transcript after the exact unsupported-selector response on rollback',async()=>{
+ const v={schema:'dmb_active_conversation_messages_v4',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Question',assistant_text:'Answer',citation_preview:null,reply_object:null,authored_references:null,provenance:{world_id:'world',surface_id:'build'}}],next_before_sequence:null};
+ const fetch=vi.mocked(authenticatedApiFetch),signal=new AbortController().signal;
+ fetch.mockResolvedValueOnce({response:Response.json({detail:'Unexpected or repeated conversation selector'},{status:422})} as Awaited<ReturnType<typeof authenticatedApiFetch>>)
+  .mockResolvedValueOnce({response:Response.json(v)} as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ expect((await readActiveConversationMessages('world',9,signal)).messages[0].assistant_text).toBe('Answer');
+ expect(fetch).toHaveBeenCalledTimes(2);
+ expect(String(fetch.mock.calls[0][0])).toContain('retry_lineage=true');
+ expect(String(fetch.mock.calls[1][0])).not.toContain('retry_lineage');
+ expect(String(fetch.mock.calls[1][0])).toContain('before_sequence=9');
+ expect(fetch.mock.calls[1][1]?.signal).toBe(signal);
+});
+it.each([[403,'Forbidden'],[422,'Different invalid selector']] as const)('does not fall back on unrelated error %s',async(status,detail)=>{
+ vi.mocked(authenticatedApiFetch).mockResolvedValueOnce({response:Response.json({detail},{status})} as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ expect(authenticatedApiFetch).toHaveBeenCalledTimes(1);
+});
+it('does not fall back when the request was aborted',async()=>{
+ const controller=new AbortController();controller.abort();
+ vi.mocked(authenticatedApiFetch).mockRejectedValueOnce(new DOMException('Aborted','AbortError'));
+ await expect(readActiveConversationMessages('world',undefined,controller.signal)).rejects.toThrow();
+ expect(authenticatedApiFetch).toHaveBeenCalledTimes(1);
+});
+it('does not retry an unsupported selector after cancellation',async()=>{
+ const controller=new AbortController();controller.abort();
+ vi.mocked(authenticatedApiFetch).mockResolvedValueOnce({response:Response.json({detail:'Unexpected or repeated conversation selector'},{status:422})} as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ await expect(readActiveConversationMessages('world',undefined,controller.signal)).rejects.toThrow();
+ expect(authenticatedApiFetch).toHaveBeenCalledTimes(1);
+});

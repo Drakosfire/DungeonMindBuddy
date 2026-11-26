@@ -154,7 +154,16 @@ export interface ActiveConversationMessages {
 }
 export async function readActiveConversationMessages(world: string, before?: number, signal?: AbortSignal): Promise<ActiveConversationMessages> {
   const q = new URLSearchParams({ limit: '50', retry_lineage: 'true' }); if (before !== undefined) q.set('before_sequence', String(before));
-  const v = await read(path(world) + '/active/messages?' + q, { signal });
+  let v: any, fallback = false;
+  try { v = await read(path(world) + '/active/messages?' + q, { signal }); }
+  catch (error) {
+    // A browser can keep this bundle after a rollback to the v4-only server.
+    // Only its exact unsupported-selector response permits a display-only retry.
+    if (!(error instanceof LiveApiError) || error.status !== 422 || error.message !== 'Unexpected or repeated conversation selector' || signal?.aborted) throw error;
+    q.delete('retry_lineage'); fallback = true;
+    v = await read(path(world) + '/active/messages?' + q, { signal });
+  }
+  if (fallback && v?.schema !== 'dmb_active_conversation_messages_v4') throw new Error('Fallback message projection differs from the previous server.');
   if (!exactObject(v, ['schema', 'world_id', 'conversation_state', 'conversation_id', 'active_conversation_id', 'pointer_revision', 'messages', 'next_before_sequence'])
     || !['dmb_active_conversation_messages_v4','dmb_active_conversation_messages_v5'].includes(v.schema) || v.world_id !== world || !['active', 'absent'].includes(v.conversation_state)
     || !Number.isSafeInteger(v.pointer_revision) || v.pointer_revision < 0 || !Array.isArray(v.messages) || v.messages.length > 50
