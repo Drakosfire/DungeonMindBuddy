@@ -1947,7 +1947,7 @@ def test_pending_startup_observes_metadata_between_live_access_checks(monkeypatc
         'principal': principal, 'revision_id': request.graph_request.revision_pin}
 
 
-@pytest.mark.parametrize('reason', ['references', 'reviewed', 'selected_knowledge', 'graph_selection', 'retry', 'no_owner', 'not_gm', 'reference_image'])
+@pytest.mark.parametrize('reason', ['references', 'reviewed', 'selected_knowledge', 'graph_selection', 'retry', 'no_owner', 'not_gm', 'reference_image', 'image_move'])
 def test_pending_startup_keeps_explicit_or_unowned_requests_on_their_original_path(monkeypatch, reason):
     from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
@@ -1968,6 +1968,8 @@ def test_pending_startup_keeps_explicit_or_unowned_requests_on_their_original_pa
     elif reason == 'reference_image':
         from types import SimpleNamespace
         request.build_write_capability = SimpleNamespace(reference_image_id=uuid4())
+    elif reason == 'image_move':
+        request.build_image_move_capture = object()
     result = _prepare_pending_build_startup(request, world_id=kwargs['submitted_intent'].world_id,
         principal=principal, durable_turn=None, authorize_world=None if reason == 'no_owner' else lambda world: None)
     assert result == (None, None, None)
@@ -1984,6 +1986,23 @@ def test_retained_pending_startup_reuses_original_observations_without_reopening
     observed, conversation, access = _prepare_pending_build_startup(request, world_id=principal.managed_world_id,
         principal=principal, durable_turn=SimpleNamespace(graph_context_receipt=receipt), authorize_world=lambda world: None)
     assert observed == receipt.source_observation and conversation == receipt.conversation_observation and callable(access)
+
+
+def test_retained_pending_startup_with_image_capture_fails_closed_before_observation(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.agent_turn_service import _prepare_pending_build_startup, AgentTurnServiceError
+    from apps.live_control_server.services.plan_source_turn import freeze_build
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    kwargs, request, principal = pending_startup_case()
+    receipt, _, _ = freeze_build(**kwargs)
+    request.build_image_move_capture = object()
+    monkeypatch.setattr(native_corpus_source, 'observe_build_source_pointer', lambda **fields: pytest.fail('Retained source was refreshed'))
+    with pytest.raises(AgentTurnServiceError) as error:
+        _prepare_pending_build_startup(request, world_id=principal.managed_world_id, principal=principal,
+            durable_turn=SimpleNamespace(graph_context_receipt=receipt), authorize_world=lambda world: None)
+    assert error.value.code == 'turn_receipt_unverifiable'
+    assert error.value.status_code == 409
+    assert error.value.provider_dispatched is False
 
 
 @pytest.mark.parametrize('deny_after_metadata', [False, True])
