@@ -5598,3 +5598,15 @@ def test_pending_mixed_saved_page_and_proposal_keep_exact_citation(monkeypatch):
         from application_state.agent_conversation import repository
         row, references = stored_row(completed)
         assert repository._turn_from_row(None, row, references=references) == completed
+
+
+def test_uncertain_pending_work_does_not_qualify_as_anchored_conversation():
+    from application_state.agent_conversation.build_source_free import pending_retained_work
+    from tests.test_build_source_free_routing import pending_work_prefix
+
+    submission = pending_submission(with_source=False)
+    receipt, policy = submission.graph_context_receipt, submission.graph_context_execution.policy
+    execution = pending_execution(receipt, policy, pending_work_prefix(policy, scope='uncertain'))
+    work, = [event for event in execution.events if type(event) is t.BuildRequestedWorkResolutionV1]
+    assert work.requested_work == 'discuss' and work.resolution['source_scope'] == 'uncertain'
+    assert pending_retained_work(execution) is None

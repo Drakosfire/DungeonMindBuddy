@@ -49,7 +49,8 @@ Additional focused synthetic cases passed for an empty answer retaining its
 missing-detail and partial limitations, a valid mixed saved-page claim/proposal
 retaining its exact source binding and explicit limitation, and stored-row plus
 ordinary replay of a reply accepted under the old warning behavior. The test
-constructs that historical reply with the prior host projection. Exact-output
-reconstruction compatibility, uncertain scope, in-flight cross-release acceptance
-and independently reviewed real-source boundaries remain required before release. Recheck live serving parent and produce exact-head
+constructs that historical reply with the prior host projection. A focused owner-level check also confirms uncertain work does not qualify as
+anchored; it does not exercise an entire uncertain turn. Exact-output
+reconstruction compatibility, in-flight cross-release acceptance and independently
+reviewed real-source boundaries remain required before release. Recheck live serving parent and produce exact-head
 review and post-deployment app evidence before claiming delivery.
