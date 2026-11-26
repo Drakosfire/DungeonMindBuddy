@@ -1347,11 +1347,14 @@ def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
     with pytest.raises(ValueError, match="bundle differs"):
         browser_inputs(manifest, tmp_path)
 
-@pytest.mark.parametrize("browser, clone_app, context_only",
-                         [(False, False, True), (True, False, True), (True, True, True), (False, True, False)])
+@pytest.mark.parametrize("browser, clone_app, context_only, sequence_stopped",
+                         [(False, False, True, False), (True, False, True, False),
+                          (True, True, True, False), (False, True, False, False),
+                          (False, True, False, True)])
 @pytest.mark.parametrize("changed, missing_capture", [(False, False), (True, False), (False, True)])
-def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app, context_only):
+def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app, context_only, sequence_stopped):
     from concurrent.futures import Future
+    from evals.buddy_benchmark.workflow import BuildSequenceStopped
     from evals.buddy_benchmark import cohort_capture as cohort
 
     before = {"dungeonmind.fixture": []}
@@ -1364,7 +1367,9 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             native, database=f"app{number}", oid=str(number))
         members.append(put(tmp_path / f"member{number}.json", {
             "schema": "dmb_ordinary_benchmark_v1",
-            "cases": [{"id": f"case{number}", "question": f"Question {number}?"}],
+            "cases": [{"id": f"case{number}", "question": f"Question {number}?"}] + (
+                [{"id": "case1-followup", "question": "Continue?"}]
+                if sequence_stopped and number == 1 and not missing_capture else []),
             "isolation": {"native": native, "app": app},
             **({"browser_capture": {}} if browser else {}),
         }))
@@ -1441,9 +1446,16 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
                 row["delivery"] = {"status": "fail" if output.name == "case2" else "pass"}
             else:
                 row["capture_status"] = "incomplete"
-            immutable_save(output, "report", {"cases": [row]})
             f = Future()
-            f.set_result(None)
+            if sequence_stopped and output.name == "case1" and not missing_capture:
+                row["delivery"]["status"] = "fail"
+                immutable_save(output, "report", {"cases": [
+                    row, {"case_id": "case1-followup", "capture_status": "not_started"},
+                ]})
+                f.set_exception(BuildSequenceStopped("Retained failure"))
+            else:
+                immutable_save(output, "report", {"cases": [row]})
+                f.set_result(None)
             return f
 
     monkeypatch.setattr(cohort, "row_inventory", inventory)
