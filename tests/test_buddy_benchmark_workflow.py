@@ -1347,9 +1347,10 @@ def test_browser_inputs_rejects_bundle_drift_before_replay(tmp_path):
     with pytest.raises(ValueError, match="bundle differs"):
         browser_inputs(manifest, tmp_path)
 
-@pytest.mark.parametrize("browser, clone_app", [(False, False), (True, False), (True, True)])
+@pytest.mark.parametrize("browser, clone_app, context_only",
+                         [(False, False, True), (True, False, True), (True, True, True), (False, True, False)])
 @pytest.mark.parametrize("changed, missing_capture", [(False, False), (True, False), (False, True)])
-def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app):
+def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app, context_only):
     from concurrent.futures import Future
     from evals.buddy_benchmark import cohort_capture as cohort
 
@@ -1367,7 +1368,9 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             "isolation": {"native": native, "app": app},
             **({"browser_capture": {}} if browser else {}),
         }))
+    protected = "00000000-0000-4000-8000-000000000001"
     manifest = put(tmp_path / "cohort.json", {
+        "protected_work_objects": [protected],
         "schema": "dmb_context_capture_cohort_v1", "members": members,
     })
     monkeypatch.setenv(cohort.APP_DSN, "postgresql://127.0.0.1:53421/app")
@@ -1376,6 +1379,11 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
     monkeypatch.setattr(cohort, "require_read_only_core", lambda *_: None)
 
     events = []
+    def fixture_revisions(dsn, object_ids):
+        assert dsn.endswith("/benchmark_run_owned")
+        assert object_ids == [protected]
+        return {protected: "changed" if changed and "case1" in events else "initial"}
+    monkeypatch.setattr(cohort, "protected_work_revisions", fixture_revisions)
     from contextlib import contextmanager
     from application_state import cli
     from evals.buddy_benchmark import disposable_database
@@ -1418,6 +1426,7 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             return False
 
         def submit(self, member, manifest, output, app_dsn, manifest_sha256, **options):
+            assert options.pop("context_only") is context_only
             if clone_app:
                 assert options.pop("shared_app") == owned_app
                 assert app_dsn.endswith("/benchmark_run_owned")
@@ -1426,8 +1435,12 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             assert sha256(manifest.read_bytes()).hexdigest() == manifest_sha256
             events.append(output.name)
             row = {"case_id": output.name}
-            if not (missing_capture and output.name == "case2"):
+            if not (missing_capture and output.name == ("case2" if context_only else "case1")):
                 row["context"] = {"status": "captured"}
+                row["capture_status"] = "complete"
+                row["delivery"] = {"status": "fail" if output.name == "case2" else "pass"}
+            else:
+                row["capture_status"] = "incomplete"
             immutable_save(output, "report", {"cases": [row]})
             f = Future()
             f.set_result(None)
@@ -1439,18 +1452,27 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
     if changed:
         with pytest.raises(ValueError, match="changed during cohort"):
             cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
-                                  detailed_trace=browser, clone_app=clone_app)
+                                  detailed_trace=browser, clone_app=clone_app, context_only=context_only)
     elif missing_capture:
         with pytest.raises(RuntimeError, match="cohort members failed"):
             cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
-                                  detailed_trace=browser, clone_app=clone_app)
+                                  detailed_trace=browser, clone_app=clone_app, context_only=context_only)
         outcomes = json.loads((out / "members.json").read_text())
-        assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing"}}
+        if context_only:
+            assert outcomes["case2"] == {"status": "failed", "case_statuses": {"case2": "missing"}}
+        else:
+            assert outcomes["case1"] == {"status": "failed", "case_statuses": {"case1": "incomplete"}}
+            assert outcomes["case2"] == {"status": "not_started"}
     else:
         cohort.capture_cohort(manifest["path"], out, workers=1 if clone_app else 2, browser=browser,
-                                  detailed_trace=browser, clone_app=clone_app)
+                                  detailed_trace=browser, clone_app=clone_app, context_only=context_only)
     if clone_app:
-        assert events == ["scan", "clone", "upgrade", "case1", "case2", "workers closed", "drop", "scan"]
+        expected_cases = ["case1"] if (missing_capture or changed) and not context_only else ["case1", "case2"]
+        if changed and not context_only:
+            outcomes = json.loads((out / "members.json").read_text())
+            assert outcomes["case1"]["status"] == "fixture_changed"
+            assert outcomes["case2"]["status"] == "not_started"
+        assert events == ["scan", "clone", "upgrade", *expected_cases, "workers closed", "drop", "scan"]
         assert json.loads((out / "owned-app.json").read_text())["database"] == owned_app
     else:
         assert events == ["scan", "case1", "case2", "scan"]
@@ -1750,3 +1772,22 @@ def test_recovery_rejects_unpinned_new_port(clone_recovery_fixture):
     with pytest.raises(ValueError, match='recovery identity'):
         with invoke_clone_recovery(template, pin): pass
     assert not control['statements']
+
+
+def test_protected_work_revisions_reads_named_columns(monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    from evals.buddy_benchmark import cohort_capture
+
+    def execute(query, parameters):
+        assert "current_revision_id" in query
+        assert parameters == (["page-id"],)
+        return SimpleNamespace(fetchall=lambda: [
+            {"work_object_id": "page-id", "current_revision_id": "revision-id"},
+        ])
+
+    connection = SimpleNamespace(execute=execute)
+    monkeypatch.setattr(cohort_capture, "readonly", lambda _: nullcontext(connection))
+    assert cohort_capture.protected_work_revisions("fixture", ["page-id"]) == {
+        "page-id": "revision-id",
+    }

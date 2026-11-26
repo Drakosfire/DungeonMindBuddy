@@ -470,6 +470,10 @@ def verify_capture_environment(expected):
         raise ValueError("Runtime qualification changed; no question dispatched")
 
 
+class BuildSequenceStopped(ValueError):
+    """An observed failed turn prevented dependent turns from dispatching."""
+
+
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
             browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None):
     """Explicit live entry point; never invoked by offline reporting."""
@@ -635,7 +639,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
                     expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot)
                 if build_sequence:
                     if response.status_code != 200:
-                        raise ValueError("Build turn failed; later turns not dispatched")
+                        raise BuildSequenceStopped("Build turn failed; later turns not dispatched")
                     conversation_id = _wrapped(directory / "history-after.json")["body"]["active_conversation_id"]
     finally:
         if not cohort_member:
@@ -1233,6 +1237,106 @@ def _action_operation_metrics(capture, expected_turn_id):
     }
 
 
+def retained_action_report(ledger, base):
+    """Join reviewed case judgments to independently pinned ordinary turn measurements."""
+    rows = []
+    by_action = {}
+    seen_turns = set()
+    seen_cases = set()
+    for case in ledger["cases"]:
+        case_id = case["id"]
+        tiers = by_action.setdefault(case["action"], {})
+        tier = str(case["tier"])
+        if case_id in seen_cases or tier in tiers:
+            raise ValueError("Duplicate action case or tier")
+        seen_cases.add(case_id)
+        row = {key: case.get(key) for key in (
+            "id", "action", "tier", "specification", "run_status", "unrun_reason",
+            "review_note", "qualification_required", "fixture_limitation",
+            "expected_actions_observed", "required_retrieval_missed", "exact_reopen",
+            "unnecessary_retrieval", "unnecessary_jev_source_opens",
+            "zero_new_retrieval_disposition")}
+        row["reviewed_outcome"] = case.get("outcome", "unrun")
+        row["turns"] = []
+        if case["run_status"] == "executed":
+            for variant in case.get("variants", [case]):
+                answer = json.loads(read_pin(variant["answer"], base))
+                trace = json.loads(read_pin(variant["trace"], base))["body"]
+                directory = (base / variant["answer"]["path"]).parent
+                request_path = directory / "request.json"
+                history_path = directory / "history-after.json"
+                request = json.loads(request_path.read_bytes())
+                history = _wrapped(history_path)["body"]
+                turns = _request_turns(history, request, trace["world_id"])
+                if [t["turn_id"] for t in turns] != [trace["turn_id"]]:
+                    raise ValueError("Request and history do not identify this durable trace")
+                if answer["http_status"] == 200 and answer["body"]["turn_id"] != request["turn_id"]:
+                    raise ValueError("Answer belongs to another client request")
+                turn_id = trace["turn_id"]
+                if not turn_id or turn_id in seen_turns:
+                    raise ValueError("Missing or duplicate retained turn")
+                seen_turns.add(turn_id)
+                operation = None
+                if answer["body"].get("answer", {}).get("trace"):
+                    if answer["body"]["conversation"]["conversation_id"] != trace["attempts"][0]["conversation_id"]:
+                        raise ValueError("Answer and durable trace belong to different conversations")
+                    operation = _action_operation_metrics(answer, answer["body"]["turn_id"])
+                attempts = trace["attempts"]
+                if any((a["turn_id"], a["world_id"], a["conversation_id"]) !=
+                       (turn_id, history["world_id"], history["conversation_id"]) for a in attempts):
+                    raise ValueError("Trace attempt belongs to another turn")
+                row["turns"].append({
+                    "id": variant.get("case_id", case_id), "turn_id": turn_id,
+                    "answer": variant["answer"], "trace": variant["trace"],
+                    "correlation_sidecars": {
+                        "status": "observed_not_pinned_by_ledger",
+                        "request_sha256": sha256(request_path.read_bytes()).hexdigest(),
+                        "history_sha256": sha256(history_path.read_bytes()).hexdigest(),
+                    },
+                    "reviewed_source_open_count": variant.get("recorded_source_open_count"),
+                    "discovery_measurement": variant.get("host_graph_discovery_measurement"),
+                    "http_status": answer["http_status"], "http_elapsed_ms": answer["elapsed_ms"],
+                    "ledger_elapsed_ms": variant.get("latency_ms"), "operation": operation,
+                    "attempts": [{
+                        "attempt": a["attempt"], "capture_status": a["capture_status"],
+                        "recorded_retrieved_decisions": sum(
+                            x["kind"] == "context_decision" and x["action"] == "retrieved"
+                            for x in a["observations"]),
+                        "recorded_expanded_decisions": sum(
+                            x["kind"] == "context_decision" and x["action"] == "expanded"
+                            for x in a["observations"]),
+                        "recorded_discovery_hops": len(a["native_discovery_replay"]["hops"])
+                            if a.get("native_discovery_replay") is not None else None,
+                    } for a in attempts],
+                })
+        tiers[tier] = {key: row[key] for key in (
+            "id", "reviewed_outcome", "unnecessary_retrieval", "unnecessary_jev_source_opens")}
+        rows.append(row)
+    source_open_reviews = [row["unnecessary_jev_source_opens"] for row in rows
+                           if row["unnecessary_jev_source_opens"] is not None]
+    zero_retrieval_reviews = [row["zero_new_retrieval_disposition"] for row in rows
+                              if row["zero_new_retrieval_disposition"] is not None]
+    return {
+        "schema": "dmb_retained_action_report_v1",
+        "build": ledger["product_build_executed"],
+        "cases": rows,
+        "by_action_tier": by_action,
+        "retrieval_review_counts": {
+            "jev_source_opens": {
+                "case_rows_assessed": len(source_open_reviews),
+                "case_rows_unnecessary": source_open_reviews.count(True),
+                "historical_aggregate": ledger.get("retrieval_counts"),
+            },
+            "zero_new_retrieval": {
+                "case_rows_audited": len(zero_retrieval_reviews),
+                "case_rows_failed": sum(value.startswith("fail:") for value in zero_retrieval_reviews),
+                "case_rows_unverified": sum(
+                    value.startswith("unverified:") for value in zero_retrieval_reviews),
+            },
+        },
+    }
+
+
 def action_report(manifest_path):
     """Score retained action observations without starting an ordinary turn."""
     from .action_assessment import (
@@ -1249,6 +1353,8 @@ def action_report(manifest_path):
 
     path = Path(manifest_path)
     manifest = json.loads(path.read_text())
+    if manifest.get("schema") == "dmb_right_action_baseline_status_v1":
+        return retained_action_report(manifest, path.parent)
     if manifest.get("schema") != "dmb_aw_assessment_v1":
         raise ValueError("Unknown AW assessment manifest")
     cases = manifest["cases"]
@@ -1272,7 +1378,7 @@ def action_report(manifest_path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("report", "action-report", "capture", "capture-context",
-        "capture-context-cohort", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
+        "capture-context-cohort", "capture-cohort", "writer-prepare", "writer-capture", "context-tasting", "trace-report"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--workers", type=int, default=2)
@@ -1295,8 +1401,8 @@ def main(argv=None):
         parser.error("--detailed-trace requires capture-context or a browser cohort")
     if args.writer_transport and args.mode != "capture-context":
         parser.error("--writer-transport requires capture-context")
-    if args.clone_app and args.mode not in {"capture", "capture-context", "capture-context-cohort"}:
-        parser.error("--clone-app requires capture, capture-context or capture-context-cohort")
+    if args.clone_app and args.mode not in {"capture", "capture-context", "capture-context-cohort", "capture-cohort"}:
+        parser.error("--clone-app requires a capture command")
     if args.mode != "report" and (args.oracle or args.citation_readback):
         parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "trace-report":
@@ -1325,10 +1431,11 @@ def main(argv=None):
             options["clone_app"] = True
         capture(args.manifest, args.output, context_only=True, writer_transport=args.writer_transport,
                 detailed_trace=args.detailed_trace, **options)
-    elif args.mode == "capture-context-cohort":
+    elif args.mode in {"capture-context-cohort", "capture-cohort"}:
         from .cohort_capture import capture_cohort
         capture_cohort(args.manifest, args.output, workers=args.workers,
-                       browser=browser_cohort, detailed_trace=args.detailed_trace, clone_app=args.clone_app)
+                       browser=browser_cohort, detailed_trace=args.detailed_trace, clone_app=args.clone_app,
+                       context_only=args.mode == "capture-context-cohort")
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     elif args.mode == "context-tasting":

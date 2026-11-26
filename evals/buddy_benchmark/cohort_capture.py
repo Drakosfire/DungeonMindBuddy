@@ -81,7 +81,7 @@ def _endpoint(dsn, expected):
 
 
 def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
-                    browser_case=None, detailed_trace=False, shared_app=None):
+                    browser_case=None, detailed_trace=False, shared_app=None, context_only=True):
     from .workflow import capture
 
     scratch = output.parent / "scratch" / output.name
@@ -91,22 +91,36 @@ def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
         directory.mkdir()
         os.environ[key] = str(directory)
     os.environ[APP_DSN] = app_dsn
-    capture(manifest, output, context_only=True, cohort_manifest_sha256=manifest_sha256,
+    capture(manifest, output, context_only=context_only, cohort_manifest_sha256=manifest_sha256,
             browser_case=browser_case, writer_transport=browser_case is not None,
             detailed_trace=detailed_trace, cohort_app=shared_app)
 
 
-def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False, clone_app=False):
+def protected_work_revisions(dsn, object_ids):
+    """Read only the fixture pages that later members depend on."""
+    with readonly(dsn) as conn:
+        rows = conn.execute(
+            "SELECT work_object_id, current_revision_id FROM content.work_object "
+            "WHERE work_object_id = ANY(%s::uuid[])",
+            (object_ids,),
+        ).fetchall()
+    return {str(row["work_object_id"]): str(row["current_revision_id"]) for row in rows}
+
+
+def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False, clone_app=False,
+                   context_only=True):
     """Capture independent member manifests, then prove Core parity once."""
-    from .workflow import load_manifest, read_pin
+    from .workflow import BuildSequenceStopped, load_manifest, read_pin
     from .disposable_database import disposable_benchmark_database
 
+    if not context_only and (browser or not clone_app):
+        raise ValueError("Response cohorts require an owned App clone and the ordinary request driver")
     if detailed_trace and not browser:
         raise ValueError("Detailed cohort tracing requires browser mode")
     if not 1 <= workers <= 8:
         raise ValueError("Cohort workers must be between 1 and 8")
-    if clone_app and (workers != 1 or not browser):
-        raise ValueError("A shared App clone requires one browser cohort worker")
+    if clone_app and (workers != 1 or (context_only and not browser)):
+        raise ValueError("A shared App clone requires one worker and a supported capture mode")
     path = Path(manifest_path).resolve()
     config = json.loads(path.read_text())
     if (config.get("schema") != "dmb_context_capture_cohort_v1"
@@ -118,6 +132,15 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
     expected_inventory = None
     cases = set()
     app_identities = set()
+    protected_objects = config.get("protected_work_objects", [])
+    if not context_only:
+        from uuid import UUID
+
+        if not isinstance(protected_objects, list) or not protected_objects:
+            raise ValueError("Response cohorts require protected fixture work objects")
+        protected_objects = [str(UUID(value)) for value in protected_objects]
+        if len(protected_objects) != len(set(protected_objects)):
+            raise ValueError("Duplicate protected fixture work object")
     app_template = None
     jobs = []
     output = Path(output).resolve()
@@ -178,31 +201,57 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                     upgrade_to_head()
                 jobs = [((manifest, member, shared_dsn, digest), ids)
                         for (manifest, member, _, digest), ids in jobs]
-            futures = [
-                (job[1], ids, executor.submit(_capture_member, *job, **(
+            if not context_only:
+                fixture_before = protected_work_revisions(shared_dsn, protected_objects)
+                if fixture_before.keys() != set(protected_objects):
+                    raise ValueError("Protected fixture work object is missing")
+                immutable_save(output, "protected-work-before", fixture_before)
+            submissions = (
+                (job[1], ids, executor.submit(_capture_member, *job, context_only=context_only, **(
                     {"shared_app": shared_app} if shared_app is not None else {}
                 ), **(
                     {"browser_case": next(iter(ids)), "detailed_trace": detailed_trace} if browser else {}
                 )))
                 for job, ids in jobs
-            ]
+            )
+            futures = list(submissions) if context_only else submissions
             outcomes = {}
             for member, ids, future in futures:
                 error = future.exception()
-                if error is not None:
+                if error is not None and (context_only or not isinstance(error, BuildSequenceStopped)):
                     outcomes[member.name] = {"status": "failed", "error_type": type(error).__name__}
+                    if not context_only:
+                        break
                     continue
                 try:
                     rows = json.loads((member / "report.json").read_text())["cases"]
-                    statuses = {row["case_id"]: row.get("context", {}).get("status", "missing")
-                                for row in rows}
+                    if context_only:
+                        statuses = {row["case_id"]: row.get("context", {}).get("status", "missing")
+                                    for row in rows}
+                    else:
+                        statuses = {row["case_id"]: row["delivery"]["status"]
+                                    if row["capture_status"] == "complete" else row["capture_status"]
+                                    for row in rows}
                 except (OSError, ValueError, KeyError, TypeError, AttributeError):
                     outcomes[member.name] = {"status": "failed", "error_type": "InvalidMemberReport"}
+                    if not context_only:
+                        break
                     continue
+                observed_statuses = {"captured"} if context_only else {"pass", "fail"}
                 captured = len(rows) == len(statuses) and statuses.keys() == ids and all(
-                    value == "captured" for value in statuses.values())
+                    value in observed_statuses for value in statuses.values())
                 outcomes[member.name] = {"status": "completed" if captured else "failed",
                                          "case_statuses": statuses}
+                if not context_only:
+                    fixture_after = protected_work_revisions(shared_dsn, protected_objects)
+                    immutable_save(member, "protected-work-after", fixture_after)
+                    if fixture_after != fixture_before:
+                        outcomes[member.name]["status"] = "fixture_changed"
+                        break
+                    if not captured:
+                        break
+            for job, _ in jobs:
+                outcomes.setdefault(job[1].name, {"status": "not_started"})
             immutable_save(output, "members", outcomes)
     finally:
         _endpoint(core_dsn, native)
