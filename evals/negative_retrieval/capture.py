@@ -213,7 +213,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                         "records": native_records if native_records is not None else [],
                     })
                     immutable_save(Path(directory), "source-window-probe", {
-                        "schema": "dmb_negative_retrieval_source_window_v4", "case_id": case["id"],
+                        "schema": "dmb_negative_retrieval_source_window_v5", "case_id": case["id"],
                         "window": "turn_post_v1", "dispatch_uncertain": dispatch_uncertain,
                         **(source_window_state if source_window_state is not None else {
                             "coverage": "partial", "status": "setup_failed" if source_window_setup_failed else "not_started",
@@ -224,6 +224,8 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                             "batch_read": {"scoped": 0, "unscoped": 0, "code_sha256": None},
                             "app_source": {"scoped": {"app_single": 0, "app_revision": 0},
                                            "unscoped": {"app_single": 0, "app_revision": 0}, "owner_provenance": None},
+                            "app_batch_read": {"scoped": 0, "unscoped": 0, "scoped_starts": 0,
+                                               "unscoped_starts": 0, "code_sha256": None},
                         }),
                     })
                     if fixture is not None:

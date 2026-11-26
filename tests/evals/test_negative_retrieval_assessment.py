@@ -2609,7 +2609,7 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     row = json.loads((tmp_path/'case1'/'source-window-probe.json').read_text())
     assert row['status'] == 'observed' and row['scoped']['text'] == 1
     assert row['pending_at_close'] == 0 and row['coverage'] == 'partial'
-    assert row['schema'] == 'dmb_negative_retrieval_source_window_v4' and row['owner_provenance'] == provenance
+    assert row['schema'] == 'dmb_negative_retrieval_source_window_v5' and row['owner_provenance'] == provenance
     assert row['scoped']['text_batch']==2 and row['batch_read']['scoped']==1
 
 
@@ -2779,6 +2779,23 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     malformed_app=copy.deepcopy(app);malformed_app['app_source']['scoped']['app_single']=True
     with pytest.raises(ValueError, match='App source window'):
         assess_row(malformed_app)
+    from evals.negative_retrieval.source_window import KNOWN_APP_BATCH_CODE
+    app_batch=copy.deepcopy(app);app_batch['schema']='dmb_negative_retrieval_source_window_v5'
+    app_batch['app_source']['scoped']['app_single']=0
+    app_batch['app_batch_read']={'scoped':1,'unscoped':0,'scoped_starts':2,'unscoped_starts':0,
+                                'code_sha256':KNOWN_APP_BATCH_CODE}
+    assert assess_row(app_batch)['checks']['unexpected_retrieval'] is False
+    assert assess_row(app_batch,positive)['checks']['required_evidence'] is None
+    empty=copy.deepcopy(app_batch);empty['app_batch_read']['scoped']=0
+    assert assess_row(empty)['checks']['unexpected_retrieval'] is None
+    changed=copy.deepcopy(app_batch);changed['app_batch_read']['code_sha256']='0'*64
+    assert assess_row(changed)['checks']['unexpected_retrieval'] is None
+    bad=copy.deepcopy(app_batch);bad['app_batch_read']['scoped']=3
+    with pytest.raises(ValueError,match='App batch window'):
+        assess_row(bad)
+    foreign=copy.deepcopy(app_batch);foreign['app_batch_read']['unscoped_starts']=1
+    with pytest.raises(ValueError,match='unresolved work'):
+        assess_row(foreign)
     unknown=copy.deepcopy(app);unknown['app_source']['owner_provenance']['app_single']='0'*64
     assert assess_row(unknown)['checks']['unexpected_retrieval'] is None
     inactive=copy.deepcopy(app);inactive['app_source']['scoped']['app_single']=0
@@ -2852,6 +2869,8 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     from evals.negative_retrieval.trace_observation import UNKNOWN
     assert seen[-1].count(UNKNOWN)==1
     assert assess_row(app)['checks']['unexpected_retrieval'] is False
+    assert seen[-1].count(UNKNOWN)==1
+    assert assess_row(app_batch)['checks']['unexpected_retrieval'] is False
     assert seen[-1].count(UNKNOWN)==1
     trace['attempts'][0]['turn_id']='foreign'
     (tmp_path/'context-trace.json').write_text(json.dumps(envelope(trace)))
@@ -3097,3 +3116,33 @@ def test_source_window_scopes_app_alias_in_executor_and_marks_foreign_thread_unc
     assert state['app_source']['unscoped']['app_single'] == 1
     assert state['status'] == 'uncertain'
     assert state['app_source']['owner_provenance'] is None
+
+
+def test_source_window_observes_prebound_app_batch_only_after_empty_guard():
+    from application_state.source import repository
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
+    from evals.negative_retrieval.source_window import observe_source_window, KNOWN_APP_BATCH_CODE
+    class Cursor:
+        def __init__(self): self.executed = 0
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def execute(self, query, params): self.executed += 1
+        def fetchall(self): return []
+    class Connection:
+        def __init__(self): self.cur = Cursor()
+        def cursor(self, **kwargs): return self.cur
+    class Uncheckable:
+        def __bool__(self): raise ValueError('private')
+    batch = repository.get_source_markdown_batch
+    conn = Connection()
+    with observe_native_graph_owners() as records:
+        with observe_source_window() as state:
+            assert batch(conn, bindings=[]) == []
+            assert batch(conn, bindings=[('one', 'digest'), ('two', 'digest')]) == []
+            with pytest.raises(ValueError): batch(conn, bindings=Uncheckable())
+        assert records == []
+    assert conn.cur.executed == 1
+    assert state['app_batch_read'] == {'scoped': 1, 'unscoped': 0, 'scoped_starts': 3,
+                                      'unscoped_starts': 0, 'code_sha256': KNOWN_APP_BATCH_CODE}
+    assert state['status'] == 'observed'
+    assert repository.get_source_markdown_batch is batch
