@@ -187,9 +187,14 @@ def pending_related_pages_project(execution):
     reads = [row for row in execution.events if type(row) is t.RelatedPageRead]
     acquired = {row.page.document_id for row in reads}
     current_id = execution.policy.action.intent.primary_work.object_id
+    work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
+    current_only = len(work) == 1 and work[0].resolution.get('source_scope') == 'current_saved_page'
+    if current_only and any(str(page.document_id) != str(current_id) for page in catalogs[0].pages):
+        raise ValueError('Current-page-only scope cannot project another page')
     includes_current = any(str(page.document_id) == str(current_id) for page in catalogs[0].pages)
     return {'policy': POLICY, 'role': ROLE,
-        'catalog_scope': ('active_committed_worldbuilding_pages_in_this_world_including_current'
+        'catalog_scope': ('exact_current_saved_page_only' if current_only else
+            'active_committed_worldbuilding_pages_in_this_world_including_current'
             if includes_current else 'active_committed_worldbuilding_pages_in_this_world_excluding_current'),
         'absence_authority': 'not_proven_by_this_saved_page_catalog',
         'availability': [{'page': page.model_dump(mode='json'),
