@@ -1874,8 +1874,18 @@ def test_guest_proposal_storage_counts_toward_quota_and_is_cleaned(guests, monke
     def advance(state, **fields):
         nonlocal record
         record = store.advance(world, record.action_id, expected_revision=record.revision, state=state, **fields)
+    from hashlib import sha256
+    from apps.live_control_server.services import agent_prompt_evidence, conversation_erasure
+
+    monkeypatch.setattr(agent_prompt_evidence, "artifact_data_root", lambda: tmp_path)
+    monkeypatch.setattr(conversation_erasure, "artifact_data_root", lambda: tmp_path)
+    digest = sha256(b"{}").hexdigest()
+    old_evidence = agent_prompt_evidence.store_prompt("{}", digest=digest, size=2)
+    owned_evidence = agent_prompt_evidence.store_prompt(
+        "{}", digest=digest, size=2, owner=(world, conversation_id),
+    )
     advance('authorized', authorization=BuildProviderAuthorization(provider_attempt_id=uuid4(),
-        model='synthetic', payload_sha256='c' * 64, payload_utf8_bytes=123))
+        model='synthetic', payload_sha256=digest, payload_utf8_bytes=2, evidence_id=old_evidence))
     advance('sdk_entered')
     advance('response_received', raw_response=json.dumps({'destination': 'current_page', 'target': 'captured',
         'replacement_markdown': 'A clue.', 'summary': 'A clue.', 'assumptions': []}))
@@ -1948,6 +1958,15 @@ def test_guest_proposal_storage_counts_toward_quota_and_is_cleaned(guests, monke
     monkeypatch.setattr(guest_build_access, 'guest_conversation_bytes', original)
     assert client.get(f'{base}/{record.action_id}/review').status_code in (401, 403)
     cleanup_expired_guest_conversation(session_id)
+    evidence_dir = tmp_path / "out" / "agent_request_evidence"
+    assert (evidence_dir / f"{old_evidence}.json").is_file()
+    assert (evidence_dir / f"{owned_evidence}.json").is_file()
+    conversation_erasure.finish_conversation_erasure(conversation_id)
+    assert not (evidence_dir / f"{old_evidence}.json").exists()
+    assert not (evidence_dir / f"{owned_evidence}.json").exists()
     with connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM agent.build_proposal WHERE world_id=%s', (world,)).fetchone()[0] == 0
         assert conn.execute('SELECT count(*) FROM agent.build_proposal_review WHERE world_id=%s', (world,)).fetchone()[0] == 0
+        assert conn.execute(
+            'SELECT count(*) FROM agent.conversation_identity WHERE world_id=%s', (world,),
+        ).fetchone()[0] == 0

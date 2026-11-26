@@ -1150,3 +1150,45 @@ def test_v2_allows_empty_body_after_exact_yaml_frontmatter():
         'items': [{'kind': 'empty_paragraph', 'id': 'blank'}],
     }
     assert page_presentation.PagePresentation.model_validate(payload).checked(source).items[0].id == 'blank'
+
+
+def test_erase_conversation_preserves_its_committed_lore_page(world, application_state_dsn):
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationDeleteCommand, TurnFailure, TurnSubmission
+    from tests.application_state.test_agent_conversation_service import _provenance, _submitted_intent
+    from tests.application_state.test_conversation_library import new
+    from tests.application_state.test_conversation_trash import command
+
+    service = AgentConversationService()
+    cid = new(service, world)
+    prompt = "Workshop this page"
+    turn = service.accept_turn(TurnSubmission(
+        world_id=world, conversation_id=cid, idempotency_key=uuid4(),
+        expected_conversation_revision=service.get_conversation(world, cid).revision,
+        user_text=prompt, provenance=_provenance(world), submitted_intent_v1=_submitted_intent(world, prompt),
+    ))
+    running = service.begin_turn(world, cid, turn.turn_id, expected_revision=turn.revision)
+    service.fail_turn(TurnFailure(
+        world_id=world, conversation_id=cid, turn_id=turn.turn_id,
+        expected_revision=running.revision, failure_code="synthetic_before_dispatch",
+    ), interrupted=True)
+
+    with psycopg.connect(application_state_dsn) as conn:
+        saved, revision = pages.create_committed_lore_page(
+            conn, world_id=world, title="Published workshop", markdown="Keep this exact saved body.",
+        )
+        conn.execute("""
+            INSERT INTO agent.lore_page_confirmation
+                (turn_id, review_sha256, principal_subject, document_id, revision_id)
+            VALUES (%s, repeat('a', 64), 'subject:owner', %s, %s)
+        """, (turn.turn_id, saved.page.work_object_id, revision.work_revision_id))
+
+    service.set_conversation_trash(command(service, cid, world), restore=False)
+    service.delete_conversation(ConversationDeleteCommand(**command(service, cid, world).model_dump()))
+    reopened = pages.committed_page(ident(saved), world_id=world)
+    assert reopened.page.title == "Published workshop"
+    assert reopened.revision == revision
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute(
+            "SELECT 1 FROM agent.lore_page_confirmation WHERE turn_id=%s", (turn.turn_id,),
+        ).fetchone() is None

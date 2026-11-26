@@ -897,3 +897,74 @@ def test_proposal_transaction_hooks_authorize_and_roll_back(reservation):
     with pytest.raises(ApplicationStateNotFoundError):
         store.get(reservation.basis.world_id, reservation.idempotency_key)
     assert seen[-1] == ('authorize', True)
+
+
+@pytest.mark.parametrize("already_trashed", [False, True])
+def test_conversation_delete_preserves_a_prepared_build_insertion(reservation, already_trashed):
+    from application_state.agent_conversation.types import ConversationDeleteCommand
+    from application_state.build_proposal.review import BuildProposalReviewService, BuildReviewCommand
+    from tests.application_state.test_conversation_trash import command
+
+    request = reservation.model_copy(update={
+        "basis": reservation.basis.model_copy(update={"editor_sha256": "e" * 64}),
+    })
+    store = BuildProposalService()
+    record, _ = store.reserve(request)
+    world, action, cid = request.basis.world_id, record.action_id, request.conversation_id
+
+    def advance(state, **fields):
+        nonlocal record
+        record = store.advance(world, action, expected_revision=record.revision, state=state, **fields)
+
+    advance("authorized", authorization=BuildProviderAuthorization(
+        provider_attempt_id=uuid4(), model="synthetic", payload_sha256="c" * 64, payload_utf8_bytes=125,
+    ))
+    advance("sdk_entered")
+    advance("response_received", raw_response=json.dumps({
+        "destination": "current_page", "target": "captured",
+        "replacement_markdown": "A pending insertion.", "summary": "A proposal.", "assumptions": [],
+    }))
+    advance("proposed")
+    reviews = BuildProposalReviewService()
+    opened = reviews.execute(world, action, BuildReviewCommand(operation="open", expected_revision=0))
+    prepared = reviews.execute(world, action, BuildReviewCommand(
+        operation="prepare", expected_revision=opened.revision,
+        apply_id=uuid4(), after_editor_sha256="f" * 64, after_draft_sha256="d" * 64,
+    ))
+    service = AgentConversationService()
+
+    with pytest.raises(ApplicationStateConflictError, match="Finish the current Build insertion"):
+        service.set_conversation_trash(command(service, cid, world), restore=False)
+    assert reviews.get(world, action) == prepared
+
+    if already_trashed:
+        # Recreate the persisted state allowed before this Trash guard shipped.
+        with unit_of_work() as conn:
+            conn.execute("""
+                UPDATE agent.conversation SET status='trashed', archived_at=clock_timestamp()
+                WHERE world_id=%s AND conversation_id=%s
+            """, (world, cid))
+            conn.execute("""
+                UPDATE agent.world_state SET active_conversation_id=NULL, pointer_revision=pointer_revision+1
+                WHERE world_id=%s
+            """, (world,))
+        with pytest.raises(ApplicationStateConflictError, match="review scope changed"):
+            reviews.execute(world, action, BuildReviewCommand(
+                operation="confirm", expected_revision=prepared.revision, apply_id=prepared.apply.apply_id,
+            ))
+        assert service.delete_conversation(
+            ConversationDeleteCommand(**command(service, cid, world).model_dump()),
+        ).command_kind == "delete"
+        with pytest.raises(ApplicationStateNotFoundError):
+            reviews.get(world, action)
+    else:
+        applied = reviews.execute(world, action, BuildReviewCommand(
+            operation="confirm", expected_revision=prepared.revision, apply_id=prepared.apply.apply_id,
+        ))
+        assert applied.state == "applied"
+        service.set_conversation_trash(command(service, cid, world), restore=False)
+        assert service.delete_conversation(
+            ConversationDeleteCommand(**command(service, cid, world).model_dump()),
+        ).command_kind == "delete"
+        with pytest.raises(ApplicationStateNotFoundError):
+            reviews.get(world, action)
