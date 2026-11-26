@@ -488,15 +488,15 @@ def test_creative_chat_guidance_preserves_the_previous_frozen_menu():
         assert c.selected(response, menu=c.MENU_DIGEST) == label
 
 
-def test_future_mixed_action_menu_is_readable_but_not_emitted():
-    old = c.MENU_DIGEST
+def test_mixed_action_menu_is_emitted_and_previous_menu_remains_readable():
+    old = c.digest(c.question(guidance=c.PRE_MIXED_ACTION_GUIDANCE, work_options=c.WORK))
     future = c.FUTURE_MIXED_ACTION_MENU_DIGEST
-    assert old != future and c.digest(c.question()) == old
+    assert old != future and c.digest(c.question()) == c.MENU_DIGEST == future
     assert c.known_semantics(old, c.RESOLVER_DIGEST)
     assert c.known_semantics(future, c.RESOLVER_DIGEST)
     assert c.menu_offers_lore_outcomes(future)
-    assert 'separately choose whether the' in c.decision_instructions(future)
-    assert 'separately choose whether the' not in c.decision_instructions()
+    assert 'separately choose whether the' in c.decision_instructions()
+    assert 'separately choose whether the' not in c.decision_instructions(old)
     for label in ('discuss', 'other_creation', 'write_current_page'):
         response = {'answers': {'requested_work': {'selected': label,
             'probabilities': {name: float(name == label) for name in c.WORK}}}}

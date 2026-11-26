@@ -26,7 +26,7 @@ def root():
     return managed_world_data_root(repo_root())
 
 
-def discover(request):
+def discover(request, *, include_current=False):
     """Build and Plan share the actual World/primary-work request identity."""
     world_id = request.owner_scope.world_id
     primary = request.primary_work.object_id
@@ -43,7 +43,7 @@ def discover(request):
             key=lambda r: r.document_id,
         )
         if r.world_id == world_id
-        and r.document_id != primary
+        and (include_current or r.document_id != primary)
         and r.status == "active"
         and r.content_status == "committed"
         and r.source_domain == "worldbuilding"

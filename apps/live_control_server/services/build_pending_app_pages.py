@@ -23,6 +23,22 @@ def _commit(adapter, method, **fields):
     adapter.turn = _require_fresh_execution_append(adapter.fence.commit(method, **fields))
 
 
+def _discover_pending_pages(adapter):
+    """Offer the current saved page only at the request's frozen revision."""
+    from .build_related_pages import discover
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    basis = adapter._broker_receipt().work_context.source_basis
+    pages = []
+    for row in discover(adapter.request, include_current=True):
+        pointer = PagePointer.model_validate(row)
+        if (str(pointer.document_id) == str(basis.document_id)
+                and (pointer.registry_revision != basis.registry_revision
+                     or pointer.visibility != basis.visibility)):
+            continue  # A newer or reclassified page cannot replace the captured basis.
+        pages.append(pointer.model_dump(mode='json'))
+    return pages
+
+
 def _initial_request(adapter):
     """Read the original captured request; never reconstruct today's history."""
     from .agent_prompt_evidence import read_prompt
@@ -56,9 +72,8 @@ async def acquire_pending_app_pages(adapter, harness):
     catalog = effective_pending_app_catalog(receipt, execution)
     if catalog is None:
         pending_source_work(execution)
-        from .build_related_pages import discover
         _commit(adapter, 'observe_pending_build_app_catalog', event_id=uuid4(),
-            discover_pages=lambda turn: discover(adapter.request),
+            discover_pages=lambda turn: _discover_pending_pages(adapter),
             authorize_current_access=adapter.pending_build_access)
         catalog = effective_pending_app_catalog(receipt, adapter._broker_execution())
     if not catalog:
@@ -89,7 +104,7 @@ class PendingAppPageDriver:
         self.adapter, self.initial = adapter, initial_request_json
         self.receipt = adapter._broker_receipt()
         self.before = adapter._broker_execution()
-        self.wire = pending_app_page_selection_input(self.receipt, self.before, self.initial)
+        self.wire = pending_app_page_selection_input(self.receipt, self.before, self.initial, current_variant=True)
         self.step = DecisionIntent(request_id='pending-app-pages:' + digest(self.wire), phase='navigate',
             state=self.wire['state'], questions=tuple(DecisionQuestion(name=name, kind='choice',
                 question=value['instructions'], options=tuple(value['criteria']))
@@ -146,9 +161,12 @@ class PendingAppPageDriver:
         response = canonical(actual_response.model_dump(mode='json'))
         catalog, = [event for event in adapter._broker_execution().events
                     if type(event) is BuildAppPageCatalogObservedV1]
+        current_id = str(self.receipt.work_context.source_basis.document_id)
+        current_offer = any(str(page.document_id) == current_id for page in catalog.pages)
         chosen = sorted([page.document_id for index, page in enumerate(catalog.pages)
             if should_read_page(page, self.wire['questions'][f'page{index + 1}'],
-                actual_response.answers[f'page{index + 1}'], semantic=True)], key=str)
+                actual_response.answers[f'page{index + 1}'], semantic=True,
+                current_offer=current_offer, is_current=str(page.document_id) == current_id)], key=str)
         event = RelatedPagesSelection(event_id=uuid4(), sequence=len(adapter._broker_execution().events),
             controller_attempt_id=UUID(self.prepared.attempt_id),
             controller_envelope_sha256=self.prepared.body_sha256,
