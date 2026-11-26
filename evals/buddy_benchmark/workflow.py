@@ -470,6 +470,10 @@ def verify_capture_environment(expected):
         raise ValueError("Runtime qualification changed; no question dispatched")
 
 
+class BuildSequenceStopped(ValueError):
+    """An observed failed turn prevented dependent turns from dispatching."""
+
+
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
             browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None):
     """Explicit live entry point; never invoked by offline reporting."""
@@ -635,7 +639,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
                     expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot)
                 if build_sequence:
                     if response.status_code != 200:
-                        raise ValueError("Build turn failed; later turns not dispatched")
+                        raise BuildSequenceStopped("Build turn failed; later turns not dispatched")
                     conversation_id = _wrapped(directory / "history-after.json")["body"]["active_conversation_id"]
     finally:
         if not cohort_member:

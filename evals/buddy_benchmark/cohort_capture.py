@@ -99,7 +99,7 @@ def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
 def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_trace=False, clone_app=False,
                    context_only=True):
     """Capture independent member manifests, then prove Core parity once."""
-    from .workflow import load_manifest, read_pin
+    from .workflow import BuildSequenceStopped, load_manifest, read_pin
     from .disposable_database import disposable_benchmark_database
 
     if not context_only and (browser or not clone_app):
@@ -192,7 +192,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
             outcomes = {}
             for member, ids, future in futures:
                 error = future.exception()
-                if error is not None:
+                if error is not None and (context_only or not isinstance(error, BuildSequenceStopped)):
                     outcomes[member.name] = {"status": "failed", "error_type": type(error).__name__}
                     continue
                 try:
@@ -202,7 +202,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                                     for row in rows}
                     else:
                         statuses = {row["case_id"]: row["delivery"]["status"]
-                                    if row["capture_status"] == "complete" else "incomplete"
+                                    if row["capture_status"] == "complete" else row["capture_status"]
                                     for row in rows}
                 except (OSError, ValueError, KeyError, TypeError, AttributeError):
                     outcomes[member.name] = {"status": "failed", "error_type": "InvalidMemberReport"}
