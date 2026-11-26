@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BuddyContextTrace, type BuddyTurnContextTrace } from './BuddyContextTrace'
 import { TraceTabContext } from './ConversationReplyDetails'
