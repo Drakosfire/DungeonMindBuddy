@@ -1,6 +1,6 @@
 # RETRIEVAL: score witnessed Core text attempts
 
-Status: ACTIVE. The user authorized continuing the over-retrieval goal and
+Status: MERGED as #4864 (`622082a391beeb2c2cbb093a5dee4d2736349fa4`). The user authorized continuing the over-retrieval goal and
 assigned this lane. Serial successor to merged #4859
 (`a2adc933bfb4d17cc22965dc77b78d6536ad566c`), based on fetched main
 `7f8461ced652e3798cc038f00b8e9fefb5ea2012`. Branch
