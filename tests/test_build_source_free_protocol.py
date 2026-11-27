@@ -5545,10 +5545,12 @@ def test_retained_v5_preserves_v4_saved_page_citation_identity(monkeypatch):
     with retained_saved_page_writer_case(monkeypatch) as (state, _adapter, _rules, _writer, _prepared, _original):
         execution = state.turn.graph_context_execution
         value = admission(execution)
+        v4 = value.model_copy(update={'presentation_policy': 'retained_conversation_semantic_v4'})
+        execution = execution.model_copy(update={'events': tuple(v4 if e is value else e for e in execution.events)})
         expected = retained_saved_page_references(execution)
         assert expected
-        v5 = value.model_copy(update={'presentation_policy': 'retained_conversation_semantic_v5'})
-        execution = execution.model_copy(update={'events': tuple(v5 if e is value else e for e in execution.events)})
+        v5 = v4.model_copy(update={'presentation_policy': 'retained_conversation_semantic_v5'})
+        execution = execution.model_copy(update={'events': tuple(v5 if e is v4 else e for e in execution.events)})
         assert retained_saved_page_references(execution) == expected
 
 
