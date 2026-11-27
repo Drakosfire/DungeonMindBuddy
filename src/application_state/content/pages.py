@@ -568,12 +568,12 @@ def _committed_snapshot(conn, state: PageState) -> CommittedPageSnapshot:
         if revision is None:
             raise ApplicationStateIntegrityError("saved Page revision is missing")
         content._require_revision_owner(state.page, revision)
-    copy = repo.get_working_copy(conn, state.page.work_object_id)
+    working_copy_revision = repo.get_working_copy_revision(conn, state.page.work_object_id)
     return CommittedPageSnapshot(
         **state.model_dump(),
         revision=revision,
         presentation=presentation.read(conn, revision),
-        working_copy_revision=copy.working_copy_revision if copy else None,
+        working_copy_revision=working_copy_revision,
     )
 
 

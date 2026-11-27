@@ -314,6 +314,19 @@ def upsert_working_copy(conn: psycopg.Connection, copy: WorkingCopy) -> WorkingC
     return replace_working_copy(conn, copy)
 
 
+def get_working_copy_revision(
+    conn: psycopg.Connection, work_object_id: UUID
+) -> int | None:
+    """Read only the CAS revision without materializing working-copy text."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            "SELECT working_copy_revision FROM content.working_copy WHERE work_object_id = %s",
+            (work_object_id,),
+        )
+        row = cur.fetchone()
+    return None if row is None else row["working_copy_revision"]
+
+
 def get_working_copy(
     conn: psycopg.Connection, work_object_id: UUID
 ) -> WorkingCopy | None:
