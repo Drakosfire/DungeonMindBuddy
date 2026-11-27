@@ -478,3 +478,65 @@ def test_variant_passage_witness_selects_exact_position_even_if_text_repeats(han
     else:
         result = normalize_statblock_variant(candidate, work, **flags)
         assert result.definition.model_dump()["rule_elements"][-1] == added
+
+
+@pytest.mark.parametrize('choice', ['anchored', 'source_lookup', 'uncertain', 'current_saved_page'])
+def test_scope_reader_accepts_exact_legacy_and_explicit_votes(choice):
+    from application_state.agent_conversation import build_intentional_response as semantic
+    from tests.test_build_current_scope_reader import _request, _response
+    options = semantic.FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS
+    for guidance in (semantic.FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE,
+                     semantic.EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE):
+        assert semantic.source_need(_request(options, guidance), _response(options, choice)) == choice
+    assert semantic.source_need(_request(semantic.SOURCE_NEED_OPTIONS, semantic.SOURCE_NEED_GUIDANCE),
+                                _response(semantic.SOURCE_NEED_OPTIONS, 'source_lookup')) == 'source_lookup'
+
+
+def test_scope_reader_refuses_changed_guidance_options_and_ties():
+    from application_state.agent_conversation import build_intentional_response as semantic
+    from tests.test_build_current_scope_reader import _request, _response
+    options = semantic.FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS
+    guidance = semantic.EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE
+    with pytest.raises(ValueError):
+        semantic.source_need(_request(options, guidance + ' altered'), _response(options, 'source_lookup'))
+    with pytest.raises(ValueError):
+        semantic.source_need(_request(options[:-1], guidance), _response(options, 'source_lookup'))
+    tied = _response(options, 'source_lookup')
+    tied['answers']['source_need']['probabilities']['source_lookup'] = .5
+    tied['answers']['source_need']['probabilities']['current_saved_page'] = .5
+    with pytest.raises(ValueError):
+        semantic.source_need(_request(options, guidance), tied)
+
+
+def test_scope_reader_validates_explicit_question_in_actual_selection_proof():
+    from hashlib import sha256
+    from application_state.agent_conversation import build_intentional_response as semantic
+    from tests.test_surface_native_build_decision import sdk_case
+    from tests.test_build_current_scope_reader import _request, _response
+    from tests.test_build_source_free_routing import pending_execution_pair
+    _, original, event, proof, trace, work = sdk_case()
+    _, policy = pending_execution_pair()
+    request, response = json.loads(proof['request_json']), json.loads(proof['response_json'])
+    decision = request['state']['decision']
+    decision['state']['user_question'] = policy.action.intent.message
+    decision['state']['interaction']['allowed_operations'] = list(policy.action.capabilities.operations)
+    decision['state']['interaction']['capability_sha256'] = policy.action.intent.build_write_capability_sha256
+    decision['request_id'] = 'select:' + semantic.digest(decision['state'])
+    options = semantic.FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS
+    request['questions']['source_need'] = _request(options, semantic.EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE)['questions']['source_need']
+    response['answers']['source_need'] = {'kind': 'choice', 'confidence': 1.0,
+        **_response(options, 'source_lookup')['answers']['source_need']}
+    proof = {'request_json': json.dumps(request), 'response_json': json.dumps(response)}
+    request_hash, response_hash = (sha256(proof[key].encode()).hexdigest() for key in ('request_json', 'response_json'))
+    auth = original.events[0].model_copy(update={'envelope_sha256': request_hash})
+    prefix = SimpleNamespace(policy=policy, events=[auth, *original.events[1:]])
+    event = event.model_copy(update={'controller_envelope_sha256': request_hash,
+        'controller_response_sha256': response_hash, 'machine_request_id': decision['request_id'],
+        'broker_operation_id': semantic.operation_id_for(work['turn_id'], 1, decision['request_id'], 'discuss'),
+        'resolution': semantic.resolution_for(policy, 'discuss', source_scope='source_lookup')})
+    trace['observations'][0]['materials'][0]['text'] = proof['response_json']
+    semantic.validate_selection_records(prefix, event, proof, trace,
+        user_text=policy.action.intent.message, turn_id=work['turn_id'], attempt=1)
+    with pytest.raises(ValueError):
+        semantic.validate_selection_records(prefix, event, proof | {'request_json': proof['request_json'] + ' '}, trace,
+            user_text=policy.action.intent.message, turn_id=work['turn_id'], attempt=1)

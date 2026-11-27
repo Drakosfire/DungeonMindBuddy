@@ -250,6 +250,15 @@ FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE = SOURCE_NEED_GUIDANCE + (
     "or authorize a read."
 )
 
+# Reader-first: a separately versioned exact question, not yet emitted by the
+# opening controller. Keep the previously captured question readable.
+EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE = FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE + (
+    " Compare any page named in the request with the open page's title. A named "
+    "different saved page is another source: choose source_lookup, not "
+    "current_saved_page. Choose current_saved_page only for the open page itself "
+    "when no other source is requested. If the reference is ambiguous, choose uncertain."
+)
+
 
 class UnresolvedDiscussionSource(ValueError):
     """The read-only work choice is settled, but its evidence scope is tied."""
@@ -262,11 +271,12 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
     expected = {"type": "choice", "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
     old_questions = tuple(expected | {"instructions": guidance}
                           for guidance in (SOURCE_NEED_GUIDANCE, _REUSE_SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE))
-    future_question = {"type": "choice", "criteria": dict.fromkeys(FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS),
-                       "instructions": FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE}
-    if question not in (*old_questions, future_question):
+    current_questions = tuple({"type": "choice", "criteria": dict.fromkeys(FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS),
+                               "instructions": guidance} for guidance in
+                              (FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE))
+    if question not in (*old_questions, *current_questions):
         raise ValueError("Build source scope differs from its offered decision")
-    options = FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS if question == future_question else SOURCE_NEED_OPTIONS
+    options = FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS if question in current_questions else SOURCE_NEED_OPTIONS
     return _selected_choice(
         response["answers"]["source_need"], options,
         tie_fallback=tie_fallback, clarify_uncertain_tie=clarify_uncertain_tie,
