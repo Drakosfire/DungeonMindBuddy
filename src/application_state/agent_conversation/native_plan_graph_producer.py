@@ -100,3 +100,38 @@ def query_transition(context, execution, *, action, event_id, query=None, reason
         raise ValueError('Graph transition requires its exact retained predecessor and typed result')
     prospective = execution.model_copy(update={'events': [*events, event]})
     return event, validate_context_binding(context, prospective)
+
+
+def safe_reclaimable_graph_need_prefix(turn):
+    """Allow only an acknowledged pre-opening Plan prefix to cross claim expiry."""
+    from . import types as t
+    from .native_context import NativePlanGraphQueryPendingV1, SurfaceNativeContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1, validate_context_binding
+    from .native_plan_graph_need import (
+        NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+        NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1,
+    )
+    receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    if (turn.status != 'running' or type(receipt) is not SurfaceNativeContextReceiptV1
+            or type(receipt.native_query) is not NativePlanGraphQueryPendingV1
+            or type(execution) is not SurfaceNativeExecutionV1):
+        return False
+    allowed = (NativePlanGraphNeedAuthorizedV1, t.ProviderOutcomeEventV1, NativePlanGraphNeedObservedV1,
+        NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+        NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)
+    events = execution.events
+    if any(type(event) not in allowed for event in events):
+        return False
+    auths = [event for event in events if isinstance(event, t.ProviderAttemptAuthorizedEventV1)]
+    observed = [event for event in events if type(event) is NativePlanGraphNeedObservedV1]
+    starts = [event for event in events if type(event) is NativePlanGraphQueryStartedV1]
+    settled = [event for event in events if type(event) is NativePlanGraphQuerySettledV1]
+    if (len(auths) != 1 or type(auths[0]) is not NativePlanGraphNeedAuthorizedV1
+            or len(observed) != 1 or observed[0].choice not in {'no_graph', 'require_graph'}
+            or bool(starts) != bool(settled)):
+        return False
+    try:
+        validate_context_binding(receipt, execution)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return False
+    return True

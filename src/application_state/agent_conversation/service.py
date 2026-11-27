@@ -1583,10 +1583,11 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "turn claim fence changed before it could be acquired"
                 )
-            if turn.graph_context_execution is not None and any(
+            from .native_plan_graph_producer import safe_reclaimable_graph_need_prefix
+            if (turn.graph_context_execution is not None and any(
                 isinstance(event, ProviderAttemptAuthorizedEventV1)
                 for event in turn.graph_context_execution.events
-            ):
+            ) and not safe_reclaimable_graph_need_prefix(turn)):
                 if turn.status == "running" and (
                     turn.claim_expires_at is None or turn.claim_expires_at <= now
                 ):

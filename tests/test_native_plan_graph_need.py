@@ -995,7 +995,7 @@ def test_prepared_graph_authorization_binds_exact_wire_and_accounting():
 
 
 @pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
-def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypatch):
+def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypatch, application_state_dsn):
     import asyncio
     import httpx2
     from apps.live_control_server.services.agent_turn_service import _ClaimFence
@@ -1040,6 +1040,17 @@ def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypa
     before = a.fence.turn.revision
     settle_graph_need(a, observed, prepare_graph=lambda: pytest.fail('Closed Graph was reopened'))
     assert a.fence.turn.revision == before and a.native_query is None
+    # Expire this exact fixture turn after stopping its claim worker. Its safe
+    # closed prefix may be reclaimed without another SDK or Graph dispatch.
+    import psycopg
+    a.fence.renewer.stop_and_join()
+    current = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE world_id=%s AND turn_id=%s",
+            (turn.world_id, turn.turn_id))
+    claimed = service.claim_turn(turn.world_id, turn.conversation_id, turn.turn_id, expected_revision=current.revision)
+    assert claimed.disposition == 'claimed' and claimed.turn.attempt == current.attempt + 1
+    assert claimed.turn.graph_context_execution == current.graph_context_execution
 
 
 def test_query_transitions_require_decision_order_and_pinned_query():

@@ -2424,10 +2424,11 @@ class _PolicyExecutionAdapter:
                     code="turn_receipt_unverifiable", status_code=409,
                     provider_dispatched=False,
                 )
+            from application_state.agent_conversation.native_plan_graph_producer import safe_reclaimable_graph_need_prefix
             if any(
                 _is_provider_authorization(event)
                 for event in execution.events
-            ):
+            ) and not safe_reclaimable_graph_need_prefix(self.turn):
                 raise AgentTurnServiceError(
                     "The stored provider attempt cannot be automatically repeated.",
                     code="turn_already_authorized", status_code=409,
