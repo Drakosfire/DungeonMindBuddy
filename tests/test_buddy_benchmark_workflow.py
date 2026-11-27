@@ -1546,7 +1546,7 @@ def test_capture_owns_disposable_app_scope(tmp_path, monkeypatch, failure):
                     oid="1", system_identifier="2")
     native = {**template, "database": "eval_core", "oid": "3"}
     clone = {**template, "database": "benchmark_run_fixture", "oid": "4"}
-    manifest = {"isolation": {"app": template, "native": native}}
+    manifest = {"cases": [], "isolation": {"app": template, "native": native}}
     events = []
     monkeypatch.setenv(env, source)
     monkeypatch.setattr(w, "load_manifest", lambda *_, **__: (manifest, tmp_path))
