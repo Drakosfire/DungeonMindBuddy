@@ -70,7 +70,7 @@ class PendingAppCoverageDriver(PendingAppPageDriver):
     def __init__(self, adapter, initial_request_json):
         self.adapter, self.initial = adapter, initial_request_json
         self.receipt, self.before = adapter._broker_receipt(), adapter._broker_execution()
-        self.wire = pending_app_coverage_input(self.receipt, self.before, self.initial)
+        self.wire = pending_app_coverage_input(self.receipt, self.before, self.initial, capability_aware=True)
         self.step = DecisionIntent(request_id='pending-app-coverage:' + digest(self.wire), phase='navigate',
             state=self.wire['state'], questions=tuple(DecisionQuestion(name=name, kind='choice',
                 question=value['instructions'], options=tuple(value['criteria']))
