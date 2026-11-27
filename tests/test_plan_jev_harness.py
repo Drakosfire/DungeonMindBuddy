@@ -27,7 +27,8 @@ class Finish(httpx2.AsyncBaseTransport):
             choice='discuss' if name=='requested_work' else 'finish_retrieval' if name=='operation' else 'exclude'
             answers[name]={'type':'choice','choice':choice,'confidence':1,
                 'probabilities':{key:float(key==choice) for key in question['criteria']}}
-        return httpx2.Response(200,request=request,json={'model':'jev-1.14.0','answers':answers,
+        assert body['model'] in {'jev-1.14.0', 'typesafe-ai/jev-1.14.0'}
+        return httpx2.Response(200,request=request,json={'model':body['model'],'answers':answers,
             'usage':{'input_tokens':31,'output_tokens':7}})
 
 
