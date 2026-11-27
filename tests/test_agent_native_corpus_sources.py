@@ -637,7 +637,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             handles = re.findall(r'^\[(body\d+)\] [^\n]+$', prose, re.MULTILINE)
             assert len(handles) == (2 if multi else 1), prose
             handle = handles[0]
-            assert prose.count(HTTP_PASSAGE) == (2 if multi else 1) and HTTP_BODY not in prose
+            assert prose.count('Éphanna heard the guard.') == (2 if multi else 1) and HTTP_BODY not in prose
             assert 'Unselected unrelated private context.' not in prose
             assert 'native_body_evidence' not in prose and 'source_artifact_id' not in prose
             authority = self.adapter.turn.graph_context_receipt.source_authority
