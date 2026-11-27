@@ -418,6 +418,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 except (ValueError, KeyError):
                     if reviewed_plan is not None:
                         artifacts.immutable_save(directory, "rejected-browser-request", parsed)
+                        return await JSONResponse({"error": "Reviewed Work Plan request did not match"}, 409,
+                            headers={"X-Benchmark-Review-Rejected": "1"})(scope, receive, send)
                     return await JSONResponse({"error": "Build fixture request did not match"}, 409)(scope, receive, send)
                 browser_request = parsed
                 if not live:

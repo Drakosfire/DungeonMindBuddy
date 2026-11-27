@@ -288,9 +288,17 @@ async function run() {
       });
       if (!response.ok()) throw new Error("Pinned work plan could not be opened");
       const { plan } = await response.json();
-      const index = plan.steps.findIndex(step => step.step_id === reviewedWork.step_id && step.selected);
-      if (plan.revision !== reviewedWork.revision || index < 0)
+      const index = plan.steps.findIndex(step => step.step_id === reviewedWork.step_id && step.kind === "discuss");
+      if (plan.revision !== reviewedWork.revision || index < 0
+          || plan.dispatches.some(dispatch => dispatch.step_id === reviewedWork.step_id))
         throw new Error("Mounted work plan differs from the pinned review");
+      const reservedSteps = new Set(plan.dispatches.map(dispatch => dispatch.step_id));
+      for (const [i, step] of plan.steps.entries()) {
+        if (reservedSteps.has(step.step_id)) continue;
+        const selected = i === index;
+        if (step.selected !== selected)
+          await card.getByRole("checkbox", { name: "Include step " + (i + 1), exact: true }).setChecked(selected);
+      }
       await objective.fill(reviewedWork.objective);
       const [saved] = await Promise.all([
         page.waitForResponse(res => new URL(res.url()).pathname === path && res.request().method() === "PUT"),
@@ -339,6 +347,10 @@ async function run() {
         planTarget: build ? undefined : await page.getByLabel("Actual Plan change target").allTextContents(),
       }, null, 2));
       throw error;
+    }
+    if (reviewedWork && delivered.status() === 409 &&
+        delivered.headers()["x-benchmark-review-rejected"] === "1") {
+      throw new Error("Reviewed Work Plan request rejected before dispatch; request retained");
     }
     if (delivered.headers()["x-benchmark-placement-rejected"] === "1") {
       throw new Error("Plan placement failed benchmark preflight; rejected request retained");
