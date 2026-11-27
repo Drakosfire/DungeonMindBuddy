@@ -671,6 +671,37 @@ def test_discussion_reuse_is_versioned_and_fresh_lookup_keeps_acquisition():
     assert len(retained.dialogue_messages(NS(events=(value,)))) == 16
 
 
+@pytest.mark.parametrize('choice', ['anchored', 'source_lookup', 'uncertain', 'current_saved_page'])
+def test_reader_accepts_exact_future_retained_citation_question(choice):
+    from application_state.agent_conversation import build_intentional_response as semantic
+    options = semantic.FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS
+    guidance = semantic.FUTURE_RETAINED_CITATION_SOURCE_NEED_GUIDANCE
+    request = {'questions': {'source_need': {'type': 'choice', 'instructions': guidance,
+        'criteria': dict.fromkeys(options)}}}
+    response = {'answers': {'source_need': {'selected': choice,
+        'probabilities': {option: float(option == choice) for option in options}}}}
+    assert semantic.source_need(request, response) == choice
+    assert 'lookup, citation, search' not in guidance
+    assert 'no new search or reads' in guidance and 'fresh evidence' in guidance
+    request['questions']['source_need']['instructions'] += ' Altered.'
+    with pytest.raises(ValueError, match='differs from its offered decision'):
+        semantic.source_need(request, response)
+
+
+def test_future_retained_citation_question_rejects_tied_and_unoffered_votes():
+    from application_state.agent_conversation import build_intentional_response as semantic
+    options = semantic.FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS
+    request = {'questions': {'source_need': {'type': 'choice',
+        'instructions': semantic.FUTURE_RETAINED_CITATION_SOURCE_NEED_GUIDANCE,
+        'criteria': dict.fromkeys(options)}}}
+    probabilities = {option: float(option in {'anchored', 'source_lookup'}) for option in options}
+    with pytest.raises(ValueError):
+        semantic.source_need(request, {'answers': {'source_need': {'selected': 'anchored', 'probabilities': probabilities}}})
+    probabilities = {option: float(option == 'anchored') for option in options}
+    with pytest.raises(ValueError):
+        semantic.source_need(request, {'answers': {'source_need': {'selected': 'invented', 'probabilities': probabilities}}})
+
+
 def test_author_tail_keeps_every_prior_role_text_once_and_current_request_without_host_ids():
     current, turns = fixture_closure(60)
     turns[3].status = 'interrupted'
