@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+import asyncio
 import logging
 import os
 import re
@@ -291,6 +292,7 @@ HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/archive"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/trash"): resolve_hosted_conversation_world,
     ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/restore"): resolve_hosted_conversation_world,
+    ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/delete"): resolve_hosted_conversation_world,
     ("GET", "/api/live/media/images/capabilities"): resolve_hosted_image_world,
     ("POST", "/api/live/media/images/generate"): resolve_hosted_image_world,
     ("POST", "/api/live/media/images/preparations/{action_id}/asset"): resolve_hosted_image_world,
@@ -541,9 +543,18 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
     from apps.live_control_server.services.build_jev_runtime import prepare_default_build_runtime
     _application.state.build_jev_runtime_factory = prepare_default_build_runtime()
     get_hermes_graph_agent_host()
+    evidence_cleanup = None
+    stop_cleanup = asyncio.Event()
+    if dms_http_client is not None:
+        from apps.live_control_server.services.conversation_erasure import recover_conversation_erasures
+
+        evidence_cleanup = asyncio.create_task(recover_conversation_erasures(stop_cleanup))
     try:
         yield
     finally:
+        if evidence_cleanup is not None:
+            stop_cleanup.set()
+            await evidence_cleanup
         shutdown_hermes_graph_agent_host()
         _application.state.build_jev_runtime_factory = None
         if dms_http_client is not None:

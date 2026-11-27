@@ -2,7 +2,7 @@ import pendingBuildWire from '../test/pending-build-page-api.json';
 import * as hostedAuth from "../auth/HostedAuthGate";
 import * as guestSession from '../guestWorld/guestBuildSession';
 import nativeBuildWire from '../test/surface-native-build-http.json';
-import {readActiveConversationMessages} from '../api/conversationLibraryApi';
+import {readActiveConversationMessages, readConversationMessages, readConversationTurns} from '../api/conversationLibraryApi';
 import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {createWalkthrough,reduceTour,type TargetPin} from '../guidedTour/protocol';
@@ -18,12 +18,13 @@ vi.mock('../api/conversationWorkPlanApi',async original=>({...await original<typ
 vi.mock('../api/conversationLibraryApi',()=>({
  readActiveConversationMessages:vi.fn(async(world:string)=>{
    const page=await getWorldAgentConversationHistory(world);
-   return {schema:'dmb_active_conversation_messages_v4',world_id:page.world_id,conversation_state:page.conversation_state,conversation_id:page.conversation_id,active_conversation_id:page.active_conversation_id,pointer_revision:page.pointer_revision,next_before_sequence:page.next_before_sequence,
-     messages:page.turns.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,citation_preview:null,reply_object:null,authored_references:row.authored_references??null,author_interaction:row.retry_context?.author_interaction,revision:'revision' in row?row.revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance}))};
+   return {schema:'dmb_active_conversation_messages_v5',world_id:page.world_id,conversation_state:page.conversation_state,conversation_id:page.conversation_id,active_conversation_id:page.active_conversation_id,pointer_revision:page.pointer_revision,next_before_sequence:page.next_before_sequence,
+     messages:page.turns.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,citation_preview:null,reply_object:null,authored_references:row.authored_references??null,author_interaction:row.retry_context?.author_interaction,...(row.retry_context && (row.retry_context.predecessor_id || row.retry_context.successor_id) ? {retry_lineage:{root_id:row.retry_context.root_id,predecessor_id:row.retry_context.predecessor_id,successor_id:row.retry_context.successor_id,ordinal:row.retry_context.ordinal}} : {}),revision:'revision' in row?row.revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance}))};
  }),
  listConversations:vi.fn(async(world:string,status:string)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{conversation_id:'33333333-3333-4333-8333-333333333333',world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'}],next_before:null})),
  readConversationName:vi.fn(async(world:string,id:string)=>({conversation_id:id,world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'})),
- readConversationTurns:vi.fn(async(world:string,id:string)=>({schema:'dmb_conversation_library_turns_v1',world_id:world,conversation_id:id,turns:[{turn_id:'44444444-4444-4444-8444-444444444444',sequence:1,status:'completed',user_text:'Archived library question',assistant_text:'Archived library answer'}],next_before_sequence:null})),renameConversation:vi.fn(),
+ readConversationTurns:vi.fn(async(world:string,id:string)=>({schema:'dmb_conversation_library_turns_v1',world_id:world,conversation_id:id,turns:[{turn_id:'44444444-4444-4444-8444-444444444444',sequence:1,status:'completed',user_text:'Archived library question',assistant_text:'Archived library answer'}],next_before_sequence:null})),
+ readConversationMessages:vi.fn(async(world:string,id:string)=>({schema:'dmb_conversation_messages_v1',world_id:world,conversation_id:id,messages:[{turn_id:'44444444-4444-4444-8444-444444444444',sequence:1,status:'completed',user_text:'Archived library question',assistant_text:'Archived library answer'}],next_before_sequence:null})),renameConversation:vi.fn(),
 }));
 import {queueSurfaceConversationRequest,cancelSurfaceConversationRequest,claimSurfaceConversationRequest} from "./surfaceConversationRequests";
 import { COMPOSER_DRAFT_WRITE_WARNING } from "./conversationComposerDrafts";
@@ -47,7 +48,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getNativeGraphCatalog, createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getCommittedPageSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { getNativeGraphCatalog, createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getCommittedPageSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorkspacePageInventory, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -80,6 +81,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getWorkspaceDocumentSnapshot: vi.fn(),
   getCommittedPageSnapshot: vi.fn(),
   listWorkspaceDocuments: vi.fn(),
+  listWorkspacePageInventory: vi.fn(),
   listWorldContainers: vi.fn(),
   getWorldAgentConversationHistory: vi.fn(),
   getHistoricalRulesPassage: vi.fn(),
@@ -150,6 +152,18 @@ function history(turns: WorldAgentConversationHistoryResponseV1["turns"] = []): 
   return { schema: "dmb_agent_conversation_history_v1", world_id: WORLD,
     conversation_state: "active", conversation_id: "11111111-1111-4111-8111-111111111111", active_conversation_id: "11111111-1111-4111-8111-111111111111",
     pointer_revision: 1, turns, next_before_sequence: null };
+}
+function setupExactBuildRetry(terminal: WorldAgentConversationHistoryResponseV1['turns'][number], mode: 'retained' | 'authoring') {
+  const saved = history([terminal]);
+  vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...saved,schema:'dmb_agent_conversation_history_v3',
+    turns:saved.turns.map(row=>({...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}))});
+  if (mode === 'authoring') {
+    vi.mocked(readDiscussionRetryInput).mockRejectedValue(new LiveApiError('A fresh authoring target is required.',409,{code:'build_authoring_retry_required'}));
+  } else {
+    vi.mocked(readDiscussionRetryInput).mockResolvedValue({schema:'dmb_build_retained_discussion_retry_input_v1',world_id:WORLD,
+      conversation_id:saved.conversation_id!,turn_id:saved.turns[0].turn_id,revision:4,pointer_revision:1,surface_instance_id:'build-instance',
+      message:terminal.user_text,client_work_state:'saved_dirty',snapshot:draftSnapshot(),snapshot_sha256:SHA,authored_references:null});
+  }
 }
 function turn(surface: "plan" | "play", sequence: number, answer: string) {
   return {
@@ -1147,10 +1161,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
       await screen.findByText(/reply did not match the saved Build source and World Graph/);
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
+    if (!fresh) {
+      await screen.findByText(mode === 'mixed-question' || mode === 'mixed-unclaimed-question'
+        ? 'A question this captured answer does not address.' : question);
+      fireEvent.click(screen.getByText('Trace', {selector: 'summary'}));
+    }
     if(['producer','revision','provenance','source','world','extra','mixed-question','mixed-unclaimed-question','mixed-object-prose'].includes(mode)){
-      await screen.findByRole('group',{name:'World history unavailable'});
+      await screen.findByText('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.');
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
+    if (!fresh) await waitFor(() => expect(screen.queryByText('Loading reply details…')).not.toBeInTheDocument());
     await screen.findByText(question);
     if(mode==='interrupted'){
       expect(screen.queryByText(answer)).toBeNull();expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
@@ -1257,7 +1277,18 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await act(async()=>release());await screen.findByText('Saved rehearsal: communication was chosen; the child’s future remains unresolved.');
     if(mode==='fresh')await waitFor(()=>expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('completed'));
     else if(mode==='wrong-review')expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence).toHaveLength(0);
-    else await waitFor(()=>expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('existing'));
+    else {
+      if(mode==='wrong-key'||mode==='missing-correlation'){
+        expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('pending');
+        expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence).toHaveLength(0);
+        fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
+      }
+      if(mode==='missing-correlation'){
+        await screen.findByText('Reply details no longer match this saved message. Refresh the conversation before opening them again.');
+        expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('pending');
+        expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence).toHaveLength(0);
+      }else await waitFor(()=>expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('existing'));
+    }
     const evidence=readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence??[];
     if(evidence.length)expect(evidence[0]?.proof).toMatchObject({kind:'session-memory',turnId:physicalId});
     expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
@@ -1271,6 +1302,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.getByRole('button',{name:'Export conversation',exact:true})).toBeInTheDocument();
     expect(screen.getByRole('button',{name:'Export with diagnostics'})).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Conversations…'}));await screen.findByText('Archived library question');
+    expect(readConversationMessages).toHaveBeenCalledWith(WORLD, '33333333-3333-4333-8333-333333333333', undefined, expect.any(AbortSignal));
+    expect(readConversationTurns).not.toHaveBeenCalled();
     expect(input).toHaveValue('Keep current work');expect(postWorldAgentNewConversation).not.toHaveBeenCalled();expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button',{name:'Close conversations'}));expect(input).toHaveValue('Keep current work');
   });
@@ -1461,7 +1494,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", {name:"Open",exact:true}));
     await waitFor(()=>expect(releases).toHaveLength(1));
-    const signal=vi.mocked(getWorldAgentConversationHistory).mock.calls[0][1]?.signal;
+    const signal=vi.mocked(readActiveConversationMessages).mock.calls[0][2];
     expect(signal?.aborted).toBe(false);
     fireEvent.click(screen.getByRole("button",{name:"Close conversation",exact:true}));
     expect(signal?.aborted).toBe(true);
@@ -1482,11 +1515,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const prior = turn("plan",1,text);
     const basis = context.receipt.plan_basis;
     const row = {...prior,provenance:{...prior.provenance,primary_work:{...prior.provenance.primary_work,revision:String(basis.object_revision),object_revision:basis.object_revision,revision_n:basis.revision_n,work_revision_id:basis.work_revision_id,content_sha256:basis.content_sha256}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([{...row,plan_context:context}]),schema:"dmb_agent_conversation_history_v2"} as WorldAgentConversationHistoryResponse);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([{...row,plan_context:context}]),schema:"dmb_agent_conversation_history_v3",turns:[{...row,plan_context:context,idempotency_key:'11111111-1111-4111-8111-000000000001'}]} as WorldAgentConversationHistoryResponse);
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", {name:"Open"}));
+    fireEvent.click(await screen.findByText('Trace', {selector:'summary'}));
     if (foreign) {
-      await screen.findByText("The World conversation response did not match the selected World or contained an invalid Graph-context receipt. Refresh history before continuing.");
+      await screen.findByText("Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.");
       expect(screen.queryByRole("link", {name:"Closing reflections"})).not.toBeInTheDocument();
     } else {
       expect(await screen.findByRole("link", {name:"Closing reflections"})).toHaveAttribute("href", url);
@@ -1679,24 +1713,37 @@ describe("one App-level World conversation host across Plan and Play", () => {
       provenance: {...prior.provenance, surface_id: surface,
         primary_work: {...prior.provenance.primary_work,
           object_id: surface === "build" ? "source-one" : prior.provenance.primary_work.object_id}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    const saved = history([terminal]);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({
+      ...saved, schema: 'dmb_agent_conversation_history_v3',
+      turns: saved.turns.map(row => ({...row, idempotency_key: '11111111-1111-4111-8111-000000000001'})),
+    });
+    if (surface === 'build') {
+      vi.mocked(readDiscussionRetryInput).mockResolvedValue({
+        schema:'dmb_build_retained_discussion_retry_input_v1', world_id:WORLD, conversation_id:saved.conversation_id!,
+        turn_id:saved.turns[0].turn_id, revision:4, pointer_revision:1, surface_instance_id:'build-instance',
+        message:prior.user_text, client_work_state:'saved_dirty', snapshot:draftSnapshot(), snapshot_sha256:SHA, authored_references:null,
+      });
+    }
     vi.mocked(postWorldPlanAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     render(<Harness initial={surface} buildBridge={surface==='build'?retryBridge():undefined} />);
     fireEvent.click(await screen.findByRole("button", {name:"Open"}));
-    const retry = await screen.findByRole("button", {name:"Retry question"});
-    await waitFor(() => expect(retry).toBeEnabled());
-    const failureText = screen.getByText(surface === 'build'
+    const trace = await screen.findByText('Trace', {selector:'summary'});
+    const debug = trace.closest('details')!;
+    expect(debug).not.toHaveAttribute('open');
+    fireEvent.click(trace);
+    const failureText = await screen.findByText(surface === 'build'
       ? 'This reply stopped before it finished. Your saved source was not changed.'
       : surface === 'play' ? 'This reply stopped before it finished. No Run change was applied.'
       : 'This reply stopped before it finished. Your Plan was not changed.');
-    const debug = failureText.closest('details')!;
-    expect(debug).not.toHaveAttribute('open');
+    const retry = await screen.findByRole("button", {name:"Retry question"});
+    await waitFor(() => expect(retry).toBeEnabled());
     expect(retry.closest('.world-plan-agent-conversation__turn-status')).not.toContainElement(failureText);
-    fireEvent.click(within(debug).getByText('Trace', {exact:true}));
-    expect(debug).toHaveAttribute('open');
-    fireEvent.click(within(debug).getByText('Trace', {exact:true}));
+    const hydratedDebug = failureText.closest('details')!;
+    expect(hydratedDebug).toHaveAttribute('open');
+    fireEvent.click(within(hydratedDebug).getByText('Trace', {exact:true}));
     const input=screen.getByLabelText("Message DungeonBuddy");
     if(otherDraft)fireEvent.change(input,{target:{value:"Keep my unsent draft"}});
     fireEvent.click(retry);fireEvent.click(retry);
@@ -1704,9 +1751,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
     const request=vi.mocked(post).mock.calls[0][0];
     expect(request.message).toBe(prior.user_text);expect(request.turn_id).not.toBe(prior.turn_id);
-    if(surface==='build')expect((request as {retry_of?:unknown}).retry_of).toEqual({turn_id:'22222222-2222-4222-8222-000000000001',revision:4});
+    if(surface==='build')expect((request as {retry_of?:unknown}).retry_of).toEqual({turn_id:'22222222-2222-4222-8222-000000000001',revision:4,retained_snapshot_sha256:SHA});
     expect(input).toHaveValue(otherDraft?"Keep my unsent draft":"");
-    expect(screen.getAllByText(prior.user_text,{exact:true})).toHaveLength(1);
+    const visibleQuestions = [...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node => node.textContent === prior.user_text);
+    expect(visibleQuestions).toHaveLength(1);
     expect(screen.queryByLabelText("Submitted message")).not.toBeInTheDocument();
     expect(screen.getByText("Retrying your question…")).toBeInTheDocument();
     fireEvent.change(input,{target:{value:"Keep my newer typing"}});
@@ -1723,14 +1771,32 @@ describe("one App-level World conversation host across Plan and Play", () => {
     if(surface==='build')page.turns=page.turns.map((row,index)=>({...row,retry_context:{...row.retry_context!,root_id:page.turns[0].turn_id,ordinal:index,
       predecessor_id:index?page.turns[index-1].turn_id:null,successor_id:index<2?page.turns[index+1].turn_id:null,
       eligible:index===2,reason:index===2?'ready':'retried'}}));
+    if (surface !== 'build') {
+      const correlated = page.turns.map(row=>({...row,idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`}));
+      vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world, options) => ({
+        ...page, schema:'dmb_agent_conversation_history_v3',
+        turns:options?.beforeSequence === undefined ? correlated : correlated.filter(row=>row.sequence===options.beforeSequence!-1),
+      }));
+      const view=render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+      fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
+      await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
+      await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
+      await waitFor(()=>expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>!node.closest('details:not([open])'))).toHaveLength(1));
+      view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+      fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
+      await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
+      await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
+      await waitFor(()=>expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>!node.closest('details:not([open])'))).toHaveLength(1));
+      return;
+    }
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(page);
     const view=render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByRole('button',{name:'Retry question'});
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
     expect(screen.queryByText(/Earlier conversation/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Trace',{exact:true}));
-    expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
-    expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
+    await waitFor(()=>expect(screen.getByText('Previous attempts · 2')).toBeInTheDocument());
+    await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1));
     view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByRole('button',{name:'Retry question'});
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
@@ -1822,7 +1888,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it('clears a refused Build retry without overwriting newer writing or dispatching again',async()=>{
     const base=turn('plan',1,''),terminal={...base,lifecycle_status:'interrupted' as const,
       provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'retained');
     let reject!:(reason:Error)=>void;vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise((_resolve,failed)=>{reject=failed;}));
     render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
@@ -1834,13 +1900,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
-  it('retains an exact pending Build retry across remount without losing newer composer text',async()=>{
-    const base=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
-    const terminal={...base,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',lifecycle_status:'interrupted' as const,
-      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}},
-      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
-    vi.mocked(readDiscussionRetryInput).mockRejectedValueOnce(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
+  it.each(['retained', 'authoring'] as const)('retains a pending Build %s retry across remount without losing newer composer text',async mode=>{
+    const base=turn('plan',1,''),terminal={...base,lifecycle_status:'interrupted' as const,
+      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,object_id:'source-one'}}};
+    setupExactBuildRetry(terminal, mode);
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     const view=render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
@@ -1877,7 +1940,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each([false,true])("shows an exact Build retry placement failure while preserving its draft: %s",async otherDraft=>{
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'authoring');
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>{throw new Error('Choose a page caret for this retry');}),insert:vi.fn()};
     render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const retry=await screen.findByRole('button',{name:'Retry question'});await waitFor(()=>expect(retry).toBeEnabled());
@@ -1888,7 +1951,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it('continues Build retry capture independently of newer conversation typing',async()=>{
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'authoring');
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
@@ -1903,7 +1966,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it('reports a same-page revision change during retry preparation instead of silently returning',async()=>{
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'authoring');
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -1926,7 +1989,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each(['page','world'] as const)('retires retry preparation after foreign %s navigation without posting or showing an old error',async change=>{
     const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
       provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    setupExactBuildRetry(terminal, 'authoring');
     let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
     const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -1943,9 +2006,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
       provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
         primary_work: { resolution: "resolved" as const, kind: "build", object_id: "source-one", revision: "2",
           content_sha256: SHA, object_revision: null, work_revision_id: null, revision_n: null } } };
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([historical]));
+    const saved = history([historical]);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...saved, schema:'dmb_agent_conversation_history_v3',
+      turns:saved.turns.map(row=>({...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}))});
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
     await screen.findByText(lifecycle === "failed"
       ? "Buddy couldn’t finish this reply. Your saved source was not changed."
       : "This reply stopped before it finished. Your saved source was not changed.");
@@ -2044,7 +2110,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each(['discuss','prepare_insertion'] as const)('continues %s with its exact capture capability and newer composer text',async(kind)=>{
     const base=turn('plan',1,'1. Discuss the shop owner.\n2. Prepare the shop description.');
     const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
     const p={schema:'dmb_reviewed_work_plan_v3' as const,objective:'Discuss the chosen owner.',root_references:[],world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
       steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind,references:[]}],dispatches:[],execution:[]};
@@ -2058,6 +2124,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     render(<Harness initial='build' buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer unsent author note'}});
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
     fireEvent.click(await screen.findByRole('button',{name:'Review plan'}));
     await screen.findByLabelText('Saved step 1');
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
@@ -2085,18 +2152,25 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const row={...base,assistant_text:null,lifecycle_status:'failed' as const,
       knowledge_context:{...context,completion:null,source_open_targets:[],evidence_anchor_statuses:[],related_recap_context_statuses:[],execution:null},provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',supporting_work:[support('dmb_build_source_visibility_v1','internal','1'),support('dmb_build_graph_binding_v1',authority.native_world_id,String(authority.binding_version)),support('world_graph_revision',authority.native_world_id,authority.graph_revision)],
         primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one',revision:'2',content_sha256:SHA,object_revision:null}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    const id='22222222-2222-4222-8222-000000000001', cid=history().conversation_id!;
+    const reviewed={...row,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',
+      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,
+        predecessor_id:null,successor_id:null,ordinal:0,eligible:false,reason:'reviewed_step' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[reviewed]});
     render(<Harness initial='build'/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
-    await screen.findByText(/Use “Try step again” in the saved reviewed plan/);
-    expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));
+    expect(await screen.findByText(/This request belongs to a reviewed plan step\. Continue from that plan\. Nothing was sent\./)).toBeVisible();
+    expect(vi.mocked(getWorldAgentConversationHistory).mock.calls.some(([, options]) =>
+      options?.limit === 1 && options.beforeSequence === reviewed.sequence + 1 && options.includeTurnCorrelation)).toBe(true);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    expect(readDiscussionRetryInput).not.toHaveBeenCalled();
   });
 
   it('retires a reserved plan continuation across a source round trip',async()=>{
     const base=turn('plan',1,'1. Discuss the shop owner.\n2. Prepare the shop description.');
     const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
     const p={schema:'dmb_reviewed_work_plan_v2' as const,objective:'Discuss the shop owner.',world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
       steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const}],dispatches:[],execution:[]};
@@ -2107,6 +2181,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const view=render(<Harness initial='build'/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer unsent author note'}});
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
     fireEvent.click(await screen.findByRole('button',{name:'Review plan'}));
     await screen.findByLabelText('Saved step 1');
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
@@ -2131,12 +2206,14 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const ref=(kind:string,object_id:string,revision:string)=>({resolution:'resolved' as const,kind,object_id,revision,content_sha256:null,object_revision:null,work_revision_id:null,revision_n:null});
     const row={...base,knowledge_context:knowledge,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',
       primary_work:{...ref('build','source-one','2'),content_sha256:SHA},supporting_work:[ref('dmb_build_source_visibility_v1','internal','1'),ref('dmb_build_graph_binding_v1',a.native_world_id,String(a.binding_version)),ref('world_graph_revision',a.native_world_id,a.graph_revision)]}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     vi.mocked(getAgentRelatedPage).mockResolvedValue({schema:'dmb_agent_related_page_read_v1',world_id:WORLD,turn_id:row.turn_id,read_id:readId,page,markdown:body});
     render(<Harness initial='build'/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findAllByText(base.assistant_text!);
     expect(getAgentRelatedPage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
+    await waitFor(()=>expect(document.querySelector('.world-plan-agent-conversation__message--assistant > .source-citation-evidence')).not.toBeNull());
     const ordinary=document.querySelector('.world-plan-agent-conversation__message--assistant > .source-citation-evidence')!;
     const marker=ordinary.querySelector('button')!;expect(marker.textContent).toBe('1');
     expect(marker.getAttribute('aria-label')).toBe('Read Households · saved revision 9');
@@ -2341,16 +2418,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
   it("explains empty Build, enables only the selected saved source, and clears its context on return to empty", async () => {
     const source = buildSourceSnapshot();
-    vi.mocked(listWorkspaceDocuments).mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v1",
-      records: [source.record],
+    vi.mocked(listWorkspacePageInventory).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1", records: [source.record],
+      campaign_tags: [], next_before_updated_at: null, next_before_document_id: null,
     });
     vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(source);
     vi.mocked(getCommittedPageSnapshot).mockResolvedValue(source);
     window.history.pushState({}, "", `/build?world=${WORLD}`);
 
     render(<RealBuildPageHarness />);
-    const sourceSelector = await screen.findByRole("combobox", { name: "Worldbuilding source" });
+    const sourceSelector = await screen.findByRole("button", { name: "Open document" });
     await waitFor(() => expect(sourceSelector).toBeEnabled());
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
 
@@ -2361,13 +2438,15 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Choose a source" }));
     expect(sourceSelector).toHaveFocus();
-    fireEvent.click(screen.getByRole("button", { name: "Open source actions" }));
-    expect(screen.getByText("Source actions", { selector: "summary" }).parentElement).toHaveAttribute("open");
+    expect(screen.queryByRole("button", { name: "Open source actions" })).not.toBeInTheDocument();
     fireEvent.submit(emptyComposer.closest("form")!);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
     expect(createWorkspaceDocument).not.toHaveBeenCalled();
 
-    fireEvent.change(sourceSelector, { target: { value: BUILD_SOURCE_ID } });
+    fireEvent.click(sourceSelector);
+    const picker = await screen.findByRole("dialog", { name: "Open document" });
+    fireEvent.click(within(picker).getByRole("button", { name: "Pages", exact: true }));
+    fireEvent.click(await within(picker).findByRole("button", { name: source.record.title, exact: true }));
     await screen.findByTestId("build-markdown-editor");
     openConversationOptions();
     fireEvent.click(screen.getByRole("button", { name: "Show context" }));
@@ -2440,19 +2519,22 @@ describe("one App-level World conversation host across Plan and Play", () => {
     if (scenario === "newer_pending") await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Seed newer pending request" })); });
     current = { ...current, turns: rows,
       ...(scenario === "wrong_conversation" ? { conversation_id: "other-conversation", active_conversation_id: "other-conversation", pointer_revision: 2 } : {}) };
+    const readsBeforeRefresh = vi.mocked(getWorldAgentConversationHistory).mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Refresh shared history fixture" }));
+    await waitFor(()=>expect(vi.mocked(getWorldAgentConversationHistory).mock.calls.length).toBeGreaterThan(readsBeforeRefresh));
     if (scenario !== "failed" && scenario !== "interrupted") {
-      if (scenario === "wrong_basis") await screen.findByText(/World conversation response did not match/);
-      else await screen.findAllByText("This reply stopped before it finished. Your Plan was not changed.");
+      expect(await screen.findByText('Resolve the saved request in Conversation options before sending another.')).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "New conversation" })).toBeDisabled();
       expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
       expect(localStorage.getItem(key)).not.toBeNull();
+      if (['wrong_key','wrong_basis','wrong_conversation','duplicate'].includes(scenario)) expect(localStorage.getItem(key)).toBe(envelope);
       return;
     }
     await waitFor(() => expect(screen.getByRole("button", { name: "New conversation" })).toBeEnabled());
     expect(composer).toHaveValue("What about Sara?");
     await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
-    expect(screen.getAllByText(request.message)).toHaveLength(1);
+    expect([...document.querySelectorAll('.world-plan-agent-conversation__message--user p')].filter(node=>node.textContent===request.message && !node.closest('details:not([open])'))).toHaveLength(1);
+    expect(screen.queryByRole('article',{name:'Submitted message'})).not.toBeInTheDocument();
     expect(localStorage.getItem(key)).toBe(envelope);
     expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
     expect(postWorldAgentNewConversation).not.toHaveBeenCalled();
@@ -2490,16 +2572,21 @@ describe("one App-level World conversation host across Plan and Play", () => {
       if (mode === 'other-scene') r.play_target.scene_id = 'scene:other';
       return nativePlayContextFixture(r, "Recovered Play answer");
     }
-    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => ({ ...history(), schema: "dmb_agent_conversation_history_v2", turns: [
-      turn("plan", 1, "Original Plan answer"),
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world, options) => {
+      const key = submitted ? await expectedHistoryCorrelationKey(WORLD, playTurnId) : null;
+      const turns = [
+      {...turn("plan", 1, "Original Plan answer"),idempotency_key:'11111111-1111-4111-8111-000000000001'},
       ...(phase === "initial" ? [] : [{ ...turn("play", 2, "Recovered Play answer"),
-        turn_id: playTurnId, user_text: "What happens next?", assistant_text: phase === "pending" || mode === 'failed' || mode === 'interrupted' ? null : "Recovered Play answer",
+        turn_id: playTurnId, idempotency_key:key!, user_text: "What happens next?", assistant_text: phase === "pending" || mode === 'failed' || mode === 'interrupted' ? null : "Recovered Play answer",
         lifecycle_status: phase === "pending" ? "running" as const : mode === 'failed' || mode === 'interrupted' ? mode : "completed" as const,
         ...(submitted ? { play_context: { ...contextForHistory(), delivery_replay: true,
           ...(phase === "pending" || mode === 'failed' || mode === 'interrupted' ? { completion: null,
             execution: { schema: 'dmb_agent_plan_world_graph_execution_projection_v1' as const,
               claimability: 'safe_to_reclaim_without_dispatch' as const, authorization_state: 'none' as const, automatic_redispatch: false as const } } : {}) }, provenance: nativePlayProvenanceFixture(contextForHistory()) } : {}) }]),
-    ] }));
+      ];
+      return {...history(),schema:'dmb_agent_conversation_history_v3',turns:options?.beforeSequence === undefined
+        ? turns : turns.filter(row=>row.sequence===options.beforeSequence!-1)};
+    });
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (request) => {
       submitted = request;
       playTurnId = request.turn_id;
@@ -2512,7 +2599,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(composer).toBeEnabled());
     fireEvent.change(composer, { target: { value: "What happens next?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    await waitFor(() => expect(screen.getByText(/Connection lost after submit/)).toBeInTheDocument());
+    await waitFor(() => expect(localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).not.toBeNull());
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    const pendingBytes = localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD);
     view.unmount();
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
@@ -2537,7 +2626,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     } else {
       await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
       expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
-      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).not.toBeNull();
+      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBe(pendingBytes);
     }
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
@@ -2753,10 +2842,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     row.provenance.supporting_work = [{ resolution: "resolved", kind: "dmb_play_runbook_v1",
       object_id: "00000000-0000-4000-8000-000000000071", revision: "9", content_sha256: SHA,
       object_revision: 9, work_revision_id: WORK_REVISION, revision_n: 2 }];
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await screen.findByText("A useful arrival cue");
+    fireEvent.click(screen.getByText('Trace',{selector:'summary'}));
+    await waitFor(()=>expect(document.querySelector('.world-plan-agent-conversation__evidence-trail')).not.toBeNull());
     const trail = document.querySelector<HTMLDetailsElement>(".world-plan-agent-conversation__evidence-trail")!;
     fireEvent.click(trail.querySelector("summary")!);
     expect(within(trail).getByRole("region", { name: "Authored Play context" })).toBeInTheDocument();
@@ -2810,9 +2901,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it("prepends a requested Play history page without moving the reader or duplicating turns", async () => {
-    const latest={...history([turn("play",2,"Middle answer"),turn("play",3,"Latest answer")]),next_before_sequence:2};
-    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async (_world,options)=>options?.beforeSequence
-      ? history([turn("play",1,"Oldest answer"),turn("play",2,"Middle answer")]) : latest);
+    const messages = vi.mocked(readActiveConversationMessages), prior = messages.getMockImplementation();
+    messages.mockImplementation(async (world,before) => {
+      const page = before === undefined ? [turn("play",2,"Middle answer"),turn("play",3,"Latest answer")] : [turn("play",1,"Oldest answer")];
+      return {schema:'dmb_active_conversation_messages_v4',world_id:world,conversation_state:'active',
+        conversation_id:'11111111-1111-4111-8111-111111111111',active_conversation_id:'11111111-1111-4111-8111-111111111111',pointer_revision:1,
+        messages:page.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,
+          citation_preview:null,reply_object:null,authored_references:null,revision:1,idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance})),
+        next_before_sequence:before === undefined ? 2 : null};
+    });
+    try {
     render(<Harness initial="play"/>);
     fireEvent.click(await screen.findByRole("button",{name:"Open",exact:true}));
     await screen.findByText("Latest answer");
@@ -2829,7 +2927,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(viewport.scrollTop).toBe(40+viewport.scrollHeight-before);
     expect(screen.getAllByText("Middle answer")).toHaveLength(1);
     expect(screen.queryByRole("button",{name:"Load earlier messages"})).toBeNull();
-    expect(getWorldAgentConversationHistory).toHaveBeenCalledWith(WORLD,expect.objectContaining({limit:50,beforeSequence:2}));
+    expect(messages).toHaveBeenCalledWith(WORLD,2,expect.any(AbortSignal));
+    expect(getWorldAgentConversationHistory).not.toHaveBeenCalled();
+    } finally {
+      messages.mockReset();
+      if (prior) messages.mockImplementation(prior);
+    }
   });
 
   it("uses the compact dock, loaded exchanges and conversation options in Play", async () => {
@@ -2897,46 +3000,6 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
     expect(await screen.findByText("Rewrite the crossing scene")).toBeInTheDocument();
-  });
-
-  it("keeps an active Plan proposal read-only in Play and reviewable on return", async () => {
-    const captured = { editor: {} as CapturedWorldPlanEditTarget["editor"],
-      request: { document_id: "plan-one", world_id: WORLD, session: 1, base_revision: 7,
-        base_content_sha256: SHA, draft_markdown: "# Draft Plan", draft_sha256: "d".repeat(64),
-        target_kind: "insert_at_caret" as const, selected_text: "" },
-      from: 1, to: 1, editorJson: "{}", selectionJson: "{}", draftGeneration: 0, selectionGeneration: 0 };
-    const bridge: WorldPlanEditBridge = { capture: vi.fn(async () => captured),
-      preview: vi.fn(() => ({ before: { markdown: "# Before" }, after: { markdown: "# After" } })),
-      apply: vi.fn(async () => undefined) };
-    vi.mocked(postWorldPlanDocumentEditProposal).mockImplementation(async (request) => ({
-      schema_version: "dmb_world_plan_document_edit_proposal_v1", action_id: "action-one",
-      idempotency_key: request.idempotency_key, document_id: request.document_id, world_id: request.world_id,
-      base_revision: request.base_revision, base_content_sha256: request.base_content_sha256,
-      draft_sha256: request.draft_sha256, target_kind: request.target_kind,
-      selected_text_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      replacement_markdown: "# After", summary: "A clearer opening.", assumptions: [], model: "test",
-      model_observed: false, model_latency_ms: 0, wall_latency_ms: 0, usage: null,
-    } as Awaited<ReturnType<typeof postWorldPlanDocumentEditProposal>>));
-    render(<Harness editBridge={bridge} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-    const composer = await screen.findByLabelText("Message DungeonBuddy");
-    await waitFor(() => expect(composer).toBeEnabled());
-    fireEvent.change(composer, { target: { value: "Rewrite this Plan opening" } });
-    fireEvent.click(screen.getByText("Automatic · Change", { selector: "summary" }));
-    fireEvent.click(screen.getByRole("button", { name: "Request a Plan change" }));
-    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-    await waitFor(() => expect(postWorldPlanDocumentEditProposal).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(bridge.preview).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText("This preview is no longer current. It cannot be applied.")).not.toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Apply to draft" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
-    expect(await screen.findByText("Rewrite this Plan opening")).toBeInTheDocument();
-    expect(screen.getByText("Plan proposal preview · return to Plan to review or apply")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
-    const apply = await screen.findByRole("button", { name: "Apply to draft" });
-    fireEvent.click(apply);
-    await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
   });
 
   it("freezes the admitted Play request and shows its late reply on Plan without redispatch", async () => {
@@ -3201,7 +3264,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const composer = await screen.findByLabelText('Message DungeonBuddy');
     fireEvent.change(composer, { target: { value: 'Keep this unsent draft' } });
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText('Rules references', { selector: 'summary' }));
+    fireEvent.click(screen.getByText('Trace', {selector:'summary'}));
+    fireEvent.click(await screen.findByText('Rules references', { selector: 'summary' }));
     fireEvent.click(await screen.findByRole('button', { name: /Inspect Rules source/ }));
     expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(capsule.support.excerpt_text);
     expect(getHistoricalRulesPassage).toHaveBeenCalledTimes(1);
@@ -3256,8 +3320,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
       conversation_id: '11111111-1111-4111-8111-111111111111', active_conversation_id: '11111111-1111-4111-8111-111111111111', turns: [row] });
     render(<Harness initial='play' />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
-    await waitFor(() => expect(getWorldAgentConversationHistory).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText(/history.*(invalid|match|verified)|could not.*history|history.*unavailable/i)).toBeInTheDocument());
+    await screen.findByText(row.user_text);
+    fireEvent.click(screen.getByText('Trace', {selector:'summary'}));
+    await screen.findByText('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.');
     expect(screen.queryByText('Rules references')).not.toBeInTheDocument();
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
   });
@@ -3309,8 +3374,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
           byte_start:0,byte_end:18,block_sha256:'b'.repeat(64),entry_identity:String(i+1).repeat(64),source_ordinal:i,
           entry_kind:i?'closing_reflections' as const:'scene_note' as const,element_id:i?null:'scene:gate',checkpoint_content_sha256:base.receipt.play_basis.content_sha256}))}]};
     const row={...turn('play',1,text),play_context:base,provenance:nativePlayProvenanceFixture(base)};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     render(<Harness initial="play"/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
     expect(await screen.findByLabelText('Saved session summary')).toHaveTextContent(text);
     expect(screen.getByRole('link',{name:'1'})).toHaveAttribute('title','Saved rehearsal · Scene notes');
     expect(screen.getByRole('link',{name:'2'})).toHaveAttribute('title','Saved rehearsal · Closing reflections');
@@ -3326,11 +3392,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
         {kind:'authored_quote',text,source_kind:'play',source_handle:entry.source_id,source_name:'Saved Play scene',
           object_id:entry.locator.run_id,revision:String(entry.locator.run_revision),body_sha256:entry.text_sha256,owner_sha256:entry.payload_sha256}]};
     const row={...turn('play',1,text),play_context:base,provenance:nativePlayProvenanceFixture(base)};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:'11111111-1111-4111-8111-000000000001'}]});
     render(<Harness initial={initial}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.click(await screen.findByText('Trace',{selector:'summary'}));
+    await screen.findByText('Saved Play scene · quoted excerpt');
     expect((await screen.findByText(text)).closest('blockquote')).not.toBeNull();
-    expect(screen.getByText('Saved Play scene · quoted excerpt')).toBeInTheDocument();
     expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
   });
 
@@ -3349,7 +3416,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const composer = await screen.findByLabelText('Message DungeonBuddy');
     fireEvent.change(composer, { target: { value: 'Keep this surface draft' } });
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText('Rules references', { selector: 'summary' }));
+    fireEvent.click(screen.getByText('Trace', {selector:'summary'}));
+    fireEvent.click(await screen.findByText('Rules references', { selector: 'summary' }));
     fireEvent.click(await screen.findByRole('button', { name: /Inspect Rules source/ }));
     expect(await screen.findByRole('region', { name: 'Cited rules passage' })).toHaveTextContent(f.capsule.support.excerpt_text);
     expect(screen.getByLabelText('Message DungeonBuddy')).toBe(composer);
@@ -3394,7 +3462,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     if (mode === 'ordinary' || mode === 'mixed' || mode === 'unclaimed') {
       await waitFor(() => expect(window.localStorage.getItem(key)).toBeNull());
       if (mode !== 'unclaimed') await screen.findByText(/Original Play answer/);
-      if (mode === 'mixed' || mode === 'unclaimed') await screen.findByText('Rules references', { selector: 'summary' });
+      if (mode === 'mixed' || mode === 'unclaimed') {
+        fireEvent.click(await screen.findByText('Trace', {selector:'summary'}));
+        await screen.findByText('Rules references', { selector: 'summary' });
+      }
     } else {
       await screen.findByText(/reply did not match.*(Run edition|accepted answer)/);
       expect(window.localStorage.getItem(key)).not.toBeNull();

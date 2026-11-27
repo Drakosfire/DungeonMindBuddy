@@ -1,7 +1,7 @@
 import "./AgentInteractionChrome.css";
 import { useConversationPlacement } from "../ui/conversationPlacement";
 import { agentSurfaceLabel, surfaceContextSubtitle } from "./surfaceContextDisplay";
-import { useAskPluginSlot } from "./AskPluginSlot";
+import { useAskPluginSlot, useOwnedAskHostRef } from "./AskPluginSlot";
 import { createPortal } from "react-dom";
 import { useAgentInteraction } from "./useAgentInteraction";
 import dungeonBuddyAgentImage from "../assets/dungeonbuddy-agent-launcher.webp";
@@ -18,7 +18,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
  */
 export function AgentInteractionChrome() {
   const { paneState, setPaneOpen, activeThread, activeSurfaceContext } = useAgentInteraction();
-  const { setHostElement, askPluginPresent, layoutOwner, launcherHost } = useAskPluginSlot();
+  const { askPluginPresent, layoutOwner, launcherHost } = useAskPluginSlot();
+  const setHostElement = useOwnedAskHostRef();
   const workspaceOwned = layoutOwner === "plan-workspace";
   const open = paneState.isOpen;
   const threadTitle = activeThread?.title?.trim() || "New thread";
