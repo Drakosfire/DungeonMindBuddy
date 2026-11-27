@@ -992,3 +992,37 @@ def test_prepared_graph_authorization_binds_exact_wire_and_accounting():
     active = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle])
     with pytest.raises(ValueError, match='first provider attempt'):
         validate_prepared_authorization(context, active, auth, raw)
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
+def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypatch):
+    import asyncio
+    import httpx2
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from apps.live_control_server.services.plan_graph_need_dispatch import PlanGraphNeedDispatch
+    a = source_adapter
+    service, created = _admitted_pending_turn(a, monkeypatch)
+    turn = service.claim_turn(created.world_id, created.conversation_id, created.turn_id,
+        expected_revision=created.revision).turn
+    a.turn = turn
+    a.fence = _ClaimFence(service, turn)
+    a.context_capture = None
+    monkeypatch.setattr(a, '_capture_prepared_prompt', lambda *_args, **_kwargs: None)
+    dispatch = PlanGraphNeedDispatch(a, dialogue=())
+    calls = []
+    class Wire(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            calls.append(request.content)
+            return httpx2.Response(200, request=request, json={'model': 'typesafe-ai/jev-1.14.0',
+                'answers': {'graph_need': {'type': 'choice', 'choice': 'no_graph', 'confidence': 1,
+                    'probabilities': {'require_graph': 0, 'no_graph': 1, 'uncertain': 0}}},
+                'usage': {'input_tokens': 10, 'output_tokens': 1}})
+    observed = asyncio.run(dispatch.run(transport=Wire(), api_key='synthetic-not-secret'))
+    assert len(calls) == 1 and calls[0] == dispatch.prepared.body
+    assert observed.choice == 'no_graph'
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.graph_context_execution.events[-1] == observed
+    assert [event.outcome for event in reopened.graph_context_execution.events if event.kind == 'provider_outcome'] == [
+        'sdk_entered', 'response_received']
+    with pytest.raises(ValueError, match='one actual authorized SDK dispatch'):
+        dispatch.acknowledge(None)
