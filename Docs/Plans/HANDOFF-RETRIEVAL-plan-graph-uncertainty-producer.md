@@ -3,7 +3,7 @@
 Status: ACTIVE under the user's over-retrieval goal and authorization to prepare
 releases in parallel. Existing draft [#4987](https://github.com/Drakosfire/DungeonMindBuddy/pull/4987)
 is the sole producer PR. Branch `codex/retrieval-plan-pending-graph-producer`,
-checkout `negative-current-main-eval`, based on merged reader `628fcc98567f860a6e23eba6f249a7e5af22a508` (#5003).
+checkout `negative-current-main-eval`, based on merged reader `0a367b42dbd75d3e250f9f02db68ee7fff0f5bf3` (#5004).
 The reader is not live: producer merge, activation and acceptance remain held
 until its compatible reader deployment and all applicable checks and reviews.
 
@@ -20,6 +20,12 @@ turn. For fresh V1 openings only, the harness emits the versioned guidance that
 The reader must be live before emission. This addition is part of making the
 producer turn usable, and needs creative, source-required, edit/follow-up and
 replay controls rather than treating a successful no-Graph choice as completion.
+
+The no-search edit control also revealed a `require_graph` decision before the
+opening. Fresh Graph-need dispatches emit the reader-compatible exclusion
+guidance from #5004. Retained decisions keep their original version and wire.
+The reader must be live first; the actual edit, source-required and held-out
+controls must establish behavior without treating a model vote as proof.
 
 Write scope: the existing producer PR's Graph-need dispatch, native producer,
 Plan harness and APP service; focused tests, the action/benchmark catalog, and

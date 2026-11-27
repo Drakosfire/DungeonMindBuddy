@@ -1102,6 +1102,9 @@ def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypa
                 'usage': {'input_tokens': 10, 'output_tokens': 1}})
     observed = asyncio.run(dispatch.run(transport=Wire(), api_key='synthetic-not-secret'))
     assert len(calls) == 1 and calls[0] == dispatch.prepared.body
+    assert observed.parent.exclusion_guidance_version == 'v1'
+    assert 'exclusion_guidance_version' not in calls[0].decode()
+    assert 'explicitly excludes searching' in calls[0].decode()
     assert observed.choice == 'no_graph'
     reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
     assert reopened.graph_context_execution.events[-1] == observed

@@ -29,7 +29,8 @@ class PlanGraphNeedDispatch:
             pending_query_sha256=t.canonical_sha256(context.native_query),
             admission_sha256=t.canonical_sha256(context.assembled_input),
             question=turn.graph_context_execution.policy.action.intent.message,
-            dialogue=tuple(dialogue), current_work=adapter.work.plan_markdown)
+            dialogue=tuple(dialogue), current_work=adapter.work.plan_markdown,
+            exclusion_guidance_version='v1')
         self.prepared = self.authorization = self.selection = None
         self.call = None
 

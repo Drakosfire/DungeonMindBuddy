@@ -21,7 +21,8 @@ assessment local.
 For the Plan Graph-need producer, include an uncertain-decision control: the
 ordinary turn must deliver and reopen the host scope question without Graph
 acquisition, writer dispatch, or a page action. Pair it with conversation-only,
-explicit no-search, source-required, retry and stale-claim controls. The reader
+explicit no-search (including a Plan edit with no captured placement),
+source-required, retry and stale-claim controls. The reader
 is merged but not live; producer and hosted acceptance evidence remain open.
 
 ## Plan authoring and conversation-only cohort
