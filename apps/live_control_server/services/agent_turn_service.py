@@ -6862,6 +6862,35 @@ def _related_recap_context_open_targets(
         return [], statuses(unavailable=True)
 
 
+def _pending_plan_citation_membership(receipt, execution, completion):
+    """Project only citations joined to the actual settled pending Plan query."""
+    from application_state.agent_conversation.native_context import NativePlanGraphQueryPendingV1
+    from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+    from application_state.agent_conversation.native_execution import effective_native_query
+    from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
+    from apps.live_control_server.models.agent_turn import DeferredBuildCitationMembership
+    if (type(receipt.native_query) is not NativePlanGraphQueryPendingV1
+            or type(completion) is not SurfaceNativeCompletionV1
+            or not (completion.native_clause_citations or completion.native_assertion_citations)):
+        return None
+    settled = effective_native_query(receipt, execution)
+    if not isinstance(settled, NativePlanQueryV2):
+        raise ValueError('Stored Plan citations require their durable Graph settlement')
+    targets = getattr(settled, 'authored_targets', ())
+    statements = {(cite.statement_id, cite.campaign_id) for cite in completion.native_clause_citations}
+    assertions = {(cite.assertion_id, cite.assertion_sha256) for cite in completion.native_assertion_citations}
+    allowed_statements = {(match.statement_id, match.campaign_id) for match in settled.matches}
+    allowed_assertions = {(match.assertion_id, match.assertion_sha256) for match in settled.assertion_matches}
+    for target in targets:
+        allowed_statements.update((match.statement_id, match.campaign_id) for match in target.matches)
+        allowed_assertions.update((match.assertion_id, match.assertion_sha256) for match in target.assertion_matches)
+    if statements - allowed_statements or assertions - allowed_assertions:
+        raise ValueError('Stored Plan citations differ from their durable Graph settlement')
+    return DeferredBuildCitationMembership(context_receipt_sha256=receipt.context_receipt_sha256,
+        producing_provider_attempt_id=completion.producing_provider_attempt_id,
+        statements=sorted(statements), assertions=sorted(assertions))
+
+
 def project_plan_turn_context(
     turn: Turn,
     *,
@@ -6949,9 +6978,10 @@ def project_plan_turn_context(
                 statements=sorted(statements),
                 assertions=sorted(assertions),
             )
+        plan_membership = _pending_plan_citation_membership(receipt, turn.graph_context_execution, completion)
         return AgentSurfaceNativeContextResponseV1(receipt=receipt, completion=completion,
             execution=execution_projection, delivery_replay=delivery_replay,
-            deferred_build_citations=citation_membership)
+            deferred_build_citations=citation_membership, deferred_plan_citations=plan_membership)
     if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1):
         from apps.live_control_server.models.agent_turn import AgentPlanSourceContextResponseV1, AgentPlanNativeContextResponseV1
         response_type = AgentPlanNativeContextResponseV1 if isinstance(receipt, _app_state_graph_execution_types().PlanNativeContextReceiptV1) else AgentPlanSourceContextResponseV1
