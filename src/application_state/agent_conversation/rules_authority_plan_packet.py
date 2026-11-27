@@ -418,6 +418,15 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         if (type(action) in (NativePlanActionV2, NativePlanActionV3) and evidence.related_pages
                 and not allow_retained_format and not evidence.supplied_source_references):
             raise ValueError('Current Plan saved-page dispatch requires supplied source references')
+        # Both semantic generations use the same name. On readback, admit
+        # the successor only if its complete sealed format matches exactly.
+        if allow_retained_format and evidence.semantic_reply and version == 7:
+            successor = native_output_format(evidence.frame,frame,evidence.output_work_frame,
+                build_local=evidence.build_local,format_version=2,execution=graph_execution,
+                generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome,
+                semantic_reply=True)
+            if canonical_bytes(body.get('text',{}).get('format')) == canonical_bytes(successor):
+                version = 2
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
             build_local=evidence.build_local,format_version=version,execution=graph_execution,
             generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome,

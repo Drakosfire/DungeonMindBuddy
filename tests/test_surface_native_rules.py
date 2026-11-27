@@ -26,7 +26,7 @@ from tests.test_rules_lookup_broker import execution as initial_rules, lookup, a
 from tests.test_rules_build_input import append
 
 
-async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None, format_version=2):
+async def sdk(frame, rules, candidate, *, work_frame, provider_work=None, provider_frame=None, mutate_request=None, format_version=2, build_local=False, current_build=None):
     sent=[]
     raw=json.dumps(candidate)
     def wire(request):
@@ -35,10 +35,13 @@ async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None, forma
             'created_at':1,'model':'gpt-6-luna','status':'completed','output':[
                 {'type':'message','id':'msg_shared_rules','role':'assistant','status':'completed',
                  'content':[{'type':'output_text','text':raw,'annotations':[]}]}]})
-    inputs=[dict(role='user',content=json.dumps(frame)),
+    inputs=[dict(role='user',content=json.dumps(provider_frame or frame)),
         dict(role='user',content=rules.model_dump_json(by_alias=True)),
-        dict(role='user',content=json.dumps(work_frame))]
-    fmt=native_output_format(frame,rules,work_frame,format_version=format_version)
+        dict(role='user',content=json.dumps(provider_work or work_frame))]
+    if provider_frame is not None:
+        from application_state.agent_conversation.native_evidence_view import output_frame
+        frame = output_frame(frame, provider_frame)
+    fmt=native_output_format(frame,rules,work_frame | (provider_work or {}),format_version=format_version,build_local=build_local, **(current_build or {}))
     if mutate_request:
         mutate_request(inputs,fmt)
     async with AsyncOpenAI(api_key='synthetic-not-secret',http_client=httpx.AsyncClient(
@@ -49,7 +52,7 @@ async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None, forma
     return sent[0],response.output_text
 
 
-def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_record=None,candidate_mutation=None,work_override=None,semantic=False,format_version=2):
+def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_record=None,candidate_mutation=None,work_override=None,semantic=False,format_version=2,build_local=False,current_build=False):
     context,record = context_record if context_record is not None else body_case(surface,lane)[:2]
     frame=model_frame(context,record)
     intent=record.policy.action.intent
@@ -70,7 +73,7 @@ def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_r
         refs=result.observation.support_refs
         outputs=(r.RulesOutputRefV1(call_id=result.observation.call_id,packet_sha256=result.observation.packet_sha256),)
     rules=build_plan_rules_frame(owner,tuple(e.call_id for e in owner.events if isinstance(e,r.RulesQueryObservedV1)))
-    if semantic:
+    if semantic or current_build:
         from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
         rules=model_rules_frame(rules)
     if frame['native_body_evidence']['excerpts']:
@@ -90,10 +93,40 @@ def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_r
             del candidate['schema']
             candidate['kind']='rules_answer'
             candidate['rules_segments'][0]['support_ids']=['rule_0']
+    if current_build:
+        candidate.pop('schema', None)
+        candidate.pop('requested_detail_gaps', None)
+        candidate['limitations'] = []
     if candidate_mutation:
         candidate_mutation(candidate)
-    raw_request,raw_output=asyncio.run(sdk(frame,rules,candidate,work_frame=model_work_frame(context,record,**work),mutate_request=mutation,format_version=format_version))
-    stored,auth=authorize(context,record,raw_request,frame)
+    host_work = model_work_frame(context,record,**work)
+    provider_work = None
+    provider_frame = None
+    format_options = None
+    if build_local:
+        from application_state.agent_conversation.native_build_work_view import semantic_frame
+        if current_build:
+            from application_state.agent_conversation.native_evidence_view import semantic_frame as evidence_view
+            provider_frame = evidence_view(frame, project_managed_images=True)
+            for segment in candidate.get('answer_segments', []):
+                if segment.get('kind') == 'native_body_claim':
+                    segment['excerpt_handles'] = ['body0']
+            provider_work = semantic_frame(host_work, record, bind_lore_page=True,
+                supplied_source_references=True, typed_source_answer=True,
+                lore_page_limitations=True, lore_request_reference=True, semantic_reply=True)
+            format_options = dict(execution=record, generic_reply_limits=True, semantic_reply=True)
+        else:
+            provider_work = semantic_frame(host_work, record, bind_lore_page=True)
+    raw_request,raw_output=asyncio.run(sdk(frame,rules,candidate,work_frame=host_work,provider_work=provider_work,provider_frame=provider_frame,mutate_request=mutation,format_version=format_version,build_local=build_local,current_build=format_options))
+    stored,auth=authorize(context,record,raw_request,provider_frame or frame)
+    if build_local:
+        from application_state.agent_conversation.native_execution import NativeBuildWriterAuthorizedV2
+        auth = NativeBuildWriterAuthorizedV2.model_validate_json(json.dumps(
+            auth.model_dump(mode='json', by_alias=True) | {
+                'kind': 'native_build_writer_authorized_v2',
+                'work_frame_sha256': t.canonical_sha256(host_work)}))
+        stored = execution(context.context_receipt_sha256, stored.policy,
+            [auth if event.event_id == auth.event_id else event for event in stored.events])
     api_request_id=f'generationengine:{auth.provider_attempt_id}'
     terminal=outcomes(auth,len(stored.events))
     terminal[-1]=terminal[-1].model_copy(update={'request_id':api_request_id,'response_sha256':sha256(raw_output.encode()).hexdigest()})
@@ -325,3 +358,39 @@ def test_retained_format_name_does_not_weaken_exact_schema_proof(lane, surface, 
     case = producing_case(lane, surface, semantic=True, format_version=1, mutation=change)
     with pytest.raises(ValueError, match='prepared input differs'):
         normalize(case)
+
+
+def test_semantic_build_shared_name_admits_current_and_exact_retained_schema(lane):
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+
+    context, record, _read = body_case('build', lane)
+    events = [event.model_copy(update={'resolution': resolution_for(record.policy, 'discuss', source_scope='anchored')})
+              if isinstance(event, t.BuildRequestedWorkResolutionV1) else event for event in record.events]
+    record = execution(context.context_receipt_sha256, record.policy, events)
+    current = producing_case(lane, 'build', unused=True, context_record=(context, record),
+                             build_local=True, current_build=True)
+    assert normalize(current).base_completion.native_body_citations
+    ctx, stored, owner, auth, proof, _capture, kwargs = current
+    with pytest.raises(ValueError, match='declarations differ'):
+        verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
+            provider_attempt_id=auth.provider_attempt_id, expected_envelope_sha256=auth.envelope_sha256,
+            **{k: v for k, v in kwargs.items() if k != 'trace'})
+
+    def discussion(value):
+        value['answer_segments'] = [{'kind': 'discussion', 'text': 'A retained discussion.'}]
+    retained = producing_case(lane, 'build', unused=True, context_record=(context, record),
+        build_local=True, current_build=True, format_version=7, candidate_mutation=discussion)
+    ctx, stored, owner, auth, proof, _capture, kwargs = retained
+    submission = {k: v for k, v in kwargs.items() if k != 'trace'}
+    verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
+        provider_attempt_id=auth.provider_attempt_id, expected_envelope_sha256=auth.envelope_sha256, **submission)
+    verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
+        provider_attempt_id=auth.provider_attempt_id, expected_envelope_sha256=auth.envelope_sha256,
+        allow_retained_format=True, **submission)
+
+    def alter_successor(_inputs, fmt):
+        fmt['schema']['description'] = 'unapproved schema mutation'
+    altered = producing_case(lane, 'build', unused=True, context_record=(context, record),
+        build_local=True, current_build=True, mutation=alter_successor)
+    with pytest.raises(ValueError, match='prepared input differs'):
+        normalize(altered)
