@@ -39,6 +39,21 @@ valid model choice fail execution. Its older wording is imperfect for citations,
 so measure its actual routing with a new live replay. A better question needs
 its own reader-first contract; do not silently change persisted prompt shapes.
 
+### Held-out quality finding
+
+Independent case 552 answered the stated questions with the exact selected
+citation, but failed its frozen stricter rubric by omitting the key finder,
+trap-door identification and circle attribution. Serving-baseline case 558
+also failed that same rubric, omitting the circle attribution. These are single
+model samples, so the difference is not causal evidence. The producer does not
+change the writer and both requests supplied the same selected excerpt. Preserve
+both failures and pursue source-answer specificity and broader independent
+cases under the overall goal; do not claim the benchmark or goal passed.
+For this bounded Graph-routing slice, delivery requires the requested facts and
+exact citation to be supported, no introduced source or safety regression, a
+positive fresh-lookup control, and honest disclosure of this unresolved quality
+result. Partial probes remain partial, not proof of complete zero acquisition.
+
 Validation: focused actual HTTP and App boundary tests must cover exact
 source-only answer and reopened citation, Graph query not prepared, one selected
 source read, explicit fresh/mixed work preserving Graph settlement, Graph-object
