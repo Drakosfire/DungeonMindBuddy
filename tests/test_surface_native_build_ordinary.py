@@ -179,7 +179,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,selected_source_graph=False,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,selected_source_graph=False,selected_source_old_revision=False,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
     if failure == 'retry_controller_bad_request':
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         observe = native_corpus_source.observe_build_source_pointer
@@ -434,7 +434,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     admit_unrelated(lane, 'after-human-pick-before-http')
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
-    if authored_source == 'source_only' and selected_source_graph:
+    if authored_source == 'source_only' and selected_source_graph and not selected_source_old_revision:
         # This case represents a source chosen at the current head; the other
         # source-only fixtures intentionally keep the earlier selection revision.
         source_ref = source_ref.model_copy(update={'knowledge_revision':current_revision})
@@ -1803,7 +1803,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     context = payload['knowledge_context']
     assert context['schema'] == 'dmb_agent_surface_native_context_response_v1'
     assert context['receipt']['work_context']['surface_id'] == 'build'
-    if authored_source=='source_only' and selected_source_graph:
+    if authored_source=='source_only' and selected_source_graph and selected_source_old_revision:
+        assert context['receipt']['native_query']['schema']=='dmb_native_graph_query_v4'
+    elif authored_source=='source_only' and selected_source_graph:
         assert context['receipt']['native_query']['schema']=='dmb_native_build_selected_source_query_pending_v1'
     elif authored_source=='source_only':
         assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
@@ -4362,3 +4364,20 @@ def test_selected_source_discussion_skips_graph_and_reopens_citation(lane, tmp_p
     assert not any(type(event) is NativeBuildQuerySettledV1 for event in events)
     reopened=AgentConversationService().inspect_turn(world_id=case.world,turn_id=case.turn.turn_id)
     assert reopened == case.turn
+
+
+def test_selected_source_with_additional_lookup_settles_graph(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='source_only',selected_source_graph=True,requested_work='discuss',source_need='source_lookup',
+        message='Use my selected source and also search the World for other evidence about the episode.')
+    assert sum(type(event) is NativeBuildQuerySettledV1 for event in case.turn.graph_context_execution.events) == 1
+    assert AgentConversationService().inspect_turn(world_id=case.world,turn_id=case.turn.turn_id) == case.turn
+
+
+def test_selected_source_from_earlier_revision_keeps_existing_graph_route(lane, tmp_path, monkeypatch):
+    case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='source_only',selected_source_graph=True,selected_source_old_revision=True,
+        requested_work='discuss',source_need='source_lookup',
+        message='Describe the selected source and search the World for further context.')
+    assert case.turn.graph_context_receipt.native_query.schema_ == 'dmb_native_graph_query_v4'
