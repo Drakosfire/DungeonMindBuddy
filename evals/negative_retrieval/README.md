@@ -430,9 +430,9 @@ capture. The current page is supplied as draft context; the assessor does not
 yet map an independently verified saved read of that same page, so it cannot
 qualify a saved-page citation or count that read as a proven violation. The
 `current-page` allowance excludes this case from the zero-allowed-read cohort
-aggregate. With verified fixture binding, a related-page probe attempt for the
-exact primary document ID is labeled `current-page` as an attempt only. The
-probe does not bind the returned body or revision, so it cannot credit a
-completed saved-page read; other App attempts remain unknown. Preserve
+aggregate. With verified fixture binding, the report separately counts probe
+attempts whose document ID matches the primary ID. This is diagnostic only:
+the probe does not bind the world, revision, or returned body, so those
+attempts remain unmapped and cannot credit a completed saved-page read. Preserve
 that distinction when interpreting this case; it is not an exact historical
 replay and does not establish complete capture.

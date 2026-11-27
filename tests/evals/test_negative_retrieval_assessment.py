@@ -2133,15 +2133,15 @@ def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
 
 
 @pytest.mark.parametrize(('state', 'document', 'bound', 'collision', 'expected'), [
-    ('entered', 'primary', True, False, 'current-page'),
-    ('returned', 'primary', True, False, 'current-page'),
-    ('raised', 'primary', True, False, 'current-page'),
-    ('returned', 'foreign', True, False, '<unmapped-acquisition>'),
-    ('returned', None, True, False, '<unmapped-acquisition>'),
-    ('returned', 'primary', False, False, '<unmapped-acquisition>'),
-    ('returned', 'primary', True, True, '<unmapped-acquisition>'),
+    ('entered', 'primary', True, False, 1),
+    ('returned', 'primary', True, False, 1),
+    ('raised', 'primary', True, False, 1),
+    ('returned', 'foreign', True, False, 0),
+    ('returned', None, True, False, 0),
+    ('returned', 'primary', False, False, None),
+    ('returned', 'primary', True, True, 1),
 ])
-def test_report_maps_only_bound_primary_attempt_without_crediting_completion(
+def test_report_primary_id_match_is_diagnostic_without_crediting_read(
         tmp_path, monkeypatch, state, document, bound, collision, expected):
     import hashlib
     import json
@@ -2194,7 +2194,8 @@ def test_report_maps_only_bound_primary_attempt_without_crediting_completion(
               'allowed_reads': ['current-page'], 'outcomes': ['clarification']}
     result = report.report_case(tmp_path, {'id': 'case1', 'request': request['message']}, rubric)
     observation, = observations
-    assert observation['reads'] == [expected]
+    assert observation['reads'] == ['<unmapped-acquisition>']
+    assert result['primary_document_id_attempts_diagnostic'] == expected
     assert 'current-page' not in observation['completed_reads']
     assert result['checks']['required_evidence'] is None
     assert result['status'] == 'unproven' and result['capture_environment_verified'] is None

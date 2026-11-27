@@ -5,11 +5,11 @@ branch `codex/negative-current-page-attempt`, checkout `retrieval-source-window`
 based on fetched `origin/main`. The user owns this lane. The independent Plan
 browser-evaluation PR #4878 was checked for overlapping paths.
 
-After exact fixture, prior conversation and owner-receipt verification, label an
-observed related-page materialization attempt for the request's exact primary
-document as `current-page`. Do not promote the probe's returned status into proof
-of a completed exact saved-revision read: the public capture does not carry the
-necessary read event/body binding. Unknown IDs, failed fixture binding, other
+After exact fixture, prior conversation and owner-receipt verification, report
+the number of materialization attempts matching the primary document ID as a
+diagnostic only. Review found that the probe cannot bind the pointer's world or
+revision: the attempt must remain unmapped for assessment, and a returned status
+cannot prove a completed exact saved-revision read. Unknown IDs, failed fixture binding, other
 source-owner activity and incomplete journal remain unknown; do not weaken a
 budget, claim source support, or change cohort qualification. Tests must cover
 foreign/missing IDs, mismatched fixture bindings, unsuccessful calls, and the
