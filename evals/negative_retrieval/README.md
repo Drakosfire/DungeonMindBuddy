@@ -571,3 +571,13 @@ lower-bound discovery alongside the other native discovery and trace observation
 those observations may overlap and are not added together. Unknown code,
 unscoped activity, incomplete turns, and older artifacts do not establish absence.
 The source window remains a partial journal.
+
+When frozen fixtures are supplied, capture reads the actual committed primary
+page before dispatch and again after the turn, outside the acquisition probes.
+It retains only the World, document, revision, and computed body digest. A
+fixture-bound completed turn whose exact primary page changed can demonstrate
+premature mutation. An unchanged primary page does not prove that other state
+was unchanged or exclude a transient write that was later reversed, so it does
+not pass the global no-mutation check. Failed postflight, unstarted and legacy
+captures remain unknown. These fixture reads do not count as turn acquisition
+and do not make the acquisition journal complete.

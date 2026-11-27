@@ -101,7 +101,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
     paths = {name: directory / (name + ".json") for name in names}
-    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe", "source-window-probe"):
+    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe", "source-window-probe", "primary-page-stability"):
         paths[name] = directory / (name + ".json")
     present = {name: path for name, path in paths.items() if path.is_file()}
     # Bind and parse the same immutable byte snapshot, not a second file read.
@@ -292,6 +292,26 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         reviewed = read_semantic_review(review_path, expected_review_sha256, case_id=fixture["id"],
             rubric=rubric, fixture_sha256=expected_fixture_sha256, artifact_hashes=hashes)
         observed.update(reviewed["judgments"])
+    primary_stability = None
+    primary_record = rows.get("primary-page-stability")
+    if primary_record is not None:
+        if (not isinstance(primary_record, dict)
+                or set(primary_record) != {"schema", "case_id", "status", "before", "after", "error_type"}
+                or primary_record.get("schema") != "dmb_negative_retrieval_primary_page_v1"
+                or primary_record.get("case_id") != fixture["id"]
+                or primary_record.get("status") not in {"stable", "changed", "not_started", "unavailable"}):
+            raise ValueError("Invalid primary page observation")
+        if primary_record["status"] in {"stable", "changed"}:
+            from .primary_page_stability import validate_primary_page_record
+            primary_stability = validate_primary_page_record(primary_record, fixture, rows["request"])
+            if (primary_stability == "changed" and fixture_bound is True and observed["completed_turn"] is True
+                    and terminal is not None and terminal["status"] == "observed" and terminal["error_type"] is None):
+                observed["no_premature_mutation"] = False
+        elif (primary_record["after"] is not None
+                or (primary_record["status"] == "not_started" and primary_record["error_type"] is not None)
+                or (primary_record["status"] == "unavailable" and
+                    (not isinstance(primary_record["error_type"], str) or not primary_record["error_type"]))):
+            raise ValueError("Incomplete primary page observation has invalid failure details")
     grade = assess(rubric, observed)
     return {**grade, "schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
             "status": "unproven",
@@ -300,7 +320,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "fixture_pin_verified": pin_bound,
             "capture_environment_verified": None,
             "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe, "partial_source_window": source_window,
-            "semantic_review": reviewed,
+            "primary_page_stability": primary_stability, "semantic_review": reviewed,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,
             "http_status": observed["http_status"], "response_latency": response_latency(rows["answer-http"]),
