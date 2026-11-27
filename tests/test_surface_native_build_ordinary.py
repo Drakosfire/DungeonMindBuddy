@@ -646,8 +646,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
             using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
+            admitted_discussion = failure != 'used_rules' and any(
+                isinstance(event, t.BuildRequestedWorkResolutionV1)
+                and event.requested_work == 'discuss' and event.operation == 'answer_from_sources'
+                and 'barrier' in event.resolution and event.resolution['barrier'] is None
+                for event in self.adapter._broker_execution().events
+            )
             expected_effort = 'medium' if (using_prior_citations and current_work == 'review_lore_page_from_conversation'
-                or current_work == 'discuss' and failure != 'used_rules'
+                or admitted_discussion
                 or current_work == 'draft_in_conversation' and saved_statblock == 'associated') else 'low'
             if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
