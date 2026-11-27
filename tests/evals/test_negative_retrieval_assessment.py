@@ -11,6 +11,8 @@ def verified_capture_owner(monkeypatch):
     """Simulated owner for tests that never contact a real database."""
     from evals.negative_retrieval import capture as module
     monkeypatch.setattr(module, "checked_owned_dsn", lambda: "synthetic-owned-clone")
+    monkeypatch.setattr(module, "inspect_primary_page", lambda *_: {"synthetic": True})
+    monkeypatch.setattr(module, "expected_primary_page", lambda *_: {"synthetic": True})
 
 
 def _test_manifest(tmp_path):
@@ -1249,6 +1251,7 @@ def test_capture_preflight_is_outside_product_probe_and_halts_on_mismatch(tmp_pa
     sources = json.loads((out / "fixture-sources.json").read_text())
     assert sources["status"] == "stable"
     assert json.loads((out / "fixture-pin.json").read_text())["fixture_set_sha256"] == fixture_pin
+    assert json.loads((out / "primary-page-stability.json").read_text())["status"] == "stable"
     seen.clear()
     def mismatch(*args):
         raise ValueError("wrong synthetic sources")
@@ -3157,6 +3160,26 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     # v7 continues to recognize body attempts independently of discovery.
     body=copy.deepcopy(discovery);body['pdf_discovery']['scoped']=0;body['pdf_source']['scoped']=1
     assert assess_row(body)['checks']['unexpected_retrieval'] is False
+    page = '# Synthetic'
+    digest = hashlib.sha256(page.encode()).hexdigest()
+    fixture['page'] = page
+    request['primary_work'] = {'object_id':'page','expected_revision':1,'expected_content_sha256':digest}
+    (tmp_path/'request.json').write_text(json.dumps(request))
+    before = {'world_id':'world','document_id':'page','registry_revision':1,'content_sha256':digest}
+    primary = {'schema':'dmb_negative_retrieval_primary_page_v1','case_id':'case1',
+               'status':'stable','before':before,'after':dict(before),'error_type':None}
+    primary_path = tmp_path/'primary-page-stability.json'
+    def with_primary(value):
+        primary_path.write_text(json.dumps(value))
+        return assess_row(discovery)
+    assert with_primary(primary)['checks']['no_premature_mutation'] is None
+    changed_primary=copy.deepcopy(primary);changed_primary['status']='changed';changed_primary['after']['registry_revision']=2
+    assert with_primary(changed_primary)['checks']['no_premature_mutation'] is False
+    malformed=copy.deepcopy(changed_primary);malformed['after']['document_id']='other'
+    with pytest.raises(ValueError,match='not bound'): with_primary(malformed)
+    incomplete=copy.deepcopy(primary);incomplete['status']='unavailable';incomplete['after']=None;incomplete['error_type']='RuntimeError'
+    assert with_primary(incomplete)['checks']['no_premature_mutation'] is None
+    primary_path.unlink()
     empty=copy.deepcopy(app_batch);empty['app_batch_read']['scoped']=0
     assert assess_row(empty)['checks']['unexpected_retrieval'] is None
     changed=copy.deepcopy(app_batch);changed['app_batch_read']['code_sha256']='0'*64
@@ -3736,3 +3759,94 @@ def test_pdf_discovery_unscoped_attempt_makes_window_uncertain(monkeypatch):
     assert state['status'] == 'uncertain'
     assert state['pdf_discovery']['unscoped_starts'] == 1
     assert state['pdf_discovery']['unscoped'] == 1
+
+
+def test_primary_page_observation_reads_committed_owner_and_rejects_bad_snapshot(monkeypatch):
+    from hashlib import sha256
+    from types import SimpleNamespace
+    from apps.live_control_server.services import build_related_pages, workspace_document_registry
+    from evals.negative_retrieval.primary_page_stability import inspect_primary_page, expected_primary_page
+    body = '# synthetic page'
+    digest = sha256(body.encode()).hexdigest()
+    work = {'object_id': 'page', 'expected_revision': 3, 'expected_content_sha256': digest}
+    row = SimpleNamespace(world_id='world', document_id='page', revision=3)
+    snapshot = SimpleNamespace(record=row, markdown=body, content_sha256=digest, loaded_revision=3)
+    monkeypatch.setattr(build_related_pages, 'root', lambda: 'synthetic-root')
+    monkeypatch.setattr(workspace_document_registry, 'get_committed_page_snapshot',
+                        lambda root, page: snapshot if (root, page)==('synthetic-root','page') else None)
+    actual = inspect_primary_page('world', work)
+    assert actual == expected_primary_page({'page': body}, 'world', work)
+    assert body not in str(actual)
+    snapshot.content_sha256 = '0'*64
+    with pytest.raises(ValueError, match='unavailable or inconsistent'): inspect_primary_page('world', work)
+    snapshot.content_sha256 = digest; row.world_id = 'other'
+    with pytest.raises(ValueError, match='unavailable or inconsistent'): inspect_primary_page('world', work)
+
+
+def test_capture_retains_changed_and_failed_primary_postflight(tmp_path, monkeypatch, verified_capture_owner):
+    import json
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+    case = {'id':'case1','question':'Use it.'}
+    fixture = {'request':'Use it.','history':[],'related_pages':[]}
+    monkeypatch.setattr(workflow,'load_manifest',lambda *a,**k:({'conversation_mode':'build_sequence','cases':[case]},tmp_path))
+    monkeypatch.setattr(module,'verify_preflight_snapshot',lambda *a: True)
+    monkeypatch.setattr(module,'inspect_related_pages',lambda *a: [])
+    class Client:
+        def post(self, route): return 'completed'
+    monkeypatch.setattr(workflow,'capture_case',lambda client,world,template,case,directory,**kw:client.post('/api/live/agent/turn'))
+    monkeypatch.setattr(workflow,'capture',lambda manifest,output,*,cohort_manifest_sha256,clone_app=False:
+                        workflow.capture_case(Client(),'world',{'primary_work':{'object_id':'page'}},case,output))
+    for status, after in [('changed', {'synthetic':False}), ('unavailable', RuntimeError('postflight failed'))]:
+        calls = iter([{'synthetic':True}, after])
+        def inspect(*_):
+            result=next(calls)
+            if isinstance(result,Exception): raise result
+            return result
+        monkeypatch.setattr(module,'inspect_primary_page',inspect)
+        directory=tmp_path/status
+        assert module.capture(_test_manifest(tmp_path),directory,fixtures={'case1':fixture},
+                              expected_manifest_sha256=MANIFEST_PIN,
+                              expected_fixture_sha256=module.fixture_sha256({'case1':fixture})) == 'completed'
+        record=json.loads((directory/'primary-page-stability.json').read_text())
+        assert record['status']==status
+        assert record['error_type']==('RuntimeError' if status=='unavailable' else None)
+        assert record['after']==(None if status=='unavailable' else after)
+
+
+def test_primary_page_record_rejects_wrong_fixture_identity_and_forged_status():
+    import copy
+    from hashlib import sha256
+    from evals.negative_retrieval.primary_page_stability import validate_primary_page_record
+    body='# synthetic';digest=sha256(body.encode()).hexdigest()
+    fixture={'id':'case1','page':body}
+    request={'owner_scope':{'world_id':'world'},'primary_work':{'object_id':'page',
+             'expected_revision':1,'expected_content_sha256':digest}}
+    before={'world_id':'world','document_id':'page','registry_revision':1,'content_sha256':digest}
+    record={'schema':'dmb_negative_retrieval_primary_page_v1','case_id':'case1','status':'stable',
+            'before':before,'after':dict(before),'error_type':None}
+    assert validate_primary_page_record(record,fixture,request)=='stable'
+    changed=copy.deepcopy(record);changed['status']='changed';changed['after']['content_sha256']='0'*64
+    assert validate_primary_page_record(changed,fixture,request)=='changed'
+    for bad in (dict(changed,case_id='other'),dict(changed,status='stable'),
+                {**changed,'after':{**changed['after'],'world_id':'other'}},
+                {**changed,'after':{**changed['after'],'content_sha256':'invalid'}},
+                {**changed,'before':{**changed['before'],'registry_revision':2}}):
+        with pytest.raises(ValueError): validate_primary_page_record(bad,fixture,request)
+
+
+def test_primary_page_preflight_rejects_wrong_saved_page_before_dispatch(tmp_path,monkeypatch,verified_capture_owner):
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+    case={'id':'case1','question':'Use it.'};fixture={'request':'Use it.','history':[],'related_pages':[]}
+    monkeypatch.setattr(workflow,'load_manifest',lambda *a,**k:({'conversation_mode':'build_sequence','cases':[case]},tmp_path))
+    monkeypatch.setattr(module,'verify_preflight_snapshot',lambda *a:True)
+    monkeypatch.setattr(module,'inspect_primary_page',lambda *_:{'synthetic':False})
+    called=[]
+    monkeypatch.setattr(workflow,'capture_case',lambda *a,**k:called.append(True))
+    monkeypatch.setattr(workflow,'capture',lambda manifest,output,*,cohort_manifest_sha256,clone_app=False:
+                        workflow.capture_case(None,'world',{'primary_work':{'object_id':'page'}},case,output))
+    with pytest.raises(ValueError,match='Actual primary page'):
+        module.capture(_test_manifest(tmp_path),tmp_path/'case',fixtures={'case1':fixture},
+                       expected_manifest_sha256=MANIFEST_PIN,expected_fixture_sha256=module.fixture_sha256({'case1':fixture}))
+    assert called==[]

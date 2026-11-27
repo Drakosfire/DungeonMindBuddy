@@ -22,6 +22,7 @@ from .related_page_probe import observe_related_page_owners
 from .native_graph_probe import observe_native_graph_owners
 from .source_window import observe_source_window
 from .owned_db_fixture import checked_owned_dsn
+from .primary_page_stability import inspect_primary_page, expected_primary_page
 
 _lock = Lock()
 
@@ -87,6 +88,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
         def observed_case(client, world, template, case, directory, **kwargs):
             fixture = None if fixtures is None else fixtures[case["id"]]
             before = None
+            primary_before = None
             checked_client = client
             if fixture is not None:
                 work = template["primary_work"]
@@ -94,6 +96,9 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                                                      primary_work=SimpleNamespace(object_id=work["object_id"]))
                 try:
                     verify_preflight_snapshot(fixture, template, world, kwargs.get("build_editor_snapshot"))
+                    primary_before = inspect_primary_page(world, work)
+                    if primary_before != expected_primary_page(fixture, world, work):
+                        raise ValueError("Actual primary page differs from the frozen fixture")
                     conversation = kwargs.get("expected_conversation_id")
                     if conversation is not None or fixture["history"]:
                         response = client.get("/api/live/agent/worlds/" + world + "/conversation",
@@ -232,6 +237,21 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                         }),
                     })
                     if fixture is not None:
+                        primary_after = None
+                        primary_error = None
+                        primary_status = "not_started"
+                        if post_entered:
+                            try:
+                                primary_after = inspect_primary_page(world, work)
+                                primary_status = "stable" if primary_before == primary_after else "changed"
+                            except Exception as exc:
+                                primary_status = "unavailable"
+                                primary_error = type(exc).__name__
+                        immutable_save(Path(directory), "primary-page-stability", {
+                            "schema": "dmb_negative_retrieval_primary_page_v1", "case_id": case["id"],
+                            "status": primary_status, "before": primary_before, "after": primary_after,
+                            "error_type": primary_error,
+                        })
                         immutable_save(Path(directory), "fixture-pin", {
                             "schema": "dmb_negative_retrieval_fixture_pin_v1", "case_id": case["id"],
                             "fixture_set_sha256": expected_fixture_sha256,
