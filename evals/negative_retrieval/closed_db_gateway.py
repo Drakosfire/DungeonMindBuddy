@@ -201,13 +201,16 @@ class _ClosedDatabaseGateway:
                         self._sockets.add(raw)
                     actual = backend.execute('''SELECT current_database(),
                         (SELECT oid::text FROM pg_database WHERE datname=current_database()),
-                        (SELECT system_identifier::text FROM pg_control_system())''').fetchone()
+                        (SELECT system_identifier::text FROM pg_control_system()),
+                        current_user, session_user''').fetchone()
                     if (backend.pgconn.ssl_in_use
                             or (backend.info.host, str(backend.info.port)) != (
                                 self._identity['host'], str(self._identity['port']))
                             or backend.info.hostaddr != self._identity['host']
+                            or backend.info.user != self._identity['user']
                             or actual != (self._database, str(self._identity['oid']),
-                                          str(self._identity['system_identifier']))):
+                                          str(self._identity['system_identifier']),
+                                          self._identity['user'], self._identity['user'])):
                         raise ProtocolDenied('Backend differs from owned local database')
                     client.sendall(_message(b'R', struct.pack('!I', 0)))
                     for key in ('server_version', 'server_encoding', 'client_encoding', 'DateStyle',
@@ -350,8 +353,10 @@ def owned_gateway(directory):
     dsn = _checked_owner_dsn()
     ledger_path = Path(os.environ['DMB_NEGATIVE_RETRIEVAL_OWNER_LEDGER']).resolve(strict=True)
     identity = json.loads(ledger_path.read_bytes())['database']
-    if conninfo_to_dict(dsn)['dbname'] != identity['database']:
+    connection = conninfo_to_dict(dsn)
+    if connection['dbname'] != identity['database'] or not connection.get('user'):
         raise ValueError('Gateway target does not match its owner receipt')
+    identity['user'] = connection['user']  # In-memory only; never sent to the worker or journal.
     gateway = _ClosedDatabaseGateway(Path(directory).absolute(), dsn, identity).start()
     try:
         yield gateway

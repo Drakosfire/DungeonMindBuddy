@@ -4684,7 +4684,7 @@ def test_owned_gateway_retries_cleanup_when_finish_is_interrupted(tmp_path, monk
     ledger = tmp_path / 'owner.json'
     ledger.write_text(json.dumps({'database': {'database': 'owned'}}))
     monkeypatch.setenv('DMB_NEGATIVE_RETRIEVAL_OWNER_LEDGER', str(ledger))
-    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'postgresql:///owned')
+    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'postgresql://role@/owned')
     monkeypatch.setattr(module._ClosedDatabaseGateway, 'start', lambda self: self)
     calls = []
     def interrupted_once(self):
@@ -4755,3 +4755,35 @@ def test_gateway_owner_verification_timeout_fails_closed(monkeypatch):
     monkeypatch.setattr(module.subprocess, 'run', timeout)
     with pytest.raises(RuntimeError, match='verification timed out'):
         module._checked_owner_dsn()
+
+
+@pytest.mark.parametrize('actual_role,hostaddr', [('other', '127.0.0.1'), ('reader', '127.0.0.2')])
+def test_gateway_refuses_backend_role_or_address_mismatch_before_auth(monkeypatch, actual_role, hostaddr):
+    import socket
+    from types import SimpleNamespace
+    import psycopg
+    from evals.negative_retrieval import closed_db_gateway as module
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    app_client, app_server = socket.socketpair()
+    database, peer = socket.socketpair()
+
+    class Backend:
+        pgconn = SimpleNamespace(socket=database.fileno(), ssl_in_use=False)
+        info = SimpleNamespace(host='127.0.0.1', hostaddr=hostaddr, port=1234, user=actual_role)
+        def __enter__(self): return self
+        def __exit__(self, *args): database.close()
+        def execute(self, _query):
+            return SimpleNamespace(fetchone=lambda: ('owned', '1', '2', actual_role, actual_role))
+
+    monkeypatch.setattr(module, '_startup', lambda *_: None)
+    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'owned')
+    monkeypatch.setattr(psycopg, 'connect', lambda *args, **kwargs: Backend())
+    identity = {'database': 'owned', 'host': '127.0.0.1', 'port': 1234,
+                'oid': '1', 'system_identifier': '2', 'user': 'reader'}
+    gateway = module._ClosedDatabaseGateway('/tmp', 'owned', identity)
+    try:
+        gateway._serve(app_server, FrontendPolicy())
+        assert app_client.recv(1) == b''
+        assert 'session_failure' in gateway._errors
+    finally:
+        app_client.close(); peer.close()
