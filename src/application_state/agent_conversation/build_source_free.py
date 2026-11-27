@@ -197,6 +197,15 @@ def _join_pending_source(receipt, execution):
             if (event.page.world_id != basis.world_id or event.page.registry_revision != basis.registry_revision
                     or event.page.visibility != basis.visibility or event.page.content_sha256 != basis.content_sha256):
                 raise ValueError("Pending saved current page differs from its frozen source basis")
+    from .build_pending_app_coverage import pending_app_partial_candidate
+    for event in execution.events:
+        if (type(event) is t.BuildWriterEvidenceSelectionV2
+                and event.terminal_disposition.get('reason') == 'pending_saved_app_pages_native_scope_unobserved'):
+            candidate = pending_app_partial_candidate(execution)
+            observed = receipt.source_observation
+            if (candidate is None or event.terminal_disposition != candidate
+                    or (observed.binding is not None and observed.requested_or_observed_revision is not None)):
+                raise ValueError('Pending partial writer requires its exact unobserved native scope')
     settlements = [event for event in execution.events if type(event) is NativeBuildSourceSettledV1]
     if not settlements:
         return None
@@ -711,7 +720,7 @@ def validate_pending_writer_selection(execution, event):
 
 
 def validate_pending_empty_writer_selection(execution, event):
-    from .build_pending_app_coverage import pending_app_writer_terminal
+    from .build_pending_app_coverage import pending_app_writer_terminal, pending_app_partial_candidate
     from . import types as t
     from .writer_evidence_selection import NATIVE_POLICY, close_selection, digest
     prefix = execution.events[:event.sequence]
@@ -719,6 +728,8 @@ def validate_pending_empty_writer_selection(execution, event):
     latest = controllers[-1] if controllers else None
     outcomes = [prior.outcome for prior in prefix if type(prior) is t.ProviderOutcomeEventV1
                 and latest is not None and prior.provider_attempt_id == latest.provider_attempt_id]
+    structural_partial = pending_app_partial_candidate(execution.model_copy(update={'events': prefix}))
+    partial = structural_partial if structural_partial == event.terminal_disposition else None
     if (event.mode != 'empty_catalog' or event.policy != NATIVE_POLICY or event.catalog_sha256 != digest({})
             or event.judgments or event.controller_response_sha256 is not None or latest is None
             or latest.provider_attempt_id != event.controller_attempt_id
@@ -726,11 +737,13 @@ def validate_pending_empty_writer_selection(execution, event):
             or not (any(type(prior) is t.BuildPriorBodyEvidenceAdmittedV3 for prior in prefix)
                 or pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
                 or pending_app_writer_terminal(execution.model_copy(update={'events': prefix}))
+                or partial
                 or pending_native_terminal(execution.model_copy(update={'events': prefix})))
             or any(isinstance(prior, t.BuildWriterEvidenceSelectionV1) for prior in prefix)):
         raise ValueError('Pending empty writer selection requires acknowledged source-free work or retained context')
     terminal = (pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
         or pending_app_writer_terminal(execution.model_copy(update={'events': prefix}))
+        or partial
         or pending_native_terminal(execution.model_copy(update={'events': prefix})))
     if terminal is not None and event.terminal_disposition != terminal:
         raise ValueError('Pending empty selection differs from its source-free work terminal')
@@ -756,7 +769,7 @@ def pending_turn_owner(turn):
 
 
 def validate_pending_writer_authorization(execution, event):
-    from .build_pending_app_coverage import pending_app_writer_terminal
+    from .build_pending_app_coverage import pending_app_writer_terminal, pending_app_partial_candidate
     from . import types as t
     from .native_execution import NativeBuildWriterAuthorizedV2, native_read_event_ids
     prefix = execution.events[:event.sequence]
@@ -765,6 +778,8 @@ def validate_pending_writer_authorization(execution, event):
             or not (any(type(row) is t.BuildPriorBodyEvidenceAdmittedV3 for row in prefix)
                 or pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
                 or pending_app_writer_terminal(execution.model_copy(update={'events': prefix}))
+                or (selected and pending_app_partial_candidate(execution.model_copy(update={'events': prefix}))
+                    == selected[0].terminal_disposition)
                 or pending_native_terminal(execution.model_copy(update={'events': prefix})))
             or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.writer.identity()
             or event.native_read_event_ids != native_read_event_ids(prefix)

@@ -181,6 +181,39 @@ def pending_app_writer_terminal(execution):
     return {'status': 'ready', 'reason': 'pending_saved_app_pages_sufficient'}
 
 
+def pending_app_partial_candidate(execution):
+    """Structural candidate only; the receipt must independently prove absence.
+
+    This does not authorize a writer or establish that other sources lack the
+    answer. It recognizes an acknowledged need for further evidence after all
+    selected App pages were read, before any native source was settled.
+    """
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1, NativeRetrievalAuthorizedV1, native_read_event_ids
+    from .native_retrieval import NativeRetrievalSelectedV1
+    if type(execution) is not BuildPendingExecutionV1:
+        return None
+    work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
+    from .build_source_free import pending_work_requests_evidence
+    decisions = [row for row in execution.events if type(row) is BuildAppCoverageDecidedV1]
+    if (len(work) != 1 or work[0].resolution.get('source_scope') != 'source_lookup'
+            or not pending_work_requests_evidence(work[0], execution.policy)
+            or len(decisions) != 1 or decisions[0].verdict != 'native_sources_required'
+            or any(type(row) in (NativeBuildSourceSettledV1, NativeRetrievalAuthorizedV1,
+                                  NativeRetrievalSelectedV1, t.BuildPriorBodyEvidenceAdmittedV3)
+                   for row in execution.events)
+            or native_read_event_ids(execution.events)):
+        return None
+    validate_coverage_decision(execution, decisions[0])
+    selections = [row for row in execution.events if type(row) is t.RelatedPagesSelection]
+    reads = [row for row in execution.events if type(row) is t.RelatedPageRead]
+    if (len(selections) != 1 or not selections[0].document_ids
+            or len(reads) != len(selections[0].document_ids)
+            or {row.page.document_id for row in reads} != set(selections[0].document_ids)
+            or any(row.selection_event_id != selections[0].event_id for row in reads)):
+        return None
+    return {'status': 'ready', 'reason': 'pending_saved_app_pages_native_scope_unobserved'}
+
+
 def pending_writer_access_pages(turn):
     """Exact acquired App references; no source/citation authority is inferred."""
     return tuple(row.page for row in turn.graph_context_execution.events
