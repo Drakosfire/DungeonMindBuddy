@@ -75,6 +75,19 @@ async function run() {
         result.reopened_selected = await option.getAttribute("aria-checked") === "true";
       } catch (error) {
         result.error = String(error);
+        result.page = await page.evaluate(() => ({
+          route: location.pathname + location.search,
+          headings: [...document.querySelectorAll("h1,h2,h3")].slice(0, 12).map(heading => heading.innerText),
+          alerts: [...document.querySelectorAll('[role="alert"]')].slice(0, 8).map(alert => alert.innerText),
+          choices: [...document.querySelectorAll("[data-choice-id]")].slice(0, 12).map(
+            choice => ({id: choice.dataset.choiceId,
+              options: [...choice.querySelectorAll('[role="radio"]')].map(option => ({
+                tag: option.tagName, value: option.getAttribute("value"),
+                selected: option.getAttribute("aria-checked"),
+              })),
+            })),
+        })).catch(() => null);
+        result.api_failures = apiFailures;
       } finally {
         result.progress_puts = progressPuts;
         result.turn_posts = turnPosts;
