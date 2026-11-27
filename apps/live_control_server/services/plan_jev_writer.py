@@ -321,6 +321,19 @@ RELATED_PAGE_RESPONSE = (
     'exact nonblank quotes from that same saved page. Do not ask for a supplied page again.')
 
 
+def _discussion_reasoning_effort(default, *, shared, provider_work, rules_active, authoring):
+    """Give admitted Build discussions more room to satisfy user constraints."""
+    if default != "low" or not shared or rules_active or authoring or not isinstance(provider_work, dict):
+        return default
+    build = provider_work.get("build_work")
+    work = build.get("requested_work") if isinstance(build, dict) else None
+    if (isinstance(work, dict) and work.get("requested_work") == "discuss"
+            and work.get("operation") == "answer_from_sources"
+            and "barrier" in work and work["barrier"] is None):
+        return "medium"
+    return default
+
+
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules, *, dialogue=()):
         self.adapter, self.proof, self.rules = adapter, proof, rules
@@ -435,7 +448,13 @@ class PlanJevWriter:
         from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
         conversation_draft = self.shared and native_conversation_terminal(turn) is not None
-        self.reasoning_effort = "medium" if single_variant_base or conversation_draft else "low"
+        default_effort = "medium" if single_variant_base or conversation_draft else "low"
+        self.reasoning_effort = _discussion_reasoning_effort(
+            default_effort, shared=self.shared,
+            provider_work=self.provider_work if self.shared else None,
+            rules_active=bool(rule_frame.lookups),
+            authoring=getattr(rules, 'authoring', None) is not None,
+        )
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
