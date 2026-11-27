@@ -71,10 +71,12 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
         summaries.has(index)
           ? <ul key={index}>{summaries.get(index)!.entries.map(entry =>
             <li key={entry.target}><a href={entry.target} title={entry.title}>{entry.number}. {entry.title}</a></li>)}</ul>
-          : <SourceCitationEvidence key={index} identity={canonical([completion,worldId,turnId,index])}
-            statements={[{choices:choicesBySegment[index]!.map(choice => ({
-              ...choice, buttonText: `${choice.number}. ${citationLabel(index, choice.title || choice.label)}`,
-            }))}]}/>)}</section>}
+          : <SourceCitationEvidence key={index} identity={canonical([completion,worldId,turnId,index])} prefetchTitles
+            statements={[{choices:choicesBySegment[index]!.map(choice => {
+              const base=choice.title || choice.label;
+              const labelled=citationLabel(index, base);
+              return {...choice, buttonText: `${choice.number}. ${labelled}`, titleSuffix: labelled.slice(base.length)};
+            })}]}/>)}</section>}
     </details> : null;
   }
   return <div aria-label="Evidence-grounded answer">{composition ? composition.ranges.map((r,i)=>

@@ -4003,6 +4003,7 @@ it("hands a conversation image seed to the existing Plan Studio without changing
     expect(originalHost.open("Must not replace the open draft")).toBe(false);
   });
   expect(screen.getByLabelText("Image Studio · Plan")).toBeInTheDocument();
+  await screen.findByLabelText("Synthetic Image Studio");
   expect(mediaWizardCapture.props.initialPrompt).toBe("Exact image prompt\nDark water.");
   expect(planImageHostCapture.props.imagePromptHost.unavailableReason).toMatch(/Close the current/);
   expect(surface.textContent).toBe(before);
@@ -4022,6 +4023,7 @@ it("places a library image from the Plan navbar through the current Plan autosav
   await waitFor(() => expect(screen.getByRole("button", { name: "Open Image Studio" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "Open Image Studio" }));
   expect(screen.getByLabelText("Image Studio · Plan")).toBeInTheDocument();
+  await screen.findByLabelText("Synthetic Image Studio");
   const editor = (surface.querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
   vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ pos: editor.state.doc.content.size - 1, inside: 0 });
   const abort = new AbortController();
@@ -4082,6 +4084,7 @@ Second body.
   const {planCardRange}=await import("./planCardEditing");
   fireEvent.click(screen.getByRole("button",{name:"Open Image Studio"}));
   expect(screen.getByRole("button",{name:"Cards",exact:true})).toHaveAttribute("aria-pressed","true");
+  await screen.findByLabelText("Synthetic Image Studio");
   vi.spyOn(editor.view,"posAtCoords").mockReturnValue({pos:planCardRange(editor.state.doc,"scene:a")!.from+1,inside:0});
   const placing=mediaWizardCapture.props.onChoose({asset_id:assetId,state:"ready"},{prompt:"Saved map"},{mode:"click",signal:new AbortController().signal});
   fireEvent.click(screen.getByRole("button",{name:"Show scene: Beta"}));
