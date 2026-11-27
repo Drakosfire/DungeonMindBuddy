@@ -1363,12 +1363,14 @@ def test_unsent_draft_browser_requires_provider_free_build_fixture(tmp_path):
     with pytest.raises(ValueError, match="Unsent draft requires a Build browser fixture"):
         browser_inputs(manifest, tmp_path, live_plan=True)
 
-@pytest.mark.parametrize("browser, clone_app, context_only, sequence_stopped",
-                         [(False, False, True, False), (True, False, True, False),
-                          (True, True, True, False), (False, True, False, False),
-                          (False, True, False, True)])
+@pytest.mark.parametrize("browser, clone_app, context_only, sequence_stopped, mixed", [
+    (False, False, True, False, False), (True, False, True, False, False),
+    (True, True, True, False, False), (False, True, False, False, False),
+    (False, True, False, True, False), (False, True, False, False, True),
+])
 @pytest.mark.parametrize("changed, missing_capture", [(False, False), (True, False), (False, True)])
-def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture, browser, clone_app, context_only, sequence_stopped):
+def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missing_capture,
+                                          browser, clone_app, context_only, sequence_stopped, mixed):
     from concurrent.futures import Future
     from evals.buddy_benchmark.workflow import BuildSequenceStopped
     from evals.buddy_benchmark import cohort_capture as cohort
@@ -1387,8 +1389,10 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
                 [{"id": "case1-followup", "question": "Continue?"}]
                 if sequence_stopped and number == 1 and not missing_capture else []),
             "isolation": {"native": native, "app": app},
-            **({"browser_capture": {}} if browser else {}),
+            **({"browser_capture": {}} if browser or (mixed and number == 2) else {}),
         }))
+    if mixed:
+        members[1]["driver"] = "live_build"
     protected = "00000000-0000-4000-8000-000000000001"
     manifest = put(tmp_path / "cohort.json", {
         "protected_work_objects": [protected],
@@ -1451,7 +1455,10 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
             if clone_app:
                 assert options.pop("shared_app") == owned_app
                 assert app_dsn.endswith("/benchmark_run_owned")
-            assert options == ({"browser_case": output.name, "detailed_trace": True} if browser else {})
+            if mixed and output.name == "case2":
+                assert options == {"browser_case": "case2", "detailed_trace": False, "driver": "live_build"}
+            else:
+                assert options == ({"browser_case": output.name, "detailed_trace": True} if browser else {})
             assert member is cohort._capture_member
             assert sha256(manifest.read_bytes()).hexdigest() == manifest_sha256
             events.append(output.name)
@@ -1460,6 +1467,9 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
                 row["context"] = {"status": "captured"}
                 row["capture_status"] = "complete"
                 row["delivery"] = {"status": "fail" if output.name == "case2" else "pass"}
+                if mixed and output.name == "case2":
+                    del row["capture_status"]
+                    row["capture_boundary"] = "image_preview"
             else:
                 row["capture_status"] = "incomplete"
             f = Future()
@@ -1522,6 +1532,36 @@ def test_cohort_core_rejects_a_writable_login(monkeypatch):
     monkeypatch.setattr(cohort.psycopg, "connect", lambda _: Connection())
     with pytest.raises(ValueError, match="dedicated non-writing login"):
         cohort.require_read_only_core("unused")
+
+
+@pytest.mark.parametrize(("driver", "options", "has_keys"), [
+    ("live_build", {"build_fixture": True, "live_build": True}, True),
+    ("live_plan", {"live_plan": True}, True),
+    ("build_fixture", {"build_fixture": True}, False),
+    ("browser_control", {}, False),
+])
+def test_response_member_uses_pinned_driver(tmp_path, monkeypatch, driver, options, has_keys):
+    from evals.buddy_benchmark import cohort_capture as cohort
+    path = tmp_path / "manifest.json"
+    pin = put(path, {"schema": "dmb_ordinary_benchmark_v1", "cases": [{"id": "mounted", "question": "Try it"}]})
+    for key in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.setenv(key, "fixture")
+    for key in (cohort.APP_DSN, "DMB_MANAGED_WORLD_DATA_ROOT", "DUNGEONMIND_LIVE_SESSION_DIR",
+                "DUNGEONMIND_WORLD_GRAPH_ROOT"):
+        monkeypatch.setenv(key, "outside-worker")
+    seen = []
+
+    def capture(*args, **kwargs):
+        assert bool(cohort.os.environ.get("TYPESAFE_JEV_API_KEY")) is has_keys
+        assert bool(cohort.os.environ.get("OPENAI_API_KEY")) is has_keys
+        seen.append(kwargs)
+
+    monkeypatch.setattr(w, "capture", capture)
+    cohort._capture_member(path, tmp_path / "run" / "mounted", "owned-dsn", pin["sha256"],
+                           browser_case="mounted", context_only=False, driver=driver)
+    assert seen == [dict(context_only=False, cohort_manifest_sha256=pin["sha256"],
+                         browser_case="mounted", writer_transport=False, detailed_trace=False,
+                         cohort_app=None, **options)]
 
 
 def test_cohort_member_verifies_exact_manifest_bytes_before_startup(tmp_path):

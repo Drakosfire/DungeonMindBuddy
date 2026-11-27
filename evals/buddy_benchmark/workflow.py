@@ -824,9 +824,9 @@ class BuildSequenceStopped(ValueError):
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
             browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None, build_fixture=False, live_build=False, live_plan=False):
     """Explicit live entry point; never invoked by offline reporting."""
-    if live_plan and (not clone_app or browser_case is None or build_fixture or live_build
+    if live_plan and ((not clone_app and cohort_app is None) or browser_case is None or build_fixture or live_build
                       or context_only or writer_transport or detailed_trace):
-        raise ValueError("Live Plan browser capture requires its own App clone and selected case in response mode")
+        raise ValueError("Live Plan browser capture requires an owned App clone and selected case in response mode")
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
     if any("lore_confirmation" in case for case in manifest["cases"]) and (
             manifest.get("conversation_mode") != "build_sequence" or browser_case is not None

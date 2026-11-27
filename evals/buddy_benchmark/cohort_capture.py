@@ -80,8 +80,19 @@ def _endpoint(dsn, expected):
         raise ValueError("Cohort database identity differs from its pin")
 
 
+_BROWSER_OWNER_BOUNDARIES = {"ingest_name_review", "play_choice", "image_preview"}
+_RESPONSE_DRIVERS = {
+    "request": {},
+    "build_fixture": {"build_fixture": True},
+    "live_build": {"build_fixture": True, "live_build": True},
+    "live_plan": {"live_plan": True},
+    "browser_control": {},
+}
+
+
 def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
-                    browser_case=None, detailed_trace=False, shared_app=None, context_only=True):
+                    browser_case=None, detailed_trace=False, shared_app=None, context_only=True,
+                    driver="request"):
     from .workflow import capture, load_manifest
 
     scratch = output.parent / "scratch" / output.name
@@ -93,9 +104,14 @@ def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
     os.environ[APP_DSN] = app_dsn
     member, _ = load_manifest(manifest, expected_sha256=manifest_sha256)
     ingest_review = "ingest_name_review" in member.get("browser_capture", {})
+    if driver in {"build_fixture", "browser_control"}:
+        # Each cohort member runs in a fresh worker. A provider-free member
+        # cannot inherit the credentials needed by a later ordinary member.
+        for name in ("TYPESAFE_JEV_API_KEY", "OPENAI_API_KEY"):
+            os.environ.pop(name, None)
     capture(manifest, output, context_only=context_only and not ingest_review, cohort_manifest_sha256=manifest_sha256,
-            browser_case=browser_case, writer_transport=browser_case is not None and not ingest_review,
-            detailed_trace=detailed_trace, cohort_app=shared_app)
+            browser_case=browser_case, writer_transport=context_only and browser_case is not None and not ingest_review,
+            detailed_trace=detailed_trace, cohort_app=shared_app, **_RESPONSE_DRIVERS[driver])
 
 
 def protected_work_revisions(dsn, object_ids):
@@ -116,7 +132,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
     from .disposable_database import disposable_benchmark_database
 
     if not context_only and (browser or not clone_app):
-        raise ValueError("Response cohorts require an owned App clone and the ordinary request driver")
+        raise ValueError("Response cohorts require an owned App clone and per-member drivers")
     if detailed_trace and not browser:
         raise ValueError("Detailed cohort tracing requires browser mode")
     if not 1 <= workers <= 8:
@@ -170,7 +186,15 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
             raise ValueError("Cohort requires separate App databases for each member")
         app_identities.add(identity)
         ids = {case["id"] for case in member["cases"]}
-        if browser and (len(member["cases"]) != 1 or not isinstance(member.get("browser_capture"), dict)):
+        driver = entry.get("driver", "request")
+        if not isinstance(driver, str) or driver not in _RESPONSE_DRIVERS or (context_only and driver != "request"):
+            raise ValueError("Invalid response cohort member driver")
+        mounted_response = driver != "request"
+        spec = member.get("browser_capture")
+        if mounted_response and driver == "browser_control" and (
+                not isinstance(spec, dict) or not ({"ingest_name_review", "play_choice"} & spec.keys())):
+            raise ValueError("Browser controls require a pinned Ingest name review or Play Choice")
+        if (browser or mounted_response) and (len(member["cases"]) != 1 or not isinstance(spec, dict)):
             raise ValueError("Each browser cohort member requires one case and its pinned browser capture")
         if cases & ids:
             raise ValueError("Repeated case identity in cohort")
@@ -178,7 +202,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
         app_dsn = app_url._replace(path="/" + quote(app["database"], safe="")).geturl()
         if not clone_app:
             _endpoint(app_dsn, app)
-        jobs.append(((member_path, output / "members" / min(ids), app_dsn, entry["sha256"]), ids))
+        jobs.append(((member_path, output / "members" / min(ids), app_dsn, entry["sha256"]), ids, driver))
 
     _endpoint(core_dsn, native)
     require_read_only_core(core_dsn)
@@ -201,8 +225,8 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
 
                 with patch.dict(os.environ, {APP_DSN: shared_dsn}):
                     upgrade_to_head()
-                jobs = [((manifest, member, shared_dsn, digest), ids)
-                        for (manifest, member, _, digest), ids in jobs]
+                jobs = [((manifest, member, shared_dsn, digest), ids, driver)
+                        for (manifest, member, _, digest), ids, driver in jobs]
             if not context_only:
                 fixture_before = protected_work_revisions(shared_dsn, protected_objects)
                 if fixture_before.keys() != set(protected_objects):
@@ -212,9 +236,10 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                 (job[1], ids, executor.submit(_capture_member, *job, context_only=context_only, **(
                     {"shared_app": shared_app} if shared_app is not None else {}
                 ), **(
-                    {"browser_case": next(iter(ids)), "detailed_trace": detailed_trace} if browser else {}
-                )))
-                for job, ids in jobs
+                    {"browser_case": next(iter(ids)), "detailed_trace": detailed_trace}
+                    if browser or driver != "request" else {}
+                ), **({"driver": driver} if driver != "request" else {})))
+                for job, ids, driver in jobs
             )
             futures = list(submissions) if context_only else submissions
             outcomes = {}
@@ -230,13 +255,13 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                     if context_only:
                         statuses = {
                             row["case_id"]: (
-                                row["delivery"]["status"] if row.get("capture_boundary") == "ingest_name_review"
+                                row["delivery"]["status"] if row.get("capture_boundary") in _BROWSER_OWNER_BOUNDARIES
                                 else row.get("context", {}).get("status", "missing")
                             ) for row in rows
                         }
                     else:
                         statuses = {row["case_id"]: row["delivery"]["status"]
-                                    if row["capture_status"] == "complete" else row["capture_status"]
+                                    if row.get("capture_status") == "complete" or row.get("capture_boundary") in _BROWSER_OWNER_BOUNDARIES else row["capture_status"]
                                     for row in rows}
                 except (OSError, ValueError, KeyError, TypeError, AttributeError):
                     outcomes[member.name] = {"status": "failed", "error_type": "InvalidMemberReport"}
@@ -246,7 +271,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                 observed_statuses = {"captured"} if context_only else {"pass", "fail"}
                 captured = len(rows) == len(statuses) and statuses.keys() == ids and all(
                     statuses[row["case_id"]] in (
-                        {"pass", "fail"} if row.get("capture_boundary") == "ingest_name_review" else observed_statuses
+                        {"pass", "fail"} if row.get("capture_boundary") in _BROWSER_OWNER_BOUNDARIES else observed_statuses
                     ) for row in rows)
 
                 if (not context_only and isinstance(error, BuildSequenceStopped)
@@ -266,7 +291,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                         break
                     if not captured:
                         break
-            for job, _ in jobs:
+            for job, _, _ in jobs:
                 outcomes.setdefault(job[1].name, {"status": "not_started"})
             immutable_save(output, "members", outcomes)
     finally:
