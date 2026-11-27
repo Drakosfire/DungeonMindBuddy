@@ -983,3 +983,36 @@ def test_selected_source_pending_rejects_non_source_or_unbound_selections(mutati
         'native_query_sha256':t.canonical_sha256(query.model_dump(mode='json',by_alias=True))})
     with pytest.raises(ValueError,match='source-only request|deferred query authority'):
         validate_context_binding(context,execution(context.context_receipt_sha256,policy,[]))
+
+
+def test_selected_source_read_rechecks_current_access_and_original_identity(source_lane):
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context, read_authored_source
+    from tests.test_native_corpus_source_access import BODY, GM, admit, capture
+
+    admit(source_lane,body=BODY)
+    source=capture(source_lane).members[0]
+    current={'binding':source_lane.bound}
+    prepared=prepare_native_source_context(managed_world_id='managed',principal=GM,repository=source_lane.repo,
+        resolve_identity=lambda _:current['binding'])
+    a=prepared.authority
+    ref=AuthoredSourceReferenceV1(managed_world_id=a.managed_world_id,native_world_id=a.native_world_id,
+        binding_version=a.binding_version,knowledge_revision=a.revision_id,
+        source_artifact_id=source.artifact.source_artifact_id,source_revision_id=source.revision.source_revision_id,
+        evidence_ref_id=source.evidence_ref_id,content_sha256=source.revision.content_sha256,
+        selection_kind='full_document',label='Selected source')
+    _, excerpt=read_authored_source(prepared,ref)
+    assert excerpt.text==BODY
+    for bad in (ref.model_copy(update={'source_revision_id':'other'}),
+                ref.model_copy(update={'content_sha256':'f'*64}),
+                ref.model_copy(update={'binding_version':ref.binding_version+1})):
+        with pytest.raises(ValueError):
+            read_authored_source(prepared,bad)
+    with pytest.raises(ValueError,match='GM authority'):
+        read_authored_source(replace(prepared,principal=SimpleNamespace(role='player')),ref)
+    current['binding']=SimpleNamespace(managed_world_id='managed',native_world_id=a.native_world_id,
+        binding_version=a.binding_version+1,provisioning_id=source_lane.bound.provisioning_id)
+    with pytest.raises(ValueError):
+        read_authored_source(prepared,ref)
