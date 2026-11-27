@@ -49,6 +49,22 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch):
     )
 
 
+@pytest.mark.parametrize("source_scope", ["anchored", "source_lookup"])
+def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, monkeypatch, source_scope):
+    from evals.negative_retrieval.related_page_probe import observe_related_page_owners
+
+    with observe_related_page_owners() as observations:
+        _fresh_case(
+            lane, tmp_path, monkeypatch, None, True, False, True,
+            message="Add a copper lamp here for review.",
+            requested_work="write_current_page",
+            source_need=source_scope,
+            read_optional_page=True,
+        )
+    opened = any(row["owner"] == "related_page_materialization" for row in observations)
+    assert opened == (source_scope == "source_lookup")
+
+
 def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_path, monkeypatch):
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 

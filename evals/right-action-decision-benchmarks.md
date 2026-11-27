@@ -109,6 +109,9 @@ contradictory votes in the retained evidence.
 | PAGE-EDIT-2, external lookup variant | Read the explicitly requested different source, preserve the intended edit, and reopen the exact supporting passage. |
 | [Different saved source control](negative_retrieval/fixtures/development.json) | `dev-different-saved-source` must acquire the required source and reopen its citation even when other material is already supplied. |
 
+The optional page-open guard covers the post-decision Build edit boundary.
+The PAGE-EDIT-2 hard gate still counts catalog discovery and Graph preparation.
+
 **Hard pass condition for every anchored turn: zero new evidence reads.**
 Count acquisition attempts from Send onward, including work dispatched before
 the intent vote, speculative reads, cancelled reads, and failures. Required

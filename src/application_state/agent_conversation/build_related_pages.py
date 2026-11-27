@@ -116,6 +116,17 @@ def is_anchored_conversation_draft(execution, selection):
             and any(isinstance(event, BuildDraftContextCapturedV1) for event in execution.events))
 
 
+def is_anchored_current_page_edit(selection):
+    from .types import BuildRequestedWorkResolutionV1
+
+    return (
+        isinstance(selection, BuildRequestedWorkResolutionV1)
+        and selection.requested_work == "write_current_page"
+        and selection.operation == "propose_build_insertion"
+        and selection.resolution.get("source_scope") == "anchored"
+    )
+
+
 def project(execution):
     if catalog(execution.policy) is None:
         return None
@@ -132,6 +143,12 @@ def project(execution):
             "pages": [{"read_id": str(e.read_id), "page": e.page.model_dump(mode="json"),
                 "markdown": e.markdown} for e in records(execution)]}
     choices = [e for e in execution.events if isinstance(e, RelatedPagesSelection)]
+    # Older turns may already own a completed optional-page wave. Preserve
+    # that evidence when reconstructing their original writer context.
+    if not choices and any(is_anchored_current_page_edit(event) for event in execution.events):
+        if records(execution):
+            raise ValueError("Anchored edit has related reads without a selection")
+        return None
     from .build_intentional_response import is_anchored_discussion
     if any(is_anchored_discussion(event) for event in execution.events):
         if choices or records(execution):
