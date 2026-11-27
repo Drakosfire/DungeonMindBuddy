@@ -308,8 +308,11 @@ class BuildJevHarness:
             acquire_authored_references(adapter)
             from .build_related_pages import acquire_selected_pages
             from application_state.agent_conversation.build_intentional_response import is_anchored_discussion, is_variant_approval
-            from application_state.agent_conversation.build_related_pages import is_anchored_conversation_draft
+            from application_state.agent_conversation.build_related_pages import (
+                is_anchored_conversation_draft, is_anchored_current_page_edit,
+            )
             if not (is_anchored_discussion(driver.selection) or is_variant_approval(driver.selection)
+                    or is_anchored_current_page_edit(driver.selection)
                     or is_anchored_conversation_draft(adapter._broker_execution(), driver.selection)):
                 acquire_selected_pages(adapter)
             capture_draft_context(adapter)
