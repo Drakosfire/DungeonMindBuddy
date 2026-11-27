@@ -242,11 +242,13 @@ class SourceChoices(httpx2.AsyncBaseTransport):
         self.calls.append(body)
         assert b'source_discovery_mode' not in request.content
         assert b'controller_selection_v1' not in request.content
-        assert len(self.calls) <= (5 if self.writer_passages else 4), body['state']
+        graph_decisions = sum('graph_need' in call['questions'] for call in self.calls)
+        assert len(self.calls) <= (5 if self.writer_passages else 4) + graph_decisions, body['state']
         answers = {}
         selected_kinds = []
         for name, entry in body['questions'].items():
-            choice = ('discuss' if name == 'requested_work' else
+            choice = ('no_graph' if name == 'graph_need' else
+                      'discuss' if name == 'requested_work' else
                       'finish_retrieval' if name == 'operation' else
                       'review_after_reads' if name == 'post_read_plan' else 'exclude')
             if name.startswith('candidate_'):
@@ -617,6 +619,10 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         return prepare_query(a.world_id, _args[0].message, native_principal,
             source_context=native_source_context, repository=lane.repo, resolve_binding=lambda _:lane.bound)
     monkeypatch.setattr(agent, "_plan_context_resolver", published_graph)
+    from apps.live_control_server.services import native_graph_reads
+    monkeypatch.setattr(native_graph_reads, 'resolve_managed_world_binding', lambda _: lane.bound)
+    if not graph_available:
+        monkeypatch.setattr(native_graph_reads, 'pending_plan_query', lambda *_args: None)
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
         lambda *_: pytest.fail('Classic fallback in source-only Plan'))
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: lane.bound)
@@ -692,9 +698,10 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     data = response.json()
     assert data['plan_context']['schema'] == 'dmb_agent_surface_native_context_response_v1'
     receipt = data['plan_context']['receipt']
-    assert receipt['work_context']['surface_id'] == 'plan' and graph_calls == [True]
+    assert receipt['work_context']['surface_id'] == 'plan' and graph_calls == ([] if graph_available else [True])
     assert 'graph_capability' not in receipt
     if graph_available:
+        assert receipt['native_query']['schema'] == 'dmb_native_plan_graph_query_pending_v1'
         assert receipt['native_query']['authority']['revision_id'] == receipt['source_authority']['revision_id']
         assert receipt['native_query']['question'] == request.message
     else:
@@ -840,7 +847,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
     assert replay.json()['plan_context']['delivery_replay']
     assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
-    assert graph_calls == [True]  # Original completion reopens without reacquiring current Graph authority.
+    assert graph_calls == ([] if graph_available else [True])  # Replay does not reacquire Graph.
     history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
     assert history.json()['turns'][0]['plan_context']['completion'] == data['plan_context']['completion']

@@ -1,5 +1,7 @@
 """One request-owned Plan Graph-need decision through the actual SDK gate."""
 from hashlib import sha256
+from time import perf_counter
+import logging
 from uuid import UUID, uuid4
 
 from application_state.agent_conversation import types as t
@@ -67,9 +69,14 @@ class PlanGraphNeedDispatch:
             'response_received': 'response_received', 'outcome_unknown': 'outcome_unknown'}.get(event.outcome)
         if transition is None:
             return False
-        return self.adapter.record_lifecycle({'transition': transition, 'statusCode': event.http_status,
+        acknowledged = self.adapter.record_lifecycle({'transition': transition, 'statusCode': event.http_status,
             'runtimeApiRequestId': f'generationengine:{self.prepared.attempt_id}'},
             **({'opening_authorization': self.authorization} if transition == 'sdk_entered' else {}))
+        if acknowledged and transition == 'sdk_entered':
+            self.call = {'provider': self.authorization.provider, 'requested_model': self.authorization.model,
+                'runtime_api_request_id': f'generationengine:{self.prepared.attempt_id}',
+                'status': 'error', 'usage': {'status': 'unavailable'}}
+        return acknowledged
 
     def acknowledge(self, result):
         from .agent_turn_service import _require_fresh_execution_append
@@ -82,11 +89,24 @@ class PlanGraphNeedDispatch:
         return self.selection
 
     async def run(self, *, transport=None, api_key=None):
-        client = decision_client(authorize=self.authorize, record=self.record, transport=transport, api_key=api_key)
+        trace = getattr(self.adapter, 'trace', None)
+        client = decision_client(authorize=self.authorize, record=self.record, transport=transport, api_key=api_key,
+            on_dispatch=getattr(trace, 'mark_first_jev_dispatch', None))
+        started = perf_counter()
         try:
             result = await client.decide(prepare_decision(self.parent))
+            if self.call is not None:
+                counts = {'input_tokens': result.observation.input_tokens, 'output_tokens': result.observation.output_tokens}
+                usage = {'status': 'reported' if any(v is not None for v in counts.values()) else 'unavailable', **counts}
+                if all(v is not None for v in counts.values()):
+                    usage['total_tokens'] = sum(counts.values())
+                self.call.update(status='ok', response_model=result.observation.response_model, usage=usage)
             return self.acknowledge(result)
         finally:
+            if self.call is not None:
+                self.call['duration_ms'] = (perf_counter() - started) * 1000
+                if self.adapter.context_capture is not None:
+                    self.adapter.context_capture.provider_usage([self.call])
             await client.aclose()
 
 
@@ -113,11 +133,17 @@ def settle_graph_need(adapter, observed, *, prepare_graph):
         action='start', event_id=uuid4()))
     try:
         context, query = prepare_graph()
+        if context is not None and context.query != query:
+            raise ValueError('Graph owner returned a different context and query')
     except Exception:
         # The owner may have entered Core before it failed. Retain uncertainty;
-        # never silently repeat a potentially completed acquisition.
-        adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
-            action='fail', event_id=uuid4(), reason='uncertain_owner_result'))
+        # never silently repeat a potentially completed acquisition. If the
+        # failure append also fails, preserve the original acquisition exception.
+        try:
+            adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
+                action='fail', event_id=uuid4(), reason='uncertain_owner_result'))
+        except Exception:
+            logging.getLogger(__name__).exception('Could not retain uncertain Plan Graph failure')
         raise
     adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
         action='settle', event_id=uuid4(), query=query))

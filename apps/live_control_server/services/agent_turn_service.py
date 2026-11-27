@@ -7411,7 +7411,7 @@ def execute_agent_turn(
         and (durable_turn is None or isinstance(durable_turn.graph_context_receipt,
             (graph_types.PlanSourceContextReceiptV1, graph_types.SurfaceNativeContextReceiptV1))))
     native_corpus_context = native_source_authority = None
-    native_query_context = native_query = prepare_deferred_build_query = None
+    native_query_context = native_query = prepare_deferred_build_query = prepare_deferred_plan_query = None
     from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1
     retained_pending = getattr(getattr(durable_turn, "graph_context_receipt", None), "native_query", None)
     resumes_deferred = isinstance(retained_pending, (NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1))
@@ -7843,8 +7843,20 @@ def execute_agent_turn(
                 code="native_source_access_denied", status_code=403, provider_dispatched=False)
         frozen = durable_turn.graph_context_receipt if durable_turn is not None else None
         source_revision = getattr(frozen.source_authority, "revision_id", None) if frozen is not None else None
+        # A fresh ordinary Plan turn may decide whether Graph is needed before
+        # discovery. Explicit human Graph selections retain their existing path.
+        can_defer_plan = (durable_turn is None and request.retry_of is None
+            and request.surface.surface_id == 'plan'
+            and isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)
+            and request.authored_references is None and request.graph_selection is None
+            and request.selected_knowledge is None and (request.graph_request.mode == 'none'
+                or request.graph_request.focus.kind == 'none'))
+        from application_state.agent_conversation.native_context import NativePlanGraphQueryPendingV1
+        if type(retained_pending) is NativePlanGraphQueryPendingV1:
+            raise AgentTurnServiceError('The retained Plan Graph decision cannot be safely resumed yet.',
+                code='plan_graph_need_recovery_unavailable', status_code=409, provider_dispatched=False)
         selective_plan = None
-        if (os.environ.get("DMB_PLAN_SELECTIVE_QUERY") == "1"
+        if (not can_defer_plan and os.environ.get("DMB_PLAN_SELECTIVE_QUERY") == "1"
                 and request.surface.surface_id == "plan"
                 and isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)
                 and request.authored_references is None
@@ -7916,7 +7928,19 @@ def execute_agent_turn(
                         if fresh.authority != native_source_authority:
                             raise ValueError("Build source authority changed before Graph settlement")
                         return native_graph_query_resolver(request, owner, work, frozen, fresh)
-            if selective_plan is None and prepare_deferred_build_query is None:
+            if can_defer_plan and native_corpus_context is not None:
+                from .native_graph_reads import pending_plan_query
+                with trace.phase('plan_graph_query_pin'):
+                    native_query = pending_plan_query(canonical_world_id, request.message, native_corpus_context)
+                if native_query is not None:
+                    def prepare_deferred_plan_query():
+                        from ..integrations.dungeonmind.native_corpus_source import _refresh_native_context
+                        fresh = _refresh_native_context(native_corpus_context,
+                            authority=native_source_authority, principal=native_principal)
+                        if fresh.authority != native_source_authority:
+                            raise ValueError('Plan source authority changed before Graph settlement')
+                        return native_graph_query_resolver(request, owner, work, frozen, fresh)
+            if selective_plan is None and prepare_deferred_build_query is None and prepare_deferred_plan_query is None:
                 with trace.phase('plan_native_statement_query'):
                     native_query_context, native_query = native_graph_query_resolver(
                         request, owner, work, frozen, native_corpus_context)
@@ -8402,6 +8426,7 @@ def execute_agent_turn(
             adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)
         if isinstance(selected_runtime, PlanJevHarness):
+            adapter.prepare_deferred_plan_query = prepare_deferred_plan_query
             # Jev has no Hermes session memory. Read the canonical conversation
             # once, then share the same reference-only snapshot with every
             # decision and the writer. Client thread IDs never select history.
