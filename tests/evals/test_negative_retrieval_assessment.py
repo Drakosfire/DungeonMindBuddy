@@ -2132,6 +2132,75 @@ def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
             assert result["status"] == "unproven"
 
 
+@pytest.mark.parametrize(('state', 'document', 'bound', 'collision', 'expected'), [
+    ('entered', 'primary', True, False, 1),
+    ('returned', 'primary', True, False, 1),
+    ('raised', 'primary', True, False, 1),
+    ('returned', 'foreign', True, False, 0),
+    ('returned', None, True, False, 0),
+    ('returned', 'primary', False, False, None),
+    ('returned', 'primary', True, True, 1),
+])
+def test_report_primary_id_match_is_diagnostic_without_crediting_read(
+        tmp_path, monkeypatch, state, document, bound, collision, expected):
+    import hashlib
+    import json
+    from uuid import NAMESPACE_URL, uuid5
+    from evals.negative_retrieval import report, fixture_binding, fixture_sources
+
+    def envelope(body):
+        raw = json.dumps(body).encode()
+        return {'http_status': 200, 'body': body, 'raw_body_hex': raw.hex(),
+                'raw_body_sha256': hashlib.sha256(raw).hexdigest()}
+
+    request = {'turn_id': 'turn', 'client_thread_id': 'thread', 'message': 'Use the current page.',
+        'owner_scope': {'world_id': 'world'}, 'surface': {'surface_id': 'build', 'instance_id': 'primary'},
+        'primary_work': {'object_id': 'primary'}}
+    turn = {'turn_id': 'saved', 'idempotency_key': str(uuid5(NAMESPACE_URL, 'dmb-agent-turn:world:turn')),
+        'user_text': request['message'], 'lifecycle_status': 'completed', 'provenance': {
+            'world_id': 'world', 'surface_id': 'build', 'surface_instance_id': 'primary'},
+        'knowledge_context': {'completion': question_completion('Where?')}}
+    history = {'world_id': 'world', 'conversation_id': 'conversation', 'turns': [turn]}
+    trace = {'world_id': 'world', 'turn_id': 'saved', 'attempts': [{'schema': 'dmb_turn_context_trace_v1',
+        'world_id': 'world', 'conversation_id': 'conversation', 'turn_id': 'saved',
+        'terminal_status': 'completed', 'capture_status': 'complete', 'observations': []}]}
+    row = {'owner': 'related_page_materialization', 'state': state}
+    if document is not None:
+        row['document_id'] = document
+    inventory = [{'document_id': 'other', 'label': 'current-page'}] if collision else []
+    artifacts = {'request': request, 'history-before': envelope(history), 'history-after': envelope(history),
+        'context-trace': envelope(trace), 'answer-http': envelope({'turn_id': 'turn', 'client_thread_id': 'thread',
+            'knowledge_context': turn['knowledge_context']}), 'fixture-sources': {'before': inventory}, 'fixture-pin': {},
+        'related-page-probe': {'schema': 'dmb_negative_retrieval_related_page_probe_v1', 'coverage': 'partial',
+            'case_id': 'case1', 'status': 'observed', 'window': 'turn_post_v1', 'records': [row]},
+        'native-graph-probe': {'schema': 'dmb_negative_retrieval_native_graph_probe_v1', 'coverage': 'partial',
+            'case_id': 'case1', 'status': 'observed', 'window': 'turn_post_v1', 'records': []}}
+    for name, value in artifacts.items():
+        (tmp_path / f'{name}.json').write_text(json.dumps(value))
+    monkeypatch.setattr(report, 'verify_fixture_pin', lambda *a: True)
+    monkeypatch.setattr(fixture_sources, 'verify_related_record', lambda *a: True)
+    monkeypatch.setattr(fixture_sources, 'related_trace_labels', lambda *a: {})
+    def verify(*args):
+        if not bound:
+            raise ValueError('fixture differs')
+        return True
+    monkeypatch.setattr(fixture_binding, 'verify_fixture', verify)
+    actual_assess, observations = report.assess, []
+    def record_assessment(rubric, observation):
+        observations.append(observation)
+        return actual_assess(rubric, observation)
+    monkeypatch.setattr(report, 'assess', record_assessment)
+    rubric = {'max_catalog_discoveries': 0, 'required_reads': ['current-page'],
+              'allowed_reads': ['current-page'], 'outcomes': ['clarification']}
+    result = report.report_case(tmp_path, {'id': 'case1', 'request': request['message']}, rubric)
+    observation, = observations
+    assert observation['reads'] == ['<unmapped-acquisition>']
+    assert result['primary_document_id_attempts_diagnostic'] == expected
+    assert 'current-page' not in observation['completed_reads']
+    assert result['checks']['required_evidence'] is None
+    assert result['status'] == 'unproven' and result['capture_environment_verified'] is None
+
+
 def test_assessor_distinguishes_attempts_from_completed_required_reads():
     positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
                 "allowed_reads": ["ledger"], "outcomes": ["answer"]}

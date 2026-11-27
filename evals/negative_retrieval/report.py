@@ -180,6 +180,19 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             label_by_document = {row["document_id"]: row["label"] for row in inventory}
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
+    # Bind the primary page and retained dialogue before reporting any ID match.
+    from .fixture_binding import verify_fixture
+    primary_bound = None
+    for name in ("fresh-history", "history-before"):
+        if name not in rows:
+            continue
+        try:
+            verify_fixture(fixture, rows["request"], rows[name], rows["history-after"])
+            primary_bound = True
+            break
+        except (ValueError, KeyError, TypeError) as exc:
+            binding_error = type(exc).__name__
+    fixture_bound = True if primary_bound and related_bound and pin_bound else None
     observed = observe(rows["request"], rows["history-after"], rows["context-trace"], rows["answer-http"],
                        related_labels=related_labels)
     # Only current POST-window probes can attribute observed activity to this
@@ -190,6 +203,12 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         and partial_probe["status"] == native_probe["status"]
         and native_probe["status"] in {"observed", "dispatch_uncertain"})
     related_turn = native_turn = turn_window
+    primary = rows['request'].get('primary_work')
+    primary_id = primary.get('object_id') if isinstance(primary, dict) else None
+    primary_id_matches = None
+    if fixture_bound is True and related_turn and isinstance(primary_id, str) and primary_id:
+        primary_id_matches = sum(row.get('owner') == 'related_page_materialization'
+            and row.get('document_id') == primary_id for row in probe['records'])
     # A read attempt can demonstrate unnecessary acquisition, but only a
     # returned read or a completed trace observation can establish presence.
     observed["completed_reads"] = [row["label"] for row in observed["observed_acquisitions"]
@@ -222,20 +241,6 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     observed["graph_query_attempts"] = (sum(native_probe["counts"]["native_graph_query"].values())
                                           if native_turn else None)
     observed["graph_query_journal_complete"] = None
-    # Use the history belonging to the request, not a previous active conversation.
-    # A failed/missing binding is unqualified, even if a violation was observed.
-    from .fixture_binding import verify_fixture
-    primary_bound = None
-    for name in ("fresh-history", "history-before"):
-        if name not in rows:
-            continue
-        try:
-            verify_fixture(fixture, rows["request"], rows[name], rows["history-after"])
-            primary_bound = True
-            break
-        except (ValueError, KeyError, TypeError) as exc:
-            binding_error = type(exc).__name__
-    fixture_bound = True if primary_bound and related_bound and pin_bound else None
     # A recognized single-text entry or nonempty batch path proves an attempted read,
     # never a returned body. Require a bound, completed POST; old/unknown
     # implementations and all uncertain windows remain diagnostic only.
@@ -270,6 +275,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "trace_acquisitions": observed["observed_acquisitions"],
             "decision_observations": observed["decision_observations"],
             "native_activity": observed["native_activity"],
+            "primary_document_id_attempts_diagnostic": primary_id_matches,
             "related_page_probe": probe["records"],
             "limits": ["Probe and trace are a partial acquisition journal.",
                        "Capture environment and prior citations are not independently verified here.",
