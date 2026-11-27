@@ -4,26 +4,28 @@ import type {SavedStatblockPdfSources} from '../../api/conversationLibraryApi';
 import {SourceCitationEvidence, type CitationChoice} from './SourceCitationEvidence';
 
 export function SavedStatblockPdfEvidence({sources}: {sources: SavedStatblockPdfSources}) {
-  const choices = sources.support.map((source, index): CitationChoice => ({
+  const stored = sources.support.filter(source => source.evidence_ref_id.startsWith('ev:'));
+  const choices = stored.map((source, index): CitationChoice => ({
     key: source.evidence_ref_id,
     number: index + 1,
-    buttonText: `Open PDF region ${index + 1}`,
-    title: 'Reviewed statblock PDF source',
-    label: 'Open reviewed PDF region',
+    buttonText: `Open stored passage ${index + 1}`,
+    title: 'Reviewed statblock passage',
+    label: 'Open reviewed passage',
     kind: 'passage',
     load: async () => {
       const result = await inspectNativeGraph(sources.scope, {kind: 'source', ...source});
-      if (result.schema !== 'dmb_native_graph_pdf_region_v1'
+      if (result.schema !== 'dmb_native_graph_source_v1'
         || !sameInspectionPin(result.scope, sources.scope)
-        || result.evidence_ref_id !== source.evidence_ref_id
-        || !/^[A-Za-z0-9+/]+={0,2}$/.test(result.png_base64)) {
-        throw new Error('PDF source unavailable');
+        || !('evidence_ref_id' in result.source)
+        || result.source.evidence_ref_id !== source.evidence_ref_id) {
+        throw new Error('Stored passage unavailable');
       }
-      return {title: `PDF evidence · Page ${result.region.page}`, pngBase64: result.png_base64};
+      return {title: 'Reviewed statblock passage', content: result.source.text};
     },
   }));
-  return choices.length > 0 && <details>
-    <summary>Reviewed statblock PDF sources</summary>
+  return sources.support.length > 0 && <details>
+    <summary>Reviewed statblock sources</summary>
+    {stored.length < sources.support.length && <p>Some reviewed passages are unavailable in stored text.</p>}
     <SourceCitationEvidence identity={JSON.stringify(sources)} statements={[{choices}]}/>
   </details>;
 }

@@ -14,6 +14,7 @@ from generationengine.providers.typesafe_decision import TypeSafeDecisionProvide
 from generationengine.decision_dispatch import DecisionDispatchGate
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation import build_intentional_response as semantic
+from application_state.agent_conversation.jev_retrieval_contract import MODEL
 from application_state.agent_conversation.native_writer import model_work_frame
 from application_state.build_proposal.types import BuildWriteCapability
 from tests.test_surface_native_execution import component, execution, controller, build_resolution, BUILD_TURN_ID
@@ -26,6 +27,9 @@ from tests.test_surface_native_writer import published_lane as published_lane
 
 def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0,owner=None,context_record=None,context_note=None):
     context,record=context_record if context_record is not None else component('build',unavailable=True)
+    roles = record.policy.provider_roles
+    roles = roles.model_copy(update={'controller': roles.controller.model_copy(update={'model': MODEL})})
+    record = execution(context.context_receipt_sha256, record.policy.model_copy(update={'provider_roles': roles}), record.events)
     conversation=owner.conversation_id if owner is not None else uuid4()
     if capable:
         basis=context.work_context.source_basis
@@ -93,14 +97,15 @@ def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0
                 scores={option:(probability if option==label else (1-probability)/(len(q['criteria'])-1))
                     for option in q['criteria']}
                 answers[name]=dict(type='choice',choice=label,probabilities=scores,confidence=probability)
-            return httpx2.Response(200,request=request,json=dict(model='jev-1.14.0',answers=answers,
+            assert body['model'] == MODEL
+            return httpx2.Response(200,request=request,json=dict(model=body['model'],answers=answers,
                 usage=dict(input_tokens=25,output_tokens=7)))
     async def run():
         provider=TypeSafeDecisionProvider(api_key='synthetic-only',transport=Wire(),
             dispatch_gate=DecisionDispatchGate(authorize,lifecycle))
         client=GenerationClient(decision_providers={'typesafe':provider})
         try:
-            return await client.decide(DecisionRequest(model='jev-1.14.0',provider='typesafe',
+            return await client.decide(DecisionRequest(model=MODEL,provider='typesafe',
                 state={'decision':dict(request_id=request_id,state=state,**({'phase':'select'} if owner is not None else {})),
                     **({'context_accounting':owner.accounting.descriptor} if owner is not None else {})},questions=tuple(questions)))
         finally:
@@ -518,11 +523,12 @@ def test_actual_build_native_retrieval_uses_precommitted_sdk_selection_before_co
                         option: float(option == value) for option in q["criteria"]
                     },
                 )
+            assert body["model"] == MODEL
             return httpx2.Response(
                 200,
                 request=request,
                 json=dict(
-                    model="jev-1.14.0",
+                    model=body["model"],
                     answers=answers,
                     usage=dict(input_tokens=35, output_tokens=6),
                 ),

@@ -123,7 +123,7 @@ describe('opt-in turn trace read', () => {
     const load = vi.fn().mockResolvedValue(response([failed, completed]))
     render(<BuddyContextTraceLoader {...props} enabled replyDetails load={load} />)
     const earlier = await screen.findByText('Earlier trace attempts')
-    const [latest] = await screen.findAllByRole('region', { name: 'How Buddy built this reply' })
+    const [latest] = await screen.findAllByRole('region', { name: 'Buddy context trace' })
     expect(latest!.compareDocumentPosition(earlier) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const latestTrace = latest!.closest<HTMLElement>('section.buddy-context-trace')!
     const earlierAttempts = earlier.closest('details')!
