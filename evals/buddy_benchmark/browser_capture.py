@@ -222,6 +222,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     recovery_disconnected = Event()
     recovery_receipt = None
     recovery_execution = None
+    recovery_accepted_ns = None
+    recovery_disconnect_ns = None
     play_choice = manifest["browser_capture"].get("play_choice")
     ingest_review = manifest["browser_capture"].get("ingest_name_review")
     rejected_ingest_writes = []
@@ -499,12 +501,13 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             disconnect_ns = None
 
             async def deliver_body():
-                nonlocal body, disconnect_ns
+                nonlocal body, disconnect_ns, recovery_disconnect_ns
                 if body is None:
                     frame = await receive()
                     if frame["type"] == "http.disconnect":
                         disconnect_ns = monotonic_ns()
                         if recover_step:
+                            recovery_disconnect_ns = disconnect_ns
                             recovery_disconnected.set()
                     return frame
                 raw, body = body, None
@@ -577,7 +580,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             from asyncio import to_thread
             from application_state.agent_conversation import work_plan
 
-            nonlocal recovery_execution
+            nonlocal recovery_execution, recovery_accepted_ns
             if recovery_receipt is None or recovery_execution is not None:
                 raise ValueError("Work Plan recovery requires a single bound transport")
             owner = work_plan.read(world, UUID(reviewed_plan["conversation_id"]),
@@ -585,8 +588,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             execution = observed_work_plan_execution(owner, recovery_receipt)
             if execution is None:
                 raise ValueError("Work Plan recovery transport reached before durable acceptance")
+            recovery_accepted_ns = monotonic_ns()
             artifacts.immutable_save(directory, "work-plan-accepted-before-disconnect", {
-                "receipt": recovery_receipt, "execution": execution,
+                "receipt": recovery_receipt, "execution": execution, "accepted_ns": recovery_accepted_ns,
             })
             recovery_execution = execution
             if not await to_thread(recovery_disconnected.wait, 30):
@@ -927,18 +931,18 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             current = result.get("plan", {})
                             checks = {
                                 "accepted_before_disconnect": (
-                                    recovery_execution is not None and recovery_disconnected.is_set()),
+                                    recovery_accepted_ns is not None and recovery_disconnect_ns is not None
+                                    and recovery_accepted_ns < recovery_disconnect_ns),
                                 "same_receipt_reopened": receipt_present,
                                 "same_turn": bool(recovery_execution and len(turns) == 1
                                     and turns[0]["turn_id"] == recovery_execution["turn_id"]),
+                                "same_turn_interrupted": bool(len(turns) == 1
+                                    and turns[0]["lifecycle_status"] == "interrupted"),
                                 "no_second_send": bool(mounted and mounted["turn_posts"] == turn_posts == 1),
                                 "deferred_steps_unchanged": (current.get("steps") == before["steps"]
                                     and current.get("dispatches") == before["dispatches"]),
                             }
-                            artifacts.immutable_save(directory, "work-plan-disconnect", {
-                                "status": "observed" if not driver_failed and all(checks.values()) else "incomplete",
-                                "checks": checks, "provider_calls": 0,
-                            })
+                            recovery_checks = checks
                     if live:
                         if confirm_save:
                             timing_path = output / "browser-timing.json"
@@ -997,6 +1001,14 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             readback = build_proposal_readback(browser_request, world, turns[0])
                             if readback is not None:
                                 artifacts.immutable_save(directory, "build-proposal-readback", readback)
+                    if recover_step:
+                        recovery_checks["page_unchanged"] = page_before["body"] == page_after["body"]
+                        artifacts.immutable_save(directory, "work-plan-disconnect", {
+                            "status": "observed" if not driver_failed and all(recovery_checks.values()) else "incomplete",
+                            "checks": recovery_checks, "provider_calls": 0,
+                            "accepted_ns": recovery_accepted_ns, "disconnected_ns": recovery_disconnect_ns,
+                        })
+                        return
                     if live:
                         wire_path = directory / (wire_name + ".json")
                         if not wire_path.is_file():
