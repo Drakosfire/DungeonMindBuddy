@@ -626,7 +626,7 @@ def validate_pending_retained_admission(execution, event):
     work = pending_retained_work(execution.model_copy(update={'events': prefix}))
     if (work is None or work.event_id != event.work_event_id
             or event.world_id != execution.policy.action.intent.world_id
-            or event.presentation_policy not in {'retained_conversation_semantic_v3', 'retained_conversation_semantic_v4'}
+            or event.presentation_policy not in {'retained_conversation_semantic_v3', 'retained_conversation_semantic_v4', 'retained_conversation_semantic_v5'}
             or any(isinstance(prior, t.BuildPriorBodyEvidenceAdmittedV1)
                 or type(prior) in (NativeBuildSourceSettledV1, BuildAppPageCatalogObservedV1,
                     t.RelatedPagesSelection, t.RelatedPageRead) for prior in prefix)):
