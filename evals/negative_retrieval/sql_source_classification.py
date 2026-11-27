@@ -30,14 +30,15 @@ def classify_sql_window(value, case_id):
     if value is None:
         return None
     value = validate_sql_window(value, case_id)
-    if (value["schema"] != "dmb_negative_retrieval_sql_window_v2"
+    if (value["schema"] not in {"dmb_negative_retrieval_sql_window_v2", "dmb_negative_retrieval_sql_window_v3"}
             or value["runtime"] != _KNOWN_RUNTIME
             or value["status"] not in {"observed", "uncertain"}):
         return None
     counts = {"page_inventory_attempts": 0, "saved_revision_body_attempts": 0,
               "working_copy_body_attempts": 0}
     for row in value["calls"]:
-        if row["scope"] != "app" or row["api"] != "execute":
+        if (row["scope"] != "app" or row["api"] != "execute"
+                or (value["schema"] == "dmb_negative_retrieval_sql_window_v3" and row["turn"] != "scoped")):
             continue
         source, code, line = row["source_sha256"], row["code_sha256"], row["line"]
         if source in _PAGES and code == _PAGE_INVENTORY and line == 512:
@@ -51,3 +52,12 @@ def classify_sql_window(value, case_id):
             "coverage": "partial", "window_status": value["status"], "observed_attempts": counts,
             "unclassified_started": value["started"] - sum(counts.values()),
             "dropped_starts": value["dropped_starts"], "resumed_unknown": value["resumed_unknown"]}
+
+
+def known_scoped_inventory_attempt(value, case_id):
+    """Prove at least one attempt, never absence or a complete journal."""
+    if value is None or value.get("schema") != "dmb_negative_retrieval_sql_window_v3":
+        return False
+    classification = classify_sql_window(value, case_id)
+    return bool(classification and classification["window_status"] == "observed"
+                and classification["observed_attempts"]["page_inventory_attempts"] > 0)
