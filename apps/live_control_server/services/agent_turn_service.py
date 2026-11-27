@@ -7410,8 +7410,20 @@ def execute_agent_turn(
                     recovered = recover_prepared_image(conversation_service, durable_turn,
                         request.build_write_capability.idempotency_key, operator_subject)
                     if recovered is None:
-                        recovered = recover_prepared_proposal(conversation_service, durable_turn,
-                            request.build_write_capability.idempotency_key)
+                        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+
+                        pending_access = None
+                        if type(durable_turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+                            if not _pending_build_startup_eligible(
+                                request, principal=native_principal, durable_turn=durable_turn,
+                                authorize_world=authorize_build_world,
+                            ):
+                                raise ApplicationStateConflictError('Pending proposal recovery lost its World owner')
+                            pending_access = _pending_build_app_access(canonical_world_id, authorize_build_world)
+                        recovered = recover_prepared_proposal(
+                            conversation_service, durable_turn, request.build_write_capability.idempotency_key,
+                            authorize_current_access=pending_access,
+                        )
                 except ApplicationStateError as exc:
                     raise AgentTurnServiceError(
                         'The retained Build object could not be verified. No request was replayed.',

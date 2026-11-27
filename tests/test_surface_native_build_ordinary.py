@@ -32,8 +32,8 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-@pytest.mark.parametrize('pending', [False, True])
-def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, pending):
+@pytest.mark.parametrize('mode', ['legacy', 'pending', 'recover'])
+def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, mode):
     table = (
         "| NPC | Job | Detail |\n| --- | --- | --- |\n"
         "| Nia | Baker | Carries a copper bell |\n"
@@ -43,7 +43,7 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, p
         "| Mara | Courier | Knows the flood routes |\n"
         "| Sela | Gardener | Grows striped mint |"
     )
-    if pending:
+    if mode != 'legacy':
         from application_state.build_proposal.service import BuildProposalService
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         from apps.live_control_server.services import build_related_pages, plan_source_turn
@@ -58,7 +58,24 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, p
 
         def send(client, world, body):
             body['build_authored_references'] = None
-            return client.post('/api/live/agent/turn', json=body)
+            if mode != 'recover':
+                return client.post('/api/live/agent/turn', json=body)
+
+            def stop_before_terminal(*args, **kwargs):
+                raise RuntimeError('synthetic interruption after proposal persistence')
+
+            with monkeypatch.context() as interrupted:
+                interrupted.setattr(AgentConversationService, 'complete_pending_native_base_turn', stop_before_terminal)
+                first = client.post('/api/live/agent/turn', json=body)
+            assert first.status_code == 503, first.text
+            key = UUID(body['build_write_capability']['idempotency_key'])
+            stored = BuildProposalService().get(world, key)
+            assert stored.state == 'proposed'
+            recovered = client.post('/api/live/agent/turn', json=body)
+            assert recovered.status_code == 200, recovered.text
+            assert recovered.json()['knowledge_context']['delivery_replay'] is True
+            assert BuildProposalService().get(world, key) == stored
+            return recovered
 
         case = _fresh_case(
             lane, tmp_path, monkeypatch, None, True, False, True,
@@ -69,6 +86,7 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, p
         assert case.response.status_code == 200, case.response.text
         assert case.turn.graph_context_receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
         assert case.turn.status == 'completed'
+        assert len(case.writer.calls) == 1
         proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
         assert proposed.state == 'proposed' and proposed.proposal.replacement_markdown == table
         return

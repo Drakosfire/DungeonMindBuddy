@@ -4764,9 +4764,9 @@ class AgentConversationService:
                 raise ApplicationStateIntegrityError('Completed Plan writing has no paired Plan proposal')
             return validate_stored_authoring_result(action, turn)
 
-    def recover_prepared_build_turn(self, result: TurnResult) -> Turn:
+    def recover_prepared_build_turn(self, result: TurnResult, *, authorize_current_access=None) -> Turn:
         """Recover an immutable acknowledged proposal, never a provider claim."""
-        return self._complete_turn(result, prepared_recovery=True)
+        return self._complete_turn(result, prepared_recovery=True, pending_current_access=authorize_current_access)
 
     def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool,
                        native_output_proof=None, expected_rules_revision=None, authoring_proposal=None, native_work_proof=None,
@@ -4782,7 +4782,8 @@ class AgentConversationService:
             pending_pointer = None
             if pending_current_access is not None:
                 from .build_pending_app_coverage import pending_writer_access_pages
-                if not callable(pending_current_access) or prepared_recovery:
+                if (not callable(pending_current_access)
+                        or prepared_recovery and type(result.completion) is not BuildAuthoringCompletionV1):
                     raise ApplicationStateValidationError('Pending completion cannot borrow another lifecycle owner')
                 pending_pointer = repo.lock_world_state(conn, world_id)
                 pending_conversation = repo.lock_conversation(conn, world_id, result.conversation_id)
@@ -4898,7 +4899,8 @@ class AgentConversationService:
                 prepared_recovery=prepared_recovery, native_output_verified=native_output_verified)
             if pending_current_access is not None and pending_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
                 raise ApplicationStateConflictError('Current App access changed during pending output verification')
-            if pending_current_access is not None and turn.claim_expires_at <= repo.database_clock(conn):
+            if (pending_current_access is not None and not prepared_recovery
+                    and turn.claim_expires_at <= repo.database_clock(conn)):
                 raise ApplicationStateConflictError('Pending claim expired during final output verification')
             from .rules_authority_store import close_unused_locked
             # A recovered object does not reopen or erase the failed unused capability.

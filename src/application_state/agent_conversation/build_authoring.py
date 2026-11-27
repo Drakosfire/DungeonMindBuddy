@@ -308,7 +308,7 @@ def validate_prepared_native_authoring(conn,turn,result,*,trace):
     return current.execution.state
 
 
-def recover_prepared_proposal(service, turn, action_id):
+def recover_prepared_proposal(service, turn, action_id, *, authorize_current_access=None):
     """Finish only an already persisted, acknowledged proposal; never dispatch."""
     from application_state.build_proposal.service import BuildProposalService
     from application_state.errors import ApplicationStateNotFoundError
@@ -341,7 +341,8 @@ def recover_prepared_proposal(service, turn, action_id):
             completion=completion,
             producing_provider_attempt_id=record.authorization.provider_attempt_id,
             claim_graph_event_ids={},
-        )
+        ),
+        authorize_current_access=authorize_current_access,
     )
 
 
