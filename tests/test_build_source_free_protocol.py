@@ -1684,6 +1684,12 @@ def test_pending_adapter_driver_prepares_full_semantic_work_without_core_or_cata
     request = driver.step
     assert len(request.state['interaction']['history']) == 40
     assert {question.name for question in request.questions} == {'requested_work', 'source_need'}
+    from application_state.agent_conversation.build_intentional_response import (
+        FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS, FUTURE_RETAINED_CITATION_SOURCE_NEED_GUIDANCE,
+    )
+    source_question = next(question for question in request.questions if question.name == 'source_need')
+    assert source_question.question == FUTURE_RETAINED_CITATION_SOURCE_NEED_GUIDANCE
+    assert source_question.options == FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS
     wire = json.dumps(request.state)
     assert str(state.pointer.active_conversation_id) not in wire
     assert 'related_page_catalog' not in wire and 'native_world_id' not in wire
