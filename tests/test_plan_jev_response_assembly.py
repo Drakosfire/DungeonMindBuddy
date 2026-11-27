@@ -275,3 +275,68 @@ def test_build_status_guidance_reaches_the_actual_sdk_without_changing_plan_or_p
     assert sent[0]['instructions'] == expected.instructions
     assert 'next-session pickup or resume instruction' in sent[0]['instructions']
     assert sent[0]['input'] == build.messages
+
+
+@pytest.mark.parametrize(('surface', 'requested', 'expected'), [
+    ('build', 'discuss', 'medium'),
+    ('build', 'clarify_request', 'low'),
+    ('plan', 'discuss', 'low'),
+    ('play', 'discuss', 'low'),
+])
+def test_writer_passes_scoped_effort_to_generation_boundary(monkeypatch, surface, requested, expected):
+    """Exercise actual writer assembly and TextRequest without a provider call."""
+    import generationengine
+
+    writer, _ = staged(surface, requested=requested)
+    sent = []
+
+    class StopBeforeProvider(Exception):
+        pass
+
+    class CaptureClient:
+        def __init__(self, **kwargs):
+            pass
+
+        async def generate_structured(self, request):
+            sent.append(request)
+            raise StopBeforeProvider()
+
+        async def aclose(self):
+            pass
+
+    writer.adapter.context_capture = N(observe=lambda event: None, provider_usage=lambda calls: None)
+    monkeypatch.setattr(writer, 'observe', lambda *args, **kwargs: None)
+    monkeypatch.setattr(writer, 'capture_draft', lambda *args, **kwargs: None)
+    monkeypatch.setattr(generationengine, 'GenerationClient', CaptureClient)
+    with pytest.raises(StopBeforeProvider):
+        asyncio.run(writer.run(api_key='synthetic-not-secret'))
+    assert len(sent) == 1
+    assert sent[0].reasoning_effort == expected
+
+
+@pytest.mark.parametrize(('default', 'shared', 'work', 'rules_active', 'authoring', 'expected'), [
+    ('low', True, {'build_work': {'requested_work': {'requested_work': 'discuss',
+        'operation': 'answer_from_sources', 'barrier': None}}}, False, False, 'medium'),
+    ('none', True, {'build_work': {'requested_work': {'requested_work': 'discuss',
+        'operation': 'answer_from_sources', 'barrier': None}}}, False, False, 'none'),
+    ('medium', True, {'build_work': {'requested_work': {'requested_work': 'discuss',
+        'operation': 'answer_from_sources', 'barrier': None}}}, False, False, 'medium'),
+    ('low', False, {'build_work': {'requested_work': {'requested_work': 'discuss',
+        'operation': 'answer_from_sources', 'barrier': None}}}, False, False, 'low'),
+    ('low', True, {'build_work': {'requested_work': {'requested_work': 'discuss',
+        'operation': 'answer_from_sources', 'barrier': None}}}, True, False, 'low'),
+    ('low', True, {'build_work': {'requested_work': {'requested_work': 'discuss',
+        'operation': 'answer_from_sources', 'barrier': None}}}, False, True, 'low'),
+    ('low', True, {'build_work': {'requested_work': {'requested_work': 'discuss',
+        'operation': 'answer_from_sources', 'barrier': 'unavailable'}}}, False, False, 'low'),
+    ('low', True, {'build_work': {'requested_work': {'requested_work': 'discuss',
+        'operation': 'answer_from_sources'}}}, False, False, 'low'),
+    ('low', True, {'build_work': {'requested_work': {'requested_work': 'save_page',
+        'operation': 'answer_from_sources', 'barrier': None}}}, False, False, 'low'),
+    ('low', True, None, False, False, 'low'),
+])
+def test_discussion_effort_preserves_other_work(default, shared, work, rules_active, authoring, expected):
+    from apps.live_control_server.services.plan_jev_writer import _discussion_reasoning_effort
+
+    assert _discussion_reasoning_effort(default, shared=shared, provider_work=work,
+        rules_active=rules_active, authoring=authoring) == expected
