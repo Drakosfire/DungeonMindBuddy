@@ -4962,3 +4962,138 @@ def test_clone_profile_does_not_invent_history_when_baseline_equals_cleaned(tmp_
     monkeypatch.setattr(profile, '_snapshot', lambda _: receipt['baseline'])
     monkeypatch.setattr(profile, '_remove', lambda *_: pytest.fail('must not mutate inactive state'))
     assert profile.recover(path)['state'] == 'inactive'
+
+
+@pytest.mark.parametrize('statement', [
+    b'RESET ROLE', b'SET ROLE postgres', b'SET SESSION AUTHORIZATION postgres',
+    b'SELECT set_config(\'role\',\'postgres\',false)',
+])
+def test_profile_gateway_rejects_role_escape_before_execution(statement):
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    for tag, body in ((b'Q', statement + b'\0'),
+                      (b'P', b's\0' + statement + b'\0' + struct.pack('!H', 0))):
+        policy = FrontendPolicy(fixture_revision=_GATEWAY_FIXTURE)
+        with pytest.raises(ProtocolDenied):
+            policy.frontend(tag, body)
+        assert policy.failed and not policy.events
+
+
+def test_profile_gateway_role_admission_checks_profile_and_effective_role(monkeypatch):
+    from evals.negative_retrieval import clone_role_profile as profile
+    from evals.negative_retrieval.closed_db_gateway import _enter_profile_role
+    from evals.negative_retrieval.gateway_protocol import ProtocolDenied
+    active = {'role': ['123']}; receipt = {'active': active}
+    state = {'snapshot': active, 'role': ('pg_database_owner', 'operator', 'on', '123',
+                                         False, False, False, False, False)}
+    class Result:
+        def fetchone(self): return state['role']
+    class Backend:
+        commands = []
+        def execute(self, command): self.commands.append(command); return Result()
+    backend = Backend()
+    monkeypatch.setattr(profile, '_snapshot', lambda _: state['snapshot'])
+    _enter_profile_role(backend, receipt, 'operator')
+    assert backend.commands[0] == 'SET ROLE pg_database_owner'
+    state['snapshot'] = {'role': ['other']}; backend.commands.clear()
+    with pytest.raises(ProtocolDenied, match='profile changed'):
+        _enter_profile_role(backend, receipt, 'operator')
+    assert backend.commands == []
+    state['snapshot'] = active
+    for bad in [('postgres','operator','on','123',False,False,False,False,False),
+                ('pg_database_owner','other','on','123',False,False,False,False,False),
+                ('pg_database_owner','operator','off','123',False,False,False,False,False),
+                ('pg_database_owner','operator','on','123',False,True,False,False,False),
+                ('pg_database_owner','operator','on','different',False,False,False,False,False)]:
+        state['role'] = bad
+        with pytest.raises(ProtocolDenied, match='restricted role'):
+            _enter_profile_role(backend, receipt, 'operator')
+
+
+def test_profiled_gateway_refuses_changed_profile_before_start(monkeypatch, tmp_path):
+    from evals.negative_retrieval import clone_role_profile as profile
+    from evals.negative_retrieval import closed_db_gateway as gateway
+    identity = {'database': 'owned'}
+    receipt = {'identity': identity, 'revision': str(_GATEWAY_FIXTURE), 'active': {'valid': True}}
+    class Conn:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+    monkeypatch.setattr(profile, '_owner', lambda: ('dsn', identity, tmp_path))
+    monkeypatch.setattr(profile, '_receipt_path', lambda path, run: path)
+    monkeypatch.setattr(profile, '_load', lambda _: (receipt, 'digest'))
+    monkeypatch.setattr(profile, '_connect', lambda *_: Conn())
+    monkeypatch.setattr(profile, '_lock_and_check_idle', lambda _: None)
+    monkeypatch.setattr(profile, '_snapshot', lambda _: {'valid': False})
+    monkeypatch.setattr(gateway, '_ClosedDatabaseGateway', lambda *a, **k: pytest.fail('gateway must not start'))
+    with pytest.raises(ValueError, match='not active'):
+        with gateway.profiled_gateway(tmp_path, tmp_path / 'receipt'):
+            pytest.fail('gateway must not yield')
+
+
+def test_profile_gateway_closes_backend_stalled_during_role_admission(monkeypatch):
+    import socket
+    from threading import Event, Thread
+    from types import SimpleNamespace
+    import psycopg
+    from evals.negative_retrieval import closed_db_gateway as module
+    from evals.negative_retrieval import clone_role_profile as profile
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    app_client, app_server = socket.socketpair()
+    database, peer = socket.socketpair()
+    entered = Event()
+    class Result:
+        def fetchone(self): return ('owned', '1', '2', 'operator', 'operator')
+    class Backend:
+        pgconn = SimpleNamespace(socket=database.fileno(), ssl_in_use=False)
+        info = SimpleNamespace(host='127.0.0.1', hostaddr='127.0.0.1', port=1234, user='operator')
+        def __enter__(self): return self
+        def __exit__(self, *args): database.close()
+        def execute(self, _query): return Result()
+    def stalled(_):
+        entered.set()
+        database.recv(1)
+        raise OSError('synthetic closed backend')
+    monkeypatch.setattr(module, '_startup', lambda *_: None)
+    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'owned')
+    monkeypatch.setattr(profile, '_snapshot', stalled)
+    monkeypatch.setattr(psycopg, 'connect', lambda *a, **k: Backend())
+    identity = {'database': 'owned', 'host': '127.0.0.1', 'port': 1234,
+                'oid': '1', 'system_identifier': '2', 'user': 'operator'}
+    gateway = module._ClosedDatabaseGateway('/tmp', 'owned', identity,
+                                            role_profile={'active': {'role': ['123']}})
+    gateway._sockets.add(app_server)
+    thread = Thread(target=gateway._serve, args=(app_server, FrontendPolicy()))
+    gateway._threads.append(thread); thread.start()
+    try:
+        assert entered.wait(5)
+        gateway._close()
+        assert not thread.is_alive() and gateway._closed
+        assert 'forced_shutdown' in gateway._errors
+    finally:
+        app_client.close(); peer.close()
+
+
+def test_gateway_tracks_idle_deallocation_and_denies_stale_prepared_execution():
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    policy = FrontendPolicy(fixture_revision=_GATEWAY_FIXTURE)
+    policy.frontend(b'P', _gateway_fixture_parse())
+    policy.frontend(b'B', _gateway_fixture_bind(_GATEWAY_FIXTURE.bytes, True))
+    policy.frontend(b'E', b'p\0' + struct.pack('!I', 0))
+    policy.frontend(b'S', b'')
+    policy.backend(b'C', b'SELECT 1\0'); policy.backend(b'Z', b'I')
+    policy.frontend(b'Q', b'DEALLOCATE ALL\0')
+    policy.backend(b'C', b'DEALLOCATE ALL\0'); policy.backend(b'Z', b'I')
+    assert not policy.statements and not policy.portals
+    with pytest.raises(ProtocolDenied):
+        policy.frontend(b'B', _gateway_fixture_bind(_GATEWAY_FIXTURE.bytes, True))
+    assert policy.failed
+
+
+def test_gateway_rejects_prepared_or_in_transaction_deallocation():
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    prepared = FrontendPolicy()
+    with pytest.raises(ProtocolDenied, match='Prepared deallocation'):
+        prepared.frontend(b'P', b's\0DEALLOCATE ALL\0' + struct.pack('!H', 0))
+    active = FrontendPolicy()
+    active.frontend(b'Q', b'BEGIN\0'); active.backend(b'C', b'BEGIN\0'); active.backend(b'Z', b'T')
+    with pytest.raises(ProtocolDenied, match='idle session'):
+        active.frontend(b'Q', b'DEALLOCATE ALL\0')
