@@ -1849,6 +1849,40 @@ class AgentConversationService:
                 raise ApplicationStateConflictError('Graph-need claim expired during result admission')
         return updated, True
 
+    def _complete_plan_graph_need_clarification(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        """Atomically retain the host question and its admitted uncertain decision."""
+        from .native_plan_graph_need import GRAPH_NEED_CLARIFICATION_QUESTION
+        from .native_plan_graph_producer import clarification_terminal
+        from .retry import require_leaf
+
+        world_id = _world_id(world_id)
+        with _execution_append_transaction(lambda _name: nullcontext(),
+                validate_transaction=self._validate_transaction) as conn:
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=False)
+            turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError('turn not found in verified World conversation')
+            require_leaf(conn, turn)
+            if turn.status != 'running' or turn.revision != expected_revision or turn.attempt != expected_attempt:
+                raise ApplicationStateConflictError('Graph clarification is fenced by a stale claim')
+            now = repo.database_clock(conn)
+            if turn.claim_expires_at is None or turn.claim_expires_at <= now:
+                raise ApplicationStateConflictError('Graph clarification claim has expired')
+            try:
+                completion, execution = clarification_terminal(turn.graph_context_receipt,
+                    turn.graph_context_execution, event_id=event_id)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = repo.complete_claimed_turn(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt,
+                assistant_text=GRAPH_NEED_CLARIFICATION_QUESTION, completion=completion,
+                graph_context_execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Graph clarification claim expired before completion')
+        return updated, True
+
     def _transition_plan_graph_need(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, action, event_id, query=None, reason=None):
         """Commit a single pending-Graph transition under the live claim."""

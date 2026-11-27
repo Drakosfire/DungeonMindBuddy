@@ -1382,3 +1382,87 @@ def test_reader_reopens_fixture_only_host_clarification_from_app(source_adapter,
         tampered['completion']['answer_segments'] = segments
         with pytest.raises(ValueError):
             t.Turn.model_validate(tampered)
+
+
+def test_graph_need_producer_derives_only_exact_uncertain_terminal():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_plan_graph_need import GRAPH_NEED_CLARIFICATION_QUESTION
+    from application_state.agent_conversation.native_plan_graph_producer import clarification_terminal
+    from tests.test_surface_native_execution import execution
+
+    context, record, auth, lifecycle, observed = actual_need_execution('uncertain')
+    prefix = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle, observed])
+    completion, retained = clarification_terminal(context, prefix, event_id=uuid4())
+    assert completion.answer_segments[0].text == GRAPH_NEED_CLARIFICATION_QUESTION
+    assert retained.events[-1].observation_event_id == observed.event_id
+    assert len(retained.events) == len(prefix.events) + 1
+    assert prefix.events == [auth, *lifecycle, observed]
+    for choice in ('no_graph', 'require_graph'):
+        other_context, other_record, other_auth, other_lifecycle, other = actual_need_execution(choice)
+        other_prefix = execution(other_context.context_receipt_sha256, other_record.policy,
+                                 [other_auth, *other_lifecycle, other])
+        with pytest.raises(ValueError, match='uncertain decision'):
+            clarification_terminal(other_context, other_prefix, event_id=uuid4())
+    with pytest.raises(ValueError):
+        clarification_terminal(context, retained, event_id=uuid4())
+
+
+def test_uncertain_graph_dispatch_finishes_without_graph_or_writer():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.plan_graph_need_dispatch import settle_graph_need
+    from application_state.agent_conversation.types import Turn
+
+    completed = Turn.model_construct(status='completed')
+    calls = []
+    class Fence:
+        def commit(self, name, **kwargs):
+            calls.append((name, kwargs))
+            return completed, True
+    adapter = SimpleNamespace(fence=Fence(), turn=None)
+    result = settle_graph_need(adapter, SimpleNamespace(choice='uncertain'),
+                               prepare_graph=lambda: pytest.fail('Graph must not be opened'))
+    assert result is completed and adapter.turn is completed
+    assert len(calls) == 1 and calls[0][0] == '_complete_plan_graph_need_clarification'
+    assert set(calls[0][1]) == {'event_id'}
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
+def test_uncertain_graph_decision_completes_and_reopens_under_claim(source_adapter, monkeypatch, application_state_dsn):
+    import asyncio
+    import httpx2
+    from uuid import uuid4
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.agent_conversation.native_plan_graph_need import (
+        GRAPH_NEED_CLARIFICATION_QUESTION, NativePlanGraphClarificationCompletionV1,
+        NativePlanGraphClarificationEventV1,
+    )
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence, project_plan_turn_context
+    from apps.live_control_server.services.plan_graph_need_dispatch import PlanGraphNeedDispatch, settle_graph_need
+
+    a = source_adapter
+    service, created = _admitted_pending_turn(a, monkeypatch)
+    turn = service.claim_turn(created.world_id, created.conversation_id, created.turn_id,
+                              expected_revision=created.revision).turn
+    a.turn = turn; a.fence = _ClaimFence(service, turn); a.context_capture = None
+    monkeypatch.setattr(a, '_capture_prepared_prompt', lambda *_args, **_kwargs: None)
+    class Wire(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            return httpx2.Response(200, request=request, json={'model': 'typesafe-ai/jev-1.14.0',
+                'answers': {'graph_need': {'type': 'choice', 'choice': 'uncertain', 'confidence': 1,
+                    'probabilities': {'require_graph': 0, 'no_graph': 0, 'uncertain': 1}}},
+                'usage': {'input_tokens': 10, 'output_tokens': 1}})
+    observed = asyncio.run(PlanGraphNeedDispatch(a, dialogue=()).run(transport=Wire(), api_key='synthetic-not-secret'))
+    current = a.fence.turn
+    with pytest.raises(ApplicationStateConflictError, match='stale claim'):
+        service._complete_plan_graph_need_clarification(current.world_id, current.conversation_id, current.turn_id,
+            expected_revision=current.revision - 1, expected_attempt=current.attempt, event_id=uuid4())
+    completed = settle_graph_need(a, observed, prepare_graph=lambda: pytest.fail('Graph was opened'))
+    assert completed.status == 'completed' and completed.assistant_text == GRAPH_NEED_CLARIFICATION_QUESTION
+    assert type(completed.completion) is NativePlanGraphClarificationCompletionV1
+    assert type(completed.graph_context_execution.events[-1]) is NativePlanGraphClarificationEventV1
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.completion == completed.completion and reopened.graph_context_execution == completed.graph_context_execution
+    assert project_plan_turn_context(reopened, delivery_replay=True).completion == completed.completion
+    with pytest.raises(ApplicationStateConflictError, match='stale claim'):
+        service._complete_plan_graph_need_clarification(current.world_id, current.conversation_id, current.turn_id,
+            expected_revision=current.revision, expected_attempt=current.attempt, event_id=uuid4())

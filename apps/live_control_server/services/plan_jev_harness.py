@@ -107,7 +107,9 @@ class PlanJevHarness:
                     else:
                         graph_need = PlanGraphNeedDispatch(adapter, dialogue=dialogue)
                         observed = asyncio.run(graph_need.run(transport=self.decision_transport, api_key=self.decision_api_key))
-                    settle_graph_need(adapter, observed, prepare_graph=prepare_graph)
+                    clarification = settle_graph_need(adapter, observed, prepare_graph=prepare_graph)
+                    if clarification is not None:
+                        return clarification
                 from application_state.agent_conversation.native_execution import NativePlanActionV3
                 action = adapter.fence.turn.graph_context_execution.policy.action
                 if type(action) is NativePlanActionV3:

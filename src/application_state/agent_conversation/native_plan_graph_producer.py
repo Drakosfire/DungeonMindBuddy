@@ -36,6 +36,29 @@ def observed_from_sdk_result(context, execution, *, event_id, result):
     return observed
 
 
+def clarification_terminal(context, execution, *, event_id):
+    """Derive the fixed host question from the one retained uncertain decision."""
+    from . import types as t
+    from .native_execution import _join_turn_fields, validate_context_binding
+    from .native_plan_graph_need import (
+        GRAPH_NEED_CLARIFICATION_QUESTION, NativePlanGraphClarificationCompletionV1,
+        NativePlanGraphClarificationEventV1,
+    )
+
+    validate_context_binding(context, execution)
+    observations = [event for event in execution.events if type(event) is NativePlanGraphNeedObservedV1]
+    if len(observations) != 1 or observations[0].choice != 'uncertain':
+        raise ValueError('Graph clarification requires one retained uncertain decision')
+    completion = NativePlanGraphClarificationCompletionV1(
+        context_receipt_sha256=context.context_receipt_sha256, observation_event_id=observations[0].event_id)
+    event = NativePlanGraphClarificationEventV1(event_id=event_id, sequence=len(execution.events),
+        observation_event_id=observations[0].event_id, completion_sha256=t.canonical_sha256(completion))
+    prospective = execution.model_copy(update={'events': [*execution.events, event]})
+    validate_context_binding(context, prospective)
+    _join_turn_fields(context, prospective, completion, GRAPH_NEED_CLARIFICATION_QUESTION)
+    return completion, prospective
+
+
 def validate_prepared_authorization(context, execution, authorization, raw):
     """Prove a pending Graph decision's exact SDK wire before any dispatch."""
     from . import types as t

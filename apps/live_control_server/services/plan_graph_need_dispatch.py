@@ -118,8 +118,9 @@ def settle_graph_need(adapter, observed, *, prepare_graph):
     """
     from .agent_turn_service import AgentTurnServiceError, _require_fresh_execution_append
     if observed.choice == 'uncertain':
-        raise AgentTurnServiceError('The Graph requirement could not be determined safely.',
-            code='plan_graph_need_uncertain', status_code=503, provider_dispatched=True)
+        adapter.turn = _require_fresh_execution_append(adapter.fence.commit(
+            '_complete_plan_graph_need_clarification', event_id=uuid4()))
+        return adapter.turn
     from application_state.agent_conversation.native_plan_graph_need import (
         NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
         NativePlanGraphQuerySettledV1, NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1,

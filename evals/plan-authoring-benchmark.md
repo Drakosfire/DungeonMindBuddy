@@ -18,6 +18,12 @@ assessment local.
 
 | Generate, preview, and save artwork | Guest Build uses the existing Image Studio with a session-owned private library when enabled. [Guest scope and tests](../Docs/Plans/HANDOFF-ONBOARD-guest-inline-media.md) | Fake-provider HTTP and mocked-transport Build tests cover placement, save and reopen. Verify the complete workflow with the real provider in production. |
 
+For the Plan Graph-need producer, include an uncertain-decision control: the
+ordinary turn must deliver and reopen the host scope question without Graph
+acquisition, writer dispatch, or a page action. Pair it with conversation-only,
+explicit no-search, source-required, retry and stale-claim controls. The reader
+is merged but not live; producer and hosted acceptance evidence remain open.
+
 ## Plan authoring and conversation-only cohort
 
 | Case | Request and starting state | Required result |
