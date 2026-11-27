@@ -2020,6 +2020,8 @@ def test_capture_probe_marks_predispatch_failure_not_started(tmp_path, monkeypat
     for name in ("related-page-probe", "native-graph-probe"):
         evidence = json.loads((tmp_path / "case1" / (name + ".json")).read_text())
         assert evidence["status"] == "not_started" and evidence["records"] == []
+    primary = json.loads((tmp_path / "case1" / "primary-resolution-probe.json").read_text())
+    assert primary["status"] == "not_started" and primary["started"] == 0
 
 
 def test_probe_freezes_rows_before_late_alias_and_background_completion(tmp_path, monkeypatch, verified_capture_owner):
@@ -2090,6 +2092,9 @@ def test_capture_rejects_async_post_without_claiming_a_completed_window(tmp_path
         evidence = json.loads((tmp_path / "case1" / (name + ".json")).read_text())
         assert evidence["status"] == ("not_started" if kind == "async_method" else "dispatch_uncertain")
         assert evidence["records"] == []
+    primary = json.loads((tmp_path / "case1" / "primary-resolution-probe.json").read_text())
+    assert primary["status"] == ("unavailable" if kind == "async_method" else "uncertain")
+    assert primary["started"] == 0
 
 
 def test_probe_window_wraps_real_sync_testclient_turn_post(tmp_path, monkeypatch, verified_capture_owner):
@@ -2885,6 +2890,8 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     from concurrent.futures import ThreadPoolExecutor
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+    from types import SimpleNamespace
+    from apps.live_control_server.routes import agent
     from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView, PostgresNativeSourceEvidenceRepository
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval import source_window
@@ -2908,11 +2915,24 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
         assert view.get_native_text_sources([])==()
         with pytest.raises(RuntimeError, match='synthetic sentinel'):
             view.get_native_text_sources([('synthetic','synthetic','synthetic')])
+    import hashlib
+    page = '# synthetic primary'; digest = hashlib.sha256(page.encode()).hexdigest()
+    record = SimpleNamespace(kind='worldbuilding_source', status='active', content_status='committed',
+        world_id='world', document_id='page', revision=1, title='Synthetic', source_domain='worldbuilding',
+        document_class='note', authority_state='draft', visibility_state='internal')
+    snapshot = SimpleNamespace(record=record, markdown=page, content_sha256=digest,
+                               loaded_revision=1, page_presentation=None)
+    monkeypatch.setattr(agent, '_managed_world_root', lambda: 'synthetic-root')
+    monkeypatch.setattr(agent, 'get_committed_page_snapshot', lambda root, page_id: snapshot)
+    body = SimpleNamespace(primary_work=SimpleNamespace(kind='build',object_id='page',expected_revision=1,
+                           expected_content_sha256=digest), surface=SimpleNamespace(surface_id='build'),
+                           build_image_move_capture=None)
     app = FastAPI()
     with ThreadPoolExecutor(max_workers=1) as build:
         build.submit(lambda: None).result()
         @app.post('/api/live/agent/turn')
         async def turn():
+            agent._build_work_resolver(body, {'kind':'world','id':'world'})
             await asyncio.get_running_loop().run_in_executor(build, acquire)
             return {'ok': True}
         owners, _, provenance = source_window._default_owners()
@@ -2933,6 +2953,9 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     assert row['pdf_discovery']['owner_provenance'] == source_window.KNOWN_PDF_DISCOVERY_OWNER
     assert row['pdf_source']['scoped'] == 1
     assert row['pdf_source']['owner_provenance'] == source_window.KNOWN_PDF_OWNER
+    primary = json.loads((tmp_path/'case1'/'primary-resolution-probe.json').read_text())
+    assert (primary['status'],primary['started'],primary['returned'],primary['raised']) == ('observed',1,1,0)
+    assert page not in str(primary)
     assert row['scoped']['text_batch']==2 and row['batch_read']['scoped']==1
 
 
@@ -3180,6 +3203,19 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     incomplete=copy.deepcopy(primary);incomplete['status']='unavailable';incomplete['after']=None;incomplete['error_type']='RuntimeError'
     assert with_primary(incomplete)['checks']['no_premature_mutation'] is None
     primary_path.unlink()
+    primary_probe={'schema':'dmb_negative_retrieval_primary_resolution_v1','case_id':'case1',
+        'window':'turn_post_v1','coverage':'partial','status':'observed','started':1,'returned':1,'raised':0,'pending_at_close':0}
+    primary_probe_path=tmp_path/'primary-resolution-probe.json'
+    primary_probe_path.write_text(json.dumps(primary_probe))
+    result=assess_row(discovery)
+    assert result['primary_resolution_probe']['returned']==1
+    assert result['checks']['unexpected_retrieval'] is None
+    assert result['checks']['catalog_budget'] is False  # PDF discovery, not the primary resolver.
+    invalid=copy.deepcopy(primary_probe);invalid['returned']=2
+    primary_probe_path.write_text(json.dumps(invalid))
+    with pytest.raises(ValueError,match='Invalid primary-work'):assess_row(discovery)
+    primary_probe_path.unlink()
+    assert assess_row(discovery)['primary_resolution_probe'] is None
     empty=copy.deepcopy(app_batch);empty['app_batch_read']['scoped']=0
     assert assess_row(empty)['checks']['unexpected_retrieval'] is None
     changed=copy.deepcopy(app_batch);changed['app_batch_read']['code_sha256']='0'*64
@@ -3850,3 +3886,71 @@ def test_primary_page_preflight_rejects_wrong_saved_page_before_dispatch(tmp_pat
         module.capture(_test_manifest(tmp_path),tmp_path/'case',fixtures={'case1':fixture},
                        expected_manifest_sha256=MANIFEST_PIN,expected_fixture_sha256=module.fixture_sha256({'case1':fixture}))
     assert called==[]
+
+
+def test_primary_resolution_probe_observes_real_resolver_and_failed_reads(monkeypatch):
+    import hashlib
+    from types import SimpleNamespace
+    from apps.live_control_server.routes import agent
+    from evals.negative_retrieval.primary_resolution_probe import observe_primary_resolution
+    body_text='# private synthetic body';digest=hashlib.sha256(body_text.encode()).hexdigest()
+    record=SimpleNamespace(kind='worldbuilding_source',status='active',content_status='committed',
+        world_id='world',document_id='page',revision=1,title='Title',source_domain='worldbuilding',
+        document_class='note',authority_state='draft',visibility_state='internal')
+    snapshot=SimpleNamespace(record=record,markdown=body_text,content_sha256=digest,loaded_revision=1,page_presentation=None)
+    locator=SimpleNamespace(kind='build',object_id='page',expected_revision=1,expected_content_sha256=digest)
+    request=SimpleNamespace(primary_work=locator,surface=SimpleNamespace(surface_id='build'),build_image_move_capture=None)
+    monkeypatch.setattr(agent,'_managed_world_root',lambda:'root')
+    original=lambda *_:snapshot
+    monkeypatch.setattr(agent,'get_committed_page_snapshot',original)
+    with observe_primary_resolution() as result:
+        agent._build_work_resolver(request,{'kind':'world','id':'world'})
+        with pytest.raises(Exception):agent._build_work_resolver(request,None)
+    assert result=={'status':'observed','started':1,'returned':1,'raised':0,'pending_at_close':0}
+    assert agent.get_committed_page_snapshot is original
+    assert body_text not in str(result) and digest not in str(result)
+    def fail(*_):raise RuntimeError('synthetic failure')
+    monkeypatch.setattr(agent,'get_committed_page_snapshot',fail)
+    with observe_primary_resolution() as result:
+        with pytest.raises(RuntimeError,match='synthetic failure'):
+            agent._build_work_resolver(request,{'kind':'world','id':'world'})
+    assert result['started']==1 and result['raised']==1 and result['returned']==0
+    assert agent.get_committed_page_snapshot is fail
+
+
+def test_primary_resolution_probe_marks_pending_work_uncertain(monkeypatch):
+    from threading import Event,Thread
+    from apps.live_control_server.routes import agent
+    from evals.negative_retrieval.primary_resolution_probe import observe_primary_resolution,validate_primary_resolution
+    entered,release=Event(),Event()
+    def blocked(*_): entered.set();release.wait(timeout=5);return 'private'
+    monkeypatch.setattr(agent,'get_committed_page_snapshot',blocked)
+    with observe_primary_resolution() as state:
+        alias=agent.get_committed_page_snapshot
+        thread=Thread(target=lambda:alias('private'));thread.start();assert entered.wait(timeout=5)
+    try:
+        assert state=={'status':'uncertain','started':1,'returned':0,'raised':0,'pending_at_close':1}
+        record={'schema':'dmb_negative_retrieval_primary_resolution_v1','case_id':'case1',
+                'window':'turn_post_v1','coverage':'partial',**state}
+        assert validate_primary_resolution(record,'case1')['status']=='uncertain'
+    finally:
+        release.set();thread.join(timeout=5)
+    assert not thread.is_alive() and state['pending_at_close']==1 and state['returned']==0
+    assert agent.get_committed_page_snapshot is blocked
+
+
+def test_primary_resolution_validation_refuses_inconsistent_records():
+    import copy
+    from evals.negative_retrieval.primary_resolution_probe import validate_primary_resolution
+    record={'schema':'dmb_negative_retrieval_primary_resolution_v1','case_id':'case1',
+            'window':'turn_post_v1','coverage':'partial','status':'observed',
+            'started':1,'returned':1,'raised':0,'pending_at_close':0}
+    assert validate_primary_resolution(record,'case1')==record
+    for change in (lambda x:x.update(case_id='other'),lambda x:x.update(started=True),
+                   lambda x:x.update(returned=2),lambda x:x.update(status='not_started'),
+                   lambda x:x.update(pending_at_close=1),lambda x:x.update(payload='private')):
+        bad=copy.deepcopy(record);change(bad)
+        with pytest.raises(ValueError,match='Invalid primary-work'):validate_primary_resolution(bad,'case1')
+    for status in ('not_started','unavailable'):
+        empty={**record,'status':status,'started':0,'returned':0}
+        assert validate_primary_resolution(empty,'case1')['status']==status

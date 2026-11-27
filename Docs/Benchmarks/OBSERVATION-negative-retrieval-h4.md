@@ -20,7 +20,7 @@ The PDF-loader probe came from merged evaluator revision
 fresh synthetic World on the same clone. Wires were audited before dispatch;
 private rubrics and host identifiers were not sent to the model.
 
-| Case | Captured case | Semantic review | Observed catalog calls | Observed page materializations | Local request time |
+| Case | Captured case | Semantic review | Observed catalog calls | Observed selected-page materializations | Local request time |
 | --- | --- | --- | ---: | ---: | ---: |
 | Creative negative | 329; repeat 341 | Both passed | 0 | 0 | 3.627 s repeat |
 | 46-exchange context negative | 332; repeat 344 | Both passed | 0 | 0 | 4.087 s repeat |
@@ -29,8 +29,13 @@ private rubrics and host identifiers were not sent to the model.
 The covered native Graph and PDF probes recorded no entries for these cases;
 the direct-current metadata owner recorded one lookup for case 338. These are
 observations, not proof that uninstrumented owners did no work or a count of
-all distinct sources. Each bound offline report remains **unproven** because
-capture-environment and complete-journal verification are not established.
+all distinct sources. The selected-page materialization column does not include
+the Build route's primary-work validation read: that route-bound reader was not
+instrumented in these captures, so its count for these turns is unknown. A later
+provider-free check of the same serving-source resolver observed one returned
+primary-page read on the synthetic App fixture (case 355); this is not a replay
+of H4. Each bound offline report remains **unproven** because capture-environment
+and complete-journal verification are not established.
 Cases 329 and 332 had manual audit pauses; their repeat timings use only
 byte-identical, previously independently audited requests and are local single
 observations, not production latency guarantees. Repeat outputs were separately

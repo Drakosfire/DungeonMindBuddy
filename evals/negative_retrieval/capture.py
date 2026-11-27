@@ -23,6 +23,7 @@ from .native_graph_probe import observe_native_graph_owners
 from .source_window import observe_source_window
 from .owned_db_fixture import checked_owned_dsn
 from .primary_page_stability import inspect_primary_page, expected_primary_page
+from .primary_resolution_probe import observe_primary_resolution
 
 _lock = Lock()
 
@@ -151,6 +152,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             records = []
             native_records = None
             source_window_state = None
+            primary_resolution_state = None
             source_window_setup_failed = False
             dispatch_started = False
             post_entered = False
@@ -165,7 +167,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     return getattr(self.wrapped, name)
 
                 def post(self, route, *args, **options):
-                    nonlocal records, native_records, source_window_state, source_window_setup_failed, dispatch_started, post_entered, dispatch_uncertain
+                    nonlocal records, native_records, source_window_state, primary_resolution_state, source_window_setup_failed, dispatch_started, post_entered, dispatch_uncertain
                     if route != "/api/live/agent/turn":
                         return self.wrapped.post(route, *args, **options)
                     if dispatch_started:
@@ -173,7 +175,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     dispatch_started = True
                     if inspect.iscoroutinefunction(self.wrapped.post):
                         raise TypeError("Async clients are unsupported for serial capture")
-                    with observe_related_page_owners() as records:
+                    with observe_primary_resolution() as primary_resolution_state, observe_related_page_owners() as records:
                         with observe_native_graph_owners() as native_records:
                             try:
                                 with observe_source_window() as source_window_state:
@@ -206,6 +208,18 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             finally:
                 failure = sys.exc_info()[1]
                 try:
+                    primary_row = dict(primary_resolution_state) if primary_resolution_state is not None else {
+                        "status": "unavailable" if dispatch_started else "not_started",
+                        "started": 0, "returned": 0, "raised": 0, "pending_at_close": 0,
+                    }
+                    if not post_entered and primary_resolution_state is not None:
+                        primary_row["status"] = "uncertain" if primary_row["started"] else "not_started"
+                    elif dispatch_uncertain and primary_row["status"] == "observed":
+                        primary_row["status"] = "uncertain"
+                    immutable_save(Path(directory), "primary-resolution-probe", {
+                        "schema": "dmb_negative_retrieval_primary_resolution_v1", "case_id": case["id"],
+                        "window": "turn_post_v1", "coverage": "partial", **primary_row,
+                    })
                     immutable_save(Path(directory), "related-page-probe", {
                         "schema": "dmb_negative_retrieval_related_page_probe_v1",
                         "coverage": "partial", "window": "turn_post_v1", "case_id": case["id"],

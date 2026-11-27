@@ -581,3 +581,13 @@ was unchanged or exclude a transient write that was later reversed, so it does
 not pass the global no-mutation check. Failed postflight, unstarted and legacy
 captures remain unknown. These fixture reads do not count as turn acquisition
 and do not make the acquisition journal complete.
+
+The ordinary Build route also reads the saved primary page when resolving and
+validating the current work. New captures record that route-bound reader's
+started, returned and failed attempts in `primary-resolution-probe`, separately
+from related catalog discovery and selected-page materialization. A returned
+snapshot is a physical primary-work read; it is not another related-source
+search, proof of citation support, or a distinct-source count. The probe is
+partial: prebound aliases, other owners or processes, late activity, and older
+captures remain unknown. It stores no arguments, IDs, source text or digest and
+does not make the acquisition journal complete.
