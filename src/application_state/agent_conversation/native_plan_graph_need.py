@@ -179,7 +179,8 @@ def validate_pending_graph(context, execution):
     from .native_context import NativePlanGraphQueryPendingV1, NativePlanRequestAdmissionV1
     from .native_execution import NativePlanActionV2, NativePlanActionV3, NATIVE_WRITER_TYPES
     from .native_retrieval import NativePlanGraphNeedAuthorizedV1
-    from .authored_graph_references import native_references, object_selections
+    from .authored_graph_references import (native_references, object_selections,
+        BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3)
 
     query = context.native_query
     events = execution.events
@@ -275,7 +276,8 @@ def validate_pending_graph(context, execution):
             or settled is not None or failed is not None or object_selections(native_references(execution))):
         raise ValueError('No-Graph closure requires its exact decision and no authored Graph references')
     graph_reads = (t.NativePlanStatementReadAuthorizedV1, t.NativePlanStatementReadObservedV1,
-                   t.NativePlanAssertionReadAuthorizedV1, t.NativePlanAssertionReadObservedV1)
+                   t.NativePlanAssertionReadAuthorizedV1, t.NativePlanAssertionReadObservedV1,
+                   BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3)
     for event in events:
         if isinstance(event, graph_reads) and (settled is None or event.sequence <= settled.sequence):
             raise ValueError('Plan Graph reads require prior exact query settlement')
