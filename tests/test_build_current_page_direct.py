@@ -189,3 +189,96 @@ def test_direct_runtime_selects_and_reads_only_frozen_current_page(monkeypatch):
         assert len(reads) == 1 and reads[0].markdown == text
         assert str(reads[0].page.document_id) == basis.document_id
         assert reads[0].page.content_sha256 == basis.content_sha256
+"""Read old optional votes and future host-required exact-current selections."""
+import json
+from hashlib import sha256
+from uuid import UUID, uuid4
+
+import pytest
+from generationengine.types import DecisionResult, ChoiceDecisionAnswer, InferenceObservation
+from application_state.agent_conversation.build_decision_context import identity
+from application_state.agent_conversation.build_intentional_response import resolution_for
+from application_state.agent_conversation.build_related_pages import PagePointer, RelatedPagesSelection
+from application_state.agent_conversation.build_source_free import (
+    _compile_pending_app_page_selection_input, validate_pending_app_page_selection_result,
+)
+from tests.test_build_source_free_protocol import (
+    pending_execution, pending_page_input_case, pending_response_collector,
+)
+from tests.test_surface_native_execution import outcomes
+
+
+def selection_case(scope='current_saved_page', vote='skip', *, other=False):
+    receipt, before, auth, initial, _, _ = pending_page_input_case()
+    basis = receipt.work_context.source_basis
+    pointer = PagePointer(world_id=basis.world_id,
+        document_id=uuid4() if other else UUID(basis.document_id),
+        registry_revision=basis.registry_revision, title='Saved page', visibility=basis.visibility)
+    events = list(before.events)
+    events[3] = events[3].model_copy(update={'resolution': resolution_for(
+        before.policy, 'discuss', source_scope=scope)})
+    events[-1] = events[-1].model_copy(update={'pages': (pointer,)})
+    before = pending_execution(receipt, before.policy, events)
+    request = json.dumps(_compile_pending_app_page_selection_input(
+        receipt, before, initial, (pointer,), current_variant=True))
+    digest = sha256(request.encode()).hexdigest()
+    auth = auth.model_copy(update={'envelope_sha256': digest,
+        'dispatch_identity_sha256': identity(envelope_sha256=digest, provider=auth.provider,
+            model=auth.model, api_mode=auth.api_mode, context_mode=auth.context_mode)})
+    execution = pending_execution(receipt, before.policy, [*before.events, auth, *outcomes(auth, 6)])
+    probabilities = {'read': .9, 'skip': .1} if vote == 'read' else {'read': .1, 'skip': .9}
+    response = DecisionResult(answers={'page1': ChoiceDecisionAnswer(selected=vote, probabilities=probabilities)},
+        observation=InferenceObservation(provider='typesafe', resolved_model='jev-1.14.0',
+            response_model='jev-1.14.0', latency_ms=1, retry_count=0, state='completed', provider_attempt_count=1))
+    raw = response.model_dump_json(by_alias=True)
+    capture, store, _ = pending_response_collector(components=(receipt, execution))
+    capture.controller_decision_response(raw, producing_provider_attempt_id=auth.provider_attempt_id)
+    selection = RelatedPagesSelection(event_id=uuid4(), sequence=8, controller_attempt_id=auth.provider_attempt_id,
+        controller_envelope_sha256=auth.envelope_sha256, controller_response_sha256=sha256(raw.encode()).hexdigest(),
+        document_ids=[pointer.document_id])
+    return receipt, execution, selection, {'request_json': request, 'response_json': raw,
+        'initial_request_json': initial}, store.trace.model_dump(mode='json', by_alias=True)
+
+
+def test_required_current_reader_preserves_skip_and_accepts_host_requirement():
+    receipt, execution, required, proof, trace = selection_case()
+    legacy = required.model_copy(update={'document_ids': []})
+    assert validate_pending_app_page_selection_result(receipt, execution, legacy, proof, trace) == ()
+    assert validate_pending_app_page_selection_result(receipt, execution, required, proof, trace) == tuple(required.document_ids)
+    assert json.loads(proof['response_json'])['answers']['page1']['selected'] == 'skip'
+
+
+@pytest.mark.parametrize('scope,other', [('source_lookup', False), ('uncertain', False), ('current_saved_page', True)])
+def test_required_current_reader_does_not_override_other_scope_or_page(scope, other):
+    receipt, execution, selection, proof, trace = selection_case(scope, other=other)
+    with pytest.raises(ValueError, match='actual read/skip votes'):
+        validate_pending_app_page_selection_result(receipt, execution, selection, proof, trace)
+
+
+@pytest.mark.parametrize('failure', ['capture', 'response', 'foreign_choice'])
+def test_required_current_reader_rejects_forged_or_uncaptured_proof(failure):
+    receipt, execution, selection, proof, trace = selection_case()
+    if failure == 'capture':
+        trace['observations'] = []
+    elif failure == 'response':
+        proof['response_json'] += ' '
+    else:
+        selection = selection.model_copy(update={'document_ids': [uuid4()]})
+    with pytest.raises(ValueError):
+        validate_pending_app_page_selection_result(receipt, execution, selection, proof, trace)
+
+
+def test_required_selection_survives_decode_and_exact_read_for_coverage():
+    from application_state.agent_conversation.build_related_pages import PageReference, RelatedPageRead
+    from application_state.agent_conversation.build_pending_app_coverage import pending_app_coverage_reads
+    receipt, execution, selection, proof, trace = selection_case()
+    assert validate_pending_app_page_selection_result(receipt, execution, selection, proof, trace)
+    pointer = execution.events[4].pages[0]
+    markdown = 'The exact current page.'
+    read = RelatedPageRead(event_id=uuid4(), sequence=9, read_id=uuid4(),
+        selection_event_id=selection.event_id, page=PageReference(**pointer.model_dump(),
+            content_sha256=sha256(markdown.encode()).hexdigest()), markdown=markdown)
+    decoded = type(execution).model_validate_json(execution.model_copy(update={
+        'events': [*execution.events, selection, read]}).model_dump_json(by_alias=True))
+    reads = pending_app_coverage_reads(receipt, decoded)
+    assert reads == (read,)
