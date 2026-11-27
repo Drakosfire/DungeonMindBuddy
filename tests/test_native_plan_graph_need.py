@@ -706,3 +706,29 @@ def test_forged_settlement_cannot_extend_legacy_receipt_authority():
     candidate = execution(context.context_receipt_sha256, record.policy, [forged])
     with pytest.raises(ValueError, match='require a pending Plan query'):
         validate_context_binding(context, candidate)
+
+
+def test_forged_legacy_turn_is_rejected_before_authored_materialization():
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQuerySettledV1
+    from tests.application_state.test_native_corpus_sources import source_turn
+    from tests.test_surface_native_context import provenance_for
+    from tests.test_surface_native_execution import component, execution
+    context, record = component('plan')
+    forged = NativePlanGraphQuerySettledV1(event_id=uuid4(), sequence=0,
+        started_event_id=uuid4(), query=context.native_query)
+    candidate = execution(context.context_receipt_sha256, record.policy, [forged])
+    intent = record.policy.action.intent
+    provenance = provenance_for(context.work_context).model_copy(update={'surface_instance_id': intent.surface_instance_id})
+    submission = SimpleNamespace(conversation_id=uuid4(), world_id=intent.world_id, idempotency_key=uuid4(),
+        user_text=intent.message, provenance=provenance, submitted_intent_v2=intent,
+        graph_context_receipt=context, graph_context_execution=candidate)
+    materializations = []
+    def materialize(_grant):
+        materializations.append(True)
+    with pytest.raises(ValueError, match='require a pending Plan query'):
+        turn = source_turn(submission)  # Same typed Turn reconstruction used by the locked APP read owner.
+        from application_state.agent_conversation.authored_graph_references import observe_native_reference
+        observe_native_reference(turn, event_id=uuid4(), authorization_event_id=uuid4(), materialize=materialize)
+    assert not materializations
