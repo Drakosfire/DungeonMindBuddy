@@ -460,3 +460,107 @@ def test_graph_need_first_provider_is_still_bounded_by_frozen_allowance():
     with pytest.raises(ValueError, match='context window'):
         t.validate_provider_envelope_accounting(context.assembled_input, record,
             auth.model_copy(update={'input_tokens': context.assembled_input.context_window_limit + 1}))
+
+
+def test_no_graph_writer_authorization_roundtrips_and_rejects_late_graph_events():
+    from uuid import uuid4
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1, validate_context_binding
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryStartedV1
+    from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+    from application_state.agent_conversation.native_writer import model_frame
+    from tests.test_surface_native_execution import controller, execution, native_writer, outcomes
+    context, closed = actual_closed_execution()
+    policy = closed.policy
+    base = controller('plan', policy, sequence=5, semantic=True)
+    opening = NativePlanOpeningAuthorizedV1.model_validate(base.model_dump(mode='json') | {
+        'kind': 'native_plan_opening_authorized_v1'})
+    selected = NativePlanOpeningSelectedV1(event_id=uuid4(), sequence=8,
+        context_receipt_sha256=context.context_receipt_sha256, execution_policy_sha256=closed.execution_policy_sha256,
+        decision_request_id=opening.decision_request_id, controller_attempt_id=opening.provider_attempt_id,
+        controller_envelope_sha256=opening.envelope_sha256, controller_response_sha256='a'*64,
+        parent_request_sha256=opening.parent_request_sha256, requested_work='discuss',
+        target_capture_sha256=None, original_capture_sha256=None, placement_catalog_sha256=None,
+        placement_selector=None, original_capture=None, placement_catalog=None,
+        operation='finish_retrieval', selected_handles=[], post_read_plan='finish_if_selected_reads_succeed')
+    before_writer = execution(context.context_receipt_sha256, policy,
+        [*closed.events, opening, *outcomes(opening, 6), selected])
+    frame = model_frame(context, before_writer)
+    writer = native_writer('plan', policy, sequence=9).model_copy(update={'frame_sha256': t.canonical_sha256(frame)})
+    retained = execution(context.context_receipt_sha256, policy, [*before_writer.events, writer])
+    assert validate_context_binding(context, retained) == retained
+    reopened = type(retained).model_validate_json(retained.model_dump_json(by_alias=True))
+    assert validate_context_binding(context, reopened) == retained
+    late = NativePlanGraphQueryStartedV1(event_id=uuid4(), sequence=10, authorization_event_id=uuid4())
+    with pytest.raises(ValueError):
+        bad = execution(context.context_receipt_sha256, policy, [*retained.events, late])
+        validate_context_binding(context, bad)
+
+
+def test_pending_graph_allows_exact_authored_reference_after_query_settlement():
+    from uuid import uuid4
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredReferencesV2
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+    from application_state.agent_conversation.native_execution import validate_context_binding
+    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV3
+    from application_state.agent_conversation.native_plan_graph_need import (
+        NativePlanGraphNeedInputV1, NativePlanGraphNeedObservedV1, NativePlanGraphQueryAuthorizedV1,
+        NativePlanGraphQueryStartedV1, NativePlanGraphQuerySettledV1, canonical_wire,
+    )
+    from application_state.agent_conversation.native_plan_opening import request_manifest
+    from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
+    from tests.test_surface_native_context import WORK_MARKDOWN, seal, wire
+    from tests.test_surface_native_execution import controller, execution, outcomes
+    context, record = current_pending_context()
+    authority = context.native_query.authority
+    ref = AuthoredGraphReferenceV1(managed_world_id=authority.managed_world_id,
+        native_world_id=authority.native_world_id, binding_version=authority.binding_version,
+        graph_revision=authority.revision_id, node_id='ent:synthetic', label='Synthetic selected object')
+    refs = AuthoredReferencesV2(references=(ref,))
+    data = record.policy.action.intent.model_dump(mode='json', by_alias=True)
+    data.update(schema='dmb_agent_submitted_turn_intent_v3', authored_references=refs.model_dump(mode='json', by_alias=True))
+    intent = t.SubmittedTurnIntentV3.model_validate(data)
+    action = record.policy.action.model_copy(update={'intent': intent})
+    policy = record.policy.model_copy(update={'action': action})
+    admission = context.assembled_input.model_copy(update={'submitted_intent_sha256': t.canonical_sha256(intent)})
+    manifest = request_manifest(action=action, work_context=context.work_context,
+        source_authority_sha256=policy.source_authority_sha256, native_query_sha256=policy.native_query_sha256,
+        provenance_sha256=context.provenance_sha256, provider_roles=policy.provider_roles,
+        provider_input_accounting=policy.provider_input_accounting, admission=admission)
+    admission = admission.model_copy(update={'manifest_sha256': t.canonical_sha256(manifest)})
+    raw_context = context.model_dump(mode='json', by_alias=True)
+    raw_context['assembled_input'] = admission.model_dump(mode='json', by_alias=True)
+    context = SurfaceNativeContextReceiptV1.model_validate(seal(raw_context))
+    record = execution(context.context_receipt_sha256, policy)
+    capture = t.BuildAuthoredReferencesCapturedV1(kind='build_authored_references_captured_v1', event_id=uuid4(),
+        sequence=0, references=refs, read_graph_revision=authority.revision_id, turn_id=uuid4(),
+        conversation_id=uuid4(), attempt=1, submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(intent))
+    value = NativePlanGraphNeedInputV1(pending_query_sha256=t.canonical_sha256(context.native_query),
+        admission_sha256=t.canonical_sha256(admission), question=intent.message, dialogue=(), current_work=WORK_MARKDOWN)
+    base = controller('plan', policy, sequence=1, semantic=True)
+    auth = NativePlanGraphNeedAuthorizedV1.model_validate(base.model_dump(mode='json') | {
+        'kind': 'native_plan_graph_need_authorized_v1', 'parent_request_sha256': value.digest,
+        'parent_json': value.model_dump_json(by_alias=True),
+        'envelope_sha256': sha256(canonical_wire(value, expected_model=base.model)).hexdigest()})
+    typed = result(answers={'graph_need': ChoiceDecisionAnswer(selected='require_graph')})
+    typed = typed.model_copy(update={'observation': typed.observation.model_copy(update={
+        'resolved_model': auth.model, 'response_model': auth.model})})
+    raw = typed.model_dump_json()
+    observed = NativePlanGraphNeedObservedV1(event_id=uuid4(), sequence=4,
+        controller_attempt_id=auth.provider_attempt_id, decision_request_id=auth.decision_request_id,
+        context_receipt_sha256=context.context_receipt_sha256, execution_policy_sha256=record.execution_policy_sha256,
+        parent=value, envelope_sha256=auth.envelope_sha256, result_json=raw,
+        result_sha256=sha256(raw.encode()).hexdigest(), choice='require_graph')
+    grant = NativePlanGraphQueryAuthorizedV1(event_id=uuid4(), sequence=5, need_event_id=observed.event_id,
+        pending_query_sha256=value.pending_query_sha256)
+    start = NativePlanGraphQueryStartedV1(event_id=uuid4(), sequence=6, authorization_event_id=grant.event_id)
+    query_data = wire('plan')['native_query']; query_data['schema'] = 'dmb_native_graph_query_v3'
+    query_data['authority']['scope_mode'] = 'world'; query_data['authority']['campaign_id'] = None
+    query_data['authored_targets'] = [{'node_id': ref.node_id, 'selection_revision_id': ref.graph_revision,
+        'matches': [], 'assertion_matches': [], 'status': 'complete', 'gap_codes': []}]
+    query = NativeGraphQueryV3.model_validate(query_data)
+    settlement = NativePlanGraphQuerySettledV1(event_id=uuid4(), sequence=7, started_event_id=start.event_id, query=query)
+    retained = execution(context.context_receipt_sha256, policy, [capture, auth, *outcomes(auth, 2), observed, grant, start, settlement])
+    assert validate_context_binding(context, retained) == retained
+    assert validate_context_binding(context, type(retained).model_validate_json(retained.model_dump_json(by_alias=True))) == retained
