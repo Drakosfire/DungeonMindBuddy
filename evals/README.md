@@ -192,7 +192,10 @@ confirmation request, the harness also exercises Buddy’s Check insertion
 control after reload. The same interception stays armed until that exact
 confirmation returns. After withholding the response, the capture reopens
 the receipt and committed page and verifies that no second confirmation or
-page change occurred. A run without a withheld receipt leaves recovery
+page change occurred. The browser request start timestamp can be unavailable
+for the aborted request. The capture retains it as null and independently
+records the trusted Check insertion click and the matching fetch in the
+same browser clock. A fetch observed before the click fails the control. A run without a withheld receipt leaves recovery
 unverified.
 
 For an unsent draft recovery control, use `capture --build-fixture --case
