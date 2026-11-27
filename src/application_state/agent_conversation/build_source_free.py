@@ -488,6 +488,29 @@ def validate_pending_app_page_selection_request(receipt, execution, authorizatio
     return actual
 
 
+def pending_required_current_page(receipt, execution):
+    """Derive the sole required page from admitted scope and its frozen pointer.
+
+    This selects no content and grants no access. The page admission and read
+    owners still perform their current access, claim and exact-body checks.
+    """
+    from . import types as t
+    receipt, execution = _pending_components(receipt, execution)
+    _join_pending_source(receipt, execution)
+    work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
+    catalogs = [row for row in execution.events if type(row) is BuildAppPageCatalogObservedV1]
+    if (len(work) != 1 or work[0].resolution.get('source_scope') != 'current_saved_page'
+            or not pending_work_requests_evidence(work[0], execution.policy)
+            or len(catalogs) != 1 or len(catalogs[0].pages) != 1):
+        return None
+    page, = catalogs[0].pages
+    basis = receipt.work_context.source_basis
+    if (page.world_id != basis.world_id or str(page.document_id) != str(basis.document_id)
+            or page.registry_revision != basis.registry_revision or page.visibility != basis.visibility):
+        return None
+    return page.document_id
+
+
 def validate_pending_app_page_selection_result(receipt, execution, selection, proof, trace):
     """Bind actual captured SDK votes to exact host page pointers; no reads."""
     from hashlib import sha256
@@ -535,9 +558,14 @@ def validate_pending_app_page_selection_result(receipt, execution, selection, pr
         if should_read_page(page, request['questions'][f'page{index + 1}'],
                             response.answers[f'page{index + 1}'], semantic=True,
                             current_offer=current_offer, is_current=str(page.document_id) == current_id)], key=str)
-    if selected != selection.document_ids:
+    # Historical records retain their exact vote-derived set. Newer producers
+    # may also enforce the admitted exclusive current-page requirement while
+    # retaining the actual optional navigation response above, including skip.
+    required = pending_required_current_page(receipt, execution)
+    if selected != selection.document_ids and not (
+            required is not None and selection.document_ids == [required]):
         raise ValueError('Pending App choices differ from the actual read/skip votes')
-    return tuple(selected)
+    return tuple(selection.document_ids)
 
 
 def pending_conversation_route_can_admit(receipt, execution):
