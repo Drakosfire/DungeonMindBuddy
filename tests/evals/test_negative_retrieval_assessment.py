@@ -4530,3 +4530,117 @@ def test_capture_retains_unavailable_witness_if_setup_fails(tmp_path, monkeypatc
                        observe_core=True)
     row = json.loads((out / 'core-connection-probe.json').read_bytes())
     assert probe.validate_artifact(row, 'case1')['status'] == 'unavailable'
+
+
+def test_gateway_policy_tracks_simple_and_reused_prepared_execution():
+    import struct
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    policy = FrontendPolicy()
+    policy.frontend(b'Q', b'BEGIN\0')
+    assert policy.snapshot()['pending'] == 1
+    policy.backend(b'C', b'BEGIN\0')
+    policy.backend(b'Z', b'T')
+    policy.frontend(b'P', b's\0SELECT 1\0' + struct.pack('!H', 0))
+    for name in (b'p1', b'p2'):
+        policy.frontend(b'B', name + b'\0s\0' + struct.pack('!HHH', 0, 0, 0))
+        policy.frontend(b'E', name + b'\0' + struct.pack('!I', 0))
+    policy.frontend(b'S', b'')
+    policy.backend(b'C', b'SELECT 1\0')
+    policy.backend(b'C', b'SELECT 1\0')
+    policy.backend(b'Z', b'T')
+    policy.frontend(b'Q', b'ROLLBACK\0')
+    policy.backend(b'C', b'ROLLBACK\0')
+    policy.backend(b'Z', b'I')
+    policy.frontend(b'X', b'')
+    result = policy.snapshot()
+    assert result['ended'] and result['ready'] and not result['failed'] and result['pending'] == 0
+    assert [e['kind'] for e in result['events']] == ['simple', 'execute', 'execute', 'simple']
+    assert all(e['outcome'] == 'completed' for e in result['events'])
+    assert all(set(e) == {'sequence', 'kind', 'query_sha256', 'category', 'outcome'} for e in result['events'])
+
+
+@pytest.mark.parametrize('tag,body', [
+    (b'Q', b'SELECT 1; SELECT 17\0'),
+    (b'Q', b'SELECT pg_read_file($$secret$$)\0'),
+    (b'Q', b'SELECT 1\0trailing'),
+    (b'P', b's\0SELECT $1::int\0\x00\x01\x00\x00\x00\x17'),
+    (b'E', b'missing\0\x00\x00\x00\x00'),
+    (b'F', b''), (b'd', b'source data'), (b'H', b''),
+])
+def test_gateway_policy_rejects_unknown_sql_and_protocol_before_forwarding(tag, body):
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    policy = FrontendPolicy()
+    with pytest.raises(ProtocolDenied):
+        policy.frontend(tag, body)
+    assert policy.snapshot()['failed'] and not policy.snapshot()['events']
+
+
+def test_gateway_policy_fails_closed_on_unknown_binding_and_backend_error():
+    import struct
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    policy = FrontendPolicy()
+    policy.frontend(b'P', b's\0SELECT 1\0' + struct.pack('!H', 0))
+    with pytest.raises(ProtocolDenied):
+        policy.frontend(b'B', b'p\0missing\0' + struct.pack('!HHH', 0, 0, 0))
+    assert policy.snapshot()['failed']
+    other = FrontendPolicy()
+    other.frontend(b'Q', b'SELECT 1\0')
+    other.backend(b'E', b'synthetic error contents')
+    assert other.snapshot()['events'][0]['outcome'] == 'failed' and other.snapshot()['failed']
+    with pytest.raises(ProtocolDenied):
+        other.frontend(b'Q', b'SELECT 17\0')
+
+
+def test_gateway_startup_refuses_foreign_database_options_and_cancel():
+    import socket
+    import struct
+    from evals.negative_retrieval.closed_db_gateway import _startup
+    from evals.negative_retrieval.gateway_protocol import ProtocolDenied
+
+    def frame(fields):
+        body = struct.pack('!I', 196608) + b''.join(k + b'\0' + v + b'\0' for k, v in fields) + b'\0'
+        return struct.pack('!I', len(body) + 4) + body
+
+    for fields in ([(b'user', b'sandbox'), (b'database', b'other')],
+                   [(b'user', b'sandbox'), (b'database', b'owned'), (b'options', b'-c role=admin')],
+                   [(b'user', b'sandbox'), (b'user', b'sandbox'), (b'database', b'owned')]):
+        client, server = socket.socketpair()
+        try:
+            client.sendall(frame(fields))
+            with pytest.raises(ProtocolDenied):
+                _startup(server, 'owned')
+        finally:
+            client.close(); server.close()
+    client, server = socket.socketpair()
+    try:
+        client.sendall(struct.pack('!II', 16, 80877102) + b'\0' * 8)
+        with pytest.raises(ProtocolDenied):
+            _startup(server, 'owned')
+    finally:
+        client.close(); server.close()
+
+
+def test_gateway_never_forwards_unknown_sql():
+    import socket
+    import struct
+    from threading import Thread
+    from evals.negative_retrieval.closed_db_gateway import _ClosedDatabaseGateway
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    gateway = _ClosedDatabaseGateway('/tmp', 'unused', {'database': 'owned'})
+    client, incoming = socket.socketpair()
+    outgoing, backend = socket.socketpair()
+    backend.settimeout(.1)
+    policy = FrontendPolicy()
+    thread = Thread(target=gateway._relay, args=(incoming, outgoing, policy, True))
+    thread.start()
+    try:
+        body = b'SELECT pg_read_file($$secret$$)\0'
+        client.sendall(b'Q' + struct.pack('!I', len(body) + 4) + body)
+        thread.join(2)
+        assert not thread.is_alive() and policy.failed
+        with pytest.raises(TimeoutError):
+            backend.recv(1)
+        assert not policy.events
+    finally:
+        for sock in (client, incoming, outgoing, backend):
+            sock.close()
