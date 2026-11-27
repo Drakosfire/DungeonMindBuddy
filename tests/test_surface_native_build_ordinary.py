@@ -4466,3 +4466,23 @@ def test_selected_source_late_graph_failure_is_not_dispatched_twice(lane, tmp_pa
         message='Use my selected source and search for other evidence.')
     assert settlements == [True]
     assert dispatches == ['typesafe']
+
+
+def test_selected_source_access_revoked_before_read_fails_closed(lane, tmp_path, monkeypatch):
+    from copy import deepcopy
+    from apps.live_control_server.services import native_authored_references
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='anchored', message='Use only my selected source and cite it.')
+    request = deepcopy(case.request)
+    request['turn_id'] = str(uuid4())
+    request['client_thread_id'] = str(uuid4())
+    before = len(case.writer.calls)
+    def revoked(*_args, **_kwargs):
+        raise ValueError('synthetic source access revoked')
+    monkeypatch.setattr(native_authored_references, 'read_authored_source', revoked)
+    response = case.client.post('/api/live/agent/turn', json=request)
+    assert response.status_code == 409, response.text
+    assert response.json()['detail']['code'] == 'authored_source_unavailable'
+    assert len(case.writer.calls) == before
