@@ -204,7 +204,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,capture_pending=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -1277,6 +1277,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    if capture_pending:
+        turn = AgentConversationService().inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
+        assert not classic_calls
+        assert lane.repo.get_head(world).head_revision_id == current_revision
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        return SimpleNamespace(client=client, world=world, response=response, turn=turn,
+            writer=writer, decisions=decisions, request=body)
     if image_move and failure != "discussion_source_tie":
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError

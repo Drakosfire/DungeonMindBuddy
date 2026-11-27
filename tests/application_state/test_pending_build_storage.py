@@ -100,9 +100,23 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
         if 'collaboration' in body['text']['format']['schema']['properties']:
             candidate['collaboration'] = {'kind': 'questions', 'questions': [{'text': 'What should the new page describe?'}]}
         if mode == 'body':
-            candidate = {'answer_segments': [{'kind': 'native_body_claim',
-                'text': 'The source supplies the cited passage.', 'excerpt_handles': ['body0']}], 'limitations': []}
-            if 'collaboration' in body['text']['format']['schema']['properties']:
+            from application_state.agent_conversation.native_plan_assertions import POLICY
+
+            properties = body['text']['format']['schema']['properties']
+            variants = properties['answer_segments']['items']['anyOf']
+            source_claim, = [
+                variant['properties'] for variant in variants
+                if 'excerpt_handles' in variant.get('properties', {})
+            ]
+            citation = source_claim['excerpt_handles']['items']['enum'][0]
+            candidate = {
+                'schema': POLICY,
+                'answer_segments': [{'kind': 'native_body_claim',
+                    'text': 'The source supplies the cited passage.', 'excerpt_handles': [citation]}],
+                'limitations': [],
+                'requested_detail_gaps': [],
+            }
+            if 'collaboration' in properties:
                 candidate['collaboration'] = None
         if mode == 'rules':
             candidate = {'kind': 'rules_answer', 'base_output': None,
@@ -141,7 +155,7 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
         return client.post('/api/live/agent/turn', json=body)
     case = _fresh_case(lane, tmp_path, monkeypatch, 'used_rules' if mode == 'rules' else None, True, False, False, dispatch=send,
         requested_work='clarify_creation' if clarify_mode else 'discuss',
-        source_need='uncertain' if clarify_mode else 'source_lookup', source_answer_output='capture_pending',
+        source_need='uncertain' if clarify_mode else 'source_lookup', capture_pending=True,
         native_body='direct_support' if mode == 'body' else None, direct_source=mode == 'body',
         message='Can I end my move in an occupied space?' if mode == 'rules' else 'What does the source say?' if mode == 'body'
             else 'Please make a new page. Ask me what it should describe.')
@@ -167,8 +181,16 @@ def test_fresh_pending_build_post_completes_captured_routes(application_state_ds
         with pytest.raises(ValueError):
             type(case.turn).model_validate_json(forged.model_dump_json(by_alias=True))
     else:
-        assert case.turn.completion.native_body_citations and len(prepares) == 1
-        assert len(case.decisions.calls) >= 4
+        from application_state.agent_conversation.native_corpus import acquired_body_reads
+
+        citation, = case.turn.completion.native_body_citations
+        read = next(read for read in acquired_body_reads(case.turn.graph_context_execution)
+                    if read.event_id == citation.read_event_id)
+        assert len(prepares) == 1 and len(case.decisions.calls) >= 4
+        reopened = case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/'
+                                   f'{case.turn.turn_id}/native-body-excerpts/0')
+        assert reopened.status_code == 200, reopened.text
+        assert reopened.json()['content'] == read.excerpt.text
     assert len(calls) == 1
     decision_count = len(case.decisions.calls)
     replay = case.client.post('/api/live/agent/turn', json=case.request)

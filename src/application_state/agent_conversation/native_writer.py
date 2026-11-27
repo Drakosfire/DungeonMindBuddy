@@ -99,7 +99,7 @@ def _validate_writer_binding(receipt, execution):
 
 def _pending_model_frame(receipt, execution, *, schema, passages_only):
     from .build_source_free import effective_pending_source
-    from .retained_conversation import native_frame_rows
+    from .retained_conversation import native_supports
     if schema != SCHEMA:
         raise ValueError('Pending Build has no historical writer evidence presentation')
     _validate_writer_binding(receipt, execution)
@@ -111,7 +111,8 @@ def _pending_model_frame(receipt, execution, *, schema, passages_only):
         passages_only=passages_only)
     if authority is None:
         body_frame['source_authority_status'] = 'not_prepared'
-    body_frame['excerpts'].extend(native_frame_rows(execution, authority, body_handle))
+    body_frame['excerpts'].extend(bodies.model_body_frame_rows(
+        authority, (), body_handle, passage_supports=native_supports(execution))['excerpts'])
     partial = (source is None or isinstance(query, statements.NativePlanQueryUnavailableV1)
         or bodies.body_input_partial(execution) or statements.input_partial_records(query, execution)
         or assertions.input_partial_records(query, execution))
