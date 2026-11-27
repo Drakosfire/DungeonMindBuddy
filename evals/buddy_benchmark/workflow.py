@@ -406,7 +406,7 @@ def report_case(case, base):
             "artifacts": {name: {"path": str(path), "sha256": sha256(path.read_bytes()).hexdigest()}
                 for name, path in paths.items()}}
     owner_observation = None
-    for name in ("lore-confirmation-result", "terminal-build-failure", "play-turn-result"):
+    for name in ("lore-confirmation-result", "terminal-build-failure", "play-turn-result", "image-move-result"):
         owner_path = directory / (name + ".json")
         if owner_path.is_file():
             paths[name] = owner_path

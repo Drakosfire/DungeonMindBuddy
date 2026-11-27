@@ -93,7 +93,16 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
     recover_step = spec.get("recover_work_plan_disconnect", False)
     if type(recover_step) is not bool or (recover_step and work_plan is None):
         raise ValueError("Work Plan disconnect requires a pinned reviewed continuation")
-    if work_plan is None and not image_preview and not unsent_draft and not caret and (build_fixture or live_plan) and (
+    move_digest = spec.get("image_move_editor_sha256")
+    if "image_move_editor_sha256" in spec and (
+            not build_fixture or live_plan or work_plan is not None or image_preview or unsent_draft
+            or "selection_text" in spec or not isinstance(move_digest, str)
+            or len(move_digest) != 64 or any(ch not in "0123456789abcdef" for ch in move_digest)):
+        raise ValueError("Mounted image move requires one exact saved Build editor digest")
+    stale_move = spec.get("image_move_stale_destination", False)
+    if type(stale_move) is not bool or (stale_move and move_digest is None):
+        raise ValueError("Stale image move requires an exact mounted editor digest")
+    if work_plan is None and move_digest is None and not image_preview and not unsent_draft and not caret and (build_fixture or live_plan) and (
             not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()
     ):
         raise ValueError("Browser placement fixture requires exact selected text")
@@ -216,6 +225,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         raise ValueError("Image preview requires explicit live Build capture")
     live = live_build or live_plan
     reviewed_plan = manifest["browser_capture"].get("reviewed_work_plan")
+    move_digest = manifest["browser_capture"].get("image_move_editor_sha256")
     if reviewed_plan is not None and not live_build:
         raise ValueError("Reviewed continuation requires live Build capture")
     recover_step = manifest["browser_capture"].get("recover_work_plan_disconnect", False)
@@ -385,7 +395,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if (image_lose_save_ack and method == "POST" and path.startswith("/api/live/media/images/")
                 and path.endswith("/save") and path != f"/api/live/media/images/{image_parent['asset_id']}/save"):
             return await JSONResponse({"code": "benchmark_wrong_image_save_target"}, 409)(scope, receive, send)
-        if (image_placement is not None and method == "POST"
+        if ((image_placement is not None or move_digest is not None) and method == "POST"
                 and path.startswith("/api/live/media/images/")
                 and path.rsplit("/", 1)[-1] in {"generate", "regenerate"}):
             image_generation_posts += 1
@@ -398,7 +408,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if live and path == "/__benchmark/browser-response-retained" and method == "GET":
             wire_path = directory / (wire_name + ".json")
             result = {"retained": wire_path.is_file()}
-            if (confirm_save or terminal_build_failure) and result["retained"] and browser_request is not None:
+            if (confirm_save or terminal_build_failure or move_digest) and result["retained"] and browser_request is not None:
                 result["idempotency_key"] = str(uuid5(
                     NAMESPACE_URL, f"dmb-agent-turn:{world}:{browser_request['turn_id']}"))
                 result["conversation_id"] = fresh["active_conversation_id"]
@@ -466,6 +476,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         if recover_step:
                             recovery_receipt = receipt
                         artifacts.immutable_save(directory, "reviewed-work-plan-at-dispatch", owner)
+                    elif move_digest:
+                        validate_image_move_browser_request(
+                            parsed, world=world, work=work, question=case["question"],
+                            conversation_id=fresh["active_conversation_id"],
+                            pointer_revision=fresh["pointer_revision"], editor_sha256=move_digest,
+                        )
                     else:
                         validate_build_browser_request(parsed, world=world, work=work, question=case["question"],
                             selection_text=manifest["browser_capture"]["selection_text"],
@@ -682,6 +698,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
                         "DMB_BENCHMARK_TERMINAL_BUILD_FAILURE": "1" if terminal_build_failure else "0",
                         "DMB_BENCHMARK_DOCUMENT_START": "1" if at_document_start else "0",
+                        "DMB_BENCHMARK_IMAGE_MOVE": "1" if move_digest is not None else "0",
+                        "DMB_BENCHMARK_STALE_IMAGE_MOVE": (
+                            "1" if manifest["browser_capture"].get("image_move_stale_destination") else "0"),
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture or live_plan else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
@@ -895,7 +914,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             raise ValueError("Build fixture preflight unexpectedly created a turn")
                         artifacts.immutable_save(directory, "fixture-result", {
                             "status": "captured", "forwarded_to_application": False,
-                            "provider_calls": 0, "selection_text": manifest["browser_capture"]["selection_text"],
+                            "provider_calls": 0,
+                            **({"image_move_editor_sha256": move_digest} if move_digest else
+                               {"selection_text": manifest["browser_capture"]["selection_text"]}),
                         })
                         return
                     def read_history():
@@ -972,6 +993,21 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "after_sha256": page_after["raw_body_sha256"],
                             "unchanged": page_before["body"] == page_after["body"],
                         })
+                    if move_digest and live_build:
+                        timing_path = output / "browser-timing.json"
+                        mounted = (json.loads(timing_path.read_bytes()).get("image_move")
+                                   if timing_path.is_file() else None)
+                        result = {"status": "missing_review", "mounted": mounted}
+                        if mounted and mounted.get("action_id"):
+                            action = str(UUID(mounted["action_id"]))
+                            review_path = f"/api/live/agent/worlds/{world}/build-image-moves/{action}/review"
+                            review = workflow.response_envelope(client.get(review_path))
+                            artifacts.immutable_save(directory, "image-move-review-after", review)
+                            if manifest["browser_capture"].get("image_move_stale_destination"):
+                                result = assess_stale_image_move(mounted, review, page_before, page_after, turn_posts)
+                            else:
+                                result = assess_image_move_save(mounted, review, page_before, page_after, turn_posts)
+                        artifacts.immutable_save(directory, "image-move-result", result)
                     if terminal_build_failure:
                         timing_path = output / "browser-timing.json"
                         mounted = (json.loads(timing_path.read_bytes()).get("terminal_build_failure")
@@ -1148,6 +1184,54 @@ def prepare_reviewed_work_plan_page(world, work, fixture, directory):
             "expected_content_sha256": prepared.content_sha256}
 
 
+def assess_image_move_save(mounted, review, before, after, turn_posts):
+    """Recompute the allowed presentation change from independently reopened owner data."""
+    from application_state.build_proposal.image_move import BuildImageMovePlacement
+    from application_state.content.page_presentation import PagePresentation
+
+    if review["http_status"] != 200:
+        return {"status": "review_unavailable", "mounted": mounted}
+    record = review["body"]["review"]
+    original, saved = before["body"], after["body"]
+    placement = BuildImageMovePlacement.model_validate(record["placement"])
+    expected, asset_id = placement.project_saved_move(
+        PagePresentation.model_validate(original["page_presentation"]), original["committed_markdown"],
+    )
+    checks = {
+        "exact_receipt_saved": record["state"] == "saved" and record["action_id"] == mounted["action_id"]
+            and record["saved_revision"] == saved["record"]["revision"],
+        "exact_layout": saved["page_presentation"] == expected.model_dump(mode="json"),
+        "same_markdown": original["committed_markdown"] == saved["committed_markdown"],
+        "saved_once": saved["record"]["revision"] == original["record"]["revision"] + 1
+            and mounted.get("commits") == 1 and mounted.get("turn_posts") == turn_posts == 1,
+        "matching_browser_reopen": mounted.get("reopened_revision") == saved["record"]["revision"]
+            and mounted.get("reopened_presentation") == saved["page_presentation"],
+        "inert_before_apply": mounted.get("inert_before_apply") is True,
+        "no_generation": mounted.get("generation_posts") == 0,
+    }
+    return {"status": "observed" if all(checks.values()) else "incomplete",
+            "checks": checks, "asset_id": asset_id, "mounted": mounted}
+
+
+def assess_stale_image_move(mounted, review, before, after, turn_posts):
+    """Verify stale Apply withdrawal without confirming or moving the saved image."""
+    record = review["body"].get("review", {}) if review["http_status"] == 200 else {}
+    checks = {
+        "apply_withdrawn": mounted.get("apply_withdrawn") is True,
+        "only_destination_occupied": mounted.get("only_destination_occupied") is True,
+        "same_review_reopened": record.get("action_id") == mounted["action_id"]
+            and record.get("state") == "editing" and record.get("claim_id") is None,
+        "committed_page_unchanged": before["body"] == after["body"]
+            and mounted.get("reopened_revision") == before["body"]["record"]["revision"]
+            and mounted.get("reopened_presentation") == before["body"]["page_presentation"],
+        "no_commit": mounted.get("commits") == 0,
+        "one_send": mounted.get("turn_posts") == turn_posts == 1,
+        "no_generation": mounted.get("generation_posts") == 0,
+    }
+    return {"status": "observed" if all(checks.values()) else "incomplete",
+            "checks": checks, "mounted": mounted}
+
+
 def observed_work_plan_execution(owner, receipt):
     """Resolve one mounted continuation to an owner execution or fail closed."""
     command_id = receipt["command_id"]
@@ -1193,6 +1277,23 @@ def validate_reviewed_work_plan_request(request, fixture, owner, work, history):
             or dispatch.get("scope", {}).get("task", {}).get("kind") != "discuss"):
         raise ValueError("Reviewed discussion differs from the reserved step")
     return dispatch
+
+
+def validate_image_move_browser_request(request, *, world, work, question, conversation_id,
+                                        pointer_revision, editor_sha256):
+    """Observe the ordinary editor capture for an exact retained image move."""
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+
+    parsed = AgentTurnRequest.model_validate(request)
+    capture = parsed.build_image_move_capture
+    if (capture is None or parsed.owner_scope is None or parsed.owner_scope.world_id != world
+            or parsed.primary_work is None or parsed.primary_work.model_dump(mode="json", exclude_none=True) != work
+            or parsed.message != question or parsed.build_write_capability is not None
+            or str(capture.conversation_id) != conversation_id
+            or capture.expected_pointer_revision != pointer_revision
+            or capture.basis.editor_sha256 != editor_sha256
+            or sha256(capture.editor_json.encode()).hexdigest() != editor_sha256):
+        raise ValueError("Mounted image move differs from the pinned editor or Work basis")
 
 
 def validate_build_browser_request(request, *, world, work, question, selection_text,

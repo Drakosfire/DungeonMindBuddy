@@ -314,7 +314,19 @@ async function run() {
       }, null, 2));
       return;
     }
-    if (!reviewedWork && (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1")) {
+    const imageMove = process.env.DMB_BENCHMARK_IMAGE_MOVE === "1";
+    const commitPath = "/api/live/tiptap/markdown-write/commit";
+    let commits = 0, generationPosts = 0;
+    if (imageMove) {
+      page.on("request", request => {
+        const pathname = new URL(request.url()).pathname;
+        if (request.method() !== "POST") return;
+        if (pathname === commitPath) commits += 1;
+        if (/^\/api\/live\/media\/images(?:\/.*)?\/(?:generate|regenerate)$/.test(pathname))
+          generationPosts += 1;
+      });
+    }
+    if (!reviewedWork && !imageMove && (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1")) {
       const selected = process.env.DMB_BENCHMARK_SELECTION;
       const documentStart = process.env.DMB_BENCHMARK_DOCUMENT_START === "1";
       const editor = page.locator((build ? ".build-surface-shell" : ".world-plan-visual-editor") + " .ProseMirror[contenteditable=true]:visible");
@@ -473,6 +485,75 @@ async function run() {
         }));
       return { click, request, preflight };
     });
+    const staleImageMove = process.env.DMB_BENCHMARK_STALE_IMAGE_MOVE === "1";
+    let imageMoveResult;
+    if (imageMove && live) {
+      imageMoveResult = { action_id: buildCheckpoint?.action_id };
+      if (imageMoveResult.action_id) {
+        const selector = page.getByRole("region", { name: "Image move review", exact: true });
+        const headers = { authorization: "Bearer " + process.env.DMB_BENCHMARK_BROWSER_TOKEN };
+        const snapshot = async () => {
+          const r = await page.request.get(origin + "/api/live/workspace-documents/"
+            + encodeURIComponent(documentId) + "/snapshot?view=committed", { headers });
+          if (!r.ok()) throw new Error("Committed image page unavailable");
+          return r.json();
+        };
+        try {
+          const original = await snapshot();
+          const apply = selector.getByRole("button", { name: "Apply image move", exact: true });
+          if (staleImageMove) {
+            await apply.waitFor({ timeout: 15000 });
+            const world = encodeURIComponent(process.env.DMB_BENCHMARK_WORLD);
+            const action = encodeURIComponent(imageMoveResult.action_id);
+            const reviewUrl = origin + "/api/live/agent/worlds/" + world + "/build-image-moves/" + action + "/review";
+            const response = await page.request.get(reviewUrl, { headers });
+            if (!response.ok()) throw new Error("Image move review unavailable before contrast");
+            const { review } = await response.json();
+            imageMoveResult.only_destination_occupied = await page.locator(".build-surface-shell .ProseMirror:visible")
+              .evaluate((element, destination) => {
+                const editor = element.editor;
+                const before = editor.state.doc;
+                const positions = [];
+                before.descendants((node, pos) => {
+                  if (node.type.name === "pageSlot" && node.attrs.id === destination && node.childCount === 0)
+                    positions.push(pos + 1);
+                });
+                if (positions.length !== 1) throw new Error("Expected one empty right slot");
+                const pos = positions[0];
+                const paragraph = editor.schema.nodes.paragraph.create(
+                  { pageBlockId: "benchmark-stale-destination" }, editor.schema.text("Destination changed after review."));
+                editor.view.dispatch(editor.state.tr.insert(pos, paragraph));
+                return editor.state.doc.nodeAt(pos)?.eq(paragraph) === true
+                  && editor.state.doc.replace(pos, pos + paragraph.nodeSize, editor.state.doc.slice(pos, pos)).eq(before);
+              }, review.placement.destination_slot_id);
+            await apply.waitFor({ state: "hidden", timeout: 10000 });
+            imageMoveResult.apply_withdrawn = true;
+          } else {
+            await apply.click();
+            await selector.getByText("Use Save to keep the image move.", { exact: true }).waitFor();
+            const afterApply = await snapshot();
+            imageMoveResult.inert_before_apply = commits === 0
+              && original.record.revision === afterApply.record.revision
+              && original.committed_content_sha256 === afterApply.committed_content_sha256;
+            const commit = page.waitForResponse(r => r.request().method() === "POST"
+              && new URL(r.url()).pathname === commitPath, { timeout: 20000 });
+            commit.catch(() => {});
+            await page.getByRole("button", { name: "Save", exact: true }).filter({ visible: true }).click();
+            if (!(await commit).ok()) throw new Error("Image move Save was refused");
+            await selector.getByText("Image move saved.", { exact: true }).waitFor();
+          }
+          await page.reload();
+          const reopened = await snapshot();
+          imageMoveResult.reopened_revision = reopened.record.revision;
+          imageMoveResult.reopened_presentation = reopened.page_presentation;
+        } catch (error) {
+          imageMoveResult.error = String(error);
+        }
+        imageMoveResult.commits = commits;
+        imageMoveResult.generation_posts = generationPosts;
+        imageMoveResult.turn_posts = turnPosts;
+      }
+    }
     let terminalBuildFailure;
     if (process.env.DMB_BENCHMARK_TERMINAL_BUILD_FAILURE === "1") {
       const checkpoint = buildCheckpoint;
@@ -741,7 +822,7 @@ async function run() {
       }
     }
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-      before, after, browserMarks, confirmation, terminal_build_failure: terminalBuildFailure, status: delivered.status(), chromiumVersion: browser.version(),
+      before, after, browserMarks, confirmation, image_move: imageMoveResult, terminal_build_failure: terminalBuildFailure, status: delivered.status(), chromiumVersion: browser.version(),
       playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
       request: delivered.request().postDataJSON(), turnNetworkFailures,
     }, null, 2));
