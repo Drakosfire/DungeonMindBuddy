@@ -1229,6 +1229,7 @@ export interface NativeBuildQueryPendingV1 {
   question:string;
 }
 export interface DeferredBuildCitationMembership {
+  settled_revision_id?:string;
   context_receipt_sha256:string;
   producing_provider_attempt_id:string;
   statements:[string,string][];

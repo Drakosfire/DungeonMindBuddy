@@ -2105,7 +2105,7 @@ def pending_app_runtime_case(monkeypatch, *, seed=None, initial_request_json=Non
         return state.trace
     monkeypatch.setattr(state.service, 'append_context_trace', append_observation)
     state.prompt_payloads = {}
-    def store(raw, *, digest, size):
+    def store(raw, *, digest, size, owner=None):
         assert hashlib.sha256(raw.encode()).hexdigest() == digest and len(raw.encode()) == size
         identity = uuid4()
         state.prompt_payloads[str(identity)] = raw
@@ -4564,7 +4564,8 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
     memory.bound = SimpleNamespace(**(vars(memory.bound) | {'managed_world_id': state.turn.world_id}))
     principal = SimpleNamespace(role='gm', managed_world_id=state.turn.world_id)
     observation = core.observe_build_source_pointer(managed_world_id=state.turn.world_id,
-        principal=principal, repository=memory.repo, resolve_identity=lambda _: memory.bound)
+        principal=principal, repository=memory.repo, resolve_identity=lambda _: memory.bound,
+        defer_head=mode == "loop_selection_main_object")
     original_receipt = state.turn.graph_context_receipt
     payload = original_receipt.model_dump(mode='json', by_alias=True)
     payload.pop('context_receipt_sha256')
@@ -4695,6 +4696,11 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                         if mode == 'loop_selection_main_object':
                             candidate['answer_segments'] = [{'kind': 'native_assertion_claim',
                                 'text': 'The cited source supplies this Check record.', 'assertion_handles': ['assertion0']}]
+                        schema = writers[-1]['text']['format']['schema']
+                        candidate['schema'] = schema['properties']['schema']['const']
+                        candidate['requested_detail_gaps'] = []
+                        from jsonschema import validate
+                        validate(candidate, writers[-1]['text']['format']['schema'])
                         return httpx.Response(200, request=request, json={'id': 'resp_main_native', 'object': 'response',
                             'created_at': 1, 'model': writers[-1]['model'], 'status': 'completed', 'output': [{'type': 'message',
                                 'id': 'msg_main_native', 'role': 'assistant', 'status': 'completed',
@@ -4704,7 +4710,8 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     monkeypatch.setattr(plan_jev_driver, 'PlanJevDriver', lambda *a, **kw: pytest.fail('Pending cannot enter legacy driver'))
                     harness.rules_capability = rules_capability(graph=True)
                     harness.writer_transport = httpx.MockTransport(reply)
-                    work = SimpleNamespace(operation='answer_from_sources', selection=SimpleNamespace(paragraph_placement=None),
+                    work = SimpleNamespace(operation='answer_from_sources',
+                        selection=SimpleNamespace(operation='answer_from_sources', paragraph_placement=None),
                         _material=lambda: ((), (), ()))
                     completed = harness._native_completion(runtime_adapter, work)
                     assert completed.status == 'completed' and state.completions == 1
@@ -4714,6 +4721,11 @@ def test_pending_guarded_direct_read_uses_public_core_with_original_real_authori
                     projected = project_plan_turn_context(completed, delivery_replay=False)
                     if mode == 'loop_selection_main_object':
                         assert projected.deferred_build_citations.assertions
+                        assert receipt.source_observation.deferred_head
+                        assert receipt.source_observation.requested_or_observed_revision is None
+                        assert {cite.read_revision_id for cite in completed.completion.native_assertion_citations} == {
+                            projected.deferred_build_citations.settled_revision_id
+                        }
                     else:
                         assert projected.deferred_build_citations is None
                     row, references = stored_row(completed)

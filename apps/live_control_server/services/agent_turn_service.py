@@ -6962,6 +6962,7 @@ def project_plan_turn_context(
                 raise ValueError('Pending citation presentation differs from its actual settled scope')
             membership = DeferredBuildCitationMembership(context_receipt_sha256=receipt.context_receipt_sha256,
                 producing_provider_attempt_id=completion.producing_provider_attempt_id,
+                settled_revision_id=authority.revision_id if receipt.source_observation.deferred_head else None,
                 statements=sorted({(c.statement_id, c.campaign_id) for c in completion.native_clause_citations}),
                 assertions=sorted({(c.assertion_id, c.assertion_sha256) for c in completion.native_assertion_citations}))
         return AgentBuildPendingContextResponseV1(receipt=receipt, completion=completion,

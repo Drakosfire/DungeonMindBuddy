@@ -844,6 +844,8 @@ class DeferredBuildCitationMembership(BaseModel):
     producing_provider_attempt_id: UUID
     statements: list[tuple[str, str]]
     assertions: list[tuple[str, str]]
+    settled_revision_id: str | None = Field(
+        default=None, min_length=1, exclude_if=lambda value: value is None)
 
 
 class AgentSurfaceNativeContextResponseV1(BaseModel):

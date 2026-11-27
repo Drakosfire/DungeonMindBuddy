@@ -248,12 +248,13 @@ def producing_reads(turn, authorization, raw):
         for row, (event, read) in zip(expected['statements'], reads, strict=True))
 
 
-def citation(receipt, authorization, read, *, index):
+def citation(receipt, authorization, read, *, index, pending_identity=None):
     from .native_statement_answer import NativeStatementClauseCitationV1
     from .native_context import BuildPendingContextReceiptV1
     if type(receipt) is BuildPendingContextReceiptV1:
-        from .build_pending_native import pending_citation_identity
-        managed_world_id, native_world_id, read_revision_id = pending_citation_identity(receipt)
+        if pending_identity is None:
+            raise ValueError("Pending citation requires its admitted source identity")
+        managed_world_id, native_world_id, read_revision_id = pending_identity
     else:
         authority = receipt.native_query.authority
         managed_world_id, native_world_id, read_revision_id = authority.managed_world_id, authority.native_world_id, authority.revision_id
@@ -285,7 +286,7 @@ def validate_citations(completion, receipt, execution, authorization):
     validate_citation_records(completion, receipt, authorization, reads)
 
 
-def validate_citation_records(completion, receipt, authorization, reads):
+def validate_citation_records(completion, receipt, authorization, reads, *, pending_identity=None):
     """Compare exact included native supports; caller proves the producing input."""
     from . import types as t
     seen = set()
@@ -294,7 +295,8 @@ def validate_citation_records(completion, receipt, authorization, reads):
         if (key in seen or item.segment_index >= len(completion.answer_segments)
                 or not isinstance(completion.answer_segments[item.segment_index], t.SourcePassageClaimV1)
                 or item.statement_id not in reads
-                or item != citation(receipt, authorization, reads[item.statement_id], index=item.segment_index)):
+                or item != citation(receipt, authorization, reads[item.statement_id], index=item.segment_index,
+                    pending_identity=pending_identity)):
             raise ValueError('Native clause citation differs from original included support')
         seen.add(key)
 

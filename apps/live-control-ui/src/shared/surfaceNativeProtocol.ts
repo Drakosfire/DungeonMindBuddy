@@ -76,10 +76,17 @@ export function isSurfaceNativeCompletion(
     ||!Array.isArray(v.answer_segments)||v.answer_segments.length>128||!(isCollaboration(v.collaboration,true,true,true,true) || v.surface_id === 'build' && isLorePageDraft(v.collaboration))||v.collaboration!==null&&v.surface_id!=='build'&&!(v.surface_id==='plan'&&typeof v.collaboration==='object'&&v.collaboration!==null&&'kind' in v.collaboration&&v.collaboration.kind==='connected_page')||!v.answer_segments.length&&v.collaboration===null)return false;
   const pending='source_observation' in r||r.native_query.schema==='dmb_native_build_query_pending_v1';
   const projected={statements:new Set<string>(),assertions:new Set<string>()};
+  const deferredHead='source_observation' in r&&r.source_observation.deferred_head===true;
+  let settledRevision:string|undefined;
   if(membership!==undefined) {
-    if(!pending||!exact(membership,['context_receipt_sha256','producing_provider_attempt_id','statements','assertions'])
+    if(!pending||!exact(membership,['context_receipt_sha256','producing_provider_attempt_id','statements','assertions',
+      ...(deferredHead?['settled_revision_id']:[])])
       ||membership.context_receipt_sha256!==r.context_receipt_sha256
       ||membership.producing_provider_attempt_id!==v.producing_provider_attempt_id)return false;
+    if(deferredHead) {
+      if(!('settled_revision_id' in membership)||!text(membership.settled_revision_id))return false;
+      settledRevision=membership.settled_revision_id;
+    }
     for(const family of ['statements','assertions'] as const) {
       const rows=membership[family];
       if(!Array.isArray(rows)||rows.length>16384)return false;
@@ -143,7 +150,7 @@ export function isSurfaceNativeCompletion(
         const observed='source_observation' in r?r.source_observation:null;
         if(!observed?.binding||c.managed_world_id!==observed.managed_world_id
           ||c.native_world_id!==observed.binding.native_world_id
-          ||c.read_revision_id!==(observed.requested_revision_id??observed.observed_head_revision_id))return false;
+          ||c.read_revision_id!==(deferredHead?settledRevision:observed.requested_revision_id??observed.observed_head_revision_id))return false;
       } else if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
       if(family==='native_clause_citations') {
         const key=canonical([c.statement_id,c.campaign_id]);

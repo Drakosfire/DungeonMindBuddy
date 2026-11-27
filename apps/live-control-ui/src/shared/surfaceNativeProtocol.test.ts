@@ -351,7 +351,8 @@ it('permits only unfinished history without a pending completion',()=>{
   expect(isBuildPendingReceipt(pendingBuild.receipt,buildWork)).toBe(true);
 });
 
-it.each(['valid','missing','root','producer','assertion','extra','revision','native-world'])(
+it.each(['valid','missing','root','producer','assertion','extra','revision','native-world',
+  'deferred','deferred-missing-revision','deferred-foreign-revision'])(
   'binds pending Graph citations to the settled membership and captured scope: %s', mutation=>{
     const original=authoredContext(), r=original.receipt, answer=original.completion;
     const c=structuredClone(pendingBuild) as any;
@@ -368,6 +369,15 @@ it.each(['valid','missing','root','producer','assertion','extra','revision','nat
       producing_provider_attempt_id:answer.producing_provider_attempt_id,
       statements:answer.native_clause_citations.map(cite=>[cite.statement_id,cite.campaign_id]),
       assertions:answer.native_assertion_citations.map(cite=>[cite.assertion_id,cite.assertion_sha256])};
+    if(mutation.startsWith('deferred')) {
+      Object.assign(c.receipt.source_observation, {
+        requested_revision_id: null, observed_head_revision_id: null, deferred_head: true,
+      });
+      if (mutation !== 'deferred-missing-revision') {
+        c.deferred_build_citations.settled_revision_id =
+          mutation === 'deferred-foreign-revision' ? 'foreign' : authority.revision_id;
+      }
+    }
     if(mutation==='missing')delete c.deferred_build_citations;
     if(mutation==='root')c.deferred_build_citations.context_receipt_sha256='f'.repeat(64);
     if(mutation==='producer')c.deferred_build_citations.producing_provider_attempt_id='00000000-0000-4000-8000-000000000001';
@@ -375,7 +385,7 @@ it.each(['valid','missing','root','producer','assertion','extra','revision','nat
     if(mutation==='extra')c.deferred_build_citations.assertions.push(['extra','f'.repeat(64)]);
     if(mutation==='revision')c.receipt.source_observation.requested_revision_id='foreign';
     if(mutation==='native-world')c.receipt.source_observation.binding.native_world_id='foreign';
-    expect(isBuildPendingContext(c,buildWork,()=>true)).toBe(mutation==='valid');
+    expect(isBuildPendingContext(c,buildWork,()=>true)).toBe(['valid', 'deferred'].includes(mutation));
   },
 );
 

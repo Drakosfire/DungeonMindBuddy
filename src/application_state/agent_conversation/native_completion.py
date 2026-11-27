@@ -129,13 +129,27 @@ def require_object_only_completion(completion):
     return checked
 
 
+def _pending_graph_identity(receipt, execution):
+    from .build_pending_native import pending_citation_identity
+    from .native_context import BuildPendingContextReceiptV1
+
+    if type(receipt) is BuildPendingContextReceiptV1:
+        return pending_citation_identity(receipt, execution)
+    return None
+
+
 def _validate_citations(completion, receipt, execution, auth, evidence):
     # Evidence is freshly reconstructed by this module's entry point, never an
     # arbitrary caller-supplied list or a second persisted inclusion manifest.
+    pending_identity = None
+    if completion.native_clause_citations or completion.native_assertion_citations:
+        pending_identity = _pending_graph_identity(receipt, execution)
     statements.validate_citation_records(completion, receipt, auth,
-        {read.support.statement_id:read for _,_,read in evidence.native_statements})
+        {read.support.statement_id:read for _,_,read in evidence.native_statements},
+        pending_identity=pending_identity)
     assertions.validate_citation_records(completion, receipt, auth,
-        {(event.event_id,read.assertion.assertion_id):(event,read) for _,event,read in evidence.native_assertions})
+        {(event.event_id,read.assertion.assertion_id):(event,read) for _,event,read in evidence.native_assertions},
+        pending_identity=pending_identity)
     bodies.validate_body_support_citations(completion, evidence.body_excerpts,
         producer=auth.provider_attempt_id,envelope_sha256=auth.envelope_sha256,before_sequence=auth.sequence)
     from .build_related_pages import validate_claims as validate_related_claims
@@ -458,6 +472,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
+    pending_identity = None
     for row in rows:
         if (not isinstance(row,dict) or row.get('kind') not in {'authored_excerpt', 'statblock_pdf_claim'}
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
@@ -493,8 +508,11 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         elif row.get('kind') == 'proposal':
             segments.append(t.PlanWorldGraphProposalSegmentV1.model_validate(row))
         else:
+            if pending_identity is None and row.get('kind') in {'native_assertion_claim', 'native_statement_report'}:
+                pending_identity = _pending_graph_identity(receipt, execution)
             segment, body, statement, assertion = native_fact_segment(row,policy=candidate['schema'],
-                receipt=receipt,auth=authorization,support=evidence,index=len(segments))
+                receipt=receipt,auth=authorization,support=evidence,index=len(segments),
+                pending_identity=pending_identity)
             segments.append(segment)
             body_cites.extend(body)
             statement_cites.extend(statement)
