@@ -134,3 +134,38 @@ def test_pinned_plan_history_requires_exact_completed_prefix(mismatch):
     else:
         with pytest.raises(ValueError, match="pinned Plan history"):
             require_plan_history(history, pin)
+
+
+def test_saved_image_library_uses_owner_cursor_and_excludes_staged():
+    import httpx
+    from evals.buddy_benchmark.browser_capture import saved_image_library
+
+    staged = {"state": "staged", "created_at": "2026-11-26T12:00:00Z", "asset_id": "staged"}
+    ready = {"state": "ready", "created_at": "2026-11-26T11:00:00Z", "asset_id": "saved"}
+    pages = iter(([staged], [ready], []))
+    cursors = []
+
+    def handle(request):
+        cursors.append(dict(request.url.params))
+        return httpx.Response(200, json={"items": next(pages)})
+
+    with httpx.Client(base_url="http://localhost", transport=httpx.MockTransport(handle)) as client:
+        assert saved_image_library(client, "elderwyld") == [ready]
+    assert cursors == [
+        {"world_id": "elderwyld"},
+        {"world_id": "elderwyld", "before_time": staged["created_at"], "before_id": staged["asset_id"]},
+        {"world_id": "elderwyld", "before_time": ready["created_at"], "before_id": ready["asset_id"]},
+    ]
+
+
+def test_image_preview_report_distinguishes_missing_and_incomplete_capture(tmp_path):
+    import json
+    from evals.buddy_benchmark.workflow import report_case
+
+    case = {"id": "IMAGE-GENERATION-1", "capture_dir": ".", "capture_boundary": "image_preview"}
+    assert report_case(case, tmp_path)["delivery"]["status"] == "unknown"
+    result = tmp_path / "fixture-result.json"
+    result.write_text(json.dumps({"status": "incomplete", "checks": {"single_generation": False}}))
+    assert report_case(case, tmp_path)["delivery"]["status"] == "fail"
+    result.write_text(json.dumps({"status": "observed", "checks": {"single_generation": True}}))
+    assert report_case(case, tmp_path)["delivery"]["status"] == "pass"

@@ -30,6 +30,12 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
               for path in bundle.rglob("*") if path.is_file()}
     if "index.html" not in actual or actual != expected or any(path.is_symlink() for path in bundle.rglob("*")):
         raise ValueError("Browser UI bundle differs from its pinned inventory")
+    image_preview = spec.get("image_preview", False)
+    if type(image_preview) is not bool or (image_preview and (
+            not build_fixture or live_plan or any(
+                key in spec for key in ("selection_text", "unsent_draft", "confirm_save", "lose_confirm_ack"))
+    )):
+        raise ValueError("Image preview requires a Build fixture without selection, draft or confirmation")
     unsent_draft = spec.get("unsent_draft", False)
     if type(unsent_draft) is not bool or (unsent_draft and (not build_fixture or live_plan)):
         raise ValueError("Unsent draft requires a Build browser fixture")
@@ -47,7 +53,7 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
     caret = spec.get("at_document_start", False)
     if type(caret) is not bool or (caret and (not live_plan or "selection_text" in spec)):
         raise ValueError("Document-start caret requires live Plan without selected text")
-    if not unsent_draft and not caret and (build_fixture or live_plan) and (
+    if not image_preview and not unsent_draft and not caret and (build_fixture or live_plan) and (
             not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()
     ):
         raise ValueError("Browser placement fixture requires exact selected text")
@@ -68,6 +74,33 @@ def browser_scratch_directory(output):
     return scratch.resolve()
 
 
+def require_image_preview_page(snapshot, world, work):
+    record = snapshot.get("record") or {}
+    if (record.get("world_id"), record.get("document_id"), record.get("revision"),
+            snapshot.get("loaded_revision"), snapshot.get("committed_content_sha256")) != (
+            world, work["object_id"], work["expected_revision"], work["expected_revision"],
+            work["expected_content_sha256"]):
+        raise ValueError("Image preview does not target the pinned committed Build page")
+
+
+def saved_image_library(client, world):
+    """Read all saved assets through the media owner, even when staging shifts a page."""
+    cursor = {}
+    seen = set()
+    saved = []
+    while True:
+        items = client.get("/api/live/media/images/library", params={"world_id": world, **cursor}).raise_for_status().json()["items"]
+        if not items:
+            return saved
+        saved.extend(item for item in items if item["state"] == "ready")
+        last = items[-1]
+        boundary = (last["created_at"], last["asset_id"])
+        if boundary in seen:
+            raise ValueError("Media library pagination did not advance")
+        seen.add(boundary)
+        cursor = {"before_time": boundary[0], "before_id": boundary[1]}
+
+
 def browser_capture(application, manifest, case, output, token, inputs, owned_env, *, detail, build_fixture=False, live_build=False, live_plan=False):
     from apps.live_control_server.hosted_worker import with_startup_gc
     from apps.live_control_server.services import plan_jev_dispatch
@@ -77,6 +110,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
+    image_preview = manifest["browser_capture"].get("image_preview", False)
+    if image_preview and not live_build:
+        raise ValueError("Image preview requires explicit live Build capture")
     live = live_build or live_plan
     wire_name = "plan-wire-response" if live_plan else "build-wire-response"
     confirm_save = manifest["browser_capture"].get("confirm_save", False)
@@ -198,7 +234,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             finally:
                 active_plan_get.reset(token)
         if path == "/api/live/agent/turn" and method == "POST":
-            if unsent_draft:
+            if unsent_draft or image_preview:
                 turn_posts += 1
                 return await JSONResponse({"code": "benchmark_unexpected_draft_dispatch"}, 409)(scope, receive, send)
             tick = monotonic_ns()
@@ -337,7 +373,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if plan_jev_dispatch.request_budget() != manifest["provider_policy"]:
                         raise ValueError("Effective ordinary provider policy differs")
                     fresh = client.get(route).raise_for_status().json()
-                    if pinned_history is None:
+                    if image_preview:
+                        artifacts.immutable_save(directory, "history-before", fresh)
+                    elif pinned_history is None:
                         command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
                             "expected_pointer_revision": fresh["pointer_revision"],
                             "expected_active_conversation_id": fresh["active_conversation_id"]}
@@ -356,6 +394,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
                         "DMB_BENCHMARK_LIVE_BROWSER": "1" if live else "0",
+                        "DMB_BENCHMARK_IMAGE_PREVIEW": "1" if image_preview else "0",
                         "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
@@ -376,17 +415,61 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             require_plan_fixture_basis(page_before["body"], world, work,
                                                        manifest["browser_capture"].get("selection_text"),
                                                        require_clean=at_document_start)
+                    if image_preview:
+                        require_image_preview_page(page_before["body"], world, work)
+                        env["DMB_BENCHMARK_IMAGE_PAGE_PIN"] = json.dumps(work)
+                        library_before = saved_image_library(client, world)
+                        artifacts.immutable_save(directory, "image-library-before", library_before)
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
                         run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env,
-                                             timeout=140 if lose_confirm_ack else 100)
+                                             timeout=205 if image_preview else 140 if lose_confirm_ack else 100)
                         driver_status = {"return_code": run.returncode}
                     except subprocess.TimeoutExpired:
                         driver_status = {"timed_out": True}
                     driver_failed = driver_status != {"return_code": 0}
                     if driver_failed:
                         artifacts.immutable_save(directory, "browser-driver-failure", driver_status)
+                    if image_preview:
+                        timing_path = output / "browser-timing.json"
+                        observation = json.loads(timing_path.read_bytes()) if timing_path.is_file() else {}
+                        page_after = workflow.response_envelope(
+                            client.get(page_route, params=page_params).raise_for_status())
+                        library_after = saved_image_library(client, world)
+                        after = client.get(route).raise_for_status().json()
+                        artifacts.immutable_save(directory, "committed-page-after", page_after)
+                        artifacts.immutable_save(directory, "image-library-after", library_after)
+                        artifacts.immutable_save(directory, "history-after", after)
+                        preview = observation.get("preview")
+                        owner_asset = None
+                        if preview:
+                            asset_id = str(UUID(preview["asset"]["asset_id"]))
+                            owner_asset = workflow.response_envelope(
+                                client.get(f"/api/live/media/images/{asset_id}/metadata"))
+                            artifacts.immutable_save(directory, "image-owner-readback", owner_asset)
+                        if observation.get("mounted_page") is not None:
+                            require_image_preview_page(observation["mounted_page"], world, work)
+                        checks = {
+                            "mounted_page_pinned": observation.get("mounted_page") is not None,
+                            "private_staged_preview": bool(owner_asset and owner_asset["http_status"] == 200
+                                and owner_asset["body"]["asset_id"] == asset_id
+                                and owner_asset["body"]["state"] == "staged"
+                                and owner_asset["body"]["content_sha256"] == preview["sha256"]
+                                and not owner_asset["body"].get("delivery_url")),
+                            "single_generation": observation.get("generation_posts") == 1,
+                            "no_save_or_place_request": observation.get("write_requests") == [],
+                            "saved_library_unchanged": library_before == library_after,
+                            "committed_page_unchanged": page_after["body"] == page_before["body"],
+                            "mounted_editor_unchanged": observation.get("editor_unchanged") is True,
+                            "conversation_unchanged": after == fresh and turn_posts == 0
+                                and observation.get("turn_posts") == 0,
+                        }
+                        artifacts.immutable_save(directory, "fixture-result", {
+                            "status": "observed" if not driver_failed and all(checks.values()) else "incomplete",
+                            "checks": checks, "image_preview": observation,
+                        })
+                        return
                     if unsent_draft:
                         timing_path = output / "browser-timing.json"
                         observation = json.loads(timing_path.read_bytes()) if timing_path.is_file() else {}

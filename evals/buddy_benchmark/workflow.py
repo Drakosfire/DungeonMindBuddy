@@ -117,6 +117,17 @@ def report_case(case, base):
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
     boundary = case.get("capture_boundary", "response")
+    if boundary == "image_preview":
+        result = directory / "fixture-result.json"
+        if not result.is_file():
+            return {"case_id": case["id"], "capture_boundary": boundary,
+                    "delivery": {"status": "unknown"}}
+        raw = result.read_bytes()
+        observation = json.loads(raw)
+        return {"case_id": case["id"], "capture_boundary": boundary,
+                "delivery": {"status": "pass" if observation["status"] == "observed" else "fail"},
+                "owner_observation": observation,
+                "evidence": {"path": str(result), "sha256": sha256(raw).hexdigest()}}
     if boundary not in {"response", "context_ready", "writer_transport"}:
         raise ValueError("Unknown capture boundary")
     context_only = boundary != "response"
@@ -632,6 +643,9 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
                       or context_only or writer_transport or detailed_trace):
         raise ValueError("Live Plan browser capture requires its own App clone and selected case in response mode")
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
+    if manifest.get("browser_capture", {}).get("image_preview") is True and (
+            not live_build or browser_case is None or (not clone_app and cohort_app is None)):
+        raise ValueError("Image preview requires a selected live Build case and an owned App clone")
     options = dict(context_only=context_only, writer_transport=writer_transport,
                    detailed_trace=detailed_trace, browser_case=browser_case,
                    cohort_member=cohort_manifest_sha256 is not None, build_fixture=build_fixture, live_build=live_build, live_plan=live_plan)
@@ -751,7 +765,9 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     for case in manifest["cases"]:
         # A new capture never inherits an old semantic assessment.
         current = {key: value for key, value in case.items() if key not in {"assessment", "assessments", "detailed_trace"}}
-        if context_only:
+        if manifest.get("browser_capture", {}).get("image_preview") is True:
+            current["capture_boundary"] = "image_preview"
+        elif context_only:
             current["capture_boundary"] = "writer_transport" if writer_transport else "context_ready"
             current["detailed_trace"] = detailed_trace
         elif current.get("capture_boundary", "response") != "response":
