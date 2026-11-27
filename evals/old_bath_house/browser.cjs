@@ -5,7 +5,7 @@ const { createHash, randomUUID } = require('node:crypto');
 const { readFileSync, writeFileSync } = require('node:fs');
 const { runPinnedAssets, runEncounter } = require('./pinned.cjs');
 const { runLiveTurns } = require('./live_turns.cjs');
-const { confirmVariant, generatePortrait, verifyLinkedVariant } = require('./live_artifacts.cjs');
+const { confirmVariant, generatePortrait, verifyLinkedVariant, observeWriteRequests } = require('./live_artifacts.cjs');
 const { bindSavedPortrait, chooseLibraryPortrait } = require('./portrait.cjs');
 
 async function main() {
@@ -49,6 +49,7 @@ async function main() {
   let page;
   try {
     const context = await browser.newContext({ serviceWorkers: 'block' });
+    if (linkedVariant) evidence.browser_write_requests = observeWriteRequests(context, origin.origin);
     await context.route('**/*', route => {
       const request = route.request();
       const target = new URL(request.url());

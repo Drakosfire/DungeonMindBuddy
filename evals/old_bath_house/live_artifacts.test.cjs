@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { confirmVariant, verifyLinkedVariant } = require('./live_artifacts.cjs');
+const { confirmVariant, verifyLinkedVariant, observeWriteRequests } = require('./live_artifacts.cjs');
 
 const origin = 'http://127.0.0.1:5202';
 const producer = '31ff7229-cd2b-44d7-88ec-b6a48b7d0f12';
@@ -85,4 +85,26 @@ test('refuses a foreign saved variant before creating a browser tab', async () =
     /strictly equal/,
   );
   assert.deepEqual(evidence.checks, {});
+});
+
+test('records scoped write attempts from the entire context and retains unknown outcomes', () => {
+  const { EventEmitter } = require('node:events');
+  const context = new EventEmitter();
+  const request = (method, url) => ({ method: () => method, url: () => url });
+  const first = request('POST', origin + '/api/live/agent/worlds/test/confirm');
+  const linked = request('PUT', origin + '/api/live/workspace-documents/edge?world_id=test');
+  const combat = request('PUT', origin + '/api/live/combat/encounters/a');
+  const observations = observeWriteRequests(context, origin);
+  for (const item of [first, linked, combat, request('GET', origin + '/api/live/combat/encounters/a'),
+    request('POST', 'https://other.example/api/live/agent/worlds/test/confirm')]) {
+    context.emit('request', item);
+  }
+  context.emit('response', { request: () => first, status: () => 200 });
+  context.emit('requestfinished', first);
+  context.emit('requestfailed', linked);
+  assert.deepEqual(observations, [
+    { method: 'POST', path: '/api/live/agent/worlds/test/confirm', status: 200, outcome: 'finished' },
+    { method: 'PUT', path: '/api/live/workspace-documents/edge', status: null, outcome: 'failed' },
+    { method: 'PUT', path: '/api/live/combat/encounters/a', status: null, outcome: 'pending' },
+  ]);
 });
