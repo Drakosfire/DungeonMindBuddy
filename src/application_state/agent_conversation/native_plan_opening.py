@@ -750,8 +750,15 @@ def validate_opening_parent(context, execution, parent, authorization):
 def validate_opening_prefix(context, prefix, *, execution, author_scope_event_id=None, author_scope_recheck=False,
                             review_event_ids=None, author_question=''):
     from .native_corpus import NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
-    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanGraphNeedAuthorizedV1
     attempts = [e for e in prefix if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
+    from .native_context import NativePlanGraphQueryPendingV1
+    if type(context.native_query) is NativePlanGraphQueryPendingV1:
+        from .native_plan_graph_need import validate_pending_graph
+        effective = validate_pending_graph(context, execution.model_copy(update={'events': prefix}))
+        if type(effective) is NativePlanGraphQueryPendingV1:
+            raise ValueError('Opening requires settled or explicitly closed Plan Graph need')
+        attempts = [e for e in attempts if type(e) is not NativePlanGraphNeedAuthorizedV1]
     if author_scope_event_id is not None:
         observations = [e for e in prefix if type(e) is NativePlanAuthorScopeObservedV1]
         allowed_counts = (2,) if review_event_ids is not None else (1,) if author_scope_recheck else (1, 2, 3)
