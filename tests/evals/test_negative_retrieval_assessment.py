@@ -4644,3 +4644,103 @@ def test_gateway_never_forwards_unknown_sql():
     finally:
         for sock in (client, incoming, outgoing, backend):
             sock.close()
+
+
+def test_gateway_finish_is_retryable_after_interruption(monkeypatch):
+    import subprocess
+    from evals.negative_retrieval.closed_db_gateway import _ClosedDatabaseGateway
+    gateway = _ClosedDatabaseGateway('/tmp', 'unused', {'database': 'owned'})
+    calls = []
+    def interrupted_once():
+        calls.append('close')
+        if len(calls) == 1:
+            raise KeyboardInterrupt('synthetic cleanup interruption')
+        gateway._closed = True
+    monkeypatch.setattr(gateway, '_close', interrupted_once)
+    worker = subprocess.Popen(['/bin/true'])
+    worker.wait(timeout=5)
+    with pytest.raises(KeyboardInterrupt):
+        gateway.finish(worker)
+    assert not gateway._finished
+    assert gateway.finish(worker)['status'] == 'unsealed'
+    assert calls == ['close', 'close']
+
+
+def test_owned_gateway_retries_cleanup_when_finish_is_interrupted(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    from evals.negative_retrieval import closed_db_gateway as module
+    ledger = tmp_path / 'owner.json'
+    ledger.write_text(json.dumps({'database': {'database': 'owned'}}))
+    monkeypatch.setenv('DMB_NEGATIVE_RETRIEVAL_OWNER_LEDGER', str(ledger))
+    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'postgresql:///owned')
+    monkeypatch.setattr(module._ClosedDatabaseGateway, 'start', lambda self: self)
+    calls = []
+    def interrupted_once(self):
+        calls.append('close')
+        if len(calls) == 1:
+            raise KeyboardInterrupt('synthetic cleanup interruption')
+        self._closed = True
+    monkeypatch.setattr(module._ClosedDatabaseGateway, '_close', interrupted_once)
+    worker = subprocess.Popen(['/bin/true'])
+    worker.wait(timeout=5)
+    with pytest.raises(KeyboardInterrupt):
+        with module.owned_gateway(tmp_path) as gateway:
+            gateway.finish(worker)
+    assert calls == ['close', 'close'] and gateway._closed and not gateway._finished
+
+
+def test_gateway_closes_a_backend_stalled_during_identity(monkeypatch):
+    import socket
+    from threading import Event, Thread
+    from types import SimpleNamespace
+    import psycopg
+    from evals.negative_retrieval import closed_db_gateway as module
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    app_client, app_server = socket.socketpair()
+    database, peer = socket.socketpair()
+    entered = Event()
+    calls = []
+
+    class Backend:
+        pgconn = SimpleNamespace(socket=database.fileno(), ssl_in_use=False)
+        info = SimpleNamespace(host='127.0.0.1', port=1234)
+        def __enter__(self): return self
+        def __exit__(self, *args): database.close()
+        def execute(self, _query):
+            entered.set()
+            database.recv(1)
+            raise OSError('synthetic closed backend')
+
+    def connect(*args, **kwargs):
+        calls.append(kwargs)
+        return Backend()
+    monkeypatch.setattr(module, '_startup', lambda *_: None)
+    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'owned')
+    monkeypatch.setattr(psycopg, 'connect', connect)
+    identity = {'database': 'owned', 'host': '127.0.0.1', 'port': 1234, 'oid': '1', 'system_identifier': '2'}
+    gateway = module._ClosedDatabaseGateway('/tmp', 'owned', identity)
+    gateway._sockets.add(app_server)
+    thread = Thread(target=gateway._serve, args=(app_server, FrontendPolicy()))
+    gateway._threads.append(thread)
+    thread.start()
+    try:
+        assert entered.wait(5)
+        gateway._close()
+        assert not thread.is_alive() and gateway._closed
+        assert calls[0]['connect_timeout'] == module._CONNECT_TIMEOUT
+        assert 'statement_timeout=3000' in calls[0]['options']
+        assert 'forced_shutdown' in gateway._errors
+    finally:
+        app_client.close(); peer.close()
+
+
+def test_gateway_owner_verification_timeout_fails_closed(monkeypatch):
+    import subprocess
+    from evals.negative_retrieval import closed_db_gateway as module
+    def timeout(*args, **kwargs):
+        assert kwargs['timeout'] == module._OWNER_TIMEOUT
+        raise subprocess.TimeoutExpired(args[0], kwargs['timeout'])
+    monkeypatch.setattr(module.subprocess, 'run', timeout)
+    with pytest.raises(RuntimeError, match='verification timed out'):
+        module._checked_owner_dsn()

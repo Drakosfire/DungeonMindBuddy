@@ -18,14 +18,29 @@ import sys
 import time
 
 from .gateway_protocol import FrontendPolicy, ProtocolDenied
-from .owned_db_fixture import checked_owned_dsn
-
 _MAX_FRAME = 1024 * 1024
 _MAX_BYTES = 8 * 1024 * 1024
 _MAX_SESSIONS = 4
 _MAX_LIFETIME = 60
 _IDLE_TIMEOUT = 10
 _PROTOCOL_V3 = 196608
+_OWNER_TIMEOUT = 5
+_CONNECT_TIMEOUT = 3
+
+
+def _checked_owner_dsn():
+    """Run the existing ownership guard in a bounded child of this worker group."""
+    code = ('from evals.negative_retrieval.owned_db_fixture import checked_owned_dsn; '
+            'checked_owned_dsn()')
+    try:
+        result = subprocess.run([sys.executable, '-B', '-c', code], stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                timeout=_OWNER_TIMEOUT, check=False)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError('Owned App verification timed out') from exc
+    if result.returncode:
+        raise RuntimeError('Owned App verification failed')
+    return os.environ['DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL']
 
 
 def _exact(sock, count):
@@ -85,6 +100,7 @@ class _ClosedDatabaseGateway:
         self._listener = None
         self._listener_thread = None
         self._threads = []
+        self._backend_threads = []
         self._policies = []
         self._sessions = []
         self._sockets = set()
@@ -93,6 +109,7 @@ class _ClosedDatabaseGateway:
         self._deadline = None
         self._socket_identity = None
         self._finished = False
+        self._closed = False
 
     def start(self):
         directory = self.directory.resolve(strict=True)
@@ -153,7 +170,15 @@ class _ClosedDatabaseGateway:
                 self._sockets.add(client)
                 thread = Thread(target=self._serve, args=(client, policy), name='negative-db-session')
                 self._threads.append(thread)
-                thread.start()
+                try:
+                    thread.start()
+                except BaseException:
+                    self._threads.pop()
+                    self._sockets.discard(client)
+                    client.close()
+                    self._errors.append('session_start_failed')
+                    self._stop.set()
+                    break
 
     def _serve(self, client, policy):
         import psycopg
@@ -163,9 +188,17 @@ class _ClosedDatabaseGateway:
         try:
             with client:
                 _startup(client, self._database)
-                if checked_owned_dsn() != self._dsn:
+                if _checked_owner_dsn() != self._dsn:
                     raise ProtocolDenied('Owned App connection changed')
-                with psycopg.connect(self._dsn, sslmode='disable', autocommit=True) as backend:
+                with psycopg.connect(self._dsn, sslmode='disable', autocommit=True,
+                                     connect_timeout=_CONNECT_TIMEOUT,
+                                     options='-c statement_timeout=3000') as backend:
+                    # Track the actual socket before issuing the identity query:
+                    # shutdown can then interrupt a stalled query.
+                    raw = socket.socket(fileno=os.dup(backend.pgconn.socket))
+                    raw.settimeout(_IDLE_TIMEOUT)
+                    with self._lock:
+                        self._sockets.add(raw)
                     actual = backend.execute('''SELECT current_database(),
                         (SELECT oid::text FROM pg_database WHERE datname=current_database()),
                         (SELECT system_identifier::text FROM pg_control_system())''').fetchone()
@@ -175,10 +208,6 @@ class _ClosedDatabaseGateway:
                             or actual != (self._database, str(self._identity['oid']),
                                           str(self._identity['system_identifier']))):
                         raise ProtocolDenied('Backend differs from owned local database')
-                    raw = socket.socket(fileno=os.dup(backend.pgconn.socket))
-                    raw.settimeout(_IDLE_TIMEOUT)
-                    with self._lock:
-                        self._sockets.add(raw)
                     client.sendall(_message(b'R', struct.pack('!I', 0)))
                     for key in ('server_version', 'server_encoding', 'client_encoding', 'DateStyle',
                                 'integer_datetimes', 'standard_conforming_strings', 'TimeZone', 'IntervalStyle'):
@@ -188,6 +217,8 @@ class _ClosedDatabaseGateway:
                     client.sendall(_message(b'Z', b'I'))
                     backend_thread = Thread(target=self._relay, args=(raw, client, policy, False))
                     backend_thread.start()
+                    with self._lock:
+                        self._backend_threads.append(backend_thread)
                     self._relay(client, raw, policy, True)
                     try:
                         raw.shutdown(socket.SHUT_RDWR)
@@ -243,10 +274,13 @@ class _ClosedDatabaseGateway:
             if (info.st_dev, info.st_ino) != self._socket_identity or not stat.S_ISSOCK(info.st_mode):
                 raise RuntimeError('Gateway socket identity changed')
             self.path.unlink()
+            self._socket_identity = None
         except FileNotFoundError:
             raise RuntimeError('Gateway socket disappeared')
 
     def _close(self):
+        if self._closed:
+            return
         self._stop.set()
         if self._listener is not None:
             self._listener.close()
@@ -263,23 +297,32 @@ class _ClosedDatabaseGateway:
                     pass
             for thread in self._threads:
                 thread.join(_IDLE_TIMEOUT)
+        for thread in self._backend_threads:
+            thread.join(_IDLE_TIMEOUT)
         if ((self._listener_thread is not None and self._listener_thread.is_alive())
-                or any(thread.is_alive() for thread in self._threads)):
+                or any(thread.is_alive() for thread in self._threads)
+                or any(thread.is_alive() for thread in self._backend_threads)):
             self._record_error('threads_not_closed')
         try:
             self._remove_socket()
         except RuntimeError:
             self._record_error('socket_cleanup_failed')
+        self._closed = (self._socket_identity is None
+                        and (self._listener_thread is None or not self._listener_thread.is_alive())
+                        and not any(thread.is_alive() for thread in self._threads)
+                        and not any(thread.is_alive() for thread in self._backend_threads))
 
     def finish(self, worker):
         """Close the gateway only after the actual worker process has exited."""
         if self._finished or not isinstance(worker, subprocess.Popen) or worker.poll() is None:
             raise ValueError('A finished, directly observed worker is required')
-        self._finished = True
         # Let already-exited workers' Terminate frames drain before stopping.
         for thread in self._threads:
             thread.join(1)
         self._close()
+        if not self._closed:
+            raise RuntimeError('Gateway resources remain open; clone ownership must be retained')
+        self._finished = True
         with self._lock:
             sessions = list(self._sessions)
             errors = list(self._errors)
@@ -300,7 +343,7 @@ class _ClosedDatabaseGateway:
 def owned_gateway(directory):
     """Bind the trusted gateway to this live workstream's verified App clone."""
     from psycopg.conninfo import conninfo_to_dict
-    dsn = checked_owned_dsn()
+    dsn = _checked_owner_dsn()
     ledger_path = Path(os.environ['DMB_NEGATIVE_RETRIEVAL_OWNER_LEDGER']).resolve(strict=True)
     identity = json.loads(ledger_path.read_bytes())['database']
     if conninfo_to_dict(dsn)['dbname'] != identity['database']:
@@ -311,9 +354,15 @@ def owned_gateway(directory):
     finally:
         if not gateway._finished:
             failure = sys.exc_info()[1]
-            gateway._close()
-            if gateway._errors:
-                error = RuntimeError('Gateway cleanup or observation was incomplete')
+            try:
+                gateway._close()
+            except BaseException as cleanup:
                 if failure is None:
-                    raise error
-                failure.add_note(str(error))
+                    raise
+                failure.add_note('Gateway cleanup failed: ' + type(cleanup).__name__)
+            else:
+                if gateway._errors or not gateway._closed:
+                    error = RuntimeError('Gateway cleanup or observation was incomplete')
+                    if failure is None:
+                        raise error
+                    failure.add_note(str(error))

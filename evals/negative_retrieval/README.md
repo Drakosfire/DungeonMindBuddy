@@ -666,7 +666,9 @@ statements. It rejects other SQL, bound values, COPY, cancellation, replication,
 unknown protocol and pipelining across Sync before forwarding. It retains only
 query hashes, categories and outcomes, never SQL text, values or credentials.
 The gateway binds each backend to the owned clone and refuses a transport seal
-if the worker, sessions, protocol or cleanup are unsettled. It is not an
+if the worker, sessions, protocol or cleanup are unsettled. Its backend has a
+three-second statement timeout, so it does not preserve arbitrary production
+session settings or latency. It is not an
 application-SQL allowlist and cannot run Buddy turns.
 
 Run its client only in a separately verified network-isolated worker with a
