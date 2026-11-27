@@ -21,6 +21,12 @@ evidence and open boundaries; component or scripted proof does not establish an
 ordinary live workflow. The [ordinary benchmark workflow](../Docs/Guides/ordinary-benchmark-workflow.md)
 explains capture, offline reporting and independent assessment.
 
+## Registered experiments
+
+| ID | Status | Protocol |
+| --- | --- | --- |
+| `buddy.cpu-decision-models.v1` | Registered, unrun | [CPU decision models and MPNet-seeded Graph retrieval](../Docs/Experiments/EXPERIMENT-CPU-Decision-Models.md) |
+
 | Question | Entry point |
 | --- | --- |
 | Did an extraction or graph change preserve the expected evidence? | [Graph memory fixtures and baselines](graph_memory_layer/README.md) |
