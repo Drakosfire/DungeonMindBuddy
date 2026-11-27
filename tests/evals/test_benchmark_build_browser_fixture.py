@@ -109,3 +109,42 @@ def test_live_build_terminal_handles_stream_delivery_and_error():
             b'data: {"schema":"dmb_build_turn_stream_v1","client_turn_id":"other","kind":"error","status":409}\n\n',
             200, media, "turn-1",
         )
+
+
+@pytest.mark.parametrize("mutation", [None, "write", "revision", "wrong_step", "pointer", "message", "command", "kind"])
+def test_reviewed_discussion_matches_only_the_saved_owner_dispatch(mutation):
+    from evals.buddy_benchmark.browser_capture import validate_reviewed_work_plan_request
+
+    request, controls = fixture()
+    work = controls["work"]
+    source, command, step = (str(uuid4()) for _ in range(3))
+    pin = {"conversation_id": controls["conversation_id"], "source_turn_id": source,
+           "step_id": step, "revision": 4, "objective": "Discuss the scene."}
+    request["reviewed_step"] = {"conversation_id": pin["conversation_id"],
+                                "source_turn_id": source, "command_id": command}
+    if mutation != "write":
+        request.pop("build_write_capability")
+    dispatch = {"command_id": command, "step_id": step, "message": request["message"],
+                "client_turn_id": request["turn_id"], "client_thread_id": request["client_thread_id"],
+                "scope": {"task": {"kind": "discuss"}}}
+    owner = {"world_id": controls["world"], "document_id": work["object_id"], "revision": 6,
+             "objective": pin["objective"], "dispatches": [dispatch]}
+    history = {"pointer_revision": 1}
+    if mutation == "revision":
+        owner["revision"] += 1
+    elif mutation == "wrong_step":
+        dispatch["step_id"] = str(uuid4())
+    elif mutation == "pointer":
+        history["pointer_revision"] += 1
+    elif mutation == "message":
+        dispatch["message"] += " again"
+    elif mutation == "command":
+        request["reviewed_step"]["command_id"] = str(uuid4())
+    elif mutation == "kind":
+        dispatch["scope"]["task"]["kind"] = "prepare_insertion"
+
+    if mutation is None:
+        validate_reviewed_work_plan_request(request, pin, owner, work, history)
+    else:
+        with pytest.raises(ValueError):
+            validate_reviewed_work_plan_request(request, pin, owner, work, history)

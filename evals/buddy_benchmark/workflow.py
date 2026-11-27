@@ -159,6 +159,9 @@ def report_case(case, base):
         raise ValueError("Detailed host trace differs from the requested mode")
     if detailed_trace:
         names += ("detailed-host-trace",)
+    reviewed_plan = case.get("reviewed_work_plan")
+    if reviewed_plan is not None:
+        names += ("reviewed-work-plan-at-dispatch", "history-before", "reviewed-work-plan-fixture-card")
     paths = {name: directory / (name + ".json") for name in names}
     if context_only and (directory / "answer-http.json").exists():
         paths["answer-http"] = directory / "answer-http.json"
@@ -201,7 +204,17 @@ def report_case(case, base):
                 "ingestion_publication", "retrieval", "composition", "citations")}}
     documents = {name: json.loads(path.read_text()) for name, path in paths.items()}
     request = documents["request"]
-    if request.get("message") != case["question"]:
+    if reviewed_plan is not None:
+        from .browser_capture import validate_reviewed_work_plan_request
+
+        owner = documents["reviewed-work-plan-at-dispatch"]
+        fresh = documents["history-before"]
+        card = documents["reviewed-work-plan-fixture-card"]
+        work = {"kind": "build", "object_id": card["reference"]["document_id"],
+                "expected_revision": card["registry_revision_prepared"],
+                "expected_content_sha256": card["prepared"]["content_sha256"]}
+        validate_reviewed_work_plan_request(request, reviewed_plan, owner, work, fresh)
+    elif request.get("message") != case["question"]:
         raise ValueError("Retained request belongs to another question")
     history = _wrapped(paths["history-after"])
     trace = _wrapped(paths["context-trace"])
@@ -827,6 +840,9 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
     if manifest.get("browser_capture", {}).get("image_preview") is True and (
             not live_build or browser_case is None or (not clone_app and cohort_app is None)):
         raise ValueError("Image preview requires a selected live Build case and an owned App clone")
+    if "reviewed_work_plan" in manifest.get("browser_capture", {}) and (
+            not live_build or browser_case is None or (not clone_app and cohort_app is None)):
+        raise ValueError("Reviewed Work Plan requires a selected live Build case and an owned App clone")
     if manifest["request_template"].get("surface", {}).get("surface_id") == "play" and (
             browser_case is not None or (not clone_app and cohort_app is None)):
         raise ValueError("Play turn requires an owned App clone")
@@ -978,6 +994,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
             current["detailed_trace"] = detailed_trace
         elif current.get("capture_boundary", "response") != "response":
             raise ValueError("Context capture requires the explicit capture-context mode")
+        if browser_case is not None and "reviewed_work_plan" in manifest.get("browser_capture", {}):
+            current["reviewed_work_plan"] = manifest["browser_capture"]["reviewed_work_plan"]
         retained["cases"].append(dict(current, capture_dir=str((output / case["id"]).resolve()),
             prompt_dir=str((output / "runtime-artifacts/out/agent_request_evidence").resolve())))
     # Preserve relative input pins/review bindings by resolving them before moving
