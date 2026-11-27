@@ -34,3 +34,9 @@ provider-free real Build resolver check on the existing read-only synthetic clon
 working-copy body attempts were zero for that invocation. The serving checkout
 tree matched deployed revision `9ec881f7e3bc091a2ea9d2a4815ab0b71fd6718d`.
 This does not establish complete turn capture or benchmark qualification.
+
+Review dependency: the main-line predecessor #4935 introduced
+`tests/evals/test_benchmark_build_proposal_readback.py` without a test inventory
+entry. Add that existing provider-free test file to the same inventory group as
+its neighboring benchmark tests, and run the inventory guard. This is a bounded
+repair of an inherited required check; no test or runtime behavior changes.
