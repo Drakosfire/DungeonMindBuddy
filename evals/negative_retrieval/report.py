@@ -205,6 +205,14 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     related_turn = native_turn = turn_window
     primary = rows['request'].get('primary_work')
     primary_id = primary.get('object_id') if isinstance(primary, dict) else None
+    primary_revision = primary.get('expected_revision') if isinstance(primary, dict) else None
+    world = rows['request'].get('owner_scope')
+    world_id = world.get('world_id') if isinstance(world, dict) else None
+    primary_pointer = None
+    if (fixture_bound is True and isinstance(primary_id, str) and primary_id
+            and isinstance(world_id, str) and world_id and type(primary_revision) is int and primary_revision > 0
+            and 'current-page' not in label_by_document.values()):
+        primary_pointer = {'document_id': primary_id, 'world_id': world_id, 'registry_revision': primary_revision}
     primary_id_matches = None
     if fixture_bound is True and related_turn and isinstance(primary_id, str) and primary_id:
         primary_id_matches = sum(row.get('owner') == 'related_page_materialization'
@@ -214,7 +222,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     observed["completed_reads"] = [row["label"] for row in observed["observed_acquisitions"]
         if row["kind"] in {"source_read", "related_page_read"}]
     if related_turn:
-        observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document)
+        observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document,
+                                                primary_pointer=primary_pointer)
         observed["completed_reads"] += acquisition_labels(probe.get("records"),
             label_by_document=label_by_document, completed_only=True)
     if native_turn:
