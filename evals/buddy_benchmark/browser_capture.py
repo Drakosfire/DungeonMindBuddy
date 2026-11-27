@@ -50,6 +50,9 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
     if "image_placement_anchor" in spec and (
             parent is None or not isinstance(placement, str) or not placement.strip()):
         raise ValueError("Image placement requires an exact parent and destination paragraph")
+    if "image_lose_save_ack" in spec and (
+            spec["image_lose_save_ack"] is not True or placement is None or parent is None):
+        raise ValueError("Lost image Save acknowledgement requires exact placement and asset pins")
     unsent_draft = spec.get("unsent_draft", False)
     if type(unsent_draft) is not bool or (unsent_draft and (not build_fixture or live_plan)):
         raise ValueError("Unsent draft requires a Build browser fixture")
@@ -120,6 +123,45 @@ def read_image_parent(client, parent):
     }
 
 
+@contextmanager
+def isolated_image_storage(asset_id, calls):
+    """Exercise the media owner and fence with a deterministic CDN response."""
+    from application_state import media
+    from apps.live_control_server.services import media_storage
+
+    save_asset = media_storage.save_asset
+    account = "0" * 32
+    upload_url = f"https://api.cloudflare.com/client/v4/accounts/{account}/images/v1"
+
+    async def save(candidate, owner, **kwargs):
+        if str(candidate) != asset_id or owner != "local_operator" or calls:
+            raise ValueError("Unexpected benchmark media Save")
+        row = media.get_asset(candidate, owner)
+        object_id = media_storage._object_id(row)
+        metadata = media_storage._metadata(row)
+        result = {"success": True, "result": {"id": object_id, "meta": metadata,
+                  "requireSignedURLs": False,
+                  "variants": [f"https://imagedelivery.net/benchmark/{object_id}/public"]}}
+
+        def respond(request):
+            calls.append(request.method)
+            if calls == ["GET"] and str(request.url) == f"{upload_url}/{object_id}":
+                return httpx.Response(404)
+            if calls == ["GET", "POST"] and str(request.url) == upload_url:
+                return httpx.Response(200, json=result)
+            if calls == ["GET", "POST", "GET"] and str(request.url) == f"{upload_url}/{object_id}":
+                return httpx.Response(200, json=result)
+            raise ValueError("Unexpected benchmark CDN request")
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            return await save_asset(candidate, owner, client=client, **kwargs)
+
+    with patch.dict(os.environ, {"CLOUDFLARE_ACCOUNT_ID": account,
+                                "CLOUDFLARE_IMAGES_API_TOKEN": "benchmark-only"}):
+        with patch.object(media_storage, "save_asset", save):
+            yield
+
+
 def saved_image_library(client, world):
     """Read all saved assets through the media owner, even when staging shifts a page."""
     cursor = {}
@@ -150,6 +192,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     image_preview = manifest["browser_capture"].get("image_preview", False)
     image_parent = manifest["browser_capture"].get("image_parent")
     image_placement = manifest["browser_capture"].get("image_placement_anchor")
+    image_lose_save_ack = manifest["browser_capture"].get("image_lose_save_ack", False)
     if image_preview and not live_build:
         raise ValueError("Image preview requires explicit live Build capture")
     live = live_build or live_plan
@@ -276,6 +319,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         }:
             play_rejected_writes.append({"method": method, "path": path})
             return await JSONResponse({"code": "benchmark_unexpected_play_write"}, 409)(scope, receive, send)
+        if (image_lose_save_ack and method == "POST" and path.startswith("/api/live/media/images/")
+                and path.endswith("/save") and path != f"/api/live/media/images/{image_parent['asset_id']}/save"):
+            return await JSONResponse({"code": "benchmark_wrong_image_save_target"}, 409)(scope, receive, send)
         if (image_placement is not None and method == "POST"
                 and path.startswith("/api/live/media/images/")
                 and path.rsplit("/", 1)[-1] in {"generate", "regenerate"}):
@@ -459,8 +505,11 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
 
         failure_guard = patch.object(BuildProposalService, "advance", stop_after_response)
 
+    image_storage_calls = []
+    storage_guard = (isolated_image_storage(image_parent["asset_id"], image_storage_calls)
+                     if image_lose_save_ack else nullcontext())
     try:
-        with patch.dict(os.environ, local_env), jev_guard, writer_guard, failure_guard:
+        with patch.dict(os.environ, local_env), jev_guard, writer_guard, failure_guard, storage_guard:
             thread = Thread(target=copy_context().run, args=(server.run,),
                             kwargs={"sockets": [sock]}, daemon=True)
             thread.start()
@@ -561,9 +610,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             if (markdown.count(image_placement) != 1
                                     or f"dmb-media:{image_parent['asset_id']}" in markdown):
                                 raise ValueError("Image placement needs one unique paragraph and an absent asset")
-                            if parent_before["metadata"]["body"]["state"] != "ready":
-                                raise ValueError("Image placement requires a saved, ready library asset")
-                            env["DMB_BENCHMARK_IMAGE_PLACEMENT"] = json.dumps({"anchor": image_placement})
+                            expected_state = "staged" if image_lose_save_ack else "ready"
+                            if parent_before["metadata"]["body"]["state"] != expected_state:
+                                raise ValueError(f"Image placement requires a {expected_state} library asset")
+                            env["DMB_BENCHMARK_IMAGE_PLACEMENT"] = json.dumps({
+                                "anchor": image_placement, "lose_save_ack": image_lose_save_ack,
+                            })
 
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
@@ -649,6 +701,24 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                                 exact_saved_image=saved["committed_markdown"] == expected
                                     and saved["loaded_revision"] == work["expected_revision"] + 1,
                             )
+                        if image_lose_save_ack:
+                            recovery = observation.get("save_recovery") or {}
+                            saves = [row for row in observation.get("write_requests", [])
+                                     if row["path"].endswith("/save")]
+                            checks.pop("no_media_save")
+                            checks.pop("parent_unchanged")
+                            checks.pop("saved_library_unchanged")
+                            observation["synthetic_cdn_calls"] = image_storage_calls
+                            checks["exact_asset_save_recovered"] = (
+                                image_storage_calls == ["GET", "POST", "GET"]
+                                and saves == [{"method": "POST", "path":
+                                          f"/api/live/media/images/{image_parent['asset_id']}/save"}]
+                                and recovery.get("asset_id") == image_parent["asset_id"]
+                                and recovery.get("save_attempts") == 1
+                                and recovery.get("committed_status") == 200
+                                and recovery.get("recovered_state") == "ready"
+                                and parent_after["matches_pin"]
+                                and parent_after["metadata"]["body"]["state"] == "ready")
                         artifacts.immutable_save(directory, "fixture-result", {
                             "status": "observed" if not driver_failed and all(checks.values()) else "incomplete",
                             "checks": checks, "image_preview": observation,

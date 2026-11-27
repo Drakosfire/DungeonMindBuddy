@@ -114,4 +114,40 @@ async function regeneratePrivatePreview(page, origin, parent, instructions) {
   }
 }
 
-module.exports = { generatePrivatePreview, regeneratePrivatePreview, selectLibraryImage };
+async function recoverImageSave(page, origin, studio, assetId) {
+  const assetUrl = origin + "/api/live/media/images/" + assetId;
+  const saveUrl = assetUrl + "/save";
+  const started = performance.now();
+  let saveAttempts = 0;
+  let committedStatus = null;
+  const loseAcknowledgement = async route => {
+    saveAttempts++;
+    if (route.request().method() !== "POST" || saveAttempts !== 1) {
+      await route.abort();
+      return;
+    }
+    const response = await route.fetch({ maxRetries: 0, maxRedirects: 0 });
+    committedStatus = response.status();
+    await route.abort();
+  };
+  await page.route(saveUrl, loseAcknowledgement);
+  try {
+    const reopened = page.waitForResponse(response => response.url() === assetUrl
+      && response.request().method() === "GET" && response.ok());
+    const [response] = await Promise.all([
+      reopened, studio.getByRole("button", { name: "Save image", exact: true }).click(),
+    ]);
+    const asset = await response.json();
+    await studio.getByRole("status").filter({ hasText: "Saved to CDN" }).waitFor();
+    assert.equal(committedStatus, 200);
+    assert.equal(saveAttempts, 1);
+    assert.equal(asset.asset_id, assetId);
+    assert.equal(asset.state, "ready");
+    return { asset_id: assetId, committed_status: committedStatus,
+      save_attempts: saveAttempts, recovered_state: asset.state, elapsed_ms: performance.now() - started };
+  } finally {
+    await page.unroute(saveUrl, loseAcknowledgement);
+  }
+}
+
+module.exports = { generatePrivatePreview, regeneratePrivatePreview, selectLibraryImage, recoverImageSave };
