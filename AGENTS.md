@@ -34,9 +34,10 @@ requesting per-PR confirmation. Before merging, confirm that:
 
 - The cumulative diff, target branch, and dependency order stay within the
   assignment, and any required predecessor has landed.
-- Independent review approves the exact current head SHA, required checks for
-  that head pass, and actionable findings and applicable acceptance gates are
-  resolved. If the head changes, re-establish review and check evidence for it.
+- Required checks pass on the exact current head SHA, and actionable findings
+  and applicable acceptance gates are resolved. For code changes, independent
+  review must also approve that head. If the head changes, re-establish the
+  applicable review and check evidence.
 - The user or handoff has placed no applicable hold, reserved the merge for
   another owner, or required separate acceptance. Existing GitHub branch
   protections and required checks apply in full.
@@ -113,10 +114,14 @@ before pruning it. Separate checkouts do not isolate ports or databases.
 
 ## Review and verification
 
-Review the exact cumulative base→head change, affected contracts and required
-evidence. Independently verify behavior at its owning boundary. State inherited
-failures, missing evidence and the limits of author-reported checks honestly.
-Preserve required human acceptance; technical checks do not imply it.
+Inspect the exact cumulative base→head diff and verify affected contracts.
+For non-code-only PRs, the author checks the diff, consistency and affected
+links, then may merge without commissioning a separate reviewer. This applies
+to documentation, benchmark records and agent policy text. Executable changes,
+including scripts, schemas, migrations and runtime or workflow configuration,
+require independent exact-head review and owning-boundary verification.
+State inherited failures, missing evidence and the limits of author-reported
+checks honestly. Preserve required human acceptance and branch protections.
 
 One complete formal judgment against one distinct head SHA is one review cycle.
 Fix commits, comments and CI reruns alone are not new cycles. Request another
@@ -184,8 +189,8 @@ use operator/live data or providers, allocate per-case App clones, or run full
 contents scans merely to inventory an exclusively owned benchmark database.
 Retain SHA, commands, versions, isolation/cleanup and all exit/failure evidence.
 Auth/principal/CAS/rollback/history and graph draft-loss protections remain required
-when affected. Independent exact-head review and the scoped merge gates
-apply alongside test evidence. The local tool is not a self-hosted runner or
+when affected. Applicable independent review and the scoped merge gates apply alongside
+test evidence. The local tool is not a self-hosted runner or
 a replacement GitHub status check; no fabricated hosted-green claim is permitted.
 Report full qualification as missing or failed until the required proof exists.
 Apply that status only to the delivery gate that requires it. Existing unmerged CI drafts do not
