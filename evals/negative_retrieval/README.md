@@ -479,3 +479,15 @@ does not establish that the acquisition journal is complete.
 that label are rejected at preflight and during retained inventory verification.
 This prevents a different page from being classified as an allowed current-page
 read. Legacy captures with that collision remain unproven.
+
+`dev-current-page-partial` covers a current-page-only question with one supported
+detail and one explicitly open detail. It requires the exact saved current page,
+no related catalog discovery or Graph query, a cited tentative price, and a
+specific page-scoped explanation of the missing date. A generic limitation is
+not sufficient. A synthetic predecessor run reached the partial branch but
+gave only a generic limitation; a later run of the reviewed producer supplied
+both details with exact page citations. The same question then completed in the
+signed-in app after the producer was deployed in PR #4923. Those are individual
+observations, not a cohort rate or a complete acquisition journal; the synthetic
+wire-audited timings included manual pauses. The case is development material,
+not independent held-out qualification.

@@ -3470,3 +3470,22 @@ def test_mixed_current_page_regression_flags_world_search_without_claiming_compl
                                       graph_query_journal_complete=False))['checks']['graph_query_budget'] is False
     assert assess(rubric, observation(outcome='answer', graph_query_attempts=0,
                                       graph_query_journal_complete=False))['checks']['graph_query_budget'] is None
+
+
+def test_current_page_partial_regression_requires_support_and_specific_gap_judgment():
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / 'evals/negative_retrieval/fixtures'
+    public = json.loads((root / 'development.json').read_text())
+    private = json.loads((root / 'development-private.json').read_text())
+    case, = (row for row in public['cases'] if row['id'] == 'dev-current-page-partial')
+    rubric = private['cases'][case['id']]
+    assert rubric['required_reads'] == rubric['allowed_reads'] == ['current-page']
+    assert rubric['max_catalog_discoveries'] == rubric['max_graph_query_attempts'] == 0
+    good = dict(outcome='answer', reads=['current-page'], required_support=True,
+        graph_query_attempts=0, graph_query_journal_complete=True)
+    assert assess(rubric, observation(**good))['status'] == 'pass'
+    # The independent reviewer rejects the generic-only limitation seen in case 307.
+    assert assess(rubric, observation(**(good | {'semantic_quality': False})))['status'] == 'fail'
+    assert assess(rubric, observation(**(good | {'journal_complete': False})))['status'] == 'unproven'
+    assert assess(rubric, observation(**(good | {'reads': ['current-page', 'irrelevant']})))['status'] == 'fail'
