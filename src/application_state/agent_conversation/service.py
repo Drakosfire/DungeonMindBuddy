@@ -1827,9 +1827,10 @@ class AgentConversationService:
             NativePlanGraphQueryStartedV1, NativePlanGraphQueryClosedV1,
             NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1,
         )
-        if type(event) in (NativePlanGraphNeedAuthorizedV1, NativePlanGraphNeedObservedV1,
-                NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
-                NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1):
+        reader_only_events = (NativePlanGraphNeedAuthorizedV1, NativePlanGraphNeedObservedV1,
+            NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+            NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1)
+        if type(event) in reader_only_events:
             raise ApplicationStateValidationError('Plan Graph-need producer is not active')
         world_id = _world_id(world_id)
         from .plan_authoring import lock_authoring_writer,validate_authoring_writer
@@ -2302,6 +2303,9 @@ class AgentConversationService:
             source_batch = None
             if native_source_materializer is not None:
                 event = self._materialize_execution_source(native_source_materializer, conn, turn)
+                materialized = event if isinstance(event, (tuple, list)) else (event,)
+                if any(type(item) in reader_only_events for item in materialized):
+                    raise ApplicationStateValidationError('Plan Graph-need producer is not active')
                 if type(event) is NativeReadBatchConcludedV1 and event.exhausted_continuation:
                     from .rules_authority_store import load_turn_rules_locked
                     from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1

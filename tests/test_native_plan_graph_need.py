@@ -377,8 +377,7 @@ def test_unobserved_authorization_must_already_match_original_work_and_wire():
 from tests.test_agent_native_corpus_sources import source_adapter, lane  # noqa: E402,F401
 
 
-@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
-def test_pending_receipt_is_admitted_and_reopened_from_app_database(source_adapter, monkeypatch):
+def _admitted_pending_turn(source_adapter, monkeypatch):
     from uuid import uuid4
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_context import NativePlanGraphQueryPendingV1, PlanWorkContextV1
@@ -401,8 +400,9 @@ def test_pending_receipt_is_admitted_and_reopened_from_app_database(source_adapt
     receipt, execution, _ = plan_source_turn.freeze_plan_request(request, a.work, None, a.budget,
         authority=authority, native_query=pending, provenance=provenance, submitted_intent=intent, dialogue=())
     service = a.service
+    pointer = service.get_world_pointer(a.world_id)
     conversation = service.new_conversation(t.ConversationCommand(world_id=a.world_id, command_id=uuid4(),
-        expected_pointer_revision=0, expected_active_conversation_id=None))
+        expected_pointer_revision=pointer.revision, expected_active_conversation_id=pointer.active_conversation_id))
     submission = t.TurnSubmission(world_id=a.world_id, conversation_id=conversation.conversation_id,
         idempotency_key=uuid4(), expected_conversation_revision=1, user_text=request.message, provenance=provenance,
         submitted_intent_v2=intent, graph_context_receipt=receipt, graph_context_execution=execution)
@@ -410,6 +410,49 @@ def test_pending_receipt_is_admitted_and_reopened_from_app_database(source_adapt
     reopened = service.inspect_turn(world_id=a.world_id, turn_id=created.turn_id)
     assert reopened.graph_context_receipt == receipt
     assert reopened.graph_context_execution == execution
+    return service, created
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
+def test_pending_receipt_is_admitted_and_reopened_from_app_database(source_adapter, monkeypatch):
+    _admitted_pending_turn(source_adapter, monkeypatch)
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
+@pytest.mark.parametrize('event_class', [
+    'NativePlanGraphNeedAuthorizedV1', 'NativePlanGraphNeedObservedV1', 'NativePlanGraphQueryAuthorizedV1',
+    'NativePlanGraphQueryStartedV1', 'NativePlanGraphQueryClosedV1', 'NativePlanGraphQueryFailedV1',
+    'NativePlanGraphQuerySettledV1',
+])
+def test_materialized_plan_graph_events_are_refused_without_persistence(source_adapter, monkeypatch, event_class):
+    from uuid import uuid4
+    from application_state.agent_conversation import native_plan_graph_need, native_retrieval
+    from application_state.errors import ApplicationStateValidationError
+    service, created = _admitted_pending_turn(source_adapter, monkeypatch)
+    turn = service.claim_turn(created.world_id, created.conversation_id, created.turn_id,
+        expected_revision=created.revision).turn
+    event_type = getattr(native_plan_graph_need, event_class, None) or getattr(native_retrieval, event_class)
+    event = event_type.model_construct(event_id=uuid4(), sequence=0)
+    with pytest.raises(ApplicationStateValidationError, match='producer is not active'):
+        service._append_graph_execution_event(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, event=None,
+            duplicate_key='event_id', native_source_materializer=lambda _conn, _turn: event)
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.revision == turn.revision
+    assert reopened.graph_context_execution == turn.graph_context_execution
+    # Model an already-known event to prove the refusal happens before the
+    # duplicate-return shortcut. The actual database remains unchanged.
+    duplicate_execution = turn.graph_context_execution.model_copy(update={'events': [event]})
+    duplicate_turn = turn.model_copy(update={'graph_context_execution': duplicate_execution})
+    with monkeypatch.context() as patch:
+        patch.setattr(service, '_lock_execution_append_turn', lambda *_args: duplicate_turn)
+        with pytest.raises(ApplicationStateValidationError, match='producer is not active'):
+            service._append_graph_execution_event(turn.world_id, turn.conversation_id, turn.turn_id,
+                expected_revision=turn.revision, expected_attempt=turn.attempt, event=None,
+                duplicate_key='event_id', native_source_materializer=lambda _conn, _turn: event)
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.revision == turn.revision
+    assert reopened.graph_context_execution == turn.graph_context_execution
 
 
 def test_typed_execution_settles_exact_graph_query_and_rejects_late_failure():
