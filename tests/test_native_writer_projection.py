@@ -138,7 +138,8 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
     work=work_submission(context,record)
     turn=SimpleNamespace(graph_context_receipt=context,graph_context_execution=record,**{
         k:v for k,v in work.items() if k!='work_proof'})
-    adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn),_broker_execution=lambda:record,failure=None,
+    adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn),_broker_execution=lambda:record,
+        _broker_receipt=lambda:context,failure=None,
         budget={'outputReserveTokens':4096,'contextLimitTokens':128000,
             'estimator':record.policy.provider_input_accounting.estimator})
     rules=SimpleNamespace(frame=lambda:PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1',

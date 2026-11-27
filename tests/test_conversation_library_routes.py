@@ -206,6 +206,12 @@ def test_active_messages_auth_scope_and_selector_use_the_light_owner(client):
         "world-one", limit=25, before_sequence=12
     )
     client.service.read_turns.assert_not_called()
+    client.service.read_active_messages.reset_mock()
+    assert client.client.get(url, params={"retry_lineage": "true"}).status_code == 200
+    client.service.read_active_messages.assert_called_once_with(
+        "world-one", limit=50, before_sequence=None, retry_lineage=True
+    )
+    assert client.client.get(url + "?retry_lineage=true&retry_lineage=false").status_code == 422
     assert client.client.get(url + "?limit=2&limit=3").status_code == 422
     assert client.client.get(url + "?unknown=1").status_code == 422
     client.world.reset_mock()

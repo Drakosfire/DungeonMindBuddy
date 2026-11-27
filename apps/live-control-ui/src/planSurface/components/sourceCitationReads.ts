@@ -65,7 +65,7 @@ export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV
     },
   }]);
   return [...sections,...(completion.native_body_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
-    key:`body:${index}`,number:sections.length+index+1,title:`Source · ${citation.section_title}`,
+    key:`body:${index}`,number:sections.length+index+1,resolveTitle:true,title:`Source · ${citation.section_title}`,
     label:`Read source · ${citation.section_title}`,kind:'section' as const,load:async()=>{
       const result=await getAgentNativeBodyExcerpt(worldId,turnId,index);
       if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content','display_label'])

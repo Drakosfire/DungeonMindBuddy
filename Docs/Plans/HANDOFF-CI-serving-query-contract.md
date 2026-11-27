@@ -1,0 +1,3 @@
+# CI: serving query contract fixtures
+
+ACTIVE under the user's release-repair instruction. Serial successor to fcd2ccdbfeff135ce7918fed1a0e42880ebfa7a2 on the production serving lineage. Scope: `tests/application_state/test_plan_placement.py`, `tests/test_native_writer_projection.py`, `tests/application_state/test_native_storage_owner_migration.py`, and this brief. Resolve five inherited serving-only query-and-answer failures without changing runtime, migration schemas or permissions. Preserve exact downgrade refusal and unchanged-version assertions, budget and evidence assertions, function ownership and all predecessor-vs-current storage predicate checks including pending/native family mismatches. Independently review and verify in a disposable database before release.
