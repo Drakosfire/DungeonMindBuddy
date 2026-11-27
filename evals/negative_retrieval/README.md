@@ -671,6 +671,15 @@ three-second statement timeout, so it does not preserve arbitrary production
 session settings or latency. It is not an
 application-SQL allowlist and cannot run Buddy turns.
 
+The internal gateway constructor also supports an experimental exact
+saved-revision query pinned to a trusted host-supplied UUID. Its binary or
+canonical-text parameter must equal that UUID; other SQL and bindings are
+denied before forwarding. This is not exposed by `owned_gateway`: a caller
+would first need to prove that its pin names the intended synthetic fixture.
+The database login remains privileged, and this isolated query does not establish
+row security, ordinary-turn parity, complete source coverage, or a benchmark
+result. Never derive the pin from worker input.
+
 Run its client only in a separately verified network-isolated worker with a
 read-only mount of the private socket directory and no database credentials,
 Docker socket, source data or provider credentials. The host process and its

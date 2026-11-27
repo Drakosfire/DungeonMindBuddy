@@ -1,5 +1,9 @@
 from evals.negative_retrieval.assessment import assess
 from hashlib import sha256
+import struct
+from uuid import UUID
+
+from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied, _REVISION_SQL
 
 import pytest
 
@@ -4787,3 +4791,71 @@ def test_gateway_refuses_backend_role_or_address_mismatch_before_auth(monkeypatc
         assert 'session_failure' in gateway._errors
     finally:
         app_client.close(); peer.close()
+
+
+# Focused fail-closed protocol tests for the experimental fixture policy.
+_GATEWAY_FIXTURE = UUID('12345678-1234-4234-8234-123456789abc')
+_GATEWAY_OTHER = UUID('87654321-4321-4321-8321-cba987654321')
+
+
+def _gateway_fixture_parse(oid=2950):
+    return b's\0' + _REVISION_SQL + b'\0' + struct.pack('!HI', 1, oid)
+
+
+def _gateway_fixture_bind(value, binary):
+    return (b'p\0s\0' + struct.pack('!HHH', 1, int(binary), 1)
+            + struct.pack('!i', len(value)) + value + struct.pack('!H', 0))
+
+
+@pytest.mark.parametrize('binary', [False, True])
+def test_revision_allowed_only_for_exact_fixture_and_never_journaled(binary):
+    policy = FrontendPolicy(fixture_revision=_GATEWAY_FIXTURE)
+    policy.frontend(b'P', _gateway_fixture_parse())
+    value = _GATEWAY_FIXTURE.bytes if binary else str(_GATEWAY_FIXTURE).encode()
+    policy.frontend(b'B', _gateway_fixture_bind(value, binary))
+    policy.frontend(b'E', b'p\0' + struct.pack('!I', 0))
+    policy.frontend(b'S', b'')
+    policy.backend(b'C', b'SELECT 1\0')
+    policy.backend(b'Z', b'I')
+    result = policy.snapshot()
+    assert result['events'][0]['category'] == 'saved_revision_body'
+    assert result['events'][0]['outcome'] == 'completed'
+    assert str(_GATEWAY_FIXTURE) not in repr(result) and _GATEWAY_FIXTURE.bytes not in repr(result).encode()
+
+
+@pytest.mark.parametrize('body', [
+    _gateway_fixture_bind(_GATEWAY_OTHER.bytes, True), _gateway_fixture_bind(str(_GATEWAY_OTHER).encode(), False),
+    _gateway_fixture_bind(_GATEWAY_FIXTURE.bytes[:-1], True), _gateway_fixture_bind(str(_GATEWAY_FIXTURE).upper().encode(), False),
+    b'p\0s\0' + struct.pack('!HHHiH', 1, 1, 1, -1, 0),
+    _gateway_fixture_bind(_GATEWAY_FIXTURE.bytes, True) + b'extra',
+])
+def test_foreign_or_malformed_revision_bind_is_denied_before_execution(body):
+    policy = FrontendPolicy(fixture_revision=_GATEWAY_FIXTURE)
+    policy.frontend(b'P', _gateway_fixture_parse())
+    with pytest.raises(ProtocolDenied):
+        policy.frontend(b'B', body)
+    assert policy.failed and not policy.events
+
+
+def test_fixture_read_is_opt_in_and_parameter_type_is_fixed():
+    with pytest.raises(ProtocolDenied):
+        FrontendPolicy().frontend(b'P', _gateway_fixture_parse())
+    with pytest.raises(ProtocolDenied):
+        FrontendPolicy(fixture_revision=_GATEWAY_FIXTURE).frontend(b'P', _gateway_fixture_parse(25))
+    with pytest.raises(TypeError):
+        FrontendPolicy(fixture_revision=str(_GATEWAY_FIXTURE))
+    with pytest.raises(ProtocolDenied):
+        FrontendPolicy(fixture_revision=_GATEWAY_FIXTURE).frontend(b'Q', _REVISION_SQL + b'\0')
+
+
+def test_prepared_revision_cannot_be_rebound_to_another_source():
+    policy = FrontendPolicy(fixture_revision=_GATEWAY_FIXTURE)
+    policy.frontend(b'P', _gateway_fixture_parse())
+    policy.frontend(b'B', _gateway_fixture_bind(_GATEWAY_FIXTURE.bytes, True))
+    policy.frontend(b'E', b'p\0' + struct.pack('!I', 0))
+    policy.frontend(b'S', b'')
+    policy.backend(b'C', b'SELECT 1\0')
+    policy.backend(b'Z', b'I')
+    with pytest.raises(ProtocolDenied):
+        policy.frontend(b'B', _gateway_fixture_bind(_GATEWAY_OTHER.bytes, True))
+    assert len(policy.events) == 1 and policy.events[0]['outcome'] == 'completed'
