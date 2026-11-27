@@ -21,6 +21,13 @@ _MAX_CALLERS = 512
 _MAX_PENDING = 1024
 
 
+def runtime_identity():
+    """Identify the code-object normalizer without exposing host paths."""
+    return {"normalizer": "marshal-code-v1", "implementation": sys.implementation.name,
+            "version": list(sys.version_info[:3]), "cache_tag": sys.implementation.cache_tag,
+            "optimize": sys.flags.optimize}
+
+
 class SqlWindowCleanupError(RuntimeError):
     """Monitoring cleanup could not be verified; use a fresh process."""
 
@@ -119,7 +126,7 @@ def observe_sql_window(*, owners=None, roots=None, endpoints=None):
     state = {"coverage": "partial", "status": "not_started", "started": 0,
              "returned": 0, "raised": 0, "pending_at_close": 0,
              "resumed_unknown": 0, "overflow": 0, "dropped_starts": 0, "monitor_error": False,
-             "unsupported_apis": 0, "calls": []}
+             "unsupported_apis": 0, "calls": [], "runtime": runtime_identity()}
     guard = Lock()
     claimed = None
     armed = []
@@ -267,14 +274,26 @@ def validate_sql_window(value, case_id):
     keys = {"schema", "case_id", "window", "coverage", "status", "started", "returned", "raised",
             "pending_at_close", "resumed_unknown", "overflow", "dropped_starts", "monitor_error", "unsupported_apis", "calls"}
     numeric = ("started", "returned", "raised", "pending_at_close", "resumed_unknown", "overflow", "dropped_starts", "unsupported_apis")
+    if isinstance(value, dict) and value.get("schema") == "dmb_negative_retrieval_sql_window_v2":
+        keys.add("runtime")
     if (not isinstance(value, dict) or set(value) != keys
-            or value["schema"] != "dmb_negative_retrieval_sql_window_v1" or value["case_id"] != case_id
+            or value["schema"] not in {"dmb_negative_retrieval_sql_window_v1", "dmb_negative_retrieval_sql_window_v2"} or value["case_id"] != case_id
             or value["window"] != "turn_post_v1" or value["coverage"] != "partial"
             or value["status"] not in {"observed", "uncertain", "not_started", "unavailable"}
             or any(type(value[k]) is not int or value[k] < 0 for k in numeric)
             or type(value["monitor_error"]) is not bool or not isinstance(value["calls"], list)
             or len(value["calls"]) > _MAX_CALLERS):
         raise ValueError("Invalid SQL window")
+    if value["schema"] == "dmb_negative_retrieval_sql_window_v2":
+        runtime = value["runtime"]
+        if (not isinstance(runtime, dict) or set(runtime) != {"normalizer", "implementation", "version", "cache_tag", "optimize"}
+                or runtime["normalizer"] != "marshal-code-v1"
+                or not isinstance(runtime["implementation"], str) or not runtime["implementation"]
+                or not isinstance(runtime["cache_tag"], str) or not runtime["cache_tag"]
+                or not isinstance(runtime["version"], list) or len(runtime["version"]) != 3
+                or any(type(n) is not int or n < 0 for n in runtime["version"])
+                or type(runtime["optimize"]) is not int or runtime["optimize"] < 0):
+            raise ValueError("Invalid SQL window runtime")
     seen = set()
     total = 0
     for row in value["calls"]:

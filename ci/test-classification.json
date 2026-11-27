@@ -850,6 +850,7 @@
       "tests/contracts/test_entity_taxonomy.py",
       "tests/contracts/test_temporal_tick_gate.py",
       "tests/evals/test_benchmark_build_browser_fixture.py",
+      "tests/evals/test_benchmark_build_proposal_readback.py",
       "tests/evals/test_benchmark_plan_browser_placement.py",
       "tests/evals/test_benchmark_runner.py",
       "tests/evals/test_claim_verifier.py",

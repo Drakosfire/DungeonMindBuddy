@@ -112,6 +112,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     if "sql-window-probe" in rows:
         from .sql_window import validate_sql_window
         sql_window = validate_sql_window(rows["sql-window-probe"], fixture["id"])
+    from .sql_source_classification import classify_sql_window
+    sql_source_classification = classify_sql_window(sql_window, fixture["id"])
     primary_resolution = None
     if "primary-resolution-probe" in rows:
         from .primary_resolution_probe import validate_primary_resolution
@@ -164,7 +166,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
                 "status": "unproven", "missing_artifacts": missing,
                 "artifact_sha256": hashes, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe, "partial_source_window": source_window,
-                "capture_terminal": terminal, "primary_resolution_probe": primary_resolution, "sql_window_probe": sql_window}
+                "capture_terminal": terminal, "primary_resolution_probe": primary_resolution, "sql_window_probe": sql_window,
+                "sql_source_classification": sql_source_classification}
     if rows["request"].get("message") != fixture["request"]:
         raise ValueError("Capture request differs from the fixture")
     from .fixture_sources import related_trace_labels, verify_related_record
@@ -328,7 +331,8 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "fixture_pin_verified": pin_bound,
             "capture_environment_verified": None,
             "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe, "partial_source_window": source_window,
-            "primary_page_stability": primary_stability, "primary_resolution_probe": primary_resolution, "sql_window_probe": sql_window, "semantic_review": reviewed,
+            "primary_page_stability": primary_stability, "primary_resolution_probe": primary_resolution, "sql_window_probe": sql_window,
+            "sql_source_classification": sql_source_classification, "semantic_review": reviewed,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,
             "http_status": observed["http_status"], "response_latency": response_latency(rows["answer-http"]),
