@@ -91,3 +91,9 @@ final turn, checks that it resolves to the preceding producing turn and the
 current unsaved review revision, confirms it, and reads the exact saved locator
 back from the owner. This track ends before portrait generation or encounter
 setup. A failed review lookup or a changed revision stops before confirmation.
+
+Pass `--verify-linked-variant` to the live runner to verify saved variant
+continuation. After confirmation, the browser opens the original Build page
+in a fresh tab, inserts the link once, reopens the committed page, then loads
+and independently reopens the exact mechanics revision in Combat. The result
+records the locator and encounter. This track ends before portrait generation.
