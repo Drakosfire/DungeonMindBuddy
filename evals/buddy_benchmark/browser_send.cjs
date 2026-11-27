@@ -75,25 +75,29 @@ async function run() {
     }
     if (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1") {
       const selected = process.env.DMB_BENCHMARK_SELECTION;
-      if (!selected || !selected.trim()) throw new Error("Placement fixture needs selected text");
+      const documentStart = process.env.DMB_BENCHMARK_DOCUMENT_START === "1";
       const editor = page.locator((build ? ".build-surface-shell" : ".world-plan-visual-editor") + " .ProseMirror[contenteditable=true]:visible");
       if (await editor.count() !== 1) throw new Error("Placement fixture needs one editable editor");
       await editor.focus();
-      await editor.evaluate((root, text) => {
-        const matches = [];
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) {
-          const node = walker.currentNode;
-          let at = node.data.indexOf(text);
-          while (at !== -1) { matches.push([node, at]); at = node.data.indexOf(text, at + 1); }
-        }
-        if (matches.length !== 1) throw new Error("Selected text must occur exactly once in one editor text node");
-        const [node, at] = matches[0], range = document.createRange(), selection = window.getSelection();
-        range.setStart(node, at); range.setEnd(node, at + text.length);
-        selection.removeAllRanges(); selection.addRange(range);
-        document.dispatchEvent(new Event("selectionchange"));
-        if (selection.toString() !== text) throw new Error("Browser selection did not match fixture");
-      }, selected);
+      if (documentStart) {
+        await editor.press("Control+Home");
+      } else {
+        await editor.evaluate((root, text) => {
+          const matches = [];
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          while (walker.nextNode()) {
+            const node = walker.currentNode;
+            let at = node.data.indexOf(text);
+            while (at !== -1) { matches.push([node, at]); at = node.data.indexOf(text, at + 1); }
+          }
+          if (matches.length !== 1) throw new Error("Selected text must occur exactly once in one editor text node");
+          const [node, at] = matches[0], range = document.createRange(), selection = window.getSelection();
+          range.setStart(node, at); range.setEnd(node, at + text.length);
+          selection.removeAllRanges(); selection.addRange(range);
+          document.dispatchEvent(new Event("selectionchange"));
+          if (selection.toString() !== text) throw new Error("Browser selection did not match fixture");
+        }, selected);
+      }
     }
     const live = process.env.DMB_BENCHMARK_LIVE_BROWSER === "1";
     const send = page.getByRole("button", { name: build || live ? /^(Send message|Propose edit)$/ : /^Send message$/ });

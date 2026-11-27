@@ -217,6 +217,15 @@ It retains the ordinary response, history, and committed Plan readback. A
 rejected placement is retained separately as fixture evidence. Keep scoring
 Gold local. This mode stops at review, before applying a proposal.
 
+To reuse a conversation already restored in the owned App fixture, pass a
+`browser_capture.plan_history` evidence pin. Its JSON contains a
+`conversation_id` and an ordered `prior_turns` list with `turn_id`, `sequence`,
+`user_text_sha256`, and `assistant_text_sha256`. The harness reads back the active
+conversation and rejects any divergence before Send. For an insertion at the
+first text position, set `browser_capture.at_document_start` to true and omit
+`selection_text`. The browser positions the caret and the harness checks the
+captured range and exact committed text digest before dispatch.
+
 For an ordinary Plan browser replay, select a case in the context capture
 command as well as choosing the writer sink.
 
