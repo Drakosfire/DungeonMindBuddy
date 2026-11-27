@@ -308,14 +308,21 @@ and `CORE` set to independently verified checkout paths and `PYTHON` to the
 locked interpreter:
 
 ```sh
-PYTHONPATH="$PRODUCT/src:$PRODUCT:$CORE/src" "$PYTHON" - <<'PY_REPORT'
+(
+  cd "$PRODUCT" || exit 1
+  PYTHONPATH="$PRODUCT/src:$PRODUCT:$CORE/src" "$PYTHON" - <<'PY_REPORT'
 import os
+from pathlib import Path
 import evals
 evals.__path__.insert(0, os.path.join(os.environ["EVALUATOR"], "evals"))
-from evals.negative_retrieval.report import report_case
-# Call report_case with the frozen case, rubric, fixture-set digest, captured
-# directory and, when available, independently pinned semantic review.
+from apps.live_control_server.models import agent_turn
+from evals.negative_retrieval import report
+assert Path(agent_turn.__file__).resolve().is_relative_to(Path.cwd())
+assert Path(report.__file__).resolve().is_relative_to(Path(os.environ["EVALUATOR"]).resolve())
+# Call report.report_case with the frozen case, rubric, fixture-set digest,
+# captured directory and, when available, pinned semantic review.
 PY_REPORT
+)
 ```
 
 `EVALUATOR` must be exported for this example. This import arrangement selects
