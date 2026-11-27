@@ -13,8 +13,8 @@ absence of other acquisition, or benchmark environment qualification. Do not
 change fixture thresholds, source mappings, or the partial-journal policy.
 
 Write lease: this handoff, `evals/negative_retrieval/trace_observation.py`,
-`evals/negative_retrieval/README.md`, and a focused new test file
-`tests/evals/test_negative_current_scope_observation.py`. Test the actual trace
+`evals/negative_retrieval/README.md`, and focused cases in the already classified
+`tests/evals/test_negative_retrieval_assessment.py`. Test the actual trace
 adapter with the new choice, all historical choices and unexpected input. Review
 and merge the exact-head PR after applicable checks; no production deployment or
 database allocation is needed. Exact current-page read mapping remains separate.
