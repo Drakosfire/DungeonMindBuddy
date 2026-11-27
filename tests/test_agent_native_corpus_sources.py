@@ -1061,4 +1061,29 @@ def test_ordinary_http_uncertain_graph_need_delivers_replayable_clarification(
         replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
         assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
         assert replay.json()['answer']['text'] == GRAPH_NEED_CLARIFICATION_QUESTION
+        assert len(calls) == 1
+
+        # A new user answer must continue the same conversation, rather than
+        # treating the stored question as an error or replaying the first turn.
+        from uuid import uuid4
+        from tests.test_plan_jev_writer import WriterWire
+        choices = SourceChoices(no_source=True)
+        writer = WriterWire(None, json.dumps({'schema': 'dmb_surface_evidence_answer_v8', 'limitations': [],
+            'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea', 'text': 'Lantern Quay.'}]}))
+        class FollowHarness(PlanJevHarness):
+            def execute(self, adapter, **kwargs):
+                writer.adapter = adapter
+                return super().execute(adapter, **kwargs)
+        monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: FollowHarness(
+            decision_transport=choices, writer_transport=writer,
+            decision_api_key='synthetic-not-secret', writer_api_key='synthetic-not-secret'))
+        followup = request.model_copy(update={'turn_id': str(uuid4()),
+            'message': 'Use our conversation only. Suggest one fictional harbor name.'})
+        continued = client.post('/api/live/agent/turn', json=followup.model_dump(mode='json', by_alias=True))
+        assert continued.status_code == 200, continued.text
+        assert continued.json()['answer']['text'] == 'Lantern Quay.'
+        assert len(writer.calls) == 1
+        history = client.get('/api/live/agent/worlds/' + a.world_id + '/conversation').json()
+        assert [row['assistant_text'] for row in history['turns']] == [GRAPH_NEED_CLARIFICATION_QUESTION, 'Lantern Quay.']
+        assert any(GRAPH_NEED_CLARIFICATION_QUESTION in json.dumps(call) for call in choices.calls)
     assert len(calls) == 1
